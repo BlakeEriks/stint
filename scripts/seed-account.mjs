@@ -63,7 +63,6 @@ const SEED_SCENARIOS = {
   },
 };
 
-/* `--scenarios` lists the names, one per line, so CI can run every one. */
 if (process.argv[2] === '--scenarios') {
   console.log(Object.keys(SEED_SCENARIOS).join('\n'));
   process.exit(0);
@@ -243,8 +242,8 @@ async function findOrCreateUser(address) {
  * This script inserts a confirmed `auth.users` row with a fixed, published
  * password. Against a hosted database that is an account anyone who has read
  * this file can sign in as, so the one hosted database accepted is
- * `stint-test`, and only for the `pr-<n>@preview.test` accounts that
- * `.github/workflows/preview-db.yml` seeds for preview sign-in.
+ * `stint-test`, and only for the `pr-<n>[-<scenario>]@preview.test` accounts
+ * that `.github/workflows/preview-db.yml` seeds for preview sign-in.
  */
 const connectionString = process.env.SEED_DATABASE_URL ?? DEFAULT_URL;
 const target = new URL(connectionString);

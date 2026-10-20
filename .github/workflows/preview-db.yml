@@ -49,10 +49,14 @@ defaults:
 jobs:
   preview-db:
     # Dependabot's PRs cannot read secrets, and their previews need no account.
-    # A PR merged into main is handled by the push it makes.
+    # A PR merged into main is handled by the push it makes. An edit reseeds
+    # only an open PR's changed body: a title edit would reset a reviewer's
+    # accounts for nothing, and a closed PR's merge ref is stale.
     if: >-
       github.actor != 'dependabot[bot]' &&
-      !(github.event.action == 'closed' && github.event.pull_request.merged)
+      !(github.event.action == 'closed' && github.event.pull_request.merged) &&
+      (github.event.action != 'edited' ||
+        (github.event.pull_request.state == 'open' && github.event.changes.body))
     runs-on: ubuntu-latest
     environment:
       name: Preview

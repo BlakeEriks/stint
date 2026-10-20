@@ -147,8 +147,6 @@ test('an unseeded PR says to re-run the seed', async () => {
   assert.match(await res.text(), /preview-db/);
 });
 
-/* `as` picks one of the PR's scenario accounts, which preview-db seeds from
-   the names in the PR body. */
 test('as signs in as the named scenario account', async () => {
   process.env.VERCEL_ENV = 'preview';
   assert.equal((await signIn(`pr=${SCENARIO_PR}`)).status, 502);
