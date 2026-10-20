@@ -135,6 +135,8 @@ jobs:
   # a11y check. The browser steps are the e2e job's, which explains them.
   stories:
     runs-on: ubuntu-latest
+    # A few times its usual 3 minutes, so a hung browser fails fast.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -155,8 +157,11 @@ jobs:
       - name: Install Chromium
         run: cd apps/web && npx playwright install --only-shell chromium
 
+      # Off a TTY the default reporter prints only when a file ends, and
+      # every story is one file, so a hang printed nothing. Verbose prints
+      # each story as it passes: the stalled one follows the last line.
       - name: Story tests
-        run: pnpm --filter @stint/web test:stories
+        run: pnpm --filter @stint/web test:stories --reporter=verbose
 
   # Applies the real migrations, then runs the real route handlers against
   # them, so the timer index and immutability triggers are genuinely exercised.
