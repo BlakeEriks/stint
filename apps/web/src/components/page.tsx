@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useLayoutEffect, useRef } from 'react';
 import { Loader } from './loader';
+import { useHydrated } from '@/lib/client/use-hydrated';
 import { ApiError } from '@/lib/client/api';
 import { BackLink } from './back-link';
 
@@ -185,6 +186,7 @@ export function Listing<
     ? query
     : [query as Query<unknown>];
   const waited = useRef(false);
+  const hydrated = useHydrated();
 
   /* A 401 has already sent the browser to `/signin`. Reporting a failure over
      the top of a navigation in flight tells the user something is broken when
@@ -198,8 +200,10 @@ export function Listing<
   const waiting = queries.some(
     (q) => q.isLoading || (q.data === undefined && q.error == null),
   );
-  if (waiting || leaving) {
-    waited.current = true;
+  if (!hydrated || waiting || leaving) {
+    /* Only a real wait rises the content in: kept data painting the moment
+       after hydration is a reload, and a reload shows the screen still. */
+    if (waiting || leaving) waited.current = true;
     return <Loader tight={tight} />;
   }
   /* Data the user can still read beats an error message in its place: a failed

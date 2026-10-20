@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Listing } from '@/components/page';
 import { ApiError } from '@/lib/client/api';
@@ -44,6 +44,29 @@ describe('Listing', () => {
     render(<Listing query={query({})}>{() => <p>rows</p>}</Listing>);
     expect(loader()).toHaveTextContent('Loading');
     expect(screen.queryByText(/could not load/i)).toBeNull();
+  });
+
+  /* The server has no cache, so it renders the loader; the browser may have
+     restored the region's data before it hydrates. Hydration must match the
+     server, and the data follows at once. */
+  it('hydrates as the server rendered it, then paints the kept data', async () => {
+    // What the server sends: no cache there, so the loader.
+    const server = render(
+      <Listing query={query({ isLoading: true })}>{() => <p>rows</p>}</Listing>,
+    );
+    const html = server.container.innerHTML;
+    server.unmount();
+
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    document.body.append(container);
+    const mismatch = vi.fn();
+    render(
+      <Listing query={query({ data: ['a'] })}>{() => <p>rows</p>}</Listing>,
+      { container, hydrate: true, onRecoverableError: mismatch },
+    );
+    expect(await screen.findByText('rows')).toBeInTheDocument();
+    expect(mismatch).not.toHaveBeenCalled();
   });
 
   /* A region paints once, with all its data: nothing of it renders

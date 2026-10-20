@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client/api';
 import { TimerBar } from './timer-bar';
 import { useTimer } from '@/lib/client/use-timer';
+import { useHydrated } from '@/lib/client/use-hydrated';
 import { keys } from '@/lib/client/query-keys';
 
 /**
@@ -13,6 +14,7 @@ import { keys } from '@/lib/client/query-keys';
  */
 export function TimerDock() {
   const timer = useTimer();
+  const hydrated = useHydrated();
   const projects = useQuery({
     queryKey: keys.projects(),
     queryFn: () => api.projects(),
@@ -23,7 +25,7 @@ export function TimerDock() {
   return (
     <TimerBar
       projects={projects.data?.projects ?? []}
-      pending={timer.isLoading || projects.isLoading}
+      pending={!hydrated || timer.isLoading || projects.isLoading}
     />
   );
 }
