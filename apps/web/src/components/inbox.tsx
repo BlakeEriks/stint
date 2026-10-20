@@ -257,180 +257,190 @@ export function Inbox({ stats }: { stats: Stats }) {
   );
 }
 
-/** Which `Item` a row becomes — the one place the five kinds differ. */
-function Row({
-  entry,
-  downloads,
-  onStatus,
-  onOpen,
-  onConfirm,
-  ...leaving
-}: {
-  entry: InboxRow;
+type Handlers = {
   downloads: boolean;
   onStatus: (v: { id: string; status: InvoiceStatus }) => void;
   onOpen: (v: { id: string; focus: 'task' | 'project' }) => void;
   onConfirm: (id: string) => void;
+};
+
+type ItemProps = Omit<React.ComponentProps<typeof Item>, 'exiting' | 'ref'>;
+
+function Row({
+  entry,
+  exiting,
+  ref,
+  ...handlers
+}: Handlers & {
+  entry: InboxRow;
   exiting: boolean;
   ref: React.Ref<HTMLLIElement>;
 }) {
-  const r = entry;
+  return <Item exiting={exiting} ref={ref} {...itemFor(entry, handlers)} />;
+}
 
-  if (r.kind === 'overdue') {
-    const i = r.row;
-    return (
-      <Item
-        {...leaving}
-        href={`/invoices/${i.invoiceId}`}
-        label={i.clientName ?? i.invoiceNumber}
-        detail={`${i.daysLate} ${i.daysLate === 1 ? 'day' : 'days'} late`}
-        value={formatCurrency(i.amount, i.currency)}
-        tone="danger"
-        actions={
-          <>
-            {/* A currency glyph, not a check: the check belongs to "It's
-                correct". */}
-            <Action
-              label="Mark paid"
-              ariaLabel={`Mark ${i.invoiceNumber} paid`}
-              icon={<DollarSign aria-hidden />}
-              onClick={() => onStatus({ id: i.invoiceId, status: 'paid' })}
-            />
-            {downloads ? (
-              <Action
-                label="Download"
-                ariaLabel={`Download ${i.invoiceNumber}`}
-                icon={<Download aria-hidden />}
-                href={`/api/v1/invoices/${i.invoiceId}/pdf`}
-              />
-            ) : null}
-          </>
-        }
-      />
-    );
+/** Which `Item` a row becomes — the one place the five kinds differ. */
+function itemFor(r: InboxRow, h: Handlers): ItemProps {
+  switch (r.kind) {
+    case 'overdue':
+      return invoiceItem(r.row, h, {
+        detail: `${r.row.daysLate} ${r.row.daysLate === 1 ? 'day' : 'days'} late`,
+        tone: 'danger',
+        status: 'paid',
+      });
+    case 'draft':
+      return invoiceItem(r.row, h, {
+        detail: `Draft, ${r.row.ageDays}d old`,
+        tone: 'neutral',
+        status: 'sent',
+      });
+    case 'unprojected':
+      return unprojectedItem(r.row, h);
+    case 'overlap':
+      return overlapItem(r.row, h);
+    case 'strange':
+      return strangeItem(r.row, h);
   }
+}
 
-  if (r.kind === 'draft') {
-    const d = r.row;
-    return (
-      <Item
-        {...leaving}
-        href={`/invoices/${d.invoiceId}`}
-        label={d.clientName ?? d.invoiceNumber}
-        detail={`Draft, ${d.ageDays}d old`}
-        value={formatCurrency(d.amount, d.currency)}
-        tone="neutral"
-        actions={
-          <>
-            <Action
-              label="Mark sent"
-              ariaLabel={`Mark ${d.invoiceNumber} sent`}
-              icon={<Send aria-hidden />}
-              onClick={() => onStatus({ id: d.invoiceId, status: 'sent' })}
-            />
-            {downloads ? (
-              <Action
-                label="Download"
-                ariaLabel={`Download ${d.invoiceNumber}`}
-                icon={<Download aria-hidden />}
-                href={`/api/v1/invoices/${d.invoiceId}/pdf`}
-              />
-            ) : null}
-          </>
-        }
+/* A currency glyph for paid, not a check: the check belongs to "It's
+   correct". */
+const MARK = {
+  paid: { label: 'Mark paid', icon: <DollarSign aria-hidden /> },
+  sent: { label: 'Mark sent', icon: <Send aria-hidden /> },
+} as const;
+
+function invoiceItem(
+  i: Attention['overdueInvoices'][number] | Attention['staleDrafts'][number],
+  h: Handlers,
+  {
+    detail,
+    tone,
+    status,
+  }: Pick<ItemProps, 'detail' | 'tone'> & { status: keyof typeof MARK },
+): ItemProps {
+  return {
+    href: `/invoices/${i.invoiceId}`,
+    label: i.clientName ?? i.invoiceNumber,
+    detail,
+    value: formatCurrency(i.amount, i.currency),
+    tone,
+    actions: (
+      <>
+        <Action
+          label={MARK[status].label}
+          ariaLabel={`Mark ${i.invoiceNumber} ${status}`}
+          icon={MARK[status].icon}
+          onClick={() => h.onStatus({ id: i.invoiceId, status })}
+        />
+        {h.downloads ? (
+          <Action
+            label="Download"
+            ariaLabel={`Download ${i.invoiceNumber}`}
+            icon={<Download aria-hidden />}
+            href={api.invoicePdfUrl(i.invoiceId)}
+          />
+        ) : null}
+      </>
+    ),
+  };
+}
+
+/** The part every entry row shares: it opens the entry, from its title and
+    from its first action. */
+function entryItem(
+  e: { entryId: string; taskName: string; seconds: number },
+  h: Handlers,
+  {
+    focus,
+    detail,
+    tone,
+    action,
+    more,
+  }: Pick<ItemProps, 'detail' | 'tone'> & {
+    focus: 'task' | 'project';
+    action: { label: string; ariaLabel: string; icon: React.ReactNode };
+    more?: React.ReactNode;
+  },
+): ItemProps {
+  const open = () => h.onOpen({ id: e.entryId, focus });
+  return {
+    onSelect: open,
+    label: e.taskName || 'Untitled entry',
+    detail,
+    value: formatCompact(e.seconds),
+    tone,
+    actions: (
+      <>
+        <Action {...action} onClick={open} />
+        {more}
+      </>
+    ),
+  };
+}
+
+/* One row per entry, not a rollup: the work is done an entry at a time —
+   open it, assign a project, move to the next. It edits in place because
+   these entries scatter across days, and a trip to the calendar for each
+   would lose the list. */
+function unprojectedItem(u: Attention['unprojected'][number], h: Handlers) {
+  return entryItem(u, h, {
+    focus: 'project',
+    detail: `No project · ${dayLabel(u.startedAt, tz)}`,
+    tone: 'neutral',
+    action: {
+      label: 'Assign project',
+      ariaLabel: `Assign a project to ${u.taskName || 'this entry'}`,
+      icon: <FolderInput aria-hidden />,
+    },
+  });
+}
+
+const editEntry = (taskName: string) => ({
+  label: 'Edit entry',
+  ariaLabel: `Edit ${taskName || 'this entry'}`,
+  icon: <Pencil aria-hidden />,
+});
+
+/* The pair's unbilled entry is opened — the later one when both are, as it
+   started inside the other. A billed other is named by its invoice, since
+   it can't be edited. Resolved by editing, never by an "it's fine": two
+   entries billing the same minutes cannot both be right. */
+function overlapItem(o: Attention['overlaps'][number], h: Handlers) {
+  const invoice = o.otherInvoiceNumber ? ` on ${o.otherInvoiceNumber}` : '';
+  return entryItem(o, h, {
+    focus: 'task',
+    detail: `Overlaps ${o.otherTaskName || 'another entry'}${invoice} · ${dayLabel(o.startedAt, tz)}`,
+    tone: 'warning',
+    action: editEntry(o.taskName),
+  });
+}
+
+/* The qualifier names which threshold it tripped, because color alone never
+   says which way. */
+function strangeItem(e: Attention['strangeDurations'][number], h: Handlers) {
+  return entryItem(e, h, {
+    focus: 'task',
+    detail: [
+      e.clientName ?? e.projectName,
+      dayLabel(e.startedAt, tz),
+      e.kind === 'short' ? 'unusually short' : 'unusually long',
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    tone: 'warning',
+    action: editEntry(e.taskName),
+    /* The one action that means "this is already right", and the only one
+       wearing a check mark. */
+    more: (
+      <Action
+        label="It's correct"
+        ariaLabel={`Keep ${e.taskName || 'this entry'} as it is`}
+        icon={<Check aria-hidden />}
+        onClick={() => h.onConfirm(e.entryId)}
       />
-    );
-  }
-
-  /* One row per entry, not a rollup: the work is done an entry at a time —
-     open it, assign a project, move to the next. It edits in place because
-     these entries scatter across days, and a trip to the calendar for each
-     would lose the list. */
-  if (r.kind === 'unprojected') {
-    const u = r.row;
-    return (
-      <Item
-        {...leaving}
-        onSelect={() => onOpen({ id: u.entryId, focus: 'project' })}
-        label={u.taskName || 'Untitled entry'}
-        detail={`No project · ${dayLabel(u.startedAt, tz)}`}
-        value={formatCompact(u.seconds)}
-        tone="neutral"
-        actions={
-          <Action
-            label="Assign project"
-            ariaLabel={`Assign a project to ${u.taskName || 'this entry'}`}
-            icon={<FolderInput aria-hidden />}
-            onClick={() => onOpen({ id: u.entryId, focus: 'project' })}
-          />
-        }
-      />
-    );
-  }
-
-  /* The pair's unbilled entry is opened — the later one when both are, as it
-     started inside the other. A billed other is named by its invoice, since
-     it can't be edited. Resolved by editing, never by an "it's fine": two
-     entries billing the same minutes cannot both be right. */
-  if (r.kind === 'overlap') {
-    const o = r.row;
-    return (
-      <Item
-        {...leaving}
-        onSelect={() => onOpen({ id: o.entryId, focus: 'task' })}
-        label={o.taskName || 'Untitled entry'}
-        detail={`Overlaps ${o.otherTaskName || 'another entry'}${o.otherInvoiceNumber ? ` on ${o.otherInvoiceNumber}` : ''} · ${dayLabel(o.startedAt, tz)}`}
-        value={formatCompact(o.seconds)}
-        tone="warning"
-        actions={
-          <Action
-            label="Edit entry"
-            ariaLabel={`Edit ${o.taskName || 'this entry'}`}
-            icon={<Pencil aria-hidden />}
-            onClick={() => onOpen({ id: o.entryId, focus: 'task' })}
-          />
-        }
-      />
-    );
-  }
-
-  /* The qualifier names which threshold it tripped, because color alone never
-     says which way. */
-  const e = r.row;
-  return (
-    <Item
-      {...leaving}
-      onSelect={() => onOpen({ id: e.entryId, focus: 'task' })}
-      label={e.taskName || 'Untitled entry'}
-      detail={[
-        e.clientName ?? e.projectName,
-        dayLabel(e.startedAt, tz),
-        e.kind === 'short' ? 'unusually short' : 'unusually long',
-      ]
-        .filter(Boolean)
-        .join(' · ')}
-      value={formatCompact(e.seconds)}
-      tone="warning"
-      actions={
-        <>
-          <Action
-            label="Edit entry"
-            ariaLabel={`Edit ${e.taskName || 'this entry'}`}
-            icon={<Pencil aria-hidden />}
-            onClick={() => onOpen({ id: e.entryId, focus: 'task' })}
-          />
-          {/* The one action that means "this is already right", and the only
-              one wearing a check mark. */}
-          <Action
-            label="It's correct"
-            ariaLabel={`Keep ${e.taskName || 'this entry'} as it is`}
-            icon={<Check aria-hidden />}
-            onClick={() => onConfirm(e.entryId)}
-          />
-        </>
-      }
-    />
-  );
+    ),
+  });
 }
 
 /** The entry's own day, in the user's zone. */
