@@ -3441,27 +3441,51 @@ test('health answers 503 when the database does not, so the monitor alerts', asy
   assert.deepEqual(res.body, { ok: false });
 });
 
-test('an unhandled route error reaches Sentry, not only the log', async () => {
+/** What each event `GET /clients` sends Sentry says it is, against `db`.
+    Sentry titles a `synthetic` exception by its top frame's function, which
+    in a minified bundle is a letter, rather than by its message. */
+async function sentryTitlesFor(db: unknown) {
   const Sentry = await import('@sentry/nextjs');
   const { close } = await import('@sentry/core');
-  const sent: string[] = [];
+  const sent: { type?: string; value?: string; synthetic: boolean }[] = [];
   Sentry.init({
     dsn: 'https://key@o0.ingest.sentry.io/0',
     beforeSend(event) {
-      sent.push(event.exception?.values?.[0]?.value ?? '');
+      const { type, value, mechanism } = event.exception?.values?.[0] ?? {};
+      sent.push({ type, value, synthetic: mechanism?.synthetic ?? false });
       return null;
     },
   });
   const { GET } = await import('../src/app/api/v1/clients/route.ts');
-  (globalThis as any).__TEST_DB__ = {
-    from() {
-      throw new Error('unexpected');
-    },
-  };
+  (globalThis as any).__TEST_DB__ = db;
   const res = await GET(req('/clients'));
   await close(1000);
   assert.equal(res.status, 500);
-  assert.deepEqual(sent, ['unexpected']);
+  return sent;
+}
+
+test('an unhandled route error reaches Sentry, not only the log', async () => {
+  const sent = await sentryTitlesFor({
+    from() {
+      throw new Error('unexpected');
+    },
+  });
+  assert.deepEqual(sent, [
+    { type: 'Error', value: 'unexpected', synthetic: false },
+  ]);
+});
+
+test('a database error object reaches Sentry titled by its message', async () => {
+  const failed = () =>
+    Promise.resolve({
+      data: null,
+      error: { message: 'Project not specified.' },
+    });
+  const query = { select: () => query, order: () => ({ is: failed }) };
+  const sent = await sentryTitlesFor({ from: () => query });
+  assert.deepEqual(sent, [
+    { type: 'Error', value: 'Project not specified.', synthetic: false },
+  ]);
 });
 
 // ── feedback ───────────────────────────────────────────────────────

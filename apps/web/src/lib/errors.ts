@@ -91,13 +91,27 @@ export function handle<T extends unknown[]>(
         return errorResponse('ENTRY_NOT_FOUND', 'Not found');
       }
       console.error('Unhandled API error:', err);
-      captureException(err);
+      report(err);
       return NextResponse.json(
         { code: 'INTERNAL', message: 'Internal server error' },
         { status: 500 },
       );
     }
   };
+}
+
+/* A failed Supabase call rejects with a plain `{ message, code, ... }`.
+   Sentry titles a non-Error by its top frame's function, a minified letter,
+   so it goes up as an Error with the original beside it. */
+function report(err: unknown) {
+  if (err instanceof Error) {
+    captureException(err);
+    return;
+  }
+  const message = (err as { message?: unknown } | null)?.message;
+  captureException(new Error(String(message ?? err)), {
+    extra: { thrown: err },
+  });
 }
 
 /** Postgres error codes surfaced through PostgREST. */
