@@ -10,18 +10,25 @@
 export const PREVIEW_PASSWORD = 'devpassword123';
 
 /**
- * The account for `pr`, or null where preview sign-in does not exist.
+ * The account for `pr`, or for its scenario `as`, or null where preview
+ * sign-in does not exist.
  *
  * Vercel sets `VERCEL_ENV` to `preview` only on preview deployments, so
  * production and local dev answer null for every PR. Production holds no
  * `@preview.test` accounts either, so both would have to fail at once.
+ *
+ * `as` is a name from `SEED_SCENARIOS` in `scripts/seed-account.mjs`, whose
+ * guard accepts the same shape.
  */
 export function previewAccount(
   pr: string | null,
   vercelEnv: string | undefined,
+  as: string | null = null,
 ): string | null {
   if (vercelEnv !== 'preview' || !pr || !/^\d{1,6}$/.test(pr)) return null;
-  return `pr-${pr}@preview.test`;
+  if (as === null) return `pr-${pr}@preview.test`;
+  if (!/^[a-z][a-z0-9-]{0,39}$/.test(as)) return null;
+  return `pr-${pr}-${as}@preview.test`;
 }
 
 /**
