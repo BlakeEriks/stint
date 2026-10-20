@@ -339,9 +339,9 @@ minutes. The health route asks Postgres for a row, so it fails when the
 database does, not only when Vercel does. The monitor alerts after two
 failures in a row, and posts the recovery.
 
-**Sentry** is the `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN` (§2), from a
-Next.js project on the free plan, with one alert rule: a new issue posts to
-Discord.
+**Sentry** is the `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN`, plus the
+`SENTRY_AUTH_TOKEN` that uploads source maps (§2), from a Next.js project on
+the free plan, with one alert rule: a new issue posts to Discord.
 
 The webhook is the `DISCORD_ALERTS_WEBHOOK` repository secret, used by
 `release.yml` and nowhere else: anyone holding it can post to the channel.
