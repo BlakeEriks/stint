@@ -16,6 +16,12 @@ for what blocks the first useful moment, and ask for the rest when it
 matters: the rate up front, business details at the first invoice, and an
 Inbox row until a rate is set.
 
+## Clarifications
+
+### Session 2026-10-20
+
+- Q: With business details empty, may an invoice still be generated? → A: No. Generate waits for business name and email; address is asked for but optional.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - The Inbox asks for a default rate until one is set (Priority: P1)
@@ -103,8 +109,8 @@ them in place, and see them on the preview and in Settings.
 3. **Given** complete business details, **When** the user opens New invoice,
    **Then** it asks for nothing extra.
 4. **Given** empty business details, **When** the user tries to generate,
-   **Then** [NEEDS CLARIFICATION: does missing business identity block
-   Generate, or only prompt and let them generate without a "from" block?]
+   **Then** Generate stays disabled until business name and email are
+   filled in, and says that is why. Address is asked for but not required.
 
 ---
 
@@ -150,8 +156,10 @@ them in place, and see them on the preview and in Settings.
 - **FR-010**: The welcome screen MUST link to the Toggl import.
 - **FR-011**: New invoice MUST ask in place for business name, email and
   address when any is empty, and save them to Settings.
-- **FR-012**: Every save in this feature MUST answer in the same frame and go
+- **FR-013**: Every save in this feature MUST answer in the same frame and go
   through the app's API (Constitution III, VI).
+- **FR-012**: New invoice MUST NOT generate while business name or email is
+  empty.
 
 ### Key Entities
 
