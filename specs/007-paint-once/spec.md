@@ -158,8 +158,9 @@ that actually changed update when the server answers.
   dock) MUST stay in place; only the content area changes.
 - **FR-004**: The loader MUST NOT resemble data: no partial content, zero or
   empty row is ever drawn in its place.
-- **FR-005**: The loader MUST appear only when loading takes longer than
-  800ms; a faster load goes from blank straight to the content.
+- **FR-005**: Nothing MUST show in the content area before 600ms; the
+  loader fades in from then and is legible from about 800ms, so a fast load
+  goes from blank straight to the content.
 - **FR-006**: The menu bar panel MUST request its data in parallel and update
   in one step once the data it needs has arrived.
 - **FR-007**: A failure in one secondary piece of the menu bar panel MUST NOT
