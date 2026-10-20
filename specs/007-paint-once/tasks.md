@@ -34,7 +34,7 @@ their suites; each visible loading state is a story; macOS logic in
 - [X] T016 [P] [US1] Invoices: `apps/web/src/components/invoice-list.tsx` gates `[invoices, clients]`; `apps/web/src/components/invoice-detail.tsx` gates `[invoice, settings]` (keeping `placeholderData: fromLists`); `apps/web/src/components/invoice-new.tsx` gates `[clients, settings, payment-profiles]` before the form renders (the selection-driven expense and preview queries stay as they are)
 - [X] T017 [P] [US1] Settings: `apps/web/src/components/settings-form.tsx` gates `[settings, payment-profiles]` and passes profiles into `apps/web/src/components/payment-profiles.tsx`
 - [X] T018 [US1] A Loading story (`stalled` on the screen's primary query: the loader shows, no partial region) in each converted screen's `*.stories.tsx`: dock, calendar, client list, client detail, invoice list, invoice detail, new invoice, settings
-- [ ] T019 [US1] Sweep: `grep -rn "?? \[\]\|?? null\|data?\." apps/web/src/components` for any region still painting before its data; convert or justify each in a comment at the line
+- [X] T019 [US1] Sweep: `grep -rn "?? \[\]\|?? null\|data?\." apps/web/src/components` for any region still painting before its data; convert or justify each in a comment at the line
 
 ## Phase 4: User Story 2 - The menu bar panel appears whole (P1)
 
@@ -56,8 +56,8 @@ their suites; each visible loading state is a story; macOS logic in
 
 ## Phase 6: Polish
 
-- [ ] T028 Update comments that describe the old loading: `apps/web/src/components/page.tsx` (`Empty` no longer stands in for loading), `home-cards.tsx` (the `/activity` comment), `apps/web/src/app/(app)/loading.tsx`
-- [ ] T029 Add the rule to `.claude/rules/web-ui.md`: a region paints once, with all its data, through `Listing`; never a `?? []` fallback in a rendered region; its only loading state is `Loader`
+- [X] T028 Update comments that describe the old loading: `apps/web/src/components/page.tsx` (`Empty` no longer stands in for loading), `home-cards.tsx` (the `/activity` comment), `apps/web/src/app/(app)/loading.tsx`
+- [X] T029 Add the rule to `.claude/rules/web-ui.md`: a region paints once, with all its data, through `Listing`; never a `?? []` fallback in a rendered region; its only loading state is `Loader`
 - [ ] T030 Run `pnpm --filter @stint/core test`, the web `test`, `test:ui`, `test:stories`, lint and typecheck, and `cd apps/macos && swift test`
 - [ ] T031 Verify `quickstart.md` in the dev server signed in, with Slow 4G, at desktop and phone, dark and light; and the menu bar panel with `apps/macos/qa.sh`
 

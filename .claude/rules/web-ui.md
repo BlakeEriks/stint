@@ -241,12 +241,19 @@ the target instant.
 
 **Cache keys come from `lib/client/query-keys.ts`, never written inline**, so
 one shape per query is what an invalidation can match. Anything that changes a
-time entry calls `invalidateEntryData()` — summary, entries, stats, calendar
-and activity all read those rows, and refreshing a subset makes two screens
+time entry calls `invalidateEntryData()` — summary, entries, stats and
+calendar all read those rows, and refreshing a subset makes two screens
 disagree about the same work.
 
 **A query renders through `Listing`**, which owns loading, failure and empty,
 so no screen writes those branches.
+
+**A region paints once, with all its data.** Hand `Listing` every query the
+region draws, as a tuple, and nothing of it renders until all have answered;
+never a `?? []` standing in for one still on its way, which is how a bar draws
+gray and then turns a client's color. Its only loading state is `Loader`, the
+one quiet word. A query a nested part runs is started by the region too, so it
+is cached by the first frame past the gate.
 
 **`TaskSuggest` is the exception, deliberately** — its query renders nothing
 while loading and nothing on failure. A suggestion is an accelerator nobody
