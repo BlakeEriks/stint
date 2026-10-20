@@ -177,3 +177,17 @@ export function resolvePaymentProfile<T extends { id?: string }>(
   }
   return null;
 }
+
+const ABA_WEIGHTS = [3, 7, 1, 3, 7, 1, 3, 7, 1];
+
+/**
+ * An ABA routing number's 9 digits, or `null` when they are not a routing
+ * number. Everything but digits is stripped first, so a pasted `021-000-021`
+ * passes; the checksum catches a mistyped digit.
+ */
+export function validateRoutingNumber(input: string): string | null {
+  const digits = input.replace(/\D/g, '');
+  if (digits.length !== 9) return null;
+  const sum = ABA_WEIGHTS.reduce((s, w, i) => s + w * Number(digits[i]), 0);
+  return sum % 10 === 0 ? digits : null;
+}

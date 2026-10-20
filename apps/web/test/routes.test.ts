@@ -714,6 +714,67 @@ test('a new payment profile stores every detail it is given', async () => {
   }
 });
 
+/* A malformed routing number on an invoice risks a returned or misrouted
+   ACH payment, and nothing downstream checks it again. */
+test('a routing number that fails the ABA check is refused, on create and edit', async () => {
+  const { POST } = await import('../src/app/api/v1/payment-profiles/route.ts');
+  const { PATCH } = await import(
+    '../src/app/api/v1/payment-profiles/[id]/route.ts'
+  );
+
+  const refused = await json(
+    await POST(
+      req('/payment-profiles', {
+        name: 'Checking',
+        routingNumber: '021000022',
+      }),
+    ),
+  );
+  assert.equal(refused.status, 422);
+  assert.equal(refused.body.code, 'VALIDATION_FAILED');
+
+  const saved = await json(
+    await POST(req('/payment-profiles', { name: 'Checking' })),
+  );
+  const edited = await json(
+    await PATCH(
+      patchReq('/payment-profiles/x', { routingNumber: '02100002' }),
+      ctx(saved.body.id),
+    ),
+  );
+  assert.equal(edited.status, 422);
+  assert.equal(edited.body.code, 'VALIDATION_FAILED');
+});
+
+test('a routing number is stored as its 9 digits', async () => {
+  const { POST } = await import('../src/app/api/v1/payment-profiles/route.ts');
+
+  const res = await json(
+    await POST(
+      req('/payment-profiles', {
+        name: 'Checking',
+        routingNumber: ' 021-000-021 ',
+      }),
+    ),
+  );
+  assert.equal(res.status, 201);
+  assert.equal(res.body.routingNumber, '021000021');
+});
+
+/* The route strips and checks it, but a write that skips the route (an
+   import, the seed) would print whatever it stored. */
+test('the database refuses a routing number that is not 9 digits', async () => {
+  await assert.rejects(
+    () =>
+      pool.query(
+        `insert into payment_profiles (user_id,name,routing_number)
+         values ($1,'Checking','-031101334,')`,
+        [USER],
+      ),
+    /payment_profiles_routing_number_digits/,
+  );
+});
+
 test('a payment profile replayed with the same id is idempotent', async () => {
   const { POST } = await import('../src/app/api/v1/payment-profiles/route.ts');
   const body = {

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   buildPaymentDetails,
   resolvePaymentProfile,
+  validateRoutingNumber,
   type PaymentProfile,
 } from '../src/payment.ts';
 
@@ -195,4 +196,26 @@ test('a dangling client preference falls back to the default', () => {
 test('no profile at all resolves to null', () => {
   assert.equal(resolvePaymentProfile(profiles, {}), null);
   assert.equal(resolvePaymentProfile([], { defaultProfileId: 'a' }), null);
+});
+
+test('a routing number that passes the ABA checksum is its 9 digits', () => {
+  assert.equal(validateRoutingNumber('021000021'), '021000021');
+  assert.equal(validateRoutingNumber('011000015'), '011000015');
+  assert.equal(validateRoutingNumber('026009593'), '026009593');
+});
+
+test('stray punctuation and spaces are stripped from a routing number', () => {
+  assert.equal(validateRoutingNumber('-031101334,'), '031101334');
+  assert.equal(validateRoutingNumber(' 021 000 021 '), '021000021');
+});
+
+test('a routing number of any other length fails', () => {
+  assert.equal(validateRoutingNumber(''), null);
+  assert.equal(validateRoutingNumber('02100002'), null);
+  assert.equal(validateRoutingNumber('0210000210'), null);
+});
+
+test('a routing number that fails the checksum fails', () => {
+  assert.equal(validateRoutingNumber('021000022'), null);
+  assert.equal(validateRoutingNumber('123456789'), null);
 });
