@@ -135,7 +135,7 @@ function useDockTodayQueries() {
     useClientsQuery(),
     useAllProjects(),
     {
-      data: timer.isLoading ? undefined : true,
+      data: timer.isPending ? undefined : true,
       error: timer.error,
       isLoading: timer.isLoading,
     },

@@ -69,7 +69,7 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
     [weekStart],
   );
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isPending, isError } = useQuery({
     /* A week change keeps the last week until the next answers, so the grid
        stays put rather than going back to the loader. */
     placeholderData: keepPreviousData,
@@ -149,6 +149,7 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
     cursor,
     byDay,
     isLoading,
+    isPending,
     isError,
     /* Whether the period on screen contains today, which is what the "Today" /
        "This week" button reflects. */

@@ -139,8 +139,6 @@ export type CalendarDay = Response<Omit<schema.CalendarDay, 'entries'>> & {
   entries: TimeEntry[];
 };
 
-/** A day of the activity strip: totals, no entries. */
-
 export type Summary = Response<Omit<schema.Summary, 'running'>> & {
   running: TimeEntry | null;
 };

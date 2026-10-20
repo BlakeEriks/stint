@@ -71,7 +71,6 @@ export const envelopes = {
   paymentProfiles: list('paymentProfiles', schema.PaymentProfile),
   expenses: list('expenses', schema.Expense),
   calendar: list('days', schema.CalendarDay),
-  activity: list('days', schema.CalendarTotalsDay),
 };
 
 export const invoiceDetail = schema.Invoice.extend({

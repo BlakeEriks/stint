@@ -156,14 +156,6 @@ export function Today({ stats }: { stats: Stats }) {
 }
 
 /**
- * Today's local date key, rechecked once a minute so a tab left open past
- * midnight moves to the new day. Held in state rather than read in render:
- * the key changes only when the day does, not on every beat and refetch.
- *
- * The new day refetches `/stats` too: Earned comes from there, and without
- * it the new date would sit beside yesterday's earnings.
- */
-/**
  * The day's own entries. `/stats` carries `earnedToday` but no rows, and the
  * list is what makes the figure something the user can account for. Local
  * midnight to local midnight: the date read as a UTC day starts the previous
@@ -182,6 +174,14 @@ export function useTodayEntries() {
   });
 }
 
+/**
+ * Today's local date key, rechecked once a minute so a tab left open past
+ * midnight moves to the new day. Held in state rather than read in render:
+ * the key changes only when the day does, not on every beat and refetch.
+ *
+ * The new day refetches `/stats` too: Earned comes from there, and without
+ * it the new date would sit beside yesterday's earnings.
+ */
 function useLocalDay(): string {
   const queryClient = useQueryClient();
   const [day, setDay] = useState(() => localDateKey(new Date(), tz));

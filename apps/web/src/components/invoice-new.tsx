@@ -44,6 +44,7 @@ import {
   type PaymentProfile,
 } from '@/lib/client/api';
 import { Loader } from './loader';
+import { useHydrated } from '@/lib/client/use-hydrated';
 import { DetailPage } from './page';
 import { ExpenseDialog } from './expense-dialog';
 import { ExpenseRow } from './expense-row';
@@ -160,8 +161,12 @@ export function NewInvoice() {
   /* The form paints once, its client list, terms and payment profiles in
      place; what a chosen client then loads fills in as it is asked
      for. */
+  const hydrated = useHydrated();
   const firstLoad =
-    clientQuery.isLoading || settingsQuery.isLoading || profileQuery.isLoading;
+    !hydrated ||
+    clientQuery.isPending ||
+    settingsQuery.isPending ||
+    profileQuery.isPending;
 
   /* What this invoice can bill of the client's expenses: every recurring one,
      and every one-off paid by the period's end. */

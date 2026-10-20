@@ -987,52 +987,6 @@ test('calendar groups entries by LOCAL day', async () => {
   assert.equal(sp.body.days[0].totalSeconds, 3600);
 });
 
-/* The week's bar height is billable seconds (`revenue_by_day`), and its stack
-   divides that height. If `byClient` counted non-billable work too, internal
-   time would take a share of a bar it did not raise. */
-test('the day split counts billable work only', async () => {
-  const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
-  const { GET: calendar } = await import('../src/app/api/v1/calendar/route.ts');
-
-  await create(
-    req('/entries', {
-      id: '018f0000-0000-7000-8000-000000000031',
-      taskName: 'Billable',
-      startedAt: '2026-09-14T09:00:00Z',
-      endedAt: '2026-09-14T11:00:00Z',
-    }),
-  );
-  await create(
-    req('/entries', {
-      id: '018f0000-0000-7000-8000-000000000032',
-      taskName: 'Not billable',
-      startedAt: '2026-09-14T13:00:00Z',
-      endedAt: '2026-09-14T14:00:00Z',
-      isBillable: false,
-    }),
-  );
-
-  const res = await json(
-    await calendar(
-      req(
-        '/calendar?from=2026-09-14T00:00:00Z&to=2026-09-15T00:00:00Z&granularity=day&tz=UTC',
-      ),
-    ),
-  );
-
-  const day = res.body.days.find(
-    (d: { date: string }) => d.date === '2026-09-14',
-  );
-  const split = Object.values(day.byClient as Record<string, number>).reduce(
-    (sum: number, n) => sum + (n as number),
-    0,
-  );
-
-  // The day's whole load stays unfiltered: the calendar draws all of it.
-  assert.equal(day.totalSeconds, 10_800);
-  assert.equal(split, 7200, 'but the split leaves the non-billable hour out');
-});
-
 test('the entry view splits an entry that crosses local midnight', async () => {
   const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
   const { GET: calendar } = await import('../src/app/api/v1/calendar/route.ts');
@@ -1064,24 +1018,6 @@ test('the entry view splits an entry that crosses local midnight', async () => {
     (d: { date: string }) => d.date === '2026-07-04',
   ).entries;
   assert.equal(entries.length, 1, 'the entry is drawn on Saturday too');
-
-  const day = await json(
-    await calendar(
-      req(
-        `/calendar?from=2026-07-03T04:00:00Z&to=2026-07-05T04:00:00Z&granularity=day&tz=${tz}`,
-      ),
-    ),
-  );
-  assert.deepEqual(totals(day.body.days), { '2026-07-03': 14_400 });
-
-  const saturdayDay = await json(
-    await calendar(
-      req(
-        `/calendar?from=2026-07-04T04:00:00Z&to=2026-07-05T04:00:00Z&granularity=day&tz=${tz}`,
-      ),
-    ),
-  );
-  assert.deepEqual(saturdayDay.body.days, []);
 });
 
 test('calendar rejects an inverted period', async () => {
@@ -2272,10 +2208,9 @@ test('a rate of exactly 0 is a rate: real seconds, and 0.00 of money', async () 
 
 /* Home's bars are split by client from `/stats` itself, so the panel paints
    from one response. The split is billable seconds, so each day's
-   parts add up to its bar; and it is the calendar's own rule. */
+   parts add up to its bar. */
 test('each week day splits its seconds by client', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-  const { GET: calendar } = await import('../src/app/api/v1/calendar/route.ts');
 
   const c = '33333333-0000-4000-8000-000000000030';
   const p = '33333333-0000-4000-8000-0000000000e0';
@@ -2323,21 +2258,6 @@ test('each week day splits its seconds by client', async () => {
     const parts = Object.values(d.byClient).reduce((a, n) => a + n, 0);
     assert.equal(parts, d.seconds, `${d.date}: the parts add up to the bar`);
   }
-
-  const week = after.body.week as Day[];
-  const cal = await json(
-    await calendar(
-      req(
-        `/calendar?from=${week[0]!.date}T00:00:00Z&to=${week[6]!.date}T23:59:59.999Z&granularity=day&tz=UTC`,
-      ),
-    ),
-  );
-  const calToday = (cal.body.days as Day[]).find((d) => d.date === today)!;
-  assert.equal(
-    calToday.byClient[c],
-    day(after).byClient[c],
-    'the calendar splits the same way',
-  );
 });
 
 test('the week sees only its own user’s work', async () => {

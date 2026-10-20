@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useLayoutEffect, useRef } from 'react';
+import { motion } from '@stint/design-tokens';
 import { Loader } from './loader';
 import { useHydrated } from '@/lib/client/use-hydrated';
 import { ApiError } from '@/lib/client/api';
@@ -253,20 +254,16 @@ function RiseIn({
     if (!after.current) return;
     after.current = false;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const root = getComputedStyle(document.documentElement);
-    const rise = root.getPropertyValue('--motion-rise').trim() || '3px';
     for (
       let el = mark.current?.nextElementSibling;
       el;
       el = el.nextElementSibling
     ) {
       el.animate?.(
-        [{ transform: `translateY(${rise})` }, { transform: 'none' }],
+        [{ transform: `translateY(${motion.rise})` }, { transform: 'none' }],
         {
-          duration:
-            Number.parseFloat(root.getPropertyValue('--motion-quick')) || 160,
-          easing:
-            root.getPropertyValue('--ease-decelerate').trim() || 'ease-out',
+          duration: Number.parseFloat(motion.quick),
+          easing: motion['ease-decelerate'],
         },
       );
     }

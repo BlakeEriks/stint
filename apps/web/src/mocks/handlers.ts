@@ -153,11 +153,8 @@ export const handlers = {
       from: q.get('from') ?? '',
       to: q.get('to') ?? '',
       tz: q.get('tz') ?? ZONE,
-      granularity: q.get('granularity'),
     });
-    return q.get('granularity') === 'day'
-      ? ok(envelopes.activity, { days } as never)
-      : ok(envelopes.calendar, { days } as never);
+    return ok(envelopes.calendar, { days } as never);
   }),
 
   startTimer: http.post(`${API}/timer/start`, async ({ request }) => {

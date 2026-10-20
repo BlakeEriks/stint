@@ -4,7 +4,7 @@ import { requireSession } from '@/lib/auth';
 import { parseQuery } from '@/lib/validate';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
 import { selectAll } from '@/lib/select-all';
-import { dayByClient, localDateKey, splitByLocalDay } from '@stint/core';
+import { splitByLocalDay } from '@stint/core';
 import { CalendarQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -38,52 +38,6 @@ export const GET = handle(async (req: Request) => {
       .or(`ended_at.gt.${q.from},ended_at.is.null`)
       .order('started_at', { ascending: true }),
   );
-
-  if (q.granularity === 'day') {
-    /* Which client a day's work belongs to, so the strip can color by
-       client. Fetched once for the range rather than per day. */
-    const { data: projects, error: projectError } = await db
-      .from('projects')
-      .select('id, client_id');
-    if (projectError) throw projectError;
-
-    const clientOf = new Map(
-      (projects ?? []).map((p) => [
-        p.id as string,
-        (p.client_id as string | null) ?? null,
-      ]),
-    );
-
-    const entries = data.map((row) => toEntry(row as EntryRow));
-    /* `byClient` counts billable work only, because its one reader is the
-       week's bar stack and that bar's height is billable seconds; the rule
-       lives in `dayByClient`, which `/stats` shares. */
-    const split = dayByClient(entries, clientOf, { from: q.from, tz: q.tz });
-
-    const days = new Map<
-      string,
-      { date: string; totalSeconds: number; byClient: Record<string, number> }
-    >();
-    for (const entry of entries) {
-      // A running entry has no duration yet and contributes nothing.
-      if (entry.endedAt == null) continue;
-      /* Home's bars count a session whole on the day it started (FR-011,
-         `revenue_by_day`). */
-      if (new Date(entry.startedAt) < new Date(q.from)) continue;
-
-      const key = localDateKey(new Date(entry.startedAt), q.tz);
-      /* `totalSeconds` is unfiltered: the calendar draws a day's whole load. */
-      const day = days.get(key) ?? {
-        date: key,
-        totalSeconds: 0,
-        byClient: split.get(key) ?? {},
-      };
-      day.totalSeconds += entry.durationSeconds ?? 0;
-      days.set(key, day);
-    }
-
-    return NextResponse.json({ days: [...days.values()] });
-  }
 
   const days = new Map<
     string,

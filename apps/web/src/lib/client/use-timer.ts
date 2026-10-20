@@ -186,6 +186,7 @@ export function useTimer() {
     todaySeconds,
     weekSeconds: summary.data?.weekSeconds ?? 0,
     isLoading: summary.isLoading,
+    isPending: summary.isPending,
     error: summary.error,
     start,
     stop,

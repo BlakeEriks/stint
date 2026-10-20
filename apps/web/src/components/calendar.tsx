@@ -23,6 +23,7 @@ import {
   useProjectClients,
 } from '@/lib/client/use-project-colors';
 import { Loader } from './loader';
+import { useHydrated } from '@/lib/client/use-hydrated';
 import { useMediaQuery } from '@/lib/client/use-media-query';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import { useEntryDrag, type DragMode } from '@/lib/client/use-entry-drag';
@@ -98,11 +99,14 @@ export function Calendar() {
   });
   const clients = useClientsQuery();
   const allProjects = useAllProjects();
+  /* Pending, not loading: while the kept cache restores nothing fetches,
+     yet nothing has arrived either. */
   const firstLoad =
-    cal.isLoading ||
-    projects.isLoading ||
-    clients.isLoading ||
-    allProjects.isLoading;
+    !useHydrated() ||
+    cal.isPending ||
+    projects.isPending ||
+    clients.isPending ||
+    allProjects.isPending;
 
   const editor = useDialog<{
     existing?: TimeEntry;

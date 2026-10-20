@@ -32,13 +32,10 @@ const PEAK = 94;
 export function Week({
   stats,
   hues,
-  byDay,
 }: {
   stats: Stats;
   /** The panel's one palette, in the one order every region walks. */
   hues: Map<string, Hue>;
-  /** Seconds per client per local day, from `/calendar?granularity=day`. */
-  byDay: Map<string, Record<string, number>>;
 }) {
   const { week, currency } = stats;
 
@@ -92,7 +89,7 @@ export function Week({
                         expensive hour taller than a cheap one and break the
                         ratio the bar exists to show. */}
                     <span className="absolute inset-0 flex flex-col-reverse overflow-hidden rounded-t-[5px] opacity-85">
-                      {segments(byDay.get(d.date), hues, d.seconds).map((s) => (
+                      {segments(d.byClient, hues).map((s) => (
                         <span
                           key={s.id || 'internal'}
                           data-segment={s.id || 'internal'}
@@ -179,22 +176,14 @@ export function Week({
  * Walked in the palette's own order, so the same client sits at the same
  * point of every bar and matches its band in the strip below.
  *
- * Shares are taken against the split's own sum, so the stack fills its bar
- * whatever rounding the two leave between them. The split comes with the bar
- * in `/stats`, so a bar never draws before its colors are known; a day
- * with no split is a day with no work, drawn as one zero-share segment.
+ * A day with no work is one zero-share segment.
  */
 function segments(
-  byClient: Record<string, number> | undefined,
+  byClient: Record<string, number>,
   hues: Map<string, Hue>,
-  fallbackSeconds: number,
 ): { id: string; color: string | null; share: number }[] {
-  const total = byClient
-    ? Object.values(byClient).reduce((sum, s) => sum + s, 0)
-    : 0;
-  if (!byClient || total <= 0) {
-    return [{ id: '', color: null, share: fallbackSeconds > 0 ? 1 : 0 }];
-  }
+  const total = Object.values(byClient).reduce((sum, s) => sum + s, 0);
+  if (total <= 0) return [{ id: '', color: null, share: 0 }];
 
   const out: { id: string; color: string | null; share: number }[] = [];
   for (const [key, hue] of hues) {

@@ -20,12 +20,12 @@ export function TimerDock() {
     queryFn: () => api.projects(),
   });
 
-  /* `isLoading`, not a missing answer: a failed fetch still leaves a timer
-     the user can start. */
+  /* Pending, not a missing answer: a failed fetch still leaves a timer the
+     user can start, while a cache still restoring has answered nothing. */
   return (
     <TimerBar
       projects={projects.data?.projects ?? []}
-      pending={!hydrated || timer.isLoading || projects.isLoading}
+      pending={!hydrated || timer.isPending || projects.isPending}
     />
   );
 }

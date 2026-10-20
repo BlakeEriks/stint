@@ -11,8 +11,7 @@ No table or migration changes. Two shapes change, and one is new.
 | `amount` | money or null | unchanged |
 | `byClient` | `Record<string, number>` | **new**: billable seconds per client id that day; work with no client is keyed `''`; a day with no billable work is `{}` |
 
-`byClient` is computed by `dayByClient` in `packages/core`, the same
-function `/calendar?granularity=day` uses, so the two can't disagree.
+`byClient` is computed by `dayByClient` in `packages/core`.
 
 ## Persisted query cache (web, `localStorage`)
 

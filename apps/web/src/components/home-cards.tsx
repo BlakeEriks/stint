@@ -53,24 +53,17 @@ export function HomeCards() {
 function Panel({ stats }: { stats: Stats }) {
   const clients = useClients();
 
-  /* How each of the week's days divides by client, in SECONDS — the stack's
-     own measure, carried by `/stats` with the bars it splits. */
-  const byDay = useMemo(
-    () => new Map(stats.week.map((d) => [d.date, d.byClient] as const)),
-    [stats.week],
-  );
-
   /* ONE palette for the whole panel, built once here and passed down. Two
      regions each deriving their own order is two orders to keep in
      agreement, and a palette that reorders between two regions of one panel
      means nothing. */
   const hues = useMemo(() => {
     const weekKeys = new Set<string>();
-    for (const day of byDay.values()) {
-      for (const key of Object.keys(day)) weekKeys.add(key);
+    for (const day of stats.week) {
+      for (const key of Object.keys(day.byClient)) weekKeys.add(key);
     }
     return buildHues({ byClient: stats.month.byClient, weekKeys, clients });
-  }, [stats.month.byClient, byDay, clients]);
+  }, [stats.month.byClient, stats.week, clients]);
 
   /* `@container` on the panel, and the regions size off it. The panel is NOT
      the window: the rail and the dock flank it and claim their space at `lg`
@@ -88,7 +81,7 @@ function Panel({ stats }: { stats: Stats }) {
           <Today stats={stats} />
         </div>
         <div className="pt-6 @2xl:pt-0 @2xl:pl-7">
-          <Week stats={stats} hues={hues} byDay={byDay} />
+          <Week stats={stats} hues={hues} />
         </div>
       </div>
 

@@ -365,11 +365,8 @@ export function stats(db: Db, tz: string) {
   };
 }
 
-/** `GET /calendar`: entries on each local day they touch, or per-client totals by day. */
-export function calendar(
-  db: Db,
-  q: { from: string; to: string; tz: string; granularity: string | null },
-) {
+/** `GET /calendar`: entries on each local day they touch. */
+export function calendar(db: Db, q: { from: string; to: string; tz: string }) {
   const inRange = db.entries
     .filter(
       (e) =>
@@ -379,25 +376,6 @@ export function calendar(
     .sort((a, b) => at(a.startedAt) - at(b.startedAt));
   const pieces = (e: TimeEntry) =>
     splitByLocalDay(new Date(e.startedAt), new Date(e.endedAt ?? db.now), q.tz);
-
-  // Totals count stopped work only, so a day holding just a running timer
-  // has no row, as in the route; each entry whole, on the day it started.
-  if (q.granularity === 'day') {
-    const split = dayByClient(inRange, clientMap(db), q);
-    return [
-      ...groupBy(
-        inRange.filter((e) => stopped(e) && at(e.startedAt) >= at(q.from)),
-        (e) => localDateKey(new Date(e.startedAt), q.tz),
-      ),
-    ].map(([date, entries]) => ({
-      date,
-      totalSeconds: entries.reduce(
-        (sum, e) => sum + (e.durationSeconds ?? 0),
-        0,
-      ),
-      byClient: split.get(date) ?? {},
-    }));
-  }
 
   const days = new Map<
     string,
