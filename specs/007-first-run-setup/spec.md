@@ -156,9 +156,9 @@ them in place, and see them on the preview and in Settings.
 - **FR-010**: The welcome screen MUST link to the Toggl import.
 - **FR-011**: New invoice MUST ask in place for business name, email and
   address when any is empty, and save them to Settings.
-- **FR-013**: Every save in this feature MUST answer in the same frame and go
+- **FR-012**: Every save in this feature MUST answer in the same frame and go
   through the app's API (Constitution III, VI).
-- **FR-012**: New invoice MUST NOT generate while business name or email is
+- **FR-013**: New invoice MUST NOT generate while business name or email is
   empty.
 
 ### Key Entities
