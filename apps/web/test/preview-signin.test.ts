@@ -6,6 +6,7 @@
  */
 import { test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 
 const url = process.env.SUPABASE_URL;
 const publishable = process.env.SUPABASE_PUBLISHABLE_KEY;
@@ -164,5 +165,36 @@ test('an as that is not a scenario name is not an account', async () => {
   for (const as of ['', 'First', '-x', 'a@evil.test', 'a b', 'x'.repeat(41)]) {
     const res = await signIn(`pr=${PR}&as=${encodeURIComponent(as)}`);
     assert.equal(res.status, 404, as);
+  }
+});
+
+test('an unseeded scenario account says to name it in the PR body', async () => {
+  process.env.VERCEL_ENV = 'preview';
+  const res = await signIn(`pr=${PR}&as=never-seeded`);
+  assert.equal(res.status, 502);
+  assert.match(await res.text(), /Preview accounts:/);
+});
+
+/* The seed's guard and `previewAccount` each hold the name's shape, so a
+   scenario the seed accepts but sign-in refuses fails here. */
+test('every seed scenario is a name sign-in accepts', async () => {
+  const { previewAccount } = await import('../src/lib/preview.ts');
+  const names = execFileSync(
+    'node',
+    [
+      new URL('../../../scripts/seed-account.mjs', import.meta.url).pathname,
+      '--scenarios',
+    ],
+    { encoding: 'utf8' },
+  )
+    .split('\n')
+    .filter(Boolean);
+  assert.ok(names.length > 0);
+  for (const name of names) {
+    assert.equal(
+      previewAccount('1', 'preview', name),
+      `pr-1-${name}@preview.test`,
+      name,
+    );
   }
 });

@@ -235,7 +235,9 @@ jobs:
             -c "insert into auth.users (id, email)
                 values (gen_random_uuid(), 'ci-seed-check@localhost.test')"
           pnpm seed ci-seed-check@localhost.test
-          for name in $(node scripts/seed-account.mjs --scenarios); do
+          # Assigned first: a failed listing inside the `for` would run none.
+          names=$(node scripts/seed-account.mjs --scenarios)
+          for name in $names; do
             pnpm seed ci-seed-check@localhost.test --scenario "$name"
           done
           pnpm seed ci-seed-check@localhost.test --clear

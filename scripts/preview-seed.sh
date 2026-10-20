@@ -17,6 +17,11 @@ node "$SEED" "pr-$PR@preview.test"
 
 body=$(gh pr view "$PR" --json body -q .body)
 names=$(grep -i '^Preview accounts:' <<<"$body" | sed 's/^[^:]*: *//' | tr ',\r' '  ' || true)
+# Names stay literal: a `*` in the body must not expand to file names.
+set -f
 for name in $names; do
-  node "$SEED" "pr-$PR-$name@preview.test" --scenario "$name"
+  node "$SEED" "pr-$PR-$name@preview.test" --scenario "$name" || {
+    echo "::error::PR #$PR asks for '$name', which its seed-account.mjs does not have. Check the name; a branch from before #408 needs main merged in."
+    exit 1
+  }
 done

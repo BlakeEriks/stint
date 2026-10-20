@@ -71,14 +71,17 @@ if (process.argv[2] === '--scenarios') {
 const email = process.argv[2];
 const at = process.argv.indexOf('--scenario');
 const scenario = at === -1 ? null : process.argv[at + 1];
-if (!email || (at !== -1 && !Object.hasOwn(SEED_SCENARIOS, scenario ?? ''))) {
+const clearOnly = process.argv.includes('--clear');
+if (
+  !email ||
+  email.startsWith('-') ||
+  (at !== -1 && (clearOnly || !Object.hasOwn(SEED_SCENARIOS, scenario ?? '')))
+) {
   console.error(
     `Usage: node scripts/seed-account.mjs <email> [--clear | --scenario <${Object.keys(SEED_SCENARIOS).join(' | ')}>]`,
   );
   process.exit(1);
 }
-
-const clearOnly = process.argv.includes('--clear');
 
 /** The clients the seed writes. */
 const CLIENTS = [

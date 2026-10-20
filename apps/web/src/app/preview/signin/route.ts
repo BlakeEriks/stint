@@ -54,8 +54,11 @@ export async function GET(req: Request) {
     password: PREVIEW_PASSWORD,
   });
   if (error) {
+    const seeds = url.searchParams.has('as')
+      ? `Name it on the PR body's "Preview accounts:" line, which makes this PR's preview-db check seed it.`
+      : `Re-run this PR's preview-db check, which seeds the account.`;
     return new Response(
-      `Could not sign in as ${email}: ${error.message}\n\nRe-run this PR's preview-db check, which seeds the account.`,
+      `Could not sign in as ${email}: ${error.message}\n\n${seeds}`,
       { status: 502 },
     );
   }
