@@ -20,7 +20,9 @@ export function TimerDock() {
     queryFn: () => api.projects(),
   });
 
-  /* Pending, not a missing answer: a failed fetch still leaves a timer the
+  /* Not a `Listing`: the bar is the frame's and keeps its place while it
+     waits, where `Listing` would put a loader in its stead. Pending, not a
+     missing answer: a failed fetch still leaves a timer the
      user can start, while a cache still restoring has answered nothing. */
   return (
     <TimerBar

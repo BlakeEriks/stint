@@ -48,9 +48,7 @@ import {
   type PaymentProfile,
   type Settings,
 } from '@/lib/client/api';
-import { Loader } from './loader';
-import { useHydrated } from '@/lib/client/use-hydrated';
-import { DetailPage } from './page';
+import { DetailPage, Listing } from './page';
 import { ExpenseDialog } from './expense-dialog';
 import { ExpenseRow } from './expense-row';
 import { type Charge, ChargeDialog } from './charge-dialog';
@@ -239,6 +237,29 @@ function useSettled<T>(value: T, ms: number): T {
  * the card is the server's current answer.
  */
 export function NewInvoice() {
+  /* The form paints once, its client list, terms and payment profiles in
+     place; what a chosen client then loads fills in as it is asked for. The
+     back link is the frame, so it stands while they load. */
+  const clients = useQuery({
+    queryKey: keys.clients(),
+    queryFn: () => api.clients(),
+  });
+  const settings = useQuery({
+    queryKey: keys.settings(),
+    queryFn: () => api.settings(),
+  });
+  const profiles = useQuery({
+    queryKey: keys.paymentProfiles(),
+    queryFn: () => api.paymentProfiles(),
+  });
+  return (
+    <DetailPage back="/invoices" label="Invoices" workspace fills>
+      <Listing query={[clients, settings, profiles]}>{() => <Form />}</Listing>
+    </DetailPage>
+  );
+}
+
+function Form() {
   const router = useRouter();
   const qc = useQueryClient();
 
@@ -246,31 +267,19 @@ export function NewInvoice() {
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
-  const clientQuery = useQuery({
-    queryKey: keys.clients(),
-    queryFn: () => api.clients(),
-  });
-  const clients = clientQuery.data?.clients ?? [];
+  const clients =
+    useQuery({ queryKey: keys.clients(), queryFn: () => api.clients() }).data
+      ?.clients ?? [];
   const client = clients.find((c) => c.id === draft.clientId);
-  const settingsQuery = useQuery({
+  const { data: settings } = useQuery({
     queryKey: keys.settings(),
     queryFn: () => api.settings(),
   });
-  const settings = settingsQuery.data;
-  const profileQuery = useQuery({
-    queryKey: keys.paymentProfiles(),
-    queryFn: () => api.paymentProfiles(),
-  });
-  const profiles = profileQuery.data?.paymentProfiles ?? [];
-  /* The form paints once, its client list, terms and payment profiles in
-     place; what a chosen client then loads fills in as it is asked
-     for. */
-  const hydrated = useHydrated();
-  const firstLoad =
-    !hydrated ||
-    clientQuery.isPending ||
-    settingsQuery.isPending ||
-    profileQuery.isPending;
+  const profiles =
+    useQuery({
+      queryKey: keys.paymentProfiles(),
+      queryFn: () => api.paymentProfiles(),
+    }).data?.paymentProfiles ?? [];
 
   const { lastPending, groupingMode, summaryText, schedules } =
     useCarried(draft);
@@ -382,16 +391,8 @@ export function NewInvoice() {
     summaryText,
   });
 
-  if (firstLoad) {
-    return (
-      <DetailPage back="/invoices" label="Invoices" workspace fills>
-        <Loader />
-      </DetailPage>
-    );
-  }
-
   return (
-    <DetailPage back="/invoices" label="Invoices" workspace fills>
+    <>
       {/* From `xl`, where the panel has a height of its own, nothing scrolls
           but the two columns: the form and the preview each scroll alone, so
           reading a long page never moves the field being typed in. Below it
@@ -600,7 +601,7 @@ export function NewInvoice() {
         onOpenChange={setNewProfileOpen}
         onSaved={addProfile}
       />
-    </DetailPage>
+    </>
   );
 }
 

@@ -93,18 +93,15 @@ export function ClientList() {
       </header>
 
       <Listing
-        query={[
-          {
-            data: groups,
-            error: clientQuery.error ?? projectQuery.error,
-            isLoading: clientQuery.isLoading || projectQuery.isLoading,
-          },
-          settings,
-          expenses,
-        ]}
+        query={{
+          data: groups,
+          error: clientQuery.error ?? projectQuery.error,
+          isLoading: clientQuery.isLoading || projectQuery.isLoading,
+        }}
+        also={[settings, expenses]}
         empty="No clients yet. Add one to set a rate and bill against it."
       >
-        {([shown]) => {
+        {(shown) => {
           const card = (g: Group) => (
             <Card
               key={g.client?.id ?? '__none__'}

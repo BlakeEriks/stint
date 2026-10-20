@@ -69,6 +69,31 @@ describe('Listing', () => {
     expect(mismatch).not.toHaveBeenCalled();
   });
 
+  /* A query a region shows if it answers: waited for, so it paints with the
+     rest, but its failure never blanks the region. */
+  describe('given queries it also shows', () => {
+    it('waits for them', () => {
+      render(
+        <Listing query={query({ data: ['a'] })} also={[query({})]}>
+          {() => <p>region</p>}
+        </Listing>,
+      );
+      expect(loader()).toHaveTextContent('Loading');
+    });
+
+    it('renders without one that failed', () => {
+      render(
+        <Listing
+          query={query({ data: ['a'] })}
+          also={[query({ error: error(500, 'UNKNOWN') })]}
+        >
+          {() => <p>region</p>}
+        </Listing>,
+      );
+      expect(screen.getByText('region')).toBeInTheDocument();
+    });
+  });
+
   /* A region paints once, with all its data: nothing of it renders
      until every query it draws from has arrived. */
   describe('given several queries', () => {

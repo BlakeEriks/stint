@@ -6,11 +6,7 @@ import { formatCompact, formatCurrency, startOfLocalDay } from '@stint/core';
 import { CalendarDays, Plus } from 'lucide-react';
 import { api, type Project, type TimeEntry } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
-import {
-  useAllProjects,
-  useClientsQuery,
-  useProjectColors,
-} from '@/lib/client/use-project-colors';
+import { useProjectColors } from '@/lib/client/use-project-colors';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import { Button } from '@/components/ui/button';
 import { EntryDialog } from './entry-dialog';
@@ -56,8 +52,6 @@ export function EntryList({
   const today = query.data ?? [];
 
   const colors = useProjectColors();
-  const clients = useClientsQuery();
-  const allProjects = useAllProjects();
 
   /* `undefined` adds an entry; an entry, edits it. */
   const editing = useDialog<TimeEntry | undefined>();
@@ -114,11 +108,11 @@ export function EntryList({
         className="min-h-0 flex-1 overflow-y-auto"
       >
         <Listing
-          query={[query, clients, allProjects]}
+          query={query}
           tight
           empty="Nothing logged yet today. Start a timer above."
         >
-          {([entries]) => (
+          {(entries) => (
             <TodayGrid
               entries={entries}
               colors={colors}

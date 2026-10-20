@@ -1,8 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useLayoutEffect, useRef } from 'react';
-import { motion } from '@stint/design-tokens';
 import { Loader } from './loader';
 import { useHydrated } from '@/lib/client/use-hydrated';
 import { ApiError } from '@/lib/client/api';
@@ -163,6 +161,10 @@ type Loaded<Q> = Q extends readonly Query<unknown>[]
  * data, and its children get them as a tuple: a region paints once, with all
  * of it, never with a `?? []` standing in for a query still on its way.
  *
+ * `also` is what the region shows if it answers: waited for, so it paints
+ * with the rest, but a failure there leaves the region to render without it
+ * rather than blanking it.
+ *
  * `empty` is the message for data that arrived and holds nothing — omit it
  * where the record is a single object, which is never empty, only missing.
  * With several queries, it reads the first.
@@ -171,12 +173,14 @@ export function Listing<
   const Q extends Query<unknown> | readonly Query<unknown>[],
 >({
   query,
+  also = [],
   empty,
   missing,
   tight = false,
   children,
 }: {
   query: Q;
+  also?: readonly Query<unknown>[];
   empty?: React.ReactNode;
   /** What a 404 says, where the screen is about one record. */
   missing?: React.ReactNode;
@@ -186,7 +190,6 @@ export function Listing<
   const queries: readonly Query<unknown>[] = Array.isArray(query)
     ? query
     : [query as Query<unknown>];
-  const waited = useRef(false);
   const hydrated = useHydrated();
 
   /* A 401 has already sent the browser to `/signin`. Reporting a failure over
@@ -197,16 +200,13 @@ export function Listing<
   );
 
   /* No data and no error is a wait, whether or not a fetch is in flight:
-     while the kept cache is restored a query is pending without fetching. */
-  const waiting = queries.some(
+     while the kept cache is restored a query is pending without fetching.
+     Until hydration is done the server's loader stands, since the server
+     never holds the browser's kept cache. */
+  const waiting = [...queries, ...also].some(
     (q) => q.isLoading || (q.data === undefined && q.error == null),
   );
-  if (!hydrated || waiting || leaving) {
-    /* Only a real wait rises the content in: kept data painting the moment
-       after hydration is a reload, and a reload shows the screen still. */
-    if (waiting || leaving) waited.current = true;
-    return <Loader tight={tight} />;
-  }
+  if (!hydrated || waiting || leaving) return <Loader tight={tight} />;
   /* Data the user can still read beats an error message in its place: a failed
      REFETCH would otherwise replace a form mid-edit and take the unsent text
      with it. */
@@ -230,50 +230,17 @@ export function Listing<
       ? queries.map((q) => q.data)
       : (query as Query<unknown>).data
   ) as Loaded<Q>;
-  return <RiseIn after={waited}>{children(data)}</RiseIn>;
+  return <>{children(data)}</>;
 }
 
 /**
- * The content rising in once, where it replaces the loader: a short settle,
- * never a fade, so no frame of it is ever drawn faint (a figure read at half
- * opacity is a figure misread).
- *
- * Animated through the elements it rendered rather than a wrapper: a wrapper
- * would sit between a `fills` screen's column and its `flex-1` child and break
- * the height chain. A sentinel marks where the content starts.
+ * Whether every query has its data, for a figure in a page's header: the
+ * header's title and tabs are its frame and paint at once, but a figure
+ * there waits with the content rather than reading 0 first. It renders what
+ * the server did until hydration, as `Listing` does.
  */
-function RiseIn({
-  after,
-  children,
-}: {
-  after: React.RefObject<boolean>;
-  children: React.ReactNode;
-}) {
-  const mark = useRef<HTMLSpanElement>(null);
-  useLayoutEffect(() => {
-    if (!after.current) return;
-    after.current = false;
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    for (
-      let el = mark.current?.nextElementSibling;
-      el;
-      el = el.nextElementSibling
-    ) {
-      el.animate?.(
-        [{ transform: `translateY(${motion.rise})` }, { transform: 'none' }],
-        {
-          duration: Number.parseFloat(motion.quick),
-          easing: motion['ease-decelerate'],
-        },
-      );
-    }
-  }, [after]);
-  return (
-    <>
-      <span ref={mark} hidden />
-      {children}
-    </>
-  );
+export function useLoaded(...queries: Query<unknown>[]) {
+  return useHydrated() && queries.every((q) => q.data !== undefined);
 }
 
 /** An empty array is the only "nothing" a `Listing` decides on its own. */

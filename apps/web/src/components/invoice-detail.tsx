@@ -51,7 +51,7 @@ export function InvoiceDetail({ id }: { id: string }) {
     queryFn: () => api.invoice(id),
     placeholderData: () => fromList(qc, id),
   });
-  /* The business block's, so the invoice paints whole; the list fetches it
+  /* The payment notice's, so the invoice paints whole; the list fetches it
      too, so one opened from there still opens at once. */
   const settings = useQuery({
     queryKey: keys.settings(),
@@ -88,10 +88,11 @@ export function InvoiceDetail({ id }: { id: string }) {
   return (
     <DetailPage back="/invoices" label="Invoices">
       <Listing
-        query={[query, settings]}
+        query={query}
+        also={[settings]}
         missing="That invoice no longer exists."
       >
-        {([data]) => (
+        {(data) => (
           <Loaded
             data={data}
             setStatus={setStatus}

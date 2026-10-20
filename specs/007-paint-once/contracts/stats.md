@@ -20,6 +20,7 @@ so an older macOS build keeps decoding the response.
   `byClient`.
 - `''` holds billable work with no client.
 - A running timer counts as it does in `seconds` today.
-- The parts add up to the day's `seconds`.
+- The parts add up to the day's `seconds`, within a second for a running
+  session, which `revenue_by_day` and `dayByClient` each measure to `now`.
 - `GET /api/v1/calendar?granularity=day`, whose only reader was this split,
   is removed.

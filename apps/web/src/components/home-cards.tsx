@@ -18,8 +18,9 @@ import { Listing } from './page';
 
 /**
  * The panel paints once, with everything it draws: the gate holds the
- * same queries its regions read, so on the first frame past it every bar has
- * its client's hue and Today has its rows.
+ * queries its regions read, so on the first frame past it every bar has its
+ * client's hue and Today has its rows. Colors are `also`: if they fail, the
+ * bars draw neutral rather than the panel going blank.
  */
 export function HomeCards() {
   const stats = useQuery({
@@ -29,7 +30,8 @@ export function HomeCards() {
 
   return (
     <Listing
-      query={[stats, useClientsQuery(), useAllProjects(), useTodayEntries()]}
+      query={[stats, useTodayEntries()]}
+      also={[useClientsQuery(), useAllProjects()]}
     >
       {([data]) => <Panel stats={data} />}
     </Listing>

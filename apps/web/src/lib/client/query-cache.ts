@@ -1,5 +1,4 @@
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
-import type { QueryClient } from '@tanstack/react-query';
 
 /**
  * The last answers this browser saw, kept so a reload paints them at once
@@ -18,12 +17,11 @@ export function cachePersister() {
 }
 
 /**
- * Forgets everything kept of the signed-in account, in memory and in the
- * browser. Every way out calls it (sign out, delete, an expired session, the
- * sign-in page) so the next account never paints the last one's numbers
- * (FR-009).
+ * Forgets everything kept of the signed-in account in this browser. Every way
+ * out calls it (sign out, delete, an expired session, the sign-in page), and
+ * each leaves by a full load, which takes the in-memory cache with it, so the
+ * next account never paints the last one's numbers (FR-009).
  */
-export function forgetCache(client?: QueryClient) {
-  client?.clear();
+export function forgetCache() {
   if (typeof window !== 'undefined') window.localStorage.removeItem(CACHE_KEY);
 }

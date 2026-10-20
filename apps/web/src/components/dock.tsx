@@ -30,7 +30,10 @@ import { keys } from '@/lib/client/query-keys';
  * is an object and the column holding them is not.
  */
 export function Dock() {
-  const today = useDockTodayQueries();
+  /* The inbox draws stats; Today's data is waited on too, so the two arrive
+     together, and `DockToday` then finds it cached. Today keeps its own gate
+     because the folded strip opens it alone. */
+  const [stats, ...today] = useDockTodayQueries();
 
   /* The split is only a thing at `xl`, where the dock is a fixed-height
      column. Below that it is a band that sizes to its content, so there is no
@@ -66,18 +69,15 @@ export function Dock() {
          band under the content, which costs no width, so it stays. */
       className="flex min-h-0 flex-none flex-col xl:group-has-[[data-workspace]]/app:hidden xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:w-[286px]"
     >
-      {/* The dock paints once, with all of it: the inbox and Today
-          wait on the same queries, so neither arrives before the other.
-
-          The inbox takes its share and scrolls within it. `min-h-0` is what
+      {/* The inbox takes its share and scrolls within it. `min-h-0` is what
           lets it shrink below its content so the scroller engages rather than
           the column growing.
 
           The basis is a MAXIMUM, not a size: `flex-shrink` is on, so an inbox
           with little in it gives the remainder to Today rather than holding
           empty ground. Dragging the handle sets the ceiling. */}
-      <Listing query={today}>
-        {([data]) => (
+      <Listing query={stats} also={today}>
+        {(data) => (
           <>
             <div
               className="xl:min-h-0 xl:shrink xl:overflow-y-auto"

@@ -40,13 +40,13 @@ panel.
   it's fully in by about 1.5s. Once in, it breathes between full and 40%
   opacity on a 2.4s cycle, so a long wait still reads as alive. It's a
   `status` region for screen readers.
-- **Loaded**: the content takes the word's place in one frame and settles
-  in once, rising `motion-rise` over `motion-quick` (`ease-decelerate`). No
-  fade: no frame of the content is ever drawn faint.
+- **Loaded**: the content takes the word's place in one frame. The page's
+  title, primary action and filter tabs are its frame and paint at once; any
+  figure or count in the header waits with the content.
 - **Menu bar panel**: the same word in the same place, at the panel's
   center.
-- **Reduced motion**: the word fades in and holds still; nothing breathes,
-  and the content appears without the rise.
+- **Reduced motion**: the word fades in and holds still; it never breathes,
+  nothing else changes.
 
 ## User Scenarios & Testing *(mandatory)*
 

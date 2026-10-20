@@ -39,22 +39,20 @@ afterEach(() => {
 });
 
 describe('the kept cache', () => {
-  it('is forgotten from memory and from the browser', () => {
-    const client = new QueryClient();
-    client.setQueryData(['stats'], { earned: 1 });
-    forgetCache(client);
-    expect(client.getQueryData(['stats'])).toBeUndefined();
+  it('is forgotten from the browser', () => {
+    forgetCache();
     expect(kept()).toBeNull();
   });
 
   it('is forgotten on Sign out', async () => {
     const replace = vi.fn();
     vi.stubGlobal('location', { ...window.location, replace });
-    const client = new QueryClient();
     const user = userEvent.setup();
     render(<AccountMenu />, {
       wrapper: ({ children }: { children: ReactNode }) => (
-        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+        <QueryClientProvider client={new QueryClient()}>
+          {children}
+        </QueryClientProvider>
       ),
     });
     await user.click(screen.getByRole('button', { name: 'Account' }));

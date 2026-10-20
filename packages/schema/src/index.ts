@@ -729,7 +729,8 @@ export const WeekDay = z.object({
   amount: money.nullable(),
   /**
    * The day's billable seconds per client id — how the bar is stacked. Work
-   * with no client keys as `''`. The parts add up to `seconds`.
+   * with no client keys as `''`. The parts add up to `seconds`, within a
+   * second for a running session: SQL and JS each measure it to `now`.
    */
   byClient: z.record(z.string(), z.number()),
 });

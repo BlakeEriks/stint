@@ -256,7 +256,11 @@ region draws, as a tuple, and nothing of it renders until all have answered;
 never a `?? []` standing in for one still on its way, which is how a bar draws
 gray and then turns a client's color. Its only loading state is `Loader`, the
 one quiet word. A query a nested part runs is started by the region too, so it
-is cached by the first frame past the gate.
+is cached by the first frame past the gate. A query the region only shows
+if it answers goes in `also`: waited for, but its failure never blanks the
+region. A page's title, primary action and tabs are its frame and paint at
+once; a figure in its header waits with the content (`useLoaded`), never a
+0 that changes.
 
 **`TaskSuggest` is the exception, deliberately** — its query renders nothing
 while loading and nothing on failure. A suggestion is an accelerator nobody
