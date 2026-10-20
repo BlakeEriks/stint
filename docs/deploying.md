@@ -96,7 +96,8 @@ It deliberately sets **no `outputDirectory`**: Next.js detection finds
 failed a build that had otherwise succeeded.
 
 Still set in the dashboard:
-- Environment variables, none of them sensitive but billing's three secrets:
+- Environment variables, none of them sensitive but the Sentry upload token and
+  billing's three secrets:
   - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` —
     production's project for Production, `stint-test`'s for Preview
     (§3d). A preview never reaches production data.
@@ -112,6 +113,10 @@ Still set in the dashboard:
   - `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN`, both the same DSN, for
     Production only (§3c): the server reports with the first, the browser
     with the second. Unset, Sentry stays off, so a preview never reports.
+  - `SENTRY_AUTH_TOKEN` (**sensitive**), for Production only: an
+    organization auth token from Sentry's **Settings → Auth Tokens**. The
+    build uploads its source maps with it, so stacks read as source. Unset,
+    the build skips the upload and stacks stay minified.
 
 Billing, for Production only (Preview uses Stripe test-mode keys if billing
 is being tried there). **Setting them is the launch:** with all three set,
@@ -311,7 +316,7 @@ success teaches you to stop reading it.
 | Release failed, or its plan failed | ❌ with the run link | `release.yml`, `report` |
 | Backup failed, or a day passed without one | healthchecks.io's own | healthchecks.io → Discord |
 | App or database down, and its recovery | UptimeRobot's own | UptimeRobot → Discord |
-| A new unhandled error in the server or the browser | Sentry's own, with the stack trace, minified for the browser | Sentry → Discord |
+| A new unhandled error in the server or the browser | Sentry's own, with the stack trace | Sentry → Discord |
 
 Never posted: a release with no migration going live, a rejection or
 cancellation (you did it), a backup that worked (healthchecks.io is quiet
@@ -335,9 +340,9 @@ minutes. The health route asks Postgres for a row, so it fails when the
 database does, not only when Vercel does. The monitor alerts after two
 failures in a row, and posts the recovery.
 
-**Sentry** is the `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN` (§2), from a
-Next.js project on the free plan, with one alert rule: a new issue posts to
-Discord.
+**Sentry** is the `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN`, plus the
+`SENTRY_AUTH_TOKEN` that uploads source maps (§2), from a Next.js project on
+the free plan, with one alert rule: a new issue posts to Discord.
 
 The webhook is the `DISCORD_ALERTS_WEBHOOK` repository secret, used by
 `release.yml` and nowhere else: anyone holding it can post to the channel.
