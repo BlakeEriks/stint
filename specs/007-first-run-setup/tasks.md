@@ -50,7 +50,7 @@ story, one per acceptance scenario. The look is `design/first-run.html`.
 
 ## Phase 5: Polish
 
-- [ ] T024 Run `pnpm --filter @stint/web test`, `test:stories` and `test:ui` against a private database (`ci-db.sh`), and walk `quickstart.md` in the running app signed in as the seeded account
+- [X] T024 Run `pnpm --filter @stint/web test`, `test:stories` and `test:ui` against a private database (`ci-db.sh`), and walk `quickstart.md` in the running app signed in as the seeded account
 
 ## Dependencies
 
