@@ -20,7 +20,7 @@ struct ContentView: View {
                 // the shortest timer: idle, with no recent entries. Disabled
                 // too, so a task field focused before Settings opened takes no
                 // typing behind it.
-                TimerPanel(model: model)
+                content
                     .opacity(showingSettings ? 0 : 1)
                     .allowsHitTesting(!showingSettings)
                     .accessibilityHidden(showingSettings)
@@ -56,6 +56,55 @@ struct ContentView: View {
         // that settles later moves the whole window.
         .fixedSize(horizontal: false, vertical: true)
         .background(Tokens.Dark.bgBase)
+    }
+
+    /// The timer waits for its first summary, so it never draws idle and
+    /// then jumps to running. An error shows the idle timer and why, as
+    /// before there was a loader.
+    @ViewBuilder private var content: some View {
+        if model.summary == nil, model.errorMessage == nil {
+            PanelLoader()
+        } else {
+            TimerPanel(model: model)
+        }
+    }
+}
+
+/// "Loading" at the panel's center, the web's `Loader`
+/// (`specs/007-paint-once/design/loader.html`). It fades in from 600ms, so a
+/// fast answer never shows it, then breathes so a long wait still reads as
+/// alive. Under Reduce Motion it fades in and holds.
+private struct PanelLoader: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
+    @State private var dimmed = false
+
+    /// `motion.count` in tokens.json. The Swift generator emits no motion
+    /// tokens yet, so the value is restated here.
+    private static let count = 0.9
+
+    var body: some View {
+        Text("Loading")
+            .role(.label)
+            .foregroundStyle(Tokens.Dark.textSubtle)
+            // Two modifiers, so the fade and the breath animate apart.
+            .opacity(shown ? 1 : 0)
+            .opacity(dimmed ? 0.4 : 1)
+            .frame(maxWidth: .infinity)
+            // The design's panel height; the timer replaces it whole.
+            .frame(height: 230)
+            .accessibilityIdentifier("loading")
+            .onAppear {
+                let fade: Animation = reduceMotion
+                    ? .linear(duration: Self.count)
+                    : .timingCurve(0.2, 0, 0.2, 1, duration: Self.count)
+                withAnimation(fade.delay(0.6)) { shown = true }
+                guard !reduceMotion else { return }
+                // Half of a 2.4s cycle each way, from when the fade is in.
+                withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true).delay(0.6 + Self.count)) {
+                    dimmed = true
+                }
+            }
     }
 }
 

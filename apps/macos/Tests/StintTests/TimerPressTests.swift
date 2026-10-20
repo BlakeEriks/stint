@@ -99,7 +99,8 @@ private func signedInModel() async throws -> TimerModel {
     let model = TimerModel(
         api: API(baseURL: URL(string: "https://api.test")!, tokens: tokens, session: session),
         auth: Auth(supabaseURL: supabase, anonKey: "anon", tokens: tokens),
-        tokens: tokens
+        tokens: tokens,
+        snapshots: SnapshotStore(directory: FileManager.default.temporaryDirectory.appending(path: uuidv7()))
     )
     await model.refresh()
     return model

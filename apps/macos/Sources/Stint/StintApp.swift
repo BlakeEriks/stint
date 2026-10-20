@@ -47,7 +47,12 @@ enum Launch {
         let tokens = TokenStore(supabaseURL: Config.supabaseURL, anonKey: Config.anonKey)
         let api = API(baseURL: Config.appURL, tokens: tokens)
         let auth = Auth(supabaseURL: Config.supabaseURL, anonKey: Config.anonKey, tokens: tokens)
-        return TimerModel(api: api, auth: auth, tokens: tokens)
+        // Per backend host, as the Keychain's session is: a local account's
+        // lists must never paint under a production sign-in.
+        let snapshots = SnapshotStore(
+            directory: SnapshotStore.caches.appending(path: Config.supabaseURL.host() ?? "unknown")
+        )
+        return TimerModel(api: api, auth: auth, tokens: tokens, snapshots: snapshots)
     }
 }
 
