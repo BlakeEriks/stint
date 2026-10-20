@@ -9,7 +9,10 @@
      the PR first and add this with `gh pr edit`. A macOS change opens with
      `pnpm try-mac <n>` instead: "Opens Stint Preview in the menu bar,
      signed in as this PR's seeded account." Every step says what you should
-     see, never just what to do. -->
+     see, never just what to do. A step that needs an account in another
+     state names a seed scenario on its own line, `Preview accounts:
+     first-signin`, and links with `&as=first-signin`
+     (docs/deploying.md §3d). -->
 
 [Open the preview](https://stint-git-<branch>-blakeeriks-projects.vercel.app/preview/signin?pr=<n>&next=<path>)
 — signs in as this PR's seeded account, on the page this changes.

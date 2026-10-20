@@ -357,6 +357,15 @@ a PR's migrations change the schema — or migrations land on main — empties
 closing a migration PR unmerged. The previews share one schema, so **one open
 PR at a time may carry a migration**.
 
+**A PR asks for an account in a named state with a line in its body**:
+`Preview accounts: first-signin`. Each name is a `SEED_SCENARIOS` entry in
+that branch's seed script, seeded as `pr-<n>-<name>@preview.test` beside the
+usual account, and `/preview/signin?pr=<n>&as=<name>` signs into it. Editing
+the body reseeds. An unknown name fails the `preview-db` check, so a typo
+shows on the PR. Add a scenario to the seed script rather than editing
+`stint-test` by hand: a scenario is reviewed, runs in CI, and the next PR
+can ask for it too.
+
 - **GitHub** → Environments → **Preview** → secret `PREVIEW_DB_URL`:
   `stint-test`'s session pooler string. The direct connection is IPv6-only,
   which Actions runners cannot reach.
