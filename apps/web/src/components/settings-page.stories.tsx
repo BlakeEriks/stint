@@ -270,9 +270,20 @@ export const Loading: Story = {
   ...desktop,
   parameters: stalled('paymentProfiles'),
   play: async ({ canvasElement }) => {
-    const region = within(canvasElement.querySelector('main') as HTMLElement);
+    const main = canvasElement.querySelector('main') as HTMLElement;
+    const region = within(main);
     await expect(await region.findByRole('status')).toHaveTextContent(
       'Loading',
     );
+    // The whole page waits: no section paints ahead of the rest.
+    await expect(region.queryByText('Import')).toBeNull();
+    await expect(region.queryByRole('button', { name: /export/i })).toBeNull();
+    // Centered on the card, not tucked under the title.
+    const panel = main.parentElement as HTMLElement;
+    const word = (await region.findByRole('status')).getBoundingClientRect();
+    const box = panel.getBoundingClientRect();
+    await expect(
+      Math.abs(word.top + word.height / 2 - (box.top + box.height / 2)),
+    ).toBeLessThan(4);
   },
 };

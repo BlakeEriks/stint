@@ -98,6 +98,18 @@
       loader-in var(--motion-count) var(--ease-standard) 600ms both,
       loader-breathe 2.4s ease-in-out 1500ms infinite;
   }
+  /* On the card, centered on all of it rather than tucked under a title.
+     Below `xl` the card is as tall as its content, so while it waits it
+     holds a height of its own to center in. */
+  [data-content-panel] .loader:not([data-tight]) {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+  }
+  [data-content-panel]:has(.loader:not([data-tight])) {
+    min-height: 20rem;
+  }
   @keyframes loader-in {
     from {
       opacity: 0;
