@@ -86,7 +86,7 @@ export function ClientList() {
       </header>
 
       {/* Every card paints with its rate and expenses, never filled in after
-          (#383). */}
+         . */}
       <Listing
         query={[
           {

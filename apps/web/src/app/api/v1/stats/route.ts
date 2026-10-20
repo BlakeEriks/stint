@@ -216,7 +216,7 @@ export const GET = handle(async (req: Request) => {
 
     /* The week window's sessions, to stack each bar by client. In this batch
        rather than a second request from the client, so Home paints from one
-       response (#383). */
+       response. */
     selectAll<WeekEntryRow>(() =>
       db
         .from('time_entries')

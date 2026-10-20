@@ -230,7 +230,7 @@ export function Calendar() {
           The rules above and below are region separators: edge to edge, they
           cut the panel into heading, grid and legend. */}
         {/* The grid paints once, with its entries already in their clients'
-            colors (#383). Only the first load waits: a week change keeps the
+            colors. Only the first load waits: a week change keeps the
             grid and fills the new week in place. */}
         {firstLoad ? (
           <Loader />

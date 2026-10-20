@@ -18,7 +18,7 @@ export function ClientDetail({ id }: { id: string }) {
     queryFn: () => api.client(id),
   });
   /* Started with the client, not after it: the screen paints once, its
-     projects and their inherited rate included (#383). */
+     projects and their inherited rate included. */
   const projects = useClientProjects(id);
   const settings = useQuery({
     queryKey: keys.settings(),

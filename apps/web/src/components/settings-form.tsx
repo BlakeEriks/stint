@@ -29,7 +29,7 @@ export function SettingsForm() {
     queryKey: keys.settings(),
     queryFn: api.settings,
   });
-  /* The payment profiles section's, so the screen paints once (#383). */
+  /* The payment profiles section's, so the screen paints once. */
   const profiles = useQuery({
     queryKey: keys.paymentProfiles(),
     queryFn: api.paymentProfiles,

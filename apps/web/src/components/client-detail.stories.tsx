@@ -61,7 +61,7 @@ export const EditClient: Story = {
 };
 
 /** On its way: one quiet word where it will be, and none of it until all of
- *  it has arrived (#383). */
+ *  it has arrived. */
 export const Loading: Story = {
   ...desktop,
   parameters: stalled('client'),

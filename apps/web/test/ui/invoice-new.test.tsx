@@ -352,7 +352,7 @@ describe('NewInvoice', () => {
     );
   });
 
-  /* The form paints once, with its terms in place (#383), so Generate is
+  /* The form paints once, with its terms in place, so Generate is
      never there to press before Due can be filled. */
   it('holds the form until the settings answer, so Due is never sent blank', async () => {
     serve();

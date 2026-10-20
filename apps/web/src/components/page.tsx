@@ -159,7 +159,7 @@ type Loaded<Q> = Q extends readonly Query<unknown>[]
  *
  * Given several queries, the region renders only once every one of them has
  * data, and its children get them as a tuple: a region paints once, with all
- * of it, never with a `?? []` standing in for a query still on its way (#383).
+ * of it, never with a `?? []` standing in for a query still on its way.
  *
  * `empty` is the message for data that arrived and holds nothing — omit it
  * where the record is a single object, which is never empty, only missing.

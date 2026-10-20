@@ -66,7 +66,7 @@ export function Dock() {
          band under the content, which costs no width, so it stays. */
       className="flex min-h-0 flex-none flex-col xl:group-has-[[data-workspace]]/app:hidden xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:w-[286px]"
     >
-      {/* The dock paints once, with all of it (#383): the inbox and Today
+      {/* The dock paints once, with all of it: the inbox and Today
           wait on the same queries, so neither arrives before the other.
 
           The inbox takes its share and scrolls within it. `min-h-0` is what

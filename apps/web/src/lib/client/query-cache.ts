@@ -3,7 +3,7 @@ import type { QueryClient } from '@tanstack/react-query';
 
 /**
  * The last answers this browser saw, kept so a reload paints them at once
- * and the server's answer replaces them (#383, Constitution III).
+ * and the server's answer replaces them (Constitution III).
  */
 export const CACHE_KEY = 'stint-query-cache';
 

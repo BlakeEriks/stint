@@ -187,7 +187,7 @@ function isProjectList(
 
 /**
  * Every project of one client, archived ones included, so the detail screen
- * can start this with the client itself rather than after it (#383): which
+ * can start this with the client itself rather than after it: which
  * of them the list shows is decided above, not by the fetch.
  */
 export function useClientProjects(clientId: string) {

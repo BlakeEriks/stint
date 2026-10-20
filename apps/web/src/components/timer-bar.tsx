@@ -23,7 +23,7 @@ export function TimerBar({
   /**
    * The timer or the projects are still on their way. The bar keeps its
    * place in the frame and draws nothing, rather than an idle field that
-   * turns into a running timer a moment later (#383).
+   * turns into a running timer a moment later.
    */
   pending?: boolean;
 }) {

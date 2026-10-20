@@ -158,7 +158,7 @@ export function NewInvoice() {
   });
   const profiles = profileQuery.data?.paymentProfiles ?? [];
   /* The form paints once, its client list, terms and payment profiles in
-     place (#383); what a chosen client then loads fills in as it is asked
+     place; what a chosen client then loads fills in as it is asked
      for. */
   const firstLoad =
     clientQuery.isLoading || settingsQuery.isLoading || profileQuery.isLoading;

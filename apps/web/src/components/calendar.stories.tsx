@@ -167,7 +167,7 @@ export const Overnight: Story = {
 let answer = () => {};
 
 /** The week has not arrived yet: one quiet word where the grid will be, and
- *  no empty grid that would read as a week with nothing in it (#383). */
+ *  no empty grid that would read as a week with nothing in it. */
 export const Loading: Story = {
   ...desktop,
   parameters: {

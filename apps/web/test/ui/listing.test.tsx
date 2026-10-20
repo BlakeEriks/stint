@@ -38,7 +38,7 @@ describe('Listing', () => {
     expect(screen.queryByText(/could not load/i)).toBeNull();
   });
 
-  /* A region paints once, with all its data (#383): nothing of it renders
+  /* A region paints once, with all its data: nothing of it renders
      until every query it draws from has arrived. */
   describe('given several queries', () => {
     it('shows only the loader until every query has data', () => {

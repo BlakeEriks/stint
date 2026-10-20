@@ -10,7 +10,7 @@ import { ApiError, api } from '@/lib/client/api';
 
 /**
  * The last answers are kept in this browser so a reload paints at once
- * (#383). No account may ever see another's: every way out forgets them.
+ *. No account may ever see another's: every way out forgets them.
  */
 
 const router = { replace: vi.fn(), refresh: vi.fn(), push: vi.fn() };

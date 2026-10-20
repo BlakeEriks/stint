@@ -181,7 +181,7 @@ export function Week({
  *
  * Shares are taken against the split's own sum, so the stack fills its bar
  * whatever rounding the two leave between them. The split comes with the bar
- * in `/stats`, so a bar never draws before its colors are known (#383); a day
+ * in `/stats`, so a bar never draws before its colors are known; a day
  * with no split is a day with no work, drawn as one zero-share segment.
  */
 function segments(

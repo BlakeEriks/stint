@@ -48,7 +48,7 @@ export function InvoiceList() {
   });
   const clientData = clientQuery.data;
   /* The detail's business block, fetched with the list so an invoice opened
-     from here paints whole at once (#383). */
+     from here paints whole at once. */
   const settings = useQuery({
     queryKey: keys.settings(),
     queryFn: () => api.settings(),

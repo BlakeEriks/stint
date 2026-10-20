@@ -58,7 +58,7 @@ their suites; each visible loading state is a story; macOS logic in
 
 - [X] T028 Update comments that describe the old loading: `apps/web/src/components/page.tsx` (`Empty` no longer stands in for loading), `home-cards.tsx` (the `/activity` comment), `apps/web/src/app/(app)/loading.tsx`
 - [X] T029 Add the rule to `.claude/rules/web-ui.md`: a region paints once, with all its data, through `Listing`; never a `?? []` fallback in a rendered region; its only loading state is `Loader`
-- [ ] T030 Run `pnpm --filter @stint/core test`, the web `test`, `test:ui`, `test:stories`, lint and typecheck, and `cd apps/macos && swift test`
+- [X] T030 Run `pnpm --filter @stint/core test`, the web `test`, `test:ui`, `test:stories`, lint and typecheck, and `cd apps/macos && swift test`
 - [ ] T031 Verify `quickstart.md` in the dev server signed in, with Slow 4G, at desktop and phone, dark and light; and the menu bar panel with `apps/macos/qa.sh`
 
 ## Dependencies

@@ -17,7 +17,7 @@ import { Month } from './home-month';
 import { Listing } from './page';
 
 /**
- * The panel paints once, with everything it draws (#383): the gate holds the
+ * The panel paints once, with everything it draws: the gate holds the
  * same queries its regions read, so on the first frame past it every bar has
  * its client's hue and Today has its rows.
  */

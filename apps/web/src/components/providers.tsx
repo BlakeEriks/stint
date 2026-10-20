@@ -46,7 +46,7 @@ export function Providers({
 
   /* The last answers, kept in this browser so a reload paints them at once;
      each is stale on arrival, so its screen refetches and the server's answer
-     replaces it (#383). Created in the browser only. */
+     replaces it. Created in the browser only. */
   const [persister] = useState(() =>
     persist && typeof window !== 'undefined' ? cachePersister() : undefined,
   );

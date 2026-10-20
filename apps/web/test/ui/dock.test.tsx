@@ -8,7 +8,7 @@ vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
 
 /**
  * `/stats` never resolves; everything else answers. The dock paints once,
- * with all of it (#383), so Today waits for the figure its header carries.
+ * with all of it, so Today waits for the figure its header carries.
  */
 function serveAllButStats() {
   vi.stubGlobal(

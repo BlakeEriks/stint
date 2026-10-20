@@ -137,7 +137,7 @@ export const RunningUnrated: Story = {
 };
 
 /** On its way: the panel holds one quiet word, and none of its regions,
- *  until everything it draws has arrived (#383). */
+ *  until everything it draws has arrived. */
 export const Loading: Story = {
   ...desktop,
   parameters: stalled('stats'),

@@ -2271,7 +2271,7 @@ test('a rate of exactly 0 is a rate: real seconds, and 0.00 of money', async () 
 });
 
 /* Home's bars are split by client from `/stats` itself, so the panel paints
-   from one response (#383). The split is billable seconds, so each day's
+   from one response. The split is billable seconds, so each day's
    parts add up to its bar; and it is the calendar's own rule. */
 test('each week day splits its seconds by client', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
