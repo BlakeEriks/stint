@@ -96,7 +96,7 @@ It deliberately sets **no `outputDirectory`**: Next.js detection finds
 failed a build that had otherwise succeeded.
 
 Still set in the dashboard:
-- Environment variables, none of them sensitive but billing's three secrets:
+- Environment variables, none of them sensitive but `SENTRY_AUTH_TOKEN` and billing's three secrets:
   - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` —
     production's project for Production, `stint-test`'s for Preview
     (§3d). A preview never reaches production data.
