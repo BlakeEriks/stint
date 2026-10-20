@@ -43,6 +43,7 @@ import {
   type GroupingMode,
   type PaymentProfile,
 } from '@/lib/client/api';
+import { Loader } from './loader';
 import { DetailPage } from './page';
 import { ExpenseDialog } from './expense-dialog';
 import { ExpenseRow } from './expense-row';
@@ -140,19 +141,27 @@ export function NewInvoice() {
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
-  const clients =
-    useQuery({ queryKey: keys.clients(), queryFn: () => api.clients() }).data
-      ?.clients ?? [];
+  const clientQuery = useQuery({
+    queryKey: keys.clients(),
+    queryFn: () => api.clients(),
+  });
+  const clients = clientQuery.data?.clients ?? [];
   const client = clients.find((c) => c.id === draft.clientId);
-  const { data: settings } = useQuery({
+  const settingsQuery = useQuery({
     queryKey: keys.settings(),
     queryFn: () => api.settings(),
   });
-  const profiles =
-    useQuery({
-      queryKey: keys.paymentProfiles(),
-      queryFn: () => api.paymentProfiles(),
-    }).data?.paymentProfiles ?? [];
+  const settings = settingsQuery.data;
+  const profileQuery = useQuery({
+    queryKey: keys.paymentProfiles(),
+    queryFn: () => api.paymentProfiles(),
+  });
+  const profiles = profileQuery.data?.paymentProfiles ?? [];
+  /* The form paints once, its client list, terms and payment profiles in
+     place (#383); what a chosen client then loads fills in as it is asked
+     for. */
+  const firstLoad =
+    clientQuery.isLoading || settingsQuery.isLoading || profileQuery.isLoading;
 
   /* What this invoice can bill of the client's expenses: every recurring one,
      and every one-off paid by the period's end. */
@@ -278,6 +287,14 @@ export function NewInvoice() {
     !nothingToBill &&
     !noSummaryText &&
     !generate.isPending;
+
+  if (firstLoad) {
+    return (
+      <DetailPage back="/invoices" label="Invoices" workspace fills>
+        <Loader />
+      </DetailPage>
+    );
+  }
 
   return (
     <DetailPage back="/invoices" label="Invoices" workspace fills>

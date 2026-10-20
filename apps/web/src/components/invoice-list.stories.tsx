@@ -4,11 +4,12 @@ import { account } from '@/mocks/db';
 import {
   at,
   desktop,
+  expectOpen,
   failing,
   light,
   phone,
   screen,
-  expectOpen,
+  stalled,
 } from '@/mocks/screen';
 import { InvoiceList } from './invoice-list';
 
@@ -92,5 +93,18 @@ export const MarkPaid: Story = {
     const [paid] = await page.findAllByRole('button', { name: /paid/i });
     await userEvent.click(paid as HTMLElement);
     await expectOpen(canvasElement, 'dialog');
+  },
+};
+
+/** On its way: one quiet word where it will be, and none of it until all of
+ *  it has arrived (#383). */
+export const Loading: Story = {
+  ...desktop,
+  parameters: stalled('invoices'),
+  play: async ({ canvasElement }) => {
+    const region = within(canvasElement.querySelector('main') as HTMLElement);
+    await expect(await region.findByRole('status')).toHaveTextContent(
+      'Loading',
+    );
   },
 };

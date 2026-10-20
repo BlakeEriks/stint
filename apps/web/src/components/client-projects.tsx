@@ -27,16 +27,14 @@ export function ClientProjects({ client }: { client: Client }) {
   const editing = useDialog<Project>();
 
   /* An archived client's projects all count as archived, so without them
-     the page would say "No projects." of a client that has some. */
+     the page would say "No projects." of a client that has some. An active
+     client's archived projects stay out of its list. */
   const archived = client.archivedAt != null;
-  const query = useQuery({
-    queryKey: keys.projects(
-      archived ? { clientId: client.id, archived } : { clientId: client.id },
-    ),
-    queryFn: () =>
-      api.projects({ clientId: client.id, includeArchived: archived }),
-    select: (r) => r.projects,
-  });
+  const all = useClientProjects(client.id);
+  const query = {
+    ...all,
+    data: all.data?.projects.filter((p) => archived || p.archivedAt == null),
+  };
 
   // The user default is the last link in the chain, so the row cannot say
   // where a rate came from without it.
@@ -119,13 +117,24 @@ function Row({
       api.archiveProject(project.id).catch((e: Error) => {
         throw new Error(`Couldn’t archive ${project.name}. ${e.message}`);
       }),
+    /* A list of active projects loses the row; a list that holds archived
+       ones keeps it, archived — which this screen then filters out. */
     predict: (current, _vars, key) =>
-      isProjectList(current) && !listsArchived(key)
-        ? {
-            ...current,
-            projects: current.projects.filter((p) => p.id !== project.id),
-          }
-        : current,
+      !isProjectList(current)
+        ? current
+        : listsArchived(key)
+          ? {
+              ...current,
+              projects: current.projects.map((p) =>
+                p.id === project.id
+                  ? { ...p, archivedAt: new Date().toISOString() }
+                  : p,
+              ),
+            }
+          : {
+              ...current,
+              projects: current.projects.filter((p) => p.id !== project.id),
+            },
   });
 
   return (
@@ -174,4 +183,16 @@ function isProjectList(
   data: unknown,
 ): data is { projects: Array<{ id: string }> } {
   return typeof data === 'object' && data !== null && 'projects' in data;
+}
+
+/**
+ * Every project of one client, archived ones included, so the detail screen
+ * can start this with the client itself rather than after it (#383): which
+ * of them the list shows is decided above, not by the fetch.
+ */
+export function useClientProjects(clientId: string) {
+  return useQuery({
+    queryKey: keys.projects({ clientId, archived: true }),
+    queryFn: () => api.projects({ clientId, includeArchived: true }),
+  });
 }

@@ -47,16 +47,17 @@ export function ClientList() {
     queryFn: () => api.clients({ includeArchived: true }),
   });
   const projectQuery = useAllProjects();
-  const { data: settings } = useQuery({
+  const settings = useQuery({
     queryKey: keys.settings(),
     queryFn: () => api.settings(),
   });
-  const defaultRate = settings?.defaultHourlyRate ?? null;
+  const defaultRate = settings.data?.defaultHourlyRate ?? null;
   /* One read for every card: recurring, waiting, and on an unpaid invoice. */
-  const { data: expenseData } = useQuery({
+  const expenses = useQuery({
     queryKey: keys.expenses(),
     queryFn: () => api.expenses(),
   });
+  const expenseData = expenses.data;
   const expensesOf = useMemo(() => {
     const by = new Map<string, Expense[]>();
     for (const e of expenseData?.expenses ?? [])
@@ -84,15 +85,21 @@ export function ClientList() {
         </Button>
       </header>
 
+      {/* Every card paints with its rate and expenses, never filled in after
+          (#383). */}
       <Listing
-        query={{
-          data: groups,
-          error: clientQuery.error ?? projectQuery.error,
-          isLoading: clientQuery.isLoading || projectQuery.isLoading,
-        }}
+        query={[
+          {
+            data: groups,
+            error: clientQuery.error ?? projectQuery.error,
+            isLoading: clientQuery.isLoading || projectQuery.isLoading,
+          },
+          settings,
+          expenses,
+        ]}
         empty="No clients yet. Add one to set a rate and bill against it."
       >
-        {(shown) => (
+        {([shown]) => (
           <div className="flex flex-col gap-3">
             {shown.map((g) => (
               <Card

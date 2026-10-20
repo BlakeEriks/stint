@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   startOfLocalDay,
   startOfLocalWeek,
@@ -70,6 +70,9 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
   );
 
   const { data, isLoading, isError } = useQuery({
+    /* A week change keeps the last week until the next answers, so the grid
+       stays put rather than going back to the loader. */
+    placeholderData: keepPreviousData,
     queryKey: keys.calendar(weekStart.toISOString(), tz),
     queryFn: () =>
       api.calendar({

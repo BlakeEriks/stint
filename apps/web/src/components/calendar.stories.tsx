@@ -49,7 +49,7 @@ export const Desktop: Story = {
       ).toBeInTheDocument();
     // The week has time, so the line under the grid says nothing.
     await expect(page.queryByText(/Nothing logged this week/)).toBeNull();
-    await expect(page.queryByText('Loading…')).toBeNull();
+    await expect(page.queryByRole('status')).toBeNull();
   },
 };
 /** At `2xl` the grid scrolls inside the card. The screen is a workspace:
@@ -162,11 +162,12 @@ export const Overnight: Story = {
   },
 };
 
-/* Held until the play has seen the loading line, then answered: the story
+/* Held until the play has seen the loader, then answered: the story
    ends only once nothing is in flight. */
 let answer = () => {};
 
-/** The week has not arrived yet. */
+/** The week has not arrived yet: one quiet word where the grid will be, and
+ *  no empty grid that would read as a week with nothing in it (#383). */
 export const Loading: Story = {
   ...desktop,
   parameters: {
@@ -181,7 +182,8 @@ export const Loading: Story = {
   },
   play: async ({ canvasElement }) => {
     const page = await calendar(canvasElement);
-    await expect(await page.findByText('Loading…')).toBeVisible();
+    await expect(await page.findByRole('status')).toHaveTextContent('Loading');
+    await expect(page.queryByText('00', { exact: true })).toBeNull();
     answer();
   },
 };

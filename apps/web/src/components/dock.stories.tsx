@@ -3,7 +3,7 @@ import { localDateKey } from '@stint/core';
 import { account } from '@/mocks/db';
 import type { Db } from '@/mocks/fixtures';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
-import { desktop, expectOpen, tablet } from '@/mocks/screen';
+import { desktop, expectOpen, stalled, tablet } from '@/mocks/screen';
 import { ZONE } from '@/mocks/time.mts';
 import { Dock } from './dock';
 
@@ -213,5 +213,18 @@ export const TodayScrolls: Story = {
     });
     const dock = page.getByRole('complementary', { name: 'At a glance' });
     await expect(dock.scrollHeight).toBeLessThanOrEqual(dock.clientHeight);
+  },
+};
+
+/** On its way: one quiet word where it will be, and none of it until all of
+ *  it has arrived (#383). */
+export const Loading: Story = {
+  ...desktop,
+  parameters: stalled('stats'),
+  play: async ({ canvasElement }) => {
+    const region = within(canvasElement.querySelector('aside') as HTMLElement);
+    await expect(await region.findByRole('status')).toHaveTextContent(
+      'Loading',
+    );
   },
 };

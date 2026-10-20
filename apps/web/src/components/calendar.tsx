@@ -17,7 +17,12 @@ import {
   useCalendar,
   type PositionedEntry,
 } from '@/lib/client/use-calendar';
-import { useProjectClients } from '@/lib/client/use-project-colors';
+import {
+  useAllProjects,
+  useClientsQuery,
+  useProjectClients,
+} from '@/lib/client/use-project-colors';
+import { Loader } from './loader';
 import { useMediaQuery } from '@/lib/client/use-media-query';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import { useEntryDrag, type DragMode } from '@/lib/client/use-entry-drag';
@@ -91,6 +96,13 @@ export function Calendar() {
     queryKey: keys.projects(),
     queryFn: () => api.projects(),
   });
+  const clients = useClientsQuery();
+  const allProjects = useAllProjects();
+  const firstLoad =
+    cal.isLoading ||
+    projects.isLoading ||
+    clients.isLoading ||
+    allProjects.isLoading;
 
   const editor = useDialog<{
     existing?: TimeEntry;
@@ -217,101 +229,108 @@ export function Calendar() {
 
           The rules above and below are region separators: edge to edge, they
           cut the panel into heading, grid and legend. */}
-        <div className="flex min-h-0 flex-col overflow-hidden border-t border-edge-subtle">
-          <div className="flex flex-none border-b border-edge-subtle">
-            <div className="w-12 flex-none sm:w-14" />
-            {cal.days.map((day) => (
-              <DayHeading
-                key={day.date}
-                date={day.date}
-                at={day.at}
-                seconds={day.totalSeconds}
-                nameless={byDay}
-                /* 09:00, because a day added from the heading has no clicked
-                 position to take a time from and the start of a working day is
-                 the likeliest intent. */
-                onAdd={() => {
-                  const start = new Date(day.at.getTime() + 9 * 3_600_000);
-                  create(start, new Date(start.getTime() + 3_600_000));
-                }}
-              />
-            ))}
-          </div>
-
-          {/* One scroll container so the hour gutter cannot drift from the grid.
-
-            **It binds at `xl`, where `fills` gives the column the panel's
-            height for it to measure against.** Below that the column is sized
-            by its content, so an `overflow-y-auto` here would have nothing to
-            resolve against: the grid would grow to its full 24 hours and the
-            scroller outside it would carry the overflow — a scrollbar on a
-            box with nothing to scroll, inside the one doing the work.
-
-            So below `xl` there is no inner scroller and the page owns the
-            scroll, which is one gesture however tall the chrome around it
-            is. The day headings scroll with the hours there; they hold only
-            where the scroller is inside the card. */}
-          <div
-            ref={scroller}
-            tabIndex={scrollerFocus}
-            className="xl:min-h-0 xl:flex-1 xl:overflow-y-auto"
-          >
-            <div
-              className="flex"
-              /* The gesture is owned here rather than on each block: a drag
-               continues past the block's own edges, and pointer capture sends
-               the events to whatever element started it. */
-              onPointerMove={drag.move}
-              onPointerUp={drag.end}
-              onPointerCancel={drag.cancel}
-            >
-              <div
-                className="relative w-12 flex-none sm:w-14"
-                style={{ height: gridHeight }}
-              >
-                {marks.map(({ hour, pct }) => (
-                  <span
-                    key={pct}
-                    /* The label is a zero-height row anchored at the gridline,
-                     so digits sit on the line at every position. The first
-                     mark hangs below its line instead of above it, or the
-                     container clips it. */
-                    className={`absolute right-2 flex h-0 items-center type-meta leading-none text-subtle ${
-                      pct === 0 ? 'translate-y-1.5' : ''
-                    }`}
-                    style={{ top: `${pct}%` }}
-                  >
-                    {String(hour).padStart(2, '0')}
-                  </span>
-                ))}
-              </div>
-
+        {/* The grid paints once, with its entries already in their clients'
+            colors (#383). Only the first load waits: a week change keeps the
+            grid and fills the new week in place. */}
+        {firstLoad ? (
+          <Loader />
+        ) : (
+          <div className="flex min-h-0 flex-col overflow-hidden border-t border-edge-subtle">
+            <div className="flex flex-none border-b border-edge-subtle">
+              <div className="w-12 flex-none sm:w-14" />
               {cal.days.map((day) => (
-                <DayColumn
+                <DayHeading
                   key={day.date}
-                  positioned={day.positioned}
-                  colors={colorByProject}
-                  /* The window the column DRAWS, which a cropped day view makes
-                   narrower than the day itself. Positions are fractions of
-                   this, so the inverse math a click or drag uses has to take
-                   the same pair — passing the full day here would put every
-                   new entry at the wrong time. */
-                  dayStart={day.from}
-                  dayEnd={day.to}
-                  marks={marks}
-                  height={gridHeight}
-                  drag={drag}
-                  onEdit={edit}
-                  onCreate={create}
+                  date={day.date}
+                  at={day.at}
+                  seconds={day.totalSeconds}
+                  nameless={byDay}
+                  /* 09:00, because a day added from the heading has no clicked
+                   position to take a time from and the start of a working day is
+                   the likeliest intent. */
+                  onAdd={() => {
+                    const start = new Date(day.at.getTime() + 9 * 3_600_000);
+                    create(start, new Date(start.getTime() + 3_600_000));
+                  }}
                 />
               ))}
             </div>
-          </div>
 
-          {/* Keyed to what is on screen — the day in day view, the week
-            otherwise — so it never names a color that is not showing. */}
-          <Legend days={cal.days} clientByProject={clientByProject} />
-        </div>
+            {/* One scroll container so the hour gutter cannot drift from the grid.
+
+              **It binds at `xl`, where `fills` gives the column the panel's
+              height for it to measure against.** Below that the column is sized
+              by its content, so an `overflow-y-auto` here would have nothing to
+              resolve against: the grid would grow to its full 24 hours and the
+              scroller outside it would carry the overflow — a scrollbar on a
+              box with nothing to scroll, inside the one doing the work.
+
+              So below `xl` there is no inner scroller and the page owns the
+              scroll, which is one gesture however tall the chrome around it
+              is. The day headings scroll with the hours there; they hold only
+              where the scroller is inside the card. */}
+            <div
+              ref={scroller}
+              tabIndex={scrollerFocus}
+              className="xl:min-h-0 xl:flex-1 xl:overflow-y-auto"
+            >
+              <div
+                className="flex"
+                /* The gesture is owned here rather than on each block: a drag
+                 continues past the block's own edges, and pointer capture sends
+                 the events to whatever element started it. */
+                onPointerMove={drag.move}
+                onPointerUp={drag.end}
+                onPointerCancel={drag.cancel}
+              >
+                <div
+                  className="relative w-12 flex-none sm:w-14"
+                  style={{ height: gridHeight }}
+                >
+                  {marks.map(({ hour, pct }) => (
+                    <span
+                      key={pct}
+                      /* The label is a zero-height row anchored at the gridline,
+                       so digits sit on the line at every position. The first
+                       mark hangs below its line instead of above it, or the
+                       container clips it. */
+                      className={`absolute right-2 flex h-0 items-center type-meta leading-none text-subtle ${
+                        pct === 0 ? 'translate-y-1.5' : ''
+                      }`}
+                      style={{ top: `${pct}%` }}
+                    >
+                      {String(hour).padStart(2, '0')}
+                    </span>
+                  ))}
+                </div>
+
+                {cal.days.map((day) => (
+                  <DayColumn
+                    key={day.date}
+                    positioned={day.positioned}
+                    colors={colorByProject}
+                    /* The window the column DRAWS, which a cropped day view makes
+                     narrower than the day itself. Positions are fractions of
+                     this, so the inverse math a click or drag uses has to take
+                     the same pair — passing the full day here would put every
+                     new entry at the wrong time. */
+                    dayStart={day.from}
+                    dayEnd={day.to}
+                    marks={marks}
+                    height={gridHeight}
+                    drag={drag}
+                    onEdit={edit}
+                    onCreate={create}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Keyed to what is on screen — the day in day view, the week
+              otherwise — so it never names a color that is not showing. */}
+            <Legend days={cal.days} clientByProject={clientByProject} />
+          </div>
+        )}
 
         <CalendarStatus
           isLoading={cal.isLoading}
@@ -380,7 +399,8 @@ function CalendarStatus({
   byDay: boolean;
 }) {
   const muted = 'px-4 pt-3 type-support text-subtle sm:px-6';
-  if (isLoading) return <p className={muted}>Loading…</p>;
+  // The grid's own `Loader` says this; a second word under it says it twice.
+  if (isLoading) return null;
   /* Neutral: the grid is still drawn and correct, it just has nothing in it —
      a failed fetch is a condition, not a rejected action. */
   if (isError) {

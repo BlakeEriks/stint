@@ -29,9 +29,16 @@ export function SettingsForm() {
     queryKey: keys.settings(),
     queryFn: api.settings,
   });
+  /* The payment profiles section's, so the screen paints once (#383). */
+  const profiles = useQuery({
+    queryKey: keys.paymentProfiles(),
+    queryFn: api.paymentProfiles,
+  });
 
   return (
-    <Listing query={query}>{(loaded) => <Cards loaded={loaded} />}</Listing>
+    <Listing query={[query, profiles]}>
+      {([loaded]) => <Cards loaded={loaded} />}
+    </Listing>
   );
 }
 

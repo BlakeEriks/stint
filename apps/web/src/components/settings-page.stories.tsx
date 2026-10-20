@@ -237,3 +237,16 @@ export const ExportFailed: Story = {
     ).toBeEnabled();
   },
 };
+
+/** On its way: one quiet word where it will be, and none of it until all of
+ *  it has arrived (#383). */
+export const Loading: Story = {
+  ...desktop,
+  parameters: stalled('paymentProfiles'),
+  play: async ({ canvasElement }) => {
+    const region = within(canvasElement.querySelector('main') as HTMLElement);
+    await expect(await region.findByRole('status')).toHaveTextContent(
+      'Loading',
+    );
+  },
+};

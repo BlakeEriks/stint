@@ -55,6 +55,12 @@ export function InvoiceDetail({ id }: { id: string }) {
     queryFn: () => api.invoice(id),
     placeholderData: () => fromLists(qc, id),
   });
+  /* The business block's, so the invoice paints whole; the list fetches it
+     too, so one opened from there still opens at once. */
+  const settings = useQuery({
+    queryKey: keys.settings(),
+    queryFn: () => api.settings(),
+  });
 
   /* Voiding releases the entries and expenses and deleting a draft frees
      them, so every view of that work moves with the invoice. */
@@ -85,8 +91,11 @@ export function InvoiceDetail({ id }: { id: string }) {
 
   return (
     <DetailPage back="/invoices" label="Invoices">
-      <Listing query={query} missing="That invoice no longer exists.">
-        {(data) => (
+      <Listing
+        query={[query, settings]}
+        missing="That invoice no longer exists."
+      >
+        {([data]) => (
           <Loaded
             data={data}
             setStatus={setStatus}

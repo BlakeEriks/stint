@@ -248,8 +248,10 @@ export const Failed: Story = {
   ...desktop,
   parameters: failing('stats'),
   play: async ({ canvasElement }) => {
+    // The panel's; the dock, which reads the same stats, says so too.
+    const panel = within(canvasElement.querySelector('main') as HTMLElement);
     await expect(
-      await within(canvasElement).findByText('Could not load this. Try again.'),
+      await panel.findByText('Could not load this. Try again.'),
     ).toBeVisible();
   },
 };

@@ -108,9 +108,10 @@ export const Failed: Story = {
   ...desktop,
   parameters: failing('clients', 'projects'),
   play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
+    // The panel's; the dock, which reads the same projects, says so too.
+    const page = within(canvasElement.querySelector('main') as HTMLElement);
     await expect(await page.findByText(/could not load/i)).toBeVisible();
-    await expect(page.queryByText(/loading/i)).toBeNull();
+    await expect(page.queryByRole('status')).toBeNull();
   },
 };
 
@@ -471,5 +472,18 @@ export const PaidExpenseGone: Story = {
     const page = within(canvasElement);
     await page.findByText('Figma license, annual');
     await expect(page.queryByText('Stock photography')).toBeNull();
+  },
+};
+
+/** On its way: one quiet word where it will be, and none of it until all of
+ *  it has arrived (#383). */
+export const Loading: Story = {
+  ...desktop,
+  parameters: stalled('clients'),
+  play: async ({ canvasElement }) => {
+    const region = within(canvasElement.querySelector('main') as HTMLElement);
+    await expect(await region.findByRole('status')).toHaveTextContent(
+      'Loading',
+    );
   },
 };

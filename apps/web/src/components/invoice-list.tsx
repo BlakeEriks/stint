@@ -42,9 +42,16 @@ export function InvoiceList() {
     queryFn: () => api.invoices(),
     select: (r) => r.invoices,
   });
-  const { data: clientData } = useQuery({
+  const clientQuery = useQuery({
     queryKey: keys.clients({ archived: true }),
     queryFn: () => api.clients({ includeArchived: true }),
+  });
+  const clientData = clientQuery.data;
+  /* The detail's business block, fetched with the list so an invoice opened
+     from here paints whole at once (#383). */
+  const settings = useQuery({
+    queryKey: keys.settings(),
+    queryFn: () => api.settings(),
   });
 
   const all = query.data ?? [];
@@ -116,14 +123,18 @@ export function InvoiceList() {
         {/* The filtered list is what the screen shows, so it decides the
             empty state; `all` only chooses which message. */}
         <Listing
-          query={{ ...query, data: query.data ? invoices : undefined }}
+          query={[
+            { ...query, data: query.data ? invoices : undefined },
+            clientQuery,
+            settings,
+          ]}
           empty={
             all.length === 0
               ? 'No invoices yet. Preview a period to see what it would bill.'
               : `Nothing ${status ?? 'open'}. ${countByStatus(all)}.`
           }
         >
-          {(rows) => (
+          {([rows]) => (
             <ul className="divide-y divide-edge-subtle">
               {rows.map((invoice) => (
                 <li key={invoice.id}>

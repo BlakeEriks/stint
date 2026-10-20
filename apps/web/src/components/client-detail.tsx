@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { api, type Client } from '@/lib/client/api';
 import { DetailPage, Listing } from './page';
 import { ClientDialog } from './client-dialog';
-import { ClientProjects } from './client-projects';
+import { ClientProjects, useClientProjects } from './client-projects';
 import { formatCurrency } from '@stint/core';
 import { keys } from '@/lib/client/query-keys';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
@@ -17,13 +17,23 @@ export function ClientDetail({ id }: { id: string }) {
     queryKey: keys.client(id),
     queryFn: () => api.client(id),
   });
+  /* Started with the client, not after it: the screen paints once, its
+     projects and their inherited rate included (#383). */
+  const projects = useClientProjects(id);
+  const settings = useQuery({
+    queryKey: keys.settings(),
+    queryFn: () => api.settings(),
+  });
 
   const editing = useDialog<Client>();
 
   return (
     <DetailPage back="/clients" label="Clients">
-      <Listing query={query} missing="That client no longer exists.">
-        {(client) => (
+      <Listing
+        query={[query, projects, settings]}
+        missing="That client no longer exists."
+      >
+        {([client]) => (
           <>
             <header className="flex items-start justify-between gap-3 pb-6">
               <div className="flex min-w-0 items-center gap-2.5">

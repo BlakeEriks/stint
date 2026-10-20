@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, userEvent, within } from 'storybook/test';
 import { id, ids } from '@/mocks/fixtures';
-import { desktop, expectOpen, phone, screen } from '@/mocks/screen';
+import { desktop, expectOpen, phone, screen, stalled } from '@/mocks/screen';
 import { ClientDetail } from './client-detail';
 
 const meta = {
@@ -57,5 +57,18 @@ export const EditClient: Story = {
     await userEvent.click(await page.findByRole('button', { name: 'Edit' }));
     await expectOpen(canvasElement, 'dialog', 'Edit client');
     await expect(page.getByLabelText(/Name/)).toHaveValue('Northwind Trading');
+  },
+};
+
+/** On its way: one quiet word where it will be, and none of it until all of
+ *  it has arrived (#383). */
+export const Loading: Story = {
+  ...desktop,
+  parameters: stalled('client'),
+  play: async ({ canvasElement }) => {
+    const region = within(canvasElement.querySelector('main') as HTMLElement);
+    await expect(await region.findByRole('status')).toHaveTextContent(
+      'Loading',
+    );
   },
 };
