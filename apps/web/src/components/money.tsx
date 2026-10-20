@@ -2,7 +2,6 @@
 
 import { createContext, useContext } from 'react';
 import { formatCurrency } from '@stint/core';
-import { cn } from '@/lib/cn';
 import { useCountUp } from '@/lib/client/use-count-up';
 
 /* Money depends on rate resolution, which the client never repeats, so a
@@ -10,7 +9,10 @@ import { useCountUp } from '@/lib/client/use-count-up';
    (Constitution VI). */
 export const Settling = createContext(false);
 
-export const SETTLING = 'settling';
+/** A figure's `data-settling`, which `globals.css` styles. */
+export function useSettling() {
+  return useContext(Settling) || undefined;
+}
 
 /**
  * An amount that travels to its new value rather than cutting to it.
@@ -46,12 +48,9 @@ export function Money({
   sign?: boolean;
 }) {
   const { value } = useCountUp(figure, amount);
-  const settling = useContext(Settling);
+  const settling = useSettling();
   return (
-    <span
-      className={cn(className, settling && SETTLING)}
-      data-settling={settling || undefined}
-    >
+    <span className={className} data-settling={settling}>
       {sign ? '+' : ''}
       {formatCurrency(value, currency)}
     </span>

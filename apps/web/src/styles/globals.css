@@ -23,12 +23,12 @@
 }
 @layer utilities {
   @media (prefers-reduced-motion: no-preference) {
-    .settling {
+    [data-settling] {
       animation: settle 2s ease-in-out infinite;
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .settling {
+    [data-settling] {
       color: var(--color-muted);
     }
   }

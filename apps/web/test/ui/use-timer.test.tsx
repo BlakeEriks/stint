@@ -407,6 +407,38 @@ describe('useTimer — Home settles with the answer', () => {
     );
   });
 
+  it('grows today’s bar by no more than the running entry when /stats is older', async () => {
+    const running = entry({
+      startedAt: new Date(Date.now() - 600_000).toISOString(),
+    });
+    const server = slowServer(
+      summary({ running, serverTime: new Date().toISOString() }),
+    );
+    const { client, wrap } = withClient();
+    const todayKey = localDateKey(new Date(), timeZone);
+    client.setQueryData(
+      keys.stats(timeZone),
+      {
+        week: [{ date: todayKey, seconds: 500, amount: null }],
+      } as unknown as Stats,
+      { updatedAt: Date.now() - 3 * 3600_000 },
+    );
+    const { result } = renderHook(() => useTimer(), { wrapper: wrap });
+    await waitFor(() => expect(result.current.running).not.toBeNull());
+
+    server.hold('POST /timer/stop');
+    act(() => result.current.stop.mutate());
+
+    await waitFor(() =>
+      expect(
+        client.getQueryData<Stats>(keys.stats(timeZone))?.week[0]?.seconds,
+      ).toBeGreaterThan(500),
+    );
+    expect(
+      client.getQueryData<Stats>(keys.stats(timeZone))?.week[0]?.seconds,
+    ).toBeLessThanOrEqual(500 + 601);
+  });
+
   it('adds a started row to the lists whose window holds now', async () => {
     const server = slowServer(
       summary({ serverTime: new Date().toISOString() }),

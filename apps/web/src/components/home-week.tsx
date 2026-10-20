@@ -4,9 +4,7 @@ import { formatCompact, formatCurrency, localDateKey } from '@stint/core';
 import type { Stats } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
-import { useContext } from 'react';
-import { cn } from '@/lib/cn';
-import { Money, SETTLING, Settling } from './money';
+import { Money, useSettling } from './money';
 import {
   FigGroup,
   FigLabel,
@@ -40,7 +38,7 @@ export function Week({
   hues: Map<string, Hue>;
 }) {
   const { week, currency } = stats;
-  const settling = useContext(Settling);
+  const settling = useSettling();
 
   const seconds = week.reduce((sum, d) => sum + d.seconds, 0);
   /* Null amounts are days of purely unrated work: they have a real height and
@@ -119,11 +117,8 @@ export function Week({
                     {d.amount != null ? (
                       <span
                         data-money
-                        data-settling={settling || undefined}
-                        className={cn(
-                          'absolute inset-x-0 bottom-full mb-1.5 text-center type-meta whitespace-nowrap text-subtle',
-                          settling && SETTLING,
-                        )}
+                        data-settling={settling}
+                        className="absolute inset-x-0 bottom-full mb-1.5 text-center type-meta whitespace-nowrap text-subtle"
                       >
                         {formatCurrency(d.amount, currency, { whole: true })}
                       </span>

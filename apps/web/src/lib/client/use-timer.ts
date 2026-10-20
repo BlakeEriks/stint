@@ -190,7 +190,8 @@ export function useTimer() {
   };
 
   /* The running row in every cached list finishes where the readout
-     stopped, and today's bar takes the time since `/stats` measured it, so
+     stopped, and today's bar takes the time since `/stats` measured it, at
+     most the running entry's own, so
      Today's and the week's hours move with the bar. */
   const stop = useOptimisticMutation<void, unknown, Summary>({
     ...settles,
@@ -221,7 +222,7 @@ export function useTimer() {
           return running && fetchedAt
             ? withTodayBar(
                 current as Stats | undefined,
-                sinceSeconds(fetchedAt),
+                Math.min(sinceSeconds(fetchedAt), liveSeconds),
               )
             : current;
         },

@@ -150,7 +150,6 @@ export const StopSettling: Story = {
         canvasElement.querySelectorAll('[data-settling]').length,
       ).toBeGreaterThan(0),
     );
-    // The bar heads too, and every figure still passes AA (the a11y check).
     await expect(
       canvasElement.querySelector('[data-money][data-settling]'),
     ).not.toBeNull();
