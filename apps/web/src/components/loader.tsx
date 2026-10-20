@@ -16,7 +16,7 @@ export function Loader({ tight = false }: { tight?: boolean }) {
     <p
       role="status"
       data-tight={tight || undefined}
-      className={`loader px-4 text-center type-label text-subtle ${
+      className={`loader px-4 text-center type-region-head text-subtle ${
         tight ? 'py-8' : 'py-10'
       }`}
     >

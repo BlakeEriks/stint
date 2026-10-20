@@ -457,7 +457,7 @@ const content = small => `<div class="content-in">
   ${small ? '' : '<p class="c-fig type-figure">31.5 h <span class="type-amount" style="color:var(--text-muted)">$4,725.00</span></p>'}
   <div class="rows">${ROWS.slice(0, small ? 3 : 4).map(([cl, t, d, p]) =>
     `<div><span class="chip" style="background:var(--proj-${p})"></span><span class="n type-control">${cl} · ${t}</span><span class="d type-duration">${d}</span></div>`).join('')}</div></div>`;
-const loader = () => '<div class="ld-still type-label" role="status">Loading</div>';
+const loader = () => '<div class="ld-still type-region-head" role="status">Loading</div>';
 
 function show(panel, state, small) {
   panel.innerHTML = state === 'wait' ? '' : `<div class="slot${state === 'loaded' ? ' content' : ''}">${state === 'loaded' ? content(small) : loader()}</div>`;

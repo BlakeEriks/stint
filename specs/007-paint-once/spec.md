@@ -34,7 +34,7 @@ panel.
 
 - **Under 800ms**: the content area stays blank. The rail, header and dock
   are drawn and never move.
-- **Loading**: the word "Loading" (`type-label`, `text-subtle`) fades in at
+- **Loading**: the word "Loading" (`type-region-head`, `text-subtle`) fades in at
   the center of the card (holding at least 20rem where the card would
   otherwise be only as tall as its title), starting at 600ms over `motion-count`, so
   it's fully in by about 1.5s. Once in, it breathes between full and 40%

@@ -85,7 +85,7 @@ private struct PanelLoader: View {
 
     var body: some View {
         Text("Loading")
-            .role(.label)
+            .role(.regionHead)
             .foregroundStyle(Tokens.Dark.textSubtle)
             // Two modifiers, so the fade and the breath animate apart.
             .opacity(shown ? 1 : 0)
@@ -909,7 +909,7 @@ private extension View {
 /// The type scale as the panel uses it. A view names a role; it never
 /// assembles one.
 ///
-/// Four cases are a generated role verbatim. The rest are a role resampled
+/// Five cases are a generated role verbatim. The rest are a role resampled
 /// at a panel size: 320pt of menu bar is a denser context than a web page, so
 /// `readout` is 26 where `type.timer` is 24 and `label` is 10 where
 /// `type.label` is 11. Tracking is re-derived from the token's own em ratio
@@ -918,7 +918,7 @@ private extension View {
 /// size and stroke weight.
 enum TypeRole {
     case readout, text, body, stat, meta, duration, label, button, code
-    case mark, link, glyph, transport, hint, disclosure
+    case mark, link, glyph, transport, hint, disclosure, regionHead
 
     var token: Typography.Role {
         switch self {
@@ -943,6 +943,8 @@ enum TypeRole {
         case .transport: Typography.support
         case .hint: Typography.control.at(10)
         case .disclosure: Typography.control.at(8, weight: .medium)
+        // The loading word, in the voice of the headings that replace it.
+        case .regionHead: Typography.regionHead
         }
     }
 
