@@ -596,6 +596,8 @@ export const EditingClient: Story = {
     await expect(dialog.queryByRole('button', { name: 'Archive' })).toBeNull();
     await userEvent.type(dialog.getByLabelText(/Email/), 'ap@meridian.test');
     await userEvent.click(dialog.getByRole('button', { name: 'Save changes' }));
+    // An open dialog hides the page, the card with it, from role queries.
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
     await expect(
       await card(page).findByText(/ap@meridian\.test/),
     ).toBeVisible();

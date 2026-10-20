@@ -206,7 +206,13 @@ restores. For a second account:
 ```
 pnpm seed you@example.com            # reset, then seed
 pnpm seed you@example.com --clear    # reset to an empty account
+pnpm seed you@example.com --scenario first-signin   # seed, then a state
 ```
+
+**A scenario is the full seed, then one change** for a screen the seeded
+account never shows. `SEED_SCENARIOS` in `scripts/seed-account.mjs` holds
+them, and `first-signin` gives the account a new signup's settings. A PR's
+preview asks for them by name (`docs/deploying.md` §3d).
 
 **Every run is a reset.** Everything the account holds — entries, invoices,
 projects, clients, payment details — is deleted, and its settings return to a
@@ -226,12 +232,12 @@ expenses waiting on Northwind's next invoice, one recurring.
 
 **It creates the inbox rows that cannot be produced by using the app for ten
 minutes**: an overdue invoice needs 37 days to elapse, a stale draft 7. The
-script backdates them instead. `SCENARIOS` at the top of
+script backdates them instead. The table above `OVERDUE_DAYS` in
 `scripts/seed-account.mjs` lists the four conditions and the thresholds each
 is checked against — and it overshoots each one, so the seed never sits on a
 boundary a timezone could round the wrong way. The default-rate row is the
-one it leaves out, since the seed sets a rate: `--clear` shows it, along with
-the welcome dialog, by leaving a new signup's settings.
+one it leaves out, since the seed sets a rate: `--scenario first-signin`
+shows it, along with the welcome dialog.
 
 It gives the most recent worked day an extra block, because that day's last
 block is the one left running: without it Today lists the timer alone, with no

@@ -6,6 +6,7 @@
  */
 import { test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 
 const url = process.env.SUPABASE_URL;
 const publishable = process.env.SUPABASE_PUBLISHABLE_KEY;
@@ -22,10 +23,14 @@ process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = publishable;
 
 const PR = '990001';
 const EMAIL = `pr-${PR}@preview.test`;
+/* A PR with only a scenario account, so a sign-in that ignored `as` would
+   find no account. */
+const SCENARIO_PR = '990003';
+const SCENARIO_EMAIL = `pr-${SCENARIO_PR}-first-signin@preview.test`;
 
 let GET: typeof import('../src/app/preview/signin/route.ts').GET;
 let PREVIEW_PASSWORD: string;
-let userId: string;
+const userIds: string[] = [];
 
 const admin = (path: string, init: RequestInit = {}) =>
   fetch(`${url}/auth/v1${path}`, {
@@ -45,29 +50,33 @@ before(async () => {
   ({ GET } = await import('../src/app/preview/signin/route.ts'));
   ({ PREVIEW_PASSWORD } = await import('../src/lib/preview.ts'));
 
-  const existing = await admin(
-    `/admin/users?filter=${encodeURIComponent(EMAIL)}`,
-  ).then((r) => r.json());
-  for (const u of existing.users ?? []) {
-    await admin(`/admin/users/${u.id}`, { method: 'DELETE' });
+  for (const email of [EMAIL, SCENARIO_EMAIL]) {
+    const existing = await admin(
+      `/admin/users?filter=${encodeURIComponent(email)}`,
+    ).then((r) => r.json());
+    for (const u of existing.users ?? []) {
+      await admin(`/admin/users/${u.id}`, { method: 'DELETE' });
+    }
+    const created = await admin('/admin/users', {
+      method: 'POST',
+      body: JSON.stringify({
+        email,
+        password: PREVIEW_PASSWORD,
+        email_confirm: true,
+      }),
+    }).then((r) => r.json());
+    assert.ok(
+      created.id,
+      `could not create the test user: ${JSON.stringify(created)}`,
+    );
+    userIds.push(created.id);
   }
-  const created = await admin('/admin/users', {
-    method: 'POST',
-    body: JSON.stringify({
-      email: EMAIL,
-      password: PREVIEW_PASSWORD,
-      email_confirm: true,
-    }),
-  }).then((r) => r.json());
-  userId = created.id;
-  assert.ok(
-    userId,
-    `could not create the test user: ${JSON.stringify(created)}`,
-  );
 });
 
 after(async () => {
-  if (userId) await admin(`/admin/users/${userId}`, { method: 'DELETE' });
+  for (const id of userIds) {
+    await admin(`/admin/users/${id}`, { method: 'DELETE' });
+  }
 });
 
 afterEach(() => {
@@ -137,4 +146,55 @@ test('an unseeded PR says to re-run the seed', async () => {
   const res = await signIn('pr=990002');
   assert.equal(res.status, 502);
   assert.match(await res.text(), /preview-db/);
+});
+
+test('as signs in as the named scenario account', async () => {
+  process.env.VERCEL_ENV = 'preview';
+  assert.equal((await signIn(`pr=${SCENARIO_PR}`)).status, 502);
+  const res = await signIn(`pr=${SCENARIO_PR}&as=first-signin`);
+  assert.equal(res.status, 303);
+  assert.ok(
+    res.headers
+      .getSetCookie()
+      .some((c) => /^sb-[^=]+-auth-token(\.\d+)?=/.test(c)),
+  );
+});
+
+test('an as that is not a scenario name is not an account', async () => {
+  process.env.VERCEL_ENV = 'preview';
+  for (const as of ['', 'First', '-x', 'a@evil.test', 'a b', 'x'.repeat(41)]) {
+    const res = await signIn(`pr=${PR}&as=${encodeURIComponent(as)}`);
+    assert.equal(res.status, 404, as);
+  }
+});
+
+test('an unseeded scenario account says to name it in the PR body', async () => {
+  process.env.VERCEL_ENV = 'preview';
+  const res = await signIn(`pr=${PR}&as=never-seeded`);
+  assert.equal(res.status, 502);
+  assert.match(await res.text(), /Preview accounts:/);
+});
+
+/* The seed's guard and `previewAccount` each hold the name's shape, so a
+   scenario the seed accepts but sign-in refuses fails here. */
+test('every seed scenario is a name sign-in accepts', async () => {
+  const { previewAccount } = await import('../src/lib/preview.ts');
+  const names = execFileSync(
+    'node',
+    [
+      new URL('../../../scripts/seed-account.mjs', import.meta.url).pathname,
+      '--scenarios',
+    ],
+    { encoding: 'utf8' },
+  )
+    .split('\n')
+    .filter(Boolean);
+  assert.ok(names.length > 0);
+  for (const name of names) {
+    assert.equal(
+      previewAccount('1', 'preview', name),
+      `pr-1-${name}@preview.test`,
+      name,
+    );
+  }
 });

@@ -2,7 +2,10 @@ name: preview-db
 
 # Keeps stint-test — the database every Vercel preview reads — in step with
 # the open PRs, and gives each PR its own seeded account, pr-<n>@preview.test,
-# which `/preview/signin?pr=<n>` signs a reviewer into.
+# which `/preview/signin?pr=<n>` signs a reviewer into. A `Preview accounts:
+# first-signin` line in the PR body adds pr-<n>-first-signin@preview.test,
+# seeded in that scenario, which `&as=first-signin` signs into
+# (`scripts/preview-seed.sh`).
 #
 # Every run seeds its PR's account from that branch. It first rebuilds the
 # schema — empty, migrate, reseed every open PR — when:
@@ -21,7 +24,8 @@ name: preview-db
 # on the Preview environment.
 on:
   pull_request:
-    types: [opened, synchronize, reopened, closed]
+    # `edited`: the body names the scenario accounts to seed.
+    types: [opened, synchronize, reopened, edited, closed]
   push:
     branches: [main]
     paths: ['supabase/migrations/**']
@@ -45,10 +49,14 @@ defaults:
 jobs:
   preview-db:
     # Dependabot's PRs cannot read secrets, and their previews need no account.
-    # A PR merged into main is handled by the push it makes.
+    # A PR merged into main is handled by the push it makes. An edit reseeds
+    # only an open PR's changed body: a title edit would reset a reviewer's
+    # accounts for nothing, and a closed PR's merge ref is stale.
     if: >-
       github.actor != 'dependabot[bot]' &&
-      !(github.event.action == 'closed' && github.event.pull_request.merged)
+      !(github.event.action == 'closed' && github.event.pull_request.merged) &&
+      (github.event.action != 'edited' ||
+        (github.event.pull_request.state == 'open' && github.event.changes.body))
     runs-on: ubuntu-latest
     environment:
       name: Preview
@@ -139,7 +147,7 @@ jobs:
 
       - name: Seed this PR's account
         if: env.PR != '' && env.CLOSED != 'true'
-        run: node scripts/seed-account.mjs "pr-$PR@preview.test"
+        run: bash scripts/preview-seed.sh "$PR"
 
       # A reset deleted every account, so each open PR is reseeded from its
       # own branch's seed, which may carry data this one does not.
@@ -152,6 +160,6 @@ jobs:
             [ "$n" = "$PR" ] && continue
             git fetch --quiet --depth 1 origin "$branch" || continue
             git show FETCH_HEAD:scripts/seed-account.mjs > "scripts/.seed-pr-$n.mjs" || continue
-            node "scripts/.seed-pr-$n.mjs" "pr-$n@preview.test" \
+            bash scripts/preview-seed.sh "$n" "scripts/.seed-pr-$n.mjs" \
               || echo "::warning::Could not reseed PR #$n — re-run its preview-db check."
           done
