@@ -1,0 +1,24 @@
+# Contract: `GET /api/v1/stats` week days
+
+Additive: each `week[i]` gains `byClient`. No field is removed or renamed,
+so an older macOS build keeps decoding the response.
+
+```json
+{
+  "week": [
+    {
+      "date": "2026-10-19",
+      "seconds": 27000,
+      "amount": "742.50",
+      "byClient": { "c1a…": 18000, "c2b…": 7200, "": 1800 }
+    }
+  ]
+}
+```
+
+- Billable seconds only; non-billable work counts in `seconds` and not in
+  `byClient`.
+- `''` holds billable work with no client.
+- A running timer counts as it does in `seconds` today.
+- Equal, for the same week and time zone, to `byClient` from
+  `GET /api/v1/calendar?granularity=day`.
