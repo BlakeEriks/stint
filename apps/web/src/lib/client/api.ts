@@ -1,5 +1,6 @@
 'use client';
 
+import { forgetCache } from './query-cache';
 import type { z } from 'zod';
 import type * as schema from '@stint/schema';
 import type { ImportPreview, ImportResult } from '@stint/core';
@@ -97,6 +98,7 @@ async function failure(res: globalThis.Response): Promise<ApiError> {
     typeof window !== 'undefined' &&
     window.location.pathname !== '/signin'
   ) {
+    forgetCache();
     window.location.assign('/signin');
   }
   return error;

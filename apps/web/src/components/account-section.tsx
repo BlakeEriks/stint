@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Field, Section } from './field';
 import { api } from '@/lib/client/api';
 import { keys } from '@/lib/client/query-keys';
+import { forgetCache } from '@/lib/client/query-cache';
 import { browserClient } from '@/lib/client/supabase';
 import { useAccount } from '@/lib/client/use-account';
 
@@ -92,6 +93,7 @@ function DeleteAccountDialog({
       // The auth user is gone, but this browser's JWT still verifies until it
       // expires, so /signin would send it home. Clear it here first.
       await browserClient().auth.signOut({ scope: 'local' });
+      forgetCache();
       window.location.assign('/signin?deleted=1');
     },
   });

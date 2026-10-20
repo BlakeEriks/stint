@@ -134,7 +134,7 @@ const preview: Preview = {
       }, [globals.theme]);
       // No retry: an error story shows its error now, not a second later.
       return (
-        <Providers retry={false}>
+        <Providers retry={false} persist={false}>
           <Story />
         </Providers>
       );

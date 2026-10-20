@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useOptimisticMutation } from './mutations';
+import { forgetCache } from './query-cache';
 import { keys } from './query-keys';
 import { browserClient } from './supabase';
 
 /** Who is signed in, and how to leave. */
 export function useAccount() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [email, setEmail] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,6 +39,7 @@ export function useAccount() {
        components were rendered for a signed-in user, and without the refresh
        a back-navigation would show a cached authenticated page. */
     onSuccess: () => {
+      forgetCache(queryClient);
       router.replace('/signin');
       router.refresh();
     },
