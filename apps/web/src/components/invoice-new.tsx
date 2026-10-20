@@ -53,7 +53,7 @@ import { ExpenseDialog } from './expense-dialog';
 import { ExpenseRow } from './expense-row';
 import { type Charge, ChargeDialog } from './charge-dialog';
 import { PaymentProfileDialog } from './payment-profile-dialog';
-import { BusinessDialog, missingBusiness } from './business-dialog';
+import { missingBusiness, SenderNotice } from './business-dialog';
 import { ClientDialog } from './client-dialog';
 import { summarize } from './payment-profiles';
 import { businessOf, InvoicePreviewCard } from './invoice-preview-card';
@@ -254,7 +254,6 @@ export function NewInvoice() {
     queryFn: () => api.settings(),
   });
   const noSender = missingBusiness(settings);
-  const [askingBusiness, setAskingBusiness] = useState(false);
   const profiles =
     useQuery({
       queryKey: keys.paymentProfiles(),
@@ -404,35 +403,8 @@ export function NewInvoice() {
               focus ring, taken back with a negative margin so the fields
               don't move. */}
           <div className="flex min-w-0 flex-col xl:-mx-1 xl:min-h-0 xl:overflow-y-auto xl:px-1 [&>*]:border-t [&>*]:border-edge-subtle [&>*]:py-5 [&>*:first-child]:border-0 [&>*:first-child]:pt-1">
-            {noSender && settings ? (
-              /* First on the form: it is why Generate is disabled. The
-                 edge is the warning hue the Inbox ranks a fault with. */
-              <div>
-                <div
-                  role="status"
-                  className="flex items-center justify-between gap-3 rounded-lg border border-edge-default border-l-2 border-l-warning px-3 py-2.5"
-                >
-                  <div className="min-w-0">
-                    <p className="type-control text-strong">
-                      Your business details are missing
-                    </p>
-                    <p className="type-support text-muted">
-                      Name and email are needed to generate.
-                    </p>
-                  </div>
-                  <Button type="button" onClick={() => setAskingBusiness(true)}>
-                    Add details
-                  </Button>
-                </div>
-                {askingBusiness ? (
-                  <BusinessDialog
-                    open
-                    onOpenChange={setAskingBusiness}
-                    settings={settings}
-                  />
-                ) : null}
-              </div>
-            ) : null}
+            {/* First on the form: it is why Generate is disabled. */}
+            <SenderNotice settings={settings} />
             <div className="flex flex-col gap-4">
               <Field
                 label="Client"

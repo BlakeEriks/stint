@@ -29,7 +29,7 @@ export const missingBusiness = (s: Settings | undefined) =>
  * Who the invoice is from, asked on New invoice rather than sending the
  * user to Settings. What is saved here is Settings, for every invoice after.
  */
-export function BusinessDialog({
+function BusinessDialog({
   open,
   onOpenChange,
   settings,
@@ -145,5 +145,37 @@ export function BusinessDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Why Generate is disabled, and the way to fix it without leaving the
+ * invoice. The edge is the warning hue the Inbox ranks a fault with.
+ */
+export function SenderNotice({ settings }: { settings: Settings | undefined }) {
+  const [asking, setAsking] = useState(false);
+  if (!settings || !missingBusiness(settings)) return null;
+  return (
+    <div>
+      <div
+        role="status"
+        className="flex items-center justify-between gap-3 rounded-lg border border-edge-default border-l-2 border-l-warning px-3 py-2.5"
+      >
+        <div className="min-w-0">
+          <p className="type-control text-strong">
+            Your business details are missing
+          </p>
+          <p className="type-support text-muted">
+            Name and email are needed to generate.
+          </p>
+        </div>
+        <Button type="button" onClick={() => setAsking(true)}>
+          Add details
+        </Button>
+      </div>
+      {asking ? (
+        <BusinessDialog open onOpenChange={setAsking} settings={settings} />
+      ) : null}
+    </div>
   );
 }

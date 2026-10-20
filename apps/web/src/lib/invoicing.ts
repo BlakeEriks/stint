@@ -168,6 +168,20 @@ export interface InvoiceSettings {
   businessEmail: string | null;
 }
 
+/**
+ * The invoice's sender is its business name and email. New invoice asks for
+ * both before Generate; this is the rule, so no other client can issue an
+ * invoice without them.
+ */
+export function requireSender(s: InvoiceSettings) {
+  if (!s.businessName?.trim() || !s.businessEmail?.trim()) {
+    throw new ApiError(
+      'VALIDATION_FAILED',
+      'Add your business name and email before generating an invoice.',
+    );
+  }
+}
+
 export async function loadSettings(
   db: SupabaseClient,
 ): Promise<InvoiceSettings> {

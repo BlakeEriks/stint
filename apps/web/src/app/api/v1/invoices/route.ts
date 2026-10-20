@@ -10,6 +10,7 @@ import { parseBody, parseQuery } from '@/lib/validate';
 import {
   loadClient,
   loadSettings,
+  requireSender,
   loadBillableEntries,
   loadPaymentProfile,
   loadBillableExpenses,
@@ -79,14 +80,7 @@ export const POST = handle(async (req: Request) => {
     loadSettings(db),
   ]);
 
-  // The invoice's sender. New invoice asks for both before Generate, and the
-  // rule is here so no other client can issue one without them.
-  if (!settings.businessName?.trim() || !settings.businessEmail?.trim()) {
-    throw new ApiError(
-      'VALIDATION_FAILED',
-      'Add your business name and email before generating an invoice.',
-    );
-  }
+  requireSender(settings);
 
   const clientRate =
     client.hourly_rate == null ? null : Number(client.hourly_rate);

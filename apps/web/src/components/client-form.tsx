@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ColorPicker } from './color-picker';
 import { Field } from './field';
+import { RateInput, parseRate } from './rate-input';
 import { api, ApiError, type Client, type ClientInput } from '@/lib/client/api';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
@@ -45,24 +46,7 @@ export function ClientForm({
   );
   const [color, setColor] = useState<string | null>(existing?.color ?? null);
 
-  /* Pending: the server validates the client, and the form stays to say
-     what it refused. */
-  const save = useOptimisticMutation({
-    queryKey: () => keys.clients(),
-    inline: true,
-    mutationFn: (body: ClientInput) =>
-      existing ? api.updateClient(existing.id, body) : api.createClient(body),
-    /* The client's rate is what unbilled work is valued at — and every
-       other rollup reads the same entries through the same rate chain, so
-       refreshing `stats` alone leaves the activity list disagreeing with
-       the figure above it. */
-    invalidate: (qc) =>
-      Promise.all([
-        qc.invalidateQueries({ queryKey: keys.clients() }),
-        invalidateEntryData(qc),
-      ]),
-    onSuccess: onSaved,
-  });
+  const save = useSaveClient(existing, onSaved);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,7 +56,7 @@ export function ClientForm({
       // schema rejects a blank email.
       email: email.trim() || null,
       address: address.trim() || null,
-      hourlyRate: hourlyRate.trim() === '' ? null : Number(hourlyRate),
+      hourlyRate: parseRate(hourlyRate),
       taxRate: taxRate.trim() === '' ? null : Number(taxRate),
       color,
     });
@@ -126,12 +110,8 @@ export function ClientForm({
           hint="Defaults to your standard rate."
           className="flex-1 basis-40"
         >
-          <Input
+          <RateInput
             id="client-rate"
-            type="number"
-            min="0"
-            step="0.01"
-            inputMode="decimal"
             value={hourlyRate}
             onChange={(e) => setHourlyRate(e.target.value)}
             placeholder="150.00"
@@ -198,4 +178,33 @@ export function ClientForm({
       </div>
     </form>
   );
+}
+
+/**
+ * The one save for a client, wherever its fields are asked: this form, and
+ * the welcome dialog's first client.
+ *
+ * Pending: the server validates the client, and the form stays to say what
+ * it refused.
+ */
+export function useSaveClient(
+  existing: Client | undefined,
+  onSaved: (client: Client) => void,
+) {
+  return useOptimisticMutation({
+    queryKey: () => keys.clients(),
+    inline: true,
+    mutationFn: (body: ClientInput) =>
+      existing ? api.updateClient(existing.id, body) : api.createClient(body),
+    /* The client's rate is what unbilled work is valued at — and every
+       other rollup reads the same entries through the same rate chain, so
+       refreshing `stats` alone leaves the activity list disagreeing with
+       the figure above it. */
+    invalidate: (qc) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: keys.clients() }),
+        invalidateEntryData(qc),
+      ]),
+    onSuccess: onSaved,
+  });
 }

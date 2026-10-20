@@ -12,9 +12,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { api, type ClientInput, type Settings } from '@/lib/client/api';
+import { api, type Settings } from '@/lib/client/api';
 import { useOptimisticMutation } from '@/lib/client/mutations';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
+import { useSaveClient } from './client-form';
 import { ColorPicker } from './color-picker';
 import { Field } from './field';
 import { RateInput, isValidRate, parseRate } from './rate-input';
@@ -24,8 +25,7 @@ import { StepDialog } from './step-dialog';
  * A first sign-in's two questions: the default rate, then a first client.
  *
  * Open while `welcomedAt` is null. Every way out stamps it, so it shows once
- * per account, on any device. Nothing is saved that the user did not type:
- * the placeholders are examples, never values (Constitution I).
+ * per account, on any device.
  */
 export function WelcomeDialog() {
   const router = useRouter();
@@ -66,19 +66,7 @@ export function WelcomeDialog() {
   });
   const done = () => welcome.mutate(new Date().toISOString());
 
-  /* Pending: the server validates the client, and the dialog stays to say
-     what it refused. */
-  const createClient = useOptimisticMutation({
-    queryKey: () => keys.clients(),
-    inline: true,
-    mutationFn: (body: ClientInput) => api.createClient(body),
-    invalidate: (qc) =>
-      Promise.all([
-        qc.invalidateQueries({ queryKey: keys.clients() }),
-        invalidateEntryData(qc),
-      ]),
-    onSuccess: done,
-  });
+  const createClient = useSaveClient(undefined, done);
 
   const rate = parseRate(rateText);
   const defaultRate = settings?.defaultHourlyRate ?? null;
