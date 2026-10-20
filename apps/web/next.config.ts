@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process';
 import type { NextConfig } from 'next';
+import { withSentryConfig } from '@sentry/nextjs/config';
 
 /* The commit the bundle was built from, seven characters of it.
  *
@@ -36,4 +37,14 @@ const config: NextConfig = {
   },
 };
 
-export default config;
+/* Uploads the server and browser source maps on a production build, then
+   deletes the browser's so they never ship. With no `SENTRY_AUTH_TOKEN`
+   (locally, in previews) the upload is skipped and the build still passes. */
+export default withSentryConfig(config, {
+  org: 'stint-i5',
+  project: 'javascript-nextjs',
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  widenClientFileUpload: true,
+  silent: !process.env.CI,
+  telemetry: false,
+});
