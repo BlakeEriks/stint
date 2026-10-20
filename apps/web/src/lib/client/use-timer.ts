@@ -1,8 +1,14 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { api, type Summary, type TimeEntry } from './api';
+import {
+  api,
+  type Include,
+  type IncludedName,
+  type Summary,
+  type TimeEntry,
+} from './api';
 import { elapsedSeconds, entrySeconds } from '@stint/core';
 import { keys, invalidateEntryData } from './query-keys';
 import { useOptimisticMutation } from './mutations';
@@ -114,12 +120,19 @@ export function useTimer() {
       todaySeconds,
       serverTime: serverNow(),
     };
-  // One lane: Start then Stop must reach the server in that order.
+  /* One lane: Start then Stop must reach the server in that order. A start
+     and a stop answer with the summary and Home's figures, so those settle
+     with the answer; the rest refetches. */
   const timerPress = {
     queryKey: () => keys.summary(),
-    invalidate: invalidateEntryData,
+    invalidate: (
+      qc: QueryClient,
+      _vars: unknown,
+      settled: readonly IncludedName[],
+    ) => invalidateEntryData(qc, settled),
     serial: 'timer',
   };
+  const settles = { ...timerPress, include: HOME };
 
   /* `id` comes from the caller so the prediction and the row the server
      writes are the same entry.
@@ -132,25 +145,35 @@ export function useTimer() {
      the request is made. */
   const startPress = useOptimisticMutation<
     StartVars & { whileRunning: boolean },
-    TimeEntry,
+    unknown,
     Summary
   >({
-    ...timerPress,
-    mutationFn: ({ whileRunning: _, ...body }) => api.startTimer(body),
+    ...settles,
+    mutationFn: ({ whileRunning: _, ...body }) => api.startTimer(body, HOME),
     pending: (body) => body.whileRunning,
-    predict: (current, body) =>
-      showing(current, {
-        id: body.id,
-        taskName: body.taskName,
-        projectId: body.projectId ?? null,
-        startedAt: serverNow(),
-        endedAt: null,
-        isBillable: body.isBillable ?? true,
-        durationSeconds: null,
-        durationOk: false,
-        rateOverride: null,
-        invoiceId: null,
-      }),
+    predict: (current, body) => showing(current, started(body)),
+    // Today's list shows the new row at once, as the bar does.
+    alsoPredict: [
+      {
+        queryKey: keys.entries(),
+        predict: (current, body, key) =>
+          inWindow(key, serverNow())
+            ? withEntries(current, (rows) => [started(body), ...rows])
+            : current,
+      },
+    ],
+  });
+  const started = (body: StartVars): TimeEntry => ({
+    id: body.id,
+    taskName: body.taskName,
+    projectId: body.projectId ?? null,
+    startedAt: serverNow(),
+    endedAt: null,
+    isBillable: body.isBillable ?? true,
+    durationSeconds: null,
+    durationOk: false,
+    rateOverride: null,
+    invoiceId: null,
   });
   const start = {
     ...startPress,
@@ -161,10 +184,31 @@ export function useTimer() {
       startPress.mutate({ ...vars, whileRunning: running !== null }, options),
   };
 
+  /* The running row in every cached list finishes where the readout
+     stopped, so Today's hours move with the bar. */
   const stop = useOptimisticMutation<void, unknown, Summary>({
-    ...timerPress,
-    mutationFn: () => api.stopTimer(),
+    ...settles,
+    mutationFn: () => api.stopTimer(HOME),
     predict: (current) => showing(current, null),
+    alsoPredict: [
+      {
+        queryKey: keys.entries(),
+        predict: (current) =>
+          running
+            ? withEntries(current, (rows) =>
+                rows.map((e) =>
+                  e.id === running.id
+                    ? {
+                        ...e,
+                        endedAt: serverNow(),
+                        durationSeconds: liveSeconds,
+                      }
+                    : e,
+                ),
+              )
+            : current,
+      },
+    ],
   });
 
   const update = useOptimisticMutation<
@@ -192,6 +236,30 @@ export function useTimer() {
     stop,
     update,
   };
+}
+
+/** What a start or stop asks back: the bar's summary and Home's figures. */
+const HOME: Include = { names: ['summary', 'stats'], tz: timeZone };
+
+/**
+ * A cached `/entries` list with `change` applied to its rows. A single
+ * entry, cached under the same prefix, is left alone.
+ */
+function withEntries(
+  current: unknown,
+  change: (rows: TimeEntry[]) => TimeEntry[],
+): unknown {
+  const list = current as { entries?: TimeEntry[] } | undefined;
+  return Array.isArray(list?.entries)
+    ? { ...list, entries: change(list.entries) }
+    : current;
+}
+
+/** Whether a cached list's `from`–`to` window holds the instant `at`. */
+function inWindow(key: readonly unknown[], at: string): boolean {
+  const window = key[1] as { from?: string; to?: string } | undefined;
+  if (typeof window !== 'object' || !window?.from) return false;
+  return window.from <= at && (!window.to || at <= window.to);
 }
 
 interface StartVars {

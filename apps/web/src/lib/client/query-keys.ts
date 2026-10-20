@@ -1,4 +1,5 @@
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
+import type { IncludedName } from './api';
 
 /**
  * Every cache key in one place.
@@ -146,11 +147,17 @@ export function predictSave(
  * change the same underlying rows, and each of the four views reads them
  * differently — so any one of them refreshed alone disagrees with the rest.
  */
-export function invalidateEntryData(queryClient: QueryClient) {
+export function invalidateEntryData(
+  queryClient: QueryClient,
+  /** What the press's answer already brought (`include`), left alone. */
+  settled: readonly IncludedName[] = [],
+) {
+  const unless = (name: IncludedName, queryKey: QueryKey) =>
+    settled.includes(name) ? null : queryClient.invalidateQueries({ queryKey });
   return Promise.all([
-    queryClient.invalidateQueries({ queryKey: keys.summary() }),
+    unless('summary', keys.summary()),
     queryClient.invalidateQueries({ queryKey: keys.entries() }),
-    queryClient.invalidateQueries({ queryKey: keys.stats() }),
+    unless('stats', keys.stats()),
     queryClient.invalidateQueries({ queryKey: keys.calendar() }),
     /* Starting a timer or saving an entry mints a task name, so a list held
        from before it is one suggestion short of what the user just typed. */

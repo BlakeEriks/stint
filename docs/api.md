@@ -31,6 +31,17 @@ behavior depends on global state.
 `serverTime` is returned so clients can correct for clock skew rather than
 trusting the device clock.
 
+### Including what a write changed
+
+`?include=summary,stats&tz=<IANA zone>` on `POST /timer/start`,
+`POST /timer/stop` and `PATCH /entries/:id` returns those reads beside the
+record, taken after the write in the same request, each in its own `GET`'s
+shape: `{ entry, included: { summary, stats } }`. A client asks for what it
+shows, so its figures settle with the answer rather than a refetch later.
+Start and `PATCH` return the bare entry without it; stop adds `included` to
+its own shape. An unknown name is `422 VALIDATION_FAILED`, before anything is
+written.
+
 ## Entries
 
 | Method | Path | Notes |

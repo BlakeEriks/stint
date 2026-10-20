@@ -9,6 +9,7 @@ import {
   ENTRY_FIELDS,
   type EntryRow,
 } from '@/lib/rows';
+import { askedToInclude, entryWith, readIncluded } from '@/lib/include';
 import { UpdateTimeEntry } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -36,11 +37,14 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
  *
  * The billed-entry lock lives in a database trigger, so it holds no matter
  * which path reaches the row. This translates it into the documented 409.
+ *
+ * `?include=` returns `{ entry, included }` instead of the bare entry.
  */
 export const PATCH = handle(async (req: Request, ctx: Ctx) => {
-  const { db } = await requireSession(req);
+  const { userId, db } = await requireSession(req);
   const { id } = await ctx.params;
   const patch = await parseBody(req, UpdateTimeEntry);
+  const asked = askedToInclude(req);
 
   const update = toColumns(patch, ENTRY_FIELDS);
   if (Object.keys(update).length === 0) {
@@ -97,7 +101,8 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   }
   if (!data) throw new ApiError('ENTRY_NOT_FOUND', 'Entry not found');
 
-  return NextResponse.json(toEntry(data as EntryRow));
+  const included = await readIncluded(asked, db, userId);
+  return NextResponse.json(entryWith(toEntry(data as EntryRow), included));
 });
 
 export const DELETE = handle(async (req: Request, ctx: Ctx) => {

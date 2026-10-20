@@ -160,6 +160,106 @@ test('stop leaves Unbilled where the running entry had it, as /stats has it', as
   assert.deepEqual(stopped.body.unbilled, after.body.unbilled);
 });
 
+test('a timer write returns what it changed, read after it, with ?include', async () => {
+  const { POST: start } = await import(
+    '../src/app/api/v1/timer/start/route.ts'
+  );
+  const { POST: stop } = await import('../src/app/api/v1/timer/stop/route.ts');
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  // A minute back, so the entry is today's in any hour of the UTC day.
+  const startedAt = new Date(Date.now() - 60 * 1000).toISOString();
+  const started = await json(
+    await start(
+      req('/timer/start?include=summary,stats&tz=UTC', {
+        taskName: 'Included',
+        startedAt,
+      }),
+    ),
+  );
+  assert.equal(started.status, 201);
+  assert.equal(started.body.entry.taskName, 'Included');
+  assert.equal(
+    started.body.included.summary.running.id,
+    started.body.entry.id,
+    'the summary is read after the start',
+  );
+  assert.ok(started.body.included.summary.todaySeconds >= 60);
+  const fresh = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(
+    Object.keys(started.body.included.stats).sort(),
+    Object.keys(fresh.body).sort(),
+    'the included stats are /stats',
+  );
+
+  const stopped = await json(
+    await stop(req('/timer/stop?include=summary&tz=UTC', {})),
+  );
+  assert.equal(stopped.status, 200);
+  assert.equal(stopped.body.included.summary.running, null);
+  assert.ok(stopped.body.included.summary.todaySeconds >= 60);
+  assert.deepEqual(
+    Object.keys(stopped.body.included),
+    ['summary'],
+    'only what was asked for',
+  );
+});
+
+test('an entry PATCH returns what it changed with ?include', async () => {
+  const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
+  const { PATCH: patch } = await import(
+    '../src/app/api/v1/entries/[id]/route.ts'
+  );
+
+  const id = '018f0000-0000-7000-8000-0000000000a1';
+  const endedAt = new Date().toISOString();
+  const startedAt = new Date(Date.now() - 3600 * 1000).toISOString();
+  await create(
+    req('/entries', { id, taskName: 'An hour', startedAt, endedAt }),
+  );
+
+  const plain = await json(
+    await patch(req(`/entries/${id}`, { taskName: 'Renamed' }, 'PATCH'), {
+      params: Promise.resolve({ id }),
+    }),
+  );
+  assert.equal(plain.body.id, id, 'without include, the entry alone');
+
+  const edited = await json(
+    await patch(
+      req(
+        `/entries/${id}?include=stats&tz=UTC`,
+        { isBillable: false },
+        'PATCH',
+      ),
+      { params: Promise.resolve({ id }) },
+    ),
+  );
+  assert.equal(edited.status, 200);
+  assert.equal(edited.body.entry.isBillable, false);
+  assert.equal(
+    edited.body.included.stats.unbilled.total,
+    0,
+    'the stats are read after the edit',
+  );
+});
+
+test('an unknown include is refused before the write', async () => {
+  const { POST: start } = await import(
+    '../src/app/api/v1/timer/start/route.ts'
+  );
+
+  const refused = await json(
+    await start(req('/timer/start?include=invoices&tz=UTC', { taskName: 'X' })),
+  );
+  assert.equal(refused.status, 422);
+  assert.equal(refused.body.code, 'VALIDATION_FAILED');
+  const { rows } = await pool.query(
+    'select count(*)::int as n from time_entries',
+  );
+  assert.equal(rows[0].n, 0, 'nothing was started');
+});
+
 test('THE INVARIANT: a second start is rejected with 409 and returns the running entry', async () => {
   const { POST: start } = await import(
     '../src/app/api/v1/timer/start/route.ts'
