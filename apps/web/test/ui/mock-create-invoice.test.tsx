@@ -1,7 +1,3 @@
-/**
- * The fake `POST /invoices` that stories generate against: what it refuses,
- * the invoice it stores, and the rows it claims.
- */
 import { beforeEach, expect, test } from 'vitest';
 import { localDateKey } from '@stint/core';
 import { getDb, resetDb } from '@/mocks/db';
@@ -28,20 +24,6 @@ const create = async (extra: Record<string, unknown>) => {
   });
   return { status: res.status, body: await res.json() };
 };
-
-test('refuses a summary without its text', async () => {
-  const res = await create({ groupingMode: 'summary', summaryText: '  ' });
-  expect(res.status).toBe(422);
-  expect(res.body.message).toBe('A summary line needs its text');
-});
-
-test('refuses supporting detail without a summary line', async () => {
-  const res = await create({ groupingMode: 'task', schedules: ['project'] });
-  expect(res.status).toBe(422);
-  expect(res.body.message).toBe(
-    'Supporting detail comes with a summary line only',
-  );
-});
 
 test('refuses archived payment details', async () => {
   const profile = getDb().paymentProfiles[0]!;

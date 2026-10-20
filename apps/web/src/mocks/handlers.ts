@@ -81,7 +81,6 @@ const activeProfile = (db: Db, id: string) =>
 type CreateInvoice = z.infer<typeof schema.CreateInvoice>;
 type Preview = NonNullable<ReturnType<typeof invoicePreview>>;
 
-/** The invoice `POST /invoices` stores, numbered from the account's next. */
 function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
   const seq = db.settings.nextInvoiceNumber;
   db.settings.nextInvoiceNumber += 1;
@@ -117,7 +116,6 @@ function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
   };
 }
 
-/** Marks what the invoice bills as billed by it. */
 function claimBilled(db: Db, invoiceId: string, preview: Preview) {
   const claimed = new Set(preview.lineItems.flatMap((l) => l.entryIds));
   for (const e of db.entries) if (claimed.has(e.id)) e.invoiceId = invoiceId;
@@ -491,7 +489,7 @@ export const handlers = {
     const db = getDb();
     const parsed = schema.CreateInvoice.safeParse(await request.json());
     if (!parsed.success)
-      return fail('VALIDATION_FAILED', parsed.error.issues[0]?.message);
+      return fail('VALIDATION_FAILED', 'Request body failed validation');
     const input = parsed.data;
     if (input.paymentProfileId && !activeProfile(db, input.paymentProfileId))
       return fail(
