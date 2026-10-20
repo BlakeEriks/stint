@@ -346,8 +346,6 @@ function invoiceItem(
   };
 }
 
-/** The part every entry row shares: it opens the entry, from its title and
-    from its first action. */
 function entryItem(
   e: { entryId: string; taskName: string; seconds: number },
   h: Handlers,
