@@ -73,7 +73,9 @@ function focusSection(section: HTMLElement) {
  * No border, no background, no shadow — the panel carries those, and a second
  * set inside it reads as a card in a card.
  *
- * `status` renders top-right. Each section saves independently, so the
+ * `aside` renders top-right: the section's `SaveIndicator`, a control acting
+ * on the whole section, or, in a section with no fields, its one control,
+ * centered beside the title, and under it on a phone, where the two don't fit. Each section saves independently, so the
  * indicator belongs to the section whose fields are actually in flight rather
  * than to the page.
  */
@@ -81,14 +83,14 @@ export function Section({
   id,
   title,
   description,
-  status,
+  aside,
   children,
 }: {
   /** Anchor target, so another screen can link straight to this section. */
   id?: string;
   title: string;
   description?: string;
-  status?: React.ReactNode;
+  aside?: React.ReactNode;
   children?: React.ReactNode;
 }) {
   /* A callback ref rather than `useRef` + an effect keyed on `id`: the form
@@ -112,14 +114,18 @@ export function Section({
          to, so it does not sit flush against the top of the column. */
       className="scroll-mt-4 border-t border-edge-subtle py-[18px] last:pb-0"
     >
-      <div className="flex items-start justify-between gap-3">
+      <div
+        className={`flex justify-between gap-3 ${children ? 'items-start' : 'items-center max-sm:flex-col max-sm:items-start'}`}
+      >
         <div>
           <h2 className="type-heading text-strong">{title}</h2>
           {description ? (
             <p className="mt-1 type-support text-muted">{description}</p>
           ) : null}
         </div>
-        {status ? <div className="flex-none pt-1">{status}</div> : null}
+        {aside ? (
+          <div className={`flex-none ${children ? 'pt-1' : ''}`}>{aside}</div>
+        ) : null}
       </div>
       {children ? (
         <div className="mt-4 flex flex-col gap-4">{children}</div>
