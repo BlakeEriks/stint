@@ -325,6 +325,9 @@ preference — `.claude/rules/invoicing.md` has the reason.
   for another. Without a pick, the client's profile (`paymentProfileId`),
   else the user's default; a dangling client reference falls back to the
   default rather than leaving an invoice with nothing.
+- `POST` and `PATCH` strip everything but digits from `routingNumber` and
+  store the 9 digits; a number that is not 9 digits passing the ABA checksum
+  is `422 VALIDATION_FAILED` (`validateRoutingNumber()` in `@stint/core`).
 - Deleting is archival, because clients and invoices reference profiles.
 
 `user_settings.payment_notice` is a standing anti-fraud line printed under the

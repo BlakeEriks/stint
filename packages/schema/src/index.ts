@@ -6,7 +6,11 @@
  * Swift models honest, but that generator is not written yet.
  */
 
-import { isValidTimeZone, SUBSCRIPTION_STATUSES } from '@stint/core';
+import {
+  isValidTimeZone,
+  SUBSCRIPTION_STATUSES,
+  validateRoutingNumber,
+} from '@stint/core';
 import { z } from 'zod';
 
 export const uuid = z.uuid();
@@ -945,6 +949,20 @@ export const PaymentProfile = z.object({
   archivedAt: iso.nullable().optional(),
 });
 
+/* Stored as its 9 digits, and refused when they fail the ABA checksum: a
+   malformed number on an invoice risks a returned or misrouted ACH. The
+   database holds the 9 digits too (`payment_profiles_routing_number_digits`);
+   the checksum is only here. */
+const routingNumber = z.string().transform((v, ctx) => {
+  const digits = validateRoutingNumber(v);
+  if (digits) return digits;
+  ctx.addIssue({
+    code: 'custom',
+    message: 'Not a valid routing number: 9 digits that pass the ABA check',
+  });
+  return z.NEVER;
+});
+
 export const CreatePaymentProfile = PaymentProfile.omit({
   id: true,
   isDefault: true,
@@ -952,6 +970,7 @@ export const CreatePaymentProfile = PaymentProfile.omit({
 }).extend({
   id: uuid.optional(),
   isDefault: z.boolean().default(false),
+  routingNumber: routingNumber.nullable().optional(),
 });
 
 /* `isDefault` is re-declared rather than inherited: `.partial()` keeps the
