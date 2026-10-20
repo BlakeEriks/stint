@@ -2270,6 +2270,76 @@ test('a rate of exactly 0 is a rate: real seconds, and 0.00 of money', async () 
   assert.notEqual(today.amount, null, 'and 0 is not the same as unrated');
 });
 
+/* Home's bars are split by client from `/stats` itself, so the panel paints
+   from one response (#383). The split is billable seconds, so each day's
+   parts add up to its bar; and it is the calendar's own rule. */
+test('each week day splits its seconds by client', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const { GET: calendar } = await import('../src/app/api/v1/calendar/route.ts');
+
+  const c = '33333333-0000-4000-8000-000000000030';
+  const p = '33333333-0000-4000-8000-0000000000e0';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Split',100)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  const midnight = new Date();
+  midnight.setUTCHours(0, 0, 0, 0);
+  const at = (s: number) =>
+    new Date(midnight.getTime() + s * 1000).toISOString();
+  const before = await json(await stats(req('/stats?tz=UTC')));
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at,is_billable) values
+       ($1,$2,$3,'billed',$4,$5,true),
+       ($6,$2,$3,'not billed',$5,$7,false),
+       ($8,$2,null,'no project',$7,$9,true)`,
+    [S(40), USER, p, at(1), at(61), S(41), at(121), S(42), at(151)],
+  );
+  const after = await json(await stats(req('/stats?tz=UTC')));
+
+  const today = midnight.toISOString().slice(0, 10);
+  type Day = {
+    date: string;
+    seconds: number;
+    byClient: Record<string, number>;
+  };
+  const day = (r: typeof after) =>
+    (r.body.week as Day[]).find((d) => d.date === today)!;
+  assert.equal(
+    day(after).byClient[c]! - (day(before).byClient[c] ?? 0),
+    60,
+    'the billable minute, under its client',
+  );
+  assert.equal(
+    (day(after).byClient[''] ?? 0) - (day(before).byClient[''] ?? 0),
+    30,
+    'work with no client keys as the empty string',
+  );
+  for (const d of after.body.week as Day[]) {
+    const parts = Object.values(d.byClient).reduce((a, n) => a + n, 0);
+    assert.equal(parts, d.seconds, `${d.date}: the parts add up to the bar`);
+  }
+
+  const week = after.body.week as Day[];
+  const cal = await json(
+    await calendar(
+      req(
+        `/calendar?from=${week[0]!.date}T00:00:00Z&to=${week[6]!.date}T23:59:59.999Z&granularity=day&tz=UTC`,
+      ),
+    ),
+  );
+  const calToday = (cal.body.days as Day[]).find((d) => d.date === today)!;
+  assert.equal(
+    calToday.byClient[c],
+    day(after).byClient[c],
+    'the calendar splits the same way',
+  );
+});
+
 test('the week sees only its own user’s work', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 

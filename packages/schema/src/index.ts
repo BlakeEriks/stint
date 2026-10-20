@@ -708,6 +708,11 @@ export const WeekDay = z.object({
   /** The figure at the bar's head, null when the day resolves no rate. A
    *  day of unrated work has a real height and no money to print. */
   amount: money.nullable(),
+  /**
+   * The day's billable seconds per client id — how the bar is stacked. Work
+   * with no client keys as `''`. The parts add up to `seconds`.
+   */
+  byClient: z.record(z.string(), z.number()),
 });
 
 export const Stats = z.object({

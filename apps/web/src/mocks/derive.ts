@@ -14,6 +14,7 @@ import {
   buildUnbilled,
   buildUnprojected,
   buildWeek,
+  dayByClient,
   type ClientRevenueRow,
   clientNamesFrom,
   COLLECTED_MONTHS,
@@ -75,6 +76,11 @@ function overlapSpans(db: Db, entries: TimeEntry[]) {
 /** A stopped entry's length, or a running one's so far: `entry_seconds`. */
 const secondsOf = (db: Db, e: TimeEntry) =>
   e.durationSeconds ?? entrySeconds(e.startedAt, db.now);
+
+/** Every project's client, as the routes read it for `dayByClient`. */
+function clientMap(db: Db) {
+  return new Map(db.projects.map((p) => [p.id, p.clientId ?? null]));
+}
 
 function clientOf(db: Db, projectId: string | null) {
   const p = db.projects.find((x) => x.id === projectId);
@@ -251,6 +257,11 @@ export function stats(db: Db, tz: string) {
       tz,
     ),
     Array.from({ length: 7 }, (_, i) => addDays(weekStartKey, i)),
+    dayByClient(db.entries, clientMap(db), {
+      from: startOfLocalDayOffset(now, tz, 6).toISOString(),
+      tz,
+      now,
+    }),
   );
 
   const rows = unbilledRows(db);
@@ -371,23 +382,22 @@ export function calendar(
 
   // Totals count stopped work only, so a day holding just a running timer
   // has no row, as in the route; each entry whole, on the day it started.
-  if (q.granularity === 'day')
+  if (q.granularity === 'day') {
+    const split = dayByClient(inRange, clientMap(db), q);
     return [
       ...groupBy(
         inRange.filter((e) => stopped(e) && at(e.startedAt) >= at(q.from)),
         (e) => localDateKey(new Date(e.startedAt), q.tz),
       ),
-    ].map(([date, entries]) => {
-      const byClient: Record<string, number> = {};
-      let totalSeconds = 0;
-      for (const e of entries) {
-        totalSeconds += e.durationSeconds ?? 0;
-        if (!e.isBillable) continue;
-        const client = clientOf(db, e.projectId) ?? '';
-        byClient[client] = (byClient[client] ?? 0) + (e.durationSeconds ?? 0);
-      }
-      return { date, totalSeconds, byClient };
-    });
+    ].map(([date, entries]) => ({
+      date,
+      totalSeconds: entries.reduce(
+        (sum, e) => sum + (e.durationSeconds ?? 0),
+        0,
+      ),
+      byClient: split.get(date) ?? {},
+    }));
+  }
 
   const days = new Map<
     string,

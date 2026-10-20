@@ -4,7 +4,7 @@ import { requireSession } from '@/lib/auth';
 import { parseQuery } from '@/lib/validate';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
 import { selectAll } from '@/lib/select-all';
-import { localDateKey, splitByLocalDay } from '@stint/core';
+import { dayByClient, localDateKey, splitByLocalDay } from '@stint/core';
 import { CalendarQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -54,13 +54,17 @@ export const GET = handle(async (req: Request) => {
       ]),
     );
 
+    const entries = data.map((row) => toEntry(row as EntryRow));
+    /* `byClient` counts billable work only, because its one reader is the
+       week's bar stack and that bar's height is billable seconds; the rule
+       lives in `dayByClient`, which `/stats` shares. */
+    const split = dayByClient(entries, clientOf, { from: q.from, tz: q.tz });
+
     const days = new Map<
       string,
       { date: string; totalSeconds: number; byClient: Record<string, number> }
     >();
-
-    for (const row of data) {
-      const entry = toEntry(row as EntryRow);
+    for (const entry of entries) {
       // A running entry has no duration yet and contributes nothing.
       if (entry.endedAt == null) continue;
       /* Home's bars count a session whole on the day it started (FR-011,
@@ -68,29 +72,13 @@ export const GET = handle(async (req: Request) => {
       if (new Date(entry.startedAt) < new Date(q.from)) continue;
 
       const key = localDateKey(new Date(entry.startedAt), q.tz);
+      /* `totalSeconds` is unfiltered: the calendar draws a day's whole load. */
       const day = days.get(key) ?? {
         date: key,
         totalSeconds: 0,
-        byClient: {},
+        byClient: split.get(key) ?? {},
       };
-      const seconds = entry.durationSeconds ?? 0;
-      day.totalSeconds += seconds;
-
-      /* `byClient` counts BILLABLE work only, because its one reader is the
-         week's bar stack and that bar's height is billable seconds
-         (`revenue_by_day`). Splitting a billable height by every client who
-         worked would give non-billable work a share of a bar it did not
-         raise. `totalSeconds` is unfiltered and stays that way: the calendar
-         draws a day's whole load. */
-      if (entry.isBillable) {
-        /* Internal work keys as the empty string rather than being dropped: a
-           day spent on unbilled work is not an empty day, and the strip must
-           be able to show it. */
-        const client = entry.projectId
-          ? (clientOf.get(entry.projectId) ?? '')
-          : '';
-        day.byClient[client] = (day.byClient[client] ?? 0) + seconds;
-      }
+      day.totalSeconds += entry.durationSeconds ?? 0;
       days.set(key, day);
     }
 
