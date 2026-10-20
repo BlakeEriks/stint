@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Give an account something to look at — including one of every inbox row.
+ * Give an account something to look at — including every inbox row but one.
  *
  * `supabase/seed.sql` belongs to `dev@localhost.test` — the test account, which
  * the e2e suite restores and which you should not be tracking real time in.
@@ -18,6 +18,9 @@
  * **Every inbox scenario is represented**, because the inbox is the hardest
  * surface to exercise by hand: each row needs a condition that takes days to
  * arrive naturally. See `SCENARIOS` below for the four and what each requires.
+ * The exception is the default-rate row, which a seeded account never shows:
+ * `--clear` leaves a new signup's settings, with no rate and the welcome
+ * dialog not yet seen.
  *
  * **Every run is a reset.** Everything the account holds is deleted and its
  * settings return to a new signup's before anything is written — it is a
@@ -78,7 +81,8 @@ const CLIENTS = [
 const INTERNAL = 'Admin and invoicing';
 
 /**
- * One of every inbox row, and what each needs to appear.
+ * The inbox rows the seed raises, and what each needs to appear. The
+ * default-rate row is not one of them; `--clear` shows it.
  *
  * These are the numbers the server checks (`api/v1/stats/route.ts` and
  * `/summary`), not guesses — a row that needs 7 days gets 12, so the seed is
