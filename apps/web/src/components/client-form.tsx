@@ -181,9 +181,6 @@ export function ClientForm({
 }
 
 /**
- * The one save for a client, wherever its fields are asked: this form, and
- * the welcome dialog's first client.
- *
  * Pending: the server validates the client, and the form stays to say what
  * it refused.
  */

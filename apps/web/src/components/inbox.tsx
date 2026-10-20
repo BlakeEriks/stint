@@ -165,7 +165,7 @@ export function Inbox({ stats }: { stats: Stats }) {
   /* The default rate prices every figure on Home, so they all go. The row
      comes back holding what was typed, so it says why itself. */
   const saveRate = useOptimisticMutation({
-    ...rowPress,
+    queryKey: () => keys.stats(),
     onError: () => exit.unmark('rate'),
     inline: true,
     mutationFn: (defaultHourlyRate: number) =>

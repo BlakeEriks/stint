@@ -163,7 +163,6 @@ export interface InvoiceSettings {
   defaultPaymentTerms: string;
   invoiceNumberPrefix: string;
   paymentNotice: string | null;
-  /** The invoice's sender; generation refuses without both. */
   businessName: string | null;
   businessEmail: string | null;
 }

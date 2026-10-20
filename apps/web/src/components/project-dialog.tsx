@@ -193,8 +193,11 @@ export function ProjectDialog({
               id="project-rate"
               value={hourlyRate}
               onChange={(e) => setHourlyRate(e.target.value)}
-              placeholder="Defaults to the client's rate"
+              placeholder="150.00"
             />
+            <p className="type-support text-subtle">
+              Defaults to the client's rate.
+            </p>
           </div>
 
           <label className="flex items-center gap-2.5 type-control text-primary">
