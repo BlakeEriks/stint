@@ -1,10 +1,9 @@
 'use client';
 
-import { useDialog } from '@/lib/client/use-dialog';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { useOptimisticMutation } from '@/lib/client/mutations';
+import { useMarkPaid } from '@/lib/client/use-mark-paid';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@stint/core';
 import { StatusBadge, shortDate } from './invoice-bits';
@@ -71,22 +70,7 @@ export function InvoiceList() {
     .filter((i) => i.status === 'sent')
     .reduce((a, i) => a + i.total, 0);
 
-  const paying = useDialog<string>();
-
-  /* Pending: the dialog that asks for the paid date stays open to say what
-     the server refused. */
-  const markPaid = useOptimisticMutation({
-    queryKey: () => keys.invoices(),
-    inline: true,
-    mutationFn: (args: { id: string; paidAt: string | undefined }) =>
-      api.updateInvoiceStatus(args.id, { status: 'paid', paidAt: args.paidAt }),
-    invalidate: (qc) =>
-      Promise.all([
-        qc.invalidateQueries({ queryKey: keys.invoices() }),
-        qc.invalidateQueries({ queryKey: keys.stats() }),
-      ]),
-    onSuccess: () => paying.onOpenChange(false),
-  });
+  const markPaid = useMarkPaid();
 
   return (
     <Page>
@@ -142,15 +126,10 @@ export function InvoiceList() {
                     clientName={names.get(invoice.clientId)}
                     onMarkPaid={
                       invoice.status === 'sent'
-                        ? () => {
-                            // A previous invoice's rejection must not carry
-                            // over and read as a rejection of this one.
-                            markPaid.reset();
-                            paying.show(invoice.id);
-                          }
+                        ? () => markPaid.show(invoice)
                         : undefined
                     }
-                    busy={markPaid.isPending && paying.subject === invoice.id}
+                    busy={markPaid.isPending(invoice.id)}
                   />
                 </li>
               ))}
@@ -159,16 +138,7 @@ export function InvoiceList() {
         </Listing>
       </Panel>
 
-      <MarkPaidDialog
-        open={paying.open}
-        onOpenChange={paying.onOpenChange}
-        onConfirm={(paidAt) => {
-          if (paying.subject) markPaid.mutate({ id: paying.subject, paidAt });
-        }}
-        pending={markPaid.isPending}
-        error={markPaid.error}
-        sentAt={all.find((i) => i.id === paying.subject)?.sentAt}
-      />
+      <MarkPaidDialog {...markPaid.dialog} />
     </Page>
   );
 }

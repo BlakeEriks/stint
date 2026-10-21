@@ -42,7 +42,7 @@ function invoice(over: Partial<Invoice> = {}): Invoice {
   } as Invoice;
 }
 
-function serve(invoices: Invoice[]) {
+function serve(invoices: Invoice[], status = 200) {
   const calls: Array<{ method: string; path: string; body: unknown }> = [];
   vi.stubGlobal(
     'fetch',
@@ -55,7 +55,7 @@ function serve(invoices: Invoice[]) {
           path,
           body: init?.body ? JSON.parse(String(init.body)) : undefined,
         });
-        return new Response('{}', { status: 200 });
+        return new Response('{}', { status });
       }
       if (path.startsWith('/clients')) {
         return new Response(
@@ -218,6 +218,40 @@ describe('InvoiceList', () => {
     expect(body.paidAt).toBe(
       localDateTimeToInstant('2026-09-03', '00:00', tz).toISOString(),
     );
+  });
+
+  it('closes the dialog once the server accepts the payment', async () => {
+    serve([invoice()]);
+    const user = userEvent.setup();
+    render(<InvoiceList />, { wrapper });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Mark STINT-0001 paid' }),
+    );
+    await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  /* The dialog stays open to say what was refused, and that refusal belongs
+     to the invoice it was for: the next one opens clean. */
+  it('keeps a refusal in the dialog, and not in the next invoice’s', async () => {
+    serve([invoice(), invoice({ id: 'i2', invoiceNumber: 'STINT-0002' })], 422);
+    const user = userEvent.setup();
+    render(<InvoiceList />, { wrapper });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Mark STINT-0001 paid' }),
+    );
+    await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('rejected');
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Mark STINT-0002 paid' }),
+    );
+    await screen.findByLabelText('Date paid');
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('distinguishes an empty account from an empty filter', async () => {
