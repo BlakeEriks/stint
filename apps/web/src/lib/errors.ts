@@ -91,13 +91,30 @@ export function handle<T extends unknown[]>(
         return errorResponse('ENTRY_NOT_FOUND', 'Not found');
       }
       console.error('Unhandled API error:', err);
-      captureException(err);
+      report(err);
       return NextResponse.json(
         { code: 'INTERNAL', message: 'Internal server error' },
         { status: 500 },
       );
     }
   };
+}
+
+/* A route rethrows a Supabase `error`, a plain `{ message, code, ... }`.
+   Sentry titles a non-Error by its top frame's function, a minified letter,
+   so it goes up as an Error with the original beside it. That Error's stack
+   is this function's whichever route failed, so the message joins the
+   fingerprint: without it every database failure groups as one issue. */
+function report(err: unknown) {
+  if (err instanceof Error) {
+    captureException(err);
+    return;
+  }
+  const message = String((err as { message?: unknown } | null)?.message ?? err);
+  captureException(new Error(message), {
+    extra: { thrown: err },
+    fingerprint: ['{{ default }}', message],
+  });
 }
 
 /** Postgres error codes surfaced through PostgREST. */

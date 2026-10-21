@@ -329,6 +329,7 @@ export function stats(db: Db, tz: string) {
       currency,
     ),
     attention: {
+      noDefaultRate: settings.defaultHourlyRate == null,
       overdueInvoices: buildOverdueInvoices(
         open,
         clientNames,

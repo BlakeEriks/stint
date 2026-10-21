@@ -163,6 +163,22 @@ export interface InvoiceSettings {
   defaultPaymentTerms: string;
   invoiceNumberPrefix: string;
   paymentNotice: string | null;
+  businessName: string | null;
+  businessEmail: string | null;
+}
+
+/**
+ * The invoice's sender is its business name and email. New invoice asks for
+ * both before Generate; this is the rule, so no other client can issue an
+ * invoice without them.
+ */
+export function requireSender(s: InvoiceSettings) {
+  if (!s.businessName?.trim() || !s.businessEmail?.trim()) {
+    throw new ApiError(
+      'VALIDATION_FAILED',
+      'Add your business name and email before generating an invoice.',
+    );
+  }
 }
 
 export async function loadSettings(
@@ -171,7 +187,7 @@ export async function loadSettings(
   const { data, error } = await db
     .from('user_settings')
     .select(
-      'default_hourly_rate, currency, default_payment_terms, invoice_number_prefix, payment_notice',
+      'default_hourly_rate, currency, default_payment_terms, invoice_number_prefix, payment_notice, business_name, business_email',
     )
     .maybeSingle();
 
@@ -184,6 +200,8 @@ export async function loadSettings(
     defaultPaymentTerms: (data.default_payment_terms as string) ?? 'Net 30',
     invoiceNumberPrefix: (data.invoice_number_prefix as string) ?? 'INV-',
     paymentNotice: data.payment_notice ?? null,
+    businessName: data.business_name ?? null,
+    businessEmail: data.business_email ?? null,
   };
 }
 

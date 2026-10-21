@@ -16,6 +16,10 @@ Podman, and Rancher Desktop. `pnpm hygiene` and `/copyedit` also need Vale:
 reviews with an official plugin:
 `claude plugin install pr-review-toolkit@claude-plugins-official --scope project`.
 
+**Sentry, for triage.** `claude plugin install sentry@claude-plugins-official`,
+then sign in to Sentry when its first tool call asks. Every session and
+worktree on this Mac can then read Stint's Sentry issues.
+
 Then write `apps/web/.env.development.local`:
 
 ```
@@ -230,13 +234,14 @@ business name, address and email, an address for each client, two sets
 of bank details (the default, and the one Meridian Labs points at), and two
 expenses waiting on Northwind's next invoice, one recurring.
 
-**It creates one of every inbox row**, which is the part that cannot be
-produced by using the app for ten minutes: an overdue invoice needs 37 days
-to elapse, a stale draft 7. The script backdates them
-instead. The table above `OVERDUE_DAYS` in `scripts/seed-account.mjs` lists the four
-conditions and the thresholds each is checked against — and it overshoots each
-one, so the seed never sits on a boundary a timezone could round the wrong
-way.
+**It creates the inbox rows that cannot be produced by using the app for ten
+minutes**: an overdue invoice needs 37 days to elapse, a stale draft 7. The
+script backdates them instead. The table above `OVERDUE_DAYS` in
+`scripts/seed-account.mjs` lists the four conditions and the thresholds each
+is checked against — and it overshoots each one, so the seed never sits on a
+boundary a timezone could round the wrong way. The default-rate row is the
+one it leaves out, since the seed sets a rate: `--scenario first-signin`
+shows it, along with the welcome dialog.
 
 It gives the most recent worked day an extra block, because that day's last
 block is the one left running: without it Today lists the timer alone, with no

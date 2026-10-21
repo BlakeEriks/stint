@@ -25,10 +25,15 @@ struct SnapshotTests {
     @Test func startShowsTheSnapshotBeforeTheFirstFetch() async throws {
         let (model, store) = try await signedInModel()
         store.write(sample(version: store.version))
-        SnapshotStub.delays["/summary"] = 0.3
+        // Held long enough that no runner reaches the answer first.
+        SnapshotStub.delays["/summary"] = 5
 
         model.start()
-        try await Task.sleep(for: .milliseconds(150))
+        // Waited for, not slept for: how long `start` takes to reach the
+        // snapshot depends on the machine.
+        for _ in 0..<100 where model.projects.isEmpty {
+            try await Task.sleep(for: .milliseconds(20))
+        }
         #expect(model.summary == nil)
         #expect(model.projects.map(\.name) == ["Website"])
         #expect(model.clients.map(\.name) == ["Acme"])

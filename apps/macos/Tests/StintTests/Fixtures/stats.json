@@ -13,7 +13,7 @@
       "seconds": 3600,
       "amount": 200,
       "byClient": {
-        "01a15408-6a00-71d2-a556-dea37316e20b": 3600
+        "01a15408-6a00-7e8f-b81e-6e5815d9d3f2": 3600
       }
     },
     {
@@ -160,7 +160,7 @@
     },
     "byClient": [
       {
-        "clientId": "01a15408-6a00-71d2-a556-dea37316e20b",
+        "clientId": "01a15408-6a00-7e8f-b81e-6e5815d9d3f2",
         "clientName": "Northwind",
         "amount": 200
       }
@@ -200,6 +200,7 @@
     ]
   },
   "attention": {
+    "noDefaultRate": false,
     "overdueInvoices": [],
     "staleDrafts": [],
     "unprojected": [],

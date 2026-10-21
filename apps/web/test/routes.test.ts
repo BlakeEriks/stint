@@ -1034,6 +1034,58 @@ test('every settable field round-trips, rather than being silently dropped', asy
   }
 });
 
+/* The Inbox asks for a default rate while there is none. Zero is a rate,
+   so it answers the question; clearing the rate asks it again. */
+test('stats flags an account with no default rate, and zero counts as set', async () => {
+  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const flag = async () =>
+    (await json(await stats(req('/stats?tz=UTC')))).body.attention
+      .noDefaultRate;
+
+  await patch(req('/settings', { defaultHourlyRate: null }, 'PATCH'));
+  assert.equal(await flag(), true);
+
+  await patch(req('/settings', { defaultHourlyRate: 0 }, 'PATCH'));
+  assert.equal(await flag(), false);
+
+  await patch(req('/settings', { defaultHourlyRate: null }, 'PATCH'));
+  assert.equal(await flag(), true, 'clearing it asks again');
+});
+
+/* The welcome dialog shows while `welcomedAt` is null. The signup trigger
+   leaves it null, so only an account made after the migration sees it. */
+test('a new account is not yet welcomed, and welcoming it round-trips', async () => {
+  const { GET: get, PATCH: patch } = await import(
+    '../src/app/api/v1/settings/route.ts'
+  );
+  // The handlers always act as USER, so the signup trigger is read directly.
+  const NEW = '33333333-3333-3333-3333-333333333333';
+  await pool.query('delete from auth.users where id=$1', [NEW]);
+  await pool.query(`insert into auth.users (id,email) values ($1,'new@test')`, [
+    NEW,
+  ]);
+  const { rows } = await pool.query(
+    'select welcomed_at from user_settings where user_id=$1',
+    [NEW],
+  );
+  await pool.query('delete from auth.users where id=$1', [NEW]);
+  assert.equal(rows[0].welcomed_at, null);
+
+  await pool.query(
+    'update user_settings set welcomed_at=null where user_id=$1',
+    [USER],
+  );
+  assert.equal((await json(await get(req('/settings')))).body.welcomedAt, null);
+
+  const at = '2026-10-20T15:00:00.000Z';
+  const after = await json(
+    await patch(req('/settings', { welcomedAt: at }, 'PATCH')),
+  );
+  assert.equal(after.status, 200);
+  assert.equal(new Date(after.body.welcomedAt).toISOString(), at);
+});
+
 // ── calendar ───────────────────────────────────────────────────────
 test('calendar groups entries by LOCAL day', async () => {
   const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
@@ -3435,27 +3487,69 @@ test('health answers 503 when the database does not, so the monitor alerts', asy
   assert.deepEqual(res.body, { ok: false });
 });
 
-test('an unhandled route error reaches Sentry, not only the log', async () => {
+/** What each event `GET /clients` sends Sentry says it is, against `db`. */
+async function sentryEventsFor(db: unknown) {
   const Sentry = await import('@sentry/nextjs');
   const { close } = await import('@sentry/core');
-  const sent: string[] = [];
+  const sent: {
+    type?: string;
+    value?: string;
+    synthetic: boolean;
+    fingerprint?: string[];
+  }[] = [];
   Sentry.init({
     dsn: 'https://key@o0.ingest.sentry.io/0',
     beforeSend(event) {
-      sent.push(event.exception?.values?.[0]?.value ?? '');
+      const { type, value, mechanism } = event.exception?.values?.[0] ?? {};
+      sent.push({
+        type,
+        value,
+        synthetic: mechanism?.synthetic ?? false,
+        fingerprint: event.fingerprint,
+      });
       return null;
     },
   });
   const { GET } = await import('../src/app/api/v1/clients/route.ts');
-  (globalThis as any).__TEST_DB__ = {
-    from() {
-      throw new Error('unexpected');
-    },
-  };
+  (globalThis as any).__TEST_DB__ = db;
   const res = await GET(req('/clients'));
   await close(1000);
   assert.equal(res.status, 500);
-  assert.deepEqual(sent, ['unexpected']);
+  return sent;
+}
+
+test('an unhandled route error reaches Sentry, not only the log', async () => {
+  const sent = await sentryEventsFor({
+    from() {
+      throw new Error('unexpected');
+    },
+  });
+  assert.deepEqual(sent, [
+    {
+      type: 'Error',
+      value: 'unexpected',
+      synthetic: false,
+      fingerprint: undefined,
+    },
+  ]);
+});
+
+test('a database error object reaches Sentry titled and grouped by its message', async () => {
+  const failed = () =>
+    Promise.resolve({
+      data: null,
+      error: { message: 'Project not specified.' },
+    });
+  const query = { select: () => query, order: () => ({ is: failed }) };
+  const sent = await sentryEventsFor({ from: () => query });
+  assert.deepEqual(sent, [
+    {
+      type: 'Error',
+      value: 'Project not specified.',
+      synthetic: false,
+      fingerprint: ['{{ default }}', 'Project not specified.'],
+    },
+  ]);
 });
 
 // ── feedback ───────────────────────────────────────────────────────

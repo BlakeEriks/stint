@@ -250,6 +250,8 @@ export const Settings = z.object({
   nextInvoiceNumber: z.number().int().positive(),
   /** Standing anti-fraud line printed under the invoice payment block. */
   paymentNotice: z.string().max(500).nullable(),
+  /** When the welcome dialog was finished or skipped; null shows it. */
+  welcomedAt: iso.nullable(),
 });
 /**
  * `nextInvoiceNumber` is not client-settable: gapless numbering depends on
@@ -826,6 +828,8 @@ export const Stats = z.object({
     ),
   }),
   attention: z.object({
+    /** The account has no default hourly rate: the Inbox asks for one. */
+    noDefaultRate: z.boolean(),
     overdueInvoices: z.array(
       z.object({
         invoiceId: uuid,
