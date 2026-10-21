@@ -98,7 +98,7 @@ describe('Today', () => {
   });
 });
 
-describe('Today — a row starts its task again', () => {
+describe("Today — a row's start control starts its task again", () => {
   const PROJECT = '01900000-0000-7000-8000-000000000001';
   const at = (h: number) => `2026-09-27T${h}:00:00.000Z`;
   const day: Partial<TimeEntry>[] = [
@@ -110,8 +110,7 @@ describe('Today — a row starts its task again', () => {
   /* The body is what reaches the server, and a wrong one is a new entry on
      the wrong project or billed when it was not, which nobody sees until the
      invoice. */
-  it('starts a new entry with the task name, project and latest billable flag', async () => {
-    vi.setSystemTime(new Date('2026-09-27T16:00:00.000Z'));
+  function serveDay() {
     const posts: unknown[] = [];
     fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
       const path = new URL(String(url), 'http://localhost').pathname;
@@ -146,13 +145,35 @@ describe('Today — a row starts its task again', () => {
         { status: 200 },
       );
     });
+    return posts;
+  }
+
+  /* The row reads as a summary line, so a press on it that started (or,
+     with one running, stopped) a timer was a surprise. */
+  it('starts nothing when the row itself is pressed', async () => {
+    vi.setSystemTime(new Date('2026-09-27T16:00:00.000Z'));
+    const posts = serveDay();
     const view = renderToday();
 
-    const row = await view.findByRole('button', {
+    const name = await view.findByText('Review');
+    await waitFor(() => expect(client.getQueryData(['summary'])).toBeDefined());
+    fireEvent.click(name);
+    fireEvent.click(name.closest('[data-task]') as HTMLElement);
+
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    expect(posts).toHaveLength(0);
+  });
+
+  it('starts a new entry with the task name, project and latest billable flag', async () => {
+    vi.setSystemTime(new Date('2026-09-27T16:00:00.000Z'));
+    const posts = serveDay();
+    const view = renderToday();
+
+    const start = await view.findByRole('button', {
       name: 'Start Review · Acme',
     });
     await waitFor(() => expect(client.getQueryData(['summary'])).toBeDefined());
-    fireEvent.click(row);
+    fireEvent.click(start);
 
     await waitFor(() => expect(posts).toHaveLength(1));
     expect(posts[0]).toMatchObject({

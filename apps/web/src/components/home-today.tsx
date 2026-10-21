@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Play } from 'lucide-react';
 import {
   formatCompact,
   localDateKey,
@@ -23,7 +24,6 @@ import {
 } from '@/lib/client/use-project-colors';
 import { Money } from './money';
 import { FigGroup, FigLabel, PairLine, RegionHead, Pip } from './home-shell';
-import { rowBleed, rowButton } from './row-button';
 
 /**
  * Today: one figure and the day's tasks.
@@ -76,9 +76,8 @@ export function Today({ stats }: { stats: Stats }) {
 
       {/* A fixed ceiling rather than the panel's height: the page is a column
           sized by its content, so there is no bounded height to measure
-          against. Just under five rows, so the cut-off row says it scrolls.
-          Padded out by the rows' bleed, since a scroller clips sideways too. */}
-      <div className="-mx-2 mt-6 flex max-h-48 flex-col overflow-y-auto px-2">
+          against. Just under five rows, so the cut-off row says it scrolls. */}
+      <div className="mt-6 flex max-h-48 flex-col overflow-y-auto">
         {entries.length === 0
           ? /* An empty day keeps its rows rather than collapsing, the same way
                an unworked day in the week's chart keeps its caption: the
@@ -101,16 +100,39 @@ export function Today({ stats }: { stats: Stats }) {
               </div>
             ))
           : tasks.map((t) => (
-              /* The highlight sits a hair inside the rules. */
+              /* A summary line, so pressing it does nothing: a start from
+                 a row that reads as a summary is a surprise. The play button
+                 at its end says what it does. */
               <div
                 key={t.key}
-                className="border-t border-edge-subtle py-0.5 first:border-t-0"
+                data-task={t.key}
+                className="group grid grid-cols-[9px_minmax(0,1fr)_auto_auto] items-center gap-2.5 border-t border-edge-subtle py-2.5 first:border-t-0"
               >
+                {/* Only clients have a color; internal work takes the hollow
+                    ring, which is what having none looks like on a screen
+                    otherwise keyed by client. */}
+                <Pip
+                  color={t.projectId ? (colors.get(t.projectId) ?? null) : null}
+                />
+                <span
+                  className={`type-support truncate ${
+                    t.live ? 'text-primary' : 'text-muted'
+                  }`}
+                >
+                  {t.name}
+                  {t.projectName ? (
+                    <span className="text-subtle"> · {t.projectName}</span>
+                  ) : null}
+                </span>
+                <span className="type-duration text-subtle">
+                  {clock(t.seconds)}
+                </span>
                 {/* Starts the task again as a new entry, as the menu bar's
-                    recent rows do. */}
+                    recent rows do. Shown on hover or focus, and always where
+                    there is no hover; kept in the grid while hidden so the
+                    durations hold their column. */}
                 <button
                   type="button"
-                  data-task={t.key}
                   aria-label={`Start ${t.name}${t.projectName ? ` · ${t.projectName}` : ''}`}
                   /* Pending only while a timer runs: otherwise the timer bar
                      already shows the start. */
@@ -124,29 +146,9 @@ export function Today({ stats }: { stats: Stats }) {
                       isBillable: t.isBillable,
                     })
                   }
-                  className={`${rowButton} ${rowBleed} grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 py-2 focus-visible:ring-inset disabled:opacity-60`}
+                  className="-my-1 grid size-6 place-items-center rounded-md text-subtle opacity-0 hover:bg-surface-hover hover:text-strong focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:ring-inset focus-visible:outline-none group-hover:opacity-100 disabled:opacity-60 [@media(hover:none)]:opacity-100"
                 >
-                  {/* Only clients have a color; internal work takes the hollow
-                      ring, which is what having none looks like on a screen
-                      otherwise keyed by client. */}
-                  <Pip
-                    color={
-                      t.projectId ? (colors.get(t.projectId) ?? null) : null
-                    }
-                  />
-                  <span
-                    className={`type-support truncate ${
-                      t.live ? 'text-primary' : 'text-muted'
-                    }`}
-                  >
-                    {t.name}
-                    {t.projectName ? (
-                      <span className="text-subtle"> · {t.projectName}</span>
-                    ) : null}
-                  </span>
-                  <span className="type-duration text-subtle">
-                    {clock(t.seconds)}
-                  </span>
+                  <Play aria-hidden strokeWidth={1.75} className="size-3.5" />
                 </button>
               </div>
             ))}
