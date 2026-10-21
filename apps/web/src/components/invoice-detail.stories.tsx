@@ -323,3 +323,16 @@ export const OpenedFromList: Story = {
     await expect(page.queryByRole('link', { name: /Subscribe/ })).toBeNull();
   },
 };
+
+/** On its way: one quiet word where it will be, and none of it until all of
+ *  it has arrived. */
+export const Loading: Story = {
+  ...desktop,
+  parameters: stalled('invoice'),
+  play: async ({ canvasElement }) => {
+    const region = within(canvasElement.querySelector('main') as HTMLElement);
+    await expect(await region.findByRole('status')).toHaveTextContent(
+      'Loading',
+    );
+  },
+};

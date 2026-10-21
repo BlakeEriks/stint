@@ -39,6 +39,7 @@ function arrival(
       byMonth: [],
     },
     attention: {
+      noDefaultRate: false,
       overdueInvoices: [],
       staleDrafts: [],
       unprojected: [],

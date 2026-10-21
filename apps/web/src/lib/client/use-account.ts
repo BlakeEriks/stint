@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useOptimisticMutation } from './mutations';
+import { forgetCache } from './query-cache';
 import { keys } from './query-keys';
 import { browserClient } from './supabase';
 
@@ -33,8 +34,12 @@ export function useAccount() {
     /* A full load, not the router: the server components were rendered for
        a signed-in user, and a soft navigation leaves them cached for Back.
        A soft one also commits late, so the 401s of queries still on screen
-       would send a second, hard navigation after it. */
-    onSuccess: () => window.location.replace('/signin'),
+       would send a second, hard navigation after it. The kept cache goes
+       first, so the next account never paints this one's numbers. */
+    onSuccess: () => {
+      forgetCache();
+      window.location.replace('/signin');
+    },
   });
 
   return {

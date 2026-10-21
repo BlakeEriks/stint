@@ -89,10 +89,7 @@ export function useClients(): Map<
   string,
   { id: string; name: string; color: string | null }
 > {
-  const clients = useQuery({
-    queryKey: keys.clients({ archived: true }),
-    queryFn: () => api.clients({ includeArchived: true }),
-  });
+  const clients = useClientsQuery();
 
   return useMemo(
     () =>
@@ -104,6 +101,14 @@ export function useClients(): Map<
       ),
     [clients.data],
   );
+}
+
+/** The query behind `useClients`, for a region that gates on it. */
+export function useClientsQuery() {
+  return useQuery({
+    queryKey: keys.clients({ archived: true }),
+    queryFn: () => api.clients({ includeArchived: true }),
+  });
 }
 
 /**

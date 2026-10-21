@@ -32,6 +32,10 @@ if [ "$TARGET" = "prod" ]; then
     SUPABASE_URL="https://zwoceqydagxxmqoaqgbf.supabase.co"
     ANON_KEY="sb_publishable_dpZCXx5Z71lOUznVCIleJA__YjyUk4e"
     APP_URL="${STINT_APP_URL:-https://app.runstint.com}"
+    # Public, as the publishable key is.
+    SENTRY_DSN="https://7389e4e3270c625aa93d56ef962bc788@o4512226458533888.ingest.us.sentry.io/4512292647141376"
+    EXTRA_ENV="
+        <key>STINT_SENTRY_DSN</key><string>$SENTRY_DSN</string>"
 elif [ "$TARGET" = "preview" ]; then
     # One PR's Vercel preview and its seeded account on stint-test, signed in
     # on launch. `pnpm try-mac <pr>` supplies all three variables.
@@ -91,6 +95,20 @@ BUILD="$(git rev-list --count HEAD)"
 # which app this is before it does.
 echo "bundling $NAME.app $VERSION ($COMMIT, $BUNDLE_ID) for $ENV_LABEL"
 swift build -c "$CONFIG"
+
+# Prod's debug symbols go to Sentry, so its crash stacks read as source. With
+# no token in the Keychain the bundle still builds, and stacks stay addresses.
+if [ "$TARGET" = "prod" ]; then
+    if SENTRY_AUTH_TOKEN="$(security find-generic-password -s dev.stint.sentry-auth-token -w 2>/dev/null)"; then
+        command -v sentry-cli >/dev/null || {
+            echo "error: sentry-cli is missing — brew install getsentry/tools/sentry-cli" >&2; exit 1; }
+        # SwiftPM writes the dSYM beside a release binary; Sentry matches it by UUID.
+        SENTRY_AUTH_TOKEN="$SENTRY_AUTH_TOKEN" sentry-cli debug-files upload \
+            --org stint-i5 --project stint-macos ".build/$CONFIG/Stint.dSYM"
+    else
+        echo "warning: no dev.stint.sentry-auth-token in the Keychain — crash stacks stay unsymbolicated" >&2
+    fi
+fi
 
 APP=".build/$NAME.app"
 rm -rf "$APP"

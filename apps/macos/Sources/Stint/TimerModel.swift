@@ -37,6 +37,7 @@ final class TimerModel: Optimistic {
     private let api: API
     private let auth: Auth
     private let tokens: TokenStore
+    private let snapshots: SnapshotStore
 
     /// Device clock minus server clock, from the last reconcile. Applied to
     /// every calculation rather than to the stored dates, so a later poll
@@ -51,10 +52,11 @@ final class TimerModel: Optimistic {
     /// its answer is older than the screen.
     @ObservationIgnored private var predictions = 0
 
-    init(api: API, auth: Auth, tokens: TokenStore) {
+    init(api: API, auth: Auth, tokens: TokenStore, snapshots: SnapshotStore) {
         self.api = api
         self.auth = auth
         self.tokens = tokens
+        self.snapshots = snapshots
     }
 
     // MARK: Derived
@@ -127,10 +129,17 @@ final class TimerModel: Optimistic {
         guard !started else { return }
         started = true
 
+        let snapshots = snapshots
         Task {
             await tokens.setOnChange { [weak self] session in
+                // Here rather than in `signOut()`, so the sign-out a 401
+                // makes takes the lists with it too. At once, not after the
+                // hop: the next account must never paint them.
+                if session == nil { snapshots.delete() }
+                CrashReporting.setUser(id: session?.userID)
                 Task { @MainActor in
                     self?.isSignedIn = session != nil
+                    if session == nil { self?.forgetAccount() }
                     if session != nil { self?.previewSignInError = nil }
                     self?.email = session?.email
                 }
@@ -143,7 +152,15 @@ final class TimerModel: Optimistic {
                         + "Re-run the PR's preview-db check, which seeds it."
                 }
             }
-            if await tokens.isSignedIn { await refresh() }
+            if await tokens.isSignedIn {
+                if let snapshot = snapshots.read() {
+                    projects = snapshot.projects
+                    clients = snapshot.clients
+                    stats = snapshot.stats
+                    taskNames = snapshot.taskNames
+                }
+                await refresh()
+            }
         }
 
         ticker = Task { [weak self] in
@@ -198,38 +215,57 @@ final class TimerModel: Optimistic {
         await fetch(full: true, recent: recent)
     }
 
+    /// Every request at once, then one assignment, so the panel changes in
+    /// one step and waits on the slowest request rather than their sum.
     private func fetch(full: Bool, recent: Bool) async {
         guard await tokens.isSignedIn else { return }
         do {
             let fetchedAt = Date()
             let generation = predictions
-            let summary = try await api.summary()
-            // A press landed while this was in flight; its own refresh follows.
-            guard generation == predictions, inFlight["timer", default: 0] == 0 else { return }
-            skew = fetchedAt.timeIntervalSince(summary.serverTime)
-            self.summary = summary
-            errorMessage = nil
-            guard full else { return }
-            // Every refresh, so a project added, renamed or archived on the
-            // web reaches the panel on its next open. A failed fetch keeps
-            // the list it had rather than emptying the picker.
-            if let fetched = try? await api.projects() {
-                projects = fetched
+            let api = api
+            async let summaryResult = api.summary()
+            guard full else {
+                let summary = try await summaryResult
+                guard generation == predictions, inFlight["timer", default: 0] == 0 else { return }
+                accept(summary, fetchedAt: fetchedAt)
+                return
+            }
+            // `try?`: a secondary failing keeps the value it had, hiding one
+            // number or list rather than surfacing an error over a working
+            // timer. Every refresh, so a project added, renamed or archived
+            // on the web reaches the panel on its next open.
+            async let projectsResult = try? api.projects()
+            async let clientsResult = try? api.clients()
+            async let statsResult = try? api.stats()
+            // One more than is shown, so dropping the running name still
+            // leaves five.
+            async let taskNamesResult = recent ? try? api.taskNames(limit: Self.recentCount + 1) : nil
+            let (summary, projects, clients, stats, taskNames) = try await (
+                summaryResult, projectsResult, clientsResult, statsResult, taskNamesResult
+            )
+            // A sign-out while this was in flight: its lists are no one's now.
+            guard await tokens.isSignedIn,
+                  generation == predictions, inFlight["timer", default: 0] == 0
+            else { return }
+            accept(summary, fetchedAt: fetchedAt)
+            if let projects {
+                self.projects = projects
                 // A draft project archived on the web would read "No project"
                 // yet still be sent on start, so the draft drops it too.
-                if let id = draftProjectID, !fetched.contains(where: { $0.id == id }) {
+                if let id = draftProjectID, !projects.contains(where: { $0.id == id }) {
                     draftProjectID = nil
                 }
             }
-            if let fetched = try? await api.clients() { clients = fetched }
-            // `try?`: a failure here hides one number rather than surfacing an
-            // error over a working timer.
-            if let fetched = try? await api.stats() { stats = fetched }
-            // One more than is shown, so dropping the running name still
-            // leaves five.
-            if recent, let fetched = try? await api.taskNames(limit: Self.recentCount + 1) {
-                taskNames = fetched
-            }
+            if let clients { self.clients = clients }
+            if let stats { self.stats = stats }
+            if let taskNames { self.taskNames = taskNames }
+            snapshots.write(Snapshot(
+                version: snapshots.version,
+                projects: self.projects,
+                clients: self.clients,
+                stats: self.stats,
+                taskNames: self.taskNames
+            ))
         } catch let error as APIError where error.isUnauthorized {
             await tokens.signOut()
         } catch let error as URLError where error.code == .cancelled {
@@ -240,6 +276,14 @@ final class TimerModel: Optimistic {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// The server's timer. A press that landed while the fetch was in
+    /// flight is guarded against by the caller; its own refresh follows.
+    private func accept(_ summary: Summary, fetchedAt: Date) {
+        skew = fetchedAt.timeIntervalSince(summary.serverTime)
+        self.summary = summary
+        errorMessage = nil
     }
 
     // MARK: Actions
@@ -370,6 +414,12 @@ final class TimerModel: Optimistic {
 
     func signOut() async {
         await tokens.signOut()
+        forgetAccount()
+    }
+
+    /// Drops what the signed-out account showed, on every way out: a 401 as
+    /// well as the button, so the next account never paints it (FR-009).
+    private func forgetAccount() {
         summary = nil
         stats = nil
         taskNames = []

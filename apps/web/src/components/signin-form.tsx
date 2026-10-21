@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { elevatedInputClass } from '@/components/field';
 import { Button } from '@/components/ui/button';
 import { Wordmark } from '@/components/wordmark';
+import { forgetCache } from '@/lib/client/query-cache';
 import { browserClient } from '@/lib/client/supabase';
 
 /**
@@ -23,6 +24,10 @@ export function SignInForm({
   /** The landing page's invite request, where a stranger is sent. */
   inviteUrl: string;
 }) {
+  /* The only way in for the next account, so nothing the last one kept in
+     this browser survives past here (FR-009). */
+  useEffect(() => forgetCache(), []);
+
   const [email, setEmail] = useState('');
   const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'error'>(
     'idle',

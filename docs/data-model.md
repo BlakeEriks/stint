@@ -80,6 +80,10 @@ identity block (business name, address, logo, terms), the invoice
 number sequence, `payment_notice`, and the entry-length thresholds
 (`min_entry_seconds`, `max_entry_hours`).
 
+**`welcomed_at` is null until the welcome dialog is finished or skipped**,
+and null is what shows it. The signup trigger leaves it null; every account
+that existed before the dialog was backfilled as welcomed.
+
 **`max_entry_hours` defaults to 12; `min_entry_seconds` to null.** The long
 side is how a timer left running overnight reaches the inbox once it is
 stopped. Null retires that side of the strange-duration row. Seconds on the

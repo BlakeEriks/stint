@@ -1034,6 +1034,58 @@ test('every settable field round-trips, rather than being silently dropped', asy
   }
 });
 
+/* The Inbox asks for a default rate while there is none. Zero is a rate,
+   so it answers the question; clearing the rate asks it again. */
+test('stats flags an account with no default rate, and zero counts as set', async () => {
+  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const flag = async () =>
+    (await json(await stats(req('/stats?tz=UTC')))).body.attention
+      .noDefaultRate;
+
+  await patch(req('/settings', { defaultHourlyRate: null }, 'PATCH'));
+  assert.equal(await flag(), true);
+
+  await patch(req('/settings', { defaultHourlyRate: 0 }, 'PATCH'));
+  assert.equal(await flag(), false);
+
+  await patch(req('/settings', { defaultHourlyRate: null }, 'PATCH'));
+  assert.equal(await flag(), true, 'clearing it asks again');
+});
+
+/* The welcome dialog shows while `welcomedAt` is null. The signup trigger
+   leaves it null, so only an account made after the migration sees it. */
+test('a new account is not yet welcomed, and welcoming it round-trips', async () => {
+  const { GET: get, PATCH: patch } = await import(
+    '../src/app/api/v1/settings/route.ts'
+  );
+  // The handlers always act as USER, so the signup trigger is read directly.
+  const NEW = '33333333-3333-3333-3333-333333333333';
+  await pool.query('delete from auth.users where id=$1', [NEW]);
+  await pool.query(`insert into auth.users (id,email) values ($1,'new@test')`, [
+    NEW,
+  ]);
+  const { rows } = await pool.query(
+    'select welcomed_at from user_settings where user_id=$1',
+    [NEW],
+  );
+  await pool.query('delete from auth.users where id=$1', [NEW]);
+  assert.equal(rows[0].welcomed_at, null);
+
+  await pool.query(
+    'update user_settings set welcomed_at=null where user_id=$1',
+    [USER],
+  );
+  assert.equal((await json(await get(req('/settings')))).body.welcomedAt, null);
+
+  const at = '2026-10-20T15:00:00.000Z';
+  const after = await json(
+    await patch(req('/settings', { welcomedAt: at }, 'PATCH')),
+  );
+  assert.equal(after.status, 200);
+  assert.equal(new Date(after.body.welcomedAt).toISOString(), at);
+});
+
 // ── calendar ───────────────────────────────────────────────────────
 test('calendar groups entries by LOCAL day', async () => {
   const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
@@ -1071,52 +1123,6 @@ test('calendar groups entries by LOCAL day', async () => {
   assert.equal(sp.body.days[0].totalSeconds, 3600);
 });
 
-/* The week's bar height is billable seconds (`revenue_by_day`), and its stack
-   divides that height. If `byClient` counted non-billable work too, internal
-   time would take a share of a bar it did not raise. */
-test('the day split counts billable work only', async () => {
-  const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
-  const { GET: calendar } = await import('../src/app/api/v1/calendar/route.ts');
-
-  await create(
-    req('/entries', {
-      id: '018f0000-0000-7000-8000-000000000031',
-      taskName: 'Billable',
-      startedAt: '2026-09-14T09:00:00Z',
-      endedAt: '2026-09-14T11:00:00Z',
-    }),
-  );
-  await create(
-    req('/entries', {
-      id: '018f0000-0000-7000-8000-000000000032',
-      taskName: 'Not billable',
-      startedAt: '2026-09-14T13:00:00Z',
-      endedAt: '2026-09-14T14:00:00Z',
-      isBillable: false,
-    }),
-  );
-
-  const res = await json(
-    await calendar(
-      req(
-        '/calendar?from=2026-09-14T00:00:00Z&to=2026-09-15T00:00:00Z&granularity=day&tz=UTC',
-      ),
-    ),
-  );
-
-  const day = res.body.days.find(
-    (d: { date: string }) => d.date === '2026-09-14',
-  );
-  const split = Object.values(day.byClient as Record<string, number>).reduce(
-    (sum: number, n) => sum + (n as number),
-    0,
-  );
-
-  // The day's whole load stays unfiltered: the calendar draws all of it.
-  assert.equal(day.totalSeconds, 10_800);
-  assert.equal(split, 7200, 'but the split leaves the non-billable hour out');
-});
-
 test('the entry view splits an entry that crosses local midnight', async () => {
   const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
   const { GET: calendar } = await import('../src/app/api/v1/calendar/route.ts');
@@ -1148,24 +1154,6 @@ test('the entry view splits an entry that crosses local midnight', async () => {
     (d: { date: string }) => d.date === '2026-07-04',
   ).entries;
   assert.equal(entries.length, 1, 'the entry is drawn on Saturday too');
-
-  const day = await json(
-    await calendar(
-      req(
-        `/calendar?from=2026-07-03T04:00:00Z&to=2026-07-05T04:00:00Z&granularity=day&tz=${tz}`,
-      ),
-    ),
-  );
-  assert.deepEqual(totals(day.body.days), { '2026-07-03': 14_400 });
-
-  const saturdayDay = await json(
-    await calendar(
-      req(
-        `/calendar?from=2026-07-04T04:00:00Z&to=2026-07-05T04:00:00Z&granularity=day&tz=${tz}`,
-      ),
-    ),
-  );
-  assert.deepEqual(saturdayDay.body.days, []);
 });
 
 test('calendar rejects an inverted period', async () => {
@@ -2354,6 +2342,64 @@ test('a rate of exactly 0 is a rate: real seconds, and 0.00 of money', async () 
   assert.notEqual(today.amount, null, 'and 0 is not the same as unrated');
 });
 
+/* Home's bars are split by client from `/stats` itself, so the panel paints
+   from one response. The split is billable seconds, so each day's
+   parts add up to its bar. */
+test('each week day splits its seconds by client', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '33333333-0000-4000-8000-000000000030';
+  const p = '33333333-0000-4000-8000-0000000000e0';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Split',100)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  const midnight = new Date();
+  midnight.setUTCHours(0, 0, 0, 0);
+  const at = (s: number) =>
+    new Date(midnight.getTime() + s * 1000).toISOString();
+  const before = await json(await stats(req('/stats?tz=UTC')));
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at,is_billable) values
+       ($1,$2,$3,'billed',$4,$5,true),
+       ($6,$2,$3,'not billed',$5,$7,false),
+       ($8,$2,null,'no project',$7,$9,true)`,
+    [S(40), USER, p, at(1), at(61), S(41), at(121), S(42), at(151)],
+  );
+  const after = await json(await stats(req('/stats?tz=UTC')));
+
+  const today = midnight.toISOString().slice(0, 10);
+  type Day = {
+    date: string;
+    seconds: number;
+    byClient: Record<string, number>;
+  };
+  const day = (r: typeof after) =>
+    (r.body.week as Day[]).find((d) => d.date === today)!;
+  assert.equal(
+    day(after).byClient[c]! - (day(before).byClient[c] ?? 0),
+    60,
+    'the billable minute, under its client',
+  );
+  assert.equal(
+    (day(after).byClient[''] ?? 0) - (day(before).byClient[''] ?? 0),
+    30,
+    'work with no client keys as the empty string',
+  );
+  for (const d of after.body.week as Day[]) {
+    const parts = Object.values(d.byClient).reduce((a, n) => a + n, 0);
+    // A running session is measured to `now` twice, in SQL and in JS.
+    assert.ok(
+      Math.abs(parts - d.seconds) <= 1,
+      `${d.date}: the parts add up to the bar`,
+    );
+  }
+});
+
 test('the week sees only its own user’s work', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
@@ -3441,27 +3487,69 @@ test('health answers 503 when the database does not, so the monitor alerts', asy
   assert.deepEqual(res.body, { ok: false });
 });
 
-test('an unhandled route error reaches Sentry, not only the log', async () => {
+/** What each event `GET /clients` sends Sentry says it is, against `db`. */
+async function sentryEventsFor(db: unknown) {
   const Sentry = await import('@sentry/nextjs');
   const { close } = await import('@sentry/core');
-  const sent: string[] = [];
+  const sent: {
+    type?: string;
+    value?: string;
+    synthetic: boolean;
+    fingerprint?: string[];
+  }[] = [];
   Sentry.init({
     dsn: 'https://key@o0.ingest.sentry.io/0',
     beforeSend(event) {
-      sent.push(event.exception?.values?.[0]?.value ?? '');
+      const { type, value, mechanism } = event.exception?.values?.[0] ?? {};
+      sent.push({
+        type,
+        value,
+        synthetic: mechanism?.synthetic ?? false,
+        fingerprint: event.fingerprint,
+      });
       return null;
     },
   });
   const { GET } = await import('../src/app/api/v1/clients/route.ts');
-  (globalThis as any).__TEST_DB__ = {
-    from() {
-      throw new Error('unexpected');
-    },
-  };
+  (globalThis as any).__TEST_DB__ = db;
   const res = await GET(req('/clients'));
   await close(1000);
   assert.equal(res.status, 500);
-  assert.deepEqual(sent, ['unexpected']);
+  return sent;
+}
+
+test('an unhandled route error reaches Sentry, not only the log', async () => {
+  const sent = await sentryEventsFor({
+    from() {
+      throw new Error('unexpected');
+    },
+  });
+  assert.deepEqual(sent, [
+    {
+      type: 'Error',
+      value: 'unexpected',
+      synthetic: false,
+      fingerprint: undefined,
+    },
+  ]);
+});
+
+test('a database error object reaches Sentry titled and grouped by its message', async () => {
+  const failed = () =>
+    Promise.resolve({
+      data: null,
+      error: { message: 'Project not specified.' },
+    });
+  const query = { select: () => query, order: () => ({ is: failed }) };
+  const sent = await sentryEventsFor({ from: () => query });
+  assert.deepEqual(sent, [
+    {
+      type: 'Error',
+      value: 'Project not specified.',
+      synthetic: false,
+      fingerprint: ['{{ default }}', 'Project not specified.'],
+    },
+  ]);
 });
 
 // ── feedback ───────────────────────────────────────────────────────
@@ -4165,14 +4253,20 @@ function shape(v: unknown): unknown {
   if (v === null) return 'null';
   if (Array.isArray(v)) return v.map(shape);
   if (typeof v === 'object') {
+    /* A record keyed by id (a week day's `byClient`) has new keys every run;
+       its shape is "id → value", whatever the ids are. */
     return Object.fromEntries(
       Object.keys(v as object)
         .sort()
-        .map((k) => [k, shape((v as Record<string, unknown>)[k])]),
+        .map((k) => [
+          UUID.test(k) ? '<id>' : k,
+          shape((v as Record<string, unknown>)[k]),
+        ]),
     );
   }
   return typeof v;
 }
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 test('every response the macOS app decodes matches its fixture', async (t) => {
   // Only Date: the pool's own timers must keep running.

@@ -71,7 +71,7 @@ route handlers verify it identically.
   a redirect target. `supabase-swift` is not used — the SDK is not needed to
   POST two endpoints. Sign in with Apple via `signInWithIdToken` would need a
   paid developer account, an App ID with the capability and a signed bundle,
-  none of which a SwiftPM executable produces (#69).
+  none of which a SwiftPM executable produces.
 
 ## Live updates
 

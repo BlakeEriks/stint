@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Give an account something to look at — including one of every inbox row.
+ * Give an account something to look at — including every inbox row but one.
  *
  * `supabase/seed.sql` belongs to `dev@localhost.test` — the test account, which
  * the e2e suite restores and which you should not be tracking real time in.
@@ -10,6 +10,7 @@
  *
  *   pnpm seed you@example.com             # reset, then seed
  *   pnpm seed you@example.com --clear     # reset to an empty account
+ *   pnpm seed you@example.com --scenario first-signin   # seed, then a state
  *
  * **The account is created if it does not exist**, so this works before you
  * have ever signed in. Sign in afterwards with a magic link and pick it up
@@ -17,7 +18,10 @@
  *
  * **Every inbox scenario is represented**, because the inbox is the hardest
  * surface to exercise by hand: each row needs a condition that takes days to
- * arrive naturally. See `SCENARIOS` below for the four and what each requires.
+ * arrive naturally. The table above `OVERDUE_DAYS` lists the four conditions.
+ * The exception is the default-rate row, which a seeded account never shows:
+ * `--scenario first-signin` leaves a new signup's settings, with no rate and
+ * the welcome dialog not yet seen.
  *
  * **Every run is a reset.** Everything the account holds is deleted and its
  * settings return to a new signup's before anything is written — it is a
@@ -40,13 +44,47 @@ const LOCAL_PASSWORD = 'devpassword123';
 /** Whether this run had to create the account, for the closing report. */
 let created = false;
 
-const email = process.argv[2];
-if (!email) {
-  console.error('Usage: node scripts/seed-account.mjs <email> [--clear]');
-  process.exit(1);
+/**
+ * States an account can be left in after the full seed, for a screen the
+ * seeded account never shows. A PR asks for one by name in its body
+ * (`Preview accounts: first-signin`), and `preview-db` seeds
+ * `pr-<n>-<name>@preview.test` with it.
+ */
+const SEED_SCENARIOS = {
+  /* A new signup's settings over the seeded data: no default rate, the
+     welcome dialog not yet seen, and every other setting at its default but
+     the invoice counter, which the seeded invoices have already used. */
+  'first-signin': async (userId) => {
+    const { rows } = await db.query(
+      'delete from user_settings where user_id = $1 returning next_invoice_number',
+      [userId],
+    );
+    await db.query(
+      'insert into user_settings (user_id, next_invoice_number) values ($1, $2)',
+      [userId, rows[0].next_invoice_number],
+    );
+  },
+};
+
+if (process.argv[2] === '--scenarios') {
+  console.log(Object.keys(SEED_SCENARIOS).join('\n'));
+  process.exit(0);
 }
 
+const email = process.argv[2];
+const at = process.argv.indexOf('--scenario');
+const scenario = at === -1 ? null : process.argv[at + 1];
 const clearOnly = process.argv.includes('--clear');
+if (
+  !email ||
+  email.startsWith('-') ||
+  (at !== -1 && (clearOnly || !Object.hasOwn(SEED_SCENARIOS, scenario ?? '')))
+) {
+  console.error(
+    `Usage: node scripts/seed-account.mjs <email> [--clear | --scenario <${Object.keys(SEED_SCENARIOS).join(' | ')}>]`,
+  );
+  process.exit(1);
+}
 
 /** The clients the seed writes. */
 const CLIENTS = [
@@ -78,7 +116,8 @@ const CLIENTS = [
 const INTERNAL = 'Admin and invoicing';
 
 /**
- * One of every inbox row, and what each needs to appear.
+ * The inbox rows the seed raises, and what each needs to appear. The
+ * default-rate row is not one of them; `--clear` shows it.
  *
  * These are the numbers the server checks (`api/v1/stats/route.ts` and
  * `/summary`), not guesses — a row that needs 7 days gets 12, so the seed is
@@ -210,8 +249,8 @@ async function findOrCreateUser(address) {
  * This script inserts a confirmed `auth.users` row with a fixed, published
  * password. Against a hosted database that is an account anyone who has read
  * this file can sign in as, so the one hosted database accepted is
- * `stint-test`, and only for the `pr-<n>@preview.test` accounts that
- * `.github/workflows/preview-db.yml` seeds for preview sign-in.
+ * `stint-test`, and only for the `pr-<n>[-<scenario>]@preview.test` accounts
+ * that `.github/workflows/preview-db.yml` seeds for preview sign-in.
  */
 const connectionString = process.env.SEED_DATABASE_URL ?? DEFAULT_URL;
 const target = new URL(connectionString);
@@ -219,10 +258,11 @@ const isLocal =
   ['localhost', '127.0.0.1'].includes(target.hostname) &&
   target.port === '54322';
 const isPreview =
-  isPreviewDb(connectionString) && /^pr-\d+@preview\.test$/.test(email);
+  isPreviewDb(connectionString) &&
+  /^pr-\d+(-[a-z][a-z0-9-]{0,39})?@preview\.test$/.test(email);
 if (!isLocal && !isPreview) {
   console.error(
-    `Refusing to seed ${email} at ${target.hostname}:${target.port || '(default)'} — this script writes a known password, so it runs only against localhost:54322, or stint-test for a pr-<n>@preview.test account.`,
+    `Refusing to seed ${email} at ${target.hostname}:${target.port || '(default)'} — this script writes a known password, so it runs only against localhost:54322, or stint-test for a pr-<n>[-<scenario>]@preview.test account.`,
   );
   process.exit(1);
 }
@@ -270,13 +310,15 @@ try {
 
   /* A default rate, so a client with none has something to inherit, and the
      business block every invoice prints, so a new one is complete without a
-     visit to Settings. */
+     visit to Settings. Welcomed, since a seeded account is not a first
+     sign-in. */
   await db.query(
     `update user_settings set
        default_hourly_rate = 125,
        business_name = 'Harbor Lane Consulting LLC',
        business_address = '1200 Market St, Suite 400\nDenver, CO 80202',
-       business_email = 'billing@harborlane.test'
+       business_email = 'billing@harborlane.test',
+       welcomed_at = now()
      where user_id = $1`,
     [userId],
   );
@@ -652,6 +694,8 @@ try {
     [userId, nextNumber + invoiceNo],
   );
 
+  if (scenario) await SEED_SCENARIOS[scenario](userId);
+
   await db.query('commit');
   console.log(`Seeded ${email}${created ? ' (new account)' : ''}:`);
   console.log(
@@ -666,6 +710,7 @@ try {
   console.log('    overdue invoice    yes');
   console.log('    stale draft        yes');
   console.log(`    unprojected work   yes (${unprojected.length} entries)`);
+  if (scenario) console.log(`\n  Then left as: ${scenario}`);
   if (created) {
     console.log(
       `\n  Sign in at /signin and click the link in Mailpit (:54324).`,

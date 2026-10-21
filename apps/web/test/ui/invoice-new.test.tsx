@@ -389,21 +389,23 @@ describe('NewInvoice', () => {
     );
   });
 
-  it('holds Generate until the settings answer, so Due is never sent blank', async () => {
+  /* The form paints once, with its terms in place, so Generate is
+     never there to press before Due can be filled. */
+  it('holds the form until the settings answer, so Due is never sent blank', async () => {
     serve();
     let release = () => {};
     holdSettings = new Promise((r) => {
       release = r;
     });
-    const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
-    await chooseClient(user);
-    await within(card()).findByText('Design review');
-    expect(generate()).toBeDisabled();
+    expect(await screen.findByRole('status')).toHaveTextContent('Loading');
+    expect(screen.queryByRole('button', { name: /generate/i })).toBeNull();
 
     release();
 
-    await waitFor(() => expect(generate()).toBeEnabled());
+    expect(
+      await screen.findByRole('button', { name: /generate/i }),
+    ).toBeInTheDocument();
   });
 
   it('generates only when pressed, dated today where the user is', async () => {

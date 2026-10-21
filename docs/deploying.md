@@ -96,7 +96,8 @@ It deliberately sets **no `outputDirectory`**: Next.js detection finds
 failed a build that had otherwise succeeded.
 
 Still set in the dashboard:
-- Environment variables, none of them sensitive but billing's three secrets:
+- Environment variables, none of them sensitive but the Sentry upload token and
+  billing's three secrets:
   - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` —
     production's project for Production, `stint-test`'s for Preview
     (§3d). A preview never reaches production data.
@@ -112,6 +113,10 @@ Still set in the dashboard:
   - `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN`, both the same DSN, for
     Production only (§3c): the server reports with the first, the browser
     with the second. Unset, Sentry stays off, so a preview never reports.
+  - `SENTRY_AUTH_TOKEN` (**sensitive**), for Production only: an
+    organization auth token from Sentry's **Settings → Auth Tokens**. The
+    build uploads its source maps with it, so stacks read as source. Unset,
+    the build skips the upload and stacks stay minified.
 
 Billing, for Production only (Preview uses Stripe test-mode keys if billing
 is being tried there). **Setting them is the launch:** with all three set,
@@ -311,7 +316,8 @@ success teaches you to stop reading it.
 | Release failed, or its plan failed | ❌ with the run link | `release.yml`, `report` |
 | Backup failed, or a day passed without one | healthchecks.io's own | healthchecks.io → Discord |
 | App or database down, and its recovery | UptimeRobot's own | UptimeRobot → Discord |
-| A new unhandled error in the server or the browser | Sentry's own, with the stack trace, minified for the browser | Sentry → Discord |
+| A new unhandled error in the server or the browser | Sentry's own, with the stack trace | Sentry → Discord |
+| A new crash or error in the macOS app | Sentry's own, with the stack trace | Sentry → Discord |
 
 Never posted: a release with no migration going live, a rejection or
 cancellation (you did it), a backup that worked (healthchecks.io is quiet
@@ -327,17 +333,41 @@ What each new alert asks of you:
 - **Down.** Check the Vercel and Supabase status pages, then roll back or
   Force Promote (§3). A Supabase project paused for being idle, or an
   expired certificate or domain, shows up here too.
-- **New error.** File it as a `bug` + `urgent` issue (`docs/sdlc.md`). Sentry
-  alerts on a new issue only, never on each occurrence.
+- **New error.** Paste the alert's link into a session and say "triage." It
+  diagnoses the issue with the Sentry plugin's `sentry-debug-issue` skill
+  (`docs/local-dev.md`), then stops at one of two answers: a `bug` + `urgent`
+  issue holding the cause, the stack frame in our code, and the Sentry short
+  id (`STINT-12`); or that the error isn't ours (a browser extension, a bot),
+  and you ignore it in Sentry. Once the fix is live, resolve the Sentry issue
+  by hand, so a recurrence alerts as a regression. Sentry alerts on a new
+  issue only, never on each occurrence.
 
 **UptimeRobot** polls `https://app.runstint.com/api/v1/health` every 5
 minutes. The health route asks Postgres for a row, so it fails when the
 database does, not only when Vercel does. The monitor alerts after two
 failures in a row, and posts the recovery.
 
-**Sentry** is the `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN` (§2), from a
-Next.js project on the free plan, with one alert rule: a new issue posts to
-Discord.
+**Sentry** is the `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN`, plus the
+`SENTRY_AUTH_TOKEN` that uploads source maps (§2), from a Next.js project on
+the free plan, with one alert rule: a new issue posts to Discord.
+
+The macOS app reports to a second project in the same organization, set up
+once:
+
+1. **Projects → Create Project**, platform Apple macOS, slug `stint-macos`,
+   added to the existing "Notify via Discord" alert rule.
+2. Its **Security & Privacy → Prevent Storing of IP Addresses** on: events
+   carry the user id and nothing else about the user.
+3. Its DSN goes in `SENTRY_DSN` in `apps/macos/bundle.sh`. It is public, and
+   only the `prod` target writes it, so no other build reports.
+4. An organization auth token from **Settings → Auth Tokens**, in the
+   Keychain, and `sentry-cli`, so `bundle.sh release prod` uploads the dSYM
+   and stacks read as source:
+
+   ```bash
+   brew install getsentry/tools/sentry-cli
+   security add-generic-password -s dev.stint.sentry-auth-token -a stint -w <token>
+   ```
 
 The webhook is the `DISCORD_ALERTS_WEBHOOK` repository secret, used by
 `release.yml` and nowhere else: anyone holding it can post to the channel.
@@ -356,6 +386,15 @@ a PR's migrations change the schema — or migrations land on main — empties
 `stint-test`, migrates it, and reseeds every open PR. Run it by hand after
 closing a migration PR unmerged. The previews share one schema, so **one open
 PR at a time may carry a migration**.
+
+**A PR asks for an account in a named state with a line in its body**:
+`Preview accounts: first-signin`. Each name is a `SEED_SCENARIOS` entry in
+that branch's seed script, seeded as `pr-<n>-<name>@preview.test` beside the
+usual account, and `/preview/signin?pr=<n>&as=<name>` signs into it. Editing
+the body reseeds. An unknown name fails the `preview-db` check, so a typo
+shows on the PR. Add a scenario to the seed script rather than editing
+`stint-test` by hand: a scenario is reviewed, runs in CI, and the next PR
+can ask for it too.
 
 - **GitHub** → Environments → **Preview** → secret `PREVIEW_DB_URL`:
   `stint-test`'s session pooler string. The direct connection is IPv6-only,

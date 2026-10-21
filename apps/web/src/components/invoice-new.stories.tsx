@@ -11,6 +11,7 @@ import {
   phone,
   screen,
   skipping,
+  stalled,
   wide,
 } from '@/mocks/screen';
 import { NewInvoice } from './invoice-new';
@@ -366,6 +367,9 @@ export const NoSummaryLine: Story = {
       await page.findByText('Give the summary line its text.'),
     ).toBeVisible();
     await expect(
+      page.getByLabelText(/Summary line/),
+    ).toHaveAccessibleDescription('Give the summary line its text.');
+    await expect(
       page.getByRole('button', { name: 'Generate invoice' }),
     ).toBeDisabled();
   },
@@ -596,6 +600,8 @@ export const EditingClient: Story = {
     await expect(dialog.queryByRole('button', { name: 'Archive' })).toBeNull();
     await userEvent.type(dialog.getByLabelText(/Email/), 'ap@meridian.test');
     await userEvent.click(dialog.getByRole('button', { name: 'Save changes' }));
+    // An open dialog hides the page, the card with it, from role queries.
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
     await expect(
       await card(page).findByText(/ap@meridian\.test/),
     ).toBeVisible();
@@ -642,4 +648,115 @@ export const NewPaymentDetails: Story = {
 export const NewPaymentDetailsPhone: Story = {
   ...NewPaymentDetails,
   ...phone,
+};
+
+/** On its way: one quiet word where it will be, and none of it until all of
+ *  it has arrived. */
+export const Loading: Story = {
+  ...desktop,
+  parameters: stalled('settings'),
+  play: async ({ canvasElement }) => {
+    const region = within(canvasElement.querySelector('main') as HTMLElement);
+    await expect(await region.findByRole('status')).toHaveTextContent(
+      'Loading',
+    );
+  },
+};
+
+const noSender = account((db: Db) => {
+  db.settings.businessName = null;
+  db.settings.businessEmail = null;
+});
+
+/** No business name or email: the notice says so, Generate waits, and the
+ *  preview marks where the sender prints. */
+export const DetailsMissing: Story = {
+  ...desktop,
+  parameters: noSender,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(
+      await page.findByText('Your business details are missing'),
+    ).toBeVisible();
+    await expect(
+      page.getByText('Your business name and email go here'),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Generate invoice' }),
+    ).toBeDisabled();
+  },
+};
+
+export const DetailsMissingPhone: Story = { ...DetailsMissing, ...phone };
+
+/** Add details opens the dialog; saving fills the preview and frees Generate. */
+export const AddDetails: Story = {
+  ...desktop,
+  parameters: noSender,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Add details' }),
+    );
+    const dialog = await page.findByRole('dialog', {
+      name: 'Who is this invoice from?',
+    });
+    await waitFor(() => expect(dialog).toBeVisible());
+    const form = within(dialog);
+    await expect(form.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await userEvent.type(
+      form.getByRole('textbox', { name: /Business name/ }),
+      'Sam Rivera Consulting',
+    );
+    await userEvent.type(
+      form.getByRole('textbox', { name: /Email/ }),
+      'sam@lakeline.test',
+    );
+    await userEvent.click(form.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+    await expect(
+      page.queryByText('Your business details are missing'),
+    ).toBeNull();
+    await expect(page.getByText('Sam Rivera Consulting')).toBeVisible();
+    await settled(page);
+  },
+};
+
+/** The save is refused: the dialog stays with what was typed, and why. */
+export const DetailsSaveFails: Story = {
+  ...desktop,
+  parameters: {
+    ...noSender,
+    msw: {
+      handlers: {
+        updateSettings: http.patch(handlers.updateSettings.info.path, () =>
+          Response.json(
+            { code: 'VALIDATION_FAILED', message: 'Enter a valid email.' },
+            { status: 422 },
+          ),
+        ),
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Add details' }),
+    );
+    const dialog = await page.findByRole('dialog', {
+      name: 'Who is this invoice from?',
+    });
+    await waitFor(() => expect(dialog).toBeVisible());
+    const form = within(dialog);
+    await userEvent.type(
+      form.getByRole('textbox', { name: /Business name/ }),
+      'Sam Rivera Consulting',
+    );
+    await userEvent.type(form.getByRole('textbox', { name: /Email/ }), 'sam@x');
+    await userEvent.click(form.getByRole('button', { name: 'Save' }));
+    await expect(await form.findByText('Enter a valid email.')).toBeVisible();
+    await expect(
+      form.getByRole('textbox', { name: /Business name/ }),
+    ).toHaveValue('Sam Rivera Consulting');
+  },
 };

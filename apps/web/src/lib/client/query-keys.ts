@@ -16,8 +16,6 @@ export const keys = {
   entry: (id: string) => ['entries', id] as const,
   stats: (tz?: string) =>
     tz ? (['stats', tz] as const) : (['stats'] as const),
-  activity: (tz?: string, days?: number) =>
-    tz ? (['activity', tz, days] as const) : (['activity'] as const),
   calendar: (weekStart?: string, tz?: string) =>
     weekStart
       ? (['calendar', weekStart, tz] as const)
@@ -154,7 +152,6 @@ export function invalidateEntryData(queryClient: QueryClient) {
     queryClient.invalidateQueries({ queryKey: keys.entries() }),
     queryClient.invalidateQueries({ queryKey: keys.stats() }),
     queryClient.invalidateQueries({ queryKey: keys.calendar() }),
-    queryClient.invalidateQueries({ queryKey: keys.activity() }),
     /* Starting a timer or saving an entry mints a task name, so a list held
        from before it is one suggestion short of what the user just typed. */
     queryClient.invalidateQueries({ queryKey: keys.taskNames() }),

@@ -41,7 +41,8 @@ delete from payment_profiles
 -- `next_invoice_number` would issue STINT-0003 where the suite expects
 -- STINT-0001 to be the first thing it sees.
 update user_settings
-   set next_invoice_number = 1
+   set next_invoice_number = 1,
+       welcomed_at = coalesce(welcomed_at, now())
  where user_id = '00000000-0000-4000-8000-000000000001';
 
 commit;

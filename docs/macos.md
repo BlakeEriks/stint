@@ -72,6 +72,10 @@ pkill -f 'Stint.app/Contents/MacOS/Stint'
 `bundle.sh` — all three are public, and the app is their only local reader.
 `STINT_APP_URL` overrides the origin for one build.
 
+**Only `prod` reports crashes**, to Sentry's `stint-macos` project: it alone
+carries the DSN, and it uploads its dSYM when the Keychain holds the token
+(`docs/deploying.md` §3c).
+
 **`preview` is one PR's**, built by `pnpm try-mac <pr>`: the branch, checked
 out in `../stint-review`, pointed at its Vercel preview, and signed in on
 launch as its seeded account (`docs/deploying.md` §3d). It installs as
@@ -150,6 +154,12 @@ opened after a night shut would otherwise come back signed out.
   from `user_settings` would make the bar flicker at launch. Launch-at-login
   is read back from `SMAppService`, which owns that state; keeping a second
   copy is how the two disagree.
+- **The snapshot (`apps/macos/Sources/Stint/Snapshot.swift`) is the last answer**, kept in the
+  user's Caches folder per backend host, so a
+  relaunch paints projects, clients, figures and recent tasks at once. Never
+  the timer: the server owns it, and the panel shows "Loading" until it
+  answers. A snapshot from another app version is discarded, and every
+  sign-out deletes it, a 401 included.
 
 **The API models are hand-written and checked against fixtures.** The
 route suite saves each response the app reads in
