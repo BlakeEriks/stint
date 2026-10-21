@@ -317,6 +317,7 @@ success teaches you to stop reading it.
 | Backup failed, or a day passed without one | healthchecks.io's own | healthchecks.io → Discord |
 | App or database down, and its recovery | UptimeRobot's own | UptimeRobot → Discord |
 | A new unhandled error in the server or the browser | Sentry's own, with the stack trace | Sentry → Discord |
+| A new crash or error in the macOS app | Sentry's own, with the stack trace | Sentry → Discord |
 
 Never posted: a release with no migration going live, a rejection or
 cancellation (you did it), a backup that worked (healthchecks.io is quiet
@@ -349,6 +350,24 @@ failures in a row, and posts the recovery.
 **Sentry** is the `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN`, plus the
 `SENTRY_AUTH_TOKEN` that uploads source maps (§2), from a Next.js project on
 the free plan, with one alert rule: a new issue posts to Discord.
+
+The macOS app reports to a second project in the same organization, set up
+once:
+
+1. **Projects → Create Project**, platform Apple macOS, slug `stint-macos`,
+   added to the existing "Notify via Discord" alert rule.
+2. Its **Security & Privacy → Prevent Storing of IP Addresses** on: events
+   carry the user id and nothing else about the user.
+3. Its DSN goes in `SENTRY_DSN` in `apps/macos/bundle.sh`. It is public, and
+   only the `prod` target writes it, so no other build reports.
+4. An organization auth token from **Settings → Auth Tokens**, in the
+   Keychain, and `sentry-cli`, so `bundle.sh release prod` uploads the dSYM
+   and stacks read as source:
+
+   ```bash
+   brew install getsentry/tools/sentry-cli
+   security add-generic-password -s dev.stint.sentry-auth-token -a stint -w <token>
+   ```
 
 The webhook is the `DISCORD_ALERTS_WEBHOOK` repository secret, used by
 `release.yml` and nowhere else: anyone holding it can post to the channel.

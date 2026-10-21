@@ -28,6 +28,8 @@ enum Config {
     /// Vercel's protection bypass, which a preview deployment asks of every request.
     static let vercelBypass = ProcessInfo.processInfo.environment["STINT_VERCEL_BYPASS"]
 
+    static let sentryDSN = ProcessInfo.processInfo.environment["STINT_SENTRY_DSN"]
+
     /// The panel in an ordinary window instead of the menu bar, for QA that
     /// never opens the menu bar. `./qa.sh` sets it.
     static let windowed = ProcessInfo.processInfo.environment["STINT_WINDOW"] != nil
@@ -40,6 +42,7 @@ enum Config {
 @main
 enum Launch {
     static func main() {
+        CrashReporting.start()
         Config.windowed ? WindowedApp.main() : StintApp.main()
     }
 

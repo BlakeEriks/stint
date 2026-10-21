@@ -6,6 +6,7 @@ struct Session: Codable, Equatable {
     let refreshToken: String
     let expiresAt: Date
     let email: String?
+    let userID: String?
 
     enum CodingKeys: String, CodingKey {
         case accessToken = "access_token"
@@ -15,7 +16,10 @@ struct Session: Codable, Equatable {
         case user
     }
 
-    private struct User: Codable { let email: String? }
+    private struct User: Codable {
+        let id: String?
+        let email: String?
+    }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -28,7 +32,9 @@ struct Session: Codable, Equatable {
         } else {
             expiresAt = Date().addingTimeInterval((try? c.decode(Double.self, forKey: .expiresIn)) ?? 3600)
         }
-        email = (try? c.decode(User.self, forKey: .user))?.email
+        let user = try? c.decode(User.self, forKey: .user)
+        email = user?.email
+        userID = user?.id
     }
 
     func encode(to encoder: Encoder) throws {
@@ -36,7 +42,7 @@ struct Session: Codable, Equatable {
         try c.encode(accessToken, forKey: .accessToken)
         try c.encode(refreshToken, forKey: .refreshToken)
         try c.encode(expiresAt.timeIntervalSince1970, forKey: .expiresAt)
-        try c.encode(User(email: email), forKey: .user)
+        try c.encode(User(id: userID, email: email), forKey: .user)
     }
 }
 

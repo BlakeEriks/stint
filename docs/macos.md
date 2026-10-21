@@ -72,6 +72,10 @@ pkill -f 'Stint.app/Contents/MacOS/Stint'
 `bundle.sh` — all three are public, and the app is their only local reader.
 `STINT_APP_URL` overrides the origin for one build.
 
+**Only `prod` reports crashes**, to Sentry's `stint-macos` project: it alone
+carries the DSN, and it uploads its dSYM when the Keychain holds the token
+(`docs/deploying.md` §3c).
+
 **`preview` is one PR's**, built by `pnpm try-mac <pr>`: the branch, checked
 out in `../stint-review`, pointed at its Vercel preview, and signed in on
 launch as its seeded account (`docs/deploying.md` §3d). It installs as
