@@ -1,6 +1,19 @@
-## What and why
+## Why
 
-<!-- The change, and what it is for. Link an issue if there is one. -->
+<!-- One or two plain sentences: what goes wrong or is missing today, and
+     who it hurts. No code names. Readable without opening the issue: if
+     the reader stops here, they still know whether they want this. Then
+     `Closes #<n>.` -->
+
+## What changes
+
+<!-- Three bullets at most, each an outcome someone notices, not how it's
+     built. -->
+
+## Needs you
+
+<!-- Calls you might make differently, anything to do before merging, and
+     risks. "Nothing." if none. -->
 
 ## Try it
 
@@ -31,3 +44,11 @@ Data back to the seed: re-run this PR's **preview-db** check.
 - [ ] Verified by running it, not only by the suite passing.
 
 <!-- Delete any line that does not apply. -->
+
+<details><summary>How it works</summary>
+
+<!-- The mechanism, alternatives turned down, edge cases, and how it was
+     verified: commands run and what they showed, and what nobody has seen
+     yet. -->
+
+</details>

@@ -188,12 +188,15 @@ the code; a finding that is wrong is reported back with the reason.
 
 ## Ship
 
-On `ship` for a new PR: push, and `gh pr create` with `Closes #<n>`, what
-changed, how it was verified — only commands you ran this round and what
-they showed, and plainly what nobody has seen yet, like the menu bar — any
-call Blake might make differently (a feature lists every decision marked
-"(decided autonomously)"), and the **Try it** section of
-`.github/pull_request_template.md`, filled in as its comment says. `<n>` there is the number `gh pr create` prints — never the
+On `ship` for a new PR: push, and `gh pr create` with a body that follows
+`.github/pull_request_template.md`, each section filled in as its comment
+says. **Why** stands on its own: Blake should know whether he wants the
+change without opening the issue, so restate the problem in plain words
+even when the issue doesn't. **Needs you** holds any call Blake might make
+differently (a feature lists every decision marked "(decided
+autonomously)"). **How it works** holds how it was verified — only
+commands you ran this round and what they showed, and plainly what nobody
+has seen yet, like the menu bar. `<n>` there is the number `gh pr create` prints — never the
 issue's. Label the PR `migration` if its issue is. A stacked PR is opened
 with `--base <that PR's branch>` and says which merges first.
 
