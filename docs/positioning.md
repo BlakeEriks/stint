@@ -82,7 +82,8 @@ product.
 
 **The price covers the bill, not a margin.** Vercel Pro and Supabase Pro,
 $555 a year, are the whole overhead, and net of Stripe **fifteen subscribers
-cover it.** One more user costs about nothing until roughly a thousand
+cover it.** Until Stint makes money, Vercel stays on the free Hobby plan; the
+first revenue moves it to Pro, since Hobby forbids commercial use. One more user costs about nothing until roughly a thousand
 accounts, which is why the free tier can be whole. A design that adds a fixed
 cost changes this section first.
 
