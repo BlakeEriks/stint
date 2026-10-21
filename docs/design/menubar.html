@@ -274,8 +274,9 @@
   <p class="standfirst">
     <strong style="color:var(--text-primary);font-weight:500;">The timer,
     always in view.</strong> Starting and stopping without opening anything
-    is what it is for, and a clock counting in the menu bar is how a timer
-    left going gets noticed. It is not a port of the web app: no calendar, no invoicing, no client
+    is what it is for, and a running total in the menu bar that climbs a
+    minute at a time is how a timer left going gets noticed. It is not a port
+    of the web app: no calendar, no invoicing, no client
     management, and no settings beyond the four rows below.
   </p>
 
@@ -293,7 +294,7 @@
       </div>
       <div class="state">
         <div class="menubar" style="width:210px;">
-          <span class="stint"><span class="pip running"></span> 1:47:32</span>
+          <span class="stint"><span class="pip running"></span> 1h 47m</span>
           <span>9:41</span>
         </div>
         <span class="caption">Running</span>
@@ -308,8 +309,11 @@
           to say whether time is accruing.</li>
         <li><strong>Two fills:</strong> accent running, <code>timerIdle</code>
           stopped.</li>
-        <li><strong>Stopped, it shows today's total</strong>, compact like the
-          panel's Today.</li>
+        <li><strong>Compact, in whole minutes</strong>, like the panel's
+          Today: <code>0m</code> until the first minute is up. A figure
+          changing every second in the corner of the eye pulls it all day;
+          the panel's readout is where the seconds are. Stopped, it shows
+          today's total.</li>
         <li><strong>Findability is the honest cost.</strong> A bare dot is
           harder to pick out of a crowded bar than a letter, and people
           learn its position rather than recognize its shape. That is how most
@@ -476,7 +480,7 @@
 
     <div class="states">
       <div class="state">
-        <div class="pop" style="height:428px;">
+        <div class="pop" style="height:428px;display:flex;flex-direction:column;">
           <div class="head">
             <span class="row" style="gap:8px;">
               <button class="icon" aria-label="Back">&larr;</button>
@@ -495,7 +499,7 @@
             </div>
           </div>
 
-          <div class="acct">
+          <div class="acct" style="margin-top:auto;">
             <span class="meta">you@example.com</span>
             <span class="row" style="gap:12px;">
               <a href="#x" class="acct-link">Sign out</a>
@@ -516,7 +520,8 @@
           <li><strong>The timer's height, whatever Settings holds.</strong>
             Settings draws over the timer, which stays laid out beneath it,
             so the panel hanging from the bar never changes height and never
-            jumps. Below its last row is the panel's background. Settings stays
+            jumps. The account footer sits at the panel's foot, with the panel's
+            background between it and the last row. Settings stays
             no taller than the timer's shortest state, about 148pt.</li>
           <li><strong>The header swaps to a back affordance.</strong> One way
             in, one way out. Escape also returns.</li>
@@ -736,9 +741,6 @@
         <li><strong>Earned is today's entries at their rates</strong>, the
           web's Today figure. Unbilled and its per-client breakdown are web
           surfaces.</li>
-        <li><strong>The API models are hand-written and nothing type-checks
-          them</strong> against <code>packages/schema</code>, so a renamed
-          field fails at runtime in Swift and nowhere else.</li>
       </ul>
     </div>
   </section>

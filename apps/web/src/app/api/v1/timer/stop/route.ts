@@ -4,6 +4,7 @@ import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import { findRunning } from '@/lib/timer';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
+import { askedToInclude, readIncluded } from '@/lib/include';
 import { buildUnbilled, type UnbilledRow } from '@stint/core';
 import { StopTimer } from '@stint/schema';
 
@@ -19,11 +20,12 @@ export const dynamic = 'force-dynamic';
  *
  * Returns Unbilled beside the entry, read after the stop so it counts it:
  * the menu bar shows that figure, and would otherwise wait on a full refresh
- * for it.
+ * for it. `?include=` adds `included`.
  */
 export const POST = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
   const body = await parseBody(req, StopTimer);
+  const asked = askedToInclude(req);
 
   const endedAt = body.endedAt ?? new Date().toISOString();
 
@@ -52,9 +54,10 @@ export const POST = handle(async (req: Request) => {
   // Lost the race to another device stopping the same timer.
   if (!data) throw new ApiError('NO_TIMER_RUNNING', 'No timer is running');
 
-  const [unbilled, settings] = await Promise.all([
+  const [unbilled, settings, included] = await Promise.all([
     db.rpc('unbilled_by_client', { p_user_id: userId }),
     db.from('user_settings').select('currency').maybeSingle(),
+    readIncluded(asked, db, userId),
   ]);
   if (unbilled.error) throw unbilled.error;
   if (settings.error) throw settings.error;
@@ -68,5 +71,6 @@ export const POST = handle(async (req: Request) => {
       currency,
       new Date(),
     ),
+    ...(included && { included }),
   });
 });

@@ -4,7 +4,8 @@ Every piece of work, from the moment it is noticed to the moment it is live,
 with the command that moves it at each step.
 
 1. **Capture**, by the rules in the next section. `pnpm hygiene` and
-   Dependabot also file work weekly.
+   Dependabot also file work weekly, and each Sentry alert is triaged into a
+   `bug` + `urgent` issue for `/work-issues` (`docs/deploying.md` §3c).
 2. **Build.** A feature: `/next-feature`, then `/speckit-clarify` →
    `/design-review` → `/speckit-plan` → `/speckit-tasks` →
    `/speckit-analyze`, then `/speckit-implement` in a `pnpm worktree`.
@@ -24,8 +25,9 @@ with the command that moves it at each step.
    outside the framework group merges itself; a red one goes to
    `/work-issues`.
 4. **Ship.** Blake merges. The release gate plans, waits for approval and a
-   backup if a migration is pending, then migrates and verifies. Then the
-   worktree is removed and the branch deleted.
+   backup if a migration is pending, then migrates, verifies, and asks the new
+   build for `/api/v1/health` before promoting it. Then the worktree is
+   removed and the branch deleted.
 
 ## Capture
 
@@ -51,7 +53,8 @@ Every PR reaches QA the same way, whether `/work-issues` built it or not:
 
 - **The branch name is under 30 characters.** It becomes the preview's URL,
   and Vercel hashes a longer one.
-- **The body fills the template's Try it**, linking the preview signed in as
+- **The body follows the template**, opening with a Why a reader can follow
+  without the issue. Its Try it links the preview signed in as
   `pr-<n>@preview.test`, which `preview-db` seeds from the branch.
 - **`migration` labels a PR that adds one.** The previews share one schema,
   so one such PR is open at a time.

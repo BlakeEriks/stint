@@ -45,15 +45,7 @@ export function EntryList({
    */
   flush?: boolean;
 }) {
-  const from = startOfLocalDay(new Date(), tz).toISOString();
-
-  const query = useQuery({
-    queryKey: keys.entries({ from }),
-    queryFn: () => api.entries({ from }),
-    /* Everything today, running included: a column without it has a hole
-       at the one place the eye goes. */
-    select: (r) => r.entries,
-  });
+  const query = useDayEntries();
 
   /* The foot totals outside the scroller, so it reads the day off the
      query rather than the render prop below. */
@@ -155,4 +147,18 @@ export function EntryList({
       />
     </section>
   );
+}
+
+/**
+ * Everything today, running included: a column without it has a hole at the
+ * one place the eye goes. A hook of its own so the dock can gate on the same
+ * query the list reads.
+ */
+export function useDayEntries() {
+  const from = startOfLocalDay(new Date(), tz).toISOString();
+  return useQuery({
+    queryKey: keys.entries({ from }),
+    queryFn: () => api.entries({ from }),
+    select: (r) => r.entries,
+  });
 }

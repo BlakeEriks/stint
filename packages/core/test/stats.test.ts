@@ -134,6 +134,7 @@ test('buildWeek returns a column per key, zero where nothing was worked', () => 
       { day: '2026-03-18', seconds: 3600, amount: '150.00' },
     ],
     keys,
+    new Map([['2026-03-16', { c1: 5400, '': 1800 }]]),
   );
 
   assert.equal(week.length, 7, 'seven columns, always');
@@ -146,10 +147,11 @@ test('buildWeek returns a column per key, zero where nothing was worked', () => 
     date: '2026-03-16',
     seconds: 7200,
     amount: 300,
+    byClient: { c1: 5400, '': 1800 },
   });
   assert.deepEqual(
     week[1],
-    { date: '2026-03-17', seconds: 0, amount: null },
+    { date: '2026-03-17', seconds: 0, amount: null, byClient: {} },
     'a day with no work is a zero column, not a missing one',
   );
   assert.equal(week[2]?.amount, 150);

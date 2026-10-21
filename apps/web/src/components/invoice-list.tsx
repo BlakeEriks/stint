@@ -10,7 +10,7 @@ import { formatCurrency } from '@stint/core';
 import { StatusBadge, shortDate } from './invoice-bits';
 import { MarkPaidDialog } from './mark-paid-dialog';
 import { api, type Invoice, type InvoiceStatus } from '@/lib/client/api';
-import { FilterTabs, Listing, Page, Panel } from './page';
+import { FilterTabs, Listing, Page, Panel, useLoaded } from './page';
 import { DollarSign, Plus } from 'lucide-react';
 import { keys } from '@/lib/client/query-keys';
 
@@ -42,9 +42,16 @@ export function InvoiceList() {
     queryFn: () => api.invoices(),
     select: (r) => r.invoices,
   });
-  const { data: clientData } = useQuery({
+  const clientQuery = useQuery({
     queryKey: keys.clients({ archived: true }),
     queryFn: () => api.clients({ includeArchived: true }),
+  });
+  const clientData = clientQuery.data;
+  /* Not drawn here: fetched with the list so an invoice opened from it has
+     its payment notice at once. */
+  useQuery({
+    queryKey: keys.settings(),
+    queryFn: () => api.settings(),
   });
 
   const all = query.data ?? [];
@@ -58,6 +65,8 @@ export function InvoiceList() {
 
   // Only what is actually owed — a filtered view that totalled everything
   // would contradict the rows beneath it.
+  // A header figure: it waits with the list rather than reading 0 first.
+  const totalShown = useLoaded(query, clientQuery);
   const outstanding = all
     .filter((i) => i.status === 'sent')
     .reduce((a, i) => a + i.total, 0);
@@ -102,7 +111,7 @@ export function InvoiceList() {
           ]}
         />
 
-        {outstanding > 0 ? (
+        {totalShown && outstanding > 0 ? (
           <span className="type-support text-subtle">
             <span className="type-meta text-muted">
               {formatCurrency(outstanding, all[0]?.currency)}
@@ -117,6 +126,7 @@ export function InvoiceList() {
             empty state; `all` only chooses which message. */}
         <Listing
           query={{ ...query, data: query.data ? invoices : undefined }}
+          also={[clientQuery]}
           empty={
             all.length === 0
               ? 'No invoices yet. Preview a period to see what it would bill.'

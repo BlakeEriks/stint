@@ -71,6 +71,11 @@ export default function Page() {
           data, and it is never sold.
         </p>
         <p>
+          If you subscribe, Stripe processes your payment. Your card details go
+          to Stripe directly and never reach Stint; Stint keeps only whether you
+          are subscribed and until when.
+        </p>
+        <p>
           Data may be disclosed if the law requires it &mdash; a court order or
           equivalent legal process.
         </p>

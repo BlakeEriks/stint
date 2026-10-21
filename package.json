@@ -46,12 +46,15 @@
     "knip": "^6.41.0",
     "lint-staged": "^17.6.0",
     "pg": "^8.23.1",
-    "supabase": "2.120.0",
+    "supabase": "2.121.0",
     "typescript": "^6.0.3"
   },
   "pnpm": {
     "patchedDependencies": {
       "@storybook/nextjs-vite@10.6.1": "patches/@storybook__nextjs-vite@10.6.1.patch"
+    },
+    "overrides": {
+      "axe-core": "4.13.0"
     }
   }
 }

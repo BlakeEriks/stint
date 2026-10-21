@@ -32,6 +32,10 @@ after(async () => {
 });
 
 beforeEach(async () => {
+  await pool.query('delete from subscriptions');
+  // Billing starts unconfigured, as every deploy does; `configureBilling()`
+  // turns it on per test.
+  for (const k of STRIPE_ENV) delete process.env[k];
   await pool.query('update expenses set invoice_id = null');
   await pool.query('delete from expenses');
   await pool.query('update time_entries set invoice_id = null');
@@ -44,7 +48,8 @@ beforeEach(async () => {
   await pool.query(
     `update user_settings set default_hourly_rate=100, currency='USD',
      invoice_number_prefix='INV-', next_invoice_number=1,
-     default_payment_terms='Net 30', business_name='Blake Eriks'
+     default_payment_terms='Net 30', business_name='Blake Eriks',
+     business_email='blake@test'
      where user_id=$1`,
     [USER],
   );
@@ -101,6 +106,12 @@ async function seedEntry(opts: {
     ],
   );
 }
+
+const STRIPE_ENV = [
+  'STRIPE_SECRET_KEY',
+  'STRIPE_PRICE_ID',
+  'STRIPE_WEBHOOK_SECRET',
+] as const;
 
 const PERIOD = { periodStart: '2026-09-01', periodEnd: '2026-09-30' };
 const E = (n: number) => `018f0000-0000-7000-8000-00000000000${n}`;
@@ -284,6 +295,37 @@ test('generation leaves a running timer unbilled, though Unbilled counts it', as
     [E(2)],
   );
   assert.equal(rows[0].invoice_id, null);
+});
+
+/* The business name and email head every invoice; one without them is a
+   document with no sender. New invoice disables Generate too, but the
+   server is the rule (Constitution III). */
+test('generation refuses without a business name or email, and writes nothing', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1), hours: 1 });
+
+  for (const [name, email] of [
+    [null, 'blake@test'],
+    ['  ', 'blake@test'],
+    ['Blake Eriks', null],
+  ]) {
+    await pool.query(
+      'update user_settings set business_name=$2, business_email=$3 where user_id=$1',
+      [USER, name, email],
+    );
+    const res = await json(
+      await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+    );
+    assert.equal(res.status, 422, `${name} / ${email}`);
+    assert.equal(res.body.code, 'VALIDATION_FAILED');
+  }
+
+  const { rows } = await pool.query(
+    'select count(*)::int n, (select next_invoice_number from user_settings where user_id=$1) next from invoices',
+    [USER],
+  );
+  assert.equal(rows[0].n, 0, 'no invoice was created');
+  assert.equal(rows[0].next, 1, 'and no number was spent');
 });
 
 test('preview honors the period boundaries inclusively', async () => {
@@ -666,6 +708,30 @@ test('a summary is refused without its text', async () => {
   assert.equal(rows[0].n, 0);
 });
 
+test('an invoice id that is not a uuid is 404, not 500', async () => {
+  const { GET: detail } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  const id = 'not-an-id';
+  const res = await json(
+    await detail(req(`/invoices/${id}`), { params: Promise.resolve({ id }) }),
+  );
+  assert.equal(res.status, 404);
+  assert.equal(res.body.code, 'ENTRY_NOT_FOUND');
+});
+
+test('any record id that is not a uuid is 404, not 500', async () => {
+  const { GET: entry } = await import(
+    '../src/app/api/v1/entries/[id]/route.ts'
+  );
+  const id = 'not-an-id';
+  const res = await json(
+    await entry(req(`/entries/${id}`), { params: Promise.resolve({ id }) }),
+  );
+  assert.equal(res.status, 404);
+  assert.equal(res.body.code, 'ENTRY_NOT_FOUND');
+});
+
 test('a summary invoice stores its text and reads back as issued', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   const { GET: detail } = await import(
@@ -921,7 +987,6 @@ test('every page is US Letter, and no detail page overflows', async () => {
       address: null,
       email: null,
       logoUrl: null,
-      taxId: null,
     },
     client: { name: 'Northwind', email: null, address: null },
     lineItems: [],
@@ -1168,7 +1233,7 @@ test('detail returns the frozen line items with the client', async () => {
     await detail(req('/i'), { params: Promise.resolve({ id: inv.body.id }) }),
   );
   assert.equal(res.status, 200);
-  assert.equal(res.body.client.name, 'Northwind');
+  assert.equal(res.body.billTo.name, 'Northwind');
   assert.equal(res.body.lineItems.length, 1);
   assert.equal(res.body.lineItems[0].quantity, 2);
   assert.equal(res.body.lineItems[0].unitPrice, 150);
@@ -1241,7 +1306,6 @@ test('every page of a long invoice shows its footer at the bottom', async () => 
       address: null,
       email: null,
       logoUrl: null,
-      taxId: null,
     },
     client: { name: 'Northwind', email: null, address: null },
     lineItems: Array.from({ length: 60 }, (_, i) => ({
@@ -1511,6 +1575,67 @@ test('an invoice freezes the payment profile at generation', async () => {
   assert.equal(acct.value, '1234567890', 'the frozen snapshot did not move');
 });
 
+test('an invoice freezes the business and client details at generation', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { GET: detail } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  const { GET: pdf } = await import(
+    '../src/app/api/v1/invoices/[id]/pdf/route.ts'
+  );
+
+  await pool.query(
+    `update user_settings set business_address='1 Old St', business_email='old@me.test'
+     where user_id=$1`,
+    [USER],
+  );
+  await pool.query(`update clients set address='9 Bay Rd' where id=$1`, [
+    CLIENT,
+  ]);
+  await seedEntry({ id: E(1), hours: 1 });
+  const inv = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(inv.status, 201);
+
+  await pool.query(
+    `update user_settings set business_name='Renamed LLC', business_address='2 New Ave',
+       business_email='new@me.test'
+     where user_id=$1`,
+    [USER],
+  );
+  await pool.query(
+    `update clients set name='Southwind', email='new@southwind.test', address='5 Moved Ln'
+     where id=$1`,
+    [CLIENT],
+  );
+
+  const params = { params: Promise.resolve({ id: inv.body.id }) };
+  const read = await json(await detail(req('/i'), params));
+  assert.deepEqual(read.body.business, {
+    name: 'Blake Eriks',
+    address: '1 Old St',
+    email: 'old@me.test',
+    logoUrl: null,
+  });
+  assert.deepEqual(read.body.billTo, {
+    name: 'Northwind',
+    email: 'ap@northwind.test',
+    address: '9 Bay Rd',
+  });
+
+  const printed = pdfText(
+    new Uint8Array(await (await pdf(req('/pdf'), params)).arrayBuffer()),
+  )
+    .flat()
+    .map((r) => r.text)
+    .join('');
+  for (const kept of ['Blake Eriks', '1 Old St', 'Northwind', '9 Bay Rd'])
+    assert.ok(printed.includes(kept), `the PDF still prints ${kept}`);
+  for (const edited of ['Renamed LLC', '2 New Ave', 'Southwind', '5 Moved Ln'])
+    assert.ok(!printed.includes(edited), `the PDF never prints ${edited}`);
+});
+
 test('a client profile preference overrides the user default', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
 
@@ -1600,7 +1725,11 @@ test('a profile can be read back by id', async () => {
 
   const made = await json(
     await createProfile(
-      req('/pp', { name: 'ACH', accountNumber: '111', routingNumber: '999' }),
+      req('/pp', {
+        name: 'ACH',
+        accountNumber: '111',
+        routingNumber: '021000021',
+      }),
     ),
   );
   const got = await json(await GET(req('/pp'), ctx(made.body.id)));
@@ -1610,7 +1739,7 @@ test('a profile can be read back by id', async () => {
   /* The camelCase boundary is `rows.ts`, and nothing type-checks it for
      payment profiles — a renamed column surfaces as undefined here. */
   assert.equal(got.body.accountNumber, '111');
-  assert.equal(got.body.routingNumber, '999');
+  assert.equal(got.body.routingNumber, '021000021');
 });
 
 test('an unknown profile id is 404, not an empty 200', async () => {
@@ -1668,7 +1797,11 @@ test('editing a profile leaves an already-issued invoice alone', async () => {
 
   const profile = await json(
     await createProfile(
-      req('/pp', { name: 'ACH', accountNumber: '111', routingNumber: '999' }),
+      req('/pp', {
+        name: 'ACH',
+        accountNumber: '111',
+        routingNumber: '021000021',
+      }),
     ),
   );
   await seedEntry({ id: E(1) });
@@ -1678,7 +1811,7 @@ test('editing a profile leaves an already-issued invoice alone', async () => {
   assert.equal(inv.status, 201);
 
   await PATCH(
-    req('/pp', { accountNumber: '222', routingNumber: '888' }, 'PATCH'),
+    req('/pp', { accountNumber: '222', routingNumber: '011000015' }, 'PATCH'),
     ctx(profile.body.id),
   );
 
@@ -1693,7 +1826,7 @@ test('editing a profile leaves an already-issued invoice alone', async () => {
     (rows[0].payment_details.fields as Field[]).find((f) => f.label === label)
       ?.value;
   assert.equal(value('Account number'), '111');
-  assert.equal(value('Routing number (ACH)'), '999');
+  assert.equal(value('Routing number (ACH)'), '021000021');
 });
 
 test('archiving the default hands the default to a survivor', async () => {
@@ -1857,7 +1990,7 @@ test('the invoice detail response matches what the browser expects', async () =>
   assert.equal(typeof res.body.invoiceNumber, 'string');
   assert.equal(typeof res.body.status, 'string');
   assert.ok(Array.isArray(res.body.lineItems), 'line items travel alongside');
-  assert.equal(typeof res.body.client?.name, 'string', 'so does the client');
+  assert.equal(typeof res.body.billTo?.name, 'string', 'so does who it bills');
 
   /* A frozen line has no `rateSource`: it is read back from the database and
      there is no `rate_source` column. The preview and generation paths do
@@ -2662,4 +2795,129 @@ test('an invoice made in the evening west of UTC is dated today, not tomorrow', 
   } finally {
     mock.timers.reset();
   }
+});
+
+// ── the paid tier: the document ───────────────────────────────────
+const configureBilling = () => {
+  process.env.STRIPE_SECRET_KEY = 'sk_test_unused';
+  process.env.STRIPE_PRICE_ID = 'price_yearly';
+  process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
+};
+
+/** The stored subscription mirror the webhook writes, at `status`. */
+const subscribe = (status: string) =>
+  pool.query(
+    `insert into subscriptions (user_id, stripe_customer_id,
+       stripe_subscription_id, status, current_period_end)
+     values ($1, 'cus_me', 'sub_me', $2, now() + interval '1 year')
+     on conflict (user_id) do update set status = excluded.status`,
+    [USER, status],
+  );
+
+let entryNo = 0;
+/** A fresh invoice, generated under whatever plan the user has now. */
+async function generate(): Promise<string> {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const n = ++entryNo;
+  await seedEntry({
+    id: `018f0000-0000-7000-8000-0000000f${String(n).padStart(4, '0')}`,
+    start: `2026-09-${String(n).padStart(2, '0')}T09:00:00Z`,
+  });
+  const res = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(res.status, 201, JSON.stringify(res.body));
+  return res.body.id;
+}
+
+/** Both dispositions, and what the detail route tells the screen. */
+async function opens(id: string) {
+  const { GET: pdf } = await import(
+    '../src/app/api/v1/invoices/[id]/pdf/route.ts'
+  );
+  const { GET: detail } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  const params = { params: Promise.resolve({ id }) };
+  const inline = await pdf(req(`/invoices/${id}/pdf`), params);
+  const saved = await pdf(req(`/invoices/${id}/pdf?download=1`), params);
+  const read = await json(await detail(req(`/invoices/${id}`), params));
+  return {
+    inline: inline.status,
+    download: saved.status,
+    code: inline.status === 402 ? (await inline.json()).code : null,
+    canDownload: read.body.canDownload,
+  };
+}
+
+const OPEN = { inline: 200, download: 200, code: null, canDownload: true };
+const LOCKED = {
+  inline: 402,
+  download: 402,
+  code: 'PAYMENT_REQUIRED',
+  canDownload: false,
+};
+
+test('with billing not set up, every invoice opens, as before', async () => {
+  const id = await generate();
+  assert.deepEqual(await opens(id), OPEN);
+});
+
+test('a free user cannot open the document, saved or viewed', async () => {
+  configureBilling();
+  const id = await generate();
+  assert.deepEqual(await opens(id), LOCKED);
+});
+
+test('previewing and generating stay free', async () => {
+  configureBilling();
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  await seedEntry({ id: E(1) });
+  const res = await preview(
+    req('/invoices/preview', { clientId: CLIENT, ...PERIOD }),
+  );
+  assert.equal(res.status, 200);
+  await generate();
+});
+
+test('a missing invoice is not found, not a paywall', async () => {
+  configureBilling();
+  const { GET: pdf } = await import(
+    '../src/app/api/v1/invoices/[id]/pdf/route.ts'
+  );
+  const res = await pdf(req('/pdf'), {
+    params: Promise.resolve({ id: 'cc000000-0000-4000-8000-0000000000ff' }),
+  });
+  assert.equal(res.status, 404);
+});
+
+test('a paying user opens invoices generated before they paid', async () => {
+  configureBilling();
+  const id = await generate();
+  for (const status of ['active', 'past_due']) {
+    await subscribe(status);
+    assert.deepEqual(await opens(id), OPEN, status);
+  }
+});
+
+test('canceling never locks an invoice generated while paying', async () => {
+  configureBilling();
+  await subscribe('active');
+  const whilePaid = await generate();
+  await subscribe('canceled');
+  const afterwards = await generate();
+
+  assert.deepEqual(await opens(whilePaid), OPEN);
+  assert.deepEqual(await opens(afterwards), LOCKED);
+});
+
+test('an invoice generated while free locks again when the paid plan ends', async () => {
+  configureBilling();
+  const id = await generate();
+  await subscribe('active');
+  assert.deepEqual(await opens(id), OPEN);
+  await subscribe('canceled');
+  assert.deepEqual(await opens(id), LOCKED);
 });

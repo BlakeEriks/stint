@@ -135,6 +135,8 @@ jobs:
   # a11y check. The browser steps are the e2e job's, which explains them.
   stories:
     runs-on: ubuntu-latest
+    # A few times its usual 3 minutes, so a hung browser fails fast.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -155,8 +157,11 @@ jobs:
       - name: Install Chromium
         run: cd apps/web && npx playwright install --only-shell chromium
 
+      # Off a TTY the default reporter prints only when a file ends, and
+      # every story is one file, so a hang printed nothing. Verbose prints
+      # each story as it passes: the stalled one follows the last line.
       - name: Story tests
-        run: pnpm --filter @stint/web test:stories
+        run: pnpm --filter @stint/web test:stories --reporter=verbose
 
   # Applies the real migrations, then runs the real route handlers against
   # them, so the timer index and immutability triggers are genuinely exercised.
@@ -204,7 +209,8 @@ jobs:
         run: pnpm --filter @stint/web test
 
       # The seeder runs in no other job, so a rename in a migration breaks it
-      # silently and the next developer to run `pnpm seed` finds it. Both
+      # silently and the next developer to run `pnpm seed` finds it. Every
+      # scenario runs too, since a preview asks for them by name. Both
       # halves run: `--clear` is the half that only executes once there is
       # something to remove, and it is the half that deletes, so it is the
       # half worth exercising. The email is a throwaway — the script creates
@@ -229,6 +235,11 @@ jobs:
             -c "insert into auth.users (id, email)
                 values (gen_random_uuid(), 'ci-seed-check@localhost.test')"
           pnpm seed ci-seed-check@localhost.test
+          # Assigned first: a failed listing inside the `for` would run none.
+          names=$(node scripts/seed-account.mjs --scenarios)
+          for name in $names; do
+            pnpm seed ci-seed-check@localhost.test --scenario "$name"
+          done
           pnpm seed ci-seed-check@localhost.test --clear
 
       # A SEPARATE database: the route tests above disable RLS on theirs. Here

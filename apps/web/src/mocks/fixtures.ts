@@ -8,6 +8,7 @@ import {
   localDayOfWeek,
 } from '@stint/core';
 import type {
+  Billing,
   Client,
   Expense,
   Invoice,
@@ -17,6 +18,7 @@ import type {
   StoredLineItem,
   TimeEntry,
 } from '@/lib/client/api';
+import { businessOf } from '@/components/invoice-preview-card';
 import { ZONE } from './time.mts';
 
 /**
@@ -41,6 +43,7 @@ export interface Db {
   invoices: StoredInvoice[];
   expenses: Expense[];
   paymentProfiles: PaymentProfile[];
+  billing: Billing;
 }
 
 /** A fixed id per record, valid for `@stint/schema`'s strict `uuid`. */
@@ -90,12 +93,12 @@ export const settings = (): Settings => ({
   businessAddress: '1200 Pine St, Suite 4\nSeattle, WA 98101',
   businessEmail: 'billing@blakeeriks.test',
   logoUrl: null,
-  taxId: null,
   defaultPaymentTerms: 'Net 30',
   invoiceNumberPrefix: 'STINT-',
   nextInvoiceNumber: 16,
   paymentNotice:
     'Our bank details never change by email. Call before paying new ones.',
+  welcomedAt: '2026-09-01T16:00:00.000Z',
 });
 
 const client = (c: Partial<Client> & Pick<Client, 'id' | 'name'>): Client => ({
@@ -266,6 +269,15 @@ export function seed(now: Date): Db {
     entries,
     invoices,
     expenses,
+    // Billing set up, and this account on the free plan.
+    billing: {
+      available: true,
+      plan: 'free',
+      status: null,
+      periodEnd: null,
+      cancelAtPeriodEnd: false,
+      paymentFailed: false,
+    },
     paymentProfiles: [
       {
         id: ids.ach,
@@ -447,6 +459,12 @@ const INVOICES: InvoiceSpec[] = [
   },
 ];
 
+/** The From and Bill to blocks an invoice freezes when it is generated. */
+export const parties = (s: Settings, c: Client) => ({
+  business: businessOf(s),
+  billTo: { name: c.name, email: c.email ?? null, address: c.address ?? null },
+});
+
 /** Each invoice claims its client's entries in its period, as issuing does. */
 function invoicesFor(
   entries: TimeEntry[],
@@ -512,6 +530,7 @@ function invoicesFor(
       reference: null,
       supportingDetail: null,
       paymentDetails: null,
+      ...parties(settings(), who),
       sentAt:
         spec.status === 'draft'
           ? null

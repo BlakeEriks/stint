@@ -209,6 +209,55 @@ export function splitByLocalDay(
   return days;
 }
 
+/** An entry as the per-client day split reads it. */
+export interface DaySplitEntry {
+  startedAt: string;
+  endedAt: string | null;
+  durationSeconds: number | null;
+  projectId: string | null;
+  isBillable: boolean;
+}
+
+/**
+ * Billable seconds per client on each local date — what splits a bar of the
+ * week by who the hours belonged to.
+ *
+ * A session counts whole on the day it started, and one that started before
+ * `from` not at all, as `revenue_by_day` counts the bar's height. Work with no
+ * project or no client keys as `''` rather than being dropped: a day of
+ * internal work is not an empty day. Non-billable work is left out, because
+ * the bar it would split is billable seconds; a day with only that work is
+ * present and empty.
+ *
+ * A running session counts to `now`, as the week's bars do.
+ */
+export function dayByClient(
+  entries: DaySplitEntry[],
+  clientOf: Map<string, string | null>,
+  { from, tz, now }: { from: string; tz: string; now: Date },
+): Map<string, Record<string, number>> {
+  const days = new Map<string, Record<string, number>>();
+  const start = new Date(from);
+  for (const e of entries) {
+    const startedAt = new Date(e.startedAt);
+    if (startedAt < start) continue;
+    let seconds = e.durationSeconds;
+    if (e.endedAt == null) {
+      seconds = Math.max(
+        0,
+        Math.round((now.getTime() - startedAt.getTime()) / 1000),
+      );
+    }
+    const key = localDateKey(startedAt, tz);
+    const day = days.get(key) ?? {};
+    days.set(key, day);
+    if (!e.isBillable) continue;
+    const client = e.projectId ? (clientOf.get(e.projectId) ?? '') : '';
+    day[client] = (day[client] ?? 0) + (seconds ?? 0);
+  }
+  return days;
+}
+
 /**
  * The instant at which a local calendar date begins — the inverse of
  * `localDateKey`.

@@ -77,7 +77,7 @@ applies only the new one.
 pnpm verify:schema --url "$DB"
 ```
 
-This asserts the things nothing else would catch: all nine tables exist with
+This asserts the things nothing else would catch: all ten tables exist with
 **RLS on**, each has at least one policy (RLS with no policies denies
 everything), the partial unique index enforcing one running timer is present
 and actually partial, and new users get a settings row.
@@ -99,8 +99,10 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 
 The publishable key is **meant to be public** — it ships in the browser
 bundle, and RLS is what protects the data. A **secret** key
-(`sb_secret_…`) is not: it bypasses RLS entirely. Never put one in
-an env file or anything `NEXT_PUBLIC_`.
+(`sb_secret_…`) is not: it bypasses RLS entirely. The app server holds
+one only for billing, as the sensitive Vercel variable `SUPABASE_SECRET_KEY`
+(`docs/deploying.md` §2). Never put one in a committed file or anything
+`NEXT_PUBLIC_`.
 
 If the dashboard still shows legacy `anon` / `service_role` JWTs, those are
 the old key pair and are **deprecated at the end of 2026**. Publishable and
@@ -139,36 +141,35 @@ Vercel also gives each branch a preview URL. Add
 `https://<project>-*-<scope>.vercel.app/**` if you want sign-in on previews —
 though on a private project those URLs sit behind Vercel SSO anyway.
 
-The default email provider is rate-limited (a few per hour) and adequate for
-one developer. It is only for sign-in links — **the app never emails
-invoices**, by design.
+Sign-in mail goes through Resend, which is only for sign-in links — **the app
+never emails invoices**, by design.
 
-## 4a. Signing the menu bar app in
+## 4a. Sign-in email
 
-`config.toml` points GoTrue at `supabase/templates/magic_link.html` by **local
-file path**, which a hosted project cannot read. It falls back to the built-in
-default, which renders only the link — so the panel has no six-digit code to
-type.
+Supabase's default sender is capped at a few messages an hour and its
+template can't be edited, so production sends through Resend's free tier
+(100 a day) as `Stint <signin@runstint.com>`.
 
-**Editing the template needs custom SMTP**, which the dashboard enforces: the
-default provider is a shared sender, so its mail cannot be customized. Until
-there is an SMTP provider, sign the prod app, Stint.app, in with the link:
+1. **Resend → Domains**: add `runstint.com` in `us-east-1`, put its DKIM,
+   `send` MX and `send` SPF records in Cloudflare DNS, and verify. `_dmarc`
+   holds `v=DMARC1; p=none;`.
+2. **Resend → API Keys**: a key with sending access to `runstint.com` only.
+3. **Supabase → Authentication → Emails → SMTP Settings**: host
+   `smtp.resend.com`, port `465`, user `resend`, the API key as password,
+   sender `signin@runstint.com`, name `Stint`.
+4. **Authentication → Emails → Magic Link**: subject `Sign in to Stint`, body
+   `supabase/templates/magic_link.html`.
+5. **Authentication → Sign In / Providers → Email**: **Email OTP Length** `6`.
+   A hosted project can default to 8, and the template and the panel show
+   and take six digits, so a longer code is truncated and always rejected.
 
-```bash
-./apps/macos/signin.sh     # paste the link when it asks
-```
-
-The `token` in that link and the six digits are the **same OTP** in two
-shapes. The script posts the token to `/auth/v1/verify` and writes the session
-into the Keychain under the backend's host, which is where the app looks,
-then restarts the app so it reads the new session.
-
-With SMTP configured, paste the template at **Authentication → Emails → Magic
-Link**, subject `Sign in to Stint`, and the panel takes codes directly. Keep
-`{{ .ConfirmationURL }}` and both `{{ slice .Token }}` calls — GoTrue mints a
-code for every magic link whether a template shows it or not, and those two
-calls are what put it in front of the user. That copy does not track the file;
-editing it changes local only.
+`config.toml` points GoTrue at that template by **local file path**, which a
+hosted project can't read, so the dashboard holds its own copy. That copy
+doesn't track the file: an edit to the file changes local only, until it's
+pasted again. Keep `{{ .ConfirmationURL }}` and both `{{ slice .Token }}`
+calls — GoTrue mints a code for every magic link whether a template shows it
+or not, and those calls put it in front of the user, so the menu bar app's
+panel has a code to take.
 
 ## 4b. Invite people
 
@@ -200,8 +201,9 @@ with USD, a 12-hour long-entry threshold, and `INV-1` — verified. `--clear`
 returns them to those defaults. Open `http://localhost:3100`, enter your
 email, click the link.
 
-Then: **Settings** (rate and business identity, since everything falls back
-to them) → **Clients** → a project from the timer's picker.
+Then the welcome dialog on Home asks for your default rate, then a first
+client. Business identity is asked for on your first invoice. Add a project
+from the timer's picker.
 
 ## Adding Apple and Google later
 
@@ -213,8 +215,9 @@ no orphaned second account.
 
 ## Deploying
 
-Vercel: import the repo, set those two env vars plus `NEXT_PUBLIC_APP_ORIGIN`
-and, for Production, `NEXT_PUBLIC_INVITE_FORM_URL`, and add the deployed
-origin to **Site URL** and **Redirect URLs**. The build needs no database
-access — route handlers are all `force-dynamic`.
+Vercel: import the repo and set those two env vars plus
+`NEXT_PUBLIC_APP_ORIGIN`, `NEXT_PUBLIC_INVITE_FORM_URL` for Production, and,
+to turn billing on, the four in `docs/deploying.md` §2. Add the deployed
+origin to **Site URL** and **Redirect URLs**. The build needs no database access — route
+handlers are all `force-dynamic`.
 `docs/deploying.md` covers the hostname split the origin belongs to.

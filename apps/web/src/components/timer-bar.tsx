@@ -21,7 +21,18 @@ import type { Project, TimeEntry } from '@/lib/client/api';
  * **The bar is a fixed readout and never grows** — chrome must not reflow at
  * the moment something needs attention.
  */
-export function TimerBar({ projects }: { projects: Project[] }) {
+export function TimerBar({
+  projects,
+  pending = false,
+}: {
+  projects: Project[];
+  /**
+   * The timer or the projects are still on their way. The bar keeps its
+   * place in the frame and draws nothing, rather than an idle field that
+   * turns into a running timer a moment later.
+   */
+  pending?: boolean;
+}) {
   const timer = useTimer();
   /* Held here, not in `IdleBar`: a start shows the bar running at once, so
      `IdleBar` unmounts, and a refused start remounts it — the typed task it
@@ -42,18 +53,24 @@ export function TimerBar({ projects }: { projects: Project[] }) {
           lands in the same place in every state — the number a glance goes to
           does not move as the name beside it changes length. `Readout` carries
           the `ml-auto` that does it. */}
-      {timer.running ? (
-        <RunningBar running={timer.running} timer={timer} projects={projects} />
-      ) : (
-        <IdleBar
-          timer={timer}
-          projects={projects}
-          draft={draft}
-          setDraft={setDraft}
-          draftProject={draftProject}
-          setDraftProject={setDraftProject}
-        />
-      )}
+      <div inert={pending} className={pending ? 'invisible' : undefined}>
+        {timer.running ? (
+          <RunningBar
+            running={timer.running}
+            timer={timer}
+            projects={projects}
+          />
+        ) : (
+          <IdleBar
+            timer={timer}
+            projects={projects}
+            draft={draft}
+            setDraft={setDraft}
+            draftProject={draftProject}
+            setDraftProject={setDraftProject}
+          />
+        )}
+      </div>
     </section>
   );
 }

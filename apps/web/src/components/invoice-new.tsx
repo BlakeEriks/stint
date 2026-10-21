@@ -40,6 +40,7 @@ import { timeZone as tz } from '@/lib/client/use-timer';
 import {
   api,
   ApiError,
+  type Client,
   type Expense,
   type GroupingMode,
   type Invoice,
@@ -47,13 +48,15 @@ import {
   type PaymentProfile,
   type Settings,
 } from '@/lib/client/api';
-import { DetailPage } from './page';
+import { DetailPage, Listing } from './page';
 import { ExpenseDialog } from './expense-dialog';
 import { ExpenseRow } from './expense-row';
 import { type Charge, ChargeDialog } from './charge-dialog';
 import { PaymentProfileDialog } from './payment-profile-dialog';
+import { missingBusiness, SenderNotice } from './business-dialog';
+import { ClientDialog } from './client-dialog';
 import { summarize } from './payment-profiles';
-import { InvoicePreviewCard } from './invoice-preview-card';
+import { businessOf, InvoicePreviewCard } from './invoice-preview-card';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 import { rowButton } from './row-button';
 
@@ -235,6 +238,29 @@ function useSettled<T>(value: T, ms: number): T {
  * the card is the server's current answer.
  */
 export function NewInvoice() {
+  /* The form paints once, its client list, terms and payment profiles in
+     place; what a chosen client then loads fills in as it is asked for. The
+     back link is the frame, so it stands while they load. */
+  const clients = useQuery({
+    queryKey: keys.clients(),
+    queryFn: () => api.clients(),
+  });
+  const settings = useQuery({
+    queryKey: keys.settings(),
+    queryFn: () => api.settings(),
+  });
+  const profiles = useQuery({
+    queryKey: keys.paymentProfiles(),
+    queryFn: () => api.paymentProfiles(),
+  });
+  return (
+    <DetailPage back="/invoices" label="Invoices" workspace fills>
+      <Listing query={[clients, settings, profiles]}>{() => <Form />}</Listing>
+    </DetailPage>
+  );
+}
+
+function Form() {
   const router = useRouter();
   const qc = useQueryClient();
 
@@ -250,6 +276,7 @@ export function NewInvoice() {
     queryKey: keys.settings(),
     queryFn: () => api.settings(),
   });
+  const noSender = missingBusiness(settings);
   const profiles =
     useQuery({
       queryKey: keys.paymentProfiles(),
@@ -264,6 +291,7 @@ export function NewInvoice() {
   /* `'new'` adds a charge; a key, edits that one. */
   const chargeDialog = useDialog<string>();
   const [newProfileOpen, setNewProfileOpen] = useState(false);
+  const [clientOpen, setClientOpen] = useState(false);
 
   /* Only what decides the lines is sent, so a due date or a tick never asks
      the server again. */
@@ -360,13 +388,14 @@ export function NewInvoice() {
     updating,
     failed: preview.isError,
     hasSettings: settings !== undefined,
+    hasSender: !noSender,
     generating: generate.isPending,
     groupingMode,
     summaryText,
   });
 
   return (
-    <DetailPage back="/invoices" label="Invoices" workspace fills>
+    <>
       {/* From `xl`, where the panel has a height of its own, nothing scrolls
           but the two columns: the form and the preview each scroll alone, so
           reading a long page never moves the field being typed in. Below it
@@ -397,8 +426,28 @@ export function NewInvoice() {
               focus ring, taken back with a negative margin so the fields
               don't move. */}
           <div className="flex min-w-0 flex-col xl:-mx-1 xl:min-h-0 xl:overflow-y-auto xl:px-1 [&>*]:border-t [&>*]:border-edge-subtle [&>*]:py-5 [&>*:first-child]:border-0 [&>*:first-child]:pt-1">
+            {/* First on the form: it is why Generate is disabled. */}
+            <SenderNotice settings={settings} />
             <div className="flex flex-col gap-4">
-              <Field label="Client" htmlFor="inv-client" required>
+              <Field
+                label="Client"
+                htmlFor="inv-client"
+                required
+                hint={
+                  client && missingDetails(client) ? (
+                    <span className="text-danger">
+                      {missingDetails(client)} ·{' '}
+                      <button
+                        type="button"
+                        onClick={() => setClientOpen(true)}
+                        className="rounded-sm underline hover:text-strong focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+                      >
+                        Edit client
+                      </button>
+                    </span>
+                  ) : undefined
+                }
+              >
                 <ClientPicker
                   id="inv-client"
                   clients={clients}
@@ -504,8 +553,10 @@ export function NewInvoice() {
               `xl` its caption stays put and the card scrolls under it. */}
           <div className="mt-6 min-w-0 @min-[800px]/new:mt-0 xl:flex xl:min-h-0 xl:flex-col">
             <InvoicePreviewCard
+              noSender={noSender}
               preview={current}
               client={client}
+              business={businessOf(settings)}
               settings={settings}
               number={number}
               issued={issued}
@@ -544,13 +595,28 @@ export function NewInvoice() {
         onSave={saveCharge}
         onRemove={chargeDialog.subject !== 'new' ? removeCharge : undefined}
       />
+      {/* No Archive: the draft would keep a client the picker has dropped. */}
+      <ClientDialog
+        open={clientOpen}
+        onOpenChange={setClientOpen}
+        client={client}
+        archivable={false}
+      />
       <PaymentProfileDialog
         open={newProfileOpen}
         onOpenChange={setNewProfileOpen}
         onSaved={addProfile}
       />
-    </DetailPage>
+    </>
   );
+}
+
+/** What Bill to will lack, said; null when it has both. */
+function missingDetails(client: Pick<Client, 'address' | 'email'>) {
+  if (client.address && client.email) return null;
+  if (client.address) return 'No email';
+  if (client.email) return 'No address';
+  return 'No address or email';
 }
 
 /**
@@ -565,6 +631,8 @@ function generateState(s: {
   failed: boolean;
   /** Due follows the settings' terms; without them it would be sent blank. */
   hasSettings: boolean;
+  /** The server refuses an invoice with no sender; the notice says why. */
+  hasSender: boolean;
   generating: boolean;
   groupingMode: GroupingMode;
   summaryText: string;
@@ -577,7 +645,12 @@ function generateState(s: {
     s.preview.unratedEntryIds.length === 0 &&
     !noSummaryText;
   const canGenerate =
-    complete && s.hasSettings && !s.updating && !s.failed && !s.generating;
+    complete &&
+    s.hasSettings &&
+    s.hasSender &&
+    !s.updating &&
+    !s.failed &&
+    !s.generating;
   return { canGenerate, noSummaryText };
 }
 
@@ -631,25 +704,19 @@ function SummaryLineField({
 }) {
   return (
     <div className="mt-1.5 ml-3 border-l-2 border-edge-subtle pl-3">
-      <Field label="Summary line" htmlFor="inv-summary" required>
+      <Field
+        label="Summary line"
+        htmlFor="inv-summary"
+        required
+        error={missing ? 'Give the summary line its text.' : undefined}
+      >
         <Input
           id="inv-summary"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="Professional services"
           maxLength={200}
-          aria-invalid={missing}
-          aria-describedby={missing ? 'inv-summary-error' : undefined}
         />
-        {missing ? (
-          <p
-            id="inv-summary-error"
-            role="alert"
-            className="type-support text-danger"
-          >
-            Give the summary line its text.
-          </p>
-        ) : null}
       </Field>
     </div>
   );

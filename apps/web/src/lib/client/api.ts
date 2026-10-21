@@ -1,5 +1,6 @@
 'use client';
 
+import { forgetCache } from './query-cache';
 import type { z } from 'zod';
 import type * as schema from '@stint/schema';
 import type { ImportPreview, ImportResult } from '@stint/core';
@@ -97,6 +98,7 @@ async function failure(res: globalThis.Response): Promise<ApiError> {
     typeof window !== 'undefined' &&
     window.location.pathname !== '/signin'
   ) {
+    forgetCache();
     window.location.assign('/signin');
   }
   return error;
@@ -122,6 +124,7 @@ export type Client = Response<schema.Client>;
 export type ClientWithScale = Response<schema.ClientWithScale>;
 export type Settings = Response<schema.Settings>;
 export type Account = Response<schema.Account>;
+export type Billing = Response<schema.Billing>;
 export type PaymentProfile = Response<schema.PaymentProfile>;
 export type InvoicePreview = Response<schema.InvoicePreview>;
 export type Invoice = Response<schema.Invoice>;
@@ -137,17 +140,27 @@ export type CalendarDay = Response<Omit<schema.CalendarDay, 'entries'>> & {
   entries: TimeEntry[];
 };
 
-/** A day of the activity strip: totals, no entries. */
-export type ActivityDay = Response<schema.CalendarTotalsDay>;
-
 export type Summary = Response<Omit<schema.Summary, 'running'>> & {
   running: TimeEntry | null;
 };
 
-export type StoppedTimer = { entry: TimeEntry } & Pick<
+export type IncludedName = schema.IncludedName;
+/** What a write returns beside its record when asked (`docs/api.md`). */
+export type Included = { summary?: Summary; stats?: Stats };
+/** A write's `?include=`: the reads to return, and the zone they're in. */
+export type Include = { names: readonly IncludedName[]; tz: string };
+
+export type StoppedTimer = { entry: TimeEntry; included?: Included } & Pick<
   Stats,
   'currency' | 'unbilled'
 >;
+/** A start or entry `PATCH` that asked to `include`. */
+export type WrittenEntry = { entry: TimeEntry; included: Included };
+
+const withInclude = (path: string, include?: Include) =>
+  include?.names.length
+    ? `${path}?include=${include.names.join(',')}&tz=${encodeURIComponent(include.tz)}`
+    : path;
 
 export type GroupingMode = z.infer<typeof schema.GroupingMode>;
 export type ScheduleKind = z.infer<typeof schema.ScheduleKind>;
@@ -210,14 +223,19 @@ export const api = {
     );
   },
 
-  startTimer: (body: {
-    id?: string;
-    taskName: string;
-    projectId?: string | null;
-    isBillable?: boolean;
-  }) => request<TimeEntry>('POST', '/timer/start', body),
+  startTimer: (
+    body: {
+      id?: string;
+      taskName: string;
+      projectId?: string | null;
+      isBillable?: boolean;
+    },
+    include: Include,
+  ) =>
+    request<WrittenEntry>('POST', withInclude('/timer/start', include), body),
 
-  stopTimer: () => request<StoppedTimer>('POST', '/timer/stop', {}),
+  stopTimer: (include?: Include) =>
+    request<StoppedTimer>('POST', withInclude('/timer/stop', include), {}),
 
   updateRunning: (body: { taskName?: string; projectId?: string | null }) =>
     request<TimeEntry>('PATCH', '/timer/current', body),
@@ -338,18 +356,6 @@ export const api = {
     return request<{ days: CalendarDay[] }>('GET', `/calendar?${q}`);
   },
 
-  /**
-   * Totals only, for the activity strip. Twelve weeks of full entries is a
-   * heavy payload to draw one rectangle per day.
-   *
-   * `byClient` keys by client id, with `''` for internal work — a day spent
-   * on unbilled work is not an empty day.
-   */
-  activity: (params: { from: string; to: string; tz: string }) => {
-    const q = new URLSearchParams({ ...params, granularity: 'day' });
-    return request<{ days: ActivityDay[] }>('GET', `/calendar?${q}`);
-  },
-
   invoices: (params: { clientId?: string; status?: InvoiceStatus } = {}) => {
     const q = new URLSearchParams(params as Record<string, string>);
     const s = q.toString();
@@ -360,17 +366,12 @@ export const api = {
   },
 
   /* The invoice is FLAT, matching every other detail route (`/clients/:id`,
-     `/projects/:id`), with the client and line items alongside it. This once
-     declared `{ invoice, lineItems, client }` and the page read
-     `data.invoice.status` on a response that had no `invoice` key — so every
-     invoice detail page threw and rendered the error boundary. Nothing
-     caught it: the types were hand-written on this side and never checked
-     against the route. */
+     `/projects/:id`), with the line items alongside it. */
   invoice: (id: string) =>
     request<
       Invoice & {
         lineItems: StoredLineItem[];
-        client: Pick<Client, 'id' | 'name' | 'email' | 'address'>;
+        canDownload: boolean;
       }
     >('GET', `/invoices/${id}`),
 
@@ -475,4 +476,17 @@ export const api = {
   account: () => request<Account>('GET', '/account'),
 
   deleteAccount: () => request<void>('DELETE', '/account'),
+
+  billing: () => request<Billing>('GET', '/billing'),
+
+  /** A Stripe Checkout URL for the yearly price. */
+  checkout: () => request<schema.BillingRedirect>('POST', '/billing/checkout'),
+
+  /** A Stripe Customer Portal URL: cancel, resume, card, receipts. */
+  billingPortal: () =>
+    request<schema.BillingRedirect>('POST', '/billing/portal'),
+
+  /** Back from Checkout: store what Stripe says about that session now. */
+  syncCheckout: (sessionId: string) =>
+    request<Billing>('POST', '/billing/sync', { sessionId }),
 };

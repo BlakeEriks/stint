@@ -12,15 +12,39 @@ import type { Stats } from '@/lib/client/api';
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
 
-/** Seven days from Mon 14 Sep, worked unless a case says otherwise. */
+/**
+ * Seven days from Mon 14 Sep, worked unless a case says otherwise, each split
+ * by client with `''` for internal work. Monday is two clients at 2:1;
+ * Wednesday is one client and some internal time.
+ */
 const WEEK: Stats['week'] = [
-  { date: '2026-09-14', seconds: 25_200, amount: 560 },
-  { date: '2026-09-15', seconds: 19_800, amount: 440 },
-  { date: '2026-09-16', seconds: 24_300, amount: 540 },
-  { date: '2026-09-17', seconds: 15_300, amount: 340 },
-  { date: '2026-09-18', seconds: 0, amount: null },
-  { date: '2026-09-19', seconds: 0, amount: null },
-  { date: '2026-09-20', seconds: 0, amount: null },
+  {
+    date: '2026-09-14',
+    seconds: 25_200,
+    amount: 560,
+    byClient: { c1: 16_800, c2: 8400 },
+  },
+  {
+    date: '2026-09-15',
+    seconds: 19_800,
+    amount: 440,
+    byClient: { c1: 19_800 },
+  },
+  {
+    date: '2026-09-16',
+    seconds: 24_300,
+    amount: 540,
+    byClient: { c2: 18_300, '': 6000 },
+  },
+  {
+    date: '2026-09-17',
+    seconds: 15_300,
+    amount: 340,
+    byClient: { c1: 15_300 },
+  },
+  { date: '2026-09-18', seconds: 0, amount: null, byClient: {} },
+  { date: '2026-09-19', seconds: 0, amount: null, byClient: {} },
+  { date: '2026-09-20', seconds: 0, amount: null, byClient: {} },
 ];
 
 const SERIES: Stats['month']['series'] = [
@@ -134,33 +158,10 @@ const CLIENTS = {
   ],
 };
 
-/**
- * `/calendar?granularity=day`: seconds per client per local day, with `''`
- * for internal work. Monday is two clients at 2:1; Wednesday is one client
- * and some internal time.
- */
-const ACTIVITY = {
-  days: [
-    {
-      date: '2026-09-14',
-      totalSeconds: 25_200,
-      byClient: { c1: 16_800, c2: 8400 },
-    },
-    { date: '2026-09-15', totalSeconds: 19_800, byClient: { c1: 19_800 } },
-    {
-      date: '2026-09-16',
-      totalSeconds: 24_300,
-      byClient: { c2: 18_300, '': 6000 },
-    },
-    { date: '2026-09-17', totalSeconds: 15_300, byClient: { c1: 15_300 } },
-  ],
-};
-
 /** Serves whatever `current` points at, so a refetch can return new figures. */
 function serve(
   get: () => Stats,
   entries: unknown = ENTRIES,
-  activity: unknown = ACTIVITY,
   clients: unknown = CLIENTS,
 ) {
   vi.stubGlobal(
@@ -169,11 +170,6 @@ function serve(
       const path = String(url);
       if (path.includes('/entries')) {
         return new Response(JSON.stringify(entries), { status: 200 });
-      }
-      /* Before `/clients`: the activity call is `/calendar?granularity=day`
-         and both are matched by substring. */
-      if (path.includes('/calendar')) {
-        return new Response(JSON.stringify(activity), { status: 200 });
       }
       if (path.includes('/clients')) {
         return new Response(JSON.stringify(clients), { status: 200 });

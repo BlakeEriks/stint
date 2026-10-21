@@ -69,3 +69,17 @@ export function anonClient(): SupabaseClient {
     { auth: { persistSession: false, autoRefreshToken: false } },
   );
 }
+
+/**
+ * Bypasses RLS: only for reading and writing `subscriptions`, which no user
+ * may write.
+ * `SUPABASE_SECRET_KEY` is server-only, never `NEXT_PUBLIC_`.
+ */
+export function serviceClient(): SupabaseClient {
+  return (
+    testDb() ??
+    createClient(env('NEXT_PUBLIC_SUPABASE_URL'), env('SUPABASE_SECRET_KEY'), {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+  );
+}

@@ -2,8 +2,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { useTimer } from '@/lib/client/use-timer';
-import type { Summary, TimeEntry } from '@/lib/client/api';
+import { timeZone, useTimer } from '@/lib/client/use-timer';
+import { keys } from '@/lib/client/query-keys';
+import type { Stats, Summary, TimeEntry } from '@/lib/client/api';
+import { localDateKey } from '@stint/core';
 
 const START = '2026-09-11T09:00:00.000Z';
 
@@ -327,5 +329,184 @@ describe('useTimer — every press answers at once', () => {
     await waitFor(() => expect(result.current.stop.isSuccess).toBe(true));
     expect(result.current.update.isSuccess).toBe(true);
     expect(result.current.running).toBeNull();
+  });
+});
+
+describe('useTimer — Home settles with the answer', () => {
+  function withClient() {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+    });
+    const wrap = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    return { client, wrap };
+  }
+  const today = () => {
+    const from = new Date(Date.now() - 3600_000).toISOString();
+    const to = new Date(Date.now() + 3600_000).toISOString();
+    return keys.entries({ from, to });
+  };
+  const rows = (client: QueryClient, key: readonly unknown[]) =>
+    client.getQueryData<{ entries: TimeEntry[] }>(key)?.entries;
+
+  it('finishes the running row in Today’s list at once when stopped', async () => {
+    const running = entry({
+      startedAt: new Date(Date.now() - 600_000).toISOString(),
+      durationSeconds: 540,
+    });
+    const server = slowServer(
+      summary({ running, serverTime: new Date().toISOString() }),
+    );
+    const { client, wrap } = withClient();
+    const list = today();
+    client.setQueryData(list, { entries: [running] });
+    const { result } = renderHook(() => useTimer(), { wrapper: wrap });
+    await waitFor(() => expect(result.current.running).not.toBeNull());
+
+    server.hold('POST /timer/stop');
+    act(() => result.current.stop.mutate());
+
+    await waitFor(() =>
+      expect(rows(client, list)?.[0]?.endedAt).not.toBeNull(),
+    );
+    expect(rows(client, list)?.[0]?.durationSeconds).toBeGreaterThanOrEqual(
+      600,
+    );
+  });
+
+  it('adds the time since /stats measured it to today’s bar when stopped', async () => {
+    const running = entry({
+      startedAt: new Date(Date.now() - 600_000).toISOString(),
+    });
+    const server = slowServer(
+      summary({ running, serverTime: new Date().toISOString() }),
+    );
+    const { client, wrap } = withClient();
+    const todayKey = localDateKey(new Date(), timeZone);
+    const week = [
+      { date: '2000-01-01', seconds: 100, amount: null },
+      { date: todayKey, seconds: 500, amount: null },
+    ];
+    client.setQueryData(keys.stats(timeZone), { week } as unknown as Stats, {
+      updatedAt: Date.now() - 30_000,
+    });
+    const { result } = renderHook(() => useTimer(), { wrapper: wrap });
+    await waitFor(() => expect(result.current.running).not.toBeNull());
+
+    server.hold('POST /timer/stop');
+    act(() => result.current.stop.mutate());
+
+    await waitFor(() =>
+      expect(
+        client.getQueryData<Stats>(keys.stats(timeZone))?.week[1]?.seconds,
+      ).toBeGreaterThanOrEqual(530),
+    );
+    expect(client.getQueryData<Stats>(keys.stats(timeZone))?.week[0]).toEqual(
+      week[0],
+    );
+  });
+
+  it('grows today’s bar by no more than the running entry when /stats is older', async () => {
+    const running = entry({
+      startedAt: new Date(Date.now() - 600_000).toISOString(),
+    });
+    const server = slowServer(
+      summary({ running, serverTime: new Date().toISOString() }),
+    );
+    const { client, wrap } = withClient();
+    const todayKey = localDateKey(new Date(), timeZone);
+    client.setQueryData(
+      keys.stats(timeZone),
+      {
+        week: [{ date: todayKey, seconds: 500, amount: null }],
+      } as unknown as Stats,
+      { updatedAt: Date.now() - 3 * 3600_000 },
+    );
+    const { result } = renderHook(() => useTimer(), { wrapper: wrap });
+    await waitFor(() => expect(result.current.running).not.toBeNull());
+
+    server.hold('POST /timer/stop');
+    act(() => result.current.stop.mutate());
+
+    await waitFor(() =>
+      expect(
+        client.getQueryData<Stats>(keys.stats(timeZone))?.week[0]?.seconds,
+      ).toBeGreaterThan(500),
+    );
+    expect(
+      client.getQueryData<Stats>(keys.stats(timeZone))?.week[0]?.seconds,
+    ).toBeLessThanOrEqual(500 + 601);
+  });
+
+  it('adds a started row to the lists whose window holds now', async () => {
+    const server = slowServer(
+      summary({ serverTime: new Date().toISOString() }),
+    );
+    const { client, wrap } = withClient();
+    const list = today();
+    const yesterday = keys.entries({
+      from: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+      to: new Date(Date.now() - 86_400_000).toISOString(),
+    });
+    client.setQueryData(list, { entries: [] });
+    client.setQueryData(yesterday, { entries: [] });
+    const { result } = renderHook(() => useTimer(), { wrapper: wrap });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    server.hold('POST /timer/start');
+    act(() => result.current.start.mutate({ id: 'new', taskName: 'Design' }));
+
+    await waitFor(() => expect(rows(client, list)?.[0]?.id).toBe('new'));
+    expect(rows(client, yesterday)).toEqual([]);
+  });
+
+  it('settles the summary and Home’s figures from the stop’s answer', async () => {
+    const urls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        urls.push(`${init?.method ?? 'GET'} ${url}`);
+        const body =
+          init?.method === 'POST'
+            ? {
+                entry: entry({ endedAt: START }),
+                included: {
+                  summary: summary({ todaySeconds: 3600 }),
+                  stats: { settled: true },
+                },
+              }
+            : summary({ running: entry() });
+        return new Response(JSON.stringify(body), { status: 200 });
+      }),
+    );
+    const { client, wrap } = withClient();
+    const invalidated: string[] = [];
+    const real = client.invalidateQueries.bind(client);
+    client.invalidateQueries = (filters?: {
+      queryKey?: readonly unknown[];
+    }) => {
+      invalidated.push(String(filters?.queryKey?.[0]));
+      return real(filters);
+    };
+    const { result } = renderHook(() => useTimer(), { wrapper: wrap });
+    await waitFor(() => expect(result.current.running).not.toBeNull());
+
+    await act(async () => {
+      await result.current.stop.mutateAsync();
+    });
+
+    expect(urls.find((u) => u.startsWith('POST'))).toMatch(
+      /\/timer\/stop\?include=summary,stats&tz=/,
+    );
+    expect(client.getQueryData(keys.stats(timeZone))).toEqual({
+      settled: true,
+    });
+    expect(client.getQueryData<Summary>(keys.summary())?.todaySeconds).toBe(
+      3600,
+    );
+    expect(invalidated).not.toContain('summary');
+    expect(invalidated).not.toContain('stats');
+    expect(invalidated).toContain('entries');
   });
 });

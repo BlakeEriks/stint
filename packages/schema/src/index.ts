@@ -6,7 +6,11 @@
  * Swift models honest, but that generator is not written yet.
  */
 
-import { isValidTimeZone } from '@stint/core';
+import {
+  isValidTimeZone,
+  SUBSCRIPTION_STATUSES,
+  validateRoutingNumber,
+} from '@stint/core';
 import { z } from 'zod';
 
 export const uuid = z.uuid();
@@ -211,6 +215,22 @@ export const Summary = z.object({
 });
 
 export const SummaryQuery = z.object({ tz: timeZone });
+
+/**
+ * What a write may return beside its record, read after it in the same
+ * request (`docs/api.md`, "Including what a write changed").
+ */
+export const IncludedName = z.enum(['summary', 'stats']);
+
+/** A write's query: `?include=summary,stats&tz=…`. */
+export const IncludeQuery = z.object({
+  include: z
+    .string()
+    .transform((s) => s.split(','))
+    .pipe(z.array(IncludedName))
+    .optional(),
+  tz: timeZone,
+});
 export const StatsQuery = z.object({ tz: timeZone });
 export const ExportQuery = z.object({ tz: timeZone });
 
@@ -218,12 +238,6 @@ export const CalendarQuery = z.object({
   from: iso,
   to: iso,
   tz: timeZone,
-  /**
-   * `day` returns totals only — `{ date, totalSeconds, byClient }` and no
-   * entries. The activity strip draws one rectangle per day, and twelve weeks
-   * of full entries is a heavy payload to build one.
-   */
-  granularity: z.enum(['entry', 'day']).default('entry'),
 });
 
 // ── settings ───────────────────────────────────────────────────────
@@ -247,12 +261,13 @@ export const Settings = z.object({
   businessAddress: z.string().max(1000).nullable(),
   businessEmail: z.email().nullable(),
   logoUrl: z.url().nullable(),
-  taxId: z.string().max(100).nullable(),
   defaultPaymentTerms: z.string().max(200),
   invoiceNumberPrefix: z.string().max(20),
   nextInvoiceNumber: z.number().int().positive(),
   /** Standing anti-fraud line printed under the invoice payment block. */
   paymentNotice: z.string().max(500).nullable(),
+  /** When the welcome dialog was finished or skipped; null shows it. */
+  welcomedAt: iso.nullable(),
 });
 /**
  * `nextInvoiceNumber` is not client-settable: gapless numbering depends on
@@ -269,6 +284,25 @@ export const Account = z.object({
   projects: z.number().int().nonnegative(),
   invoices: z.number().int().nonnegative(),
 });
+
+// ── billing ────────────────────────────────────────────────────────
+/** The caller's plan. `available` is false until Stripe is configured. */
+export const Billing = z.object({
+  available: z.boolean(),
+  plan: z.enum(['free', 'paid']),
+  status: z.enum(SUBSCRIPTION_STATUSES).nullable(),
+  periodEnd: iso.nullable(),
+  cancelAtPeriodEnd: z.boolean(),
+  paymentFailed: z.boolean(),
+});
+
+/** Back from Checkout: the session the user just paid. */
+export const BillingSync = z.object({
+  sessionId: z.string().min(1).max(255),
+});
+
+/** Where to send the browser: Checkout or the Customer Portal. */
+export const BillingRedirect = z.object({ url: z.url() });
 
 // ── invoicing ──────────────────────────────────────────────────────
 export const GroupingMode = z.enum([
@@ -494,6 +528,19 @@ export const Invoice = z.object({
   /** The payment block as rendered at generation. Editing a profile later
    *  never alters an issued invoice, so this is a snapshot, not a reference. */
   paymentDetails: PaymentDetailsSnapshot.nullable(),
+  /** The From block as generated: editing settings later never reprints it. */
+  business: z.object({
+    name: z.string().nullable(),
+    address: z.string().nullable(),
+    email: z.string().nullable(),
+    logoUrl: z.string().nullable(),
+  }),
+  /** The Bill to block as generated: editing the client never reprints it. */
+  billTo: z.object({
+    name: z.string(),
+    email: z.string().nullable(),
+    address: z.string().nullable(),
+  }),
   sentAt: iso.nullable(),
   paidAt: iso.nullable(),
   createdAt: iso,
@@ -591,19 +638,9 @@ const CalendarDayBase = z.object({
   totalSeconds: z.number().int().nonnegative(),
 });
 
-/** `granularity=entry` — the day with the entries that make it up. */
+/** A day with the entries that make it up. */
 export const CalendarDay = CalendarDayBase.extend({
   entries: z.array(TimeEntry),
-});
-
-/**
- * `granularity=day` — totals only, for the activity strip.
- *
- * `byClient` keys by client id, with `''` for internal work: a day spent
- * unbilled is not an empty day. Running entries contribute nothing.
- */
-export const CalendarTotalsDay = CalendarDayBase.extend({
-  byClient: z.record(z.string(), z.number().int().nonnegative()),
 });
 
 export const UpdateInvoiceStatus = z.object({
@@ -708,6 +745,12 @@ export const WeekDay = z.object({
   /** The figure at the bar's head, null when the day resolves no rate. A
    *  day of unrated work has a real height and no money to print. */
   amount: money.nullable(),
+  /**
+   * The day's billable seconds per client id — how the bar is stacked. Work
+   * with no client keys as `''`. The parts add up to `seconds`, within a
+   * second for a running session: SQL and JS each measure it to `now`.
+   */
+  byClient: z.record(z.string(), z.number()),
 });
 
 export const Stats = z.object({
@@ -801,6 +844,8 @@ export const Stats = z.object({
     ),
   }),
   attention: z.object({
+    /** The account has no default hourly rate: the Inbox asks for one. */
+    noDefaultRate: z.boolean(),
     overdueInvoices: z.array(
       z.object({
         invoiceId: uuid,
@@ -868,17 +913,27 @@ export const Stats = z.object({
   }),
 });
 
+/** The reads a write's `include` named, each in its own GET's shape. */
+export const Included = z.object({
+  summary: Summary.optional(),
+  stats: Stats.optional(),
+});
+
 /**
  * `POST /timer/stop`: the stopped entry, plus Unbilled as it stands with that
  * entry in it — `/stats`'s own figure, so a client shows the new total from
  * the call it already made rather than predicting the delta from its own copy
- * of the rate chain.
+ * of the rate chain. `included` is there when the request asked for it.
  */
 export const StoppedTimer = z.object({
   entry: TimeEntry,
   currency,
   unbilled: Stats.shape.unbilled,
+  included: Included.optional(),
 });
+
+/** A timer start or entry `PATCH` asked to `include`: the record beside them. */
+export const WrittenEntry = z.object({ entry: TimeEntry, included: Included });
 
 // ── payment profiles ───────────────────────────────────────────────
 // US-first: account + ACH routing is the default path, everything else
@@ -914,6 +969,20 @@ export const PaymentProfile = z.object({
   archivedAt: iso.nullable().optional(),
 });
 
+/* Stored as its 9 digits, and refused when they fail the ABA checksum: a
+   malformed number on an invoice risks a returned or misrouted ACH. The
+   database holds the 9 digits too (`payment_profiles_routing_number_digits`);
+   the checksum is only here. */
+const routingNumber = z.string().transform((v, ctx) => {
+  const digits = validateRoutingNumber(v);
+  if (digits) return digits;
+  ctx.addIssue({
+    code: 'custom',
+    message: 'Not a valid routing number: 9 digits that pass the ABA check',
+  });
+  return z.NEVER;
+});
+
 export const CreatePaymentProfile = PaymentProfile.omit({
   id: true,
   isDefault: true,
@@ -921,6 +990,7 @@ export const CreatePaymentProfile = PaymentProfile.omit({
 }).extend({
   id: uuid.optional(),
   isDefault: z.boolean().default(false),
+  routingNumber: routingNumber.nullable().optional(),
 });
 
 /* `isDefault` is re-declared rather than inherited: `.partial()` keeps the
@@ -952,6 +1022,11 @@ export const ErrorCode = z.enum([
   'UNAUTHORIZED',
   'IMPORT_FILE_UNRECOGNIZED',
   'VALIDATION_FAILED',
+  'ALREADY_SUBSCRIBED',
+  'NOT_SUBSCRIBED',
+  'CHECKOUT_NOT_FOUND',
+  'BILLING_UNAVAILABLE',
+  'PAYMENT_REQUIRED',
 ]);
 
 export const ApiError = z.object({
@@ -971,6 +1046,8 @@ export type InvoicePreview = z.infer<typeof InvoicePreview>;
 export type PaymentProfile = z.infer<typeof PaymentProfile>;
 export type Stats = z.infer<typeof Stats>;
 export type StoppedTimer = z.infer<typeof StoppedTimer>;
+export type Included = z.infer<typeof Included>;
+export type IncludedName = z.infer<typeof IncludedName>;
 export type MonthEarned = z.infer<typeof MonthEarned>;
 export type WeekDay = z.infer<typeof WeekDay>;
 export type UnbilledClient = z.infer<typeof UnbilledClient>;
@@ -979,9 +1056,11 @@ export type ClientWithScale = z.infer<typeof ClientWithScale>;
 export type Invoice = z.infer<typeof Invoice>;
 export type Expense = z.infer<typeof Expense>;
 export type CalendarDay = z.infer<typeof CalendarDay>;
-export type CalendarTotalsDay = z.infer<typeof CalendarTotalsDay>;
 export type InvoiceLineItem = z.infer<typeof InvoiceLineItem>;
 export type ComputedLineItem = z.infer<typeof ComputedLineItem>;
 export type StoredLineItem = z.infer<typeof StoredLineItem>;
 export type ApiError = z.infer<typeof ApiError>;
 export type CreateFeedback = z.infer<typeof CreateFeedback>;
+export type Billing = z.infer<typeof Billing>;
+export type BillingSync = z.infer<typeof BillingSync>;
+export type BillingRedirect = z.infer<typeof BillingRedirect>;

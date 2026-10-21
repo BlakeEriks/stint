@@ -158,8 +158,9 @@ a different order, and the ones that drifted were rebuilt:
 | A client's color | `useProjectColors()`, `Swatch` |
 | A rate, with its source | `ProjectRate` |
 | A key to press | `Kbd` |
+| A short choice in a section's heading row | `SegmentedControl` |
 
-`Select` is for choices that are only words; a row carrying a swatch, a
+A choice in a form or dialog field is a `Select`; a row carrying a swatch, a
 second line or an `Add…` item is a `DropdownMenu`. Put a component in
 `components/` when a second screen needs it, not in anticipation of one.
 
@@ -198,9 +199,11 @@ second line or an `Add…` item is a `DropdownMenu`. Put a component in
 - **A picker row is swatch, name, then the client muted.** Internal work gets
   no client text and no color; the absence is the answer.
 
-`components/ui/` is **vendored shadcn**, rewritten to our tokens at install by
-`apps/web/scripts/shadcn-detox.mjs`. shadcn's palette names are not defined in
-`@theme`: two collide with ours and mean the opposite — its `bg-primary` is
+`components/ui/` holds **vendored shadcn**, rewritten to our tokens at install
+by `apps/web/scripts/shadcn-detox.mjs`, and `Kbd`, a keycap shadcn lacks. A
+primitive written by hand otherwise goes in `components/`, where
+`apps/web/scripts/check-type-roles.mjs` sees it. shadcn's palette names are
+not defined in `@theme`: two collide with ours and mean the opposite — its `bg-primary` is
 the action color (ours is neutral gray), its `bg-accent` is hover gray (ours
 is the neon green).
 
@@ -241,12 +244,24 @@ the target instant.
 
 **Cache keys come from `lib/client/query-keys.ts`, never written inline**, so
 one shape per query is what an invalidation can match. Anything that changes a
-time entry calls `invalidateEntryData()` — summary, entries, stats, calendar
-and activity all read those rows, and refreshing a subset makes two screens
-disagree about the same work.
+time entry calls `invalidateEntryData()` — summary, entries, stats and
+calendar all read those rows, and refreshing a subset makes two screens
+disagree about the same work. A read the write's answer included
+(`include`) counts as refreshed, so it is skipped.
 
 **A query renders through `Listing`**, which owns loading, failure and empty,
 so no screen writes those branches.
+
+**A region paints once, with all its data.** Hand `Listing` every query the
+region draws, as a tuple, and nothing of it renders until all have answered;
+never a `?? []` standing in for one still on its way, which is how a bar draws
+gray and then turns a client's color. Its only loading state is `Loader`, the
+one quiet word. A query a nested part runs is started by the region too, so it
+is cached by the first frame past the gate. A query the region only shows
+if it answers goes in `also`: waited for, but its failure never blanks the
+region. A page's title, primary action and tabs are its frame and paint at
+once; a figure in its header waits with the content (`useLoaded`), never a
+0 that changes.
 
 **`TaskSuggest` is the exception, deliberately** — its query renders nothing
 while loading and nothing on failure. A suggestion is an accelerator nobody

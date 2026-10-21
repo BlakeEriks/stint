@@ -2,7 +2,8 @@
 
 Every client (web and the macOS app) uses these endpoints, and an endpoint
 not built yet is marked `(not implemented)`. Auth is a Supabase JWT as
-`Authorization: Bearer <token>`, on every endpoint except `/health`. Request/response shapes are defined in
+`Authorization: Bearer <token>`, on every endpoint except `/health` and the
+Stripe webhook, which Stripe's signature authenticates instead. Request/response shapes are defined in
 `packages/schema/src/index.ts` — that file is the source of truth, and every
 route parses its request against it; this document is the map.
 
@@ -13,7 +14,7 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 48 of 48, counting handlers rather than files.
+Every handler is covered — 53 of 53, counting handlers rather than files.
 
 ## Timer
 
@@ -22,13 +23,24 @@ behavior depends on global state.
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST` | `/timer/start` | `{ id?, projectId?, taskName?, startedAt?, isBillable? }` — `taskName` defaults to `''`, since a timer started in a hurry can be named later. Returns `201`. **`409 TIMER_ALREADY_RUNNING`** if one is running, with the running entry in `details.running` so the client can display it rather than just reporting a conflict. `startedAt` allows backdating a forgotten start. **`isBillable` omitted takes the project's billable default**, and is billable with no project. The web sends it when a Today row starts a task again, copying that task's latest entry. |
-| `POST` | `/timer/stop` | `{ endedAt? }`, defaults to server `now()`. Returns `{ entry, currency, unbilled }`, `unbilled` being `/stats`'s, counted after the stop, so a client shows the new total without a second request. `409 NO_TIMER_RUNNING` if none; `422 VALIDATION_FAILED` if a backdated `endedAt` is at or before `startedAt`. |
+| `POST` | `/timer/start` | `{ id?, projectId?, taskName?, startedAt?, isBillable? }` — `taskName` defaults to `''`, since a timer started in a hurry can be named later. Returns `201`. **`409 TIMER_ALREADY_RUNNING`** if one is running, with the running entry in `details.running` so the client can display it rather than just reporting a conflict. `startedAt` allows backdating a forgotten start. **`isBillable` omitted takes the project's billable default**, and is billable with no project. The web sends it when a Today row starts a task again, copying that task's latest entry. `?include` returns `{ entry, included }` instead of the entry ([Including what a write changed](#including-what-a-write-changed)). |
+| `POST` | `/timer/stop` | `{ endedAt? }`, defaults to server `now()`. Returns `{ entry, currency, unbilled }`, `unbilled` being `/stats`'s, counted after the stop, so a client shows the new total without a second request; `?include` adds `included` ([Including what a write changed](#including-what-a-write-changed)). `409 NO_TIMER_RUNNING` if none; `422 VALIDATION_FAILED` if a backdated `endedAt` is at or before `startedAt`. |
 | `GET` | `/timer/current` | `{ entry, serverTime }`. |
 | `PATCH` | `/timer/current` | Edit task name / project mid-run. `409 NO_TIMER_RUNNING` if none; `409 ENTRY_LOCKED` if billed. |
 
 `serverTime` is returned so clients can correct for clock skew rather than
 trusting the device clock.
+
+### Including what a write changed
+
+`?include=summary,stats&tz=<IANA zone>` on `POST /timer/start`,
+`POST /timer/stop` and `PATCH /entries/:id` returns those reads beside the
+record, taken after the write in the same request, each in its own `GET`'s
+shape: `{ entry, included: { summary, stats } }`. A client asks for what it
+shows, so its figures settle with the answer rather than a refetch later.
+Start and `PATCH` return the bare entry without it; stop adds `included` to
+its own shape. An unknown name is `422 VALIDATION_FAILED`, before anything is
+written.
 
 ## Entries
 
@@ -37,7 +49,7 @@ trusting the device clock.
 | `GET` | `/entries` | `?from&to&projectId&clientId&limit` (1–500, default 200), newest first. **`projectId=none`** returns entries with no project at all — an absent parameter already means "every entry", so there was otherwise no way to ask for the ones the inbox surfaces. A running entry's `durationSeconds` is its length at the response, not null; `endedAt: null` is what marks it running. |
 | `GET` | `/entries/:id` | |
 | `POST` | `/entries` | Manual entry. `id` is client-supplied (UUIDv7) so a retry is idempotent. Always complete — `endedAt` required, and `422 VALIDATION_FAILED` if it is at or before `startedAt`. **`isBillable` omitted takes the project's billable default**, and is billable with no project. |
-| `PATCH` | `/entries/:id` | **`409 ENTRY_LOCKED`** if billed on a non-draft invoice. Returns `409 TIMER_ALREADY_RUNNING` if clearing `endedAt` would reopen this entry while another timer runs, and `422 VALIDATION_FAILED` if the patch would leave `endedAt` at or before `startedAt`. |
+| `PATCH` | `/entries/:id` | **`409 ENTRY_LOCKED`** if billed on a non-draft invoice. Returns `409 TIMER_ALREADY_RUNNING` if clearing `endedAt` would reopen this entry while another timer runs, and `422 VALIDATION_FAILED` if the patch would leave `endedAt` at or before `startedAt`. `?include` returns `{ entry, included }` instead of the entry ([Including what a write changed](#including-what-a-write-changed)). |
 | `DELETE` | `/entries/:id` | Same lock applies. |
 
 ## Import
@@ -69,10 +81,9 @@ or one with an unreadable row, before anything is written.
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/summary` | **The menu bar endpoint.** Returns `{ running, todaySeconds, weekSeconds, serverTime }` in one call, so the Mac app can toggle between "current timer" and "today's total" without a second request. |
-| `GET` | `/calendar` | `?from&to` (**both required**) `&tz&granularity`. Returns `{ days: [{ date, totalSeconds, entries }] }` for every entry that overlaps the range, running ones included. An entry that crosses local midnight is listed under each day it touches, so one id can appear on several days, and each day's `totalSeconds` counts only its own part. `400 INVALID_PERIOD` if `to < from`. |
-| `GET` | `/calendar?granularity=day` | Day totals only — `{ date, totalSeconds, byClient }` per day, no entries. A month of full entries is a heavy payload for something drawing one column per day. **Seconds only**, so it carries no money; Home's week bars take both columns from `/stats`'s `week` instead. `byClient` keys by client id with `''` for internal work, and running entries are excluded. Each entry counts whole on the day it started, as `/stats` does, so an entry begun before `from` is left out. |
-| `GET` | `/stats` | `?tz` — the home screen cards **and the dock's inbox** in one call. One request because they render together, and a set that pops in piecemeal reads as broken. Fields and their rules are below. |
+| `GET` | `/summary` | **The menu bar endpoint.** Returns `{ running, todaySeconds, weekSeconds, serverTime }` in one call, so the Mac app can toggle between "current timer" and "today's total" without a second request. A write can return it too ([Including what a write changed](#including-what-a-write-changed)). |
+| `GET` | `/calendar` | `?from&to` (**both required**) `&tz`. Returns `{ days: [{ date, totalSeconds, entries }] }` for every entry that overlaps the range, running ones included. An entry that crosses local midnight is listed under each day it touches, so one id can appear on several days, and each day's `totalSeconds` counts only its own part. `400 INVALID_PERIOD` if `to < from`. |
+| `GET` | `/stats` | `?tz` — the home screen cards **and the dock's inbox** in one call. One request because they render together, and a set that pops in piecemeal reads as broken. Fields and their rules are below. A write can return it too ([Including what a write changed](#including-what-a-write-changed)). |
 | `GET` | `/entries/task-names` | `?projectId&limit` (1–20, default 8). Returns `{ taskNames: [{ taskName, projectId, lastUsedAt }] }` — names the user has typed before, for suggesting one rather than retyping it. One row per name **case-insensitively**, keeping the most recent spelling, since offering both is offering the user their own typo; the empty name is excluded, so a timer started in a hurry never becomes a suggestion. **`projectId` ranks, it does not filter** — names used with that project come first and every other name still follows, so there is no `none` literal as there is on `/entries`: "no project" and "no preference" are one request. Omitting it ranks by recency alone. Ranking is the server's and clients must not re-sort it; filtering as the user types is theirs. Backed by the `recent_task_names` SQL function. |
 
 ### `/stats` fields
@@ -138,8 +149,11 @@ month, never `resolve_entry_rate` per client.
 
 **`week` is seven days, oldest first, from the user's own `weekStartsOn`** —
 always seven, so a day with no work is a zero column rather than an absent
-one. Each carries `seconds` and `amount`, and **the two do not share a
-filter**: `seconds` counts all billable worked time including work whose rate
+one. Each carries `seconds`, `amount` and `byClient`. `byClient` splits the
+day's billable seconds by client id, with `''` for work with no client; each
+session counts whole on the day it started, and a running one to `now`, so
+the parts add up to `seconds` (within a second while a timer runs). `seconds`
+and `amount` **do not share a filter**: `seconds` counts all billable worked time including work whose rate
 chain resolves to null, because that time was worked and it sets the bar's
 height; `amount` excludes it and is **null** on a day that resolves no rate,
 so the bar prints no figure rather than `$0`. A rate of exactly `0` is a real
@@ -159,7 +173,8 @@ per pair of entries sharing a minute or more (`MIN_OVERLAP_SECONDS` in
 `@stint/core`) where at least one is unbilled, except non-billable work
 against billed time, which bills nothing twice. It names the unbilled entry,
 the later-starting one when both are, and `otherInvoiceNumber` when the other
-is on an invoice; it clears when either is edited apart.
+is on an invoice; it clears when either is edited apart. `noDefaultRate` is
+true while the user has no default hourly rate, and the Inbox asks for one.
 
 ## Clients / projects / settings
 
@@ -169,7 +184,8 @@ Standard CRUD: `GET|POST /clients`, `GET|PATCH|DELETE /clients/:id`, same for
 `GET /account` counts what deleting it would remove — `{ entries, clients,
 projects, invoices }`, archived rows included. `DELETE /account` removes the
 caller and every row they own in one transaction, issued invoices included,
-and returns `204`; a failure removes nothing. The caller's token still
+and returns `204`; a failure removes nothing. A live Stripe subscription is
+canceled first, and if Stripe refuses, nothing is deleted. The caller's token still
 verifies until it expires, so a client signs out locally after the `204`.
 
 `POST` on all three accepts an optional client-supplied `id` (UUIDv7); a
@@ -228,10 +244,10 @@ rate. `0` is a real rate, distinct from `null`, which means "fall back".
 |---|---|---|
 | `GET` | `/invoices` | `?clientId&status&limit` (1–200, default 50), newest first — ordered by invoice sequence, not issue date. |
 | `POST` | `/invoices/preview` | **No side effects.** `{ clientId, periodStart, periodEnd, groupingMode?, summaryText?, tz?, manualLines?, excludedExpenseIds? }` → `lineItems`, `subtotal`, `taxRate`, `taxAmount`, `expensesSubtotal`, `total`, `entryCount`, `unratedEntryIds`, `overlappingEntryIds` (entries to bill that share a minute or more with each other or with billed time), `schedules` (every supporting-detail table with `summary`, else null), plus `clientId`, `clientName`, `currency`, the echoed period and `groupingMode`. `400 INVALID_PERIOD` if `periodEnd < periodStart`; `422 VALIDATION_FAILED` if `tz` is not an IANA zone. |
-| `POST` | `/invoices` | Allocates the number, freezes line items **and payment details**, locks entries and expenses, in one transaction. Also accepts `issueDate` (absent, today in `tz`), `dueDate`, `notes`, `paymentTerms`, `tz`, `reference` (the PO, contract or SOW, at most 200 characters; blank is none), and `schedules` (`project | week | date`, with `summary` only), which freezes those tables as `supportingDetail`. `paymentProfileId` picks the payment details to freeze; absent, the client's profile, else the default. Returns the `Invoice` plus `lineItems` and `entryCount`. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate; `400 INVALID_PERIOD` if there is nothing to bill: no time, no expense and no charge; `422 VALIDATION_FAILED` for `summary` with an empty `summaryText`, `schedules` with another grouping, or a `paymentProfileId` archived or not found; `409 EXPENSE_ALREADY_INVOICED` if another invoice took one of its expenses first, or `409 ENTRY_ALREADY_INVOICED` if one of its entries was billed elsewhere or deleted since it was loaded; either writes nothing and uses no number; `422 VALIDATION_FAILED` on an invalid `tz`. |
-| `GET` | `/invoices/:id` | Invoice + frozen line items + the client's `{ id, name, email, address }` (not the full client row). Returned **flat**, like every other detail route. These `lineItems` carry `id` and `sortOrder`; the ones a preview or a generation returns carry `rateSource` and `entryIds` instead. |
+| `POST` | `/invoices` | Allocates the number, freezes line items, **payment details**, and the From and Bill to blocks (`business`, `billTo`) from settings and the client as they are now, locks entries and expenses, in one transaction. Also accepts `issueDate` (absent, today in `tz`), `dueDate`, `notes`, `paymentTerms`, `tz`, `reference` (the PO, contract or SOW, at most 200 characters; blank is none), and `schedules` (`project | week | date`, with `summary` only), which freezes those tables as `supportingDetail`. `paymentProfileId` picks the payment details to freeze; absent, the client's profile, else the default. Returns the `Invoice` plus `lineItems` and `entryCount`. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate; `400 INVALID_PERIOD` if there is nothing to bill: no time, no expense and no charge; `422 VALIDATION_FAILED` for `summary` with an empty `summaryText`, `schedules` with another grouping, or a `paymentProfileId` archived or not found; `409 EXPENSE_ALREADY_INVOICED` if another invoice took one of its expenses first, or `409 ENTRY_ALREADY_INVOICED` if one of its entries was billed elsewhere or deleted since it was loaded; either writes nothing and uses no number; `422 VALIDATION_FAILED` on an invalid `tz`, or while settings have no business name or email, before anything is written. |
+| `GET` | `/invoices/:id` | Invoice, with its frozen `business` and `billTo`, + frozen line items, and `canDownload`: whether the PDF below opens for the caller. Returned **flat**, like every other detail route. These `lineItems` carry `id` and `sortOrder`; the ones a preview or a generation returns carry `rateSource` and `entryIds` instead. |
 | `DELETE` | `/invoices/:id` | **Drafts only** — `422 VALIDATION_FAILED` otherwise. An issued invoice must be voided, so numbering stays gapless. Releases its entries and expenses. |
-| `GET` | `/invoices/:id/pdf` | Streams `application/pdf` from the frozen line items, then the frozen `supportingDetail` from page 2, in hours. `?download=1` for `attachment` rather than an inline preview. |
+| `GET` | `/invoices/:id/pdf` | Streams `application/pdf` from the frozen line items, `business`, `billTo` and payment details, then the frozen `supportingDetail` from page 2, in hours. The payment notice is the one detail read live from settings. `?download=1` for `attachment` rather than an inline preview. Both are the paid tier: `402 PAYMENT_REQUIRED` unless billing is not set up, the caller pays, or the invoice was generated while they paid. Previewing and generating stay free. |
 | `PATCH` | `/invoices/:id/status` | `{ status, sentAt?, paidAt? }`. Also how an invoice is marked sent. `422 VALIDATION_FAILED` on a transition the table below forbids, or if `paidAt` is later than now or earlier than the invoice's `sentAt`; `409 INVOICE_STATUS_CHANGED` if another request changed the status since this one read it. |
 
 **Status transitions are constrained:** draft→sent/void, sent→paid/void,
@@ -283,13 +299,29 @@ by every one when `recurring`. The amount is in the client's currency.
 | Method | Path | Notes |
 |---|---|---|
 | `GET` | `/exports/entries` | `?tz`. Every finished entry as a `text/csv` attachment, `stint-entries-<today in tz>.csv`, oldest first: local date and times, billed hours, client, project, task, billable, the rate `resolveRate()` gives it now and its source, the amount an invoice would bill (empty for non-billable or unrated work), currency, and the billing invoice's number or `Invoiced elsewhere`. |
-| `GET` | `/exports/invoices` | `?tz`. Every invoice, any status, as a `text/csv` attachment, newest issue date first, with its dates and frozen totals. Both files are UTF-8 with a BOM, CRLF, US dates (`MM/DD/YYYY`), and money as plain two-place decimals; a text cell a spreadsheet would run as a formula gets a leading `'`. |
+| `GET` | `/exports/invoices` | `?tz`. Every invoice, any status, as a `text/csv` attachment, newest issue date first, with its dates, frozen totals, and the client name frozen on it (`billTo.name`), so renaming a client doesn't change an issued invoice's row. Both files are UTF-8 with a BOM, CRLF, US dates (`MM/DD/YYYY`), and money as plain two-place decimals; a text cell a spreadsheet would run as a formula gets a leading `'`. |
 
 ## Feedback
 
 | Method | Path | Notes |
 |---|---|---|
 | `POST` | `/feedback` | `{ id, message, screen, client, appVersion }` → `201 { id }`. `id` is a client-generated UUIDv7, so a retry returns `200`. `422` for a blank or overlong `message` (2,000 at most), a `screen` not starting with `/`, or a `client` other than `web` or `macos`. Feedback can't be read back or changed through the API. |
+
+## Billing
+
+One yearly subscription through Stripe (`docs/positioning.md` owns the
+price). Until `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` and
+`STRIPE_WEBHOOK_SECRET` are all set, `checkout`, `portal` and `sync` answer
+`503 BILLING_UNAVAILABLE`, the webhook answers a plain-text `503`, and
+`GET /billing` still answers `200` with `available: false`.
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/billing` | `{ available, plan, status, periodEnd, cancelAtPeriodEnd, paymentFailed }`. `plan` is `paid` while Stripe's status is `active`, `trialing` or `past_due` (`planOf()` in `@stint/core`). Read from the stored mirror, so it answers with Stripe unset or down; `available` says whether billing is set up. |
+| `POST` | `/billing/checkout` | `{ url }` of a Stripe Checkout page for the yearly price, returning to `/settings?checkout={CHECKOUT_SESSION_ID}`. `409 ALREADY_SUBSCRIBED` if paid. |
+| `POST` | `/billing/portal` | `{ url }` of the Stripe Customer Portal (cancel, resume, card, receipts). `409 NOT_SUBSCRIBED` with no Stripe customer. |
+| `POST` | `/billing/sync` | `{ sessionId }` → the caller's `Billing`, after storing what Stripe says about that Checkout session now. `404 CHECKOUT_NOT_FOUND` for an unknown session or another user's. |
+| `POST` | `/billing/webhook` | **No session**: called by Stripe and authenticated by the `stripe-signature` header against the raw body (`400` if missing or invalid). Each subscription event re-reads the customer from Stripe and stores that, so a duplicate or late event changes nothing. `500` on a failed sync, so Stripe retries. |
 
 ## Payment details
 
@@ -307,6 +339,9 @@ preference — `.claude/rules/invoicing.md` has the reason.
   for another. Without a pick, the client's profile (`paymentProfileId`),
   else the user's default; a dangling client reference falls back to the
   default rather than leaving an invoice with nothing.
+- `POST` and `PATCH` strip everything but digits from `routingNumber` and
+  store the 9 digits; a number that is not 9 digits passing the ABA checksum
+  is `422 VALIDATION_FAILED` (`validateRoutingNumber()` in `@stint/core`).
 - Deleting is archival, because clients and invoices reference profiles.
 
 `user_settings.payment_notice` is a standing anti-fraud line printed under the
@@ -317,7 +352,7 @@ verified by phone.
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/health` | **No auth.** `{ ok }`: `200` while Postgres answers a query, `503` when it does not. The uptime monitor polls it (`docs/deploying.md` §3c). |
+| `GET` | `/health` | **No auth.** `{ ok }`: `200` while Postgres answers a query, `503` when it does not. The uptime monitor polls it (`docs/deploying.md` §3c), and the release gate asks a new build for it before promoting it, failing the release on anything but `200` (§3). |
 
 ## Errors
 
@@ -339,7 +374,12 @@ verified by phone.
 | `INVALID_PERIOD` | 400 | |
 | `UNAUTHORIZED` | 401 | |
 | `IMPORT_FILE_UNRECOGNIZED` | 422 | Not a Toggl export, or a row in it cannot be read; `message` names the line. |
+| `ALREADY_SUBSCRIBED` | 409 | Checkout for a user already paid. |
+| `NOT_SUBSCRIBED` | 409 | The portal for a user with no Stripe customer. |
+| `CHECKOUT_NOT_FOUND` | 404 | No such Checkout session for this user. |
+| `BILLING_UNAVAILABLE` | 503 | Stripe isn't configured on this deploy. |
 | `VALIDATION_FAILED` | 422 | Zod parse failure (`details` carries the issues), an illegal state change such as deleting an issued invoice or an invalid status transition, a `PATCH` body that parses but maps to no column, or a reference to a record that is missing or another user's, such as a project's `clientId`. |
+| `PAYMENT_REQUIRED` | 402 | The invoice PDF is the paid tier. Subscribe in Settings. |
 | `INTERNAL` | 500 | Unhandled error. Not part of `ErrorCode` in the schema package. |
 
 `ENTRY_NOT_FOUND` is the generic 404 across resources — clients, projects,
@@ -361,6 +401,8 @@ parameter (IANA, e.g. `America/Sao_Paulo`). "Today" is a local-calendar
 question and the server cannot infer the caller's zone, so the client states
 it; an invalid zone falls back to UTC rather than failing the request, because
 a view that renders in the wrong zone beats a view that does not render.
+`POST /timer/start`, `POST /timer/stop` and `PATCH /entries/:id` take `tz`
+the same way, for the reads they include ([Including what a write changed](#including-what-a-write-changed)).
 
 `GET /exports/entries` and `GET /exports/invoices` fall back the same way. The
 zone dates each row and names the file, but every record is in the file

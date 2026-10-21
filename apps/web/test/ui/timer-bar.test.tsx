@@ -58,7 +58,8 @@ function serve(data: Summary, taskNames: TaskNameSuggestion[] = []) {
       if (method !== 'GET') {
         calls.push({
           method,
-          path,
+          // A write's `?include=` is the timer hook's, not what was pressed.
+          path: path.split('?')[0] ?? path,
           body: init?.body ? JSON.parse(String(init.body)) : undefined,
         });
         return new Response(JSON.stringify(entry()), { status: 200 });

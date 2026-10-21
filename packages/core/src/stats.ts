@@ -518,6 +518,8 @@ export interface WeekDay {
   date: string;
   /** All billable worked time, unrated work included — this is the height. */
   seconds: number;
+  /** `seconds` per client id (`''` for none) — how the bar is stacked. */
+  byClient: Record<string, number>;
   /** Null when the day's work resolves no rate: the bar prints no figure. */
   amount: number | null;
 }
@@ -533,7 +535,11 @@ export interface WeekDay {
  * unrated work has a real height and no figure to print: substituting 0 would
  * claim the work was free.
  */
-export function buildWeek(rows: DayRow[], dateKeys: string[]): WeekDay[] {
+export function buildWeek(
+  rows: DayRow[],
+  dateKeys: string[],
+  split: Map<string, Record<string, number>> = new Map(),
+): WeekDay[] {
   const byDate = new Map(rows.map((r) => [dayKey(r), r]));
   return dateKeys.map((date) => {
     const row = byDate.get(date);
@@ -541,6 +547,7 @@ export function buildWeek(rows: DayRow[], dateKeys: string[]): WeekDay[] {
       date,
       seconds: row ? Number(row.seconds) : 0,
       amount: row?.amount == null ? null : roundMoney(Number(row.amount)),
+      byClient: split.get(date) ?? {},
     };
   });
 }

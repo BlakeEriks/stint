@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   useQuery,
@@ -8,17 +9,17 @@ import {
   type QueryClient,
 } from '@tanstack/react-query';
 import { useOptimisticMutation } from '@/lib/client/mutations';
-import { Ban, DollarSign, Download, Send, Trash2 } from 'lucide-react';
+import { Ban, DollarSign, Download, Lock, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConfirmAction } from './confirm-action';
 import { shortDate, StatusBadge } from './invoice-bits';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
+import { PRICE } from './plan-section';
 import { attachedSchedules } from '@stint/core';
 import {
   api,
   ApiError,
-  type Client,
   type Invoice,
   type InvoiceStatus,
   type StoredLineItem,
@@ -26,24 +27,19 @@ import {
 import { DetailPage, Listing } from './page';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
-/** An invoice with its client; the lines are absent until they load. */
+/** An invoice; the lines, and whether its PDF opens, are absent until they
+    load. */
 type Shown = Invoice & {
-  client: Pick<Client, 'name' | 'email' | 'address'>;
   lineItems?: StoredLineItem[];
+  canDownload?: boolean;
 };
 
-/** What the invoice list and a client list already hold about this invoice,
-    so opening it draws at once. Undefined unless both are cached. */
-function fromLists(qc: QueryClient, id: string): Shown | undefined {
-  const invoice = qc
+/** What the invoice list already holds about this invoice, so opening it
+    draws at once. */
+function fromList(qc: QueryClient, id: string): Shown | undefined {
+  return qc
     .getQueryData<{ invoices: Invoice[] }>(keys.invoices())
     ?.invoices.find((i) => i.id === id);
-  if (!invoice) return undefined;
-  const client = qc
-    .getQueriesData<{ clients: Client[] }>({ queryKey: keys.clients() })
-    .flatMap(([, data]) => data?.clients ?? [])
-    .find((c) => c.id === invoice.clientId);
-  return client ? { ...invoice, client } : undefined;
 }
 
 export function InvoiceDetail({ id }: { id: string }) {
@@ -53,7 +49,13 @@ export function InvoiceDetail({ id }: { id: string }) {
   const query = useQuery<Shown>({
     queryKey: keys.invoice(id),
     queryFn: () => api.invoice(id),
-    placeholderData: () => fromLists(qc, id),
+    placeholderData: () => fromList(qc, id),
+  });
+  /* The payment notice's, so the invoice paints whole; the list fetches it
+     too, so one opened from there still opens at once. */
+  const settings = useQuery({
+    queryKey: keys.settings(),
+    queryFn: () => api.settings(),
   });
 
   /* Voiding releases the entries and expenses and deleting a draft frees
@@ -85,7 +87,11 @@ export function InvoiceDetail({ id }: { id: string }) {
 
   return (
     <DetailPage back="/invoices" label="Invoices">
-      <Listing query={query} missing="That invoice no longer exists.">
+      <Listing
+        query={query}
+        also={[settings]}
+        missing="That invoice no longer exists."
+      >
         {(data) => (
           <Loaded
             data={data}
@@ -101,7 +107,7 @@ export function InvoiceDetail({ id }: { id: string }) {
 
 /** The invoice itself, as the PDF prints it, with what can be done to it. */
 function Loaded({
-  data,
+  data: invoice,
   setStatus,
   remove,
   error,
@@ -118,12 +124,11 @@ function Loaded({
      one — React Query holds the last error until the next success. */
   error: unknown;
 }) {
-  const { client, ...invoice } = data;
   const isDraft = invoice.status === 'draft';
   const isVoid = invoice.status === 'void';
   const [markingPaid, setMarkingPaid] = useState(false);
-  /* The PDF prints the business block from settings as they are now, so the
-     card does too. */
+  /* For the payment notice, which the PDF reads from settings as they are
+     now. */
   const { data: settings } = useQuery({
     queryKey: keys.settings(),
     queryFn: () => api.settings(),
@@ -199,26 +204,47 @@ function Loaded({
           ) : null}
 
           {/* Downloading is how an invoice reaches a client: the app sends no
-              mail, so it is last, as the primary action. */}
-          <Button asChild>
-            <a href={api.invoicePdfUrl(invoice.id, true)}>
-              <Download aria-hidden strokeWidth={1.75} />
-              Download PDF
-            </a>
-          </Button>
+              mail, so it is last, as the primary action. Neither shows until
+              the invoice itself answers: the lists it first draws from don't
+              say whether its PDF opens. */}
+          {invoice.canDownload === true ? (
+            <Button asChild>
+              <a href={api.invoicePdfUrl(invoice.id, true)}>
+                <Download aria-hidden strokeWidth={1.75} />
+                Download PDF
+              </a>
+            </Button>
+          ) : null}
+          {invoice.canDownload === false ? (
+            <Button asChild>
+              <Link href="/settings#plan">
+                <Lock aria-hidden strokeWidth={1.75} />
+                Subscribe to download
+              </Link>
+            </Button>
+          ) : null}
         </div>
       </header>
       <div className="flex flex-col gap-1 pt-1 pb-6">
         <p className="type-support text-muted">
           {statusHint(invoice.status, invoice.dueDate)}
         </p>
+        {/* The document is the paid tier; the records never are, and saying
+            so here keeps the two rules from reading as one. */}
+        {invoice.canDownload === false ? (
+          <p className="type-support text-muted">
+            Downloading the invoice is on the paid plan, {PRICE}. Tracking and
+            your records, exporting them included, stay free.
+          </p>
+        ) : null}
         <ActionError error={error} />
       </div>
 
       <InvoicePreviewCard
         heading={false}
         preview={{ ...invoice, schedules: invoice.supportingDetail }}
-        client={client}
+        client={invoice.billTo}
+        business={invoice.business}
         settings={settings}
         number={invoice.invoiceNumber}
         issued={invoice.issueDate}

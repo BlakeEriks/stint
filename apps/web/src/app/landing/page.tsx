@@ -24,11 +24,11 @@ export const metadata: Metadata = {
     absolute: 'Stint — time tracking and invoicing for solo contractors',
   },
   description:
-    'Free time tracking and invoicing for solo contractors. One timer, your rates, and an invoice your client takes seriously. No teams, no seats, no upsell.',
+    'Time tracking and invoicing for solo contractors. Tracking is free; invoices are $40 a year. One timer, your rates, and an invoice your client takes seriously. No teams, no seats.',
   openGraph: {
     title: 'Time tracking and invoicing for solo contractors. That’s it.',
     description:
-      'Track hours, know what you are owed, send the invoice. Free to use, fully.',
+      'Track hours, know what you are owed, send the invoice. Tracking is free.',
     type: 'website',
   },
 };
@@ -83,7 +83,7 @@ export default function LandingPage() {
       <Unbilled />
       <Invoice />
       <Platforms />
-      <Free />
+      <Price />
       <Questions />
       <Closing />
       <Footer />
@@ -139,7 +139,8 @@ function Hero() {
           <div id="invite" className="mt-4 flex flex-col gap-3">
             <InviteRequest />
             <span className="type-meta text-subtle">
-              Free, fully &mdash; no card, no trial. Invite-only during alpha.
+              Tracking is free, no card. Invoices are $40 a year. Invite-only
+              during alpha.
             </span>
           </div>
         </div>
@@ -430,25 +431,24 @@ function Platforms() {
  * The price and the promises: a centered statement with three short pillars,
  * one of the two shapes that break the page's split-section rhythm.
  */
-function Free() {
+function Price() {
   return (
     <section>
       <Container className="py-20 sm:py-28">
         <div className="mx-auto max-w-xl text-center">
           <h2 className="type-display text-balance text-strong">
-            Free, and here&rsquo;s the catch.
+            Free to track. $40 a year to invoice.
           </h2>
           <p className="type-body mt-4 text-muted">
-            There isn&rsquo;t one. Later, a few dollars a month will take the
-            Stint mark off your invoices &mdash; and that is the only thing it
-            will ever buy.
+            Downloading the invoice is the only thing the paid plan buys, billed
+            yearly. Everything else is free for as long as you need it.
           </p>
         </div>
 
         <dl className="mt-12 grid gap-8 sm:grid-cols-3 sm:gap-10">
-          <Pillar term="Nothing is gated.">
-            Every feature, every export. Nothing that affects whether you get
-            paid will sit behind a payment.
+          <Pillar term="Your records are never held back.">
+            Clients, hours, the money view and every export stay free, so
+            leaving costs you nothing.
           </Pillar>
           <Pillar term="Your hours are never edited.">
             Left the timer running overnight? Stint shows you and asks.
@@ -482,7 +482,7 @@ function Pillar({
 /**
  * Objection handling, plainly.
  *
- * "Will this exist in a year?" is the hardest question a free billing tool
+ * "Will this exist in a year?" is the hardest question a new billing tool
  * faces, and it is severe rather than idle: an invoice is a tax record. The
  * answer is not a promise about longevity — a promise from an unknown party
  * is worth nothing — but the fact that every invoice is a PDF the user has
@@ -576,7 +576,7 @@ function Closing() {
 }
 
 /**
- * A free financial tool from an unknown party with no way to reach a human is
+ * A financial tool from an unknown party with no way to reach a human is
  * a trust hole, and the cheapest one on the page to plug.
  *
  * The support address waits on the domain — a personal Gmail on a billing

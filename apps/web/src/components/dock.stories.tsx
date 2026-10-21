@@ -3,7 +3,7 @@ import { localDateKey } from '@stint/core';
 import { account } from '@/mocks/db';
 import type { Db } from '@/mocks/fixtures';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
-import { desktop, expectOpen, tablet } from '@/mocks/screen';
+import { desktop, expectOpen, stalled, tablet } from '@/mocks/screen';
 import { ZONE } from '@/mocks/time.mts';
 import { Dock } from './dock';
 
@@ -50,6 +50,32 @@ export const Column: Story = {
     );
     await expect(overlap.getByText('Client call and follow-ups')).toBeVisible();
     await expect(overlap.getByText('53m')).toBeVisible();
+  },
+};
+
+/** The invoice PDF is the paid tier: a paying account's invoice rows offer
+    Download; the seeded account, free with billing set up, gets none. */
+export const InvoiceDownloads: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    db.billing = { ...db.billing, plan: 'paid', status: 'active' };
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      (await page.findAllByRole('link', { name: /^Download / }))[0],
+    ).toBeVisible();
+  },
+};
+
+export const InvoiceDownloadsFree: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await page.findAllByText(/days late/);
+    await waitFor(() =>
+      expect(page.queryAllByRole('link', { name: /^Download / })).toEqual([]),
+    );
   },
 };
 
@@ -213,5 +239,18 @@ export const TodayScrolls: Story = {
     });
     const dock = page.getByRole('complementary', { name: 'At a glance' });
     await expect(dock.scrollHeight).toBeLessThanOrEqual(dock.clientHeight);
+  },
+};
+
+/** On its way: one quiet word where it will be, and none of it until all of
+ *  it has arrived. */
+export const Loading: Story = {
+  ...desktop,
+  parameters: stalled('stats'),
+  play: async ({ canvasElement }) => {
+    const region = within(canvasElement.querySelector('aside') as HTMLElement);
+    await expect(await region.findByRole('status')).toHaveTextContent(
+      'Loading',
+    );
   },
 };

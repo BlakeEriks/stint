@@ -10,9 +10,31 @@ import {
   type ScheduleKind,
   type Schedules,
 } from '@stint/core';
-import type { Client, InvoicePreview, Settings } from '@/lib/client/api';
+import type {
+  Client,
+  Invoice,
+  InvoicePreview,
+  Settings,
+} from '@/lib/client/api';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import { shortDate } from './invoice-bits';
+
+type Business = Pick<Invoice['business'], 'name' | 'address' | 'email'>;
+
+/** The From block generation will freeze, from settings as they are now. */
+export function businessOf(settings: Settings): Invoice['business'];
+export function businessOf(
+  settings: Settings | undefined,
+): Invoice['business'] | undefined;
+export function businessOf(settings: Settings | undefined) {
+  if (!settings) return undefined;
+  return {
+    name: settings.businessName,
+    address: settings.businessAddress,
+    email: settings.businessEmail,
+    logoUrl: settings.logoUrl,
+  };
+}
 
 const LABEL = 'block type-label text-subtle';
 
@@ -52,6 +74,7 @@ export type CardFigures = Pick<
 export function InvoicePreviewCard({
   preview,
   client,
+  business,
   settings,
   number,
   issued,
@@ -63,11 +86,15 @@ export function InvoicePreviewCard({
   paymentTerms,
   notes,
   heading = true,
+  noSender = false,
   footnote = 'Generating assigns a number and locks these entries. Voiding later keeps the number on record.',
   children,
 }: {
   preview: CardFigures | undefined;
   client: Pick<Client, 'name' | 'address' | 'email'> | undefined;
+  /** Undefined while it loads. */
+  business: Business | undefined;
+  /** The default terms and the payment notice. */
   settings: Settings | undefined;
   /** A prediction: generation allocates the number. */
   number: string;
@@ -82,6 +109,8 @@ export function InvoicePreviewCard({
   notes?: string | null;
   /** False on an issued invoice, which is the invoice, not a preview of it. */
   heading?: boolean;
+  /** No business name or email yet: a draft marks where they will print. */
+  noSender?: boolean;
   footnote?: string;
   /** Warnings and errors, above the last line. */
   children?: React.ReactNode;
@@ -123,7 +152,8 @@ export function InvoicePreviewCard({
               }`}
             >
               <From
-                settings={settings}
+                business={business}
+                noSender={noSender}
                 number={number}
                 issued={issued}
                 due={due}
@@ -183,26 +213,32 @@ function Caption({
 
 /** The business, and the invoice's number and dates. */
 function From({
-  settings,
+  business,
+  noSender,
   number,
   issued,
   due,
 }: {
-  settings: Settings | undefined;
+  business: Business | undefined;
+  noSender: boolean;
   number: string;
   issued: string;
   due: string;
 }) {
   return (
     <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
-      <Party
-        name={settings ? (settings.businessName ?? 'Invoice') : ''}
-        lines={[
-          settings?.businessAddress,
-          settings?.businessEmail,
-          settings?.taxId ? `Tax ID ${settings.taxId}` : null,
-        ]}
-      />
+      {noSender ? (
+        /* Where the sender prints, marked as missing rather than left
+           blank: New invoice's notice asks for it. */
+        <p className="min-w-0 flex-[1_1_200px] self-start rounded-md border border-dashed border-edge-control px-2.5 py-2 type-support text-subtle">
+          Your business name and email go here
+        </p>
+      ) : (
+        <Party
+          name={business ? (business.name ?? 'Invoice') : ''}
+          lines={[business?.address, business?.email]}
+        />
+      )}
       <dl className="flex flex-col gap-1 type-support">
         <Meta label="No." value={number} mono right />
         <Meta label="Issued" value={shortDate(issued)} right />

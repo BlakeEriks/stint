@@ -40,19 +40,7 @@ export function Today({ stats }: { stats: Stats }) {
       ? taskKey(pressed.projectId ?? null, pressed.taskName)
       : null;
 
-  const today = useLocalDay();
-
-  /* The day's own entries. `/stats` carries `earnedToday` but no rows, and
-     the list is what makes the figure something the user can account for.
-     Local midnight to local midnight: the date read as a UTC day starts the
-     previous evening anywhere west of Greenwich. */
-  const from = startOfLocalDate(today, tz);
-  const to = new Date(startOfLocalDayOffset(from, tz, -1).getTime() - 1);
-  const { data } = useQuery({
-    queryKey: keys.entries({ from: from.toISOString(), to: to.toISOString() }),
-    queryFn: () =>
-      api.entries({ from: from.toISOString(), to: to.toISOString() }),
-  });
+  const { data } = useTodayEntries();
 
   /* Archived included: a project archived since this morning still named
      the work done under it. */
@@ -165,6 +153,25 @@ export function Today({ stats }: { stats: Stats }) {
       </div>
     </div>
   );
+}
+
+/**
+ * The day's own entries. `/stats` carries `earnedToday` but no rows, and the
+ * list is what makes the figure something the user can account for. Local
+ * midnight to local midnight: the date read as a UTC day starts the previous
+ * evening anywhere west of Greenwich.
+ *
+ * A hook of its own so the panel can gate on the same query Today reads.
+ */
+export function useTodayEntries() {
+  const today = useLocalDay();
+  const from = startOfLocalDate(today, tz);
+  const to = new Date(startOfLocalDayOffset(from, tz, -1).getTime() - 1);
+  return useQuery({
+    queryKey: keys.entries({ from: from.toISOString(), to: to.toISOString() }),
+    queryFn: () =>
+      api.entries({ from: from.toISOString(), to: to.toISOString() }),
+  });
 }
 
 /**

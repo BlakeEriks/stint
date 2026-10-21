@@ -4,7 +4,7 @@ import { formatCompact, formatCurrency, localDateKey } from '@stint/core';
 import type { Stats } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
-import { Money } from './money';
+import { Money, useSettling } from './money';
 import {
   FigGroup,
   FigLabel,
@@ -32,15 +32,13 @@ const PEAK = 94;
 export function Week({
   stats,
   hues,
-  byDay,
 }: {
   stats: Stats;
   /** The panel's one palette, in the one order every region walks. */
   hues: Map<string, Hue>;
-  /** Seconds per client per local day, from `/calendar?granularity=day`. */
-  byDay: Map<string, Record<string, number>>;
 }) {
   const { week, currency } = stats;
+  const settling = useSettling();
 
   const seconds = week.reduce((sum, d) => sum + d.seconds, 0);
   /* Null amounts are days of purely unrated work: they have a real height and
@@ -92,7 +90,7 @@ export function Week({
                         expensive hour taller than a cheap one and break the
                         ratio the bar exists to show. */}
                     <span className="absolute inset-0 flex flex-col-reverse overflow-hidden rounded-t-[5px] opacity-85">
-                      {segments(byDay.get(d.date), hues, d.seconds).map((s) => (
+                      {segments(d.byClient, hues).map((s) => (
                         <span
                           key={s.id || 'internal'}
                           data-segment={s.id || 'internal'}
@@ -119,6 +117,7 @@ export function Week({
                     {d.amount != null ? (
                       <span
                         data-money
+                        data-settling={settling}
                         className="absolute inset-x-0 bottom-full mb-1.5 text-center type-meta whitespace-nowrap text-subtle"
                       >
                         {formatCurrency(d.amount, currency, { whole: true })}
@@ -179,26 +178,14 @@ export function Week({
  * Walked in the palette's own order, so the same client sits at the same
  * point of every bar and matches its band in the strip below.
  *
- * Shares are taken against the day's OWN summed seconds rather than against
- * `/stats.week`'s: the two rollups filter differently — the bar's height
- * counts billable work, and this call counts what was tracked — so dividing
- * by the other's total would leave a stack that does not fill its bar.
- *
- * Until `/calendar` answers there is one neutral segment filling the bar:
- * the height is already correct from `/stats`, and a bar that draws nothing
- * while its split loads would read as a day that was not worked.
+ * A day with no work is one zero-share segment.
  */
 function segments(
-  byClient: Record<string, number> | undefined,
+  byClient: Record<string, number>,
   hues: Map<string, Hue>,
-  fallbackSeconds: number,
 ): { id: string; color: string | null; share: number }[] {
-  const total = byClient
-    ? Object.values(byClient).reduce((sum, s) => sum + s, 0)
-    : 0;
-  if (!byClient || total <= 0) {
-    return [{ id: '', color: null, share: fallbackSeconds > 0 ? 1 : 0 }];
-  }
+  const total = Object.values(byClient).reduce((sum, s) => sum + s, 0);
+  if (total <= 0) return [{ id: '', color: null, share: 0 }];
 
   const out: { id: string; color: string | null; share: number }[] = [];
   for (const [key, hue] of hues) {

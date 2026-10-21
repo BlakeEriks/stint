@@ -10,6 +10,7 @@ import { parseBody, parseQuery } from '@/lib/validate';
 import {
   loadClient,
   loadSettings,
+  requireSender,
   loadBillableEntries,
   loadPaymentProfile,
   loadBillableExpenses,
@@ -78,6 +79,8 @@ export const POST = handle(async (req: Request) => {
     loadClient(db, body.clientId),
     loadSettings(db),
   ]);
+
+  requireSender(settings);
 
   const clientRate =
     client.hourly_rate == null ? null : Number(client.hourly_rate);

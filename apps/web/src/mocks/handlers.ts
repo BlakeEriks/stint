@@ -1,18 +1,19 @@
 import {
   buildPreview,
+  documentOpens,
   entriesCsv,
   invoicesCsv,
   measured,
   formatInvoiceNumber,
   localDateKey,
   pickSchedules,
-  type ScheduleKind,
   type ImportPreview,
   type ImportResult,
   parseExport,
   uuidv7,
 } from '@stint/core';
 import { http, HttpResponse } from 'msw';
+import type { z } from 'zod';
 import type {
   Client,
   Expense,
@@ -23,6 +24,7 @@ import type {
 } from '@/lib/client/api';
 import { csvResponse } from '@/lib/exports';
 import { getDb } from './db';
+import { type Db, parties } from './fixtures';
 import {
   calendar,
   expenseView,
@@ -71,6 +73,56 @@ function applyArchived<T>(
     ...patch,
     archivedAt: archived ? db.now.toISOString() : null,
   } as T;
+}
+
+const activeProfile = (db: Db, id: string) =>
+  db.paymentProfiles.some((p) => p.id === id && !p.archivedAt);
+
+type CreateInvoice = z.infer<typeof schema.CreateInvoice>;
+type Preview = NonNullable<ReturnType<typeof invoicePreview>>;
+
+function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
+  const seq = db.settings.nextInvoiceNumber;
+  db.settings.nextInvoiceNumber += 1;
+  return {
+    id: uuidv7(db.now.getTime()),
+    clientId: preview.clientId,
+    invoiceNumber: formatInvoiceNumber(db.settings.invoiceNumberPrefix, seq),
+    sequenceNo: seq,
+    status: 'draft' as const,
+    issueDate: input.issueDate ?? localDateKey(db.now, input.tz),
+    dueDate: input.dueDate ?? null,
+    periodStart: preview.periodStart,
+    periodEnd: preview.periodEnd,
+    subtotal: preview.subtotal,
+    taxRate: preview.taxRate,
+    taxAmount: preview.taxAmount,
+    expensesSubtotal: preview.expensesSubtotal,
+    total: preview.total,
+    currency: preview.currency,
+    notes: input.notes ?? null,
+    paymentTerms: db.settings.defaultPaymentTerms,
+    groupingMode: preview.groupingMode,
+    summaryText: preview.groupingMode === 'summary' ? input.summaryText : null,
+    reference: input.reference ?? null,
+    supportingDetail: preview.schedules
+      ? pickSchedules(preview.schedules, input.schedules)
+      : null,
+    paymentDetails: null,
+    ...parties(db.settings, byId(db.clients, preview.clientId) as Client),
+    sentAt: null,
+    paidAt: null,
+    createdAt: db.now.toISOString(),
+  };
+}
+
+function claimBilled(db: Db, invoiceId: string, preview: Preview) {
+  const claimed = new Set(preview.lineItems.flatMap((l) => l.entryIds));
+  for (const e of db.entries) if (claimed.has(e.id)) e.invoiceId = invoiceId;
+  // One-offs only: a recurring expense bills again on the next invoice.
+  const billed = new Set(preview.lineItems.map((l) => l.expenseId));
+  for (const e of db.expenses)
+    if (billed.has(e.id) && !e.recurring) e.invoiceId = invoiceId;
 }
 
 function stopEntry(entry: TimeEntry, now: Date): TimeEntry {
@@ -153,11 +205,8 @@ export const handlers = {
       from: q.get('from') ?? '',
       to: q.get('to') ?? '',
       tz: q.get('tz') ?? ZONE,
-      granularity: q.get('granularity'),
     });
-    return q.get('granularity') === 'day'
-      ? ok(envelopes.activity, { days } as never)
-      : ok(envelopes.calendar, { days } as never);
+    return ok(envelopes.calendar, { days } as never);
   }),
 
   startTimer: http.post(`${API}/timer/start`, async ({ request }) => {
@@ -416,12 +465,12 @@ export const handlers = {
   invoice: http.get(`${API}/invoices/:id`, ({ params }) => {
     const db = getDb();
     const invoice = byId(db.invoices, params.id);
-    const client = byId(db.clients, invoice?.clientId);
-    if (!invoice || !client) return fail('ENTRY_NOT_FOUND');
-    const { id, name, email, address } = client;
+    if (!invoice) return fail('ENTRY_NOT_FOUND');
+    // The fake keeps no plan per invoice: the account's plan decides.
+    const { available, plan } = db.billing;
     return ok(invoiceDetail, {
       ...invoice,
-      client: { id, name, email, address },
+      canDownload: documentOpens(available, plan, null),
     });
   }),
 
@@ -435,76 +484,21 @@ export const handlers = {
 
   createInvoice: http.post(`${API}/invoices`, async ({ request }) => {
     const db = getDb();
-    const input = await body<
-      PreviewRequest & {
-        issueDate?: string;
-        dueDate?: string;
-        notes?: string;
-        schedules?: ScheduleKind[];
-        reference?: string;
-        paymentProfileId?: string;
-      }
-    >(request);
-    if (
-      input.paymentProfileId &&
-      !db.paymentProfiles.some(
-        (p) => p.id === input.paymentProfileId && !p.archivedAt,
-      )
-    )
+    const parsed = schema.CreateInvoice.safeParse(await request.json());
+    if (!parsed.success)
+      return fail('VALIDATION_FAILED', 'Request body failed validation');
+    const input = parsed.data;
+    if (input.paymentProfileId && !activeProfile(db, input.paymentProfileId))
       return fail(
         'VALIDATION_FAILED',
         'Those payment details are archived or gone. Choose others.',
       );
-    const summaryText = input.summaryText?.trim() ?? '';
-    if (input.groupingMode === 'summary' && !summaryText)
-      return fail('VALIDATION_FAILED', 'A summary line needs its text');
-    if (input.groupingMode !== 'summary' && input.schedules?.length)
-      return fail(
-        'VALIDATION_FAILED',
-        'Supporting detail comes with a summary line only',
-      );
-    const tz = input.tz ?? ZONE;
-    const preview = invoicePreview(db, input, tz);
+    const preview = invoicePreview(db, input, input.tz);
     if (!preview) return fail('ENTRY_NOT_FOUND');
     if (preview.unratedEntryIds.length > 0)
       return fail('NO_RATE_CONFIGURED', 'Some billable entries have no rate');
-    const seq = db.settings.nextInvoiceNumber;
-    db.settings.nextInvoiceNumber += 1;
-    const invoice = {
-      id: uuidv7(db.now.getTime()),
-      clientId: preview.clientId,
-      invoiceNumber: formatInvoiceNumber(db.settings.invoiceNumberPrefix, seq),
-      sequenceNo: seq,
-      status: 'draft' as const,
-      issueDate: input.issueDate ?? localDateKey(db.now, tz),
-      dueDate: input.dueDate ?? null,
-      periodStart: preview.periodStart,
-      periodEnd: preview.periodEnd,
-      subtotal: preview.subtotal,
-      taxRate: preview.taxRate,
-      taxAmount: preview.taxAmount,
-      expensesSubtotal: preview.expensesSubtotal,
-      total: preview.total,
-      currency: preview.currency,
-      notes: input.notes ?? null,
-      paymentTerms: db.settings.defaultPaymentTerms,
-      groupingMode: preview.groupingMode,
-      summaryText: preview.groupingMode === 'summary' ? summaryText : null,
-      reference: input.reference?.trim() || null,
-      supportingDetail: preview.schedules
-        ? pickSchedules(preview.schedules, input.schedules ?? [])
-        : null,
-      paymentDetails: null,
-      sentAt: null,
-      paidAt: null,
-      createdAt: db.now.toISOString(),
-    };
-    const claimed = new Set(preview.lineItems.flatMap((l) => l.entryIds));
-    for (const e of db.entries) if (claimed.has(e.id)) e.invoiceId = invoice.id;
-    // One-offs only: a recurring expense bills again on the next invoice.
-    const billed = new Set(preview.lineItems.map((l) => l.expenseId));
-    for (const e of db.expenses)
-      if (billed.has(e.id) && !e.recurring) e.invoiceId = invoice.id;
+    const invoice = invoiceRow(db, input, preview);
+    claimBilled(db, invoice.id, preview);
     db.invoices.push({
       ...invoice,
       lineItems: preview.lineItems.map(
@@ -758,6 +752,38 @@ export const handlers = {
   }),
 
   deleteAccount: http.delete(`${API}/account`, () => noContent()),
+
+  billing: http.get(`${API}/billing`, () =>
+    ok(schema.Billing, getDb().billing),
+  ),
+
+  /* Stripe's pages are not faked: a story that presses through would leave
+     Storybook, so the URL is one the story can see but never reach. */
+  checkout: http.post(`${API}/billing/checkout`, () =>
+    getDb().billing.plan === 'paid'
+      ? fail('ALREADY_SUBSCRIBED')
+      : ok(schema.BillingRedirect, { url: 'https://checkout.stripe.test/' }),
+  ),
+
+  billingPortal: http.post(`${API}/billing/portal`, () =>
+    getDb().billing.status === null
+      ? fail('NOT_SUBSCRIBED')
+      : ok(schema.BillingRedirect, { url: 'https://billing.stripe.test/' }),
+  ),
+
+  /* Back from Checkout: Stripe says the year is paid. */
+  syncCheckout: http.post(`${API}/billing/sync`, () => {
+    const db = getDb();
+    const end = new Date(db.now);
+    end.setFullYear(end.getFullYear() + 1);
+    db.billing = {
+      ...db.billing,
+      plan: 'paid',
+      status: 'active',
+      periodEnd: end.toISOString(),
+    };
+    return ok(schema.Billing, db.billing);
+  }),
 
   importPreview: http.post(`${API}/imports/preview`, async ({ request }) => {
     const preview = await importPreview(request);

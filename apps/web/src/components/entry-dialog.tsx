@@ -160,6 +160,7 @@ export function EntryDialog({
   const formPress = {
     queryKey: () => keys.entries(),
     invalidate: invalidateEntryData,
+    movesHome: true,
     inline: true,
     onSuccess: settle,
   };
