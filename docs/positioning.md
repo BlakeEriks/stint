@@ -81,7 +81,7 @@ product.
 **During Alpha, an account comes only by invite**; sign-up is closed.
 
 **The price covers the bill, not a margin.** Until Stint makes money, the
-overhead is $0, on Vercel Hobby and Supabase Free. The first revenue moves both
+overhead is $0 on Vercel Hobby and Supabase Free. The first revenue moves both
 to Pro, since Hobby forbids commercial use, and from then on $555 a year is
 the whole overhead; net of Stripe **fifteen subscribers cover it.** One more
 user costs about nothing until roughly a thousand accounts, which is why
