@@ -26,10 +26,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/**
- * Both calls to action ask for an invite; only the header signs in. The
- * unbilled and Mac sections show the real app, not drawings of it.
- */
+/** Both calls to action ask for an invite; only the header signs in. */
 export const Desktop: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {

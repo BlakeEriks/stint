@@ -215,14 +215,16 @@ function Unbilled() {
         </>
       }
       aside={
-        /* The real home, captured from the seeded local account
-           (`pnpm seed`) at 2x in the dark theme the page is set in. Retake
-           it when the home's month region changes. */
+        /* The home's month figures, captured from the seeded local account
+           (`pnpm seed`) at 2x in the dark theme the page is set in, and shown
+           at 1:1 so their labels stay legible. The chart beside them is left
+           out: its projection ends in a green dot, and green here means a
+           running timer. Retake it when the month region changes. */
         <Image
           src={homeUnbilled}
-          alt="Stint's home screen: this month's earnings, what it is on track for, and the unbilled total, beside a chart of the month"
-          sizes="(min-width: 1024px) 28rem, 100vw"
-          className="h-auto w-full rounded-xl shadow-float"
+          alt="Stint's home screen: this month's billable total, what it is on track for, the unbilled total, and what is awaiting payment"
+          sizes="19.5rem"
+          className="mx-auto h-auto w-full max-w-78 rounded-xl shadow-float"
         />
       }
     />
@@ -417,7 +419,7 @@ function Platforms() {
               today: below that it lists task names. */}
           <Image
             src={macTimer}
-            alt="Stint's Mac menu bar panel: a running timer, its task and project, and today's hours and earnings"
+            alt="Stint's Mac menu bar panel: a running timer, its task and project, and today's hours and their value"
             sizes="20rem"
             className="mx-auto h-auto w-full max-w-xs rounded-xl shadow-float"
           />
