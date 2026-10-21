@@ -139,15 +139,20 @@ export function useOptimisticMutation<
       : queryClient.invalidateQueries({ queryKey: opts.queryKey(vars) });
 
   /** Writes what the answer included into its cache; returns what it wrote. */
-  const settleIncluded = (data: TData | undefined): IncludedName[] => {
+  const settleIncluded = async (
+    data: TData | undefined,
+  ): Promise<IncludedName[]> => {
     const included = (data as { included?: Included } | undefined)?.included;
     if (!opts.include || !included) return [];
     const { tz } = opts.include;
-    return opts.include.names.filter((name) => {
-      if (included[name] === undefined) return false;
-      queryClient.setQueryData(INCLUDED_KEY[name](tz), included[name]);
-      return true;
-    });
+    const names = opts.include.names.filter((n) => included[n] !== undefined);
+    for (const name of names) {
+      const queryKey = INCLUDED_KEY[name](tz);
+      // A read in flight began before this answer, and would land over it.
+      await queryClient.cancelQueries({ queryKey });
+      queryClient.setQueryData(queryKey, included[name]);
+    }
+    return names;
   };
 
   // Presses on this key still in flight, the settling one included.
@@ -206,7 +211,7 @@ export function useOptimisticMutation<
     onSuccess: (data, vars) => opts.onSuccess?.(data, vars),
     onSettled: async (data, _err, vars, ctx) => {
       if (ctx && inFlight(ctx.key) > 1) return;
-      await refetch(vars, settleIncluded(data));
+      await refetch(vars, await settleIncluded(data));
       opts.onSettled?.(vars);
     },
   });

@@ -304,6 +304,26 @@ describe('useOptimisticMutation — include', () => {
     expect(queryClient.getQueryData(['stats', 'UTC'])).toBe('new stats');
   });
 
+  it('is not overwritten by a read already in flight when the answer lands', async () => {
+    const { queryClient, hook } = setupIncluding({
+      mutationFn: async () => ({ included: { stats: 'new stats' } }),
+    });
+    const stale = deferred<string>();
+    void queryClient.fetchQuery({
+      queryKey: ['stats', 'UTC'],
+      queryFn: () => stale.promise,
+      staleTime: 0,
+    });
+
+    await act(async () => hook.result.current.mutate({ value: 'x' }));
+    await waitFor(() =>
+      expect(queryClient.getQueryData(['stats', 'UTC'])).toBe('new stats'),
+    );
+    await act(async () => stale.resolve('stats from before the press'));
+
+    expect(queryClient.getQueryData(['stats', 'UTC'])).toBe('new stats');
+  });
+
   it('refetches everything when the answer brought nothing', async () => {
     const { queryClient, invalidate, hook } = setupIncluding({
       mutationFn: async () => ({}),
