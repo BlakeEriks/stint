@@ -233,8 +233,6 @@ describe('InvoiceList', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
-  /* The dialog stays open to say what was refused, and that refusal belongs
-     to the invoice it was for: the next one opens clean. */
   it('keeps a refusal in the dialog, and not in the next invoice’s', async () => {
     serve([invoice(), invoice({ id: 'i2', invoiceNumber: 'STINT-0002' })], 422);
     const user = userEvent.setup();
