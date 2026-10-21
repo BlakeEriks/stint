@@ -34,8 +34,10 @@ struct ContractTests {
     }
 
     @Test func timer() throws {
-        _ = try decode(TimeEntry.self, "timer-start")
+        #expect(try decode(API.Pressed.self, "timer-start").included.summary.running != nil)
         _ = try decode(TimeEntry.self, "timer-current")
-        #expect(try decode(Stopped.self, "timer-stop").entry.endedAt != nil)
+        let stopped = try decode(API.Pressed.self, "timer-stop")
+        #expect(stopped.entry.endedAt != nil)
+        #expect(stopped.included.summary.running == nil)
     }
 }
