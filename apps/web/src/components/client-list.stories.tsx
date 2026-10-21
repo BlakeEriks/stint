@@ -193,12 +193,12 @@ export const Failed: Story = {
   parameters: failing('clients', 'projects'),
   play: async ({ canvasElement }) => {
     // The screen only: the shell's own panels load beside it. A second
-    // reader of a failed query refetches it, so the list passes through
-    // "Loading…" again before it settles on the error.
+    // reader of a failed query refetches it, so the list passes through the
+    // loader again before it settles on the error.
     const main = within(within(canvasElement).getByRole('main'));
     await waitFor(() => {
       expect(main.getByText(/could not load/i)).toBeVisible();
-      expect(main.queryByText(/loading/i)).toBeNull();
+      expect(main.queryByRole('status')).toBeNull();
     });
   },
 };
@@ -613,5 +613,18 @@ export const PaidExpenseGone: Story = {
     const page = within(canvasElement);
     await page.findByText('Figma license, annual');
     await expect(page.queryByText('Stock photography')).toBeNull();
+  },
+};
+
+/** On its way: one quiet word where it will be, and none of it until all of
+ *  it has arrived. */
+export const Loading: Story = {
+  ...desktop,
+  parameters: stalled('clients'),
+  play: async ({ canvasElement }) => {
+    const region = within(canvasElement.querySelector('main') as HTMLElement);
+    await expect(await region.findByRole('status')).toHaveTextContent(
+      'Loading',
+    );
   },
 };

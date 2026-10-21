@@ -222,12 +222,6 @@ export const CalendarQuery = z.object({
   from: iso,
   to: iso,
   tz: timeZone,
-  /**
-   * `day` returns totals only — `{ date, totalSeconds, byClient }` and no
-   * entries. The activity strip draws one rectangle per day, and twelve weeks
-   * of full entries is a heavy payload to build one.
-   */
-  granularity: z.enum(['entry', 'day']).default('entry'),
 });
 
 // ── settings ───────────────────────────────────────────────────────
@@ -628,19 +622,9 @@ const CalendarDayBase = z.object({
   totalSeconds: z.number().int().nonnegative(),
 });
 
-/** `granularity=entry` — the day with the entries that make it up. */
+/** A day with the entries that make it up. */
 export const CalendarDay = CalendarDayBase.extend({
   entries: z.array(TimeEntry),
-});
-
-/**
- * `granularity=day` — totals only, for the activity strip.
- *
- * `byClient` keys by client id, with `''` for internal work: a day spent
- * unbilled is not an empty day. Running entries contribute nothing.
- */
-export const CalendarTotalsDay = CalendarDayBase.extend({
-  byClient: z.record(z.string(), z.number().int().nonnegative()),
 });
 
 export const UpdateInvoiceStatus = z.object({
@@ -745,6 +729,12 @@ export const WeekDay = z.object({
   /** The figure at the bar's head, null when the day resolves no rate. A
    *  day of unrated work has a real height and no money to print. */
   amount: money.nullable(),
+  /**
+   * The day's billable seconds per client id — how the bar is stacked. Work
+   * with no client keys as `''`. The parts add up to `seconds`, within a
+   * second for a running session: SQL and JS each measure it to `now`.
+   */
+  byClient: z.record(z.string(), z.number()),
 });
 
 export const Stats = z.object({
@@ -1038,7 +1028,6 @@ export type ClientWithScale = z.infer<typeof ClientWithScale>;
 export type Invoice = z.infer<typeof Invoice>;
 export type Expense = z.infer<typeof Expense>;
 export type CalendarDay = z.infer<typeof CalendarDay>;
-export type CalendarTotalsDay = z.infer<typeof CalendarTotalsDay>;
 export type InvoiceLineItem = z.infer<typeof InvoiceLineItem>;
 export type ComputedLineItem = z.infer<typeof ComputedLineItem>;
 export type StoredLineItem = z.infer<typeof StoredLineItem>;

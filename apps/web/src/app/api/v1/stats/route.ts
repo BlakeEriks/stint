@@ -23,6 +23,7 @@ import {
   COLLECTED_MONTHS,
   type CollectedRow,
   type DayRow,
+  dayByClient,
   daysSincePaid,
   type DurationRow,
   type InvoiceRow,
@@ -44,6 +45,15 @@ import {
 import { StatsQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
+
+/** A session as the week's per-client stack reads it. */
+interface WeekEntryRow {
+  started_at: string;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  project_id: string | null;
+  is_billable: boolean;
+}
 
 /**
  * GET /api/v1/stats
@@ -94,6 +104,7 @@ export const GET = handle(async (req: Request) => {
     overlapCandidates,
     projectRows,
     collectedRows,
+    weekEntries,
   ] = await Promise.all([
     /* `p_now` on every rollup: a running entry is measured at the same
        instant the windows are cut at. */
@@ -204,6 +215,19 @@ export const GET = handle(async (req: Request) => {
       p_to: monthEnd.toISOString(),
       p_tz: tz,
     }),
+
+    /* The week window's sessions, to stack each bar by client. In this batch
+       rather than a second request from the client, so Home paints from one
+       response. */
+    selectAll<WeekEntryRow>(() =>
+      db
+        .from('time_entries')
+        .select(
+          'started_at, ended_at, duration_seconds, project_id, is_billable',
+        )
+        .gte('started_at', weekWindowStart.toISOString())
+        .lt('started_at', weekWindowEnd.toISOString()),
+    ),
   ]);
 
   for (const r of [
@@ -275,9 +299,26 @@ export const GET = handle(async (req: Request) => {
     startOfLocalWeek(now, tz, settings.data?.week_starts_on ?? 1),
     tz,
   );
+  const clientOf = new Map(
+    (projectRows.data ?? []).map((p) => [
+      p.id as string,
+      (p.client_id as string | null) ?? null,
+    ]),
+  );
   const week = buildWeek(
     (weekDays.data ?? []) as DayRow[],
     Array.from({ length: 7 }, (_, i) => addDays(weekStartKey, i)),
+    dayByClient(
+      weekEntries.map((e) => ({
+        startedAt: e.started_at,
+        endedAt: e.ended_at,
+        durationSeconds: e.duration_seconds,
+        projectId: e.project_id,
+        isBillable: e.is_billable,
+      })),
+      clientOf,
+      { from: weekWindowStart.toISOString(), tz, now },
+    ),
   );
 
   return NextResponse.json({

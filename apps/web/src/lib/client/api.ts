@@ -1,5 +1,6 @@
 'use client';
 
+import { forgetCache } from './query-cache';
 import type { z } from 'zod';
 import type * as schema from '@stint/schema';
 import type { ImportPreview, ImportResult } from '@stint/core';
@@ -97,6 +98,7 @@ async function failure(res: globalThis.Response): Promise<ApiError> {
     typeof window !== 'undefined' &&
     window.location.pathname !== '/signin'
   ) {
+    forgetCache();
     window.location.assign('/signin');
   }
   return error;
@@ -137,9 +139,6 @@ export type Stats = Response<schema.Stats>;
 export type CalendarDay = Response<Omit<schema.CalendarDay, 'entries'>> & {
   entries: TimeEntry[];
 };
-
-/** A day of the activity strip: totals, no entries. */
-export type ActivityDay = Response<schema.CalendarTotalsDay>;
 
 export type Summary = Response<Omit<schema.Summary, 'running'>> & {
   running: TimeEntry | null;
@@ -337,18 +336,6 @@ export const api = {
   calendar: (params: { from: string; to: string; tz: string }) => {
     const q = new URLSearchParams(params);
     return request<{ days: CalendarDay[] }>('GET', `/calendar?${q}`);
-  },
-
-  /**
-   * Totals only, for the activity strip. Twelve weeks of full entries is a
-   * heavy payload to draw one rectangle per day.
-   *
-   * `byClient` keys by client id, with `''` for internal work — a day spent
-   * on unbilled work is not an empty day.
-   */
-  activity: (params: { from: string; to: string; tz: string }) => {
-    const q = new URLSearchParams({ ...params, granularity: 'day' });
-    return request<{ days: ActivityDay[] }>('GET', `/calendar?${q}`);
   },
 
   invoices: (params: { clientId?: string; status?: InvoiceStatus } = {}) => {

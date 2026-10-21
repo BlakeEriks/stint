@@ -220,20 +220,15 @@ for (const scenario of scenarios)
       wire(stats(db, ZONE)),
     );
 
-    // The six weeks the account covers, in both shapes the calendar serves.
+    // The six weeks the account covers.
     const today = localDateKey(new Date(NOW), ZONE);
     const from = startOfLocalDate(addDays(today, -44), ZONE).toISOString();
     const to = startOfLocalDate(addDays(today, 1), ZONE).toISOString();
-    for (const granularity of [null, 'day'])
-      assert.deepEqual(
-        (
-          await get(
-            'calendar',
-            `/api/v1/calendar?from=${from}&to=${to}&tz=${tz}${granularity ? `&granularity=${granularity}` : ''}`,
-          )
-        ).days,
-        wire(calendar(db, { from, to, tz: ZONE, granularity })),
-      );
+    assert.deepEqual(
+      (await get('calendar', `/api/v1/calendar?from=${from}&to=${to}&tz=${tz}`))
+        .days,
+      wire(calendar(db, { from, to, tz: ZONE })),
+    );
 
     for (const projectId of [null, ids.rush])
       assert.deepEqual(

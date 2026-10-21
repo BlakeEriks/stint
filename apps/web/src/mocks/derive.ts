@@ -14,6 +14,7 @@ import {
   buildUnbilled,
   buildUnprojected,
   buildWeek,
+  dayByClient,
   type ClientRevenueRow,
   clientNamesFrom,
   COLLECTED_MONTHS,
@@ -75,6 +76,11 @@ function overlapSpans(db: Db, entries: TimeEntry[]) {
 /** A stopped entry's length, or a running one's so far: `entry_seconds`. */
 const secondsOf = (db: Db, e: TimeEntry) =>
   e.durationSeconds ?? entrySeconds(e.startedAt, db.now);
+
+/** Every project's client, as the routes read it for `dayByClient`. */
+function clientMap(db: Db) {
+  return new Map(db.projects.map((p) => [p.id, p.clientId ?? null]));
+}
 
 function clientOf(db: Db, projectId: string | null) {
   const p = db.projects.find((x) => x.id === projectId);
@@ -251,6 +257,11 @@ export function stats(db: Db, tz: string) {
       tz,
     ),
     Array.from({ length: 7 }, (_, i) => addDays(weekStartKey, i)),
+    dayByClient(db.entries, clientMap(db), {
+      from: startOfLocalDayOffset(now, tz, 6).toISOString(),
+      tz,
+      now,
+    }),
   );
 
   const rows = unbilledRows(db);
@@ -355,11 +366,8 @@ export function stats(db: Db, tz: string) {
   };
 }
 
-/** `GET /calendar`: entries on each local day they touch, or per-client totals by day. */
-export function calendar(
-  db: Db,
-  q: { from: string; to: string; tz: string; granularity: string | null },
-) {
+/** `GET /calendar`: entries on each local day they touch. */
+export function calendar(db: Db, q: { from: string; to: string; tz: string }) {
   const inRange = db.entries
     .filter(
       (e) =>
@@ -369,26 +377,6 @@ export function calendar(
     .sort((a, b) => at(a.startedAt) - at(b.startedAt));
   const pieces = (e: TimeEntry) =>
     splitByLocalDay(new Date(e.startedAt), new Date(e.endedAt ?? db.now), q.tz);
-
-  // Totals count stopped work only, so a day holding just a running timer
-  // has no row, as in the route; each entry whole, on the day it started.
-  if (q.granularity === 'day')
-    return [
-      ...groupBy(
-        inRange.filter((e) => stopped(e) && at(e.startedAt) >= at(q.from)),
-        (e) => localDateKey(new Date(e.startedAt), q.tz),
-      ),
-    ].map(([date, entries]) => {
-      const byClient: Record<string, number> = {};
-      let totalSeconds = 0;
-      for (const e of entries) {
-        totalSeconds += e.durationSeconds ?? 0;
-        if (!e.isBillable) continue;
-        const client = clientOf(db, e.projectId) ?? '';
-        byClient[client] = (byClient[client] ?? 0) + (e.durationSeconds ?? 0);
-      }
-      return { date, totalSeconds, byClient };
-    });
 
   const days = new Map<
     string,

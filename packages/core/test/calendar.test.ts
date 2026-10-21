@@ -12,6 +12,7 @@ import {
   localDateTimeToInstant,
   addDays,
   splitByLocalDay,
+  dayByClient,
 } from '../src/calendar.ts';
 
 /** Renders an instant in a zone, for asserting it really is local midnight. */
@@ -319,4 +320,116 @@ test('splitByLocalDay pieces sum to the whole entry', () => {
     (end.getTime() - start.getTime()) / 1000,
   );
   assert.ok(days.every((d) => d.seconds <= 24 * 3_600));
+});
+
+/* ── dayByClient ── */
+
+const clientOf = new Map<string, string | null>([
+  ['p-north', 'c-north'],
+  ['p-mer', 'c-mer'],
+  ['p-internal', null],
+]);
+const entry = (
+  startedAt: string,
+  seconds: number | null,
+  projectId: string | null,
+  isBillable = true,
+) => ({
+  startedAt,
+  endedAt:
+    seconds == null
+      ? null
+      : new Date(new Date(startedAt).getTime() + seconds * 1000).toISOString(),
+  durationSeconds: seconds,
+  projectId,
+  isBillable,
+});
+const from = '2026-10-19T00:00:00.000Z';
+const now = new Date('2026-12-01T00:00:00.000Z');
+
+test('dayByClient splits billable seconds by client per local day', () => {
+  const days = dayByClient(
+    [
+      entry('2026-10-19T09:00:00Z', 3600, 'p-north'),
+      entry('2026-10-19T11:00:00Z', 1800, 'p-mer'),
+      entry('2026-10-19T13:00:00Z', 600, 'p-north'),
+      entry('2026-10-20T09:00:00Z', 900, 'p-mer'),
+    ],
+    clientOf,
+    { from, tz: 'UTC', now },
+  );
+  assert.deepEqual(days.get('2026-10-19'), { 'c-north': 4200, 'c-mer': 1800 });
+  assert.deepEqual(days.get('2026-10-20'), { 'c-mer': 900 });
+});
+
+test('dayByClient leaves non-billable work out', () => {
+  const days = dayByClient(
+    [
+      entry('2026-10-19T09:00:00Z', 3600, 'p-north', false),
+      entry('2026-10-19T11:00:00Z', 60, 'p-north'),
+    ],
+    clientOf,
+    { from, tz: 'UTC', now },
+  );
+  assert.deepEqual(days.get('2026-10-19'), { 'c-north': 60 });
+});
+
+test('dayByClient keys work with no project or no client as the empty string', () => {
+  const days = dayByClient(
+    [
+      entry('2026-10-19T09:00:00Z', 100, null),
+      entry('2026-10-19T10:00:00Z', 50, 'p-internal'),
+      entry('2026-10-19T11:00:00Z', 25, 'p-gone'),
+    ],
+    clientOf,
+    { from, tz: 'UTC', now },
+  );
+  assert.deepEqual(days.get('2026-10-19'), { '': 175 });
+});
+
+test('a day with only non-billable work is present and empty', () => {
+  const days = dayByClient(
+    [entry('2026-10-19T09:00:00Z', 3600, 'p-north', false)],
+    clientOf,
+    { from, tz: 'UTC', now },
+  );
+  assert.deepEqual(days.get('2026-10-19'), {});
+});
+
+test('dayByClient skips entries that started before the window', () => {
+  const days = dayByClient(
+    [entry('2026-10-18T23:30:00Z', 3600, 'p-north')],
+    clientOf,
+    { from, tz: 'UTC', now },
+  );
+  assert.equal(days.size, 0);
+});
+
+test('a running entry counts to now', () => {
+  const running = [entry('2026-10-19T09:00:00Z', null, 'p-north')];
+  const now = new Date('2026-10-19T09:10:00Z');
+  assert.deepEqual(
+    dayByClient(running, clientOf, { from, tz: 'UTC', now }).get('2026-10-19'),
+    { 'c-north': 600 },
+  );
+});
+
+test('dayByClient keys by the local date the entry started on', () => {
+  // 01:30 UTC on the 20th is the evening of the 19th in New York.
+  const days = dayByClient(
+    [entry('2026-10-20T01:30:00Z', 60, 'p-north')],
+    clientOf,
+    { from, tz: 'America/New_York', now },
+  );
+  assert.deepEqual(days.get('2026-10-19'), { 'c-north': 60 });
+  // Across the fall-back change, 2026-11-01 is still one key.
+  const dst = dayByClient(
+    [
+      entry('2026-11-01T05:30:00Z', 60, 'p-north'),
+      entry('2026-11-01T07:30:00Z', 60, 'p-north'),
+    ],
+    clientOf,
+    { from, tz: 'America/New_York', now },
+  );
+  assert.deepEqual(dst.get('2026-11-01'), { 'c-north': 120 });
 });

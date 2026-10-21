@@ -117,6 +117,8 @@ describe('InvoiceDetail', () => {
       defaultOptions: { queries: { retry: false, gcTime: Infinity } },
     });
     qc.setQueryData(keys.invoices(), { invoices: [invoice('sent')] });
+    // The list fetches the settings with itself, for this screen.
+    qc.setQueryData(keys.settings(), {});
     render(
       <QueryClientProvider client={qc}>
         <InvoiceDetail id="inv-1" />
@@ -126,7 +128,7 @@ describe('InvoiceDetail', () => {
     expect(screen.getByRole('heading', { name: /INV-13/ })).toBeVisible();
     expect(screen.getByText('Acme Corp')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Mark paid' })).toBeVisible();
-    expect(screen.queryByText('Loading…')).toBeNull();
+    expect(screen.queryByRole('status')).toBeNull();
   });
 
   /**

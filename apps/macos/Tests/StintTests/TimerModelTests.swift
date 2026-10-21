@@ -112,6 +112,79 @@ struct TimerModelTests {
         await model.signOut()
     }
 
+    @Test func aFullRefreshAssignsEverythingInOneStep() async throws {
+        let model = try await signedInModel()
+        APIStub.routes["/summary"] = (200, summary(running: "standup"))
+        APIStub.routes["/projects"] = (200, projects([("p1", "Website")]))
+        APIStub.routes["/clients"] = (200, clients([("c1", "Acme")]))
+        APIStub.routes["/stats"] = (200, Data(#"{"currency":"USD","earnedToday":12}"#.utf8))
+        APIStub.routes["/entries/task-names"] = (200, taskNames(["Audit"]))
+        APIStub.delays["/stats"] = 0.3
+
+        let refresh = Task { await model.refresh() }
+        try await Task.sleep(for: .milliseconds(150))
+        // Everything else has answered; nothing shows until the last does.
+        #expect(model.summary == nil)
+        #expect(model.projects.isEmpty)
+        #expect(model.recent.isEmpty)
+
+        await refresh.value
+        #expect(model.running?.taskName == "standup")
+        #expect(model.projects.map(\.name) == ["Website"])
+        #expect(model.clients.map(\.name) == ["Acme"])
+        #expect(model.stats?.earnedToday == 12)
+        #expect(model.recent.map(\.taskName) == ["Audit"])
+        await model.signOut()
+    }
+
+    @Test func aFailedStatsKeepsItsValueAndTheRestUpdates() async throws {
+        let model = try await signedInModel()
+        APIStub.routes["/stats"] = (200, Data(#"{"currency":"USD","earnedToday":12}"#.utf8))
+        await model.refresh()
+
+        APIStub.routes["/stats"] = (500, Data())
+        APIStub.routes["/projects"] = (200, projects([("p1", "Website")]))
+        APIStub.routes["/clients"] = (200, clients([("c1", "Acme")]))
+        APIStub.routes["/entries/task-names"] = (200, taskNames(["Audit"]))
+        await model.refresh()
+        #expect(model.stats?.earnedToday == 12)
+        #expect(model.projects.map(\.name) == ["Website"])
+        #expect(model.clients.map(\.name) == ["Acme"])
+        #expect(model.recent.map(\.taskName) == ["Audit"])
+        #expect(model.errorMessage == nil)
+        await model.signOut()
+    }
+
+    @Test func aPressDuringAFetchKeepsEveryProperty() async throws {
+        let model = try await signedInModel()
+        APIStub.routes["/projects"] = (200, projects([("p1", "Website")]))
+        APIStub.routes["/clients"] = (200, clients([("c1", "Acme")]))
+        APIStub.routes["/stats"] = (200, Data(#"{"currency":"USD","earnedToday":12}"#.utf8))
+        APIStub.routes["/entries/task-names"] = (200, taskNames(["Audit"]))
+        await model.refresh()
+
+        APIStub.routes["/projects"] = (200, projects([("p2", "Redesign")]))
+        APIStub.routes["/clients"] = (200, clients([("c2", "Globex")]))
+        APIStub.routes["/stats"] = (200, Data(#"{"currency":"USD","earnedToday":99}"#.utf8))
+        APIStub.routes["/entries/task-names"] = (200, taskNames(["Standup"]))
+        APIStub.routes["/timer/start"] = (200, Data(#"{"id":"e1","projectId":null,"taskName":"Design","startedAt":"2026-09-28T12:00:00Z","endedAt":null,"isBillable":true,"rateOverride":null,"durationSeconds":null,"durationOk":true,"invoiceId":null}"#.utf8))
+        APIStub.delays["/stats"] = 0.2
+        // Still in flight when the stale fetch lands, so its refresh is later.
+        APIStub.delays["/timer/start"] = 0.6
+
+        let stale = Task { await model.refresh() }
+        try await Task.sleep(for: .milliseconds(50))
+        let press = Task { await model.resume(TaskName(taskName: "Design", projectId: nil, lastUsedAt: Date())) }
+        await stale.value
+        #expect(model.running?.taskName == "Design")
+        #expect(model.projects.map(\.name) == ["Website"])
+        #expect(model.clients.map(\.name) == ["Acme"])
+        #expect(model.stats?.earnedToday == 12)
+        #expect(model.recent.map(\.taskName) == ["Audit"])
+        await press.value
+        await model.signOut()
+    }
+
     @Test func compactMatchesTheWebsFormatCompact() {
         #expect(compact(0) == "0s")
         #expect(compact(59) == "59s")
@@ -143,6 +216,7 @@ struct TimerModelTests {
             "/entries/task-names": (200, Data(#"{"taskNames":[]}"#.utf8)),
         ]
         APIStub.bodies = [:]
+        APIStub.delays = [:]
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [APIStub.self]
         let session = URLSession(configuration: config)
@@ -154,7 +228,8 @@ struct TimerModelTests {
         return TimerModel(
             api: API(baseURL: host, tokens: tokens, session: session),
             auth: Auth(supabaseURL: host, anonKey: "anon", tokens: tokens),
-            tokens: tokens
+            tokens: tokens,
+            snapshots: SnapshotStore(directory: FileManager.default.temporaryDirectory.appending(path: uuidv7()))
         )
     }
 
@@ -191,6 +266,8 @@ private final class APIStub: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var requested: [String] = []
     /// The last body sent to each path.
     nonisolated(unsafe) static var bodies: [String: Data] = [:]
+    /// Seconds to hold each path's answer.
+    nonisolated(unsafe) static var delays: [String: Double] = [:]
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -202,9 +279,13 @@ private final class APIStub: URLProtocol, @unchecked Sendable {
         if let body = request.httpBody ?? request.httpBodyStream.map(Self.read) { Self.bodies[path] = body }
         let (status, data) = Self.routes[path] ?? (404, Data())
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
-        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: data)
-        client?.urlProtocolDidFinishLoading(self)
+        let answer: @Sendable () -> Void = { [self] in
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        }
+        guard let delay = Self.delays[path] else { return answer() }
+        DispatchQueue.global().asyncAfter(deadline: .now() + delay, execute: answer)
     }
 
     /// URLSession hands a protocol its body as a stream, not `httpBody`.

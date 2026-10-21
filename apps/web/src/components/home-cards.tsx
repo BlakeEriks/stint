@@ -5,20 +5,37 @@ import { useQuery } from '@tanstack/react-query';
 import { api, type Stats } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { keys } from '@/lib/client/query-keys';
-import { useClients } from '@/lib/client/use-project-colors';
+import {
+  useAllProjects,
+  useClients,
+  useClientsQuery,
+} from '@/lib/client/use-project-colors';
 import { buildHues, Legend } from './home-shell';
-import { Today } from './home-today';
+import { Today, useTodayEntries } from './home-today';
 import { Week } from './home-week';
 import { Month } from './home-month';
 import { Listing } from './page';
 
+/**
+ * The panel paints once, with everything it draws: the gate holds the
+ * queries its regions read, so on the first frame past it every bar has its
+ * client's hue and Today has its rows. Colors are `also`: if they fail, the
+ * bars draw neutral rather than the panel going blank.
+ */
 export function HomeCards() {
-  const query = useQuery({
+  const stats = useQuery({
     queryKey: keys.stats(tz),
     queryFn: () => api.stats(tz),
   });
 
-  return <Listing query={query}>{(stats) => <Panel stats={stats} />}</Listing>;
+  return (
+    <Listing
+      query={[stats, useTodayEntries()]}
+      also={[useClientsQuery(), useAllProjects()]}
+    >
+      {([data]) => <Panel stats={data} />}
+    </Listing>
+  );
 }
 
 /**
@@ -38,41 +55,17 @@ export function HomeCards() {
 function Panel({ stats }: { stats: Stats }) {
   const clients = useClients();
 
-  /* How each of the week's days divides by client, in SECONDS — the stack's
-     own measure. `/stats.week` carries each bar's height and its money and
-     says nothing about who the hours belonged to; this is the only call that
-     does. The window is the week the bars already hold, so nothing is
-     fetched that is not drawn. */
-  const first = stats.week[0]?.date;
-  const last = stats.week.at(-1)?.date;
-  const { data: activity } = useQuery({
-    queryKey: keys.activity(tz, stats.week.length),
-    queryFn: () =>
-      api.activity({
-        from: `${first}T00:00:00.000Z`,
-        to: `${last}T23:59:59.999Z`,
-        tz,
-      }),
-    enabled: first != null && last != null,
-  });
-
-  const byDay = useMemo(
-    () =>
-      new Map((activity?.days ?? []).map((d) => [d.date, d.byClient] as const)),
-    [activity],
-  );
-
   /* ONE palette for the whole panel, built once here and passed down. Two
      regions each deriving their own order is two orders to keep in
      agreement, and a palette that reorders between two regions of one panel
      means nothing. */
   const hues = useMemo(() => {
     const weekKeys = new Set<string>();
-    for (const day of byDay.values()) {
-      for (const key of Object.keys(day)) weekKeys.add(key);
+    for (const day of stats.week) {
+      for (const key of Object.keys(day.byClient)) weekKeys.add(key);
     }
     return buildHues({ byClient: stats.month.byClient, weekKeys, clients });
-  }, [stats.month.byClient, byDay, clients]);
+  }, [stats.month.byClient, stats.week, clients]);
 
   /* `@container` on the panel, and the regions size off it. The panel is NOT
      the window: the rail and the dock flank it and claim their space at `lg`
@@ -90,7 +83,7 @@ function Panel({ stats }: { stats: Stats }) {
           <Today stats={stats} />
         </div>
         <div className="pt-6 @2xl:pt-0 @2xl:pl-7">
-          <Week stats={stats} hues={hues} byDay={byDay} />
+          <Week stats={stats} hues={hues} />
         </div>
       </div>
 

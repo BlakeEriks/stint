@@ -11,37 +11,46 @@
     {
       "date": "2026-10-19",
       "seconds": 3600,
-      "amount": 200
+      "amount": 200,
+      "byClient": {
+        "01a15408-6a00-7e8f-b81e-6e5815d9d3f2": 3600
+      }
     },
     {
       "date": "2026-10-20",
       "seconds": 0,
-      "amount": null
+      "amount": null,
+      "byClient": {}
     },
     {
       "date": "2026-10-21",
       "seconds": 0,
-      "amount": null
+      "amount": null,
+      "byClient": {}
     },
     {
       "date": "2026-10-22",
       "seconds": 0,
-      "amount": null
+      "amount": null,
+      "byClient": {}
     },
     {
       "date": "2026-10-23",
       "seconds": 0,
-      "amount": null
+      "amount": null,
+      "byClient": {}
     },
     {
       "date": "2026-10-24",
       "seconds": 0,
-      "amount": null
+      "amount": null,
+      "byClient": {}
     },
     {
       "date": "2026-10-25",
       "seconds": 0,
-      "amount": null
+      "amount": null,
+      "byClient": {}
     }
   ],
   "month": {
@@ -151,7 +160,7 @@
     },
     "byClient": [
       {
-        "clientId": "01a15408-6a00-7253-ad6b-98ae2bf9b3b1",
+        "clientId": "01a15408-6a00-7e8f-b81e-6e5815d9d3f2",
         "clientName": "Northwind",
         "amount": 200
       }

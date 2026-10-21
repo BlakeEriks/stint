@@ -11,7 +11,6 @@ import { SaveIndicator } from './save-indicator';
 import { useAutosave } from '@/lib/client/use-autosave';
 import { api, type Settings, type SettingsInput } from '@/lib/client/api';
 import { type Theme, useTheme } from '@/lib/client/use-theme';
-import { Listing } from './page';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 const THEMES: Segment<Theme>[] = [
@@ -25,26 +24,13 @@ const THEMES: Segment<Theme>[] = [
  * falls back to, so nothing needs reviewing before it commits. Edits persist
  * on their own after a pause, and each section owns its own autosave so the
  * indicator refers to the fields the user is looking at.
- */
-export function SettingsForm() {
-  const query = useQuery({
-    queryKey: keys.settings(),
-    queryFn: api.settings,
-  });
-
-  return (
-    <Listing query={query}>{(loaded) => <Cards loaded={loaded} />}</Listing>
-  );
-}
-
-/**
- * The sections, seeded from the server's answer once.
  *
- * Seeded rather than controlled by the query: an autosave invalidates
- * `settings`, and a form that followed every refetch would overwrite what the
- * user is typing with what it last sent.
+ * Seeded from the server's answer once, rather than controlled by the query:
+ * an autosave invalidates `settings`, and a form that followed every refetch
+ * would overwrite what the user is typing with what it last sent. The page
+ * holds it until that answer is in.
  */
-function Cards({ loaded }: { loaded: Settings }) {
+export function SettingsForm({ loaded }: { loaded: Settings }) {
   const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
   const { data: server } = useQuery({

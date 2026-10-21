@@ -1123,52 +1123,6 @@ test('calendar groups entries by LOCAL day', async () => {
   assert.equal(sp.body.days[0].totalSeconds, 3600);
 });
 
-/* The week's bar height is billable seconds (`revenue_by_day`), and its stack
-   divides that height. If `byClient` counted non-billable work too, internal
-   time would take a share of a bar it did not raise. */
-test('the day split counts billable work only', async () => {
-  const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
-  const { GET: calendar } = await import('../src/app/api/v1/calendar/route.ts');
-
-  await create(
-    req('/entries', {
-      id: '018f0000-0000-7000-8000-000000000031',
-      taskName: 'Billable',
-      startedAt: '2026-09-14T09:00:00Z',
-      endedAt: '2026-09-14T11:00:00Z',
-    }),
-  );
-  await create(
-    req('/entries', {
-      id: '018f0000-0000-7000-8000-000000000032',
-      taskName: 'Not billable',
-      startedAt: '2026-09-14T13:00:00Z',
-      endedAt: '2026-09-14T14:00:00Z',
-      isBillable: false,
-    }),
-  );
-
-  const res = await json(
-    await calendar(
-      req(
-        '/calendar?from=2026-09-14T00:00:00Z&to=2026-09-15T00:00:00Z&granularity=day&tz=UTC',
-      ),
-    ),
-  );
-
-  const day = res.body.days.find(
-    (d: { date: string }) => d.date === '2026-09-14',
-  );
-  const split = Object.values(day.byClient as Record<string, number>).reduce(
-    (sum: number, n) => sum + (n as number),
-    0,
-  );
-
-  // The day's whole load stays unfiltered: the calendar draws all of it.
-  assert.equal(day.totalSeconds, 10_800);
-  assert.equal(split, 7200, 'but the split leaves the non-billable hour out');
-});
-
 test('the entry view splits an entry that crosses local midnight', async () => {
   const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
   const { GET: calendar } = await import('../src/app/api/v1/calendar/route.ts');
@@ -1200,24 +1154,6 @@ test('the entry view splits an entry that crosses local midnight', async () => {
     (d: { date: string }) => d.date === '2026-07-04',
   ).entries;
   assert.equal(entries.length, 1, 'the entry is drawn on Saturday too');
-
-  const day = await json(
-    await calendar(
-      req(
-        `/calendar?from=2026-07-03T04:00:00Z&to=2026-07-05T04:00:00Z&granularity=day&tz=${tz}`,
-      ),
-    ),
-  );
-  assert.deepEqual(totals(day.body.days), { '2026-07-03': 14_400 });
-
-  const saturdayDay = await json(
-    await calendar(
-      req(
-        `/calendar?from=2026-07-04T04:00:00Z&to=2026-07-05T04:00:00Z&granularity=day&tz=${tz}`,
-      ),
-    ),
-  );
-  assert.deepEqual(saturdayDay.body.days, []);
 });
 
 test('calendar rejects an inverted period', async () => {
@@ -2404,6 +2340,64 @@ test('a rate of exactly 0 is a rate: real seconds, and 0.00 of money', async () 
   assert.equal(today.seconds, 5 * 3600);
   assert.equal(today.amount, 0, '0 is a rate; only NULL withholds the figure');
   assert.notEqual(today.amount, null, 'and 0 is not the same as unrated');
+});
+
+/* Home's bars are split by client from `/stats` itself, so the panel paints
+   from one response. The split is billable seconds, so each day's
+   parts add up to its bar. */
+test('each week day splits its seconds by client', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '33333333-0000-4000-8000-000000000030';
+  const p = '33333333-0000-4000-8000-0000000000e0';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Split',100)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  const midnight = new Date();
+  midnight.setUTCHours(0, 0, 0, 0);
+  const at = (s: number) =>
+    new Date(midnight.getTime() + s * 1000).toISOString();
+  const before = await json(await stats(req('/stats?tz=UTC')));
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at,is_billable) values
+       ($1,$2,$3,'billed',$4,$5,true),
+       ($6,$2,$3,'not billed',$5,$7,false),
+       ($8,$2,null,'no project',$7,$9,true)`,
+    [S(40), USER, p, at(1), at(61), S(41), at(121), S(42), at(151)],
+  );
+  const after = await json(await stats(req('/stats?tz=UTC')));
+
+  const today = midnight.toISOString().slice(0, 10);
+  type Day = {
+    date: string;
+    seconds: number;
+    byClient: Record<string, number>;
+  };
+  const day = (r: typeof after) =>
+    (r.body.week as Day[]).find((d) => d.date === today)!;
+  assert.equal(
+    day(after).byClient[c]! - (day(before).byClient[c] ?? 0),
+    60,
+    'the billable minute, under its client',
+  );
+  assert.equal(
+    (day(after).byClient[''] ?? 0) - (day(before).byClient[''] ?? 0),
+    30,
+    'work with no client keys as the empty string',
+  );
+  for (const d of after.body.week as Day[]) {
+    const parts = Object.values(d.byClient).reduce((a, n) => a + n, 0);
+    // A running session is measured to `now` twice, in SQL and in JS.
+    assert.ok(
+      Math.abs(parts - d.seconds) <= 1,
+      `${d.date}: the parts add up to the bar`,
+    );
+  }
 });
 
 test('the week sees only its own user’s work', async () => {
@@ -4259,14 +4253,20 @@ function shape(v: unknown): unknown {
   if (v === null) return 'null';
   if (Array.isArray(v)) return v.map(shape);
   if (typeof v === 'object') {
+    /* A record keyed by id (a week day's `byClient`) has new keys every run;
+       its shape is "id → value", whatever the ids are. */
     return Object.fromEntries(
       Object.keys(v as object)
         .sort()
-        .map((k) => [k, shape((v as Record<string, unknown>)[k])]),
+        .map((k) => [
+          UUID.test(k) ? '<id>' : k,
+          shape((v as Record<string, unknown>)[k]),
+        ]),
     );
   }
   return typeof v;
 }
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 test('every response the macOS app decodes matches its fixture', async (t) => {
   // Only Date: the pool's own timers must keep running.
