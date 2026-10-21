@@ -98,6 +98,7 @@ export const settings = (): Settings => ({
   nextInvoiceNumber: 16,
   paymentNotice:
     'Our bank details never change by email. Call before paying new ones.',
+  welcomedAt: '2026-09-01T16:00:00.000Z',
 });
 
 const client = (c: Partial<Client> & Pick<Client, 'id' | 'name'>): Client => ({

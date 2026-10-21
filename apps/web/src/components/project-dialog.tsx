@@ -25,6 +25,7 @@ import {
   invalidateProjects,
   useRestoreProject,
 } from '@/lib/client/use-restore-project';
+import { RateInput, parseRate } from './rate-input';
 
 /**
  * A dialog rather than a page: a project is four fields, and it is created
@@ -111,7 +112,7 @@ export function ProjectDialog({
       id: existing?.id ?? uuidv7(),
       name: name.trim(),
       clientId,
-      hourlyRate: hourlyRate.trim() === '' ? null : Number(hourlyRate),
+      hourlyRate: parseRate(hourlyRate),
       isBillableDefault: billable,
       archivedAt: existing?.archivedAt ?? null,
     };
@@ -188,16 +189,15 @@ export function ProjectDialog({
             <Label htmlFor="project-rate" className={LABEL}>
               Hourly rate
             </Label>
-            <Input
+            <RateInput
               id="project-rate"
-              type="number"
-              min="0"
-              step="0.01"
-              inputMode="decimal"
               value={hourlyRate}
               onChange={(e) => setHourlyRate(e.target.value)}
-              placeholder="Defaults to the client's rate"
+              placeholder="150.00"
             />
+            <p className="type-support text-subtle">
+              Defaults to the client's rate.
+            </p>
           </div>
 
           <label className="flex items-center gap-2.5 type-control text-primary">

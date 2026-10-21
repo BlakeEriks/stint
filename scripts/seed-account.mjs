@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Give an account something to look at — including one of every inbox row.
+ * Give an account something to look at — including every inbox row but one.
  *
  * `supabase/seed.sql` belongs to `dev@localhost.test` — the test account, which
  * the e2e suite restores and which you should not be tracking real time in.
@@ -19,6 +19,9 @@
  * **Every inbox scenario is represented**, because the inbox is the hardest
  * surface to exercise by hand: each row needs a condition that takes days to
  * arrive naturally. The table above `OVERDUE_DAYS` lists the four conditions.
+ * The exception is the default-rate row, which a seeded account never shows:
+ * `--scenario first-signin` leaves a new signup's settings, with no rate and
+ * the welcome dialog not yet seen.
  *
  * **Every run is a reset.** Everything the account holds is deleted and its
  * settings return to a new signup's before anything is written — it is a
@@ -48,9 +51,9 @@ let created = false;
  * `pr-<n>-<name>@preview.test` with it.
  */
 const SEED_SCENARIOS = {
-  /* A new signup's settings over the seeded data: no default rate, and
-     every other setting at its default but the invoice counter, which the
-     seeded invoices have already used. */
+  /* A new signup's settings over the seeded data: no default rate, the
+     welcome dialog not yet seen, and every other setting at its default but
+     the invoice counter, which the seeded invoices have already used. */
   'first-signin': async (userId) => {
     const { rows } = await db.query(
       'delete from user_settings where user_id = $1 returning next_invoice_number',
@@ -113,7 +116,8 @@ const CLIENTS = [
 const INTERNAL = 'Admin and invoicing';
 
 /**
- * One of every inbox row, and what each needs to appear.
+ * The inbox rows the seed raises, and what each needs to appear. The
+ * default-rate row is not one of them; `--clear` shows it.
  *
  * These are the numbers the server checks (`api/v1/stats/route.ts` and
  * `/summary`), not guesses — a row that needs 7 days gets 12, so the seed is
@@ -306,13 +310,15 @@ try {
 
   /* A default rate, so a client with none has something to inherit, and the
      business block every invoice prints, so a new one is complete without a
-     visit to Settings. */
+     visit to Settings. Welcomed, since a seeded account is not a first
+     sign-in. */
   await db.query(
     `update user_settings set
        default_hourly_rate = 125,
        business_name = 'Harbor Lane Consulting LLC',
        business_address = '1200 Market St, Suite 400\nDenver, CO 80202',
-       business_email = 'billing@harborlane.test'
+       business_email = 'billing@harborlane.test',
+       welcomed_at = now()
      where user_id = $1`,
     [userId],
   );

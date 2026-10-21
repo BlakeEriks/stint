@@ -151,7 +151,7 @@
     },
     "byClient": [
       {
-        "clientId": "01a15408-6a00-7db3-8d21-4aca2523f8b6",
+        "clientId": "01a15408-6a00-7253-ad6b-98ae2bf9b3b1",
         "clientName": "Northwind",
         "amount": 200
       }
@@ -191,6 +191,7 @@
     ]
   },
   "attention": {
+    "noDefaultRate": false,
     "overdueInvoices": [],
     "staleDrafts": [],
     "unprojected": [],

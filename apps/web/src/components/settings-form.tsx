@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { type Segment, SegmentedControl } from './segmented-control';
 import { Field, inputClass, Section, textareaClass } from './field';
+import { RateInput, parseRate } from './rate-input';
 import { SaveIndicator } from './save-indicator';
 import { useAutosave } from '@/lib/client/use-autosave';
 import { api, type Settings, type SettingsInput } from '@/lib/client/api';
@@ -113,20 +114,13 @@ function Cards({ loaded }: { loaded: Settings }) {
             htmlFor="rate"
             className="flex-1 basis-44"
           >
-            <Input
+            <RateInput
               id="rate"
-              type="number"
-              min="0"
-              step="0.01"
-              inputMode="decimal"
               value={form.defaultHourlyRate ?? ''}
               onChange={(e) =>
-                setBilling(
-                  'defaultHourlyRate',
-                  e.target.value === '' ? null : Number(e.target.value),
-                )
+                setBilling('defaultHourlyRate', parseRate(e.target.value))
               }
-              placeholder="150.00"
+              placeholder="100.00"
             />
           </Field>
 

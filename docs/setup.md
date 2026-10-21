@@ -201,8 +201,9 @@ with USD, a 12-hour long-entry threshold, and `INV-1` — verified. `--clear`
 returns them to those defaults. Open `http://localhost:3100`, enter your
 email, click the link.
 
-Then: **Settings** (rate and business identity, since everything falls back
-to them) → **Clients** → a project from the timer's picker.
+Then the welcome dialog on Home asks for your default rate, then a first
+client. Business identity is asked for on your first invoice. Add a project
+from the timer's picker.
 
 ## Adding Apple and Google later
 
