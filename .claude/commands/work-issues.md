@@ -138,7 +138,9 @@ is `reviewed`.
 **At most ten open PRs wait on Blake**, or `--max-prs` if given. Count the
 open PRs not by Dependabot (`gh pr list --json author`); the cap or more →
 step 2, whatever the mode. Each is his to test and merge, so one more only
-lengthens his queue.
+lengthens his queue. Each push is also a Vercel preview build, one
+at a time and 100 a day on Hobby (`docs/deploying.md` §2), so a ship pushes
+once, never commit by commit.
 
 `gh issue list --state open --json number,title,labels`, then skip every
 issue that:

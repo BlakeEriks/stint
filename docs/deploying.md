@@ -82,6 +82,12 @@ it to merge Dependabot's bumps once the required checks pass.
 
 Import `BlakeEriks/stint` at vercel.com.
 
+The team is on the **Hobby** plan until Stint makes money
+(`docs/positioning.md`). Hobby builds one deployment at a time and at most
+100 a day. Every push to a PR is a preview deployment, so a merge's
+production build can wait behind previews, and a day of pushes past the cap
+builds nothing, production included, until the next day.
+
 - **Root Directory:** `apps/web`
 - Build settings live in `apps/web/vercel.json`, beside the app they
   describe, rather than in the dashboard where they are invisible from a
