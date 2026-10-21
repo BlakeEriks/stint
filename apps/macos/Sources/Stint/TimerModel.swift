@@ -217,7 +217,6 @@ final class TimerModel: Optimistic {
 
     /// Every request at once, then one assignment, so the panel changes in
     /// one step and waits on the slowest request rather than their sum.
-    /// `answered` is a summary a press already returned, so it isn't fetched.
     private func fetch(full: Bool, recent: Bool, answered: Summary? = nil) async {
         guard await tokens.isSignedIn else { return }
         do {
