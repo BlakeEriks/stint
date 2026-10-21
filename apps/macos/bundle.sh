@@ -32,7 +32,6 @@ if [ "$TARGET" = "prod" ]; then
     SUPABASE_URL="https://zwoceqydagxxmqoaqgbf.supabase.co"
     ANON_KEY="sb_publishable_dpZCXx5Z71lOUznVCIleJA__YjyUk4e"
     APP_URL="${STINT_APP_URL:-https://app.runstint.com}"
-    # Sentry's Apple project (docs/deploying.md §3c), so only prod reports.
     # Public, as the publishable key is.
     SENTRY_DSN=""
     if [ -n "$SENTRY_DSN" ]; then

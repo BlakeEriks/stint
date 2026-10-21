@@ -28,7 +28,6 @@ enum Config {
     /// Vercel's protection bypass, which a preview deployment asks of every request.
     static let vercelBypass = ProcessInfo.processInfo.environment["STINT_VERCEL_BYPASS"]
 
-    /// Sentry's Apple project. Only the prod bundle sets it.
     static let sentryDSN = ProcessInfo.processInfo.environment["STINT_SENTRY_DSN"]
 
     /// The panel in an ordinary window instead of the menu bar, for QA that

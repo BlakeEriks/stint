@@ -4,14 +4,10 @@ import Sentry
 /// (`bundle.sh`), so local, preview and `qa.sh` builds never report.
 enum CrashReporting {
     static func start() {
-        guard let dsn = Config.sentryDSN else { return }
+        guard let dsn = Config.sentryDSN, let environment = Config.environmentName else { return }
         SentrySDK.start { options in
             options.dsn = dsn
-            options.environment = Config.environmentName ?? "local"
-            // Crashes and errors only: no tracing, and nothing about the
-            // user but the id `setUser` adds.
-            options.tracesSampleRate = nil
-            options.sendDefaultPii = false
+            options.environment = environment
         }
     }
 

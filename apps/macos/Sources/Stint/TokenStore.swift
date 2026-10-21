@@ -6,7 +6,6 @@ struct Session: Codable, Equatable {
     let refreshToken: String
     let expiresAt: Date
     let email: String?
-    /// For crash reports, which carry it and nothing else about the user.
     let userID: String?
 
     enum CodingKeys: String, CodingKey {
