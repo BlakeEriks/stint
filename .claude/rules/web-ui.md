@@ -191,9 +191,6 @@ second line or an `Add…` item is a `DropdownMenu`. Put a component in
   press does: a rounded, padded highlight that bleeds past the column so the
   text stays in line with the rest of it (`rowButton` and `rowBleed` in
   `components/row-button.ts`).
-- **A control at a row's end can wait for hover**: hidden until the row is
-  hovered or the control focused, and always shown where there is no hover,
-  so a touch screen can reach it (`revealOnRowHover`, same file).
 - **A failure renders beside the thing that failed**, and a failed load is
   neutral, never red — it is a condition, and the answer is to try again.
 - **An empty state says what to do**, or what the consequence is.

@@ -2,13 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Play } from 'lucide-react';
 import {
   formatCompact,
   localDateKey,
   startOfLocalDate,
   startOfLocalDayOffset,
-  uuidv7,
 } from '@stint/core';
 import {
   api,
@@ -17,14 +15,13 @@ import {
   type TimeEntry,
 } from '@/lib/client/api';
 import { keys } from '@/lib/client/query-keys';
-import { timeZone as tz, useTimer } from '@/lib/client/use-timer';
+import { timeZone as tz } from '@/lib/client/use-timer';
 import {
   useAllProjects,
   useProjectColors,
 } from '@/lib/client/use-project-colors';
 import { Money } from './money';
 import { FigGroup, FigLabel, PairLine, RegionHead, Pip } from './home-shell';
-import { revealOnRowHover } from './row-button';
 
 /**
  * Today: one figure and the day's tasks.
@@ -34,12 +31,6 @@ import { revealOnRowHover } from './row-button';
  */
 export function Today({ stats }: { stats: Stats }) {
   const colors = useProjectColors();
-  const timer = useTimer();
-  const pressed = timer.start.variables;
-  const pending =
-    timer.start.isPending && pressed?.whileRunning
-      ? taskKey(pressed.projectId ?? null, pressed.taskName)
-      : null;
 
   const { data } = useTodayEntries();
 
@@ -104,7 +95,7 @@ export function Today({ stats }: { stats: Stats }) {
               <div
                 key={t.key}
                 data-task={t.key}
-                className="group grid grid-cols-[9px_minmax(0,1fr)_auto_auto] items-center gap-2.5 border-t border-edge-subtle py-2.5 first:border-t-0"
+                className="grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-edge-subtle py-2.5 first:border-t-0"
               >
                 {/* Only clients have a color; internal work takes the hollow
                     ring, which is what having none looks like on a screen
@@ -125,28 +116,6 @@ export function Today({ stats }: { stats: Stats }) {
                 <span className="type-duration text-subtle">
                   {clock(t.seconds)}
                 </span>
-                {/* Starts the task again as a new entry, as the menu bar's
-                    recent rows do. Kept in the grid while hidden so the
-                    durations hold their column. */}
-                <button
-                  type="button"
-                  aria-label={`Start ${t.name}${t.projectName ? ` · ${t.projectName}` : ''}`}
-                  /* Pending only while a timer runs: otherwise the timer bar
-                     already shows the start. */
-                  aria-busy={pending === t.key}
-                  disabled={pending === t.key}
-                  onClick={() =>
-                    timer.start.mutate({
-                      id: uuidv7(),
-                      taskName: t.taskName,
-                      projectId: t.projectId,
-                      isBillable: t.isBillable,
-                    })
-                  }
-                  className={`${revealOnRowHover} -my-1 grid size-6 place-items-center rounded-md text-subtle hover:bg-surface-hover hover:text-strong focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:ring-inset focus-visible:outline-none disabled:opacity-60`}
-                >
-                  <Play aria-hidden strokeWidth={1.75} className="size-3.5" />
-                </button>
               </div>
             ))}
       </div>
@@ -198,8 +167,7 @@ function useLocalDay(): string {
 
 /**
  * One row per task: a name under two projects is two tasks. Entries arrive
- * newest first, so a task sits where its latest entry would, and takes that
- * entry's billable flag to start with.
+ * newest first, so a task sits where its latest entry would.
  */
 function groupByTask(entries: TimeEntry[], projects: Project[]) {
   const names = new Map(projects.map((p) => [p.id, p.name]));
@@ -208,8 +176,6 @@ function groupByTask(entries: TimeEntry[], projects: Project[]) {
     {
       key: string;
       name: string;
-      taskName: string;
-      isBillable: boolean;
       projectId: string | null;
       projectName: string | null;
       seconds: number;
@@ -222,8 +188,6 @@ function groupByTask(entries: TimeEntry[], projects: Project[]) {
     const t = tasks.get(key) ?? {
       key,
       name,
-      taskName: e.taskName,
-      isBillable: e.isBillable,
       projectId: e.projectId,
       projectName: e.projectId ? (names.get(e.projectId) ?? null) : null,
       seconds: 0,

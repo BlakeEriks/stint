@@ -91,54 +91,6 @@ export const TodayRowInert: Story = {
   },
 };
 
-/** The play button at a Today row's end, shown on hover, starts that task
- *  again as a new entry. */
-export const StartFromToday: Story = {
-  ...desktop,
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
-    const start = await page.findByRole('button', {
-      name: /^Start Filter panel and saved views · /,
-    });
-    await userEvent.click(start);
-    await expect(
-      await page.findByRole('button', { name: 'Stop timer' }),
-    ).toBeVisible();
-  },
-};
-
-/** A Today row's play button pressed while a timer runs: the server's
- *  refusal says why. */
-export const StartWhileRunning: Story = {
-  ...desktop,
-  parameters: account('running'),
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement.ownerDocument.body);
-    await page.findByRole('button', { name: 'Stop timer' });
-    const [start] = await page.findAllByRole('button', { name: /^Start / });
-    await userEvent.click(start as HTMLElement);
-    await expect(
-      await page.findByText('A timer is already running'),
-    ).toBeVisible();
-  },
-};
-
-/** A row's play button pressed while a timer runs waits on the server's
- *  answer, shown on the button: nothing is predicted for a start the server
- *  will likely refuse. */
-export const StartWhileRunningPending: Story = {
-  ...desktop,
-  parameters: { ...account('running'), ...stalled('startTimer') },
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
-    await page.findByRole('button', { name: 'Stop timer' });
-    const [start] = await page.findAllByRole('button', { name: /^Start / });
-    await userEvent.click(start as HTMLElement);
-    await waitFor(() => expect(start).toHaveAttribute('aria-busy', 'true'));
-    await expect(start).toBeDisabled();
-  },
-};
-
 /** Stop pressed and not yet answered: the bar and the hours have moved, and
  *  the money, which the client never predicts, pulses until the answer
  *  brings it. */
