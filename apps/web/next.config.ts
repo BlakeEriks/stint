@@ -42,7 +42,7 @@ const config: NextConfig = {
    (locally, in previews) the upload is skipped and the build still passes. */
 export default withSentryConfig(config, {
   org: 'stint-i5',
-  project: 'javascript-nextjs',
+  project: 'stint',
   authToken: process.env.SENTRY_AUTH_TOKEN,
   widenClientFileUpload: true,
   silent: !process.env.CI,
