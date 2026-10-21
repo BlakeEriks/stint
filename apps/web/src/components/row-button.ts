@@ -11,3 +11,11 @@ export const rowButton =
  * and only the highlight reaches past it.
  */
 export const rowBleed = '-mx-2 w-[calc(100%+1rem)]';
+
+/**
+ * A control hidden until its `group` row is hovered or the control is
+ * focused, so a column of them does not compete with the row's content.
+ * Always shown where there is no hover, or a touch screen could never reach it.
+ */
+export const revealOnRowHover =
+  'opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100';
