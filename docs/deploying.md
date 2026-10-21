@@ -332,8 +332,14 @@ What each new alert asks of you:
 - **Down.** Check the Vercel and Supabase status pages, then roll back or
   Force Promote (§3). A Supabase project paused for being idle, or an
   expired certificate or domain, shows up here too.
-- **New error.** File it as a `bug` + `urgent` issue (`docs/sdlc.md`). Sentry
-  alerts on a new issue only, never on each occurrence.
+- **New error.** Paste the alert's link into a session and say "triage." It
+  diagnoses the issue with the Sentry plugin's `sentry-debug-issue` skill
+  (`docs/local-dev.md`), then stops at one of two answers: a `bug` + `urgent`
+  issue holding the cause, the stack frame in our code, and the Sentry short
+  id (`STINT-12`); or that the error isn't ours (a browser extension, a bot),
+  and you ignore it in Sentry. Once the fix is live, resolve the Sentry issue
+  by hand, so a recurrence alerts as a regression. Sentry alerts on a new
+  issue only, never on each occurrence.
 
 **UptimeRobot** polls `https://app.runstint.com/api/v1/health` every 5
 minutes. The health route asks Postgres for a row, so it fails when the

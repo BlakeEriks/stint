@@ -16,6 +16,10 @@ Podman, and Rancher Desktop. `pnpm hygiene` and `/copyedit` also need Vale:
 reviews with an official plugin:
 `claude plugin install pr-review-toolkit@claude-plugins-official --scope project`.
 
+**Sentry, for triage.** `claude plugin install sentry@claude-plugins-official`,
+then sign in to Sentry when its first tool call asks. Every session and
+worktree on this Mac can then read Stint's Sentry issues.
+
 Then write `apps/web/.env.development.local`:
 
 ```
