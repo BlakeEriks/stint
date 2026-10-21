@@ -169,7 +169,7 @@ export const ArchivedProjectLast: Story = {
       'button',
       { name: /^Edit / },
     );
-    await expect(rows.at(-1)).toHaveAccessibleName('Edit Warehouse dashboard');
+    await expect(rows.at(-1)).toHaveAccessibleName(/^Edit Warehouse dashboard/);
     await expect(
       northwind.getByRole('button', { name: 'Restore Warehouse dashboard' }),
     ).toBeVisible();
@@ -269,7 +269,7 @@ export const EditProject: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.click(
-      await page.findByRole('button', { name: 'Edit Warehouse dashboard' }),
+      await page.findByRole('button', { name: /^Edit Warehouse dashboard/ }),
     );
     await expectOpen(canvasElement, 'dialog');
   },
@@ -330,7 +330,7 @@ export const EditArchivedProject: Story = {
     const page = within(canvasElement.ownerDocument.body);
     await openArchived(canvasElement);
     await userEvent.click(
-      await page.findByRole('button', { name: 'Edit Legacy retainer' }),
+      await page.findByRole('button', { name: /^Edit Legacy retainer/ }),
     );
     await expectOpen(canvasElement, 'dialog');
     await expect(page.queryByRole('button', { name: 'Archive' })).toBeNull();
@@ -403,7 +403,7 @@ export const RestoreProjectFromDialog: Story = {
     const northwind = await card(canvasElement, 'Northwind Trading');
     await expect(await northwind.findByText('Archived')).toBeVisible();
     await userEvent.click(
-      page.getByRole('button', { name: 'Edit Warehouse dashboard' }),
+      page.getByRole('button', { name: /^Edit Warehouse dashboard/ }),
     );
     await userEvent.click(await page.findByRole('button', { name: 'Restore' }));
     await waitFor(() => expect(northwind.queryByText('Archived')).toBeNull());
@@ -457,7 +457,7 @@ export const EditExpense: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.click(
-      await page.findByRole('button', { name: 'Edit Figma license, annual' }),
+      await page.findByRole('button', { name: /^Edit Figma license, annual/ }),
     );
     await expectOpen(canvasElement, 'dialog', 'Edit expense');
     const amount = page.getByLabelText(/Amount/);
@@ -475,7 +475,7 @@ export const DeleteExpense: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.click(
-      await page.findByRole('button', { name: 'Edit Figma license, annual' }),
+      await page.findByRole('button', { name: /^Edit Figma license, annual/ }),
     );
     await userEvent.click(
       await page.findByRole('button', { name: 'Delete expense' }),
@@ -500,7 +500,7 @@ export const DeletingExpense: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.click(
-      await page.findByRole('button', { name: 'Edit Figma license, annual' }),
+      await page.findByRole('button', { name: /^Edit Figma license, annual/ }),
     );
     await userEvent.click(
       await page.findByRole('button', { name: 'Delete expense' }),
@@ -521,7 +521,7 @@ export const DeletingExpense: Story = {
     // Behind the modal, so out of the accessibility tree but still listed.
     await expect(
       page.getByRole('button', {
-        name: 'Edit Figma license, annual',
+        name: /^Edit Figma license, annual/,
         hidden: true,
       }),
     ).toBeInTheDocument();
@@ -536,7 +536,7 @@ export const DeleteExpenseRefused: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.click(
-      await page.findByRole('button', { name: 'Edit Figma license, annual' }),
+      await page.findByRole('button', { name: /^Edit Figma license, annual/ }),
     );
     await userEvent.click(
       await page.findByRole('button', { name: 'Delete expense' }),
@@ -552,7 +552,9 @@ export const DeleteExpenseRefused: Story = {
     await waitFor(() => expect(cancel).toBeEnabled());
     await userEvent.click(cancel);
     await userEvent.click(
-      await page.findByRole('button', { name: 'Edit Claude Max subscription' }),
+      await page.findByRole('button', {
+        name: /^Edit Claude Max subscription/,
+      }),
     );
     await expectOpen(canvasElement, 'dialog', 'Edit expense');
     await expect(page.queryByRole('alert')).toBeNull();
@@ -579,7 +581,9 @@ export const RecurringExpense: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.click(
-      await page.findByRole('button', { name: 'Edit Claude Max subscription' }),
+      await page.findByRole('button', {
+        name: /^Edit Claude Max subscription/,
+      }),
     );
     await expectOpen(canvasElement, 'dialog', 'Edit expense');
     await expect(
@@ -596,7 +600,7 @@ export const BilledExpense: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     const row = await page.findByRole('link', { name: /Stock photography/ });
-    await expect(row).toHaveAccessibleName(/on STINT-0015/);
+    await expect(row).toHaveAccessibleName(/STINT-0015/);
     await expect(row.getAttribute('href')).toMatch(/^\/invoices\//);
   },
 };

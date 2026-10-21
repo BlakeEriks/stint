@@ -719,10 +719,6 @@ function EntryBlock({
   return (
     <button
       type="button"
-      /* The accessible name carries the times, because the block's visible
-         text is a truncated task name and a duration — a screen reader
-         otherwise gets no way to tell two blocks apart. */
-      aria-label={`${name}, ${range}${locked ? ', billed' : ''}`}
       title={`${name} · ${range}`}
       onPointerDown={grab('move')}
       onClick={(event) => {
@@ -756,6 +752,10 @@ function EntryBlock({
           {live ? range : formatCompact(entry.durationSeconds ?? 0)}
         </p>
       ) : null}
+      {/* The name carries the times, because the visible text is a truncated
+          task name and a duration — a screen reader otherwise gets no way to
+          tell two blocks apart. */}
+      <span className="sr-only">{`${range}${locked ? ', billed' : ''}`}</span>
 
       {adjustable ? (
         <>

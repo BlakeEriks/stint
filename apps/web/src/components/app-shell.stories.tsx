@@ -168,7 +168,9 @@ export const AccountMenu: Story = {
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
-    await userEvent.click(await page.findByRole('button', { name: 'Account' }));
+    await userEvent.click(
+      await page.findByRole('button', { name: /^Account/ }),
+    );
     await expectOpen(canvasElement, 'menu');
   },
 };
@@ -179,7 +181,7 @@ export const SigningOut: Story = {
   parameters: stalled('signOut'),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
-    const trigger = await page.findByRole('button', { name: 'Account' });
+    const trigger = await page.findByRole('button', { name: /^Account/ });
     await userEvent.click(trigger);
     await userEvent.click(
       await page.findByRole('menuitem', { name: /sign out/i }),

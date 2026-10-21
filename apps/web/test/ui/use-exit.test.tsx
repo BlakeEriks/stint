@@ -249,7 +249,7 @@ describe('an inbox row leaving', () => {
     await waitFor(() => expect(statsFetches()).toHaveLength(1));
 
     await user.click(
-      screen.getByRole('button', { name: 'Mark STINT-0001 paid' }),
+      screen.getByRole('button', { name: 'Mark paid, STINT-0001' }),
     );
 
     // The write went; the row is playing out and is still on screen.

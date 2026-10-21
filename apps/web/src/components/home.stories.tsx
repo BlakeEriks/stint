@@ -85,7 +85,7 @@ export const StartFromToday: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     const row = await page.findByRole('button', {
-      name: /^Start Filter panel and saved views · /,
+      name: /^Start Filter panel and saved views/,
     });
     const style = getComputedStyle(row);
     await expect(style.paddingLeft).toBe('8px');
@@ -338,7 +338,7 @@ export const InternalToday: Story = {
   play: async ({ canvasElement }) => {
     const ring = (task: string) =>
       [...canvasElement.querySelectorAll('[data-task]')]
-        .find((row) => row.textContent?.startsWith(task))
+        .find((row) => row.textContent?.startsWith(`Start ${task}`))
         ?.querySelector('[data-pip="internal"]');
     await waitFor(async () => {
       await expect(ring('Invoicing and bookkeeping')).toBeTruthy();

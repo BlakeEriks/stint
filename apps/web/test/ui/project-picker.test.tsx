@@ -22,7 +22,7 @@ function wrapper({ children }: { children: ReactNode }) {
 
 async function open() {
   const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: 'Project' }));
+  await user.click(screen.getByRole('button', { name: /^Project/ }));
   return user;
 }
 
@@ -33,20 +33,19 @@ async function open() {
  */
 describe('ProjectPicker', () => {
   /**
-   * The trigger's accessible name is "Project", not the selected project.
-   *
-   * It is a tag showing the current value, so its visible text changes with
-   * the selection — which would make the control's name change too, if the
-   * name came from the content. `aria-label` pins it, so a screen reader user
-   * hears what the control IS rather than what it currently holds.
+   * The trigger's accessible name says what the control is, then what it
+   * holds. The purpose alone would leave out the visible text, so saying the
+   * project on screen would not press it (WCAG 2.5.3).
    */
-  it('names itself by its purpose, not by the project it holds', () => {
+  it('names itself by its purpose, then the project it holds', () => {
     render(
       <ProjectPicker projects={PROJECTS} value="p2" onChange={() => {}} />,
       { wrapper },
     );
 
-    const trigger = screen.getByRole('button', { name: 'Project' });
+    const trigger = screen.getByRole('button', {
+      name: 'Project, Bluebird API',
+    });
     expect(trigger).toHaveTextContent('Bluebird API');
   });
 

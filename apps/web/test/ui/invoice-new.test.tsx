@@ -665,7 +665,7 @@ describe('NewInvoice — expenses, charges and payment details', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
 
     expect(
-      screen.getByRole('button', { name: 'Edit charge Setup fee' }),
+      screen.getByRole('button', { name: /^Edit charge Setup fee/ }),
     ).toBeInTheDocument();
     await waitFor(() =>
       expect(previews().at(-1)?.body.manualLines).toEqual([
@@ -674,7 +674,7 @@ describe('NewInvoice — expenses, charges and payment details', () => {
     );
 
     await user.click(
-      screen.getByRole('button', { name: 'Edit charge Setup fee' }),
+      screen.getByRole('button', { name: /^Edit charge Setup fee/ }),
     );
     await user.click(
       within(
@@ -682,7 +682,7 @@ describe('NewInvoice — expenses, charges and payment details', () => {
       ).getByRole('button', { name: 'Remove' }),
     );
     expect(
-      screen.queryByRole('button', { name: 'Edit charge Setup fee' }),
+      screen.queryByRole('button', { name: /^Edit charge Setup fee/ }),
     ).toBeNull();
     await waitFor(() =>
       expect(previews().at(-1)?.body.manualLines).toEqual([]),
@@ -710,7 +710,7 @@ describe('NewInvoice — expenses, charges and payment details', () => {
     }
 
     await user.click(
-      screen.getByRole('button', { name: 'Edit charge Setup fee' }),
+      screen.getByRole('button', { name: /^Edit charge Setup fee/ }),
     );
     const dialog = await screen.findByRole('dialog', { name: 'Edit charge' });
     const amount = within(dialog).getByLabelText(/Amount/);

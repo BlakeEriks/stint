@@ -223,7 +223,7 @@ describe('ClientList', () => {
     await user.click(screen.getByRole('button', { name: /Add project/ }));
 
     // Writes never answer here, so this is the prediction alone.
-    const row = await screen.findByRole('button', { name: 'Edit Warehouse' });
+    const row = await screen.findByRole('button', { name: /^Edit Warehouse/ });
     expect(row.closest('section')).toHaveTextContent('Northwind');
     expect(screen.queryByRole('dialog')).toBeNull();
   });

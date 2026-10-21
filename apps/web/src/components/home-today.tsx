@@ -111,7 +111,6 @@ export function Today({ stats }: { stats: Stats }) {
                 <button
                   type="button"
                   data-task={t.key}
-                  aria-label={`Start ${t.name}${t.projectName ? ` · ${t.projectName}` : ''}`}
                   /* Pending only while a timer runs: otherwise the timer bar
                      already shows the start. */
                   aria-busy={pending === t.key}
@@ -126,6 +125,7 @@ export function Today({ stats }: { stats: Stats }) {
                   }
                   className={`${rowButton} ${rowBleed} grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 py-2 focus-visible:ring-inset disabled:opacity-60`}
                 >
+                  <span className="sr-only">Start</span>{' '}
                   {/* Only clients have a color; internal work takes the hollow
                       ring, which is what having none looks like on a screen
                       otherwise keyed by client. */}

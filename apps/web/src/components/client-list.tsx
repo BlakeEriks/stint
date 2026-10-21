@@ -374,9 +374,9 @@ function Row({
       <button
         type="button"
         onClick={onEdit}
-        aria-label={`Edit ${project.name}`}
         className={`${rowButton} ${archived ? '-ml-2 min-w-0 flex-1' : rowBleed} flex items-center gap-3 py-2.5`}
       >
+        <span className="sr-only">Edit</span>{' '}
         {/* An archived row recedes: it bills nothing new, so its name steps
             down a shade, its rate goes, and the badge sits with the name. */}
         <span className="flex min-w-0 flex-1 items-center gap-2">

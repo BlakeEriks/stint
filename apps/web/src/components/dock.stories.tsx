@@ -63,7 +63,7 @@ export const InvoiceDownloads: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await expect(
-      (await page.findAllByRole('link', { name: /^Download / }))[0],
+      (await page.findAllByRole('link', { name: /^Download, / }))[0],
     ).toBeVisible();
   },
 };
@@ -74,7 +74,7 @@ export const InvoiceDownloadsFree: Story = {
     const page = within(canvasElement.ownerDocument.body);
     await page.findAllByText(/days late/);
     await waitFor(() =>
-      expect(page.queryAllByRole('link', { name: /^Download / })).toEqual([]),
+      expect(page.queryAllByRole('link', { name: /^Download, / })).toEqual([]),
     );
   },
 };
@@ -103,7 +103,9 @@ export const BilledOverlap: Story = {
       await page.findByText(/Overlaps Checkout timeout fix on STINT-/),
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Edit Client call and follow-ups' }),
+      page.getByRole('button', {
+        name: 'Edit entry, Client call and follow-ups',
+      }),
     ).toBeVisible();
   },
 };
@@ -137,11 +139,11 @@ export const AssignProject: Story = {
     const page = within(canvasElement.ownerDocument.body);
     // Each entry is its own decision: a row and an action, never a count.
     const [assign] = await page.findAllByRole('button', {
-      name: /Assign a project/,
+      name: /^Assign project, /,
     });
     for (const task of ['Quick call with Priya', 'Research: carrier APIs'])
       await expect(
-        page.getByRole('button', { name: `Assign a project to ${task}` }),
+        page.getByRole('button', { name: `Assign project, ${task}` }),
       ).toBeVisible();
     await userEvent.click(assign as HTMLElement);
     await expectOpen(canvasElement, 'dialog');
@@ -170,7 +172,7 @@ export const CompactRow: Story = {
   play: async ({ canvasElement }) => {
     const row = await within(canvasElement.ownerDocument.body).findByRole(
       'button',
-      { name: /^Edit Filter panel and saved views,/ },
+      { name: /^Edit Filter panel and saved views / },
     );
     const at = within(row);
     await expect(at.getByText('Filter panel and saved views')).toBeVisible();
@@ -189,7 +191,7 @@ export const EditFromToday: Story = {
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.click(
       await page.findByRole('button', {
-        name: /^Edit Pairing on the ingest job,/,
+        name: /^Edit Pairing on the ingest job /,
       }),
     );
     await expectOpen(canvasElement, 'dialog');
@@ -205,7 +207,7 @@ export const UntitledEntry: Story = {
   play: async ({ canvasElement }) => {
     const block = await within(canvasElement.ownerDocument.body).findByRole(
       'button',
-      { name: /^Edit Untitled,/ },
+      { name: /^Edit Untitled / },
     );
     await expect(within(block).getByText('Untitled')).toBeVisible();
   },

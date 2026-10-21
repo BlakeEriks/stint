@@ -52,9 +52,6 @@
   "pnpm": {
     "patchedDependencies": {
       "@storybook/nextjs-vite@10.6.1": "patches/@storybook__nextjs-vite@10.6.1.patch"
-    },
-    "overrides": {
-      "axe-core": "4.13.0"
     }
   }
 }

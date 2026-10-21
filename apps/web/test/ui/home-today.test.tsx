@@ -149,7 +149,7 @@ describe('Today — a row starts its task again', () => {
     const view = renderToday();
 
     const row = await view.findByRole('button', {
-      name: 'Start Review · Acme',
+      name: /^Start Review.*Acme/,
     });
     await waitFor(() => expect(client.getQueryData(['summary'])).toBeDefined());
     fireEvent.click(row);

@@ -87,7 +87,7 @@ describe('Today as a day column', () => {
        UTC and fails in São Paulo. What matters is that both ends are
        there. */
     const block = await screen.findByRole('button', {
-      name: /Edit API integration, \d{1,2}:\d{2} [AP]M–\d{1,2}:\d{2} [AP]M$/,
+      name: /^Edit API integration .*\d{1,2}:\d{2} [AP]M–\d{1,2}:\d{2} [AP]M$/,
     });
     expect(block).toBeInTheDocument();
   });

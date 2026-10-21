@@ -249,7 +249,7 @@ export const WithCharge: Story = {
     await userEvent.click(dialog.getByRole('button', { name: 'Save' }));
     await expect(
       await page.findByRole('button', {
-        name: 'Edit charge Hosting, September',
+        name: /^Edit charge Hosting, September/,
       }),
     ).toBeVisible();
     const row = (
@@ -553,7 +553,7 @@ export const EditingExpense: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await userEvent.click(
-      await page.findByRole('button', { name: 'Edit Figma license, annual' }),
+      await page.findByRole('button', { name: /^Edit Figma license, annual/ }),
     );
     const dialog = await page.findByRole('dialog', { name: 'Edit expense' });
     // It fades in.
