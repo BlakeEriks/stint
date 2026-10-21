@@ -6,7 +6,7 @@
  */
 
 import { resolveRate, resolveRateSource, type RateSource } from './rates.ts';
-import { addDays, localDateKey } from './calendar.ts';
+import { addDays, daysInMonth, localDateKey } from './calendar.ts';
 import {
   lastEndedPeriod,
   type BillingSchedule,
@@ -324,7 +324,7 @@ export function defaultInvoicePeriod(
   if (schedule) return lastEndedPeriod(today, schedule);
   const [y = 0, m = 1, d = 1] = today.split('-').map(Number);
   const back = d;
-  const ahead = new Date(Date.UTC(y, m, 0)).getUTCDate() - d;
+  const ahead = daysInMonth(y, m) - d;
   const periodEnd =
     ahead < back ? addDays(today, ahead) : addDays(today, -back);
   return { periodStart: `${periodEnd.slice(0, 8)}01`, periodEnd };

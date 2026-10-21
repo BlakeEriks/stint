@@ -4,7 +4,7 @@
  * the off-schedule hint derive from it, so they cannot disagree.
  */
 
-import { addDays } from './calendar.ts';
+import { addDays, daysInMonth } from './calendar.ts';
 
 export const BILLING_PERIODS = [
   'weekly',
@@ -43,7 +43,7 @@ export function periodContaining(
   }
   const [y = 0, m = 1, d = 1] = date.split('-').map(Number);
   const month = date.slice(0, 8);
-  const last = `${month}${new Date(Date.UTC(y, m, 0)).getUTCDate()}`;
+  const last = `${month}${daysInMonth(y, m)}`;
   if (schedule.period === 'monthly')
     return { periodStart: `${month}01`, periodEnd: last };
   return d <= 15

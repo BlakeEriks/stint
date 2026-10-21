@@ -718,8 +718,6 @@ test('a patch naming no known field is rejected, not a silent no-op', async () =
   assert.equal(res.status, 422);
 });
 
-/* Which payment profile a client's invoices carry: a field the route's schema
-   must name, or Zod strips it and the write is silently lost. */
 /* The schedule sets a new invoice's period: a field the schema or the column
    list dropped would leave every client unscheduled, unseen. */
 test('a client billing schedule round-trips, and is null until set', async () => {
@@ -791,6 +789,8 @@ test('a client billing schedule round-trips, and is null until set', async () =>
   }
 });
 
+/* Which payment profile a client's invoices carry: a field the route's schema
+   must name, or Zod strips it and the write is silently lost. */
 test('a client can be pointed at a payment profile, on create and on patch', async () => {
   const { POST: createProfile } = await import(
     '../src/app/api/v1/payment-profiles/route.ts'

@@ -200,8 +200,6 @@ export function ClientForm({
   );
 }
 
-/** Each schedule as the select names it; the list and the invoice hint
- *  lowercase it. */
 export const SCHEDULE_LABELS: Record<BillingPeriod, string> = {
   weekly: 'Weekly',
   biweekly: 'Every two weeks',
