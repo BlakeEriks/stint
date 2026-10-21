@@ -1,8 +1,5 @@
 import SwiftUI
 
-// The panel's primitives: every screen draws with these, and a type, color
-// or focus rule changes here rather than in a screen.
-
 /// A hairline in `borderSubtle`.
 var rule: some View {
     Rectangle().fill(Tokens.Dark.borderSubtle).frame(height: 1)
