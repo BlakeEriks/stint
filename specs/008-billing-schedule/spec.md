@@ -18,6 +18,13 @@ the off-schedule hint and later auto-drafting (#434) all derive from it.
 Replaces #334 and PR #423, which hard-coded two cadences. Live drafts (#433)
 and auto-drafting (#434) build on this and are out of scope here.
 
+## Clarifications
+
+### Session 2026-10-21
+
+- Q: How does the contractor say when a weekly or every-two-weeks period starts? → A: They pick a date one period starts on (the anchor).
+- Q: Which period does New invoice default to for a scheduled client? → A: The most recent period that has ended; the contractor can still change either date.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Set a client's billing schedule (Priority: P1)
@@ -47,8 +54,9 @@ the same schedule; a new client and every existing client has none.
 
 ### User Story 2 - A new invoice starts on the client's period (Priority: P1)
 
-Choosing a client on New invoice sets From and To to that client's period
-whose last day is nearest today, so the usual invoice needs no date edits.
+Choosing a client on New invoice sets From and To to that client's most
+recent period that has ended, so the usual invoice needs no date edits. Both
+dates stay editable.
 
 **Why this priority**: It removes the hand-fixing of dates on every invoice,
 which is the problem the issue names.
@@ -61,13 +69,18 @@ and see the expected From and To.
 1. **Given** a twice-a-month client and today is Oct 21, **When** it is
    chosen, **Then** From is Oct 1 and To is Oct 15.
 2. **Given** a monthly client and today is Oct 21, **When** it is chosen,
-   **Then** the period is Sep 1–30; on Oct 29, it is Oct 1–31.
+   **Then** the period is Sep 1–30; on Oct 31 it is still Sep 1–30, and on
+   Nov 1 it is Oct 1–31.
 3. **Given** a weekly client whose periods start on Mondays and today is
    Wednesday Oct 21, **When** it is chosen, **Then** the period is
    Mon Oct 12 – Sun Oct 18.
 4. **Given** a client with no schedule, **When** it is chosen, **Then** the
    dates are the calendar month whose last day is nearest today, as before.
-5. **Given** the contractor has already edited either date, **When** they
+5. **Given** a twice-a-month client and today is Oct 15, **When** it is
+   chosen, **Then** the period is Sep 16–30, since Oct 1–15 hasn't ended.
+6. **Given** the defaulted dates, **When** the contractor changes either one,
+   **Then** the invoice uses their dates.
+7. **Given** the contractor has already edited either date, **When** they
    choose a different client, **Then** their dates stay.
 
 ---
@@ -98,8 +111,8 @@ schedule, see the hint, and generate the invoice anyway.
 - Twice a month: the second period ends on the month's last day, including
   Feb 28 and Feb 29.
 - A period that spans a year boundary (weekly, every two weeks) is one period.
-- Today falls exactly between two periods' ends: the earlier period wins, as
-  #296's monthly default does.
+- A period ends after its last day: on that day it is still the current
+  period, not the default.
 - An anchor date in the future still defines the periods before it.
 - Changing a client's schedule never changes an invoice already generated.
 - An archived client keeps its schedule.
@@ -117,9 +130,9 @@ schedule, see the hint, and generate the invoice anyway.
   schedule wherever they edit the client.
 - **FR-004**: One rule MUST decide, for any date and schedule, the period that
   contains it; every behavior below uses that rule and no other.
-- **FR-005**: Choosing a scheduled client on New invoice MUST set the period
-  whose last day is nearest today, the earlier on a tie, unless the
-  contractor has already edited a date.
+- **FR-005**: Choosing a scheduled client on New invoice MUST set the most
+  recent period whose last day is before today, unless the contractor has
+  already edited a date. Both dates MUST stay editable.
 - **FR-006**: A client with no schedule MUST keep the current default: the
   calendar month whose last day is nearest today.
 - **FR-007**: When both dates are set and are not exactly one of the client's
@@ -158,9 +171,8 @@ schedule, see the hint, and generate the invoice anyway.
   scope.
 - Dates are calendar dates in the user's timezone, as invoice periods are
   today.
-- [NEEDS CLARIFICATION: How does the contractor say when a weekly or
-  every-two-weeks period starts — pick a date one period starts on, or pick
-  a weekday (plus "this week or next" for every two weeks)?]
+- A weekly or every-two-weeks schedule's periods are set by picking a date
+  one period starts on; every period repeats from it, before and after.
 - The macOS app doesn't edit clients today; if it does, FR-008 keeps it
   working without change.
 - Live drafts (#433) and auto-drafting with a "ready" email (#434) are out of
