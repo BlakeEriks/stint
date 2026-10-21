@@ -33,11 +33,9 @@ if [ "$TARGET" = "prod" ]; then
     ANON_KEY="sb_publishable_dpZCXx5Z71lOUznVCIleJA__YjyUk4e"
     APP_URL="${STINT_APP_URL:-https://app.runstint.com}"
     # Public, as the publishable key is.
-    SENTRY_DSN=""
-    if [ -n "$SENTRY_DSN" ]; then
-        EXTRA_ENV="
+    SENTRY_DSN="https://7389e4e3270c625aa93d56ef962bc788@o4512226458533888.ingest.us.sentry.io/4512292647141376"
+    EXTRA_ENV="
         <key>STINT_SENTRY_DSN</key><string>$SENTRY_DSN</string>"
-    fi
 elif [ "$TARGET" = "preview" ]; then
     # One PR's Vercel preview and its seeded account on stint-test, signed in
     # on launch. `pnpm try-mac <pr>` supplies all three variables.
@@ -100,7 +98,7 @@ swift build -c "$CONFIG"
 
 # Prod's debug symbols go to Sentry, so its crash stacks read as source. With
 # no token in the Keychain the bundle still builds, and stacks stay addresses.
-if [ "$TARGET" = "prod" ] && [ -n "$SENTRY_DSN" ]; then
+if [ "$TARGET" = "prod" ]; then
     if SENTRY_AUTH_TOKEN="$(security find-generic-password -s dev.stint.sentry-auth-token -w 2>/dev/null)"; then
         command -v sentry-cli >/dev/null || {
             echo "error: sentry-cli is missing — brew install getsentry/tools/sentry-cli" >&2; exit 1; }

@@ -355,7 +355,7 @@ The macOS app reports to a second project in the same organization, set up
 once:
 
 1. **Projects → Create Project**, platform Apple macOS, slug `stint-macos`,
-   with the same alert rule.
+   added to the existing "Notify via Discord" alert rule.
 2. Its **Security & Privacy → Prevent Storing of IP Addresses** on: events
    carry the user id and nothing else about the user.
 3. Its DSN goes in `SENTRY_DSN` in `apps/macos/bundle.sh`. It is public, and
