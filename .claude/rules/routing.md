@@ -46,15 +46,16 @@ because the reader is trusting it with their rates: the invoice is shown
 rather than described, and a competitor's bill is named but never the
 competitor. Its current conventions, which a redesign may change:
 
-**Green marks the hero timer and the invite button**, the action the page
-exists to complete. The unbilled card, the invoice and the headings are
-neutral.
+**Green marks a running timer and the invite button**: the hero timer, the
+one in the Mac panel's screenshot, and the action the page exists to
+complete. The invoice and the headings are neutral.
 
 **Banned words**, because each carries no information or the wrong audience:
 seamless, effortless, powerful, intuitive; beautiful, well-designed;
 revolutionary, reimagined, next-generation; earned or revenue for unbilled
 work (it may never be paid); Pro, Premium, Upgrade (one price, no tiers);
-teams, collaborate, workspace.
+teams, collaborate, workspace. They bind the page's copy, not a screenshot,
+which shows the app's own labels.
 
 **The hero timer is the only motion.** It ticks from a plausible mid-session
 seed, never 0:00:00; the dot pulses on a 2s loop; `prefers-reduced-motion`

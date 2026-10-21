@@ -6,6 +6,7 @@ import { InviteRequest } from '@/components/marketing/invite-request';
 import { ScrollRegion } from '@/components/marketing/scroll-region';
 import { Wordmark } from '@/components/wordmark';
 import homeUnbilled from './home-unbilled.png';
+import macTimer from './mac-timer.png';
 
 /**
  * Served at `/` on the apex domain, rewritten there by `src/proxy.ts`.
@@ -410,17 +411,28 @@ function Platforms() {
         </>
       }
       aside={
-        <div className="grid gap-3 sm:grid-cols-3">
-          {surfaces.map(({ icon: Icon, label, detail }) => (
-            <div
-              key={label}
-              className="flex flex-col gap-2 rounded-lg bg-surface-primary p-4 shadow-card"
-            >
-              <Icon aria-hidden className="size-4 text-muted" />
-              <span className="type-heading text-strong">{label}</span>
-              <span className="type-support text-muted">{detail}</span>
-            </div>
-          ))}
+        <div className="flex flex-col gap-6">
+          {/* The Mac panel, captured with `apps/macos/qa.sh shot` signed in
+              as the seeded local account, then cropped to its timer and
+              today: below that it lists task names. */}
+          <Image
+            src={macTimer}
+            alt="Stint's Mac menu bar panel: a running timer, its task and project, and today's hours and earnings"
+            sizes="20rem"
+            className="mx-auto h-auto w-full max-w-xs rounded-xl shadow-float"
+          />
+          <div className="grid gap-3 sm:grid-cols-3">
+            {surfaces.map(({ icon: Icon, label, detail }) => (
+              <div
+                key={label}
+                className="flex flex-col gap-2 rounded-lg bg-surface-primary p-4 shadow-card"
+              >
+                <Icon aria-hidden className="size-4 text-muted" />
+                <span className="type-heading text-strong">{label}</span>
+                <span className="type-support text-muted">{detail}</span>
+              </div>
+            ))}
+          </div>
         </div>
       }
     />

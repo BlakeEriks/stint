@@ -28,7 +28,7 @@ type Story = StoryObj<typeof meta>;
 
 /**
  * Both calls to action ask for an invite; only the header signs in. The
- * unbilled section shows the real home, not a drawing of it.
+ * unbilled and Mac sections show the real app, not drawings of it.
  */
 export const Desktop: Story = {
   ...desktop,
@@ -43,6 +43,9 @@ export const Desktop: Story = {
     );
     await expect(
       page.getByRole('img', { name: /Stint's home screen/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('img', { name: /Stint's Mac menu bar panel/ }),
     ).toBeVisible();
   },
 };
