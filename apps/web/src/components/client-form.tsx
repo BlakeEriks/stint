@@ -5,8 +5,22 @@ import { useOptimisticMutation } from '@/lib/client/mutations';
 import { Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  BILLING_PERIODS,
+  localDateKey,
+  type BillingPeriod,
+  type BillingSchedule,
+} from '@stint/core';
+import { timeZone as tz } from '@/lib/client/use-timer';
 import { ColorPicker } from './color-picker';
-import { Field } from './field';
+import { Field, inputClass } from './field';
 import { RateInput, parseRate } from './rate-input';
 import { api, ApiError, type Client, type ClientInput } from '@/lib/client/api';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
@@ -45,6 +59,9 @@ export function ClientForm({
     existing?.taxRate != null ? String(existing.taxRate) : '',
   );
   const [color, setColor] = useState<string | null>(existing?.color ?? null);
+  const [schedule, setSchedule] = useState<BillingSchedule | null>(
+    existing?.billingSchedule ?? null,
+  );
 
   const save = useSaveClient(existing, onSaved);
 
@@ -59,6 +76,7 @@ export function ClientForm({
       hourlyRate: parseRate(hourlyRate),
       taxRate: taxRate.trim() === '' ? null : Number(taxRate),
       color,
+      billingSchedule: schedule,
     });
   };
 
@@ -138,6 +156,8 @@ export function ClientForm({
         </Field>
       </div>
 
+      <ScheduleField value={schedule} onChange={setSchedule} />
+
       <ColorPicker value={color} onChange={setColor} />
 
       {save.error ? (
@@ -177,6 +197,82 @@ export function ClientForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+/** Each schedule as the select names it; the list and the invoice hint
+ *  lowercase it. */
+export const SCHEDULE_LABELS: Record<BillingPeriod, string> = {
+  weekly: 'Weekly',
+  biweekly: 'Every two weeks',
+  semimonthly: 'Twice a month',
+  monthly: 'Monthly',
+};
+
+const NONE = 'none';
+
+/** Weekly and every two weeks count from a date one period starts on, so
+ *  they reveal it, starting at today so a save never lacks one. */
+function ScheduleField({
+  value,
+  onChange,
+}: {
+  value: BillingSchedule | null;
+  onChange: (value: BillingSchedule | null) => void;
+}) {
+  const pick = (period: string) => {
+    if (period === 'weekly' || period === 'biweekly')
+      onChange({
+        period,
+        anchor:
+          value && 'anchor' in value
+            ? value.anchor
+            : localDateKey(new Date(), tz),
+      });
+    else if (period === 'semimonthly' || period === 'monthly')
+      onChange({ period });
+    else onChange(null);
+  };
+  return (
+    <div className="flex flex-wrap gap-4">
+      <Field
+        label="Billing schedule"
+        htmlFor="client-schedule"
+        hint="Sets each new invoice's dates."
+        className="flex-1 basis-40"
+      >
+        <Select value={value?.period ?? NONE} onValueChange={pick}>
+          <SelectTrigger id="client-schedule" className={inputClass}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NONE}>None</SelectItem>
+            {BILLING_PERIODS.map((p) => (
+              <SelectItem key={p} value={p}>
+                {p === 'semimonthly'
+                  ? 'Twice a month: 1st–15th, 16th–end'
+                  : SCHEDULE_LABELS[p]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+      {value && 'anchor' in value ? (
+        <Field
+          label="First period starts"
+          htmlFor="client-anchor"
+          className="flex-1 basis-40"
+        >
+          <Input
+            id="client-anchor"
+            type="date"
+            required
+            value={value.anchor}
+            onChange={(e) => onChange({ ...value, anchor: e.target.value })}
+          />
+        </Field>
+      ) : null}
+    </div>
   );
 }
 

@@ -68,9 +68,9 @@ specs/008-billing-schedule/
 
 ```text
 supabase/migrations/<timestamp>_client_billing_schedule.sql   # two columns + check
-packages/core/src/schedule.ts                                 # the period rule
+packages/core/src/billing-period.ts                                 # the period rule
 packages/core/src/invoice.ts                                  # defaultInvoicePeriod() takes a schedule
-packages/core/test/schedule.test.ts
+packages/core/test/billing-period.test.ts
 packages/schema/src/index.ts                                  # BillingSchedule on Client
 apps/web/src/lib/rows.ts                                      # columns ↔ billingSchedule
 apps/web/src/app/api/v1/clients/route.ts, [id]/route.ts       # write both columns

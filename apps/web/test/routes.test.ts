@@ -720,6 +720,77 @@ test('a patch naming no known field is rejected, not a silent no-op', async () =
 
 /* Which payment profile a client's invoices carry: a field the route's schema
    must name, or Zod strips it and the write is silently lost. */
+/* The schedule sets a new invoice's period: a field the schema or the column
+   list dropped would leave every client unscheduled, unseen. */
+test('a client billing schedule round-trips, and is null until set', async () => {
+  const { POST: createClient, GET: listClients } = await import(
+    '../src/app/api/v1/clients/route.ts'
+  );
+  const { PATCH } = await import('../src/app/api/v1/clients/[id]/route.ts');
+  const weekly = { period: 'weekly', anchor: '2026-10-05' };
+
+  const plain = await json(
+    await createClient(req('/clients', { name: 'Northwind' })),
+  );
+  assert.equal(plain.body.billingSchedule, null);
+
+  const semi = await json(
+    await createClient(
+      req('/clients', {
+        name: 'Contoso',
+        billingSchedule: { period: 'semimonthly' },
+      }),
+    ),
+  );
+  assert.deepEqual(semi.body.billingSchedule, { period: 'semimonthly' });
+
+  const moved = await json(
+    await PATCH(
+      patchReq('/clients/x', { billingSchedule: weekly }),
+      ctx(plain.body.id),
+    ),
+  );
+  assert.deepEqual(moved.body.billingSchedule, weekly);
+
+  const renamed = await json(
+    await PATCH(
+      patchReq('/clients/x', { name: 'Northwind Trading' }),
+      ctx(plain.body.id),
+    ),
+  );
+  assert.deepEqual(renamed.body.billingSchedule, weekly);
+
+  const list = await json(await listClients(req('/clients')));
+  assert.deepEqual(
+    list.body.clients.map(
+      (c: { billingSchedule: unknown }) => c.billingSchedule,
+    ),
+    [{ period: 'semimonthly' }, weekly],
+  );
+
+  const cleared = await json(
+    await PATCH(
+      patchReq('/clients/x', { billingSchedule: null }),
+      ctx(plain.body.id),
+    ),
+  );
+  assert.equal(cleared.body.billingSchedule, null);
+
+  for (const bad of [
+    { period: 'weekly' },
+    { period: 'monthly', anchor: '2026-10-05' },
+    { period: 'quarterly' },
+  ]) {
+    const refused = await json(
+      await PATCH(
+        patchReq('/clients/x', { billingSchedule: bad }),
+        ctx(plain.body.id),
+      ),
+    );
+    assert.equal(refused.status, 422, JSON.stringify(bad));
+  }
+});
+
 test('a client can be pointed at a payment profile, on create and on patch', async () => {
   const { POST: createProfile } = await import(
     '../src/app/api/v1/payment-profiles/route.ts'

@@ -1,4 +1,10 @@
-import { paymentFailed, planOf, type SubscriptionStatus } from '@stint/core';
+import {
+  paymentFailed,
+  planOf,
+  type BillingPeriod,
+  type BillingSchedule,
+  type SubscriptionStatus,
+} from '@stint/core';
 import type {
   Billing,
   GroupingMode,
@@ -118,12 +124,27 @@ export interface ClientRow {
   currency: string | null;
   color: string | null;
   payment_profile_id: string | null;
+  billing_period: BillingPeriod | null;
+  period_anchor: string | null;
   archived_at: string | null;
 }
 
 export const CLIENT_COLUMNS = columns<ClientRow>()(
-  'id, name, email, address, hourly_rate, tax_rate, currency, color, payment_profile_id, archived_at',
+  'id, name, email, address, hourly_rate, tax_rate, currency, color, payment_profile_id, billing_period, period_anchor, archived_at',
 );
+
+/** The schedule is one value on the wire and two columns, written together
+ *  so the pair cannot break (`billing_period_anchor`). */
+export function toBillingSchedule(r: ClientRow): BillingSchedule | null {
+  if (r.billing_period === 'weekly' || r.billing_period === 'biweekly')
+    return { period: r.billing_period, anchor: r.period_anchor! };
+  return r.billing_period ? { period: r.billing_period } : null;
+}
+
+export const billingScheduleColumns = (s: BillingSchedule | null) => ({
+  billing_period: s?.period ?? null,
+  period_anchor: s && 'anchor' in s ? s.anchor : null,
+});
 
 export function toClient(r: ClientRow) {
   return {
@@ -136,6 +157,7 @@ export function toClient(r: ClientRow) {
     currency: r.currency,
     color: r.color,
     paymentProfileId: r.payment_profile_id,
+    billingSchedule: toBillingSchedule(r),
     archivedAt: r.archived_at,
   };
 }

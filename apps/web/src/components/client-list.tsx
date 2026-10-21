@@ -19,6 +19,7 @@ import { ExpenseDialog } from './expense-dialog';
 import { keys } from '@/lib/client/query-keys';
 import { rowBleed, rowButton } from './row-button';
 import { ProjectRate, rateLabel } from './project-rate';
+import { SCHEDULE_LABELS } from './client-form';
 import { useRestoreClient } from '@/lib/client/use-archive-client';
 import { useRestoreProject } from '@/lib/client/use-restore-project';
 
@@ -190,7 +191,13 @@ export function ClientList() {
 
 function clientSummary(client: Client | null, defaultRate: number | null) {
   if (!client) return 'Not assigned to a client';
-  return [clientRate(client, defaultRate), client.email]
+  return [
+    clientRate(client, defaultRate),
+    client.billingSchedule
+      ? `Billed ${SCHEDULE_LABELS[client.billingSchedule.period].toLowerCase()}`
+      : null,
+    client.email,
+  ]
     .filter(Boolean)
     .join(' · ');
 }

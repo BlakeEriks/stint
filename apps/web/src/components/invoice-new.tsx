@@ -30,12 +30,15 @@ import {
   dueDateForTerms,
   formatCurrency,
   formatInvoiceNumber,
+  isPeriod,
   localDateKey,
   resolvePaymentProfile,
   SCHEDULE_KINDS,
   SCHEDULE_TITLES,
+  type Period,
   type ScheduleKind,
 } from '@stint/core';
+import { SCHEDULE_LABELS } from './client-form';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import {
   api,
@@ -84,8 +87,10 @@ type DraftCharge = Charge & { key: string };
 
 interface Draft {
   clientId: string;
-  periodStart: string;
-  periodEnd: string;
+  /** `null` until the user edits either date, so the period follows the
+   *  client's billing schedule. */
+  periodStart: string | null;
+  periodEnd: string | null;
   /** `null` until the user picks one, so it follows the payment terms the
    *  invoice prints. */
   dueDate: string | null;
@@ -107,10 +112,10 @@ interface Draft {
   paymentProfileId: string;
 }
 
-/** Computed on mount, not at import, from the day the user is in. */
 const empty = (): Draft => ({
   clientId: '',
-  ...defaultInvoicePeriod(localDateKey(new Date(), tz)),
+  periodStart: null,
+  periodEnd: null,
   dueDate: null,
   reference: '',
   groupingMode: null,
@@ -120,6 +125,42 @@ const empty = (): Draft => ({
   excludedExpenseIds: [],
   paymentProfileId: '',
 });
+
+/** The period the user set, else the client's default for `today`. */
+function periodOf(
+  draft: Draft,
+  client: Client | undefined,
+  today: string,
+): Period {
+  const suggested = defaultInvoicePeriod(today, client?.billingSchedule);
+  return {
+    periodStart: draft.periodStart ?? suggested.periodStart,
+    periodEnd: draft.periodEnd ?? suggested.periodEnd,
+  };
+}
+
+/** A hint, not a block: a first or last invoice can cover part of a
+ *  period, and a contract can change. */
+function ScheduleHint({
+  client,
+  periodStart,
+  periodEnd,
+}: {
+  client: Client | undefined;
+  periodStart: string;
+  periodEnd: string;
+}) {
+  const schedule = client?.billingSchedule;
+  // A cleared date is still being typed, not a period.
+  if (!schedule || !periodStart || !periodEnd) return null;
+  if (isPeriod(schedule, periodStart, periodEnd)) return null;
+  return (
+    <p role="status" className="type-support text-warning">
+      {client.name} is billed {SCHEDULE_LABELS[schedule.period].toLowerCase()},
+      and this isn't one of its periods.
+    </p>
+  );
+}
 
 /** What a client's last invoice carries into the next: a summary's text and
  *  attachments, so a monthly invoice isn't retyped. */
@@ -285,7 +326,9 @@ function Form() {
 
   const { lastPending, groupingMode, summaryText, schedules } =
     useCarried(draft);
-  const waiting = useWaitingExpenses(draft.clientId, draft.periodEnd);
+  const issued = localDateKey(new Date(), tz);
+  const { periodStart, periodEnd } = periodOf(draft, client, issued);
+  const waiting = useWaitingExpenses(draft.clientId, periodEnd);
   /* `undefined` adds an expense; an expense, edits it. */
   const expenseDialog = useDialog<Expense | undefined>();
   /* `'new'` adds a charge; a key, edits that one. */
@@ -299,8 +342,8 @@ function Form() {
     // No client until the last invoice has answered, so no preview is asked
     // for in a grouping it is about to change.
     clientId: lastPending ? '' : draft.clientId,
-    periodStart: draft.periodStart,
-    periodEnd: draft.periodEnd,
+    periodStart,
+    periodEnd,
     groupingMode,
     summaryText,
     tz,
@@ -315,7 +358,6 @@ function Form() {
     draft.clientId !== '',
   );
 
-  const issued = localDateKey(new Date(), tz);
   const { number, termsDue } = fromSettings(settings, issued);
   const due = draft.dueDate ?? termsDue;
 
@@ -467,14 +509,20 @@ function Form() {
                 <DateField
                   id="inv-from"
                   label="From"
-                  value={draft.periodStart}
-                  onChange={(v) => set('periodStart', v)}
+                  value={periodStart}
+                  // Either date pins both, so another client's schedule
+                  // cannot move the other end under the user.
+                  onChange={(v) =>
+                    setDraft((d) => ({ ...d, periodStart: v, periodEnd }))
+                  }
                 />
                 <DateField
                   id="inv-to"
                   label="To"
-                  value={draft.periodEnd}
-                  onChange={(v) => set('periodEnd', v)}
+                  value={periodEnd}
+                  onChange={(v) =>
+                    setDraft((d) => ({ ...d, periodStart, periodEnd: v }))
+                  }
                 />
                 <DateField
                   id="inv-due"
@@ -483,6 +531,11 @@ function Form() {
                   onChange={(v) => set('dueDate', v)}
                 />
               </div>
+              <ScheduleHint
+                client={client}
+                periodStart={periodStart}
+                periodEnd={periodEnd}
+              />
               <Field label="Reference" htmlFor="inv-reference">
                 <Input
                   id="inv-reference"

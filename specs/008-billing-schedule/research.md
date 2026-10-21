@@ -13,7 +13,7 @@
 
 ## R3. The rule
 
-- **Decision**: `packages/core/src/schedule.ts`:
+- **Decision**: `packages/core/src/billing-period.ts`:
   - `periodContaining(date, schedule)`: monthly is the calendar month; semimonthly is the 1st–15th or the 16th–last day; weekly and biweekly count 7 or 14 days from the anchor, by floor division, so dates before the anchor work too.
   - `lastEndedPeriod(today, schedule)`: the period before `periodContaining(today)`, since the period holding today has not ended (spec edge case: a period ends after its last day).
   - `isPeriod(schedule, start, end)`: `periodContaining(start)` equals `{ start, end }`.
@@ -28,5 +28,5 @@
 
 ## R5. The client dialog
 
-- **Decision**: A "Billing schedule" select (None, Weekly, Every two weeks, Twice a month: 1st–15th and 16th–end, Monthly). Weekly and every two weeks reveal a "First period starts" date, prefilled with today's Monday so a save never lacks one. The client list's row adds the schedule in its support line when there is one.
+- **Decision**: A "Billing schedule" select (None, Weekly, Every two weeks, Twice a month: 1st–15th and 16th–end, Monthly). Weekly and every two weeks reveal a "First period starts" date, prefilled with today so a save never lacks one. The client list's row adds the schedule in its support line when there is one.
 - **Rationale**: Follows the dialog's existing `Field` and `Select`; the design review was skipped for this reason.

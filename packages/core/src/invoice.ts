@@ -7,6 +7,11 @@
 
 import { resolveRate, resolveRateSource, type RateSource } from './rates.ts';
 import { addDays, localDateKey } from './calendar.ts';
+import {
+  lastEndedPeriod,
+  type BillingSchedule,
+  type Period,
+} from './billing-period.ts';
 
 /**
  * `summary` is one line of the user's own text for all the time, split only
@@ -307,14 +312,16 @@ export function formatInvoiceNumber(prefix: string, sequence: number): string {
 }
 
 /**
- * The period a new invoice starts with, for `today` (`YYYY-MM-DD`): the month
- * whose last day is nearest, since a contractor bills a month just as it ends
- * or just after. Equidistant, the earlier month wins.
+ * The period a new invoice starts with, for `today` (`YYYY-MM-DD`): a
+ * scheduled client's last ended period. Without a schedule, the month whose
+ * last day is nearest, since a contractor bills a month just as it ends or
+ * just after; equidistant, the earlier month wins.
  */
-export function defaultInvoicePeriod(today: string): {
-  periodStart: string;
-  periodEnd: string;
-} {
+export function defaultInvoicePeriod(
+  today: string,
+  schedule: BillingSchedule | null = null,
+): Period {
+  if (schedule) return lastEndedPeriod(today, schedule);
   const [y = 0, m = 1, d = 1] = today.split('-').map(Number);
   const back = d;
   const ahead = new Date(Date.UTC(y, m, 0)).getUTCDate() - d;

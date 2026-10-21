@@ -97,6 +97,100 @@ export const Defaults: Story = {
   },
 };
 
+const scheduled = (
+  id: string,
+  billingSchedule: Db['clients'][number]['billingSchedule'],
+) =>
+  account((db) => {
+    for (const c of db.clients)
+      if (c.id === id) c.billingSchedule = billingSchedule;
+  });
+
+/** Billed twice a month: on September 17 the period is the last half that
+    has ended, the 1st to the 15th. */
+export const ScheduledDefaults: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...scheduled(ids.northwind, { period: 'semimonthly' }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(page.getByLabelText('From')).toHaveValue('2026-09-01');
+    await expect(page.getByLabelText('To')).toHaveValue('2026-09-15');
+    await expect(page.queryByText(/is billed/)).toBeNull();
+  },
+};
+
+/** Billed weekly from a Monday: on Thursday September 17 the period is the
+    week before, Monday to Sunday, counted back from a later anchor. */
+export const WeeklyDefaults: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...scheduled(ids.northwind, { period: 'weekly', anchor: '2026-10-05' }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(page.getByLabelText('From')).toHaveValue('2026-09-07');
+    await expect(page.getByLabelText('To')).toHaveValue('2026-09-13');
+  },
+};
+
+/** Dates the user edited stay when another client is chosen. */
+export const EditedDatesStay: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...scheduled(ids.meridian, { period: 'semimonthly' }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await userEvent.clear(page.getByLabelText('From'));
+    await userEvent.type(page.getByLabelText('From'), '2026-09-05');
+    await chooseMeridian(canvasElement);
+    await expect(page.getByLabelText('From')).toHaveValue('2026-09-05');
+    await expect(page.getByLabelText('To')).toHaveValue('2026-09-30');
+  },
+};
+
+/** A period that isn't one of the client's is named, but the invoice can
+    still be generated: a first or last invoice can cover part of one. */
+export const OffSchedule: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...scheduled(ids.northwind, { period: 'monthly' }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(page.queryByText(/is billed/)).toBeNull();
+    await userEvent.clear(page.getByLabelText('From'));
+    await expect(page.queryByText(/is billed/)).toBeNull();
+    await userEvent.type(page.getByLabelText('From'), '2026-09-16');
+    await expect(
+      await page.findByText(
+        "Northwind Trading is billed monthly, and this isn't one of its periods.",
+      ),
+    ).toBeVisible();
+    await settled(page);
+  },
+};
+export const OffSchedulePhone: Story = { ...OffSchedule, ...phone };
+
+/** Without a schedule, any period is the user's own, and nothing is said. */
+export const NoScheduleNoHint: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await userEvent.clear(page.getByLabelText('From'));
+    await userEvent.type(page.getByLabelText('From'), '2026-09-16');
+    await settled(page);
+    await expect(page.queryByText(/is billed/)).toBeNull();
+  },
+};
+
 /** A client chosen: the card is the invoice as the PDF prints it, and
     follows the form without a Preview button (US3 scenario 1). Northwind
     has an address and email, so the Client field offers no Edit client. */

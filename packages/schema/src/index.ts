@@ -41,6 +41,17 @@ const boolParam = z
   .transform((v) => v === 'true');
 
 // ── client ─────────────────────────────────────────────────────────
+/** How often a client's contract bills it (`BillingSchedule` in
+ *  `@stint/core`). Strict, so an anchor on a calendar period is refused
+ *  rather than dropped. */
+export const BillingSchedule = z.discriminatedUnion('period', [
+  z.strictObject({
+    period: z.enum(['weekly', 'biweekly']),
+    anchor: z.iso.date(),
+  }),
+  z.strictObject({ period: z.enum(['semimonthly', 'monthly']) }),
+]);
+
 export const Client = z.object({
   id: uuid,
   name: z.string().trim().min(1).max(200),
@@ -53,6 +64,8 @@ export const Client = z.object({
   /** Overrides the user's default payment profile on this client's invoices;
    *  a dangling reference falls back rather than rendering nothing. */
   paymentProfileId: uuid.nullable().optional(),
+  /** Null is no schedule; omitted on a PATCH leaves it as it is. */
+  billingSchedule: BillingSchedule.nullable().optional(),
   archivedAt: iso.nullable().optional(),
 });
 export const CreateClient = Client.omit({ id: true, archivedAt: true }).extend({

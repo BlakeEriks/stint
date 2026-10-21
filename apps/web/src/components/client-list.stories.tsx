@@ -308,6 +308,74 @@ export const EditClient: Story = {
   },
 };
 
+const editNorthwind = async (page: ReturnType<typeof within>) => {
+  await userEvent.click(
+    await page.findByRole('button', { name: 'Edit Northwind Trading' }),
+  );
+  return within(await page.findByRole('dialog', { name: 'Edit client' }));
+};
+
+const pickSchedule = async (
+  page: ReturnType<typeof within>,
+  dialog: ReturnType<typeof within>,
+  name: RegExp,
+) => {
+  await userEvent.click(
+    dialog.getByRole('combobox', { name: /Billing schedule/ }),
+  );
+  await userEvent.click(await page.findByRole('option', { name }));
+};
+
+const saveDialog = async (
+  page: ReturnType<typeof within>,
+  dialog: ReturnType<typeof within>,
+) => {
+  await userEvent.click(dialog.getByRole('button', { name: 'Save changes' }));
+  await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+};
+
+/** A client has no billing schedule until one is set; once saved, its
+    dialog and its row both say it. */
+export const ClientSchedule: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    let dialog = await editNorthwind(page);
+    const select = () =>
+      dialog.getByRole('combobox', { name: /Billing schedule/ });
+    await expect(select()).toHaveTextContent('None');
+    await expect(dialog.queryByLabelText('First period starts')).toBeNull();
+    await pickSchedule(page, dialog, /Twice a month/);
+    await saveDialog(page, dialog);
+    await expect(await page.findByText(/Billed twice a month/)).toBeVisible();
+    dialog = await editNorthwind(page);
+    await expect(select()).toHaveTextContent(/Twice a month/);
+  },
+};
+
+/** Weekly asks which date a period starts on, filled in so a save never
+    lacks one, and keeps it. */
+export const ClientScheduleWeekly: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    let dialog = await editNorthwind(page);
+    await pickSchedule(page, dialog, /^Weekly$/);
+    const anchor = dialog.getByLabelText('First period starts');
+    await expect(anchor).not.toHaveValue('');
+    await userEvent.clear(anchor);
+    await userEvent.type(anchor, '2026-10-05');
+    await saveDialog(page, dialog);
+    await expect(await page.findByText(/Billed weekly/)).toBeVisible();
+    dialog = await editNorthwind(page);
+    await expect(dialog.getByLabelText('First period starts')).toHaveValue(
+      '2026-10-05',
+    );
+  },
+};
+
 /** An archived client's dialog offers Restore where Archive was. */
 export const EditArchivedClient: Story = {
   ...desktop,
