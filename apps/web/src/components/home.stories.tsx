@@ -85,6 +85,8 @@ export const TodayRowInert: Story = {
     await page.findByRole('button', { name: 'Start timer' });
     const [row] = await page.findAllByText(/^Filter panel and saved views/);
     await userEvent.click(row as HTMLElement);
+    // Past the mock server's answer, so a start would have landed by now.
+    await new Promise((r) => setTimeout(r, 1000));
     await expect(page.queryByRole('button', { name: 'Stop timer' })).toBeNull();
   },
 };

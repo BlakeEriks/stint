@@ -24,6 +24,7 @@ import {
 } from '@/lib/client/use-project-colors';
 import { Money } from './money';
 import { FigGroup, FigLabel, PairLine, RegionHead, Pip } from './home-shell';
+import { revealOnRowHover } from './row-button';
 
 /**
  * Today: one figure and the day's tasks.
@@ -100,9 +101,6 @@ export function Today({ stats }: { stats: Stats }) {
               </div>
             ))
           : tasks.map((t) => (
-              /* A summary line, so pressing it does nothing: a start from
-                 a row that reads as a summary is a surprise. The play button
-                 at its end says what it does. */
               <div
                 key={t.key}
                 data-task={t.key}
@@ -128,8 +126,7 @@ export function Today({ stats }: { stats: Stats }) {
                   {clock(t.seconds)}
                 </span>
                 {/* Starts the task again as a new entry, as the menu bar's
-                    recent rows do. Shown on hover or focus, and always where
-                    there is no hover; kept in the grid while hidden so the
+                    recent rows do. Kept in the grid while hidden so the
                     durations hold their column. */}
                 <button
                   type="button"
@@ -146,7 +143,7 @@ export function Today({ stats }: { stats: Stats }) {
                       isBillable: t.isBillable,
                     })
                   }
-                  className="-my-1 grid size-6 place-items-center rounded-md text-subtle opacity-0 hover:bg-surface-hover hover:text-strong focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:ring-inset focus-visible:outline-none group-hover:opacity-100 disabled:opacity-60 [@media(hover:none)]:opacity-100"
+                  className={`${revealOnRowHover} -my-1 grid size-6 place-items-center rounded-md text-subtle hover:bg-surface-hover hover:text-strong focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:ring-inset focus-visible:outline-none disabled:opacity-60`}
                 >
                   <Play aria-hidden strokeWidth={1.75} className="size-3.5" />
                 </button>
