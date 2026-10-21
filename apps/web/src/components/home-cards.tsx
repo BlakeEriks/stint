@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { usePressedSince } from '@/lib/client/mutations';
 import { api, type Stats } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { keys } from '@/lib/client/query-keys';
@@ -15,6 +16,7 @@ import { Today, useTodayEntries } from './home-today';
 import { Week } from './home-week';
 import { Month } from './home-month';
 import { Listing } from './page';
+import { Settling } from './money';
 
 /**
  * The panel paints once, with everything it draws: the gate holds the
@@ -28,13 +30,17 @@ export function HomeCards() {
     queryFn: () => api.stats(tz),
   });
 
+  const settling = usePressedSince(stats.dataUpdatedAt);
+
   return (
-    <Listing
-      query={[stats, useTodayEntries()]}
-      also={[useClientsQuery(), useAllProjects()]}
-    >
-      {([data]) => <Panel stats={data} />}
-    </Listing>
+    <Settling value={settling}>
+      <Listing
+        query={[stats, useTodayEntries()]}
+        also={[useClientsQuery(), useAllProjects()]}
+      >
+        {([data]) => <Panel stats={data} />}
+      </Listing>
+    </Settling>
   );
 }
 

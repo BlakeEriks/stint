@@ -12,6 +12,28 @@
    specifiers when collecting theme values. */
 @import "../../../../packages/design-tokens/dist/tokens.css";
 
+/* A figure a press will change, while it waits on the answer: it breathes
+   toward `text-muted`, never away from it. Muted passes AA on every surface,
+   so a figure in `text-subtle` stays readable mid-pulse where an opacity dim
+   fails. */
+@keyframes settle {
+  50% {
+    color: var(--color-muted);
+  }
+}
+@layer utilities {
+  @media (prefers-reduced-motion: no-preference) {
+    [data-settling] {
+      animation: settle 2s ease-in-out infinite;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-settling] {
+      color: var(--color-muted);
+    }
+  }
+}
+
 @layer base {
   html {
     /* Dark is the default, matching the token file: the palette is dark-first

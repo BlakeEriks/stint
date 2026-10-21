@@ -215,6 +215,22 @@ export const Summary = z.object({
 });
 
 export const SummaryQuery = z.object({ tz: timeZone });
+
+/**
+ * What a write may return beside its record, read after it in the same
+ * request (`docs/api.md`, "Including what a write changed").
+ */
+export const IncludedName = z.enum(['summary', 'stats']);
+
+/** A write's query: `?include=summary,stats&tz=…`. */
+export const IncludeQuery = z.object({
+  include: z
+    .string()
+    .transform((s) => s.split(','))
+    .pipe(z.array(IncludedName))
+    .optional(),
+  tz: timeZone,
+});
 export const StatsQuery = z.object({ tz: timeZone });
 export const ExportQuery = z.object({ tz: timeZone });
 
@@ -897,17 +913,27 @@ export const Stats = z.object({
   }),
 });
 
+/** The reads a write's `include` named, each in its own GET's shape. */
+export const Included = z.object({
+  summary: Summary.optional(),
+  stats: Stats.optional(),
+});
+
 /**
  * `POST /timer/stop`: the stopped entry, plus Unbilled as it stands with that
  * entry in it — `/stats`'s own figure, so a client shows the new total from
  * the call it already made rather than predicting the delta from its own copy
- * of the rate chain.
+ * of the rate chain. `included` is there when the request asked for it.
  */
 export const StoppedTimer = z.object({
   entry: TimeEntry,
   currency,
   unbilled: Stats.shape.unbilled,
+  included: Included.optional(),
 });
+
+/** A timer start or entry `PATCH` asked to `include`: the record beside them. */
+export const WrittenEntry = z.object({ entry: TimeEntry, included: Included });
 
 // ── payment profiles ───────────────────────────────────────────────
 // US-first: account + ACH routing is the default path, everything else
@@ -1020,6 +1046,8 @@ export type InvoicePreview = z.infer<typeof InvoicePreview>;
 export type PaymentProfile = z.infer<typeof PaymentProfile>;
 export type Stats = z.infer<typeof Stats>;
 export type StoppedTimer = z.infer<typeof StoppedTimer>;
+export type Included = z.infer<typeof Included>;
+export type IncludedName = z.infer<typeof IncludedName>;
 export type MonthEarned = z.infer<typeof MonthEarned>;
 export type WeekDay = z.infer<typeof WeekDay>;
 export type UnbilledClient = z.infer<typeof UnbilledClient>;

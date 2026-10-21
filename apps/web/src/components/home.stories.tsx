@@ -130,6 +130,32 @@ export const StartWhileRunningPending: Story = {
   },
 };
 
+/** Stop pressed and not yet answered: the bar and the hours have moved, and
+ *  the money, which the client never predicts, pulses until the answer
+ *  brings it. */
+export const StopSettling: Story = {
+  ...desktop,
+  parameters: { ...account('running'), ...stalled('stopTimer') },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const panel = within(canvasElement);
+    await panel.findByText(/^Today · /);
+    await expect(canvasElement.querySelector('[data-settling]')).toBeNull();
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Stop timer' }),
+    );
+    await page.findByRole('button', { name: 'Start timer' });
+    await waitFor(() =>
+      expect(
+        canvasElement.querySelectorAll('[data-settling]').length,
+      ).toBeGreaterThan(0),
+    );
+    await expect(
+      canvasElement.querySelector('[data-money][data-settling]'),
+    ).not.toBeNull();
+  },
+};
+
 /** A timer on unrated work: its time counts, and Earned does not move. */
 export const RunningUnrated: Story = {
   ...desktop,

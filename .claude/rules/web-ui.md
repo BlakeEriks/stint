@@ -246,7 +246,8 @@ the target instant.
 one shape per query is what an invalidation can match. Anything that changes a
 time entry calls `invalidateEntryData()` — summary, entries, stats and
 calendar all read those rows, and refreshing a subset makes two screens
-disagree about the same work.
+disagree about the same work. A read the write's answer included
+(`include`) counts as refreshed, so it is skipped.
 
 **A query renders through `Listing`**, which owns loading, failure and empty,
 so no screen writes those branches.

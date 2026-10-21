@@ -23,13 +23,24 @@ behavior depends on global state.
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST` | `/timer/start` | `{ id?, projectId?, taskName?, startedAt?, isBillable? }` — `taskName` defaults to `''`, since a timer started in a hurry can be named later. Returns `201`. **`409 TIMER_ALREADY_RUNNING`** if one is running, with the running entry in `details.running` so the client can display it rather than just reporting a conflict. `startedAt` allows backdating a forgotten start. **`isBillable` omitted takes the project's billable default**, and is billable with no project. The web sends it when a Today row starts a task again, copying that task's latest entry. |
-| `POST` | `/timer/stop` | `{ endedAt? }`, defaults to server `now()`. Returns `{ entry, currency, unbilled }`, `unbilled` being `/stats`'s, counted after the stop, so a client shows the new total without a second request. `409 NO_TIMER_RUNNING` if none; `422 VALIDATION_FAILED` if a backdated `endedAt` is at or before `startedAt`. |
+| `POST` | `/timer/start` | `{ id?, projectId?, taskName?, startedAt?, isBillable? }` — `taskName` defaults to `''`, since a timer started in a hurry can be named later. Returns `201`. **`409 TIMER_ALREADY_RUNNING`** if one is running, with the running entry in `details.running` so the client can display it rather than just reporting a conflict. `startedAt` allows backdating a forgotten start. **`isBillable` omitted takes the project's billable default**, and is billable with no project. The web sends it when a Today row starts a task again, copying that task's latest entry. `?include` returns `{ entry, included }` instead of the entry ([Including what a write changed](#including-what-a-write-changed)). |
+| `POST` | `/timer/stop` | `{ endedAt? }`, defaults to server `now()`. Returns `{ entry, currency, unbilled }`, `unbilled` being `/stats`'s, counted after the stop, so a client shows the new total without a second request; `?include` adds `included` ([Including what a write changed](#including-what-a-write-changed)). `409 NO_TIMER_RUNNING` if none; `422 VALIDATION_FAILED` if a backdated `endedAt` is at or before `startedAt`. |
 | `GET` | `/timer/current` | `{ entry, serverTime }`. |
 | `PATCH` | `/timer/current` | Edit task name / project mid-run. `409 NO_TIMER_RUNNING` if none; `409 ENTRY_LOCKED` if billed. |
 
 `serverTime` is returned so clients can correct for clock skew rather than
 trusting the device clock.
+
+### Including what a write changed
+
+`?include=summary,stats&tz=<IANA zone>` on `POST /timer/start`,
+`POST /timer/stop` and `PATCH /entries/:id` returns those reads beside the
+record, taken after the write in the same request, each in its own `GET`'s
+shape: `{ entry, included: { summary, stats } }`. A client asks for what it
+shows, so its figures settle with the answer rather than a refetch later.
+Start and `PATCH` return the bare entry without it; stop adds `included` to
+its own shape. An unknown name is `422 VALIDATION_FAILED`, before anything is
+written.
 
 ## Entries
 
@@ -38,7 +49,7 @@ trusting the device clock.
 | `GET` | `/entries` | `?from&to&projectId&clientId&limit` (1–500, default 200), newest first. **`projectId=none`** returns entries with no project at all — an absent parameter already means "every entry", so there was otherwise no way to ask for the ones the inbox surfaces. A running entry's `durationSeconds` is its length at the response, not null; `endedAt: null` is what marks it running. |
 | `GET` | `/entries/:id` | |
 | `POST` | `/entries` | Manual entry. `id` is client-supplied (UUIDv7) so a retry is idempotent. Always complete — `endedAt` required, and `422 VALIDATION_FAILED` if it is at or before `startedAt`. **`isBillable` omitted takes the project's billable default**, and is billable with no project. |
-| `PATCH` | `/entries/:id` | **`409 ENTRY_LOCKED`** if billed on a non-draft invoice. Returns `409 TIMER_ALREADY_RUNNING` if clearing `endedAt` would reopen this entry while another timer runs, and `422 VALIDATION_FAILED` if the patch would leave `endedAt` at or before `startedAt`. |
+| `PATCH` | `/entries/:id` | **`409 ENTRY_LOCKED`** if billed on a non-draft invoice. Returns `409 TIMER_ALREADY_RUNNING` if clearing `endedAt` would reopen this entry while another timer runs, and `422 VALIDATION_FAILED` if the patch would leave `endedAt` at or before `startedAt`. `?include` returns `{ entry, included }` instead of the entry ([Including what a write changed](#including-what-a-write-changed)). |
 | `DELETE` | `/entries/:id` | Same lock applies. |
 
 ## Import
@@ -70,9 +81,9 @@ or one with an unreadable row, before anything is written.
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/summary` | **The menu bar endpoint.** Returns `{ running, todaySeconds, weekSeconds, serverTime }` in one call, so the Mac app can toggle between "current timer" and "today's total" without a second request. |
+| `GET` | `/summary` | **The menu bar endpoint.** Returns `{ running, todaySeconds, weekSeconds, serverTime }` in one call, so the Mac app can toggle between "current timer" and "today's total" without a second request. A write can return it too ([Including what a write changed](#including-what-a-write-changed)). |
 | `GET` | `/calendar` | `?from&to` (**both required**) `&tz`. Returns `{ days: [{ date, totalSeconds, entries }] }` for every entry that overlaps the range, running ones included. An entry that crosses local midnight is listed under each day it touches, so one id can appear on several days, and each day's `totalSeconds` counts only its own part. `400 INVALID_PERIOD` if `to < from`. |
-| `GET` | `/stats` | `?tz` — the home screen cards **and the dock's inbox** in one call. One request because they render together, and a set that pops in piecemeal reads as broken. Fields and their rules are below. |
+| `GET` | `/stats` | `?tz` — the home screen cards **and the dock's inbox** in one call. One request because they render together, and a set that pops in piecemeal reads as broken. Fields and their rules are below. A write can return it too ([Including what a write changed](#including-what-a-write-changed)). |
 | `GET` | `/entries/task-names` | `?projectId&limit` (1–20, default 8). Returns `{ taskNames: [{ taskName, projectId, lastUsedAt }] }` — names the user has typed before, for suggesting one rather than retyping it. One row per name **case-insensitively**, keeping the most recent spelling, since offering both is offering the user their own typo; the empty name is excluded, so a timer started in a hurry never becomes a suggestion. **`projectId` ranks, it does not filter** — names used with that project come first and every other name still follows, so there is no `none` literal as there is on `/entries`: "no project" and "no preference" are one request. Omitting it ranks by recency alone. Ranking is the server's and clients must not re-sort it; filtering as the user types is theirs. Backed by the `recent_task_names` SQL function. |
 
 ### `/stats` fields
@@ -390,6 +401,8 @@ parameter (IANA, e.g. `America/Sao_Paulo`). "Today" is a local-calendar
 question and the server cannot infer the caller's zone, so the client states
 it; an invalid zone falls back to UTC rather than failing the request, because
 a view that renders in the wrong zone beats a view that does not render.
+`POST /timer/start`, `POST /timer/stop` and `PATCH /entries/:id` take `tz`
+the same way, for the reads they include ([Including what a write changed](#including-what-a-write-changed)).
 
 `GET /exports/entries` and `GET /exports/invoices` fall back the same way. The
 zone dates each row and names the file, but every record is in the file

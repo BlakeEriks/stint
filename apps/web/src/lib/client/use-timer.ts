@@ -1,9 +1,20 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import {
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { api, type Summary, type TimeEntry } from './api';
-import { elapsedSeconds, entrySeconds } from '@stint/core';
+import {
+  api,
+  type Include,
+  type IncludedName,
+  type Stats,
+  type Summary,
+  type TimeEntry,
+} from './api';
+import { elapsedSeconds, entrySeconds, localDateKey } from '@stint/core';
 import { keys, invalidateEntryData } from './query-keys';
 import { useOptimisticMutation } from './mutations';
 
@@ -57,6 +68,7 @@ function useTick(active: boolean): boolean {
  * laptop several minutes off would otherwise show a wrong elapsed time.
  */
 export function useTimer() {
+  const queryClient = useQueryClient();
   const summary = useQuery({
     queryKey: keys.summary(),
     queryFn: () => api.summary(timeZone),
@@ -117,9 +129,15 @@ export function useTimer() {
   // One lane: Start then Stop must reach the server in that order.
   const timerPress = {
     queryKey: () => keys.summary(),
-    invalidate: invalidateEntryData,
+    invalidate: (
+      qc: QueryClient,
+      _vars: unknown,
+      settled: readonly IncludedName[],
+    ) => invalidateEntryData(qc, settled),
     serial: 'timer',
+    movesHome: true,
   };
+  const settles = { ...timerPress, include: HOME };
 
   /* `id` comes from the caller so the prediction and the row the server
      writes are the same entry.
@@ -132,25 +150,35 @@ export function useTimer() {
      the request is made. */
   const startPress = useOptimisticMutation<
     StartVars & { whileRunning: boolean },
-    TimeEntry,
+    unknown,
     Summary
   >({
-    ...timerPress,
-    mutationFn: ({ whileRunning: _, ...body }) => api.startTimer(body),
+    ...settles,
+    mutationFn: ({ whileRunning: _, ...body }) => api.startTimer(body, HOME),
     pending: (body) => body.whileRunning,
-    predict: (current, body) =>
-      showing(current, {
-        id: body.id,
-        taskName: body.taskName,
-        projectId: body.projectId ?? null,
-        startedAt: serverNow(),
-        endedAt: null,
-        isBillable: body.isBillable ?? true,
-        durationSeconds: null,
-        durationOk: false,
-        rateOverride: null,
-        invoiceId: null,
-      }),
+    predict: (current, body) => showing(current, started(body)),
+    // Today's list shows the new row at once, as the bar does.
+    alsoPredict: [
+      {
+        queryKey: keys.entries(),
+        predict: (current, body, key) =>
+          inWindow(key, serverNow())
+            ? withEntries(current, (rows) => [started(body), ...rows])
+            : current,
+      },
+    ],
+  });
+  const started = (body: StartVars): TimeEntry => ({
+    id: body.id,
+    taskName: body.taskName,
+    projectId: body.projectId ?? null,
+    startedAt: serverNow(),
+    endedAt: null,
+    isBillable: body.isBillable ?? true,
+    durationSeconds: null,
+    durationOk: false,
+    rateOverride: null,
+    invoiceId: null,
   });
   const start = {
     ...startPress,
@@ -161,11 +189,48 @@ export function useTimer() {
       startPress.mutate({ ...vars, whileRunning: running !== null }, options),
   };
 
+  /* The running row in every cached list finishes where the readout
+     stopped, and today's bar takes the time since `/stats` measured it, at
+     most the running entry's own, so
+     Today's and the week's hours move with the bar. */
   const stop = useOptimisticMutation<void, unknown, Summary>({
-    ...timerPress,
-    mutationFn: () => api.stopTimer(),
+    ...settles,
+    mutationFn: () => api.stopTimer(HOME),
     predict: (current) => showing(current, null),
+    alsoPredict: [
+      {
+        queryKey: keys.entries(),
+        predict: (current) =>
+          running
+            ? withEntries(current, (rows) =>
+                rows.map((e) =>
+                  e.id === running.id
+                    ? {
+                        ...e,
+                        endedAt: serverNow(),
+                        durationSeconds: liveSeconds,
+                      }
+                    : e,
+                ),
+              )
+            : current,
+      },
+      {
+        queryKey: keys.stats(timeZone),
+        predict: (current, _vars, key) => {
+          const fetchedAt = queryClient.getQueryState(key)?.dataUpdatedAt;
+          return running && fetchedAt
+            ? withTodayBar(
+                current as Stats | undefined,
+                Math.min(sinceSeconds(fetchedAt), liveSeconds),
+              )
+            : current;
+        },
+      },
+    ],
   });
+  const sinceSeconds = (at: number) =>
+    Math.max(0, Math.floor((Date.now() - at) / 1000));
 
   const update = useOptimisticMutation<
     { taskName?: string; projectId?: string | null },
@@ -192,6 +257,42 @@ export function useTimer() {
     stop,
     update,
   };
+}
+
+/** What a start or stop asks back: the bar's summary and Home's figures. */
+const HOME: Include = { names: ['summary', 'stats'], tz: timeZone };
+
+/**
+ * A cached `/entries` list with `change` applied to its rows. A single
+ * entry, cached under the same prefix, is left alone.
+ */
+function withEntries(
+  current: unknown,
+  change: (rows: TimeEntry[]) => TimeEntry[],
+): unknown {
+  const list = current as { entries?: TimeEntry[] } | undefined;
+  return Array.isArray(list?.entries)
+    ? { ...list, entries: change(list.entries) }
+    : current;
+}
+
+/** `stats` with `seconds` more on today's bar. */
+function withTodayBar(stats: Stats | undefined, seconds: number) {
+  if (!stats || seconds === 0) return stats;
+  const today = localDateKey(new Date(), timeZone);
+  return {
+    ...stats,
+    week: stats.week.map((d) =>
+      d.date === today ? { ...d, seconds: d.seconds + seconds } : d,
+    ),
+  };
+}
+
+/** Whether a cached list's `from`–`to` window holds the instant `at`. */
+function inWindow(key: readonly unknown[], at: string): boolean {
+  const window = key[1] as { from?: string; to?: string } | undefined;
+  if (typeof window !== 'object' || !window?.from) return false;
+  return window.from <= at && (!window.to || at <= window.to);
 }
 
 interface StartVars {

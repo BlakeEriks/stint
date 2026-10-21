@@ -144,10 +144,23 @@ export type Summary = Response<Omit<schema.Summary, 'running'>> & {
   running: TimeEntry | null;
 };
 
-export type StoppedTimer = { entry: TimeEntry } & Pick<
+export type IncludedName = schema.IncludedName;
+/** What a write returns beside its record when asked (`docs/api.md`). */
+export type Included = { summary?: Summary; stats?: Stats };
+/** A write's `?include=`: the reads to return, and the zone they're in. */
+export type Include = { names: readonly IncludedName[]; tz: string };
+
+export type StoppedTimer = { entry: TimeEntry; included?: Included } & Pick<
   Stats,
   'currency' | 'unbilled'
 >;
+/** A start or entry `PATCH` that asked to `include`. */
+export type WrittenEntry = { entry: TimeEntry; included: Included };
+
+const withInclude = (path: string, include?: Include) =>
+  include?.names.length
+    ? `${path}?include=${include.names.join(',')}&tz=${encodeURIComponent(include.tz)}`
+    : path;
 
 export type GroupingMode = z.infer<typeof schema.GroupingMode>;
 export type ScheduleKind = z.infer<typeof schema.ScheduleKind>;
@@ -210,14 +223,19 @@ export const api = {
     );
   },
 
-  startTimer: (body: {
-    id?: string;
-    taskName: string;
-    projectId?: string | null;
-    isBillable?: boolean;
-  }) => request<TimeEntry>('POST', '/timer/start', body),
+  startTimer: (
+    body: {
+      id?: string;
+      taskName: string;
+      projectId?: string | null;
+      isBillable?: boolean;
+    },
+    include: Include,
+  ) =>
+    request<WrittenEntry>('POST', withInclude('/timer/start', include), body),
 
-  stopTimer: () => request<StoppedTimer>('POST', '/timer/stop', {}),
+  stopTimer: (include?: Include) =>
+    request<StoppedTimer>('POST', withInclude('/timer/stop', include), {}),
 
   updateRunning: (body: { taskName?: string; projectId?: string | null }) =>
     request<TimeEntry>('PATCH', '/timer/current', body),

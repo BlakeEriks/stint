@@ -5,6 +5,7 @@ import { parseBody } from '@/lib/validate';
 import { findRunning } from '@/lib/timer';
 import { projectBillableDefault } from '@/lib/projects';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
+import { askedToInclude, entryWith, readIncluded } from '@/lib/include';
 import { uuidv7 } from '@stint/core';
 import { StartTimer } from '@stint/schema';
 
@@ -24,6 +25,7 @@ export const dynamic = 'force-dynamic';
 export const POST = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
   const body = await parseBody(req, StartTimer);
+  const asked = askedToInclude(req);
 
   const { data, error } = await db
     .from('time_entries')
@@ -52,5 +54,8 @@ export const POST = handle(async (req: Request) => {
     throw error;
   }
 
-  return NextResponse.json(toEntry(data as EntryRow), { status: 201 });
+  const included = await readIncluded(asked, db, userId);
+  return NextResponse.json(entryWith(toEntry(data as EntryRow), included), {
+    status: 201,
+  });
 });

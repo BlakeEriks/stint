@@ -1,7 +1,18 @@
 'use client';
 
+import { createContext, useContext } from 'react';
 import { formatCurrency } from '@stint/core';
 import { useCountUp } from '@/lib/client/use-count-up';
+
+/* Money depends on rate resolution, which the client never repeats, so a
+   press never predicts it: it shows it is about to change instead
+   (Constitution VI). */
+export const Settling = createContext(false);
+
+/** A figure's `data-settling`, which `globals.css` styles. */
+export function useSettling() {
+  return useContext(Settling) || undefined;
+}
 
 /**
  * An amount that travels to its new value rather than cutting to it.
@@ -37,8 +48,9 @@ export function Money({
   sign?: boolean;
 }) {
   const { value } = useCountUp(figure, amount);
+  const settling = useSettling();
   return (
-    <span className={className}>
+    <span className={className} data-settling={settling}>
       {sign ? '+' : ''}
       {formatCurrency(value, currency)}
     </span>
