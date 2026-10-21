@@ -3,7 +3,7 @@
 <!-- One or two plain sentences: what goes wrong or is missing today, and
      who it hurts. No code names. Readable without opening the issue: if
      the reader stops here, they still know whether they want this. Then
-     `Closes #<n>.` -->
+     `Closes #<issue>.` -->
 
 ## What changes
 

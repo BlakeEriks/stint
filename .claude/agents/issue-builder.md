@@ -196,7 +196,7 @@ even when the issue doesn't. **Needs you** holds any call Blake might make
 differently (a feature lists every decision marked "(decided
 autonomously)"). **How it works** holds how it was verified — only
 commands you ran this round and what they showed, and plainly what nobody
-has seen yet, like the menu bar. `<n>` there is the number `gh pr create` prints — never the
+has seen yet, like the menu bar. In **Try it**, `<n>` is the number `gh pr create` prints — never the
 issue's. Label the PR `migration` if its issue is. A stacked PR is opened
 with `--base <that PR's branch>` and says which merges first.
 
