@@ -136,6 +136,7 @@ final class TimerModel: Optimistic {
                 // makes takes the lists with it too. At once, not after the
                 // hop: the next account must never paint them.
                 if session == nil { snapshots.delete() }
+                CrashReporting.setUser(id: session?.userID)
                 Task { @MainActor in
                     self?.isSignedIn = session != nil
                     if session == nil { self?.forgetAccount() }
