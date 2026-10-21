@@ -53,7 +53,8 @@ Every PR reaches QA the same way, whether `/work-issues` built it or not:
 
 - **The branch name is under 30 characters.** It becomes the preview's URL,
   and Vercel hashes a longer one.
-- **The body fills the template's Try it**, linking the preview signed in as
+- **The body follows the template**, opening with a Why a reader can follow
+  without the issue. Its Try it links the preview signed in as
   `pr-<n>@preview.test`, which `preview-db` seeds from the branch.
 - **`migration` labels a PR that adds one.** The previews share one schema,
   so one such PR is open at a time.
