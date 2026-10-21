@@ -5,6 +5,7 @@ import {
   defaultInvoicePeriod,
   dueDateForTerms,
   formatInvoiceNumber,
+  periodMatchesCadence,
   type BillableEntry,
 } from '../src/invoice.ts';
 
@@ -550,6 +551,65 @@ test('a new invoice defaults to the month whose last day is nearest', () => {
       defaultInvoicePeriod(today),
       { periodStart, periodEnd },
       today,
+    );
+  }
+});
+
+test('a semi-monthly client defaults to the half-month whose last day is nearest', () => {
+  const cases: [string, string, string][] = [
+    // today, periodStart, periodEnd
+    ['2026-10-15', '2026-10-01', '2026-10-15'],
+    ['2026-10-16', '2026-10-01', '2026-10-15'],
+    ['2026-10-23', '2026-10-01', '2026-10-15'],
+    // Equidistant: Oct 15 and Oct 31 are both 8 days off; the earlier wins.
+    ['2026-10-24', '2026-10-16', '2026-10-31'],
+    ['2026-10-31', '2026-10-16', '2026-10-31'],
+    ['2026-11-01', '2026-10-16', '2026-10-31'],
+    ['2026-11-07', '2026-10-16', '2026-10-31'],
+    ['2026-11-08', '2026-11-01', '2026-11-15'],
+    ['2027-01-03', '2026-12-16', '2026-12-31'],
+    ['2028-02-23', '2028-02-16', '2028-02-29'],
+    ['2027-02-22', '2027-02-16', '2027-02-28'],
+  ];
+  for (const [today, periodStart, periodEnd] of cases) {
+    assert.deepEqual(
+      defaultInvoicePeriod(today, 'semi-monthly'),
+      { periodStart, periodEnd },
+      today,
+    );
+  }
+  assert.deepEqual(
+    defaultInvoicePeriod('2026-10-16', 'monthly'),
+    defaultInvoicePeriod('2026-10-16'),
+    'monthly is the default',
+  );
+});
+
+test("a period matches a cadence only when it is one of the cadence's periods", () => {
+  const cases: ['monthly' | 'semi-monthly', string, string, boolean][] = [
+    ['monthly', '2026-10-01', '2026-10-31', true],
+    ['monthly', '2028-02-01', '2028-02-29', true],
+    ['monthly', '2027-02-01', '2027-02-28', true],
+    ['monthly', '2026-12-01', '2026-12-31', true],
+    ['monthly', '2026-10-01', '2026-10-15', false],
+    ['monthly', '2026-10-01', '2026-10-30', false],
+    ['monthly', '2026-10-02', '2026-10-31', false],
+    ['monthly', '2026-10-01', '2026-11-30', false],
+    ['monthly', '2026-12-01', '2027-12-31', false],
+    ['semi-monthly', '2026-10-01', '2026-10-15', true],
+    ['semi-monthly', '2026-10-16', '2026-10-31', true],
+    ['semi-monthly', '2028-02-16', '2028-02-29', true],
+    ['semi-monthly', '2026-12-16', '2026-12-31', true],
+    ['semi-monthly', '2026-10-01', '2026-10-31', false],
+    ['semi-monthly', '2026-10-16', '2026-10-30', false],
+    ['semi-monthly', '2026-10-16', '2026-11-15', false],
+    ['semi-monthly', '2026-12-16', '2027-01-15', false],
+  ];
+  for (const [cadence, start, end, matches] of cases) {
+    assert.equal(
+      periodMatchesCadence(cadence, start, end),
+      matches,
+      `${cadence} ${start}..${end}`,
     );
   }
 });

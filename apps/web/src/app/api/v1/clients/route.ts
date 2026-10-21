@@ -76,6 +76,7 @@ export const POST = handle(async (req: Request) => {
       currency: body.currency ?? null,
       color: body.color ?? null,
       payment_profile_id: body.paymentProfileId ?? null,
+      billing_cadence: body.billingCadence ?? 'monthly',
     })
     .select(CLIENT_COLUMNS)
     .single();

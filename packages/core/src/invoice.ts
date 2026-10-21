@@ -306,21 +306,52 @@ export function formatInvoiceNumber(prefix: string, sequence: number): string {
   return `${prefix}${String(sequence).padStart(4, '0')}`;
 }
 
+/** How often a client's contract says it is billed. */
+export const BILLING_CADENCES = ['monthly', 'semi-monthly'] as const;
+export type BillingCadence = (typeof BILLING_CADENCES)[number];
+
+/** The `cadence` period holding `date` (`YYYY-MM-DD`). */
+function periodHolding(
+  cadence: BillingCadence,
+  date: string,
+): { periodStart: string; periodEnd: string } {
+  const [y = 0, m = 1, d = 1] = date.split('-').map(Number);
+  const month = date.slice(0, 8);
+  const last = `${month}${new Date(Date.UTC(y, m, 0)).getUTCDate()}`;
+  if (cadence === 'monthly')
+    return { periodStart: `${month}01`, periodEnd: last };
+  return d <= 15
+    ? { periodStart: `${month}01`, periodEnd: `${month}15` }
+    : { periodStart: `${month}16`, periodEnd: last };
+}
+
 /**
- * The period a new invoice starts with, for `today` (`YYYY-MM-DD`): the month
- * whose last day is nearest, since a contractor bills a month just as it ends
- * or just after. Equidistant, the earlier month wins.
+ * The period a new invoice starts with, for `today` (`YYYY-MM-DD`): the
+ * `cadence` period whose last day is nearest, since a contractor bills a
+ * period just as it ends or just after. Equidistant, the earlier one wins.
  */
-export function defaultInvoicePeriod(today: string): {
-  periodStart: string;
-  periodEnd: string;
-} {
-  const [y = 0, m = 1, d = 1] = today.split('-').map(Number);
-  const back = d;
-  const ahead = new Date(Date.UTC(y, m, 0)).getUTCDate() - d;
-  const periodEnd =
-    ahead < back ? addDays(today, ahead) : addDays(today, -back);
-  return { periodStart: `${periodEnd.slice(0, 8)}01`, periodEnd };
+export function defaultInvoicePeriod(
+  today: string,
+  cadence: BillingCadence = 'monthly',
+): { periodStart: string; periodEnd: string } {
+  const current = periodHolding(cadence, today);
+  const previous = periodHolding(cadence, addDays(current.periodStart, -1));
+  const daysAhead = daysBetween(today, current.periodEnd);
+  const daysBack = daysBetween(previous.periodEnd, today);
+  return daysAhead < daysBack ? current : previous;
+}
+
+const daysBetween = (from: string, to: string) =>
+  (Date.parse(to) - Date.parse(from)) / 86_400_000;
+
+/** Whether `periodStart`..`periodEnd` is exactly one of `cadence`'s periods. */
+export function periodMatchesCadence(
+  cadence: BillingCadence,
+  periodStart: string,
+  periodEnd: string,
+): boolean {
+  const period = periodHolding(cadence, periodStart);
+  return period.periodStart === periodStart && period.periodEnd === periodEnd;
 }
 
 /**

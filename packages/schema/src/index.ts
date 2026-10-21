@@ -7,6 +7,7 @@
  */
 
 import {
+  BILLING_CADENCES,
   isValidTimeZone,
   SUBSCRIPTION_STATUSES,
   validateRoutingNumber,
@@ -53,6 +54,7 @@ export const Client = z.object({
   /** Overrides the user's default payment profile on this client's invoices;
    *  a dangling reference falls back rather than rendering nothing. */
   paymentProfileId: uuid.nullable().optional(),
+  billingCadence: z.enum(BILLING_CADENCES).optional(),
   archivedAt: iso.nullable().optional(),
 });
 export const CreateClient = Client.omit({ id: true, archivedAt: true }).extend({

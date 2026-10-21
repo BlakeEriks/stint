@@ -97,6 +97,45 @@ export const Defaults: Story = {
   },
 };
 
+/** A client invoiced twice a month: on September 17 the period is the 1st
+    to the 15th, the half ending nearest. */
+export const SemiMonthlyDefaults: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      for (const c of db.clients)
+        if (c.id === ids.northwind) c.billingCadence = 'semi-monthly';
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(page.getByLabelText('From')).toHaveValue('2026-09-01');
+    await expect(page.getByLabelText('To')).toHaveValue('2026-09-15');
+    await expect(page.queryByText(/is invoiced/)).toBeNull();
+  },
+};
+
+/** A period that isn't one of the client's is named, but the invoice can
+    still be generated: a first or last invoice can cover part of one. */
+export const OffCadence: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(page.queryByText(/is invoiced/)).toBeNull();
+    await userEvent.clear(page.getByLabelText('From'));
+    await userEvent.type(page.getByLabelText('From'), '2026-09-16');
+    await expect(
+      await page.findByText(
+        "Northwind Trading is invoiced monthly, and this isn't a whole month.",
+      ),
+    ).toBeVisible();
+    await settled(page);
+  },
+};
+export const OffCadencePhone: Story = { ...OffCadence, ...phone };
+
 /** A client chosen: the card is the invoice as the PDF prints it, and
     follows the form without a Preview button (US3 scenario 1). Northwind
     has an address and email, so the Client field offers no Edit client. */

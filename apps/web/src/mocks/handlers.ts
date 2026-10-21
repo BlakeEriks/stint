@@ -423,6 +423,7 @@ export const handlers = {
       currency: null,
       color: null,
       paymentProfileId: null,
+      billingCadence: 'monthly',
       archivedAt: null,
       ...(await body<Partial<Client>>(request)),
     };
@@ -808,6 +809,7 @@ export const handlers = {
         currency: null,
         color: c.color,
         paymentProfileId: null,
+        billingCadence: 'monthly',
         archivedAt: null,
       });
     for (const p of preview.newProjects)

@@ -752,6 +752,49 @@ test('a client can be pointed at a payment profile, on create and on patch', asy
   assert.equal(moved.body.paymentProfileId, b.body.id);
 });
 
+/* The cadence sets the new invoice's period: a field the schema or the
+   column list dropped would default every client to monthly unseen. */
+test('a client billing cadence defaults to monthly and round-trips', async () => {
+  const { POST: createClient, GET: listClients } = await import(
+    '../src/app/api/v1/clients/route.ts'
+  );
+  const { PATCH } = await import('../src/app/api/v1/clients/[id]/route.ts');
+
+  const plain = await json(
+    await createClient(req('/clients', { name: 'Northwind' })),
+  );
+  assert.equal(plain.body.billingCadence, 'monthly');
+
+  const semi = await json(
+    await createClient(
+      req('/clients', { name: 'Contoso', billingCadence: 'semi-monthly' }),
+    ),
+  );
+  assert.equal(semi.body.billingCadence, 'semi-monthly');
+
+  const moved = await json(
+    await PATCH(
+      patchReq('/clients/x', { billingCadence: 'semi-monthly' }),
+      ctx(plain.body.id),
+    ),
+  );
+  assert.equal(moved.body.billingCadence, 'semi-monthly');
+
+  const list = await json(await listClients(req('/clients')));
+  assert.deepEqual(
+    list.body.clients.map((c: { billingCadence: string }) => c.billingCadence),
+    ['semi-monthly', 'semi-monthly'],
+  );
+
+  const bad = await json(
+    await PATCH(
+      patchReq('/clients/x', { billingCadence: 'weekly' }),
+      ctx(plain.body.id),
+    ),
+  );
+  assert.equal(bad.status, 422);
+});
+
 /* `.partial()` keeps a `.default()`, so an update schema that inherits
    `isDefault` turns every unrelated PATCH into a demotion — and the next
    invoice then renders with no bank details. */

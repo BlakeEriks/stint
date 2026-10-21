@@ -308,6 +308,35 @@ export const EditClient: Story = {
   },
 };
 
+/** How often a client is invoiced is set in its dialog, and kept. */
+export const ClientCadence: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const edit = async () => {
+      await userEvent.click(
+        await page.findByRole('button', { name: 'Edit Northwind Trading' }),
+      );
+      return within(await page.findByRole('dialog', { name: 'Edit client' }));
+    };
+    let dialog = await edit();
+    await expect(
+      dialog.getByRole('combobox', { name: /Invoiced/ }),
+    ).toHaveTextContent('Monthly');
+    await userEvent.click(dialog.getByRole('combobox', { name: /Invoiced/ }));
+    await userEvent.click(
+      await page.findByRole('option', { name: /Twice a month/ }),
+    );
+    await userEvent.click(dialog.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+    dialog = await edit();
+    await expect(
+      dialog.getByRole('combobox', { name: /Invoiced/ }),
+    ).toHaveTextContent(/Twice a month/);
+  },
+};
+
 /** An archived client's dialog offers Restore where Archive was. */
 export const EditArchivedClient: Story = {
   ...desktop,

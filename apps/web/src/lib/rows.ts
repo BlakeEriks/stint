@@ -1,4 +1,9 @@
-import { paymentFailed, planOf, type SubscriptionStatus } from '@stint/core';
+import {
+  paymentFailed,
+  planOf,
+  type BillingCadence,
+  type SubscriptionStatus,
+} from '@stint/core';
 import type {
   Billing,
   GroupingMode,
@@ -118,11 +123,12 @@ export interface ClientRow {
   currency: string | null;
   color: string | null;
   payment_profile_id: string | null;
+  billing_cadence: BillingCadence;
   archived_at: string | null;
 }
 
 export const CLIENT_COLUMNS = columns<ClientRow>()(
-  'id, name, email, address, hourly_rate, tax_rate, currency, color, payment_profile_id, archived_at',
+  'id, name, email, address, hourly_rate, tax_rate, currency, color, payment_profile_id, billing_cadence, archived_at',
 );
 
 export function toClient(r: ClientRow) {
@@ -136,6 +142,7 @@ export function toClient(r: ClientRow) {
     currency: r.currency,
     color: r.color,
     paymentProfileId: r.payment_profile_id,
+    billingCadence: r.billing_cadence,
     archivedAt: r.archived_at,
   };
 }
@@ -455,6 +462,7 @@ export const CLIENT_FIELDS = {
   currency: 'currency',
   color: 'color',
   paymentProfileId: 'payment_profile_id',
+  billingCadence: 'billing_cadence',
 } as const;
 
 export const PROJECT_FIELDS = {

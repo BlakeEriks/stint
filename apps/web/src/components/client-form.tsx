@@ -5,8 +5,16 @@ import { useOptimisticMutation } from '@/lib/client/mutations';
 import { Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import type { BillingCadence } from '@stint/core';
 import { ColorPicker } from './color-picker';
-import { Field } from './field';
+import { Field, inputClass } from './field';
 import { RateInput, parseRate } from './rate-input';
 import { api, ApiError, type Client, type ClientInput } from '@/lib/client/api';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
@@ -45,6 +53,9 @@ export function ClientForm({
     existing?.taxRate != null ? String(existing.taxRate) : '',
   );
   const [color, setColor] = useState<string | null>(existing?.color ?? null);
+  const [billingCadence, setBillingCadence] = useState(
+    existing?.billingCadence,
+  );
 
   const save = useSaveClient(existing, onSaved);
 
@@ -59,6 +70,7 @@ export function ClientForm({
       hourlyRate: parseRate(hourlyRate),
       taxRate: taxRate.trim() === '' ? null : Number(taxRate),
       color,
+      billingCadence,
     });
   };
 
@@ -138,6 +150,8 @@ export function ClientForm({
         </Field>
       </div>
 
+      <CadenceField value={billingCadence} onChange={setBillingCadence} />
+
       <ColorPicker value={color} onChange={setColor} />
 
       {save.error ? (
@@ -177,6 +191,38 @@ export function ClientForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+/** Unset on a new client, which the server makes monthly. */
+function CadenceField({
+  value = 'monthly',
+  onChange,
+}: {
+  value?: BillingCadence;
+  onChange: (value: BillingCadence) => void;
+}) {
+  return (
+    <Field
+      label="Invoiced"
+      htmlFor="client-cadence"
+      hint="Sets each new invoice's period."
+    >
+      <Select
+        value={value}
+        onValueChange={(v) => onChange(v as BillingCadence)}
+      >
+        <SelectTrigger id="client-cadence" className={inputClass}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="monthly">Monthly</SelectItem>
+          <SelectItem value="semi-monthly">
+            Twice a month: 1st–15th, 16th–end
+          </SelectItem>
+        </SelectContent>
+      </Select>
+    </Field>
   );
 }
 
