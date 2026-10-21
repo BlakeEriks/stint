@@ -56,7 +56,7 @@ struct SnapshotTests {
     @Test func signingOutDeletesIt() async throws {
         let (model, store) = try await signedInModel()
         model.start()
-        try await Task.sleep(for: .milliseconds(100))
+        try await waitForTheFirstFetch(store)
         #expect(store.read() != nil)
         await model.signOut()
         #expect(store.read() == nil)
@@ -65,7 +65,7 @@ struct SnapshotTests {
     @Test func aRejectedTokenDeletesIt() async throws {
         let (model, store) = try await signedInModel()
         model.start()
-        try await Task.sleep(for: .milliseconds(100))
+        try await waitForTheFirstFetch(store)
         #expect(store.read() != nil)
 
         SnapshotStub.routes["/summary"] = (401, Data(#"{"code":"UNAUTHORIZED","message":"Session expired"}"#.utf8))
@@ -81,6 +81,14 @@ struct SnapshotTests {
             stats: Stats(currency: "USD", earnedToday: 12),
             taskNames: [TaskName(taskName: "Audit", projectId: "p1", lastUsedAt: Date(timeIntervalSince1970: 1_790_000_000))]
         )
+    }
+
+    /// Waited for, not slept for: how long the first fetch takes to write the
+    /// snapshot depends on the machine.
+    private func waitForTheFirstFetch(_ store: SnapshotStore) async throws {
+        for _ in 0..<100 where store.read() == nil {
+            try await Task.sleep(for: .milliseconds(20))
+        }
     }
 
     /// A model over a stubbed backend, signed in, with its snapshot in a
