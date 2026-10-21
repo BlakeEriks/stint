@@ -32,5 +32,8 @@ export const BadRoutingNumber: Story = {
       await page.findByText(/Not a valid routing number/),
     ).toBeVisible();
     await expect(routing).toHaveAttribute('aria-invalid', 'true');
+    await expect(routing).toHaveAccessibleDescription(
+      /^Not a valid routing number/,
+    );
   },
 };

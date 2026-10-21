@@ -172,6 +172,11 @@ export function PaymentProfileDialog({
               label="Routing number"
               htmlFor="pp-routing"
               hint="ACH / ABA, 9 digits."
+              error={
+                badRouting
+                  ? 'Not a valid routing number. Check its 9 digits with your bank.'
+                  : undefined
+              }
               className="flex-1 basis-44"
             >
               <Input
@@ -182,18 +187,7 @@ export function PaymentProfileDialog({
                   setBadRouting(false);
                 }}
                 inputMode="numeric"
-                aria-invalid={badRouting}
-                aria-describedby={badRouting ? 'pp-routing-error' : undefined}
               />
-              {badRouting ? (
-                <p
-                  id="pp-routing-error"
-                  role="alert"
-                  className="type-support text-danger"
-                >
-                  Not a valid routing number. Check its 9 digits with your bank.
-                </p>
-              ) : null}
             </Field>
           </div>
 
