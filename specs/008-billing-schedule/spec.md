@@ -25,6 +25,13 @@ and auto-drafting (#434) build on this and are out of scope here.
 - Q: How does the contractor say when a weekly or every-two-weeks period starts? → A: They pick a date one period starts on (the anchor).
 - Q: Which period does New invoice default to for a scheduled client? → A: The most recent period that has ended; the contractor can still change either date.
 
+## Design
+
+No design review: a select and a conditional date in the existing client
+dialog, the schedule on the client list, and one hint line under New
+invoice's dates, each following that screen's existing patterns and
+`.claude/rules/web-ui.md`.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Set a client's billing schedule (Priority: P1)
