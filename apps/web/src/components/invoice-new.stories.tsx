@@ -125,6 +125,7 @@ export const OffCadence: Story = {
     const page = await chooseNorthwind(canvasElement);
     await expect(page.queryByText(/is invoiced/)).toBeNull();
     await userEvent.clear(page.getByLabelText('From'));
+    await expect(page.queryByText(/is invoiced/)).toBeNull();
     await userEvent.type(page.getByLabelText('From'), '2026-09-16');
     await expect(
       await page.findByText(

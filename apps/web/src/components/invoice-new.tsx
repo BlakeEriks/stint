@@ -142,7 +142,8 @@ function CadenceWarning({
   periodStart: string;
   periodEnd: string;
 }) {
-  if (!client) return null;
+  // A cleared date is still being typed, not a period.
+  if (!client || !periodStart || !periodEnd) return null;
   const cadence = client.billingCadence;
   if (periodMatchesCadence(cadence, periodStart, periodEnd)) return null;
   return (
