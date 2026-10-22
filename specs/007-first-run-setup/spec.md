@@ -216,7 +216,7 @@ them in the dialog, and see them on the preview and in Settings.
   in under one minute.
 - **SC-002**: No account with no default rate can reach Home without being
   asked for one.
-- **SC-003**: No alpha tester asks Blake where to set their rate.
+- **SC-003**: No alpha tester asks the owner where to set their rate.
 - **SC-004**: No invoice is generated without the user being asked for their
   business details first.
 

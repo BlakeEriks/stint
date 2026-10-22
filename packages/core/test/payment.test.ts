@@ -10,7 +10,7 @@ import {
 const us: PaymentProfile = {
   id: 'p1',
   name: 'USD ACH',
-  accountHolderName: 'Blake Eriks',
+  accountHolderName: 'Sam Rivera',
   bankName: 'First Republic',
   accountNumber: '1234567890',
   routingNumber: '021000021',
@@ -34,7 +34,7 @@ test('a US profile renders the ACH fields in payer order', () => {
 
 test('unset fields are omitted entirely, not rendered blank', () => {
   const d = buildPaymentDetails({
-    accountHolderName: 'Blake',
+    accountHolderName: 'Sam',
     accountNumber: '123',
   });
   assert.deepEqual(labels(d), ['Account holder', 'Account number']);
@@ -44,7 +44,7 @@ test('unset fields are omitted entirely, not rendered blank', () => {
 
 test('whitespace-only values count as unset', () => {
   const d = buildPaymentDetails({
-    accountHolderName: 'Blake',
+    accountHolderName: 'Sam',
     bankName: '   ',
   });
   assert.deepEqual(labels(d), ['Account holder']);

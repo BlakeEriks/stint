@@ -30,9 +30,9 @@ const CLIENTS = [
 ];
 
 const SETTINGS = {
-  businessName: 'Blake Eriks',
+  businessName: 'Sam Rivera',
   businessAddress: '1200 Pine St',
-  businessEmail: 'blake@example.test',
+  businessEmail: 'sam@example.test',
   invoiceNumberPrefix: 'STINT-',
   nextInvoiceNumber: 16,
   defaultPaymentTerms: 'Net 30',
@@ -46,7 +46,7 @@ let PROFILES = [
     id: 'pp1',
     name: 'Business checking',
     isDefault: true,
-    accountHolderName: 'Blake Eriks',
+    accountHolderName: 'Sam Rivera',
     bankName: 'First Federal',
     accountNumber: '000123456789',
     routingNumber: '021000021',

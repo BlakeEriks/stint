@@ -1,6 +1,6 @@
 ---
 name: design-review
-description: Offer a design review for a feature that adds or changes UI - draft each screen as one HTML page, iterate with Blake until he says it's right, then record the design in the spec. Use after /speckit-clarify and before /speckit-plan.
+description: Offer a design review for a feature that adds or changes UI - draft each screen as one HTML page, iterate with the user until they say it's right, then record the design in the spec. Use after /speckit-clarify and before /speckit-plan.
 argument-hint: "[screen or guidance]"
 # Follows the official `playground` plugin's design-playground template: one
 # self-contained HTML file, named presets, a live preview. Custom because
@@ -23,7 +23,7 @@ gives `FEATURE_SPEC` and `FEATURE_DIR`.
 - **The spec has a `## Design` section**: the pick or the skip is recorded.
   Say which in one line and stop.
 - **Otherwise, offer it; never assume it.** Name the screens the spec adds or
-  changes and ask Blake: review them, or skip. A change with no visible UI or a
+  changes and ask the user: review them, or skip. A change with no visible UI or a
   trivial one is a fine skip; say so when it is.
 - **On a skip**, add `## Design` above `## User Scenarios & Testing` holding
   `No design review: <why>.`, commit it, and stop.
@@ -32,7 +32,7 @@ gives `FEATURE_SPEC` and `FEATURE_DIR`.
 
 One scratch HTML page in the session's scratchpad, holding a draft of each
 new or changed screen. One draft is the default. Add variations only when
-the screen has a real choice of layout or hierarchy that Blake should see
+the screen has a real choice of layout or hierarchy that the user should see
 side by side, and then at most 3; a variation is never the same layout
 recolored.
 
@@ -50,13 +50,13 @@ each screen, so it reads as the app. Under the switcher, each variation
 says in one line what it is best at and what it costs.
 
 Open it in the browser pane (`preview_start` with its `file://` URL) and ask
-Blake for changes, or a pick when there are variations.
+the user for changes, or a pick when there are variations.
 
 ## 2. Refine
 
-Blake asks for changes, or picks or mixes variations ("A's cards with B's
+The user asks for changes, or picks or mixes variations ("A's cards with B's
 color"). Redraft the same file, bump the round in its
-`<title>`, and reload. Repeat until he says it's right.
+`<title>`, and reload. Repeat until they say it's right.
 
 A token or type role the pick needs that the system lacks is named in that
 round, as a change to `packages/design-tokens/tokens.json` the plan carries.
@@ -77,15 +77,15 @@ this look.
 
 ## Unattended
 
-`/work-issues`' builder runs this with Blake away, so nobody answers the
+`/work-issues`' builder runs this unattended, so nobody answers the
 gate's question: it decides review or skip itself (`issue-builder.md`).
-Its rounds change only in where the page lives and how Blake answers:
+Its rounds change only in where the page lives and how the reviewer answers:
 
 - **Draft** the one page into `specs/<feature>/design/review.html`, commit
   it and push the branch, so the draft survives the wait. Then stop and
   report `design-review: <absolute path>`. The loop publishes the page and
   asks on the issue. Step 3 cuts it into its screens' files and deletes it.
-- **Refine** on each reply of Blake's on the issue, which comes back to you
+- **Refine** on each reply on the issue, which comes back to you
   as a message: redraft the same file, commit, push, and report again.
-- **Record** when he picks or says it's right: step 3, then go on to
+- **Record** on a pick or a reply that it's right: step 3, then go on to
   `speckit-plan`.

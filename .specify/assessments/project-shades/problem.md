@@ -2,19 +2,19 @@
 
 - **Slug**: project-shades
 - **Created**: 2026-09-28
-- **Inputs used**: intake.md, research.md, one answer from Blake
+- **Inputs used**: intake.md, research.md, one answer from the owner
 
 ## Problem Statement
 
 A contractor with one client sees a single color across the home page, so the
-panel looks flat. Blake confirmed no information is missing: project names and
+panel looks flat. The owner confirmed no information is missing: project names and
 amounts already show which project the time went to. The pain is visual
 monotony, not a gap in what the user can learn.
 
 ## Affected Users & Stakeholders
 
-- **Users**: a solo contractor with one client and several projects — the home page reads as monochrome. Blake is the only confirmed case (research: Users & Demand).
-- **Stakeholders**: Blake — owns the design rules (`principles.md`, `CLAUDE.md`) that tie color to the client, and decides the gate.
+- **Users**: a solo contractor with one client and several projects — the home page reads as monochrome. The owner is the only confirmed case (research: Users & Demand).
+- **Stakeholders**: The owner — owns the design rules (`principles.md`, `CLAUDE.md`) that tie color to the client, and decides the gate.
 
 ## Goals
 
@@ -23,14 +23,14 @@ monotony, not a gap in what the user can learn.
 
 ## Non-Goals
 
-- Telling projects apart by color. Blake said this is not the pain, and names already do it.
+- Telling projects apart by color. The owner said this is not the pain, and names already do it.
 - Changing the calendar, entry list, project picker, or macOS app.
 - Changing how multi-client users see the home page.
 - Any change to the accent or `success` greens.
 
 ## Success Metrics
 
-- Qualitative: Blake, looking at his own single-client home page, no longer calls it flat (baseline: calls it flat).
+- Qualitative: The owner, looking at their own single-client home page, no longer calls it flat (baseline: calls it flat).
 - A reader can still answer "whose work is this?" from color alone on every surface (baseline: yes).
 
 ## Cost of Inaction

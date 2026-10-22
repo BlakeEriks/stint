@@ -260,11 +260,11 @@ export const AsPrinted: Story = {
     sent.paymentDetails = {
       title: 'USD wire',
       fields: [
-        { label: 'Account holder', value: 'Blake Eriks' },
+        { label: 'Account holder', value: 'Sam Rivera' },
         { label: 'Routing number (ACH)', value: '021000021' },
       ],
       intermediary: [],
-      link: { label: 'Pay online', url: 'https://pay.example.test/blake' },
+      link: { label: 'Pay online', url: 'https://pay.example.test/sam' },
       notes: 'Include the invoice number in the memo.',
     };
   }),
@@ -273,7 +273,7 @@ export const AsPrinted: Story = {
     for (const text of [
       'Net 30',
       'Payment — USD wire',
-      'Pay online: https://pay.example.test/blake',
+      'Pay online: https://pay.example.test/sam',
       'Include the invoice number in the memo.',
       /bank details never change by email/,
       'Thank you for the work this month.',

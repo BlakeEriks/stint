@@ -15,7 +15,7 @@ Closes #127
 
 ### User Story 1 - Timer actions answer at the press (Priority: P1)
 
-Blake presses Start, Stop, rename, or resume-a-recent-task (web or the macOS
+The contractor presses Start, Stop, rename, or resume-a-recent-task (web or the macOS
 menu bar) and the screen answers in the same frame: for these actions the
 result is predictable and reversible, so the screen shows the predicted
 result before the server responds. If the server rejects the action, the
@@ -32,14 +32,14 @@ already stopped server-side) and confirm a visible rollback with a reason.
 
 **Acceptance Scenarios**:
 
-1. **Given** no timer is running, **When** Blake presses Start (web or menu
+1. **Given** no timer is running, **When** the contractor presses Start (web or menu
    bar), **Then** the timer shows running, in accent green, immediately, with
    elapsed time counting from the press.
-2. **Given** a timer is running, **When** Blake presses Stop, **Then** the
+2. **Given** a timer is running, **When** the contractor presses Stop, **Then** the
    timer shows stopped immediately.
-3. **Given** a running timer, **When** Blake renames it, **Then** the new
+3. **Given** a running timer, **When** the contractor renames it, **Then** the new
    name shows immediately.
-4. **Given** a recent task in the macOS menu bar, **When** Blake presses
+4. **Given** a recent task in the macOS menu bar, **When** the contractor presses
    resume, **Then** it shows running immediately, matching Start's behavior.
 5. **Given** a predicted action the server then rejects, **When** the
    rejection arrives, **Then** the screen rolls back to the prior state and
@@ -55,7 +55,7 @@ already stopped server-side) and confirm a visible rollback with a reason.
 
 ### User Story 2 - Every other mutation answers at the press (Priority: P2)
 
-Blake acts on the inbox, invoices, clients, payment profiles, or drags an
+The contractor acts on the inbox, invoices, clients, payment profiles, or drags an
 entry on the calendar, and the screen reflects the action immediately rather
 than after a round trip.
 
@@ -70,13 +70,13 @@ in-progress acknowledgment.
 
 **Acceptance Scenarios**:
 
-1. **Given** an inbox item, **When** Blake acts on it, **Then** the inbox
+1. **Given** an inbox item, **When** the contractor acts on it, **Then** the inbox
    reflects the action immediately.
-2. **Given** a client or payment profile field, **When** Blake edits it,
+2. **Given** a client or payment profile field, **When** the contractor edits it,
    **Then** the new value shows immediately.
-3. **Given** a calendar entry, **When** Blake drags it to a new time,
+3. **Given** a calendar entry, **When** the contractor drags it to a new time,
    **Then** it shows at the new time immediately.
-4. **Given** Blake generates an invoice, **When** he presses generate,
+4. **Given** the contractor generates an invoice, **When** they press generate,
    **Then** the screen immediately shows the action is in progress (no
    predicted invoice number or document — the result can't be predicted
    client-side).
@@ -87,7 +87,7 @@ in-progress acknowledgment.
 
 ### User Story 3 - Tab switches render without waiting on the server (Priority: P3)
 
-Blake switches tabs in the web app and sees a loading state or the already-
+The contractor switches tabs in the web app and sees a loading state or the already-
 fetched content immediately, never a blank or stale screen.
 
 **Why this priority**: Named in the issue as a real but separately-caused
@@ -100,16 +100,16 @@ immediately, never blank or the previous tab's stale content.
 
 **Acceptance Scenarios**:
 
-1. **Given** Blake switches to a tab whose data isn't cached, **When** the
+1. **Given** the contractor switches to a tab whose data isn't cached, **When** the
    tab loads, **Then** a loading boundary shows immediately instead of a
    blank screen.
-2. **Given** Blake switches to a tab likely to be visited next, **When** he
+2. **Given** the contractor switches to a tab likely to be visited next, **When** they
    arrives, **Then** prefetching has already started the fetch, shortening
    or eliminating the loading boundary.
 
 ### Edge Cases
 
-- A predicted change is left in flight when Blake navigates away or quits:
+- A predicted change is left in flight when the contractor navigates away or quits:
   the mutation continues, and the screen reconciles to the server's answer
   on return (web: query cache + refetch) or relaunch (macOS: model refresh
   on next foreground) — never silently dropped or left showing a stale

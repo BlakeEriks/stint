@@ -1,6 +1,6 @@
 # Research: Invoice summary with supporting detail
 
-The spec and `design/new-invoice.html` settle what Blake sees. This file
+The spec and `design/new-invoice.html` settle what the contractor sees. This file
 settles how it is stored, computed and drawn.
 
 ## R1. One summary line is a fifth grouping mode in `buildLineItems`

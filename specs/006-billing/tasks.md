@@ -78,4 +78,4 @@ T030/T031.
 ## Strategy
 
 US2 + US1 are the MVP: a user can pay and the server knows. US3 and US4 are
-built in the same PR since the section stays dark until Blake configures it.
+built in the same PR since the section stays dark until the owner configures it.

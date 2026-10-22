@@ -11,7 +11,7 @@ While a timer runs, the contractor sees time grow but money stand still. Every m
 ## Affected Users & Stakeholders
 
 - **Users**: the US solo contractor billing hourly (`docs/positioning.md`). They look at the app mid-session and see `$0.00` beside `22m`. Positioning says they come to the product to see money and to trust that the number is right.
-- **Stakeholders**: Blake, as owner, decides scope.
+- **Stakeholders**: The owner decides scope.
 
 ## Goals
 
@@ -39,7 +39,7 @@ The most-watched number on the home screen is wrong exactly when the user is wor
 ## Open Questions
 
 - [NEEDS CLARIFICATION: Which figures are in scope? Earned (Today, week bars, month, month projection, dock) is clear. The macOS menu bar shows **Unbilled**, not Earned (`apps/macos/Sources/Stint/API.swift:36`), and Unbilled also excludes running entries (`00000000000007_unbilled_rollup.sql:41`). Does Unbilled tick live too, on web and macOS?]
-- [NEEDS CLARIFICATION: Is "live" the expectation, or would leaving running entries out of every figure until stop (time included) meet the goals? Blake leans live.]
+- [NEEDS CLARIFICATION: Is "live" the expectation, or would leaving running entries out of every figure until stop (time included) meet the goals? The owner leans live.]
 - [NEEDS CLARIFICATION: Under printed-hours rounding (#199), is a figure that steps at each rounding increment, not every minute, acceptable as "agreeing"?]
 - [NEEDS CLARIFICATION: How should a session that crosses midnight, a week boundary or a month boundary count?]
 - [NEEDS CLARIFICATION: Is the `$0.00` for 22m a missing rate or a rate-resolution bug?]
