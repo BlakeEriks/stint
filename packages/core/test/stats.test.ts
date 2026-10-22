@@ -92,8 +92,6 @@ test('oldestDays ages from the oldest entry', () => {
   assert.equal(row?.oldestDays, 10);
 });
 
-/* The row says "today", a calendar word: last night's work is ten hours old
-   this morning, and elapsed 24-hour spans would floor it to 0. */
 test('oldestDays counts calendar days in the zone', () => {
   const morning = new Date('2026-03-18T13:00:00Z'); // 09:00 New York
   const [row] = buildUnbilled(

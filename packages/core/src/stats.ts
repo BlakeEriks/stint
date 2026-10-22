@@ -201,8 +201,7 @@ export function daysBetweenKeys(from: string, to: string): number {
  * on.
  *
  * Null when `iso` is in the future: the age is omitted rather than made to
- * read "today" about something that has not happened. Clamping is what would
- * invent that claim.
+ * read "today" about something that has not happened.
  */
 export function calendarDaysSince(
   iso: string,

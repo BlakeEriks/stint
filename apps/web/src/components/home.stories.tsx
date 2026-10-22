@@ -433,7 +433,6 @@ const moreClients = account((db) => {
       new Date(db.now.getTime() - (i + 1) * 864e5),
       ZONE,
     );
-    // One bills in euros, so its row must not print dollars.
     const currency = i === 0 ? 'EUR' : base.currency;
     db.clients.push({ ...base, id: client, name: `Client ${i + 1}`, currency });
     db.projects.push({ ...work, id: project, clientId: client });
@@ -461,4 +460,28 @@ export const WideUnbilledMore: Story = {
   ...wide,
   parameters: moreClients,
   play: ({ canvasElement }) => fitsWide(canvasElement),
+};
+
+/** An unbilled entry dated tomorrow: its row shows no age. */
+export const UnbilledFuture: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    const base = db.clients[0] as (typeof db.clients)[number];
+    const work = db.projects[0] as (typeof db.projects)[number];
+    const tomorrow = localDateKey(new Date(db.now.getTime() + 864e5), ZONE);
+    db.clients.push({ ...base, id: id(710), name: 'Future Co' });
+    db.projects.push({ ...work, id: id(810), clientId: id(710) });
+    db.entries.push(entry(910, tomorrow, '08:00', 30, id(810), 'Review'));
+  }),
+  play: async ({ canvasElement }) => {
+    const rows = await waitFor(() => {
+      const el = canvasElement.querySelector('[data-unbilled="clients"]');
+      if (!el) throw new Error('no unbilled rows');
+      return el as HTMLElement;
+    });
+    const row = within(rows)
+      .getByText('Future Co')
+      .closest('li') as HTMLElement;
+    await expect(row).not.toHaveTextContent(/today|oldest/);
+  },
 };
