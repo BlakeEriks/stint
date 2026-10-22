@@ -9,8 +9,9 @@
  * none if it has no `schema_migrations` yet. Any other failure exits non-zero
  * rather than reading as an empty database, which would reset every run.
  *
- * `.github/workflows/preview-db.yml` runs this when a PR's migrations change
- * the schema, then migrates and reseeds every open PR's account. A migration
+ * `.github/workflows/preview-db.yml` runs this when the holder's migrations
+ * change the schema, then migrates and reseeds the account of every open PR
+ * but those with a migration that do not hold the database. A migration
  * cannot be un-applied, so the only way back to one branch's schema is
  * through empty.
  *

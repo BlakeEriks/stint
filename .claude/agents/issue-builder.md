@@ -95,8 +95,8 @@ Then two checks, each kept as a label so nobody makes it twice:
   feature stacks on. A shared file makes
   it `blocked`, with a marked comment: "Blocked by #31: both change the
   inbox." Report back.
-- **Migration:** if the fix needs one, label it `migration`. If an open PR
-  is labeled `migration` too, it is `blocked` on that PR.
+- **Migration:** if the fix needs one, label it `migration`. Another open
+  `migration` PR does not block it: only QA waits for the preview database.
 
 ## Build
 
@@ -180,7 +180,10 @@ comment only on `ship`, as for a new PR.
 
 **Conflicts with `main`:** `git merge origin/main` into the branch — never rebase,
 never force-push. Resolve any conflicts, verify as above, commit, and report
-back whether it merged clean or needed resolving. For a failed check, read
+back whether it merged clean or needed resolving. **A PR whose diff adds a
+migration, merging `main`,** also checks its migration sorts after main's newest; one that does
+not is recreated with `pnpm exec supabase migration new`, in a new commit,
+or `release.yml` rejects it. For a failed check, read
 the failing job's log first. For doc drift, fix each finding in the doc or
 the code; a finding that is wrong is reported back with the reason.
 

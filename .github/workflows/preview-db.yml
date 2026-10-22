@@ -7,34 +7,35 @@ name: preview-db
 # seeded in that scenario, which `&as=first-signin` signs into
 # (`scripts/preview-seed.sh`).
 #
-# Every run seeds its PR's account from that branch. It first rebuilds the
-# schema — empty, migrate, reseed every open PR — when:
-#   - the PR's diff touches supabase/migrations
+# The previews share one schema, so it belongs to the holder: the open PR
+# labeled `ready-for-qa` whose diff touches supabase/migrations
+# (`/work-issues` gives that label to one such PR at a time, by the same
+# diff, whatever its other labels). Any other PR
+# whose diff touches supabase/migrations is neither reset nor seeded, since
+# its tables are not there.
+#
+# Every other run seeds its PR's account from that branch. It first rebuilds
+# the schema — empty, migrate, reseed every open PR — when:
+#   - the holder's diff touches supabase/migrations
 #   - the checkout holds a migration stint-test has not applied
-#   - stint-test has applied a migration no open PR and not this checkout
-#     holds: a PR closed unmerged, or one that dropped its migration
+#   - stint-test has applied a migration neither the holder nor this
+#     checkout holds: a PR closed unmerged, one that dropped its migration,
+#     or a holder that lost the database to the next
 #   - it is run by hand
 # Both state checks mean a run superseded in the queue, or one that failed
 # midway, is repaired by whichever run comes next.
-#
-# The previews share one schema, so one open PR at a time may carry a
-# migration (`/work-issues` holds to it).
 #
 # Requires PREVIEW_DB_URL — stint-test's session pooler string — as a secret
 # on the Preview environment.
 on:
   pull_request:
-    # `edited`: the body names the scenario accounts to seed.
-    types: [opened, synchronize, reopened, edited, closed]
+    # `edited`: the body names the scenario accounts to seed. `labeled`:
+    # `ready-for-qa` hands a migration PR the database.
+    types: [opened, synchronize, reopened, edited, closed, labeled]
   push:
     branches: [main]
     paths: ['supabase/migrations/**']
   workflow_dispatch:
-
-# One at a time: a reset racing a seed leaves an account half-written.
-concurrency:
-  group: preview-db
-  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -51,12 +52,21 @@ jobs:
     # Dependabot's PRs cannot read secrets, and their previews need no account.
     # A PR merged into main is handled by the push it makes. An edit reseeds
     # only an open PR's changed body: a title edit would reset a reviewer's
-    # accounts for nothing, and a closed PR's merge ref is stale.
+    # accounts for nothing, and a closed PR's merge ref is stale. A label
+    # matters only when it can make a migration PR the holder.
     if: >-
       github.actor != 'dependabot[bot]' &&
       !(github.event.action == 'closed' && github.event.pull_request.merged) &&
       (github.event.action != 'edited' ||
-        (github.event.pull_request.state == 'open' && github.event.changes.body))
+        (github.event.pull_request.state == 'open' && github.event.changes.body)) &&
+      (github.event.action != 'labeled' ||
+        github.event.label.name == 'ready-for-qa')
+    # One at a time: a reset racing a seed leaves an account half-written.
+    # On the job, not the workflow, so a run its `if` skips never queues:
+    # a group keeps one waiting run, and a skipped one would cancel it.
+    concurrency:
+      group: preview-db
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     environment:
       name: Preview
@@ -88,21 +98,36 @@ jobs:
         env:
           BRANCH: ${{ github.head_ref }}
           EVENT: ${{ github.event_name }}
+          HOLDER: ${{ contains(github.event.pull_request.labels.*.name, 'ready-for-qa') }}
         run: |
           # One collation for both lists, or `comm` misreads them.
           export LC_ALL=C
+
+          migrates=false
+          if [ -n "$PR" ] && [ "$CLOSED" != true ] &&
+             ! git diff --quiet HEAD^1 HEAD -- supabase/migrations; then
+            migrates=true
+          fi
+          if [ "$migrates" = true ] && [ "$HOLDER" != true ]; then
+            echo "::notice::Not the preview database's holder: no reset, no account."
+            echo "seed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "seed=true" >> "$GITHUB_OUTPUT"
+
           applied=$(node scripts/preview-reset.mjs --applied)
           files=$(ls supabase/migrations | grep '\.sql$' | sort)
           missing=$(comm -23 <(echo "$files") <(echo "$applied"))
           extra=$(comm -13 <(echo "$files") <(echo "$applied"))
 
-          # An extra migration is kept only while an open PR still holds it;
-          # any one held by none orphans the schema. Assigned, not inlined in
-          # the `for`, so a failed `gh` stops the step instead of reading as
-          # "no open PRs" and wiping every account.
+          # An extra migration is kept only while the holder has it; any
+          # other orphans the schema. Assigned, not inlined in the `for`, so
+          # a failed `gh` stops the step instead of reading as "no holder"
+          # and wiping every account.
           held=""
           if [ -n "$extra" ]; then
-            branches=$(gh pr list --state open --json headRefName -q '.[].headRefName')
+            branches=$(gh pr list --state open --label ready-for-qa \
+              --json headRefName -q '.[].headRefName')
             for branch in $branches; do
               git fetch --quiet --depth 1 origin "$branch"
               for f in $extra; do
@@ -120,8 +145,7 @@ jobs:
           reset=false
           if [ "$EVENT" = workflow_dispatch ] || [ -n "$missing" ] || [ "$orphaned" = true ]; then
             reset=true
-          elif [ -n "$PR" ] && [ "$CLOSED" != true ] &&
-               ! git diff --quiet HEAD^1 HEAD -- supabase/migrations; then
+          elif [ "$migrates" = true ]; then
             reset=true
           fi
           echo "reset=$reset" >> "$GITHUB_OUTPUT"
@@ -146,16 +170,19 @@ jobs:
           pnpm migrate
 
       - name: Seed this PR's account
-        if: env.PR != '' && env.CLOSED != 'true'
+        if: env.PR != '' && env.CLOSED != 'true' && steps.plan.outputs.seed == 'true'
         run: bash scripts/preview-seed.sh "$PR"
 
       # A reset deleted every account, so each open PR is reseeded from its
-      # own branch's seed, which may carry data this one does not.
+      # own branch's seed, which may carry data this one does not. A
+      # migration PR that is not the holder has no tables to seed into.
       - name: Reseed the other open PRs
         if: steps.plan.outputs.reset == 'true'
         run: |
-          gh pr list --state open --json number,headRefName \
-            -q '.[] | "\(.number) \(.headRefName)"' |
+          gh pr list --state open --json number,headRefName,labels,files -q '.[] |
+              select(any(.labels[]; .name == "ready-for-qa") or
+                all(.files[]; .path | startswith("supabase/migrations/") | not)) |
+              "\(.number) \(.headRefName)"' |
           while read -r n branch; do
             [ "$n" = "$PR" ] && continue
             git fetch --quiet --depth 1 origin "$branch" || continue

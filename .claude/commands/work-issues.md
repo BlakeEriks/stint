@@ -117,6 +117,12 @@ is `reviewed`.
   6. **CI green and none of the above**, all checked in this pass: add
      `ready-for-qa`, once. Only this step adds it — never a look at CI
      alone, which cannot see feedback.
+     **A migration PR holds the preview database while it is
+     `ready-for-qa`** (`preview-db.yml`), so at most one has the label. A
+     migration PR is one whose diff adds a migration
+     (`gh pr diff <n> --name-only | grep '^supabase/migrations/'`), whatever
+     its labels; the rest wait with green CI. The next to hold it first gets a round in
+     which the builder merges `main` in, then the label.
   7. **CI still running:** leave it for the next pass.
 - **Each open Dependabot PR** (`gh pr list --author app/dependabot`), the
   same steps, except:
@@ -152,8 +158,6 @@ issue that:
   plan), or waits on an account only the repo owner can make
 - already has an open PR
   (`gh issue view <n> --json closedByPullRequestsReferences`)
-- is labeled `migration` while an open PR is too — previews share one
-  database schema
 
 `urgent` first, then the worst: `wrong data`, `misleading`, `looks wrong`,
 then `enhancement`, then `feature` (milestone `Alpha`, then `Launch`, then
