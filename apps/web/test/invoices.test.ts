@@ -2397,44 +2397,6 @@ test('an entry deleted since it was loaded rolls generation back too', async () 
 });
 
 // ── refusals the database names ──────────────────────────────────
-// A trigger or function raises the API code in HINT; a constraint is looked
-// up by name. These pin each one a route translates.
-
-test('an entry on an issued invoice cannot be deleted', async () => {
-  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
-  const { PATCH: setStatus } = await import(
-    '../src/app/api/v1/invoices/[id]/status/route.ts'
-  );
-  const { DELETE } = await import('../src/app/api/v1/entries/[id]/route.ts');
-  await seedEntry({ id: E(1) });
-  const inv = await json(
-    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
-  );
-  await setStatus(req('/s', { status: 'sent' }, 'PATCH'), ctx(inv.body.id));
-
-  const del = await json(
-    await DELETE(req('/e', undefined, 'DELETE'), ctx(E(1))),
-  );
-  assert.equal(del.status, 409);
-  assert.equal(del.body.code, 'ENTRY_LOCKED');
-  assert.match(del.body.message, /cannot be deleted/);
-});
-
-test('reopening an entry while a timer runs is TIMER_ALREADY_RUNNING', async () => {
-  const { PATCH } = await import('../src/app/api/v1/entries/[id]/route.ts');
-  await seedEntry({ id: E(1) });
-  await pool.query(
-    `insert into time_entries (id,user_id,task_name,started_at)
-     values ($1,$2,'Running','2026-09-11T09:00:00Z')`,
-    [E(2), USER],
-  );
-
-  const reopen = await json(
-    await PATCH(req('/e', { endedAt: null }, 'PATCH'), ctx(E(1))),
-  );
-  assert.equal(reopen.status, 409);
-  assert.equal(reopen.body.code, 'TIMER_ALREADY_RUNNING');
-});
 
 test('refreshing a draft that was sent meanwhile is INVOICE_STATUS_CHANGED', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');

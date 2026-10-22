@@ -486,6 +486,28 @@ test('editing an entry billed on a sent invoice returns 409 ENTRY_LOCKED', async
     }),
   );
   assert.equal(removed.status, 409, 'deleting a billed entry is refused too');
+  assert.equal(removed.body.code, 'ENTRY_LOCKED');
+});
+
+test('reopening an entry while a timer runs is TIMER_ALREADY_RUNNING', async () => {
+  const { PATCH: patch } = await import(
+    '../src/app/api/v1/entries/[id]/route.ts'
+  );
+  const id = '018f0000-0000-7000-8000-000000000004';
+  await pool.query(
+    `insert into time_entries (id,user_id,task_name,started_at,ended_at)
+     values ($1,$2,'Done','2026-09-11T09:00:00Z','2026-09-11T10:00:00Z'),
+            ($3,$2,'Running','2026-09-11T11:00:00Z',null)`,
+    [id, USER, '018f0000-0000-7000-8000-000000000005'],
+  );
+
+  const reopen = await json(
+    await patch(req(`/entries/${id}`, { endedAt: null }, 'PATCH'), {
+      params: Promise.resolve({ id }),
+    }),
+  );
+  assert.equal(reopen.status, 409);
+  assert.equal(reopen.body.code, 'TIMER_ALREADY_RUNNING');
 });
 
 test('a missing entry is 404, not 500', async () => {
