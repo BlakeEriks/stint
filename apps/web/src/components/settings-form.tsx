@@ -53,10 +53,10 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
     try {
       await api.updateSettings(patch);
     } catch (e) {
-      /* A refused step back leaves the number the next invoice takes, so
+      /* A refused number leaves the number the next invoice takes, so
          a later save of another field never shows "Saved" beside one it
          won't use. */
-      const current = refusedStepBack(e);
+      const current = refusedNumber(e);
       if (current !== undefined) setNext(String(current));
       throw e;
     }
@@ -81,7 +81,7 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
   const setBilling = edit(billing);
   const setIdentity = edit(identity);
   const setNumbering = edit(numbering);
-  const nextError = forwardOnly(numbering.error);
+  const nextError = numberRefusal(numbering.error);
 
   return (
     <>
@@ -265,8 +265,8 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
   );
 }
 
-/** The current number, when the server refused a step back from it. */
-function refusedStepBack(error: unknown) {
+/** The number the next invoice takes, when the server refused the one sent. */
+function refusedNumber(error: unknown) {
   if (!(error instanceof ApiError)) return undefined;
   const details = error.details as
     | { field?: string; current?: number }
@@ -274,7 +274,7 @@ function refusedStepBack(error: unknown) {
   return details?.field === 'nextInvoiceNumber' ? details.current : undefined;
 }
 
-/** The server's reason a step back was refused, for the field it names. */
-function forwardOnly(error: Error | null) {
-  return refusedStepBack(error) === undefined ? undefined : error?.message;
+/** The server's reason it refused the number, for the field it names. */
+function numberRefusal(error: Error | null) {
+  return refusedNumber(error) === undefined ? undefined : error?.message;
 }
