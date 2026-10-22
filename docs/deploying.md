@@ -386,13 +386,16 @@ there, `pr-<n>@preview.test`, and `/preview/signin?pr=<n>&next=<path>` signs
 into it and lands on `next` — the link a PR's **Try it** section opens. The
 route is a 404 anywhere `VERCEL_ENV` is not `preview`.
 
+The previews share one schema, so **the preview database belongs to the one
+PR labeled `ready-for-qa` whose diff touches `supabase/migrations`**: the
+holder. Other such PRs build and pass CI on their own throwaway Postgres,
+but their previews get no account until they hold it.
+
 `.github/workflows/preview-db.yml` keeps the project in step: it seeds a PR's
-account from that branch's `scripts/seed-account.mjs` on every push, and when
-a PR's migrations change the schema — or migrations land on main — empties
-`stint-test`, migrates it, and reseeds every open PR. The previews share one
-schema, so **the preview database belongs to the one PR labeled
-`ready-for-qa` whose diff touches `supabase/migrations`**. Other such PRs build and pass CI on their own
-throwaway Postgres, but their previews get no account until they hold it.
+account from that branch's `scripts/seed-account.mjs` on every push, except
+a PR with a migration that does not hold the database. When the holder's
+migrations change the schema — or migrations land on main — it empties
+`stint-test`, migrates it, and reseeds every open PR but those.
 
 **A PR asks for an account in a named state with a line in its body**:
 `Preview accounts: first-signin`. Each name is a `SEED_SCENARIOS` entry in
