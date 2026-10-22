@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -9,6 +8,7 @@ import {
   type QueryClient,
 } from '@tanstack/react-query';
 import { useOptimisticMutation } from '@/lib/client/mutations';
+import { useMarkPaid } from '@/lib/client/use-mark-paid';
 import { Ban, DollarSign, Download, Lock, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConfirmAction } from './confirm-action';
@@ -75,7 +75,7 @@ export function InvoiceDetail({ id }: { id: string }) {
 
   const setStatus = useOptimisticMutation({
     ...invoicePress,
-    mutationFn: (args: { status: InvoiceStatus; paidAt?: string }) =>
+    mutationFn: (args: { status: InvoiceStatus }) =>
       api.updateInvoiceStatus(id, args),
   });
 
@@ -84,6 +84,8 @@ export function InvoiceDetail({ id }: { id: string }) {
     mutationFn: () => api.deleteInvoice(id),
     onSuccess: () => router.push('/invoices'),
   });
+
+  const markPaid = useMarkPaid();
 
   return (
     <DetailPage back="/invoices" label="Invoices">
@@ -97,7 +99,8 @@ export function InvoiceDetail({ id }: { id: string }) {
             data={data}
             setStatus={setStatus}
             remove={remove}
-            error={remove.error ?? setStatus.error}
+            markPaid={markPaid}
+            error={remove.error ?? setStatus.error ?? markPaid.error}
           />
         )}
       </Listing>
@@ -110,15 +113,17 @@ function Loaded({
   data: invoice,
   setStatus,
   remove,
+  markPaid,
   error,
 }: {
   data: Shown;
   setStatus: {
-    mutate: (args: { status: InvoiceStatus; paidAt?: string }) => void;
+    mutate: (args: { status: InvoiceStatus }) => void;
     isPending: boolean;
     reset: () => void;
   };
   remove: { mutate: () => void; isPending: boolean };
+  markPaid: ReturnType<typeof useMarkPaid>;
   /* Picked ONCE by the caller. Re-evaluating `a ?? b` for the check and again
      for the message could type-check a stale error while printing a different
      one — React Query holds the last error until the next success. */
@@ -126,7 +131,6 @@ function Loaded({
 }) {
   const isDraft = invoice.status === 'draft';
   const isVoid = invoice.status === 'void';
-  const [markingPaid, setMarkingPaid] = useState(false);
   /* For the payment notice, which the PDF reads from settings as they are
      now. */
   const { data: settings } = useQuery({
@@ -189,13 +193,12 @@ function Loaded({
             <Button
               variant="accent"
               onClick={() => {
-                // A void or delete error from earlier on this screen must
-                // not read as a rejection of the payment date about to be
-                // entered.
+                // A void error from earlier on this screen must not read as
+                // a rejection of the payment date about to be entered.
                 setStatus.reset();
-                setMarkingPaid(true);
+                markPaid.show(invoice);
               }}
-              disabled={setStatus.isPending}
+              disabled={setStatus.isPending || markPaid.isPending(invoice.id)}
             >
               {/* A currency glyph, not a check: the check commits a form. */}
               <DollarSign aria-hidden strokeWidth={1.75} />
@@ -262,16 +265,7 @@ function Loaded({
         footnote="Rates are frozen at generation — editing a client or project later never changes this invoice."
       />
 
-      <MarkPaidDialog
-        /* Closes itself once the mutation lands: success flips the invoice to
-           `paid`, which drops this from the render entirely. */
-        open={markingPaid && invoice.status === 'sent'}
-        onOpenChange={setMarkingPaid}
-        onConfirm={(paidAt) => setStatus.mutate({ status: 'paid', paidAt })}
-        pending={setStatus.isPending}
-        error={error}
-        sentAt={invoice.sentAt}
-      />
+      <MarkPaidDialog {...markPaid.dialog} />
     </>
   );
 }
