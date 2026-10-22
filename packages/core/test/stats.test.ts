@@ -15,7 +15,7 @@ import {
   buildUnprojected,
   clientNamesFrom,
   type CollectedRow,
-  daysSincePaid,
+  calendarDaysSince,
   type DurationRow,
   type InvoiceRow,
   projectNamesFrom,
@@ -58,14 +58,14 @@ test('the unbilled total rounds once, so a sum of rounded lines is money', () =>
     unbilledRow({ amount: '33.33' }),
     unbilledRow({ amount: '33.34' }),
   ];
-  const { total } = buildUnbilled(rows, 'USD', now);
+  const { total } = buildUnbilled(rows, 'USD', now, 'UTC');
   assert.equal(total, 100);
   assert.equal(Math.round(total * 100) % 1, 0);
 });
 
 test('unbilled caps byClient at five and counts the rest', () => {
   const rows = Array.from({ length: 8 }, () => unbilledRow());
-  const u = buildUnbilled(rows, 'USD', now);
+  const u = buildUnbilled(rows, 'USD', now, 'UTC');
   assert.equal(u.byClient.length, 5);
   assert.equal(u.moreClients, 3);
   assert.equal(u.seconds, 8 * 3600);
@@ -76,6 +76,7 @@ test('unbilled names internal work rather than rendering a blank', () => {
     [unbilledRow({ client_id: null, client_name: null, currency: null })],
     'EUR',
     now,
+    'UTC',
   ).byClient;
   assert.equal(row?.clientName, 'No client');
   assert.equal(row?.currency, 'EUR');
@@ -86,8 +87,32 @@ test('oldestDays ages from the oldest entry', () => {
     [unbilledRow({ oldest_at: '2026-03-08T12:00:00Z' })],
     'USD',
     now,
+    'UTC',
   ).byClient;
   assert.equal(row?.oldestDays, 10);
+});
+
+/* The row says "today", a calendar word: last night's work is ten hours old
+   this morning, and elapsed 24-hour spans would floor it to 0. */
+test('oldestDays counts calendar days in the zone', () => {
+  const morning = new Date('2026-03-18T13:00:00Z'); // 09:00 New York
+  const [row] = buildUnbilled(
+    [unbilledRow({ oldest_at: '2026-03-18T03:00:00Z' })], // 23:00 the 17th
+    'USD',
+    morning,
+    'America/New_York',
+  ).byClient;
+  assert.equal(row?.oldestDays, 1);
+});
+
+test('a future oldest entry has no age rather than “today”', () => {
+  const [row] = buildUnbilled(
+    [unbilledRow({ oldest_at: '2026-03-19T12:00:00Z' })],
+    'USD',
+    now,
+    'UTC',
+  ).byClient;
+  assert.equal(row?.oldestDays, null);
 });
 
 test('revenueByDay keeps the day SQL grouped by, not a shifted ISO date', () => {
@@ -653,13 +678,13 @@ test('the cumulative line stops at today rather than running flat', () => {
 /* The screen says "paid today", which is a calendar word. Elapsed 24-hour
    spans make last night's payment ten hours old this morning, so it floors
    to 0 and the line claims today's money about yesterday's. */
-test('daysSincePaid counts calendar days, not elapsed 24-hour spans', () => {
+test('calendarDaysSince counts calendar days, not elapsed 24-hour spans', () => {
   const morning = new Date('2026-03-18T13:00:00Z'); // 09:00 New York
   const lastNight = '2026-03-18T03:00:00Z'; // 23:00 New York, the 17th
 
-  assert.equal(daysSincePaid(lastNight, morning, 'America/New_York'), 1);
+  assert.equal(calendarDaysSince(lastNight, morning, 'America/New_York'), 1);
   assert.equal(
-    daysSincePaid('2026-03-18T12:00:00Z', morning, 'America/New_York'),
+    calendarDaysSince('2026-03-18T12:00:00Z', morning, 'America/New_York'),
     0,
     'the same local date is today',
   );
@@ -667,13 +692,13 @@ test('daysSincePaid counts calendar days, not elapsed 24-hour spans', () => {
 
 /* Bucketed in the caller's zone like every other figure here: one instant is
    two different calendar dates either side of the date line. */
-test('daysSincePaid reads the local date, not UTC', () => {
+test('calendarDaysSince reads the local date, not UTC', () => {
   const now = new Date('2026-03-18T12:00:00Z');
   const paid = '2026-03-17T23:30:00Z';
 
-  assert.equal(daysSincePaid(paid, now, 'UTC'), 1);
+  assert.equal(calendarDaysSince(paid, now, 'UTC'), 1);
   assert.equal(
-    daysSincePaid(paid, now, 'Asia/Tokyo'),
+    calendarDaysSince(paid, now, 'Asia/Tokyo'),
     0,
     'already the 18th in Tokyo',
   );
@@ -684,8 +709,8 @@ test('daysSincePaid reads the local date, not UTC', () => {
    money that has not arrived, so it reports nothing instead. */
 test('a future paid_at is null rather than “paid today”', () => {
   const now = new Date('2026-03-18T12:00:00Z');
-  assert.equal(daysSincePaid('2026-03-19T12:00:00Z', now, 'UTC'), null);
-  assert.equal(daysSincePaid('2026-03-18T23:00:00Z', now, 'UTC'), 0);
+  assert.equal(calendarDaysSince('2026-03-19T12:00:00Z', now, 'UTC'), null);
+  assert.equal(calendarDaysSince('2026-03-18T23:00:00Z', now, 'UTC'), 0);
 });
 
 // ── collected ───────────────────────────────────────────────────────

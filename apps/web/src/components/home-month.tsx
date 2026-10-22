@@ -104,7 +104,7 @@ export function Month({
               currency={currency}
               className="type-amount-hero text-strong"
             />
-            <UnbilledRows unbilled={unbilled} currency={currency} />
+            <UnbilledRows unbilled={unbilled} />
           </FigGroup>
 
           {/* Awaiting counts rather than describes, and is rendered only when
@@ -128,19 +128,8 @@ export function Month({
   );
 }
 
-/**
- * Who the unbilled balance is owed by, each with the age of its oldest entry.
- *
- * The age is the prompt: a total says how much, the oldest entry says which
- * client is overdue an invoice. `/stats` caps the rows and counts the rest.
- */
-function UnbilledRows({
-  unbilled,
-  currency,
-}: {
-  unbilled: Stats['unbilled'];
-  currency: string;
-}) {
+/** `/stats` caps the rows and counts the rest. */
+function UnbilledRows({ unbilled }: { unbilled: Stats['unbilled'] }) {
   if (unbilled.byClient.length === 0) return null;
 
   return (
@@ -157,12 +146,10 @@ function UnbilledRows({
           <Money
             figure={`unbilled-${c.clientId ?? 'internal'}`}
             amount={c.amount}
-            currency={currency}
+            currency={c.currency}
             className="text-right text-primary"
           />
-          <span className="text-right text-subtle">
-            {c.oldestDays === 0 ? 'today' : `oldest ${c.oldestDays}d`}
-          </span>
+          <span className="text-right text-subtle">{age(c.oldestDays)}</span>
         </li>
       ))}
       {unbilled.moreClients > 0 ? (
@@ -172,6 +159,11 @@ function UnbilledRows({
       ) : null}
     </ul>
   );
+}
+
+function age(days: number | null): string {
+  if (days === null) return '';
+  return days === 0 ? 'today' : `oldest ${days}d`;
 }
 
 /**

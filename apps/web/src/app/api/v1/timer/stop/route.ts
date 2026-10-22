@@ -70,6 +70,7 @@ export const POST = handle(async (req: Request) => {
       (unbilled.data ?? []) as UnbilledRow[],
       currency,
       new Date(),
+      asked.tz,
     ),
     ...(included && { included }),
   });

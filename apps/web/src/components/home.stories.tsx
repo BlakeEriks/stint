@@ -332,10 +332,6 @@ export const Failed: Story = {
   },
 };
 
-/**
- * Home fits the capped frame whole, legend included: the panel does not
- * scroll, and the legend's bottom is inside it.
- */
 async function fitsWide(canvasElement: HTMLElement) {
   const legend = await waitFor(() => {
     const found = canvasElement.querySelector('[data-legend="clients"]');
@@ -358,7 +354,7 @@ async function fitsWide(canvasElement: HTMLElement) {
   });
 }
 
-/** Past `2xl` the frame is capped, and Home fits it whole. */
+/** Past `2xl` the frame is capped. */
 export const Wide: Story = {
   ...wide,
   play: ({ canvasElement }) => fitsWide(canvasElement),
@@ -425,6 +421,7 @@ export const MonthLate: Story = {
 
 /**
  * Six unbilled clients, one more than the rows hold: the rest are counted.
+ * Each row is in its client's currency.
  */
 const moreClients = account((db) => {
   const base = db.clients[0] as (typeof db.clients)[number];
@@ -436,7 +433,9 @@ const moreClients = account((db) => {
       new Date(db.now.getTime() - (i + 1) * 864e5),
       ZONE,
     );
-    db.clients.push({ ...base, id: client, name: `Client ${i + 1}` });
+    // One bills in euros, so its row must not print dollars.
+    const currency = i === 0 ? 'EUR' : base.currency;
+    db.clients.push({ ...base, id: client, name: `Client ${i + 1}`, currency });
     db.projects.push({ ...work, id: project, clientId: client });
     db.entries.push(entry(900 + i, day, '08:00', 30, project, 'Review'));
   }
@@ -452,6 +451,7 @@ export const UnbilledMore: Story = {
       return el as HTMLElement;
     });
     await expect(rows.querySelectorAll('li')).toHaveLength(6);
+    await expect(within(rows).getByText('€75.00')).toBeVisible();
     await expect(within(rows).getByText(/^\+\d+ more$/)).toBeVisible();
   },
 };

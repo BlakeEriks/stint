@@ -236,7 +236,7 @@ export const handlers = {
     return ok(schema.TimeEntry, entry);
   }),
 
-  stopTimer: http.post(`${API}/timer/stop`, () => {
+  stopTimer: http.post(`${API}/timer/stop`, ({ request }) => {
     const db = getDb();
     const i = db.entries.findIndex((e) => e.endedAt === null);
     const running = db.entries[i];
@@ -246,7 +246,7 @@ export const handlers = {
     return ok(schema.StoppedTimer, {
       entry: stopped,
       currency: db.settings.currency,
-      unbilled: unbilledSummary(db),
+      unbilled: unbilledSummary(db, query(request).get('tz') ?? ZONE),
     });
   }),
 

@@ -691,8 +691,11 @@ export const UnbilledClient = z.object({
   amount: money,
   /** Entries with no resolvable rate: the total is incomplete, not low. */
   unratedCount: z.number().int().nonnegative(),
-  /** Age of the oldest unbilled entry. A total is a fact; this is a prompt. */
-  oldestDays: z.number().int().nonnegative(),
+  /**
+   * Calendar days in `tz` since the oldest unbilled entry: a total is a fact,
+   * this is a prompt. Null when that entry is dated in the future.
+   */
+  oldestDays: z.number().int().nonnegative().nullable(),
 });
 
 export const EarnedPoint = z.object({

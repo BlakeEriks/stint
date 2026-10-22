@@ -116,7 +116,8 @@ moves no figure. It still never reaches an invoice (see Invoices).
 
 **Rows are capped and the remainder is reported, never dropped.** `unbilled`
 carries 5 rows plus a `moreClients` count. The total still covers every
-client.
+client. Each row's `oldestDays` is whole calendar days in `tz` since its oldest
+unbilled entry, and **null** when that entry is dated in the future.
 
 **`month` is the screen's subject and needs no target.** `month.earned` is
 the month so far; `month.projected` carries its trailing rate to the last

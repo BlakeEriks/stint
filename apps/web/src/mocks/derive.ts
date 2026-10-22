@@ -20,7 +20,7 @@ import {
   clientNamesFrom,
   COLLECTED_MONTHS,
   type DayRow,
-  daysSincePaid,
+  calendarDaysSince,
   entrySeconds,
   type GroupingMode,
   localDateKey,
@@ -233,8 +233,8 @@ export function summary(db: Db, tz: string) {
   };
 }
 
-export function unbilledSummary(db: Db) {
-  return buildUnbilled(unbilledRows(db), db.settings.currency, db.now);
+export function unbilledSummary(db: Db, tz: string) {
+  return buildUnbilled(unbilledRows(db), db.settings.currency, db.now, tz);
 }
 
 /** `GET /stats`, following `src/app/api/v1/stats/route.ts` step for step. */
@@ -304,7 +304,7 @@ export function stats(db: Db, tz: string) {
 
   return {
     currency,
-    unbilled: buildUnbilled(rows, currency, now),
+    unbilled: buildUnbilled(rows, currency, now, tz),
     earnedToday: byDay.get(todayKey) ?? 0,
     week,
     month: {
@@ -326,7 +326,7 @@ export function stats(db: Db, tz: string) {
           amount: i.total,
         })),
       localMonthKeys(now, tz, COLLECTED_MONTHS),
-      lastPaid ? daysSincePaid(lastPaid, now, tz) : null,
+      lastPaid ? calendarDaysSince(lastPaid, now, tz) : null,
       currency,
     ),
     attention: {

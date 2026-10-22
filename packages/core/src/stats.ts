@@ -191,27 +191,20 @@ export function daysBetweenKeys(from: string, to: string): number {
   );
 }
 
-export function daysSince(iso: string, now: Date): number {
-  return Math.max(
-    0,
-    Math.floor((now.getTime() - Date.parse(iso)) / 86_400_000),
-  );
-}
-
 /**
- * Whole CALENDAR days since a payment, in the user's zone.
+ * Whole CALENDAR days since `iso`, in the user's zone.
  *
- * Not elapsed 24-hour spans, which is what `daysSince` measures: a payment
- * that cleared at 23:00 last night is ten hours old at 09:00, so it floors to
- * 0 and the screen says "paid today" about yesterday's money. The screen's
- * word is a calendar word, so the arithmetic has to be one too — the same
- * local-date keys the rest of the stats route buckets on.
+ * Not elapsed 24-hour spans: a payment that cleared at 23:00 last night is
+ * ten hours old at 09:00, so it floors to 0 and the screen says "today" about
+ * yesterday. The screen's word is a calendar word, so the arithmetic has to
+ * be one too — the same local-date keys the rest of the stats route buckets
+ * on.
  *
- * Null when `paid_at` is in the future, on the same footing as never having
- * been paid: the line is omitted rather than made to read "paid today" about
- * a payment that has not happened. Clamping is what would invent that claim.
+ * Null when `iso` is in the future: the age is omitted rather than made to
+ * read "today" about something that has not happened. Clamping is what would
+ * invent that claim.
  */
-export function daysSincePaid(
+export function calendarDaysSince(
   iso: string,
   now: Date,
   tz: string,
@@ -238,6 +231,7 @@ export function buildUnbilled(
   rows: UnbilledRow[],
   fallbackCurrency: string,
   now: Date,
+  tz: string,
 ) {
   return {
     /** Never "earned" or "revenue": work done and not yet invoiced. */
@@ -253,7 +247,7 @@ export function buildUnbilled(
       unratedCount: Number(r.unrated_count),
       // The aging figure is the insight: a total is a fact, a total with
       // "oldest 22 days" is a prompt.
-      oldestDays: daysSince(r.oldest_at, now),
+      oldestDays: calendarDaysSince(r.oldest_at, now, tz),
     })),
     moreClients: Math.max(0, rows.length - MAX_UNBILLED_ROWS),
   };

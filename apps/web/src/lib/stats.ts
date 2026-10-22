@@ -21,7 +21,7 @@ import {
   type CollectedRow,
   type DayRow,
   dayByClient,
-  daysSincePaid,
+  calendarDaysSince,
   type DurationRow,
   type InvoiceRow,
   type SpanRow,
@@ -330,7 +330,7 @@ export async function readStats(
 
   return {
     currency,
-    unbilled: buildUnbilled(unbilledRows, currency, now),
+    unbilled: buildUnbilled(unbilledRows, currency, now, tz),
     /* Work done today at its resolved rate, which is what `revenue_by_day`
        already computes. Absent from the map until the day earns something. */
     earnedToday: byDay.get(todayKey) ?? 0,
@@ -352,7 +352,7 @@ export async function readStats(
       (collectedRows.data ?? []) as CollectedRow[],
       collectedMonths,
       lastPaid.data?.paid_at
-        ? daysSincePaid(lastPaid.data.paid_at, now, tz)
+        ? calendarDaysSince(lastPaid.data.paid_at, now, tz)
         : null,
       currency,
     ),
