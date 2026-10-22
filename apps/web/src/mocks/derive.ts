@@ -13,6 +13,7 @@ import {
   buildStrangeDurations,
   buildUnbilled,
   buildUnprojected,
+  lateEntries,
   buildWeek,
   dayByClient,
   type ClientRevenueRow,
@@ -344,6 +345,27 @@ export function stats(db: Db, tz: string) {
         todayKey,
         localDateKey(startOfLocalDayOffset(now, tz, STALE_DRAFT_DAYS), tz),
       ),
+      lateEntries: lateEntries(
+        candidates.map((e) => ({
+          id: e.id,
+          taskName: e.taskName,
+          startedAt: e.startedAt,
+          durationSeconds: e.durationSeconds ?? 0,
+          isBillable: e.isBillable,
+          clientId:
+            db.projects.find((p) => p.id === e.projectId)?.clientId ?? null,
+        })),
+        db.invoices
+          .filter((i) => i.status === 'sent' || i.status === 'paid')
+          .map((i) => ({
+            id: i.id,
+            invoiceNumber: i.invoiceNumber,
+            clientId: i.clientId,
+            periodStart: i.periodStart,
+            periodEnd: i.periodEnd,
+          })),
+        tz,
+      ).map((e) => ({ ...e, clientName: clientNames.get(e.clientId) ?? null })),
       unprojected: buildUnprojected(unprojected),
       strangeDurations: buildStrangeDurations(
         candidates

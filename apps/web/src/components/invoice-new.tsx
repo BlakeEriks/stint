@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { shortDate } from './invoice-bits';
 import {
   keepPreviousData,
   useQuery,
@@ -428,7 +430,25 @@ function Form() {
     });
   const payment = buildPaymentDetails(profile, { invoiceNumber: number });
 
+  /* One open draft per client and date: the server refuses another, so the
+     form says which draft holds these dates before Generate is pressed. */
+  const openDrafts =
+    useQuery({
+      queryKey: [...keys.invoices(), 'drafts', draft.clientId],
+      queryFn: () =>
+        api.invoices({ clientId: draft.clientId, status: 'draft' }),
+      enabled: draft.clientId !== '',
+    }).data?.invoices ?? [];
+  const covering = openDrafts.find(
+    (i) =>
+      periodStart !== '' &&
+      periodEnd !== '' &&
+      i.periodStart <= periodEnd &&
+      i.periodEnd >= periodStart,
+  );
+
   const { canGenerate, noSummaryText } = generateState({
+    covered: covering !== undefined,
     preview: current,
     updating,
     failed: preview.isError,
@@ -539,6 +559,20 @@ function Form() {
                 periodStart={periodStart}
                 periodEnd={periodEnd}
               />
+              {covering && client ? (
+                <p role="status" className="type-support text-warning">
+                  A draft already covers {shortDate(covering.periodStart)} –{' '}
+                  {shortDate(covering.periodEnd)} for {client.name}:{' '}
+                  <Link
+                    href={`/invoices/${covering.id}`}
+                    className="text-strong underline underline-offset-2"
+                  >
+                    {covering.invoiceNumber}
+                  </Link>
+                  . Start after {shortDate(covering.periodEnd)}, or open that
+                  draft.
+                </p>
+              ) : null}
               <Field label="Reference" htmlFor="inv-reference">
                 <Input
                   id="inv-reference"
@@ -680,6 +714,8 @@ function missingDetails(client: Pick<Client, 'address' | 'email'>) {
  * it waits for a current, complete answer from the server.
  */
 function generateState(s: {
+  /** An open draft for this client holds some of these dates. */
+  covered: boolean;
   /** The server's answer for this client; `undefined` before one. */
   preview: Pick<InvoicePreview, 'lineItems' | 'unratedEntryIds'> | undefined;
   /** The form has changed since the answer, or the server is recomputing. */
@@ -702,6 +738,7 @@ function generateState(s: {
     !noSummaryText;
   const canGenerate =
     complete &&
+    !s.covered &&
     s.hasSettings &&
     s.hasSender &&
     !s.updating &&

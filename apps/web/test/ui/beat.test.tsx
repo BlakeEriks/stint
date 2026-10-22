@@ -42,6 +42,7 @@ function arrival(
       noDefaultRate: false,
       overdueInvoices: [],
       staleDrafts: [],
+      lateEntries: [],
       unprojected: [],
       strangeDurations: [],
       overlaps: [],

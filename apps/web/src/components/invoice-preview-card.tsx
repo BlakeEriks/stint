@@ -56,7 +56,7 @@ export type CardFigures = Pick<
     Pick<
       InvoicePreview['lineItems'][number],
       'description' | 'unit' | 'quantity' | 'unitPrice' | 'amount' | 'spentOn'
-    >
+    > & { isNew?: boolean }
   >;
   entryCount?: number;
 };
@@ -382,6 +382,9 @@ function PaymentFields({ fields }: { fields: PaymentDetails['fields'] }) {
   );
 }
 
+/** A draft's line its last PDF didn't have: the reason Mark sent waits. */
+const NEW = 'bg-warning-muted';
+
 function Lines({
   preview,
   terms,
@@ -424,7 +427,10 @@ function Lines({
         </thead>
         <tbody>
           {services.map((li, i) => (
-            <tr key={i} className="border-b border-edge-subtle last:border-0">
+            <tr
+              key={i}
+              className={`border-b border-edge-subtle last:border-0 ${li.isNew ? NEW : ''}`}
+            >
               <td className="py-2.5 text-primary">{li.description}</td>
               <td className={`${TD} text-muted`}>
                 {formatQuantity(li.unit, li.quantity)}
@@ -446,7 +452,10 @@ function Lines({
               </th>
             </tr>
             {expenses.map((li, i) => (
-              <tr key={i} className="border-b border-edge-subtle last:border-0">
+              <tr
+                key={i}
+                className={`border-b border-edge-subtle last:border-0 ${li.isNew ? NEW : ''}`}
+              >
                 <td className="py-2.5 text-primary">{li.description}</td>
                 <td className={`${TD} text-muted`}>{shortDate(li.spentOn)}</td>
                 <td className={RATE} />

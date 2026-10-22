@@ -17,6 +17,7 @@ import type {
   Settings,
   StoredLineItem,
   TimeEntry,
+  DraftChange,
 } from '@/lib/client/api';
 import { businessOf } from '@/components/invoice-preview-card';
 import { ZONE } from './time.mts';
@@ -31,7 +32,12 @@ import { ZONE } from './time.mts';
  * internal work.
  */
 
-type StoredInvoice = Invoice & { lineItems: StoredLineItem[] };
+/** A draft the story says moved since its PDF was rendered carries the
+ *  change and which lines are new; the fake keeps no snapshot of its own. */
+type StoredInvoice = Invoice & {
+  lineItems: (StoredLineItem & { isNew?: boolean })[];
+  changedSinceDownload?: DraftChange | null;
+};
 
 export interface Db {
   now: Date;

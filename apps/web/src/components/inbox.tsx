@@ -36,6 +36,7 @@ export function inboxCount(attention: Attention) {
     (attention.noDefaultRate ? 1 : 0) +
     attention.overdueInvoices.length +
     attention.staleDrafts.length +
+    attention.lateEntries.length +
     attention.unprojected.length +
     attention.strangeDurations.length +
     attention.overlaps.length
@@ -46,6 +47,7 @@ export function inboxCount(attention: Attention) {
 type InboxRow =
   | { id: string; kind: 'overdue'; row: Attention['overdueInvoices'][number] }
   | { id: string; kind: 'draft'; row: Attention['staleDrafts'][number] }
+  | { id: string; kind: 'late'; row: Attention['lateEntries'][number] }
   | { id: string; kind: 'unprojected'; row: Attention['unprojected'][number] }
   | { id: string; kind: 'strange'; row: Attention['strangeDurations'][number] }
   | { id: string; kind: 'overlap'; row: Attention['overlaps'][number] }
@@ -72,6 +74,7 @@ export function Inbox({ stats }: { stats: Stats }) {
   const {
     overdueInvoices,
     staleDrafts,
+    lateEntries,
     unprojected,
     strangeDurations,
     overlaps,
@@ -192,6 +195,13 @@ export function Inbox({ stats }: { stats: Stats }) {
       id: d.invoiceId,
       kind: 'draft' as const,
       row: d,
+    })),
+    /* Money no invoice holds, beside the invoices: work dated in a period
+       already sent. */
+    ...lateEntries.map((e) => ({
+      id: `late:${e.entryId}`,
+      kind: 'late' as const,
+      row: e,
     })),
     /* A chore like a draft, so it sits with them, above the entry rows: the
        rate is what prices every one of those entries. */
@@ -339,6 +349,8 @@ function itemFor(r: ItemRow, h: Handlers): ItemProps {
       return unprojectedItem(r.row, h);
     case 'overlap':
       return overlapItem(r.row, h);
+    case 'late':
+      return lateItem(r.row, h);
     case 'strange':
       return strangeItem(r.row, h);
   }
@@ -452,6 +464,24 @@ function overlapItem(o: Attention['overlaps'][number], h: Handlers) {
     detail: `Overlaps ${o.otherTaskName || 'another entry'}${invoice} · ${dayLabel(o.startedAt, tz)}`,
     tone: 'warning',
     action: editEntry(o.taskName),
+  });
+}
+
+/* Billed nowhere, and never moved onto the next invoice unasked: the
+   entry opens, where it can be marked not billable, or it waits for a later
+   invoice. */
+function lateItem(e: Attention['lateEntries'][number], h: Handlers) {
+  return entryItem({ ...e, seconds: Math.round(e.hours * 3600) }, h, {
+    focus: 'task',
+    detail: [
+      e.clientName,
+      dayLabel(e.startedAt, tz),
+      `in ${e.invoiceNumber}'s period, already sent`,
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    tone: 'warning',
+    action: editEntry(e.taskName),
   });
 }
 

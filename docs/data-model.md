@@ -68,8 +68,9 @@ preview about the same work is what that produces.
 bono) does not fall through to the client's rate. Both implementations use
 null-coalescing, never truthiness.
 
-**Rates are frozen onto invoice line items at generation time.** Changing a
-client's rate next year must never retroactively alter an invoice already sent.
+**Rates are frozen onto invoice line items when it is sent.** A draft shows
+current rates until then; changing a client's rate next year must never
+retroactively alter an invoice already sent.
 
 ## Tables
 
@@ -141,6 +142,19 @@ reference falls back rather than rendering nothing.
 ### `invoices` / `invoice_line_items`
 Line items are **denormalized on purpose**. An issued invoice is an immutable
 financial record, not a live view over time entries.
+
+**A draft refreshes on every read** (#433). `refresh_draft()` releases what it
+holds, writes the lines `buildLineItems` computes from its client and period
+now, and attaches what they bill, in one transaction; Mark sent passes
+`p_sent_at` and sends in the same call. What the user chose on New invoice is
+read, never rewritten: grouping, summary text, reference, notes, terms, due
+date, payment details, the supporting-detail kinds, its `fixed` lines, and
+two columns kept for the refresh — `tz`, the zone its period's dates are read
+in, and `excluded_expense_ids`, the expenses left off. `downloaded_snapshot`
+is what its PDF last showed; Mark sent refuses with `DRAFT_CHANGED` while
+the draft differs from it. One open draft per client and date: `POST
+/invoices` refuses an overlap with `DRAFT_OVERLAPS`, since two drafts would
+each claim the same new work.
 
 `payment_details` (JSONB) freezes the rendered bank details at generation, for
 the same reason rates freeze: editing a profile must never alter an invoice
@@ -273,8 +287,8 @@ Two deliberate exceptions:
 
 `guard_billed_expense` holds the same lock on an expense, over `spent_on`,
 `description`, `amount`, `client_id` and `recurring`, with the same two
-exceptions. An edit to an expense on a draft does not reach the draft's
-frozen line; the draft is deleted and generated again to bill it.
+exceptions. An edit to an entry or expense on a draft reaches it on its next
+read.
 
 ### Work invoiced elsewhere
 `time_entries.invoiced_elsewhere` marks work already billed from another tool,
@@ -387,8 +401,10 @@ hold; this list is the record of *what* must.
 - Detaching an entry from a voided invoice is allowed — that is the release
   path voiding depends on.
 - Voiding releases what the invoice billed in the same statement.
-- Rates are frozen onto line items at generation: changing a client's rate
-  later leaves an issued invoice at its original total.
+- Rates are frozen onto line items when an invoice is sent: changing a
+  client's rate later leaves an issued invoice at its original total.
+- `refresh_draft` runs as the caller and refuses anything but the caller's
+  own draft.
 - Editing or deleting an expense billed to a **non-draft** invoice is
   rejected, and voiding or deleting a draft releases it.
 - A generation that loses a race for an expense writes nothing and leaves

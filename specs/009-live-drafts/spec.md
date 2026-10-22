@@ -34,7 +34,7 @@ billing schedule (#432), and must also work for a client with no schedule.
 - **Draft, changed since download**: a banner under the header, edged in the warning color, says it changed since you downloaded it, with the hours added and the old total struck through beside the new one. Mark sent is disabled until Download PDF is pressed; the banner has no button of its own. Lines added since the download are tinted on the invoice.
 - **Draft, never downloaded**: as up to date; Mark sent works as today.
 - **New invoice, overlapping a draft**: a line under the dates, in the warning color, names the draft's period and links to it; Generate invoice is disabled.
-- **Inbox, late work**: an item per late entry — client, date and hours; that it's dated in a sent invoice's period, naming it; Not billable and Open entry.
+- **Inbox, late work**: an item per late entry — task, hours, client, date, and that it's in the named sent invoice's period; its action opens the entry, where it can be marked not billable.
 - **Invoices list**: unchanged in layout; a draft's total and the outstanding total are the draft's current total. No badge for a changed draft.
 
 ## User Scenarios & Testing *(mandatory)*

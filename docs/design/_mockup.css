@@ -33,6 +33,7 @@
     --timer-warning: #5CABF2;
     --success: #36C52A;
     --warning: #5CABF2;
+    --warning-muted: #162B40;
     --danger: #F64B66;
     --danger-muted: #471F23;
     --info: #6D7FAE;
@@ -108,6 +109,7 @@
     --timer-warning: #1C6DAD;
     --success: #457036;
     --warning: #1C6DAD;
+    --warning-muted: #E3EEF8;
     --danger: #C21F43;
     --danger-muted: #FFEBEB;
     --info: #4A5A85;

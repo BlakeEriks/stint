@@ -31,8 +31,10 @@ back to UTC, these two return 422. An omitted one still defaults to UTC.
   three: the arithmetic a client checks on the page is the arithmetic that
   produced it, and the total never moves with the grouping. Every rollup
   prices the same per-entry hours (`00000000000028_bill_printed_hours.sql`).
-- **Line items are frozen at generation.** Never recompute a PDF from time
-  entries; re-downloading a year later must produce the same document.
+- **A draft collects its period's work until it is sent; sending freezes
+  it.** Every read of a draft refreshes it through `refreshDraft()`, keeping
+  the choices made on New invoice. An issued invoice's lines are never
+  recomputed: re-downloading a year later must produce the same document.
 - **Only drafts can be marked sent or deleted.** The user sends the PDF;
   `PATCH /invoices/:id/status` records it.
 - **Voiding releases entries and expenses; it does not remove the number.**

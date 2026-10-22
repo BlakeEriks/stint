@@ -14,6 +14,7 @@ import {
   loadBillableEntries,
   loadPaymentProfile,
   loadBillableExpenses,
+  refreshDraft,
 } from '@/lib/invoicing';
 import { INVOICE_COLUMNS, toInvoice, type InvoiceRow } from '@/lib/rows';
 import {
@@ -43,9 +44,13 @@ export const GET = handle(async (req: Request) => {
   const { data, error } = await query;
   if (error) throw error;
 
-  return NextResponse.json({
-    invoices: (data ?? []).map((r) => toInvoice(r as InvoiceRow)),
-  });
+  // A draft's total is its period's work now; a user holds only a few.
+  const rows = await Promise.all(
+    (data ?? []).map(
+      async (r) => (await refreshDraft(db, r as InvoiceRow, q.tz)).row,
+    ),
+  );
+  return NextResponse.json({ invoices: rows.map(toInvoice) });
 });
 
 /**
@@ -81,6 +86,30 @@ export const POST = handle(async (req: Request) => {
   ]);
 
   requireSender(settings);
+
+  /* One open draft per client and date: two would each claim the same new
+     work on their next refresh. */
+  const { data: open, error: openError } = await db
+    .from('invoices')
+    .select('id, invoice_number, period_start, period_end')
+    .eq('client_id', body.clientId)
+    .eq('status', 'draft')
+    .lte('period_start', body.periodEnd)
+    .gte('period_end', body.periodStart)
+    .limit(1)
+    .maybeSingle();
+  if (openError) throw openError;
+  if (open)
+    throw new ApiError(
+      'DRAFT_OVERLAPS',
+      `${open.invoice_number} is a draft for these dates already. Open it, or start after it.`,
+      {
+        invoiceId: open.id,
+        invoiceNumber: open.invoice_number,
+        periodStart: open.period_start,
+        periodEnd: open.period_end,
+      },
+    );
 
   const clientRate =
     client.hourly_rate == null ? null : Number(client.hourly_rate);
@@ -207,7 +236,16 @@ export const POST = handle(async (req: Request) => {
     throw error;
   }
 
-  const invoice = Array.isArray(data) ? data[0] : data;
+  const created = (Array.isArray(data) ? data[0] : data) as InvoiceRow;
+
+  // What a refresh needs that `create_invoice` doesn't write.
+  const { data: invoice, error: choicesError } = await db
+    .from('invoices')
+    .update({ tz: body.tz, excluded_expense_ids: body.excludedExpenseIds })
+    .eq('id', created.id)
+    .select(INVOICE_COLUMNS)
+    .single();
+  if (choicesError) throw choicesError;
 
   return NextResponse.json(
     {

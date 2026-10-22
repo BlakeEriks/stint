@@ -108,6 +108,7 @@ function stats(over: Partial<Stats> = {}): Stats {
     attention: {
       overdueInvoices: [],
       staleDrafts: [],
+      lateEntries: [],
       unprojected: [],
       strangeDurations: [],
       overlaps: [],

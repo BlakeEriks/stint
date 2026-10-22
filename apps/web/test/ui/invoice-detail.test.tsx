@@ -141,7 +141,13 @@ describe('InvoiceDetail', () => {
       const { unmount } = show();
       expect(
         await screen.findByRole('link', { name: 'Download PDF' }),
-      ).toHaveAttribute('href', '/api/v1/invoices/inv-1/pdf?download=1');
+      ).toHaveAttribute(
+        'href',
+        // The zone a draft's period is read in, as on every invoice read.
+        expect.stringMatching(
+          /^\/api\/v1\/invoices\/inv-1\/pdf\?tz=.+&download=1$/,
+        ),
+      );
       unmount();
       vi.unstubAllGlobals();
     }

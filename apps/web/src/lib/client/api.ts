@@ -148,6 +148,11 @@ export type IncludedName = schema.IncludedName;
 /** What a write returns beside its record when asked (`docs/api.md`). */
 export type Included = { summary?: Summary; stats?: Stats };
 /** A write's `?include=`: the reads to return, and the zone they're in. */
+/** A draft is refreshed on every read, in the zone its dates are read in
+ *  (`InvoiceReadQuery`). */
+const zone = () =>
+  `tz=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')}`;
+
 export type Include = { names: readonly IncludedName[]; tz: string };
 
 export type StoppedTimer = { entry: TimeEntry; included?: Included } & Pick<
@@ -167,6 +172,7 @@ export type ScheduleKind = z.infer<typeof schema.ScheduleKind>;
 export type InvoiceStatus = z.infer<typeof schema.InvoiceStatus>;
 export type ComputedLineItem = Response<schema.ComputedLineItem>;
 export type StoredLineItem = Response<schema.StoredLineItem>;
+export type DraftChange = Response<schema.DraftChange>;
 
 /** Everything a project is created or edited with. */
 export type ProjectInput = Partial<Omit<Project, 'id' | 'archivedAt'>> &
@@ -358,11 +364,7 @@ export const api = {
 
   invoices: (params: { clientId?: string; status?: InvoiceStatus } = {}) => {
     const q = new URLSearchParams(params as Record<string, string>);
-    const s = q.toString();
-    return request<{ invoices: Invoice[] }>(
-      'GET',
-      `/invoices${s ? `?${s}` : ''}`,
-    );
+    return request<{ invoices: Invoice[] }>('GET', `/invoices?${q}&${zone()}`);
   },
 
   /* The invoice is FLAT, matching every other detail route (`/clients/:id`,
@@ -370,10 +372,12 @@ export const api = {
   invoice: (id: string) =>
     request<
       Invoice & {
-        lineItems: StoredLineItem[];
+        /** `isNew`: on a draft, a line its last PDF didn't have. */
+        lineItems: (StoredLineItem & { isNew: boolean })[];
         canDownload: boolean;
+        changedSinceDownload: DraftChange | null;
       }
-    >('GET', `/invoices/${id}`),
+    >('GET', `/invoices/${id}?${zone()}`),
 
   /** No side effects — this is what the user approves before generating. */
   previewInvoice: (body: {
@@ -414,7 +418,7 @@ export const api = {
   updateInvoiceStatus: (
     id: string,
     body: { status: InvoiceStatus; sentAt?: string; paidAt?: string },
-  ) => request<Invoice>('PATCH', `/invoices/${id}/status`, body),
+  ) => request<Invoice>('PATCH', `/invoices/${id}/status?${zone()}`, body),
 
   /** Drafts only. An issued invoice must be voided so numbering stays gapless. */
   deleteInvoice: (id: string) => request<void>('DELETE', `/invoices/${id}`),
@@ -454,7 +458,7 @@ export const api = {
   },
 
   invoicePdfUrl: (id: string, download = false) =>
-    `/api/v1/invoices/${id}/pdf${download ? '?download=1' : ''}`,
+    `/api/v1/invoices/${id}/pdf?${zone()}${download ? '&download=1' : ''}`,
 
   settings: () => request<Settings>('GET', '/settings'),
 

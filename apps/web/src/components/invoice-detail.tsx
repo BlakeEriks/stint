@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import {
   useQuery,
   useQueryClient,
@@ -16,10 +17,11 @@ import { shortDate, StatusBadge } from './invoice-bits';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
 import { PRICE } from './plan-section';
-import { attachedSchedules } from '@stint/core';
+import { attachedSchedules, formatCurrency, formatHours } from '@stint/core';
 import {
   api,
   ApiError,
+  type DraftChange,
   type Invoice,
   type InvoiceStatus,
   type StoredLineItem,
@@ -30,8 +32,9 @@ import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 /** An invoice; the lines, and whether its PDF opens, are absent until they
     load. */
 type Shown = Invoice & {
-  lineItems?: StoredLineItem[];
+  lineItems?: (StoredLineItem & { isNew?: boolean })[];
   canDownload?: boolean;
+  changedSinceDownload?: DraftChange | null;
 };
 
 /** What the invoice list already holds about this invoice, so opening it
@@ -97,6 +100,15 @@ export function InvoiceDetail({ id }: { id: string }) {
         {(data) => (
           <Loaded
             data={data}
+            onDownload={() =>
+              /* The download is a navigation the page can't await, and it is
+                 what records the copy the client gets; the server's answer
+                 replaces the change once the PDF has rendered. */
+              setTimeout(
+                () => qc.invalidateQueries({ queryKey: keys.invoice(id) }),
+                1500,
+              )
+            }
             setStatus={setStatus}
             remove={remove}
             markPaid={markPaid}
@@ -111,12 +123,14 @@ export function InvoiceDetail({ id }: { id: string }) {
 /** The invoice itself, as the PDF prints it, with what can be done to it. */
 function Loaded({
   data: invoice,
+  onDownload,
   setStatus,
   remove,
   markPaid,
   error,
 }: {
   data: Shown;
+  onDownload: () => void;
   setStatus: {
     mutate: (args: { status: InvoiceStatus }) => void;
     isPending: boolean;
@@ -131,6 +145,11 @@ function Loaded({
 }) {
   const isDraft = invoice.status === 'draft';
   const isVoid = invoice.status === 'void';
+  /* A draft that moved since its PDF was rendered holds Mark sent until the
+     client's copy is the one Stint keeps; pressing Download releases it here,
+     and the server, which recorded the render, has the last word. */
+  const [downloaded, setDownloaded] = useState(false);
+  const changed = isDraft && !downloaded ? invoice.changedSinceDownload : null;
   /* For the payment notice, which the PDF reads from settings as they are
      now. */
   const { data: settings } = useQuery({
@@ -182,7 +201,7 @@ function Loaded({
           {isDraft ? (
             <Button
               onClick={() => setStatus.mutate({ status: 'sent' })}
-              disabled={setStatus.isPending}
+              disabled={setStatus.isPending || changed != null}
             >
               <Send aria-hidden strokeWidth={1.75} />
               Mark sent
@@ -212,7 +231,13 @@ function Loaded({
               say whether its PDF opens. */}
           {invoice.canDownload === true ? (
             <Button asChild>
-              <a href={api.invoicePdfUrl(invoice.id, true)}>
+              <a
+                href={api.invoicePdfUrl(invoice.id, true)}
+                onClick={() => {
+                  setDownloaded(true);
+                  onDownload();
+                }}
+              >
                 <Download aria-hidden strokeWidth={1.75} />
                 Download PDF
               </a>
@@ -230,8 +255,13 @@ function Loaded({
       </header>
       <div className="flex flex-col gap-1 pt-1 pb-6">
         <p className="type-support text-muted">
-          {statusHint(invoice.status, invoice.dueDate)}
+          {changed
+            ? 'Download the new PDF, send it from your own address, then mark it sent.'
+            : statusHint(invoice.status, invoice.dueDate, invoice)}
         </p>
+        {changed ? (
+          <Changed change={changed} currency={invoice.currency} />
+        ) : null}
         {/* The document is the paid tier; the records never are, and saying
             so here keeps the two rules from reading as one. */}
         {invoice.canDownload === false ? (
@@ -262,7 +292,11 @@ function Loaded({
         updating={!invoice.lineItems}
         paymentTerms={invoice.paymentTerms}
         notes={invoice.notes}
-        footnote="Rates are frozen at generation — editing a client or project later never changes this invoice."
+        footnote={
+          isDraft
+            ? 'A draft follows its period’s work and current rates until you mark it sent.'
+            : 'Rates are frozen once sent — editing a client or project later never changes this invoice.'
+        }
       />
 
       <MarkPaidDialog {...markPaid.dialog} />
@@ -270,15 +304,54 @@ function Loaded({
   );
 }
 
-function statusHint(status: InvoiceStatus, due: string | null): string {
+function statusHint(
+  status: InvoiceStatus,
+  due: string | null,
+  period: { periodStart: string; periodEnd: string },
+): string {
   if (status === 'draft')
-    return 'Download it, send it from your own address, then mark it sent.';
+    return `It keeps collecting ${shortDate(period.periodStart)} – ${shortDate(period.periodEnd)} until you mark it sent. Download it, send it from your own address, then mark it sent.`;
   if (status === 'sent')
     return due
       ? `Awaiting payment. Due ${shortDate(due)}.`
       : 'Awaiting payment.';
   if (status === 'paid') return 'Settled.';
   return 'Voided. The number stays on record so numbering is gapless, and the entries were released for re-billing.';
+}
+
+/** What moved since the PDF the client may already hold. No button: the
+    header's Download PDF is the one action, and this says why Mark sent
+    waits for it. */
+function Changed({
+  change,
+  currency,
+}: {
+  change: DraftChange;
+  currency: string;
+}) {
+  const added = change.hours.to - change.hours.from;
+  return (
+    <div
+      role="status"
+      className="mt-3 flex flex-col gap-0.5 rounded-md border border-edge-default border-l-[3px] border-l-warning bg-surface-elevated px-3.5 py-3"
+    >
+      <p className="type-body text-strong">Changed since you downloaded it</p>
+      <p className="type-support text-muted">
+        {added === 0
+          ? 'Its lines changed'
+          : `${formatHours(Math.abs(added))}h ${added > 0 ? 'added' : 'removed'}`}{' '}
+        · total{' '}
+        <s className="text-subtle">
+          {formatCurrency(change.total.from, currency)}
+        </s>{' '}
+        →{' '}
+        <span className="text-strong">
+          {formatCurrency(change.total.to, currency)}
+        </span>
+        . Download the new PDF to mark it sent.
+      </p>
+    </div>
+  );
 }
 
 /** Whatever went wrong last, in the user's terms. */

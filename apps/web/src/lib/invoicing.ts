@@ -1,5 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ApiError } from './errors';
+import {
+  ApiError,
+  isEntryClaimConflict,
+  isExpenseClaimConflict,
+} from './errors';
 import {
   CLIENT_COLUMNS,
   INVOICE_COLUMNS,
@@ -17,11 +21,18 @@ import { selectAll } from './select-all';
 import { entitlement } from './billing';
 import {
   addDays,
+  attachedSchedules,
+  buildLineItems,
+  buildSchedules,
   documentOpens,
+  draftSnapshot,
+  newLines,
+  pickSchedules,
   resolvePaymentProfile,
+  snapshotChanged,
   startOfLocalDate,
 } from '@stint/core';
-import type { BillableEntry, ExpenseInput } from '@stint/core';
+import type { BillableEntry, ExpenseInput, LineItem } from '@stint/core';
 
 /** numeric columns arrive from PostgREST as strings. */
 const num = (v: string | number | null | undefined): number | null =>
@@ -66,6 +77,8 @@ export async function loadBillableEntries(
     tz: string;
     userDefaultRate: number | null;
     clientRate: number | null;
+    /** A draft being refreshed: what it already holds is billable to it. */
+    heldBy?: string;
   },
 ): Promise<BillableEntry[]> {
   const { data: projects, error: projectError } = await db
@@ -84,20 +97,26 @@ export async function loadBillableEntries(
   const startInstant = startOfLocalDate(opts.periodStart, opts.tz);
   const endExclusive = startOfLocalDate(addDays(opts.periodEnd, 1), opts.tz);
 
-  const rows = await selectAll(() =>
-    db
-      .from('time_entries')
-      .select(
-        'id, task_name, project_id, started_at, duration_seconds, is_billable, rate_override',
+  const select = (held: string | null) =>
+    selectAll(() => {
+      const q = db
+        .from('time_entries')
+        .select(
+          'id, task_name, project_id, started_at, duration_seconds, is_billable, rate_override',
+        )
+        .in('project_id', [...byId.keys()]);
+      return (held ? q.eq('invoice_id', held) : q.is('invoice_id', null))
+        .eq('invoiced_elsewhere', false)
+        .not('ended_at', 'is', null)
+        .gte('started_at', startInstant.toISOString())
+        .lt('started_at', endExclusive.toISOString())
+        .order('started_at', { ascending: true });
+    });
+  const rows = opts.heldBy
+    ? [...(await select(null)), ...(await select(opts.heldBy))].sort((a, b) =>
+        (a.started_at as string).localeCompare(b.started_at as string),
       )
-      .in('project_id', [...byId.keys()])
-      .is('invoice_id', null)
-      .eq('invoiced_elsewhere', false)
-      .not('ended_at', 'is', null)
-      .gte('started_at', startInstant.toISOString())
-      .lt('started_at', endExclusive.toISOString())
-      .order('started_at', { ascending: true }),
-  );
+    : await select(null);
 
   return rows.map((row) => {
     const project = byId.get(row.project_id as string);
@@ -129,20 +148,35 @@ export async function loadBillableEntries(
  */
 export async function loadBillableExpenses(
   db: SupabaseClient,
-  opts: { clientId: string; periodEnd: string; excludedIds: string[] },
+  opts: {
+    clientId: string;
+    periodEnd: string;
+    excludedIds: string[];
+    /** A draft being refreshed: what it already holds is billable to it. */
+    heldBy?: string;
+  },
 ): Promise<Array<ExpenseInput & { recurring: boolean }>> {
-  const { data, error } = await db
-    .from('expenses')
-    .select('id, recurring, spent_on, description, amount')
-    .eq('client_id', opts.clientId)
-    .is('invoice_id', null)
-    .order('spent_on', { ascending: true })
-    .order('created_at', { ascending: true });
-
-  if (error) throw error;
+  const select = (held: string | null) => {
+    const q = db
+      .from('expenses')
+      .select('id, recurring, spent_on, description, amount, created_at')
+      .eq('client_id', opts.clientId);
+    return held ? q.eq('invoice_id', held) : q.is('invoice_id', null);
+  };
+  const results = await Promise.all(
+    opts.heldBy ? [select(null), select(opts.heldBy)] : [select(null)],
+  );
+  for (const r of results) if (r.error) throw r.error;
+  const data = results
+    .flatMap((r) => r.data ?? [])
+    .sort(
+      (a, b) =>
+        String(a.spent_on).localeCompare(String(b.spent_on)) ||
+        String(a.created_at).localeCompare(String(b.created_at)),
+    );
 
   const excluded = new Set(opts.excludedIds);
-  return (data ?? [])
+  return data
     .filter(
       (row) =>
         (row.recurring || (row.spent_on as string) <= opts.periodEnd) &&
@@ -245,42 +279,53 @@ export async function loadPaymentProfile(
 }
 
 /**
- * Assembles everything the PDF needs from an invoice's FROZEN line items.
+ * Assembles everything the PDF needs from an invoice's stored line items.
  *
- * Never recomputed from time entries: re-downloading an invoice a year later
- * must produce the same document even if rates have since changed.
+ * An issued invoice's are FROZEN: re-downloading it a year later must
+ * produce the same document even if rates have since changed. A draft's are
+ * refreshed first, since it collects its period's work until it is sent.
  */
-export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
-  const { data: row, error } = await db
+export async function loadPdfData(
+  db: SupabaseClient,
+  invoiceId: string,
+  /** `rendering` records what a draft's PDF showed, once it may open. */
+  opts: { tz?: string; rendering?: boolean } = {},
+) {
+  const { data: stored, error } = await db
     .from('invoices')
     .select(INVOICE_COLUMNS)
     .eq('id', invoiceId)
     .maybeSingle();
 
   if (error) throw error;
-  if (!row) throw new ApiError('ENTRY_NOT_FOUND', 'Invoice not found');
+  if (!stored) throw new ApiError('ENTRY_NOT_FOUND', 'Invoice not found');
 
-  const invoice = toInvoice(row as InvoiceRow);
-
-  const [items, settings, billing] = await Promise.all([
-    selectAll(() =>
-      db
-        .from('invoice_line_items')
-        .select(LINE_ITEM_COLUMNS)
-        .eq('invoice_id', invoiceId)
-        .order('sort_order', { ascending: true }),
-    ),
+  const [settings, billing] = await Promise.all([
     loadSettings(db),
     entitlement(db),
   ]);
+  const canDownload = documentOpens(
+    billing.available,
+    billing.plan,
+    (stored as InvoiceRow).issued_subscription_status,
+  );
+  // A draft is drawn as its period's work is now.
+  const { row, lines } = await refreshDraft(db, stored as InvoiceRow, opts.tz, {
+    rendering: opts.rendering && canDownload,
+  });
+  const invoice = toInvoice(row);
+  const items = await selectAll(() =>
+    db
+      .from('invoice_line_items')
+      .select(LINE_ITEM_COLUMNS)
+      .eq('invoice_id', invoiceId)
+      .order('sort_order', { ascending: true }),
+  );
 
   return {
     invoice,
-    canDownload: documentOpens(
-      billing.available,
-      billing.plan,
-      (row as InvoiceRow).issued_subscription_status,
-    ),
+    canDownload,
+    draft: draftChange(row, lines),
     pdfData: {
       invoiceNumber: invoice.invoiceNumber,
       status: invoice.status,
@@ -306,5 +351,146 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
       paymentNotice: settings.paymentNotice,
       supportingDetail: invoice.supportingDetail,
     },
+  };
+}
+
+/**
+ * Rebuilds a draft from its client and period as they are now, keeping every
+ * choice the user made on New invoice, and writes it through `refresh_draft`
+ * in one transaction. A draft keeps collecting its period's work until it is
+ * sent, so every read of one goes through here; `sentAt` sends it in the
+ * same call, so what freezes is exactly what was computed.
+ *
+ * A draft made before drafts refreshed has no zone until a read supplies
+ * one, and isn't refreshed without it. One with an unrated entry is left as
+ * last refreshed, and refused only when it is being sent.
+ */
+export async function refreshDraft(
+  db: SupabaseClient,
+  row: InvoiceRow,
+  requestTz: string | undefined,
+  opts: { sentAt?: string; rendering?: boolean } = {},
+): Promise<{ row: InvoiceRow; lines: LineItem[] | null }> {
+  const tz = row.tz ?? requestTz;
+  if (row.status !== 'draft' || !tz) return { row, lines: null };
+
+  const [client, settings, stored] = await Promise.all([
+    loadClient(db, row.client_id),
+    loadSettings(db),
+    selectAll(() =>
+      db
+        .from('invoice_line_items')
+        .select(LINE_ITEM_COLUMNS)
+        .eq('invoice_id', row.id)
+        .eq('unit', 'fixed')
+        .order('sort_order', { ascending: true }),
+    ),
+  ]);
+  const clientRate =
+    client.hourly_rate == null ? null : Number(client.hourly_rate);
+
+  const [entries, expenses] = await Promise.all([
+    loadBillableEntries(db, {
+      clientId: row.client_id,
+      periodStart: row.period_start,
+      periodEnd: row.period_end,
+      tz,
+      userDefaultRate: settings.defaultHourlyRate,
+      clientRate,
+      heldBy: row.id,
+    }),
+    loadBillableExpenses(db, {
+      clientId: row.client_id,
+      periodEnd: row.period_end,
+      excludedIds: row.excluded_expense_ids,
+      heldBy: row.id,
+    }),
+  ]);
+
+  const totals = buildLineItems(entries, {
+    groupingMode: row.grouping_mode,
+    summaryText: row.summary_text ?? undefined,
+    taxRate: client.tax_rate == null ? 0 : Number(client.tax_rate),
+    tz,
+    manualLines: stored.map((r) => {
+      const l = toLineItem(r as LineItemRow);
+      return { description: l.description, amount: l.amount ?? 0 };
+    }),
+    expenses,
+  });
+
+  if (totals.unratedEntryIds.length > 0) {
+    if (!opts.sentAt) return { row, lines: null };
+    throw new ApiError(
+      'NO_RATE_CONFIGURED',
+      'Some billable entries in this period have no rate. Set one before marking it sent.',
+      { unratedEntryIds: totals.unratedEntryIds },
+    );
+  }
+
+  const now = draftSnapshot(totals.lineItems, totals.total);
+  const change = snapshotChanged(row.downloaded_snapshot, now);
+  if (opts.sentAt && change)
+    throw new ApiError(
+      'DRAFT_CHANGED',
+      'This draft changed since you downloaded it. Download the new PDF, send that one, then mark it sent.',
+      change,
+    );
+
+  const { data, error } = await db.rpc('refresh_draft', {
+    p_invoice_id: row.id,
+    p_invoice: {
+      subtotal: totals.subtotal,
+      tax_rate: totals.taxRate,
+      tax_amount: totals.taxAmount,
+      expenses_subtotal: totals.expensesSubtotal,
+      total: totals.total,
+      supporting_detail: pickSchedules(
+        buildSchedules(entries, {
+          tz,
+          periodStart: row.period_start,
+          periodEnd: row.period_end,
+        }),
+        attachedSchedules(row.supporting_detail),
+      ),
+      tz,
+      ...(opts.rendering ? { downloaded_snapshot: now } : {}),
+      lines: totals.lineItems.map((li) => ({
+        description: li.description,
+        unit: li.unit,
+        quantity: li.quantity,
+        unit_price: li.unitPrice,
+        amount: li.amount,
+        spent_on: li.spentOn ?? null,
+      })),
+    },
+    p_entry_ids: totals.lineItems.flatMap((li) => li.entryIds),
+    p_expense_ids: expenses.filter((e) => !e.recurring).map((e) => e.id),
+    p_sent_at: opts.sentAt ?? null,
+  });
+  if (error) {
+    if (isExpenseClaimConflict(error) || isEntryClaimConflict(error))
+      throw new ApiError(
+        'ENTRY_ALREADY_INVOICED',
+        'Work in this period was billed on another invoice at the same moment. Open the draft again.',
+      );
+    throw error;
+  }
+  return {
+    row: (Array.isArray(data) ? data[0] : data) as InvoiceRow,
+    lines: totals.lineItems,
+  };
+}
+
+/** Which of a draft's lines its last render lacked, and how it moved since;
+ *  nothing for an invoice that isn't a draft. */
+export function draftChange(row: InvoiceRow, lines: LineItem[] | null) {
+  if (row.status !== 'draft' || !lines) return { isNew: null, change: null };
+  return {
+    isNew: newLines(row.downloaded_snapshot, lines),
+    change: snapshotChanged(
+      row.downloaded_snapshot,
+      draftSnapshot(lines, Number(row.total)),
+    ),
   };
 }

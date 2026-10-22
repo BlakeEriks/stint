@@ -55,6 +55,40 @@ export const Draft: Story = {
   },
 };
 export const DraftPhone: Story = { ...phone };
+
+/* The draft as the server sends it once work landed after its PDF. */
+const changed = paying((db) => {
+  const draft = db.invoices.find((i) => i.id === invoice(15));
+  if (!draft) return;
+  draft.changedSinceDownload = {
+    hours: { from: 18.4, to: 20.9 },
+    total: { from: 2512.6, to: 2787.6 },
+  };
+  const line = draft.lineItems[0];
+  if (line) line.isNew = true;
+});
+
+/** Work landed after the PDF was downloaded: the banner says what moved,
+    Mark sent waits for the new PDF, and the new line is tinted. */
+export const DraftChanged: Story = {
+  ...desktop,
+  parameters: changed,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByText('Changed since you downloaded it'),
+    ).toBeVisible();
+    await expect(page.getByText(/2\.50h added/)).toBeVisible();
+    await expect(page.getByText('$2,512.60')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Mark sent' }),
+    ).toBeDisabled();
+    await expect(
+      page.getByText('Type scale for the brand site').closest('tr'),
+    ).toHaveClass(/bg-warning-muted/);
+  },
+};
+export const DraftChangedPhone: Story = { ...phone, parameters: changed };
 /** Where it stands is one line under the title, and an issued invoice is
     the invoice, not a preview of it. */
 export const Sent: Story = {

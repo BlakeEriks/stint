@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { localDateKey } from '@stint/core';
 import { account } from '@/mocks/db';
-import type { Db } from '@/mocks/fixtures';
+import { ids, type Db } from '@/mocks/fixtures';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { desktop, expectOpen, stalled, tablet } from '@/mocks/screen';
 import { ZONE } from '@/mocks/time.mts';
@@ -105,6 +105,40 @@ export const BilledOverlap: Story = {
     await expect(
       page.getByRole('button', { name: 'Edit Client call and follow-ups' }),
     ).toBeVisible();
+  },
+};
+
+/** Work dated in a period already sent is billed nowhere, so it waits here
+    with the invoice whose period it falls in. */
+export const LateEntry: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    const northwind = new Set(
+      db.projects.filter((p) => p.clientId === ids.northwind).map((p) => p.id),
+    );
+    const late = db.entries.find(
+      (e) =>
+        e.invoiceId == null &&
+        e.endedAt &&
+        e.isBillable &&
+        e.projectId &&
+        northwind.has(e.projectId),
+    );
+    if (!late) return;
+    late.taskName = 'Forgot to log';
+    late.startedAt = '2026-08-10T15:00:00.000Z';
+    late.endedAt = '2026-08-10T17:30:00.000Z';
+    late.durationSeconds = 9000;
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      await page.findByText(/in STINT-0013's period, already sent/),
+    ).toBeVisible();
+    // Its row opens the entry, where it can be marked not billable.
+    await expect(
+      page.getAllByRole('button', { name: 'Edit Forgot to log' }).length,
+    ).toBeGreaterThan(0);
   },
 };
 

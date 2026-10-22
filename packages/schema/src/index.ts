@@ -436,6 +436,12 @@ export const StoredLineItem = InvoiceLineItem.extend({
   sortOrder: z.number().int().nonnegative(),
 });
 
+const Change = z.object({ from: z.number(), to: z.number() });
+
+/** How a draft moved since its PDF was last rendered: what Mark sent's
+ *  `DRAFT_CHANGED` carries, and the detail's `changedSinceDownload`. */
+export const DraftChange = z.object({ hours: Change, total: Change });
+
 export const InvoicePreview = z.object({
   clientId: uuid,
   /** Echoed back so the approval screen names the client it priced, rather
@@ -642,7 +648,11 @@ export const ListExpensesQuery = z.object({
   status: z.enum(['open', 'unbilled']).default('open'),
 });
 
-export const ListInvoicesQuery = z.object({
+/** A draft is refreshed on every read, in the zone its period's dates are
+ *  read in; one made before drafts refreshed learns it from the first read. */
+export const InvoiceReadQuery = z.object({ tz: timeZone.optional() });
+
+export const ListInvoicesQuery = InvoiceReadQuery.extend({
   clientId: uuid.optional(),
   status: InvoiceStatus.optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
@@ -885,6 +895,22 @@ export const Stats = z.object({
         ageDays: z.number().int(),
       }),
     ),
+    /** Unbilled billable work dated inside a sent or paid invoice's period
+     *  for its client, oldest first: billed nowhere until the user says. */
+    lateEntries: z.array(
+      z.object({
+        entryId: uuid,
+        taskName: z.string(),
+        startedAt: z.iso.datetime(),
+        hours: z.number().nonnegative(),
+        clientId: uuid,
+        clientName: z.string().nullable(),
+        invoiceId: uuid,
+        invoiceNumber: z.string(),
+        periodStart: z.iso.date(),
+        periodEnd: z.iso.date(),
+      }),
+    ),
     /** One row per entry, oldest first. Empty array, never null. */
     unprojected: z.array(
       z.object({
@@ -1033,6 +1059,8 @@ export const ErrorCode = z.enum([
   'EXPENSE_ALREADY_INVOICED',
   'ENTRY_ALREADY_INVOICED',
   'INVOICE_STATUS_CHANGED',
+  'DRAFT_CHANGED',
+  'DRAFT_OVERLAPS',
   'ENTRY_NOT_FOUND',
   'NO_RATE_CONFIGURED',
   'INVALID_PERIOD',
@@ -1076,6 +1104,7 @@ export type CalendarDay = z.infer<typeof CalendarDay>;
 export type InvoiceLineItem = z.infer<typeof InvoiceLineItem>;
 export type ComputedLineItem = z.infer<typeof ComputedLineItem>;
 export type StoredLineItem = z.infer<typeof StoredLineItem>;
+export type DraftChange = z.infer<typeof DraftChange>;
 export type ApiError = z.infer<typeof ApiError>;
 export type CreateFeedback = z.infer<typeof CreateFeedback>;
 export type Billing = z.infer<typeof Billing>;

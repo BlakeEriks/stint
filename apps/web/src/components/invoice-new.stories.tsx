@@ -191,6 +191,36 @@ export const NoScheduleNoHint: Story = {
   },
 };
 
+/** Byrne's August draft is open, so a period reaching into August says
+    which draft holds those dates and Generate waits. */
+export const OverlapsDraft: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(await page.findByRole('button', { name: 'Client' }));
+    await userEvent.click(
+      await page.findByRole('menuitemradio', { name: /Byrne/ }),
+    );
+    await waitFor(() => expect(page.queryByRole('menu')).toBeNull());
+    await userEvent.clear(page.getByLabelText('From'));
+    await userEvent.type(page.getByLabelText('From'), '2026-08-20');
+    await expect(
+      await page.findByText(
+        (_, el) =>
+          el?.tagName === 'P' &&
+          /^A draft already covers Aug 1.*for Byrne Studio: STINT-0015\./.test(
+            el.textContent ?? '',
+          ),
+      ),
+    ).toBeVisible();
+    await expect(page.getByRole('link', { name: 'STINT-0015' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Generate invoice' }),
+    ).toBeDisabled();
+  },
+};
+
 /** A client chosen: the card is the invoice as the PDF prints it, and
     follows the form without a Preview button (US3 scenario 1). Northwind
     has an address and email, so the Client field offers no Edit client. */
