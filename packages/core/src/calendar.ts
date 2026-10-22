@@ -296,12 +296,12 @@ export function localDateTimeToInstant(
   return guess;
 }
 
-/** `date` stepped `n` days on the calendar rather than in milliseconds. */
 /** Days in month `m` (1–12) of year `y`: day 0 of the next month is the
  *  last day of this one. */
 export const daysInMonth = (y: number, m: number): number =>
   new Date(Date.UTC(y, m, 0)).getUTCDate();
 
+/** `date` stepped `n` days on the calendar rather than in milliseconds. */
 export function addDays(date: string, n: number): string {
   const [y = 0, m = 1, d = 1] = date.split('-').map(Number);
   const next = new Date(Date.UTC(y, m - 1, d + n));
