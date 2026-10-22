@@ -19,6 +19,13 @@ dated in a period that's already been sent goes to the inbox, never onto the
 next invoice silently. Auto-drafting (#434) depends on this. Builds on the
 billing schedule (#432), and must also work for a client with no schedule.
 
+## Clarifications
+
+### Session 2026-10-22
+
+- Q: What happens when a new invoice's dates overlap an open draft for the same client? → A: New invoice says a draft already covers those dates, links to it, and Generate stays disabled until they no longer overlap.
+- Q: What does Mark sent do when the draft changed since its last download? → A: It warns, shows what changed (hours and total), and asks for the new PDF to be downloaded before the draft can be marked sent.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - A draft picks up work logged after it was made (Priority: P1)
@@ -48,6 +55,9 @@ see the draft's lines, hours and total include it.
    unless the contractor left that expense off on New invoice.
 5. **Given** a draft, **When** an entry dated outside its period is logged,
    **Then** the draft doesn't change.
+6. **Given** an open draft for Oct 1–15, **When** New invoice is set to the
+   same client and Oct 10–31, **Then** it says a draft already covers those
+   dates, links to it, and Generate is disabled.
 
 ---
 
@@ -68,9 +78,13 @@ period, and see the invoice unchanged.
 1. **Given** a draft, **When** it is marked sent, **Then** its contents are
    exactly what the contractor last saw, and nothing logged afterwards
    changes it.
-2. **Given** a sent invoice, **When** an entry it bills is opened, **Then**
+2. **Given** a draft downloaded before an entry was logged in its period,
+   **When** the contractor presses Mark sent, **Then** it says the draft
+   changed, shows the added hours and the new total, and marks it sent only
+   after the new PDF is downloaded.
+3. **Given** a sent invoice, **When** an entry it bills is opened, **Then**
    the entry is read-only, as today.
-3. **Given** a sent invoice is voided, **Then** its entries and expenses are
+4. **Given** a sent invoice is voided, **Then** its entries and expenses are
    unbilled again, as today.
 
 ---
@@ -149,15 +163,18 @@ and see it in the inbox.
   invoice.
 - **FR-005**: An entry or expense MUST belong to at most one invoice once
   sent; a draft never takes work another sent invoice bills.
-- **FR-006**: The contractor MUST NOT be able to create a second draft for a
-  client whose period overlaps an open draft's [NEEDS CLARIFICATION: refuse
-  the second draft, or open the existing one instead?].
+- **FR-006**: A client MUST have at most one open draft covering any date.
+  When New invoice's dates overlap an open draft for the chosen client, it
+  MUST say so, link to that draft, and keep Generate disabled until the
+  dates no longer overlap; the server MUST refuse an overlapping draft too.
 - **FR-007**: An unbilled billable entry dated inside a sent invoice's period
   for the same client MUST appear in the inbox.
 - **FR-008**: The draft's number MUST stay the one it was given when created.
 - **FR-009**: If the draft's contents changed after the contractor last
-  downloaded it, marking it sent MUST [NEEDS CLARIFICATION: warn and offer the
-  new PDF before freezing, or freeze silently what is current?].
+  downloaded it, Mark sent MUST say so, show the change in hours and total,
+  and require the new PDF to be downloaded before the draft can be marked
+  sent, so the frozen invoice is the one the client received. A draft never
+  downloaded can be marked sent as today.
 - **FR-010**: Every client (web and macOS) MUST read drafts and mark them
   sent through the same API.
 
