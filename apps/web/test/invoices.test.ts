@@ -32,6 +32,10 @@ after(async () => {
 });
 
 beforeEach(async () => {
+  await pool.query('delete from subscriptions');
+  // Billing starts unconfigured, as every deploy does; `configureBilling()`
+  // turns it on per test.
+  for (const k of STRIPE_ENV) delete process.env[k];
   await pool.query('update expenses set invoice_id = null');
   await pool.query('delete from expenses');
   await pool.query('update time_entries set invoice_id = null');
@@ -44,7 +48,8 @@ beforeEach(async () => {
   await pool.query(
     `update user_settings set default_hourly_rate=100, currency='USD',
      invoice_number_prefix='INV-', next_invoice_number=1,
-     default_payment_terms='Net 30', business_name='Blake Eriks'
+     default_payment_terms='Net 30', business_name='Sam Rivera',
+     business_email='sam@test'
      where user_id=$1`,
     [USER],
   );
@@ -101,6 +106,12 @@ async function seedEntry(opts: {
     ],
   );
 }
+
+const STRIPE_ENV = [
+  'STRIPE_SECRET_KEY',
+  'STRIPE_PRICE_ID',
+  'STRIPE_WEBHOOK_SECRET',
+] as const;
 
 const PERIOD = { periodStart: '2026-09-01', periodEnd: '2026-09-30' };
 const E = (n: number) => `018f0000-0000-7000-8000-00000000000${n}`;
@@ -284,6 +295,37 @@ test('generation leaves a running timer unbilled, though Unbilled counts it', as
     [E(2)],
   );
   assert.equal(rows[0].invoice_id, null);
+});
+
+/* The business name and email head every invoice; one without them is a
+   document with no sender. New invoice disables Generate too, but the
+   server is the rule (Constitution III). */
+test('generation refuses without a business name or email, and writes nothing', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1), hours: 1 });
+
+  for (const [name, email] of [
+    [null, 'sam@test'],
+    ['  ', 'sam@test'],
+    ['Sam Rivera', null],
+  ]) {
+    await pool.query(
+      'update user_settings set business_name=$2, business_email=$3 where user_id=$1',
+      [USER, name, email],
+    );
+    const res = await json(
+      await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+    );
+    assert.equal(res.status, 422, `${name} / ${email}`);
+    assert.equal(res.body.code, 'VALIDATION_FAILED');
+  }
+
+  const { rows } = await pool.query(
+    'select count(*)::int n, (select next_invoice_number from user_settings where user_id=$1) next from invoices',
+    [USER],
+  );
+  assert.equal(rows[0].n, 0, 'no invoice was created');
+  assert.equal(rows[0].next, 1, 'and no number was spent');
 });
 
 test('preview honors the period boundaries inclusively', async () => {
@@ -666,6 +708,30 @@ test('a summary is refused without its text', async () => {
   assert.equal(rows[0].n, 0);
 });
 
+test('an invoice id that is not a uuid is 404, not 500', async () => {
+  const { GET: detail } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  const id = 'not-an-id';
+  const res = await json(
+    await detail(req(`/invoices/${id}`), { params: Promise.resolve({ id }) }),
+  );
+  assert.equal(res.status, 404);
+  assert.equal(res.body.code, 'ENTRY_NOT_FOUND');
+});
+
+test('any record id that is not a uuid is 404, not 500', async () => {
+  const { GET: entry } = await import(
+    '../src/app/api/v1/entries/[id]/route.ts'
+  );
+  const id = 'not-an-id';
+  const res = await json(
+    await entry(req(`/entries/${id}`), { params: Promise.resolve({ id }) }),
+  );
+  assert.equal(res.status, 404);
+  assert.equal(res.body.code, 'ENTRY_NOT_FOUND');
+});
+
 test('a summary invoice stores its text and reads back as issued', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   const { GET: detail } = await import(
@@ -839,10 +905,11 @@ test('frozen detail survives a project rename and a void', async () => {
   );
   const params = { params: Promise.resolve({ id: inv.body.id }) };
 
+  // Sent first: a draft follows its period's work until then.
+  await setStatus(req('/s', { status: 'sent' }, 'PATCH'), params);
   await pool.query(`update projects set name = 'Renamed' where id = $1`, [
     PROJECT,
   ]);
-  await setStatus(req('/s', { status: 'sent' }, 'PATCH'), params);
   await setStatus(req('/s', { status: 'void' }, 'PATCH'), params);
 
   const read = await json(
@@ -858,7 +925,8 @@ test('supporting detail prints from page 2', async () => {
     '../src/app/api/v1/invoices/[id]/pdf/route.ts'
   );
   const pages = async (schedules: string[]) => {
-    await pool.query('update time_entries set invoice_id = null');
+    // One open draft per client and date: the last one goes, releasing its work.
+    await pool.query('delete from invoices');
     const inv = await json(
       await create(
         req('/invoices', {
@@ -917,11 +985,10 @@ test('every page is US Letter, and no detail page overflows', async () => {
     notes: null,
     paymentTerms: null,
     business: {
-      name: 'Blake Eriks',
+      name: 'Sam Rivera',
       address: null,
       email: null,
       logoUrl: null,
-      taxId: null,
     },
     client: { name: 'Northwind', email: null, address: null },
     lineItems: [],
@@ -941,7 +1008,7 @@ test('every page is US Letter, and no detail page overflows', async () => {
 test('a reference is trimmed and stored, and a blank one is none', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   const make = async (reference?: string) => {
-    await pool.query('update time_entries set invoice_id = null');
+    await pool.query('delete from invoices');
     return json(
       await create(
         req('/invoices', { clientId: CLIENT, ...PERIOD, reference }),
@@ -1168,7 +1235,7 @@ test('detail returns the frozen line items with the client', async () => {
     await detail(req('/i'), { params: Promise.resolve({ id: inv.body.id }) }),
   );
   assert.equal(res.status, 200);
-  assert.equal(res.body.client.name, 'Northwind');
+  assert.equal(res.body.billTo.name, 'Northwind');
   assert.equal(res.body.lineItems.length, 1);
   assert.equal(res.body.lineItems[0].quantity, 2);
   assert.equal(res.body.lineItems[0].unitPrice, 150);
@@ -1237,11 +1304,10 @@ test('every page of a long invoice shows its footer at the bottom', async () => 
     notes: null,
     paymentTerms: null,
     business: {
-      name: 'Blake Eriks',
+      name: 'Sam Rivera',
       address: null,
       email: null,
       logoUrl: null,
-      taxId: null,
     },
     client: { name: 'Northwind', email: null, address: null },
     lineItems: Array.from({ length: 60 }, (_, i) => ({
@@ -1432,7 +1498,7 @@ test('the payment details chosen on the form are the ones frozen', async () => {
   );
   await seedEntry({ id: E(1) });
   const make = async (paymentProfileId?: string) => {
-    await pool.query('update time_entries set invoice_id = null');
+    await pool.query('delete from invoices');
     return json(
       await create(
         req('/invoices', { clientId: CLIENT, ...PERIOD, paymentProfileId }),
@@ -1462,7 +1528,7 @@ test('an invoice freezes the payment profile at generation', async () => {
   await pool.query(
     `insert into payment_profiles (id,user_id,name,is_default,account_holder_name,
        bank_name,account_number,routing_number,account_type)
-     values ($1,$2,'USD ACH',true,'Blake Eriks','First Republic','1234567890','021000021','checking')`,
+     values ($1,$2,'USD ACH',true,'Sam Rivera','First Republic','1234567890','021000021','checking')`,
     ['dd000000-0000-4000-8000-000000000001', USER],
   );
   await seedEntry({ id: E(1), hours: 1 });
@@ -1509,6 +1575,67 @@ test('an invoice freezes the payment profile at generation', async () => {
     (f) => f.label === 'Account number',
   )!;
   assert.equal(acct.value, '1234567890', 'the frozen snapshot did not move');
+});
+
+test('an invoice freezes the business and client details at generation', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { GET: detail } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  const { GET: pdf } = await import(
+    '../src/app/api/v1/invoices/[id]/pdf/route.ts'
+  );
+
+  await pool.query(
+    `update user_settings set business_address='1 Old St', business_email='old@me.test'
+     where user_id=$1`,
+    [USER],
+  );
+  await pool.query(`update clients set address='9 Bay Rd' where id=$1`, [
+    CLIENT,
+  ]);
+  await seedEntry({ id: E(1), hours: 1 });
+  const inv = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(inv.status, 201);
+
+  await pool.query(
+    `update user_settings set business_name='Renamed LLC', business_address='2 New Ave',
+       business_email='new@me.test'
+     where user_id=$1`,
+    [USER],
+  );
+  await pool.query(
+    `update clients set name='Southwind', email='new@southwind.test', address='5 Moved Ln'
+     where id=$1`,
+    [CLIENT],
+  );
+
+  const params = { params: Promise.resolve({ id: inv.body.id }) };
+  const read = await json(await detail(req('/i'), params));
+  assert.deepEqual(read.body.business, {
+    name: 'Sam Rivera',
+    address: '1 Old St',
+    email: 'old@me.test',
+    logoUrl: null,
+  });
+  assert.deepEqual(read.body.billTo, {
+    name: 'Northwind',
+    email: 'ap@northwind.test',
+    address: '9 Bay Rd',
+  });
+
+  const printed = pdfText(
+    new Uint8Array(await (await pdf(req('/pdf'), params)).arrayBuffer()),
+  )
+    .flat()
+    .map((r) => r.text)
+    .join('');
+  for (const kept of ['Sam Rivera', '1 Old St', 'Northwind', '9 Bay Rd'])
+    assert.ok(printed.includes(kept), `the PDF still prints ${kept}`);
+  for (const edited of ['Renamed LLC', '2 New Ave', 'Southwind', '5 Moved Ln'])
+    assert.ok(!printed.includes(edited), `the PDF never prints ${edited}`);
 });
 
 test('a client profile preference overrides the user default', async () => {
@@ -1600,7 +1727,11 @@ test('a profile can be read back by id', async () => {
 
   const made = await json(
     await createProfile(
-      req('/pp', { name: 'ACH', accountNumber: '111', routingNumber: '999' }),
+      req('/pp', {
+        name: 'ACH',
+        accountNumber: '111',
+        routingNumber: '021000021',
+      }),
     ),
   );
   const got = await json(await GET(req('/pp'), ctx(made.body.id)));
@@ -1610,7 +1741,7 @@ test('a profile can be read back by id', async () => {
   /* The camelCase boundary is `rows.ts`, and nothing type-checks it for
      payment profiles — a renamed column surfaces as undefined here. */
   assert.equal(got.body.accountNumber, '111');
-  assert.equal(got.body.routingNumber, '999');
+  assert.equal(got.body.routingNumber, '021000021');
 });
 
 test('an unknown profile id is 404, not an empty 200', async () => {
@@ -1668,7 +1799,11 @@ test('editing a profile leaves an already-issued invoice alone', async () => {
 
   const profile = await json(
     await createProfile(
-      req('/pp', { name: 'ACH', accountNumber: '111', routingNumber: '999' }),
+      req('/pp', {
+        name: 'ACH',
+        accountNumber: '111',
+        routingNumber: '021000021',
+      }),
     ),
   );
   await seedEntry({ id: E(1) });
@@ -1678,7 +1813,7 @@ test('editing a profile leaves an already-issued invoice alone', async () => {
   assert.equal(inv.status, 201);
 
   await PATCH(
-    req('/pp', { accountNumber: '222', routingNumber: '888' }, 'PATCH'),
+    req('/pp', { accountNumber: '222', routingNumber: '011000015' }, 'PATCH'),
     ctx(profile.body.id),
   );
 
@@ -1693,7 +1828,7 @@ test('editing a profile leaves an already-issued invoice alone', async () => {
     (rows[0].payment_details.fields as Field[]).find((f) => f.label === label)
       ?.value;
   assert.equal(value('Account number'), '111');
-  assert.equal(value('Routing number (ACH)'), '999');
+  assert.equal(value('Routing number (ACH)'), '021000021');
 });
 
 test('archiving the default hands the default to a survivor', async () => {
@@ -1857,7 +1992,7 @@ test('the invoice detail response matches what the browser expects', async () =>
   assert.equal(typeof res.body.invoiceNumber, 'string');
   assert.equal(typeof res.body.status, 'string');
   assert.ok(Array.isArray(res.body.lineItems), 'line items travel alongside');
-  assert.equal(typeof res.body.client?.name, 'string', 'so does the client');
+  assert.equal(typeof res.body.billTo?.name, 'string', 'so does who it bills');
 
   /* A frozen line has no `rateSource`: it is read back from the database and
      there is no `rate_source` column. The preview and generation paths do
@@ -2662,4 +2797,585 @@ test('an invoice made in the evening west of UTC is dated today, not tomorrow', 
   } finally {
     mock.timers.reset();
   }
+});
+
+// ── the paid tier: the document ───────────────────────────────────
+const configureBilling = () => {
+  process.env.STRIPE_SECRET_KEY = 'sk_test_unused';
+  process.env.STRIPE_PRICE_ID = 'price_yearly';
+  process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
+};
+
+/** The stored subscription mirror the webhook writes, at `status`. */
+const subscribe = (status: string) =>
+  pool.query(
+    `insert into subscriptions (user_id, stripe_customer_id,
+       stripe_subscription_id, status, current_period_end)
+     values ($1, 'cus_me', 'sub_me', $2, now() + interval '1 year')
+     on conflict (user_id) do update set status = excluded.status`,
+    [USER, status],
+  );
+
+let entryNo = 0;
+/** A fresh invoice, generated under whatever plan the user has now. */
+async function generate(): Promise<string> {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const n = ++entryNo;
+  const day = `2026-09-${String(n).padStart(2, '0')}`;
+  await seedEntry({
+    id: `018f0000-0000-7000-8000-0000000f${String(n).padStart(4, '0')}`,
+    start: `${day}T09:00:00Z`,
+  });
+  // A day each, since two open drafts can't share one.
+  const res = await json(
+    await create(
+      req('/invoices', { clientId: CLIENT, periodStart: day, periodEnd: day }),
+    ),
+  );
+  assert.equal(res.status, 201, JSON.stringify(res.body));
+  return res.body.id;
+}
+
+/** Both dispositions, and what the detail route tells the screen. */
+async function opens(id: string) {
+  const { GET: pdf } = await import(
+    '../src/app/api/v1/invoices/[id]/pdf/route.ts'
+  );
+  const { GET: detail } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  const params = { params: Promise.resolve({ id }) };
+  const inline = await pdf(req(`/invoices/${id}/pdf`), params);
+  const saved = await pdf(req(`/invoices/${id}/pdf?download=1`), params);
+  const read = await json(await detail(req(`/invoices/${id}`), params));
+  return {
+    inline: inline.status,
+    download: saved.status,
+    code: inline.status === 402 ? (await inline.json()).code : null,
+    canDownload: read.body.canDownload,
+  };
+}
+
+const OPEN = { inline: 200, download: 200, code: null, canDownload: true };
+const LOCKED = {
+  inline: 402,
+  download: 402,
+  code: 'PAYMENT_REQUIRED',
+  canDownload: false,
+};
+
+test('with billing not set up, every invoice opens, as before', async () => {
+  const id = await generate();
+  assert.deepEqual(await opens(id), OPEN);
+});
+
+test('a free user cannot open the document, saved or viewed', async () => {
+  configureBilling();
+  const id = await generate();
+  assert.deepEqual(await opens(id), LOCKED);
+});
+
+test('previewing and generating stay free', async () => {
+  configureBilling();
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  await seedEntry({ id: E(1) });
+  const res = await preview(
+    req('/invoices/preview', { clientId: CLIENT, ...PERIOD }),
+  );
+  assert.equal(res.status, 200);
+  await generate();
+});
+
+test('a missing invoice is not found, not a paywall', async () => {
+  configureBilling();
+  const { GET: pdf } = await import(
+    '../src/app/api/v1/invoices/[id]/pdf/route.ts'
+  );
+  const res = await pdf(req('/pdf'), {
+    params: Promise.resolve({ id: 'cc000000-0000-4000-8000-0000000000ff' }),
+  });
+  assert.equal(res.status, 404);
+});
+
+test('a paying user opens invoices generated before they paid', async () => {
+  configureBilling();
+  const id = await generate();
+  for (const status of ['active', 'past_due']) {
+    await subscribe(status);
+    assert.deepEqual(await opens(id), OPEN, status);
+  }
+});
+
+test('canceling never locks an invoice generated while paying', async () => {
+  configureBilling();
+  await subscribe('active');
+  const whilePaid = await generate();
+  await subscribe('canceled');
+  const afterwards = await generate();
+
+  assert.deepEqual(await opens(whilePaid), OPEN);
+  assert.deepEqual(await opens(afterwards), LOCKED);
+});
+
+test('an invoice generated while free locks again when the paid plan ends', async () => {
+  configureBilling();
+  const id = await generate();
+  await subscribe('active');
+  assert.deepEqual(await opens(id), OPEN);
+  await subscribe('canceled');
+  assert.deepEqual(await opens(id), LOCKED);
+});
+
+// ── live drafts ───────────────────────────────────────────────────
+/* A draft keeps collecting its period's work until it is marked sent; every
+   read refreshes it. What freezes is what the PDF last showed, and work
+   dated in a period already sent is surfaced, never billed silently. */
+
+const live = async () => ({
+  create: (await import('../src/app/api/v1/invoices/route.ts')).POST,
+  list: (await import('../src/app/api/v1/invoices/route.ts')).GET,
+  detail: (await import('../src/app/api/v1/invoices/[id]/route.ts')).GET,
+  pdf: (await import('../src/app/api/v1/invoices/[id]/pdf/route.ts')).GET,
+  setStatus: (await import('../src/app/api/v1/invoices/[id]/status/route.ts'))
+    .PATCH,
+});
+const at = (id: string) => ({ params: Promise.resolve({ id }) });
+const D = (n: number) =>
+  `018f0000-0000-7000-8000-0000000d${String(n).padStart(4, '0')}`;
+
+test('a draft picks up work logged in its period after it was made', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(inv.body.total, 300);
+
+  await seedEntry({ id: D(2), start: '2026-09-30T20:00:00Z', hours: 1 });
+  await seedEntry({ id: D(3), start: '2026-10-01T09:00:00Z', hours: 5 });
+
+  const got = await json(
+    await r.detail(req(`/invoices/x?tz=UTC`), at(inv.body.id)),
+  );
+  assert.equal(got.status, 200);
+  assert.equal(got.body.total, 450);
+  assert.equal(got.body.changedSinceDownload, null, 'never rendered');
+  const listed = await json(await r.list(req('/invoices?tz=UTC')));
+  assert.equal(listed.body.invoices[0].total, 450);
+
+  const { rows } = await pool.query(
+    'select id, invoice_id from time_entries order by id',
+  );
+  assert.deepEqual(
+    rows.map((x) => x.invoice_id),
+    [inv.body.id, inv.body.id, null],
+    'the entry after the period stays unbilled',
+  );
+});
+
+test("a draft follows its entries' edits, deletes and billable changes", async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  await seedEntry({ id: D(2), start: '2026-09-11T09:00:00Z', hours: 1 });
+  await seedEntry({ id: D(3), start: '2026-09-12T09:00:00Z', hours: 1 });
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(inv.body.total, 600);
+
+  await pool.query(
+    `update time_entries set ended_at = started_at + interval '3 hours' where id = $1`,
+    [D(1)],
+  );
+  await pool.query(
+    'update time_entries set is_billable = false where id = $1',
+    [D(2)],
+  );
+  await pool.query('delete from time_entries where id = $1', [D(3)]);
+
+  const got = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
+  );
+  assert.equal(got.body.total, 450);
+  const { rows } = await pool.query(
+    'select invoice_id from time_entries where id = $1',
+    [D(2)],
+  );
+  assert.equal(rows[0].invoice_id, null, 'a non-billable entry is released');
+});
+
+test('a draft takes expenses added later, never one left off', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 1 });
+  await seedExpense({ id: D(10), description: 'Left off', amount: 50 });
+  const inv = await json(
+    await r.create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...PERIOD,
+        excludedExpenseIds: [D(10)],
+      }),
+    ),
+  );
+  assert.equal(inv.body.total, 150);
+
+  await seedExpense({ id: D(11), description: 'Added later', amount: 25 });
+  const got = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
+  );
+  assert.deepEqual(
+    got.body.lineItems
+      .filter((l: { unit: string }) => l.unit === 'expense')
+      .map((l: { description: string }) => l.description),
+    ['Added later'],
+  );
+  assert.equal(got.body.total, 175);
+});
+
+test('choices made on New invoice survive every refresh', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await json(
+    await r.create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...PERIOD,
+        groupingMode: 'summary',
+        summaryText: 'September retainer',
+        schedules: ['project'],
+        reference: 'PO-1',
+        notes: 'Thanks',
+        manualLines: [{ description: 'Setup', amount: 200 }],
+      }),
+    ),
+  );
+  await seedEntry({ id: D(2), start: '2026-09-12T09:00:00Z', hours: 1 });
+  await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id));
+  const got = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
+  );
+
+  assert.equal(got.body.summaryText, 'September retainer');
+  assert.equal(got.body.reference, 'PO-1');
+  assert.equal(got.body.notes, 'Thanks');
+  assert.deepEqual(
+    got.body.lineItems.map((l: { description: string; amount: number }) => [
+      l.description,
+      l.amount,
+    ]),
+    [
+      ['September retainer', 450],
+      ['Setup', 200],
+    ],
+  );
+  assert.equal(got.body.supportingDetail.totalHours, 3);
+  assert.ok(got.body.supportingDetail.project, 'the same tables are attached');
+  assert.equal(got.body.total, 650);
+});
+
+test('marking a draft sent freezes what it holds then', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await seedEntry({ id: D(2), start: '2026-09-12T09:00:00Z', hours: 1 });
+
+  const sent = await json(
+    await r.setStatus(
+      req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
+      at(inv.body.id),
+    ),
+  );
+  assert.equal(sent.status, 200, JSON.stringify(sent.body));
+  assert.equal(sent.body.status, 'sent');
+  assert.equal(sent.body.total, 450, 'sent with the work logged before it');
+
+  await seedEntry({ id: D(3), start: '2026-09-13T09:00:00Z', hours: 1 });
+  const got = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
+  );
+  assert.equal(got.body.total, 450);
+  const { rows } = await pool.query(
+    'select invoice_id from time_entries where id = $1',
+    [D(3)],
+  );
+  assert.equal(rows[0].invoice_id, null);
+});
+
+test('a draft changed since its PDF was rendered refuses to be marked sent', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(
+    (await r.pdf(req('/pdf?tz=UTC&download=1'), at(inv.body.id))).status,
+    200,
+  );
+
+  await seedEntry({
+    id: D(2),
+    start: '2026-09-12T09:00:00Z',
+    task: 'Late',
+    hours: 1,
+  });
+  const got = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
+  );
+  assert.deepEqual(got.body.changedSinceDownload, {
+    hours: { from: 2, to: 3 },
+    total: { from: 300, to: 450 },
+  });
+  assert.ok(got.body.lineItems.some((l: { isNew: boolean }) => l.isNew));
+
+  const refused = await json(
+    await r.setStatus(
+      req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
+      at(inv.body.id),
+    ),
+  );
+  assert.equal(refused.status, 409);
+  assert.equal(refused.body.code, 'DRAFT_CHANGED');
+  assert.deepEqual(refused.body.details.total, { from: 300, to: 450 });
+
+  // Viewing it in the browser is a copy too: it has a save button.
+  await r.pdf(req('/pdf?tz=UTC'), at(inv.body.id));
+  const sent = await json(
+    await r.setStatus(
+      req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
+      at(inv.body.id),
+    ),
+  );
+  assert.equal(sent.status, 200, JSON.stringify(sent.body));
+  assert.equal(sent.body.total, 450);
+});
+
+test('a second draft over an open draft’s dates is refused; a sent one’s is not', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const first = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await seedEntry({ id: D(2), start: '2026-10-05T09:00:00Z', hours: 1 });
+
+  const over = {
+    clientId: CLIENT,
+    periodStart: '2026-09-20',
+    periodEnd: '2026-10-31',
+  };
+  const refused = await json(await r.create(req('/invoices', over)));
+  assert.equal(refused.status, 409);
+  assert.equal(refused.body.code, 'DRAFT_OVERLAPS');
+  assert.deepEqual(refused.body.details, {
+    invoiceId: first.body.id,
+    invoiceNumber: first.body.invoiceNumber,
+    ...PERIOD,
+  });
+
+  await r.setStatus(
+    req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
+    at(first.body.id),
+  );
+  const made = await json(await r.create(req('/invoices', over)));
+  assert.equal(made.status, 201, JSON.stringify(made.body));
+});
+
+test('unbilled work dated in a sent period is late; billed, unbillable or voided is not', async () => {
+  const r = await live();
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await r.setStatus(
+    req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
+    at(inv.body.id),
+  );
+
+  await seedEntry({
+    id: D(2),
+    start: '2026-09-20T15:00:00Z',
+    task: 'Forgot',
+    hours: 1.5,
+  });
+  await seedEntry({
+    id: D(3),
+    start: '2026-09-21T15:00:00Z',
+    billable: false,
+  });
+  await seedEntry({ id: D(4), start: '2026-10-02T15:00:00Z' });
+
+  const late = async () =>
+    (await json(await stats(req('/stats?tz=UTC')))).body.attention.lateEntries;
+  assert.deepEqual(await late(), [
+    {
+      entryId: D(2),
+      taskName: 'Forgot',
+      startedAt: '2026-09-20T15:00:00.000Z',
+      hours: 1.5,
+      clientId: CLIENT,
+      clientName: 'Northwind',
+      invoiceId: inv.body.id,
+      invoiceNumber: inv.body.invoiceNumber,
+      ...PERIOD,
+    },
+  ]);
+
+  await r.setStatus(req('/s', { status: 'void' }, 'PATCH'), at(inv.body.id));
+  assert.deepEqual(await late(), []);
+});
+
+test('an unrated entry leaves a draft as last refreshed, and refuses Mark sent', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await pool.query('update clients set hourly_rate = null');
+  await pool.query('update user_settings set default_hourly_rate = null');
+  await seedEntry({ id: D(2), start: '2026-09-12T09:00:00Z', hours: 1 });
+
+  const got = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
+  );
+  assert.equal(got.status, 200);
+  assert.equal(got.body.total, 300, 'as last refreshed');
+
+  const refused = await json(
+    await r.setStatus(
+      req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
+      at(inv.body.id),
+    ),
+  );
+  assert.equal(refused.status, 400);
+  assert.equal(refused.body.code, 'NO_RATE_CONFIGURED');
+  const { rows } = await pool.query(
+    'select status from invoices where id = $1',
+    [inv.body.id],
+  );
+  assert.equal(rows[0].status, 'draft');
+});
+
+test('a draft with no zone is sent as it stands', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await pool.query('update invoices set tz = null');
+  await seedEntry({ id: D(2), start: '2026-09-12T09:00:00Z', hours: 1 });
+
+  const sent = await json(
+    await r.setStatus(req('/s', { status: 'sent' }, 'PATCH'), at(inv.body.id)),
+  );
+  assert.equal(sent.status, 200, JSON.stringify(sent.body));
+  assert.equal(sent.body.status, 'sent');
+  assert.equal(sent.body.total, 300);
+});
+
+/* A draft with no zone keeps the first one a read gives it, so a typo
+   coerced to UTC would bill the wrong work from then on. */
+test('an invalid timezone is rejected on every route that refreshes a draft', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await pool.query('update invoices set tz = null');
+  const q = '?tz=Mars/Olympus_Mons';
+
+  for (const res of [
+    await r.list(req(`/invoices${q}`)),
+    await r.detail(req(`/invoices/x${q}`), at(inv.body.id)),
+    await r.pdf(req(`/invoices/x/pdf${q}`), at(inv.body.id)),
+    await r.setStatus(
+      req(`/s${q}`, { status: 'sent' }, 'PATCH'),
+      at(inv.body.id),
+    ),
+  ]) {
+    const body = await json(res);
+    assert.equal(body.status, 422, JSON.stringify(body.body));
+    assert.equal(body.body.code, 'VALIDATION_FAILED');
+  }
+  const { rows } = await pool.query('select tz, status from invoices');
+  assert.deepEqual(rows, [{ tz: null, status: 'draft' }]);
+});
+
+test("a client's one-off expense goes to its earliest open draft", async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), start: '2026-08-10T09:00:00Z', hours: 1 });
+  await seedEntry({ id: D(2), hours: 1 });
+  const august = await json(
+    await r.create(
+      req('/invoices', {
+        clientId: CLIENT,
+        periodStart: '2026-08-01',
+        periodEnd: '2026-08-31',
+      }),
+    ),
+  );
+  const september = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await seedExpense({ id: D(10), spentOn: '2026-08-20', amount: 40 });
+
+  const listed = await json(await r.list(req('/invoices?tz=UTC')));
+  assert.equal(listed.status, 200, JSON.stringify(listed.body));
+  const total = (id: string) =>
+    listed.body.invoices.find((i: { id: string }) => i.id === id).total;
+  assert.equal(total(august.body.id), 190);
+  assert.equal(total(september.body.id), 150);
+  const { rows } = await pool.query(
+    'select invoice_id from expenses where id = $1',
+    [D(10)],
+  );
+  assert.equal(rows[0].invoice_id, august.body.id);
+});
+
+test('a draft generated beside an earlier open one keeps its total on its first read', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), start: '2026-08-10T09:00:00Z', hours: 1 });
+  await seedEntry({ id: D(2), hours: 1 });
+  const august = await json(
+    await r.create(
+      req('/invoices', {
+        clientId: CLIENT,
+        periodStart: '2026-08-01',
+        periodEnd: '2026-08-31',
+      }),
+    ),
+  );
+  await seedExpense({ id: D(10), spentOn: '2026-08-20', amount: 40 });
+  await seedExpense({ id: D(11), spentOn: '2026-08-21', amount: 15 });
+  await pool.query(
+    `update invoices set excluded_expense_ids = $1 where id = $2`,
+    [[D(11)], august.body.id],
+  );
+
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  const approved = await json(
+    await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(approved.body.total, 165, 'the preview is what generates');
+  const september = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(
+    september.body.total,
+    165,
+    'the expense August left off is billable here; the other is August’s',
+  );
+  const read = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(september.body.id)),
+  );
+  assert.equal(read.body.total, 165);
+  const aug = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(august.body.id)),
+  );
+  assert.equal(aug.body.total, 190);
 });

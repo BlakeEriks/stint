@@ -1,24 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import {
   useQuery,
   useQueryClient,
   type QueryClient,
 } from '@tanstack/react-query';
 import { useOptimisticMutation } from '@/lib/client/mutations';
-import { Ban, DollarSign, Download, Send, Trash2 } from 'lucide-react';
+import { useMarkPaid } from '@/lib/client/use-mark-paid';
+import { Ban, DollarSign, Download, Lock, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConfirmAction } from './confirm-action';
 import { shortDate, StatusBadge } from './invoice-bits';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
-import { attachedSchedules } from '@stint/core';
+import { PRICE } from './plan-section';
+import { attachedSchedules, formatCurrency, formatHours } from '@stint/core';
 import {
   api,
   ApiError,
-  type Client,
+  type DraftChange,
   type Invoice,
   type InvoiceStatus,
   type StoredLineItem,
@@ -26,24 +29,20 @@ import {
 import { DetailPage, Listing } from './page';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
-/** An invoice with its client; the lines are absent until they load. */
+/** An invoice; the lines, and whether its PDF opens, are absent until they
+    load. */
 type Shown = Invoice & {
-  client: Pick<Client, 'name' | 'email' | 'address'>;
-  lineItems?: StoredLineItem[];
+  lineItems?: (StoredLineItem & { isNew?: boolean })[];
+  canDownload?: boolean;
+  changedSinceDownload?: DraftChange | null;
 };
 
-/** What the invoice list and a client list already hold about this invoice,
-    so opening it draws at once. Undefined unless both are cached. */
-function fromLists(qc: QueryClient, id: string): Shown | undefined {
-  const invoice = qc
+/** What the invoice list already holds about this invoice, so opening it
+    draws at once. */
+function fromList(qc: QueryClient, id: string): Shown | undefined {
+  return qc
     .getQueryData<{ invoices: Invoice[] }>(keys.invoices())
     ?.invoices.find((i) => i.id === id);
-  if (!invoice) return undefined;
-  const client = qc
-    .getQueriesData<{ clients: Client[] }>({ queryKey: keys.clients() })
-    .flatMap(([, data]) => data?.clients ?? [])
-    .find((c) => c.id === invoice.clientId);
-  return client ? { ...invoice, client } : undefined;
 }
 
 export function InvoiceDetail({ id }: { id: string }) {
@@ -53,7 +52,13 @@ export function InvoiceDetail({ id }: { id: string }) {
   const query = useQuery<Shown>({
     queryKey: keys.invoice(id),
     queryFn: () => api.invoice(id),
-    placeholderData: () => fromLists(qc, id),
+    placeholderData: () => fromList(qc, id),
+  });
+  /* The payment notice's, so the invoice paints whole; the list fetches it
+     too, so one opened from there still opens at once. */
+  const settings = useQuery({
+    queryKey: keys.settings(),
+    queryFn: () => api.settings(),
   });
 
   /* Voiding releases the entries and expenses and deleting a draft frees
@@ -73,7 +78,7 @@ export function InvoiceDetail({ id }: { id: string }) {
 
   const setStatus = useOptimisticMutation({
     ...invoicePress,
-    mutationFn: (args: { status: InvoiceStatus; paidAt?: string }) =>
+    mutationFn: (args: { status: InvoiceStatus }) =>
       api.updateInvoiceStatus(id, args),
   });
 
@@ -83,15 +88,31 @@ export function InvoiceDetail({ id }: { id: string }) {
     onSuccess: () => router.push('/invoices'),
   });
 
+  const markPaid = useMarkPaid();
+
   return (
     <DetailPage back="/invoices" label="Invoices">
-      <Listing query={query} missing="That invoice no longer exists.">
+      <Listing
+        query={query}
+        also={[settings]}
+        missing="That invoice no longer exists."
+      >
         {(data) => (
           <Loaded
             data={data}
+            onDownload={() =>
+              /* The download is a navigation the page can't await, and it is
+                 what records the copy the client gets; the server's answer
+                 replaces the change once the PDF has rendered. */
+              setTimeout(
+                () => qc.invalidateQueries({ queryKey: keys.invoice(id) }),
+                1500,
+              )
+            }
             setStatus={setStatus}
             remove={remove}
-            error={remove.error ?? setStatus.error}
+            markPaid={markPaid}
+            error={remove.error ?? setStatus.error ?? markPaid.error}
           />
         )}
       </Listing>
@@ -101,29 +122,36 @@ export function InvoiceDetail({ id }: { id: string }) {
 
 /** The invoice itself, as the PDF prints it, with what can be done to it. */
 function Loaded({
-  data,
+  data: invoice,
+  onDownload,
   setStatus,
   remove,
+  markPaid,
   error,
 }: {
   data: Shown;
+  onDownload: () => void;
   setStatus: {
-    mutate: (args: { status: InvoiceStatus; paidAt?: string }) => void;
+    mutate: (args: { status: InvoiceStatus }) => void;
     isPending: boolean;
     reset: () => void;
   };
   remove: { mutate: () => void; isPending: boolean };
+  markPaid: ReturnType<typeof useMarkPaid>;
   /* Picked ONCE by the caller. Re-evaluating `a ?? b` for the check and again
      for the message could type-check a stale error while printing a different
      one — React Query holds the last error until the next success. */
   error: unknown;
 }) {
-  const { client, ...invoice } = data;
   const isDraft = invoice.status === 'draft';
   const isVoid = invoice.status === 'void';
-  const [markingPaid, setMarkingPaid] = useState(false);
-  /* The PDF prints the business block from settings as they are now, so the
-     card does too. */
+  /* A draft that moved since its PDF was rendered holds Mark sent until the
+     client's copy is the one Stint keeps; pressing Download releases it here,
+     and the server, which recorded the render, has the last word. */
+  const [downloaded, setDownloaded] = useState(false);
+  const changed = isDraft && !downloaded ? invoice.changedSinceDownload : null;
+  /* For the payment notice, which the PDF reads from settings as they are
+     now. */
   const { data: settings } = useQuery({
     queryKey: keys.settings(),
     queryFn: () => api.settings(),
@@ -173,7 +201,7 @@ function Loaded({
           {isDraft ? (
             <Button
               onClick={() => setStatus.mutate({ status: 'sent' })}
-              disabled={setStatus.isPending}
+              disabled={setStatus.isPending || changed != null}
             >
               <Send aria-hidden strokeWidth={1.75} />
               Mark sent
@@ -184,13 +212,12 @@ function Loaded({
             <Button
               variant="accent"
               onClick={() => {
-                // A void or delete error from earlier on this screen must
-                // not read as a rejection of the payment date about to be
-                // entered.
+                // A void error from earlier on this screen must not read as
+                // a rejection of the payment date about to be entered.
                 setStatus.reset();
-                setMarkingPaid(true);
+                markPaid.show(invoice);
               }}
-              disabled={setStatus.isPending}
+              disabled={setStatus.isPending || markPaid.isPending(invoice.id)}
             >
               {/* A currency glyph, not a check: the check commits a form. */}
               <DollarSign aria-hidden strokeWidth={1.75} />
@@ -199,26 +226,58 @@ function Loaded({
           ) : null}
 
           {/* Downloading is how an invoice reaches a client: the app sends no
-              mail, so it is last, as the primary action. */}
-          <Button asChild>
-            <a href={api.invoicePdfUrl(invoice.id, true)}>
-              <Download aria-hidden strokeWidth={1.75} />
-              Download PDF
-            </a>
-          </Button>
+              mail, so it is last, as the primary action. Neither shows until
+              the invoice itself answers: the lists it first draws from don't
+              say whether its PDF opens. */}
+          {invoice.canDownload === true ? (
+            <Button asChild>
+              <a
+                href={api.invoicePdfUrl(invoice.id, true)}
+                onClick={() => {
+                  setDownloaded(true);
+                  onDownload();
+                }}
+              >
+                <Download aria-hidden strokeWidth={1.75} />
+                Download PDF
+              </a>
+            </Button>
+          ) : null}
+          {invoice.canDownload === false ? (
+            <Button asChild>
+              <Link href="/settings#plan">
+                <Lock aria-hidden strokeWidth={1.75} />
+                Subscribe to download
+              </Link>
+            </Button>
+          ) : null}
         </div>
       </header>
       <div className="flex flex-col gap-1 pt-1 pb-6">
         <p className="type-support text-muted">
-          {statusHint(invoice.status, invoice.dueDate)}
+          {changed
+            ? 'Download the new PDF, send it from your own address, then mark it sent.'
+            : statusHint(invoice.status, invoice.dueDate, invoice)}
         </p>
+        {changed ? (
+          <Changed change={changed} currency={invoice.currency} />
+        ) : null}
+        {/* The document is the paid tier; the records never are, and saying
+            so here keeps the two rules from reading as one. */}
+        {invoice.canDownload === false ? (
+          <p className="type-support text-muted">
+            Downloading the invoice is on the paid plan, {PRICE}. Tracking and
+            your records, exporting them included, stay free.
+          </p>
+        ) : null}
         <ActionError error={error} />
       </div>
 
       <InvoicePreviewCard
         heading={false}
         preview={{ ...invoice, schedules: invoice.supportingDetail }}
-        client={client}
+        client={invoice.billTo}
+        business={invoice.business}
         settings={settings}
         number={invoice.invoiceNumber}
         issued={invoice.issueDate}
@@ -233,32 +292,66 @@ function Loaded({
         updating={!invoice.lineItems}
         paymentTerms={invoice.paymentTerms}
         notes={invoice.notes}
-        footnote="Rates are frozen at generation — editing a client or project later never changes this invoice."
+        footnote={
+          isDraft
+            ? 'A draft follows its period’s work and current rates until you mark it sent.'
+            : 'Rates are frozen once sent — editing a client or project later never changes this invoice.'
+        }
       />
 
-      <MarkPaidDialog
-        /* Closes itself once the mutation lands: success flips the invoice to
-           `paid`, which drops this from the render entirely. */
-        open={markingPaid && invoice.status === 'sent'}
-        onOpenChange={setMarkingPaid}
-        onConfirm={(paidAt) => setStatus.mutate({ status: 'paid', paidAt })}
-        pending={setStatus.isPending}
-        error={error}
-        sentAt={invoice.sentAt}
-      />
+      <MarkPaidDialog {...markPaid.dialog} />
     </>
   );
 }
 
-function statusHint(status: InvoiceStatus, due: string | null): string {
+function statusHint(
+  status: InvoiceStatus,
+  due: string | null,
+  period: { periodStart: string; periodEnd: string },
+): string {
   if (status === 'draft')
-    return 'Download it, send it from your own address, then mark it sent.';
+    return `It keeps collecting ${shortDate(period.periodStart)} – ${shortDate(period.periodEnd)} until you mark it sent. Download it, send it from your own address, then mark it sent.`;
   if (status === 'sent')
     return due
       ? `Awaiting payment. Due ${shortDate(due)}.`
       : 'Awaiting payment.';
   if (status === 'paid') return 'Settled.';
   return 'Voided. The number stays on record so numbering is gapless, and the entries were released for re-billing.';
+}
+
+/** What moved since the PDF the client may already hold. No button: the
+    header's Download PDF is the one action, and this says why Mark sent
+    waits for it. */
+function Changed({
+  change,
+  currency,
+}: {
+  change: DraftChange;
+  currency: string;
+}) {
+  const added = change.hours.to - change.hours.from;
+  return (
+    <div
+      role="status"
+      className="mt-3 flex flex-col gap-0.5 rounded-md border border-edge-default border-l-[3px] border-l-warning bg-surface-elevated px-3.5 py-3"
+    >
+      <p className="type-body text-strong">Changed since you downloaded it</p>
+      <p className="type-support text-muted">
+        {added === 0
+          ? 'Its lines changed'
+          : `${formatHours(Math.abs(added))}h ${added > 0 ? 'added' : 'removed'}`}{' '}
+        · total{' '}
+        <s className="text-subtle">
+          {formatCurrency(change.total.from, currency)}
+        </s>{' '}
+        →{' '}
+        <span className="text-strong">
+          {formatCurrency(change.total.to, currency)}
+        </span>
+        . Download the new PDF to mark it sent.
+      </p>
+    </div>
+  );
 }
 
 /** Whatever went wrong last, in the user's terms. */

@@ -78,19 +78,103 @@ export const NoRate: Story = {
   }),
 };
 
-/** No Active / Archived / All filter: an archived client and an archived
-    project show where they belong, each with its badge. */
-export const ArchivedShown: Story = {
+const card = async (canvasElement: HTMLElement, name: string) =>
+  within(
+    (await within(canvasElement).findByRole('heading', { name })).closest(
+      'section',
+    )!,
+  );
+
+const openArchived = async (canvasElement: HTMLElement) =>
+  userEvent.click(
+    await within(canvasElement).findByRole('button', { name: /^Archived/ }),
+  );
+
+/** Archived clients wait below the active ones, collapsed under a count,
+    so nothing looks deleted. */
+export const ArchivedCollapsed: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const toggle = await page.findByRole('button', { name: 'Archived (1)' });
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(
+      page.queryByRole('heading', { name: 'Old Engagement Co' }),
+    ).toBeNull();
+    await expect(page.queryByRole('tab')).toBeNull();
+  },
+};
+
+/** Opened: archived clients A–Z after the active ones, muted, each with
+    Restore; their projects moved with them and show no rate. */
+export const ArchivedOpen: Story = {
   ...desktop,
   parameters: account((db) => {
-    const warehouse = db.projects.find((p) => p.id === ids.warehouse)!;
-    warehouse.archivedAt = '2026-06-30T16:00:00.000Z';
+    db.clients.find((c) => c.id === ids.byrne)!.archivedAt =
+      '2026-08-31T16:00:00.000Z';
   }),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    await page.findByText('Warehouse dashboard');
-    await expect(page.getAllByText('Archived').length).toBeGreaterThan(1);
-    await expect(page.queryByRole('tab')).toBeNull();
+    const toggle = await page.findByRole('button', { name: 'Archived (2)' });
+    await openArchived(canvasElement);
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(
+      page
+        .getAllByRole('heading', { level: 2 })
+        .map((h) => h.textContent)
+        // The dock's Inbox and Today follow.
+        .slice(0, 5),
+    ).toEqual([
+      'Meridian Labs',
+      'Northwind Trading',
+      'No client',
+      'Byrne Studio',
+      'Old Engagement Co',
+    ]);
+    const byrne = await card(canvasElement, 'Byrne Studio');
+    await expect(byrne.getByText('Brand site rebuild')).toBeVisible();
+    await expect(byrne.queryByText(/\/h/)).toBeNull();
+    await expect(
+      byrne.getByRole('button', { name: 'Restore Byrne Studio' }),
+    ).toBeVisible();
+  },
+};
+
+/** Nothing archived: no Archived section at all. */
+export const NothingArchived: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    db.clients = db.clients.filter((c) => !c.archivedAt);
+    db.projects = db.projects.filter((p) => !p.archivedAt);
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await page.findByRole('heading', { name: 'Northwind Trading' });
+    await expect(page.queryByRole('button', { name: /^Archived/ })).toBeNull();
+  },
+};
+
+/** An archived project under an active client: last in its group, muted,
+    with Restore where its rate was. */
+export const ArchivedProjectLast: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    db.projects.find((p) => p.id === ids.warehouse)!.archivedAt =
+      '2026-06-30T16:00:00.000Z';
+  }),
+  play: async ({ canvasElement }) => {
+    const northwind = await card(canvasElement, 'Northwind Trading');
+    // The first list is the projects; expenses follow.
+    const rows = within(northwind.getAllByRole('list')[0]!).getAllByRole(
+      'button',
+      { name: /^Edit / },
+    );
+    await expect(rows.at(-1)).toHaveAccessibleName('Edit Warehouse dashboard');
+    await expect(
+      northwind.getByRole('button', { name: 'Restore Warehouse dashboard' }),
+    ).toBeVisible();
+    // It bills nothing new, so its row shows no rate.
+    await expect(rows.at(-1)).not.toHaveTextContent('/h');
   },
 };
 
@@ -108,9 +192,14 @@ export const Failed: Story = {
   ...desktop,
   parameters: failing('clients', 'projects'),
   play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
-    await expect(await page.findByText(/could not load/i)).toBeVisible();
-    await expect(page.queryByText(/loading/i)).toBeNull();
+    // The screen only: the shell's own panels load beside it. A second
+    // reader of a failed query refetches it, so the list passes through the
+    // loader again before it settles on the error.
+    const main = within(within(canvasElement).getByRole('main'));
+    await waitFor(() => {
+      expect(main.getByText(/could not load/i)).toBeVisible();
+      expect(main.queryByRole('status')).toBeNull();
+    });
   },
 };
 
@@ -186,6 +275,27 @@ export const EditProject: Story = {
   },
 };
 
+/** Add client opens a dialog, never a page; saving lists the new client
+    here, with nothing to archive yet. */
+export const AddClient: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Add client' }),
+    );
+    await expectOpen(canvasElement, 'dialog', 'New client');
+    await expect(page.queryByRole('button', { name: 'Archive' })).toBeNull();
+    const dialog = within(page.getByRole('dialog'));
+    await userEvent.type(dialog.getByLabelText(/Name/), 'Acme Robotics');
+    await userEvent.click(dialog.getByRole('button', { name: 'Add client' }));
+    await expect(
+      await page.findByRole('heading', { name: 'Acme Robotics' }),
+    ).toBeVisible();
+    await expect(page.queryByRole('dialog')).toBeNull();
+  },
+};
+
 /** A client edits in a dialog too, never a page, with Archive client. */
 export const EditClient: Story = {
   ...desktop,
@@ -198,11 +308,96 @@ export const EditClient: Story = {
   },
 };
 
+const editNorthwind = async (page: ReturnType<typeof within>) => {
+  await userEvent.click(
+    await page.findByRole('button', { name: 'Edit Northwind Trading' }),
+  );
+  return within(await page.findByRole('dialog', { name: 'Edit client' }));
+};
+
+const pickSchedule = async (
+  page: ReturnType<typeof within>,
+  dialog: ReturnType<typeof within>,
+  name: RegExp,
+) => {
+  await userEvent.click(
+    dialog.getByRole('combobox', { name: /Billing schedule/ }),
+  );
+  await userEvent.click(await page.findByRole('option', { name }));
+};
+
+const saveDialog = async (
+  page: ReturnType<typeof within>,
+  dialog: ReturnType<typeof within>,
+) => {
+  await userEvent.click(dialog.getByRole('button', { name: 'Save changes' }));
+  await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+};
+
+/** A client has no billing schedule until one is set; once saved, its
+    dialog and its row both say it. */
+export const ClientSchedule: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    let dialog = await editNorthwind(page);
+    const select = () =>
+      dialog.getByRole('combobox', { name: /Billing schedule/ });
+    await expect(select()).toHaveTextContent('None');
+    await expect(dialog.queryByLabelText('First period starts')).toBeNull();
+    await pickSchedule(page, dialog, /^Semi-monthly/);
+    await saveDialog(page, dialog);
+    await expect(await page.findByText(/Billed semi-monthly/)).toBeVisible();
+    dialog = await editNorthwind(page);
+    await expect(select()).toHaveTextContent('Semi-monthly');
+  },
+};
+
+/** Weekly asks which date a period starts on, filled in so a save never
+    lacks one, and keeps it. */
+export const ClientScheduleWeekly: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    let dialog = await editNorthwind(page);
+    await pickSchedule(page, dialog, /^Weekly/);
+    const anchor = dialog.getByLabelText('First period starts');
+    await expect(anchor).not.toHaveValue('');
+    await userEvent.clear(anchor);
+    await userEvent.type(anchor, '2026-10-05');
+    await saveDialog(page, dialog);
+    await expect(await page.findByText(/Billed weekly/)).toBeVisible();
+    dialog = await editNorthwind(page);
+    await expect(dialog.getByLabelText('First period starts')).toHaveValue(
+      '2026-10-05',
+    );
+  },
+};
+
+/** An archived client bills nothing new, so its row names no schedule,
+    as it names no rate. */
+export const ArchivedClientSchedule: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    for (const c of db.clients)
+      if (c.id === ids.oldEngagement) c.billingSchedule = { period: 'monthly' };
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await openArchived(canvasElement);
+    await page.findByRole('button', { name: 'Edit Old Engagement Co' });
+    await expect(page.queryByText(/Billed monthly/)).toBeNull();
+  },
+};
+
 /** An archived client's dialog offers Restore where Archive was. */
 export const EditArchivedClient: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
+    await openArchived(canvasElement);
     await userEvent.click(
       await page.findByRole('button', { name: 'Edit Old Engagement Co' }),
     );
@@ -217,6 +412,7 @@ export const EditArchivedProject: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
+    await openArchived(canvasElement);
     await userEvent.click(
       await page.findByRole('button', { name: 'Edit Legacy retainer' }),
     );
@@ -226,19 +422,33 @@ export const EditArchivedProject: Story = {
   },
 };
 
-const card = async (canvasElement: HTMLElement, name: string) =>
-  within(
-    (await within(canvasElement).findByRole('heading', { name })).closest(
-      'section',
-    )!,
-  );
-
-/** Restore puts the client back under Active on the press: the badge goes,
-    and its project keeps its own archive. */
+/** Restore on an archived client's card puts it back among the active on
+    the press: the badge and the Archived section go, and its project keeps
+    its own archive. */
 export const RestoreClient: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
+    await openArchived(canvasElement);
+    await userEvent.click(
+      page.getByRole('button', { name: 'Restore Old Engagement Co' }),
+    );
+    await waitFor(() =>
+      expect(page.queryByRole('button', { name: /^Archived/ })).toBeNull(),
+    );
+    const old = await card(canvasElement, 'Old Engagement Co');
+    // One badge left, the project's own.
+    await expect(old.getAllByText('Archived')).toHaveLength(1);
+    await expect(old.getByText('Legacy retainer')).toBeVisible();
+  },
+};
+
+/** The dialog's Restore does the same. */
+export const RestoreClientFromDialog: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await openArchived(canvasElement);
     await userEvent.click(
       await page.findByRole('button', { name: 'Edit Old Engagement Co' }),
     );
@@ -250,8 +460,23 @@ export const RestoreClient: Story = {
   },
 };
 
-/** The same for a project: its Archived badge goes on the press. */
+/** The same for a project from its row: its Archived badge goes on the
+    press. */
 export const RestoreProject: Story = {
+  ...ArchivedProjectLast,
+  play: async ({ canvasElement }) => {
+    const northwind = await card(canvasElement, 'Northwind Trading');
+    await userEvent.click(
+      await northwind.findByRole('button', {
+        name: 'Restore Warehouse dashboard',
+      }),
+    );
+    await waitFor(() => expect(northwind.queryByText('Archived')).toBeNull());
+  },
+};
+
+/** And from its dialog. */
+export const RestoreProjectFromDialog: Story = {
   ...desktop,
   parameters: account((db) => {
     db.projects.find((p) => p.id === ids.warehouse)!.archivedAt =
@@ -275,6 +500,7 @@ export const RestoreRefused: Story = {
   parameters: failing('updateClient'),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
+    await openArchived(canvasElement);
     await userEvent.click(
       await page.findByRole('button', { name: 'Edit Old Engagement Co' }),
     );
@@ -471,5 +697,18 @@ export const PaidExpenseGone: Story = {
     const page = within(canvasElement);
     await page.findByText('Figma license, annual');
     await expect(page.queryByText('Stock photography')).toBeNull();
+  },
+};
+
+/** On its way: one quiet word where it will be, and none of it until all of
+ *  it has arrived. */
+export const Loading: Story = {
+  ...desktop,
+  parameters: stalled('clients'),
+  play: async ({ canvasElement }) => {
+    const region = within(canvasElement.querySelector('main') as HTMLElement);
+    await expect(await region.findByRole('status')).toHaveTextContent(
+      'Loading',
+    );
   },
 };

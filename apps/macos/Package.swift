@@ -6,15 +6,20 @@ let package = Package(
     // 14 is the floor for `MenuBarExtra(.window)` to behave, and every Mac
     // that can run the browser this app signs in through is well past it.
     platforms: [.macOS(.v14)],
+    dependencies: [
+        .package(url: "https://github.com/getsentry/sentry-cocoa", from: "9.30.0")
+    ],
     targets: [
         .executableTarget(
             name: "Stint",
+            dependencies: [.product(name: "Sentry", package: "sentry-cocoa")],
             path: "Sources/Stint"
         ),
         .testTarget(
             name: "StintTests",
             dependencies: ["Stint"],
-            path: "Tests/StintTests"
+            path: "Tests/StintTests",
+            resources: [.copy("Fixtures")]
         )
     ]
 )

@@ -25,6 +25,7 @@ function stats(over: Partial<Stats> = {}): Stats {
     attention: {
       overdueInvoices: [],
       staleDrafts: [],
+      lateEntries: [],
       unprojected: [],
       strangeDurations: [],
       overlaps: [],
@@ -58,6 +59,7 @@ const WEEK = Array.from({ length: 7 }, (_, i) => ({
   date: `2026-09-${String(14 + i).padStart(2, '0')}`,
   seconds: 0,
   amount: null,
+  byClient: {},
 }));
 
 /** A month with no climb and no projection — again, not what is under test. */
@@ -77,8 +79,11 @@ function serve(get: () => Stats) {
     'fetch',
     vi.fn(async (url: string) => {
       const path = String(url);
-      if (path.includes('/calendar')) {
-        return new Response(JSON.stringify({ days: [] }), { status: 200 });
+      if (path.includes('/entries')) {
+        return new Response(JSON.stringify({ entries: [] }), { status: 200 });
+      }
+      if (path.includes('/projects')) {
+        return new Response(JSON.stringify({ projects: [] }), { status: 200 });
       }
       if (path.includes('/clients')) {
         return new Response(JSON.stringify({ clients: [] }), { status: 200 });

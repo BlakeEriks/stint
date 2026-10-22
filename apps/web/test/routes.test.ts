@@ -11,9 +11,13 @@
  */
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync, writeFileSync } from 'node:fs';
+import util from 'node:util';
 import pg from 'pg';
 import { makeDb } from './shim.mjs';
 import { fill } from './fill.ts';
+import Stripe from 'stripe';
+import { fakeStripe, subscription } from './fake-stripe.ts';
 
 const USER = '11111111-1111-1111-1111-111111111111';
 const OTHER = '22222222-2222-2222-2222-222222222222';
@@ -37,6 +41,7 @@ after(async () => {
 
 beforeEach(async () => {
   await pool.query('delete from feedback');
+  await pool.query('delete from subscriptions');
   await pool.query('update expenses set invoice_id = null');
   await pool.query('delete from expenses');
   // Detach first: the immutability trigger refuses to delete an entry that
@@ -58,7 +63,26 @@ beforeEach(async () => {
     [USER],
   );
   (globalThis as any).__TEST_DB__ = makeDb(pool, USER);
+  // Billing starts unconfigured, as every deploy does; `configureBilling()`
+  // turns it on per test.
+  for (const k of STRIPE_ENV) delete process.env[k];
+  stripeFake = fakeStripe();
+  (globalThis as any).__TEST_STRIPE__ = stripeFake.client;
 });
+
+const STRIPE_ENV = [
+  'STRIPE_SECRET_KEY',
+  'STRIPE_PRICE_ID',
+  'STRIPE_WEBHOOK_SECRET',
+] as const;
+const WEBHOOK_SECRET = 'whsec_test';
+let stripeFake: ReturnType<typeof fakeStripe>;
+
+const configureBilling = () => {
+  process.env.STRIPE_SECRET_KEY = 'sk_test_unused';
+  process.env.STRIPE_PRICE_ID = 'price_yearly';
+  process.env.STRIPE_WEBHOOK_SECRET = WEBHOOK_SECRET;
+};
 
 const req = (url: string, body?: unknown, method = 'GET') =>
   new Request(`http://t${url}`, {
@@ -134,6 +158,106 @@ test('stop leaves Unbilled where the running entry had it, as /stats has it', as
 
   const after = await json(await stats(req('/stats?tz=UTC')));
   assert.deepEqual(stopped.body.unbilled, after.body.unbilled);
+});
+
+test('a timer write returns what it changed, read after it, with ?include', async () => {
+  const { POST: start } = await import(
+    '../src/app/api/v1/timer/start/route.ts'
+  );
+  const { POST: stop } = await import('../src/app/api/v1/timer/stop/route.ts');
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  // A minute back, so the entry is today's in any hour of the UTC day.
+  const startedAt = new Date(Date.now() - 60 * 1000).toISOString();
+  const started = await json(
+    await start(
+      req('/timer/start?include=summary,stats&tz=UTC', {
+        taskName: 'Included',
+        startedAt,
+      }),
+    ),
+  );
+  assert.equal(started.status, 201);
+  assert.equal(started.body.entry.taskName, 'Included');
+  assert.equal(
+    started.body.included.summary.running.id,
+    started.body.entry.id,
+    'the summary is read after the start',
+  );
+  assert.ok(started.body.included.summary.todaySeconds >= 60);
+  const fresh = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(
+    Object.keys(started.body.included.stats).sort(),
+    Object.keys(fresh.body).sort(),
+    'the included stats are /stats',
+  );
+
+  const stopped = await json(
+    await stop(req('/timer/stop?include=summary&tz=UTC', {})),
+  );
+  assert.equal(stopped.status, 200);
+  assert.equal(stopped.body.included.summary.running, null);
+  assert.ok(stopped.body.included.summary.todaySeconds >= 60);
+  assert.deepEqual(
+    Object.keys(stopped.body.included),
+    ['summary'],
+    'only what was asked for',
+  );
+});
+
+test('an entry PATCH returns what it changed with ?include', async () => {
+  const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
+  const { PATCH: patch } = await import(
+    '../src/app/api/v1/entries/[id]/route.ts'
+  );
+
+  const id = '018f0000-0000-7000-8000-0000000000a1';
+  const endedAt = new Date().toISOString();
+  const startedAt = new Date(Date.now() - 3600 * 1000).toISOString();
+  await create(
+    req('/entries', { id, taskName: 'An hour', startedAt, endedAt }),
+  );
+
+  const plain = await json(
+    await patch(req(`/entries/${id}`, { taskName: 'Renamed' }, 'PATCH'), {
+      params: Promise.resolve({ id }),
+    }),
+  );
+  assert.equal(plain.body.id, id, 'without include, the entry alone');
+
+  const edited = await json(
+    await patch(
+      req(
+        `/entries/${id}?include=stats&tz=UTC`,
+        { isBillable: false },
+        'PATCH',
+      ),
+      { params: Promise.resolve({ id }) },
+    ),
+  );
+  assert.equal(edited.status, 200);
+  assert.equal(edited.body.entry.isBillable, false);
+  assert.equal(
+    edited.body.included.stats.unbilled.total,
+    0,
+    'the stats are read after the edit',
+  );
+});
+
+test('an unknown include is refused before the write', async () => {
+  const { POST: start } = await import(
+    '../src/app/api/v1/timer/start/route.ts'
+  );
+
+  const refused = await json(
+    await start(req('/timer/start?include=invoices&tz=UTC', { taskName: 'X' })),
+  );
+  assert.equal(refused.status, 422);
+  assert.equal(refused.body.code, 'VALIDATION_FAILED');
+  const { rows } = await pool.query(
+    'select count(*)::int as n from time_entries',
+  );
+  assert.equal(rows[0].n, 0, 'nothing was started');
 });
 
 test('THE INVARIANT: a second start is rejected with 409 and returns the running entry', async () => {
@@ -594,6 +718,77 @@ test('a patch naming no known field is rejected, not a silent no-op', async () =
   assert.equal(res.status, 422);
 });
 
+/* The schedule sets a new invoice's period: a field the schema or the column
+   list dropped would leave every client unscheduled, unseen. */
+test('a client billing schedule round-trips, and is null until set', async () => {
+  const { POST: createClient, GET: listClients } = await import(
+    '../src/app/api/v1/clients/route.ts'
+  );
+  const { PATCH } = await import('../src/app/api/v1/clients/[id]/route.ts');
+  const weekly = { period: 'weekly', anchor: '2026-10-05' };
+
+  const plain = await json(
+    await createClient(req('/clients', { name: 'Northwind' })),
+  );
+  assert.equal(plain.body.billingSchedule, null);
+
+  const semi = await json(
+    await createClient(
+      req('/clients', {
+        name: 'Contoso',
+        billingSchedule: { period: 'semimonthly' },
+      }),
+    ),
+  );
+  assert.deepEqual(semi.body.billingSchedule, { period: 'semimonthly' });
+
+  const moved = await json(
+    await PATCH(
+      patchReq('/clients/x', { billingSchedule: weekly }),
+      ctx(plain.body.id),
+    ),
+  );
+  assert.deepEqual(moved.body.billingSchedule, weekly);
+
+  const renamed = await json(
+    await PATCH(
+      patchReq('/clients/x', { name: 'Northwind Trading' }),
+      ctx(plain.body.id),
+    ),
+  );
+  assert.deepEqual(renamed.body.billingSchedule, weekly);
+
+  const list = await json(await listClients(req('/clients')));
+  assert.deepEqual(
+    list.body.clients.map(
+      (c: { billingSchedule: unknown }) => c.billingSchedule,
+    ),
+    [{ period: 'semimonthly' }, weekly],
+  );
+
+  const cleared = await json(
+    await PATCH(
+      patchReq('/clients/x', { billingSchedule: null }),
+      ctx(plain.body.id),
+    ),
+  );
+  assert.equal(cleared.body.billingSchedule, null);
+
+  for (const bad of [
+    { period: 'weekly' },
+    { period: 'monthly', anchor: '2026-10-05' },
+    { period: 'quarterly' },
+  ]) {
+    const refused = await json(
+      await PATCH(
+        patchReq('/clients/x', { billingSchedule: bad }),
+        ctx(plain.body.id),
+      ),
+    );
+    assert.equal(refused.status, 422, JSON.stringify(bad));
+  }
+});
+
 /* Which payment profile a client's invoices carry: a field the route's schema
    must name, or Zod strips it and the write is silently lost. */
 test('a client can be pointed at a payment profile, on create and on patch', async () => {
@@ -688,6 +883,67 @@ test('a new payment profile stores every detail it is given', async () => {
   for (const [field, value] of Object.entries(details)) {
     assert.equal(res.body[field], value, field);
   }
+});
+
+/* A malformed routing number on an invoice risks a returned or misrouted
+   ACH payment, and nothing downstream checks it again. */
+test('a routing number that fails the ABA check is refused, on create and edit', async () => {
+  const { POST } = await import('../src/app/api/v1/payment-profiles/route.ts');
+  const { PATCH } = await import(
+    '../src/app/api/v1/payment-profiles/[id]/route.ts'
+  );
+
+  const refused = await json(
+    await POST(
+      req('/payment-profiles', {
+        name: 'Checking',
+        routingNumber: '021000022',
+      }),
+    ),
+  );
+  assert.equal(refused.status, 422);
+  assert.equal(refused.body.code, 'VALIDATION_FAILED');
+
+  const saved = await json(
+    await POST(req('/payment-profiles', { name: 'Checking' })),
+  );
+  const edited = await json(
+    await PATCH(
+      patchReq('/payment-profiles/x', { routingNumber: '02100002' }),
+      ctx(saved.body.id),
+    ),
+  );
+  assert.equal(edited.status, 422);
+  assert.equal(edited.body.code, 'VALIDATION_FAILED');
+});
+
+test('a routing number is stored as its 9 digits', async () => {
+  const { POST } = await import('../src/app/api/v1/payment-profiles/route.ts');
+
+  const res = await json(
+    await POST(
+      req('/payment-profiles', {
+        name: 'Checking',
+        routingNumber: ' 021-000-021 ',
+      }),
+    ),
+  );
+  assert.equal(res.status, 201);
+  assert.equal(res.body.routingNumber, '021000021');
+});
+
+/* The route strips and checks it, but a write that skips the route (an
+   import, the seed) would print whatever it stored. */
+test('the database refuses a routing number that is not 9 digits', async () => {
+  await assert.rejects(
+    () =>
+      pool.query(
+        `insert into payment_profiles (user_id,name,routing_number)
+         values ($1,'Checking','-031101334,')`,
+        [USER],
+      ),
+    /payment_profiles_routing_number_digits/,
+  );
 });
 
 test('a payment profile replayed with the same id is idempotent', async () => {
@@ -937,7 +1193,6 @@ test('every settable field round-trips, rather than being silently dropped', asy
   const sent = {
     minEntrySeconds: 60,
     maxEntryHours: 10,
-    taxId: '12-3456789',
     businessAddress: '1 Main St\nAustin, TX 78701',
     paymentNotice: 'Details never change. Verify by phone.',
     invoiceNumberPrefix: 'STINT-',
@@ -948,6 +1203,58 @@ test('every settable field round-trips, rather than being silently dropped', asy
   for (const [field, value] of Object.entries(sent)) {
     assert.deepEqual(res.body[field], value, field);
   }
+});
+
+/* The Inbox asks for a default rate while there is none. Zero is a rate,
+   so it answers the question; clearing the rate asks it again. */
+test('stats flags an account with no default rate, and zero counts as set', async () => {
+  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const flag = async () =>
+    (await json(await stats(req('/stats?tz=UTC')))).body.attention
+      .noDefaultRate;
+
+  await patch(req('/settings', { defaultHourlyRate: null }, 'PATCH'));
+  assert.equal(await flag(), true);
+
+  await patch(req('/settings', { defaultHourlyRate: 0 }, 'PATCH'));
+  assert.equal(await flag(), false);
+
+  await patch(req('/settings', { defaultHourlyRate: null }, 'PATCH'));
+  assert.equal(await flag(), true, 'clearing it asks again');
+});
+
+/* The welcome dialog shows while `welcomedAt` is null. The signup trigger
+   leaves it null, so only an account made after the migration sees it. */
+test('a new account is not yet welcomed, and welcoming it round-trips', async () => {
+  const { GET: get, PATCH: patch } = await import(
+    '../src/app/api/v1/settings/route.ts'
+  );
+  // The handlers always act as USER, so the signup trigger is read directly.
+  const NEW = '33333333-3333-3333-3333-333333333333';
+  await pool.query('delete from auth.users where id=$1', [NEW]);
+  await pool.query(`insert into auth.users (id,email) values ($1,'new@test')`, [
+    NEW,
+  ]);
+  const { rows } = await pool.query(
+    'select welcomed_at from user_settings where user_id=$1',
+    [NEW],
+  );
+  await pool.query('delete from auth.users where id=$1', [NEW]);
+  assert.equal(rows[0].welcomed_at, null);
+
+  await pool.query(
+    'update user_settings set welcomed_at=null where user_id=$1',
+    [USER],
+  );
+  assert.equal((await json(await get(req('/settings')))).body.welcomedAt, null);
+
+  const at = '2026-10-20T15:00:00.000Z';
+  const after = await json(
+    await patch(req('/settings', { welcomedAt: at }, 'PATCH')),
+  );
+  assert.equal(after.status, 200);
+  assert.equal(new Date(after.body.welcomedAt).toISOString(), at);
 });
 
 // ── calendar ───────────────────────────────────────────────────────
@@ -987,52 +1294,6 @@ test('calendar groups entries by LOCAL day', async () => {
   assert.equal(sp.body.days[0].totalSeconds, 3600);
 });
 
-/* The week's bar height is billable seconds (`revenue_by_day`), and its stack
-   divides that height. If `byClient` counted non-billable work too, internal
-   time would take a share of a bar it did not raise. */
-test('the day split counts billable work only', async () => {
-  const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
-  const { GET: calendar } = await import('../src/app/api/v1/calendar/route.ts');
-
-  await create(
-    req('/entries', {
-      id: '018f0000-0000-7000-8000-000000000031',
-      taskName: 'Billable',
-      startedAt: '2026-09-14T09:00:00Z',
-      endedAt: '2026-09-14T11:00:00Z',
-    }),
-  );
-  await create(
-    req('/entries', {
-      id: '018f0000-0000-7000-8000-000000000032',
-      taskName: 'Not billable',
-      startedAt: '2026-09-14T13:00:00Z',
-      endedAt: '2026-09-14T14:00:00Z',
-      isBillable: false,
-    }),
-  );
-
-  const res = await json(
-    await calendar(
-      req(
-        '/calendar?from=2026-09-14T00:00:00Z&to=2026-09-15T00:00:00Z&granularity=day&tz=UTC',
-      ),
-    ),
-  );
-
-  const day = res.body.days.find(
-    (d: { date: string }) => d.date === '2026-09-14',
-  );
-  const split = Object.values(day.byClient as Record<string, number>).reduce(
-    (sum: number, n) => sum + (n as number),
-    0,
-  );
-
-  // The day's whole load stays unfiltered: the calendar draws all of it.
-  assert.equal(day.totalSeconds, 10_800);
-  assert.equal(split, 7200, 'but the split leaves the non-billable hour out');
-});
-
 test('the entry view splits an entry that crosses local midnight', async () => {
   const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
   const { GET: calendar } = await import('../src/app/api/v1/calendar/route.ts');
@@ -1064,24 +1325,6 @@ test('the entry view splits an entry that crosses local midnight', async () => {
     (d: { date: string }) => d.date === '2026-07-04',
   ).entries;
   assert.equal(entries.length, 1, 'the entry is drawn on Saturday too');
-
-  const day = await json(
-    await calendar(
-      req(
-        `/calendar?from=2026-07-03T04:00:00Z&to=2026-07-05T04:00:00Z&granularity=day&tz=${tz}`,
-      ),
-    ),
-  );
-  assert.deepEqual(totals(day.body.days), { '2026-07-03': 14_400 });
-
-  const saturdayDay = await json(
-    await calendar(
-      req(
-        `/calendar?from=2026-07-04T04:00:00Z&to=2026-07-05T04:00:00Z&granularity=day&tz=${tz}`,
-      ),
-    ),
-  );
-  assert.deepEqual(saturdayDay.body.days, []);
 });
 
 test('calendar rejects an inverted period', async () => {
@@ -2270,6 +2513,64 @@ test('a rate of exactly 0 is a rate: real seconds, and 0.00 of money', async () 
   assert.notEqual(today.amount, null, 'and 0 is not the same as unrated');
 });
 
+/* Home's bars are split by client from `/stats` itself, so the panel paints
+   from one response. The split is billable seconds, so each day's
+   parts add up to its bar. */
+test('each week day splits its seconds by client', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '33333333-0000-4000-8000-000000000030';
+  const p = '33333333-0000-4000-8000-0000000000e0';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Split',100)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  const midnight = new Date();
+  midnight.setUTCHours(0, 0, 0, 0);
+  const at = (s: number) =>
+    new Date(midnight.getTime() + s * 1000).toISOString();
+  const before = await json(await stats(req('/stats?tz=UTC')));
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at,is_billable) values
+       ($1,$2,$3,'billed',$4,$5,true),
+       ($6,$2,$3,'not billed',$5,$7,false),
+       ($8,$2,null,'no project',$7,$9,true)`,
+    [S(40), USER, p, at(1), at(61), S(41), at(121), S(42), at(151)],
+  );
+  const after = await json(await stats(req('/stats?tz=UTC')));
+
+  const today = midnight.toISOString().slice(0, 10);
+  type Day = {
+    date: string;
+    seconds: number;
+    byClient: Record<string, number>;
+  };
+  const day = (r: typeof after) =>
+    (r.body.week as Day[]).find((d) => d.date === today)!;
+  assert.equal(
+    day(after).byClient[c]! - (day(before).byClient[c] ?? 0),
+    60,
+    'the billable minute, under its client',
+  );
+  assert.equal(
+    (day(after).byClient[''] ?? 0) - (day(before).byClient[''] ?? 0),
+    30,
+    'work with no client keys as the empty string',
+  );
+  for (const d of after.body.week as Day[]) {
+    const parts = Object.values(d.byClient).reduce((a, n) => a + n, 0);
+    // A running session is measured to `now` twice, in SQL and in JS.
+    assert.ok(
+      Math.abs(parts - d.seconds) <= 1,
+      `${d.date}: the parts add up to the bar`,
+    );
+  }
+});
+
 test('the week sees only its own user’s work', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
@@ -3357,27 +3658,69 @@ test('health answers 503 when the database does not, so the monitor alerts', asy
   assert.deepEqual(res.body, { ok: false });
 });
 
-test('an unhandled route error reaches Sentry, not only the log', async () => {
+/** What each event `GET /clients` sends Sentry says it is, against `db`. */
+async function sentryEventsFor(db: unknown) {
   const Sentry = await import('@sentry/nextjs');
   const { close } = await import('@sentry/core');
-  const sent: string[] = [];
+  const sent: {
+    type?: string;
+    value?: string;
+    synthetic: boolean;
+    fingerprint?: string[];
+  }[] = [];
   Sentry.init({
     dsn: 'https://key@o0.ingest.sentry.io/0',
     beforeSend(event) {
-      sent.push(event.exception?.values?.[0]?.value ?? '');
+      const { type, value, mechanism } = event.exception?.values?.[0] ?? {};
+      sent.push({
+        type,
+        value,
+        synthetic: mechanism?.synthetic ?? false,
+        fingerprint: event.fingerprint,
+      });
       return null;
     },
   });
   const { GET } = await import('../src/app/api/v1/clients/route.ts');
-  (globalThis as any).__TEST_DB__ = {
-    from() {
-      throw new Error('unexpected');
-    },
-  };
+  (globalThis as any).__TEST_DB__ = db;
   const res = await GET(req('/clients'));
   await close(1000);
   assert.equal(res.status, 500);
-  assert.deepEqual(sent, ['unexpected']);
+  return sent;
+}
+
+test('an unhandled route error reaches Sentry, not only the log', async () => {
+  const sent = await sentryEventsFor({
+    from() {
+      throw new Error('unexpected');
+    },
+  });
+  assert.deepEqual(sent, [
+    {
+      type: 'Error',
+      value: 'unexpected',
+      synthetic: false,
+      fingerprint: undefined,
+    },
+  ]);
+});
+
+test('a database error object reaches Sentry titled and grouped by its message', async () => {
+  const failed = () =>
+    Promise.resolve({
+      data: null,
+      error: { message: 'Project not specified.' },
+    });
+  const query = { select: () => query, order: () => ({ is: failed }) };
+  const sent = await sentryEventsFor({ from: () => query });
+  assert.deepEqual(sent, [
+    {
+      type: 'Error',
+      value: 'Project not specified.',
+      synthetic: false,
+      fingerprint: ['{{ default }}', 'Project not specified.'],
+    },
+  ]);
 });
 
 // ── feedback ───────────────────────────────────────────────────────
@@ -3455,6 +3798,403 @@ test('a retried feedback send stores one message', async () => {
   assert.equal((await feedbackRows()).length, 1);
 });
 
+// ── billing ────────────────────────────────────────────────────────
+const subscriptionRows = async () =>
+  (
+    await pool.query(
+      `select user_id, stripe_customer_id, stripe_subscription_id, status,
+              current_period_end, cancel_at_period_end
+       from subscriptions order by user_id`,
+    )
+  ).rows;
+
+/** A Stripe event, signed as Stripe signs it, delivered to the webhook. */
+const deliver = async (
+  type: string,
+  object: Record<string, unknown>,
+  signature?: string,
+) => {
+  const { POST } = await import('../src/app/api/v1/billing/webhook/route.ts');
+  const payload = JSON.stringify({
+    id: `evt_${type}`,
+    object: 'event',
+    type,
+    data: { object },
+  });
+  return POST(
+    new Request('http://t/billing/webhook', {
+      method: 'POST',
+      headers: {
+        'stripe-signature':
+          signature ??
+          Stripe.webhooks.generateTestHeaderString({
+            payload,
+            secret: WEBHOOK_SECRET,
+          }),
+      },
+      body: payload,
+    }),
+  );
+};
+
+const billing = async () => {
+  const { GET } = await import('../src/app/api/v1/billing/route.ts');
+  return json(await GET(req('/billing')));
+};
+
+test('billing reads free with no subscription, and says whether Stripe is set up', async () => {
+  const free = {
+    available: false,
+    plan: 'free',
+    status: null,
+    periodEnd: null,
+    cancelAtPeriodEnd: false,
+    paymentFailed: false,
+  };
+  assert.deepEqual(await billing(), { status: 200, body: free });
+  configureBilling();
+  assert.deepEqual((await billing()).body, { ...free, available: true });
+});
+
+test('every billing write answers 503 until Stripe is set up', async () => {
+  const { POST: checkout } = await import(
+    '../src/app/api/v1/billing/checkout/route.ts'
+  );
+  const { POST: portal } = await import(
+    '../src/app/api/v1/billing/portal/route.ts'
+  );
+  const { POST: sync } = await import(
+    '../src/app/api/v1/billing/sync/route.ts'
+  );
+  for (const res of [
+    await checkout(req('/billing/checkout', {})),
+    await portal(req('/billing/portal', {})),
+    await sync(req('/billing/sync', { sessionId: 'cs_1' })),
+  ]) {
+    assert.equal(res.status, 503);
+    assert.equal((await res.json()).code, 'BILLING_UNAVAILABLE');
+  }
+  assert.equal(
+    (await deliver('invoice.paid', { customer: 'cus_1' })).status,
+    503,
+  );
+  assert.equal(stripeFake.state.created.length, 0);
+});
+
+test('the webhook refuses a missing or forged signature and changes nothing', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(subscription({ userId: USER }));
+  const { POST } = await import('../src/app/api/v1/billing/webhook/route.ts');
+  const unsigned = await POST(
+    new Request('http://t/billing/webhook', { method: 'POST', body: '{}' }),
+  );
+  assert.equal(unsigned.status, 400);
+  const forged = await deliver(
+    'customer.subscription.updated',
+    { customer: 'cus_1' },
+    Stripe.webhooks.generateTestHeaderString({
+      payload: '{}',
+      secret: 'whsec_someone_else',
+    }),
+  );
+  assert.equal(forged.status, 400);
+  assert.deepEqual(await subscriptionRows(), []);
+});
+
+test('a subscription event stores what Stripe says now, for the user in its metadata', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(subscription({ userId: USER }));
+  const res = await deliver('customer.subscription.created', {
+    customer: 'cus_1',
+  });
+  assert.equal(res.status, 200);
+  assert.deepEqual(await subscriptionRows(), [
+    {
+      user_id: USER,
+      stripe_customer_id: 'cus_1',
+      stripe_subscription_id: 'sub_1',
+      status: 'active',
+      current_period_end: new Date(1_830_000_000 * 1000)
+        .toISOString()
+        .replace('.000Z', '+00:00'),
+      cancel_at_period_end: false,
+    },
+  ]);
+  const read = await billing();
+  assert.equal(read.body.plan, 'paid');
+  assert.equal(
+    read.body.periodEnd,
+    new Date(1_830_000_000 * 1000).toISOString(),
+  );
+});
+
+test('the same event twice leaves the same one row', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(subscription({ userId: USER }));
+  await deliver('invoice.paid', { customer: 'cus_1' });
+  const once = await subscriptionRows();
+  await deliver('invoice.paid', { customer: 'cus_1' });
+  assert.deepEqual(await subscriptionRows(), once);
+  assert.equal(once.length, 1);
+});
+
+test('an old event arriving late still leaves the current state', async () => {
+  configureBilling();
+  const sub = subscription({ userId: USER });
+  stripeFake.state.subscriptions.push(sub);
+  sub.status = 'canceled';
+  await deliver('customer.subscription.deleted', { customer: 'cus_1' });
+  // The `created` event, delayed past the cancel, carries an active payload.
+  await deliver('customer.subscription.created', {
+    customer: 'cus_1',
+    status: 'active',
+  });
+  assert.equal((await subscriptionRows())[0].status, 'canceled');
+  assert.equal((await billing()).body.plan, 'free');
+});
+
+test('a cancel at period end stays paid, and says when it ends', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(
+    subscription({ userId: USER, cancel_at: 1_820_000_000 }),
+  );
+  await deliver('customer.subscription.updated', { customer: 'cus_1' });
+  const read = (await billing()).body;
+  assert.equal(read.plan, 'paid');
+  assert.equal(read.cancelAtPeriodEnd, true);
+  assert.equal(read.periodEnd, new Date(1_820_000_000 * 1000).toISOString());
+});
+
+test('a failed renewal keeps the plan paid and says the payment failed', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(
+    subscription({ userId: USER, status: 'past_due' }),
+  );
+  await deliver('invoice.payment_failed', { customer: 'cus_1' });
+  const read = (await billing()).body;
+  assert.equal(read.plan, 'paid');
+  assert.equal(read.paymentFailed, true);
+});
+
+test('a current subscription wins over an older canceled one', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(
+    subscription({ id: 'sub_old', userId: USER, status: 'canceled' }),
+    subscription({ id: 'sub_new', userId: USER }),
+  );
+  await deliver('customer.subscription.created', { customer: 'cus_1' });
+  assert.equal((await subscriptionRows())[0].stripe_subscription_id, 'sub_new');
+});
+
+test('an event for a customer with no subscription of ours is acknowledged and ignored', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(
+    subscription({ customer: 'cus_stranger' }),
+  );
+  const unknown = await deliver('invoice.paid', { customer: 'cus_nobody' });
+  assert.equal(unknown.status, 200);
+  const noMetadata = await deliver('invoice.paid', {
+    customer: 'cus_stranger',
+  });
+  assert.equal(noMetadata.status, 200);
+  const unrelated = await deliver('charge.refunded', { customer: 'cus_1' });
+  assert.equal(unrelated.status, 200);
+  assert.deepEqual(await subscriptionRows(), []);
+});
+
+test('a subscription whose account is gone is canceled at Stripe, never charged again', async () => {
+  configureBilling();
+  // Paid, then the account deleted before any sync wrote the row, so
+  // DELETE /account had nothing to cancel.
+  stripeFake.state.subscriptions.push(
+    subscription({ userId: '99999999-9999-9999-9999-999999999999' }),
+  );
+  const res = await deliver('customer.subscription.created', {
+    customer: 'cus_1',
+  });
+  assert.equal(res.status, 200);
+  assert.deepEqual(stripeFake.state.canceled, ['sub_1']);
+  assert.deepEqual(await subscriptionRows(), []);
+
+  // Its own `deleted` event then finds it ended, and cancels nothing more.
+  await deliver('customer.subscription.deleted', { customer: 'cus_1' });
+  assert.deepEqual(stripeFake.state.canceled, ['sub_1']);
+});
+
+test('a second customer paying for the same user does not replace the first', async () => {
+  configureBilling();
+  // Two payment pages completed at once, each making its own customer.
+  const first = subscription({ id: 'sub_a', customer: 'cus_a', userId: USER });
+  stripeFake.state.subscriptions.push(
+    first,
+    subscription({ id: 'sub_b', customer: 'cus_b', userId: USER }),
+  );
+  await deliver('customer.subscription.created', { customer: 'cus_a' });
+  await deliver('customer.subscription.created', { customer: 'cus_b' });
+  const rows = await subscriptionRows();
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].stripe_customer_id, 'cus_a');
+
+  // Once the first has ended, the second is the user's subscription.
+  first.status = 'canceled';
+  await deliver('customer.subscription.deleted', { customer: 'cus_a' });
+  await deliver('invoice.paid', { customer: 'cus_b' });
+  assert.equal((await subscriptionRows())[0].stripe_customer_id, 'cus_b');
+});
+
+test('checkout opens Stripe for the yearly price, with the user and the renewal stated', async () => {
+  configureBilling();
+  const { POST } = await import('../src/app/api/v1/billing/checkout/route.ts');
+  const res = await json(await POST(req('/billing/checkout', {})));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.url, 'https://checkout.stripe.test/1');
+  const params = stripeFake.state.created[0] as any;
+  assert.equal(params.mode, 'subscription');
+  assert.deepEqual(params.line_items, [{ price: 'price_yearly', quantity: 1 }]);
+  assert.equal(params.client_reference_id, USER);
+  assert.deepEqual(params.subscription_data, { metadata: { user_id: USER } });
+  assert.equal(params.customer, undefined, 'a first checkout makes a customer');
+  assert.deepEqual(params.consent_collection, { terms_of_service: 'required' });
+  assert.match(params.custom_text.submit.message, /Renews every year/);
+  assert.equal(params.automatic_tax, undefined, 'no sales tax at launch');
+  assert.equal(
+    params.success_url,
+    'http://t/settings?checkout={CHECKOUT_SESSION_ID}',
+  );
+  assert.equal(params.cancel_url, 'http://t/settings');
+});
+
+test("checkout reuses a returning subscriber's customer, and refuses a paid one", async () => {
+  configureBilling();
+  const { POST } = await import('../src/app/api/v1/billing/checkout/route.ts');
+  await pool.query(
+    `insert into subscriptions (user_id, stripe_customer_id,
+       stripe_subscription_id, status, current_period_end)
+     values ($1, 'cus_back', 'sub_gone', 'canceled', now())`,
+    [USER],
+  );
+  await POST(req('/billing/checkout', {}));
+  assert.equal((stripeFake.state.created[0] as any).customer, 'cus_back');
+
+  await pool.query(`update subscriptions set status = 'active'`);
+  const paid = await json(await POST(req('/billing/checkout', {})));
+  assert.equal(paid.status, 409);
+  assert.equal(paid.body.code, 'ALREADY_SUBSCRIBED');
+  assert.equal(stripeFake.state.created.length, 1);
+});
+
+test('back from checkout, sync stores the paid plan without waiting on the webhook', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(subscription({ userId: USER }));
+  stripeFake.state.sessions.set('cs_mine', {
+    id: 'cs_mine',
+    client_reference_id: USER,
+    customer: 'cus_1',
+  });
+  const { POST } = await import('../src/app/api/v1/billing/sync/route.ts');
+  const res = await json(
+    await POST(req('/billing/sync', { sessionId: 'cs_mine' })),
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.body.plan, 'paid');
+  assert.equal((await subscriptionRows()).length, 1);
+});
+
+test("sync answers another user's or an unknown checkout as not found", async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(subscription({ userId: OTHER }));
+  stripeFake.state.sessions.set('cs_theirs', {
+    id: 'cs_theirs',
+    client_reference_id: OTHER,
+    customer: 'cus_1',
+  });
+  const { POST } = await import('../src/app/api/v1/billing/sync/route.ts');
+  for (const sessionId of ['cs_theirs', 'cs_missing']) {
+    const res = await json(await POST(req('/billing/sync', { sessionId })));
+    assert.equal(res.status, 404);
+    assert.equal(res.body.code, 'CHECKOUT_NOT_FOUND');
+  }
+  assert.deepEqual(await subscriptionRows(), []);
+});
+
+test('the portal opens for the stored customer, and refuses with none', async () => {
+  configureBilling();
+  const { POST } = await import('../src/app/api/v1/billing/portal/route.ts');
+  const none = await json(await POST(req('/billing/portal', {})));
+  assert.equal(none.status, 409);
+  assert.equal(none.body.code, 'NOT_SUBSCRIBED');
+
+  await pool.query(
+    `insert into subscriptions (user_id, stripe_customer_id,
+       stripe_subscription_id, status, current_period_end)
+     values ($1, 'cus_1', 'sub_1', 'active', now())`,
+    [USER],
+  );
+  const res = await json(await POST(req('/billing/portal', {})));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.url, 'https://billing.stripe.test/session');
+  assert.deepEqual(stripeFake.state.portals, [
+    { customer: 'cus_1', return_url: 'http://t/settings' },
+  ]);
+});
+
+test('deleting an account cancels its subscription first, and keeps the account if Stripe refuses', async () => {
+  configureBilling();
+  const { DELETE } = await import('../src/app/api/v1/account/route.ts');
+  await pool.query(
+    `insert into subscriptions (user_id, stripe_customer_id,
+       stripe_subscription_id, status, current_period_end)
+     values ($1, 'cus_1', 'sub_1', 'active', now())`,
+    [USER],
+  );
+  // The shim cannot run `delete_account()` as a signed-in user; what this
+  // asserts is the order: Stripe first, and no deletion past a failure.
+  const deleted: string[] = [];
+  const db = makeDb(pool, USER);
+  (globalThis as any).__TEST_DB__ = {
+    ...db,
+    rpc: async (fn: string) => {
+      deleted.push(fn);
+      return { data: null, error: null };
+    },
+  };
+
+  stripeFake.state.failCancel = true;
+  assert.equal(
+    (await DELETE(req('/account', undefined, 'DELETE'))).status,
+    500,
+  );
+  assert.deepEqual(deleted, [], 'not deleted while still subscribed');
+
+  stripeFake.state.failCancel = false;
+  assert.equal(
+    (await DELETE(req('/account', undefined, 'DELETE'))).status,
+    204,
+  );
+  assert.deepEqual(stripeFake.state.canceled, ['sub_1']);
+  assert.deepEqual(deleted, ['delete_account']);
+});
+
+test('deleting an account with an ended subscription does not call Stripe', async () => {
+  const { DELETE } = await import('../src/app/api/v1/account/route.ts');
+  await pool.query(
+    `insert into subscriptions (user_id, stripe_customer_id,
+       stripe_subscription_id, status, current_period_end)
+     values ($1, 'cus_1', 'sub_1', 'canceled', now())`,
+    [USER],
+  );
+  const db = makeDb(pool, USER);
+  (globalThis as any).__TEST_DB__ = {
+    ...db,
+    rpc: async () => ({ data: null, error: null }),
+  };
+  assert.equal(
+    (await DELETE(req('/account', undefined, 'DELETE'))).status,
+    204,
+  );
+  assert.deepEqual(stripeFake.state.canceled, []);
+});
+
 // ── export ─────────────────────────────────────────────────────────
 const EXPORT_CLIENT = '33333333-0000-4000-8000-0000000000e1';
 const EXPORT_PROJECT = '33333333-0000-4000-8000-0000000000e2';
@@ -3518,6 +4258,9 @@ test('the invoices export is every invoice, any status, as a CSV attachment', as
     OTHER,
     theirClient,
   );
+  await pool.query(`update clients set name = 'Renamed' where id = $1`, [
+    EXPORT_CLIENT,
+  ]);
 
   const res = await GET(req('/exports/invoices?tz=America/New_York'));
   assert.equal(res.status, 200);
@@ -3537,7 +4280,7 @@ test('the invoices export is every invoice, any status, as a CSV attachment', as
       'INV-0002,Northwind,Paid',
       'INV-0001,Northwind,Void',
     ],
-    'an archived client still exports by name',
+    'an archived or renamed client exports by the name each invoice froze',
   );
   assert.equal(rows[2]!.split(',')[6], '09/20/2026', 'the paid date');
 });
@@ -3601,5 +4344,198 @@ test('the entries export reads past the 1,000-row page', async () => {
     rows[1]!,
     /,0\.02,,,Work,Yes,100\.00,default,2\.00,USD,$/,
     'one minute at the default',
+  );
+});
+
+// ── signing in ─────────────────────────────────────────────────────
+/* Every other test injects `__TEST_DB__`, which short-circuits
+   `requireSession`, so a route that never called it would pass them all.
+   The routes are read from disk, so a new one is covered the day it lands. */
+const UNSIGNED_ROUTES = new Set([
+  'health', // the uptime probe, answered for anyone
+  'billing/webhook', // Stripe's call, proven by its signature instead
+]);
+const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
+
+test('every route answers an unsigned request with 401', async () => {
+  const { readdir } = await import('node:fs/promises');
+  const api = new URL('../src/app/api/v1/', import.meta.url);
+  const routes = (await readdir(api, { recursive: true }))
+    .filter((f) => f.endsWith('route.ts'))
+    .map((f) => f.slice(0, -'/route.ts'.length));
+  (globalThis as any).__TEST_DB__ = null;
+  // A client that is never reached: with no cookie there is no session to read.
+  process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://localhost:1';
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'unused';
+
+  const answers: string[] = [];
+  for (const route of routes.filter((r) => !UNSIGNED_ROUTES.has(r))) {
+    const handlers = await import(new URL(`${route}/route.ts`, api).href);
+    for (const method of METHODS.filter((m) => handlers[m])) {
+      const path = route.replaceAll('[id]', USER);
+      const res = await handlers[method](
+        new Request(`http://t/api/v1/${path}`, {
+          method,
+          body: method === 'GET' ? undefined : '{}',
+        }),
+        { params: Promise.resolve({ id: USER }) },
+      );
+      answers.push(`${method} ${path} ${res.status}`);
+    }
+  }
+  assert.ok(answers.length > 40, `found only ${answers.length} handlers`);
+  assert.deepEqual(
+    answers.filter((a) => !a.endsWith(' 401')),
+    [],
+  );
+});
+
+// ── the macOS app's contract ───────────────────────────────────────
+// `API.swift` restates the response shapes by hand. This test keeps each
+// answer the app decodes in `apps/macos/Tests/StintTests/Fixtures`, which
+// `ContractTests.swift` decodes. A changed shape rewrites its fixture and
+// fails, so the change is committed and the Swift side made to decode it.
+
+// A Monday noon, so `/stats`' week and month come out the same every run.
+const NOW = '2026-10-19T12:00:00.000Z';
+const HOUR_AGO = '2026-10-19T11:00:00.000Z';
+const FIXTURES = new URL(
+  '../../macos/Tests/StintTests/Fixtures/',
+  import.meta.url,
+);
+
+const body = async (r: Response) => {
+  assert.ok(r.ok, `${r.status} ${await r.clone().text()}`);
+  return r.json();
+};
+
+/** A fixture not yet written reads as undefined. */
+function readFixture(file: URL): unknown {
+  try {
+    return JSON.parse(readFileSync(file, 'utf8'));
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    throw e;
+  }
+}
+
+/** Keys and JSON types, not values: ids differ every run. */
+function shape(v: unknown): unknown {
+  if (v === null) return 'null';
+  if (Array.isArray(v)) return v.map(shape);
+  if (typeof v === 'object') {
+    /* A record keyed by id (a week day's `byClient`) has new keys every run;
+       its shape is "id → value", whatever the ids are. */
+    return Object.fromEntries(
+      Object.keys(v as object)
+        .sort()
+        .map((k) => [
+          UUID.test(k) ? '<id>' : k,
+          shape((v as Record<string, unknown>)[k]),
+        ]),
+    );
+  }
+  return typeof v;
+}
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+test('every response the macOS app decodes matches its fixture', async (t) => {
+  // Only Date: the pool's own timers must keep running.
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse(NOW) });
+  const route = (path: string) => import(`../src/app/api/v1/${path}/route.ts`);
+  const clients = await route('clients');
+  const projects = await route('projects');
+  const start = await route('timer/start');
+  const current = await route('timer/current');
+  const stop = await route('timer/stop');
+
+  const client = await body(
+    await clients.POST(
+      req('/clients', { name: 'Northwind', color: '#3b82f6' }),
+    ),
+  );
+  const project = await body(
+    await projects.POST(
+      req('/projects', { clientId: client.id, name: 'Site', hourlyRate: 150 }),
+    ),
+  );
+
+  // The app's presses ask for the summary, so these are recorded as asked.
+  const started = await body(
+    await start.POST(
+      req('/timer/start?include=summary&tz=UTC', {
+        taskName: 'Draft',
+        projectId: project.id,
+        startedAt: HOUR_AGO,
+      }),
+    ),
+  );
+
+  // No route the app calls sets these, and a field null in every fixture
+  // is never type-checked, so they are written directly.
+  const archived = await body(
+    await projects.POST(req('/projects', { clientId: client.id, name: 'Old' })),
+  );
+  await pool.query('update projects set archived_at = $1 where id = $2', [
+    HOUR_AGO,
+    archived.id,
+  ]);
+  const invoice = await pool.query(
+    `insert into invoices (user_id, client_id, invoice_number, sequence_no)
+     values ($1, $2, 'INV-1', 1) returning id`,
+    [USER, client.id],
+  );
+  await pool.query(
+    'update time_entries set rate_override = 200, invoice_id = $1 where id = $2',
+    [invoice.rows[0].id, started.entry.id],
+  );
+
+  // Named as `ContractTests.swift` reads them.
+  const responses: Record<string, unknown> = {
+    'timer-start': started,
+    'timer-current': await body(
+      await current.PATCH(
+        req('/timer/current', { taskName: 'Write copy' }, 'PATCH'),
+      ),
+    ),
+    summary: await body(
+      await (await route('summary')).GET(req('/summary?tz=UTC')),
+    ),
+    stats: await body(await (await route('stats')).GET(req('/stats?tz=UTC'))),
+    clients: await body(
+      await clients.GET(req('/clients?includeArchived=true')),
+    ),
+    // The app asks without archived projects; with them, `archivedAt` is checked.
+    projects: await body(
+      await projects.GET(req('/projects?includeArchived=true')),
+    ),
+    'timer-stop': await body(
+      await stop.POST(
+        req('/timer/stop?include=summary&tz=UTC', { endedAt: NOW }),
+      ),
+    ),
+    'task-names': await body(
+      await (await route('entries/task-names')).GET(
+        req('/entries/task-names?limit=5'),
+      ),
+    ),
+  };
+
+  const changed = Object.entries(responses).flatMap(([name, response]) => {
+    const file = new URL(`${name}.json`, FIXTURES);
+    const prior = readFixture(file);
+    if (
+      prior !== undefined &&
+      util.isDeepStrictEqual(shape(response), shape(prior))
+    ) {
+      return [];
+    }
+    writeFileSync(file, `${JSON.stringify(response, null, 2)}\n`);
+    return [name];
+  });
+  assert.deepEqual(
+    changed,
+    [],
+    'These responses changed shape and their fixtures were rewritten: commit them and make `swift test` pass.',
   );
 });

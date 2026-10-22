@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { type QueryClient, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useOptimisticMutation } from '@/lib/client/mutations';
 import {
   Dialog,
@@ -20,13 +20,12 @@ import { api, type Project } from '@/lib/client/api';
 import { ArchiveButton } from './archive-button';
 import { ClientForm } from './client-form';
 import { ClientPicker } from './client-picker';
+import { keys, predictArchive, predictSave } from '@/lib/client/query-keys';
 import {
-  keys,
-  invalidateEntryData,
-  predictArchive,
-  predictRestore,
-  predictSave,
-} from '@/lib/client/query-keys';
+  invalidateProjects,
+  useRestoreProject,
+} from '@/lib/client/use-restore-project';
+import { RateInput, parseRate } from './rate-input';
 
 /**
  * A dialog rather than a page: a project is four fields, and it is created
@@ -96,8 +95,7 @@ export function ProjectDialog({
     invalidate: invalidateProjects,
   });
 
-  /* Archive lives here rather than on the row: it's rare, and the list's
-     only row action is Edit. Predicted: the dialog closes and the row goes
+  /* Archive lives here rather than on the row: it's rare. Predicted: the dialog closes and the row goes
      on the press; a refusal puts it back and the notice says why. Archive,
      never delete: entries and invoices reference the project. */
   const archive = useOptimisticMutation<string, unknown, unknown>({
@@ -106,23 +104,7 @@ export function ProjectDialog({
     predict: (current, id, key) => predictArchive('projects', id, current, key),
     invalidate: invalidateProjects,
   });
-  const restore = useOptimisticMutation<Project, unknown, unknown>({
-    queryKey: () => keys.projects(),
-    mutationFn: (project) => api.restoreProject(project.id),
-    predict: (current, project, key) =>
-      predictRestore(
-        'projects',
-        project,
-        current,
-        key,
-        /* Unknown counts as listed: the refetch drops it if its client
-           turns out archived. */
-        project.clientId === null ||
-          !clientData ||
-          clients.some((c) => c.id === project.clientId),
-      ),
-    invalidate: invalidateProjects,
-  });
+  const restore = useRestoreProject(clientData?.clients);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,7 +112,7 @@ export function ProjectDialog({
       id: existing?.id ?? uuidv7(),
       name: name.trim(),
       clientId,
-      hourlyRate: hourlyRate.trim() === '' ? null : Number(hourlyRate),
+      hourlyRate: parseRate(hourlyRate),
       isBillableDefault: billable,
       archivedAt: existing?.archivedAt ?? null,
     };
@@ -150,8 +132,8 @@ export function ProjectDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {/* The same form the page uses, so the field set and validation
-              cannot drift. Saving selects the new client and comes straight
+          {/* The same form `ClientDialog` uses, so the field set and
+              validation cannot drift. Saving selects the new client and comes straight
               back to the project; canceling abandons only the client. */}
           <ClientForm
             onSaved={(client) => {
@@ -207,16 +189,15 @@ export function ProjectDialog({
             <Label htmlFor="project-rate" className={LABEL}>
               Hourly rate
             </Label>
-            <Input
+            <RateInput
               id="project-rate"
-              type="number"
-              min="0"
-              step="0.01"
-              inputMode="decimal"
               value={hourlyRate}
               onChange={(e) => setHourlyRate(e.target.value)}
-              placeholder="Defaults to the client's rate"
+              placeholder="150.00"
             />
+            <p className="type-support text-subtle">
+              Defaults to the client's rate.
+            </p>
           </div>
 
           <label className="flex items-center gap-2.5 type-control text-primary">
@@ -274,11 +255,3 @@ export function ProjectDialog({
 }
 
 const LABEL = 'type-label text-subtle';
-
-/** A project's rate is what its unbilled work is valued at, in every
-    rollup. */
-const invalidateProjects = (qc: QueryClient) =>
-  Promise.all([
-    qc.invalidateQueries({ queryKey: keys.projects() }),
-    invalidateEntryData(qc),
-  ]);

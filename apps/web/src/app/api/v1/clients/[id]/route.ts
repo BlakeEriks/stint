@@ -2,7 +2,13 @@ import { NextResponse } from 'next/server';
 import { handle, ApiError } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
-import { CLIENT_COLUMNS, toClient, toColumns, CLIENT_FIELDS } from '@/lib/rows';
+import {
+  billingScheduleColumns,
+  CLIENT_COLUMNS,
+  CLIENT_FIELDS,
+  toClient,
+  toColumns,
+} from '@/lib/rows';
 import { UpdateClient } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -31,6 +37,8 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   const patch = await parseBody(req, UpdateClient);
 
   const update = toColumns(patch, CLIENT_FIELDS);
+  if (patch.billingSchedule !== undefined)
+    Object.assign(update, billingScheduleColumns(patch.billingSchedule));
   if (patch.archived !== undefined) {
     update.archived_at = patch.archived ? new Date().toISOString() : null;
   }

@@ -63,10 +63,10 @@ describe('BackLink', () => {
   });
 
   it('goes back past the form a record was saved through', () => {
-    visit('/clients', '/clients/new');
-    at.pathname = '/clients/c1';
-    const link = arrow('/clients', 'Clients');
-    expect(link).toHaveTextContent('← Clients');
-    expect(link).toHaveAttribute('href', '/clients');
+    visit('/invoices', '/invoices/new');
+    at.pathname = '/invoices/inv-1';
+    const link = arrow('/invoices', 'Invoices');
+    expect(link).toHaveTextContent('← Invoices');
+    expect(link).toHaveAttribute('href', '/invoices');
   });
 });

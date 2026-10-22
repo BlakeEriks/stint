@@ -11,7 +11,8 @@ export function ContentPanel({ children }: { children: React.ReactNode }) {
   return (
     <div
       tabIndex={useScrollerFocus()}
-      className="min-w-0 flex-1 rounded-xl border border-edge-subtle bg-surface-primary shadow-card xl:col-start-2 xl:row-start-1 xl:overflow-y-auto"
+      data-content-panel
+      className="relative min-w-0 flex-1 rounded-xl border border-edge-subtle bg-surface-primary shadow-card xl:col-start-2 xl:row-start-1 xl:overflow-y-auto"
     >
       {children}
     </div>

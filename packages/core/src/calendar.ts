@@ -167,12 +167,11 @@ export function businessDaysInLocalMonth(
   tz: string,
 ): { elapsed: number; total: number } {
   const { y, m, d: today } = localDate(now, tz);
-  // Day 0 of the next month is the last day of this one.
-  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const days = daysInMonth(y, m);
 
   let elapsed = 0;
   let total = 0;
-  for (let d = 1; d <= daysInMonth; d += 1) {
+  for (let d = 1; d <= days; d += 1) {
     // getUTCDay on a UTC-midnight date gives that calendar date's weekday.
     const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
     if (dow === 0 || dow === 6) continue;
@@ -206,6 +205,55 @@ export function splitByLocalDay(
     days.push({ date: localDateKey(from, tz), seconds: Math.round(ms / 1000) });
     from = midnight;
   } while (from < end);
+  return days;
+}
+
+/** An entry as the per-client day split reads it. */
+export interface DaySplitEntry {
+  startedAt: string;
+  endedAt: string | null;
+  durationSeconds: number | null;
+  projectId: string | null;
+  isBillable: boolean;
+}
+
+/**
+ * Billable seconds per client on each local date — what splits a bar of the
+ * week by who the hours belonged to.
+ *
+ * A session counts whole on the day it started, and one that started before
+ * `from` not at all, as `revenue_by_day` counts the bar's height. Work with no
+ * project or no client keys as `''` rather than being dropped: a day of
+ * internal work is not an empty day. Non-billable work is left out, because
+ * the bar it would split is billable seconds; a day with only that work is
+ * present and empty.
+ *
+ * A running session counts to `now`, as the week's bars do.
+ */
+export function dayByClient(
+  entries: DaySplitEntry[],
+  clientOf: Map<string, string | null>,
+  { from, tz, now }: { from: string; tz: string; now: Date },
+): Map<string, Record<string, number>> {
+  const days = new Map<string, Record<string, number>>();
+  const start = new Date(from);
+  for (const e of entries) {
+    const startedAt = new Date(e.startedAt);
+    if (startedAt < start) continue;
+    let seconds = e.durationSeconds;
+    if (e.endedAt == null) {
+      seconds = Math.max(
+        0,
+        Math.round((now.getTime() - startedAt.getTime()) / 1000),
+      );
+    }
+    const key = localDateKey(startedAt, tz);
+    const day = days.get(key) ?? {};
+    days.set(key, day);
+    if (!e.isBillable) continue;
+    const client = e.projectId ? (clientOf.get(e.projectId) ?? '') : '';
+    day[client] = (day[client] ?? 0) + (seconds ?? 0);
+  }
   return days;
 }
 
@@ -247,6 +295,11 @@ export function localDateTimeToInstant(
   guess = new Date(wall - tzOffset(guess, tz));
   return guess;
 }
+
+/** Days in month `m` (1–12) of year `y`: day 0 of the next month is the
+ *  last day of this one. */
+export const daysInMonth = (y: number, m: number): number =>
+  new Date(Date.UTC(y, m, 0)).getUTCDate();
 
 /** `date` stepped `n` days on the calendar rather than in milliseconds. */
 export function addDays(date: string, n: number): string {

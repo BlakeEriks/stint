@@ -1,6 +1,8 @@
-import { handle } from '@/lib/errors';
+import { ApiError, handle } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { loadPdfData } from '@/lib/invoicing';
+import { parseQuery } from '@/lib/validate';
+import { InvoiceReadQuery } from '@stint/schema';
 
 // Rendering needs the Node runtime, not edge.
 export const runtime = 'nodejs';
@@ -11,17 +13,30 @@ type Ctx = { params: Promise<{ id: string }> };
 /**
  * GET /api/v1/invoices/:id/pdf
  *
- * Rendered on demand from the frozen line items — see `loadPdfData`.
+ * Rendered on demand from the stored line items — see `loadPdfData`. A
+ * draft's render is recorded, so Mark sent can tell when the client was given
+ * a copy the draft has since moved past.
  *
  * This is how an invoice reaches a client: the user downloads it and emails
  * it themselves, from their own address. `?download=1` forces a save rather
- * than a browser preview.
+ * than a browser preview. Both are the document, so both are the paid tier:
+ * gating only the download would leave the viewer's save button.
  */
 export const GET = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
   const { id } = await ctx.params;
 
-  const { invoice, pdfData } = await loadPdfData(db, id);
+  const { tz } = parseQuery(req, InvoiceReadQuery);
+
+  const { invoice, pdfData, canDownload } = await loadPdfData(db, id, {
+    tz,
+    rendering: true,
+  });
+  if (!canDownload)
+    throw new ApiError(
+      'PAYMENT_REQUIRED',
+      'Downloading an invoice is on the paid plan. Subscribe in Settings.',
+    );
   const download = new URL(req.url).searchParams.get('download') === '1';
 
   // Imported dynamically: the renderer module is JSX, and deferring it keeps

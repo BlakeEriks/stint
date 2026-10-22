@@ -8,6 +8,7 @@ import {
   localDayOfWeek,
 } from '@stint/core';
 import type {
+  Billing,
   Client,
   Expense,
   Invoice,
@@ -16,7 +17,9 @@ import type {
   Settings,
   StoredLineItem,
   TimeEntry,
+  DraftChange,
 } from '@/lib/client/api';
+import { businessOf } from '@/components/invoice-preview-card';
 import { ZONE } from './time.mts';
 
 /**
@@ -29,7 +32,12 @@ import { ZONE } from './time.mts';
  * internal work.
  */
 
-type StoredInvoice = Invoice & { lineItems: StoredLineItem[] };
+/** A draft the story says moved since its PDF was rendered carries the
+ *  change and which lines are new; the fake keeps no snapshot of its own. */
+type StoredInvoice = Invoice & {
+  lineItems: (StoredLineItem & { isNew?: boolean })[];
+  changedSinceDownload?: DraftChange | null;
+};
 
 export interface Db {
   now: Date;
@@ -41,6 +49,7 @@ export interface Db {
   invoices: StoredInvoice[];
   expenses: Expense[];
   paymentProfiles: PaymentProfile[];
+  billing: Billing;
 }
 
 /** A fixed id per record, valid for `@stint/schema`'s strict `uuid`. */
@@ -86,16 +95,16 @@ export const settings = (): Settings => ({
   timeFormat: '12h',
   minEntrySeconds: 60,
   maxEntryHours: 12,
-  businessName: 'Blake Eriks',
+  businessName: 'Sam Rivera',
   businessAddress: '1200 Pine St, Suite 4\nSeattle, WA 98101',
-  businessEmail: 'billing@blakeeriks.test',
+  businessEmail: 'billing@samrivera.test',
   logoUrl: null,
-  taxId: null,
   defaultPaymentTerms: 'Net 30',
   invoiceNumberPrefix: 'STINT-',
   nextInvoiceNumber: 16,
   paymentNotice:
     'Our bank details never change by email. Call before paying new ones.',
+  welcomedAt: '2026-09-01T16:00:00.000Z',
 });
 
 const client = (c: Partial<Client> & Pick<Client, 'id' | 'name'>): Client => ({
@@ -106,6 +115,7 @@ const client = (c: Partial<Client> & Pick<Client, 'id' | 'name'>): Client => ({
   currency: 'USD',
   color: null,
   paymentProfileId: null,
+  billingSchedule: null,
   archivedAt: null,
   ...c,
 });
@@ -266,12 +276,21 @@ export function seed(now: Date): Db {
     entries,
     invoices,
     expenses,
+    // Billing set up, and this account on the free plan.
+    billing: {
+      available: true,
+      plan: 'free',
+      status: null,
+      periodEnd: null,
+      cancelAtPeriodEnd: false,
+      paymentFailed: false,
+    },
     paymentProfiles: [
       {
         id: ids.ach,
         name: 'Business checking',
         isDefault: true,
-        accountHolderName: 'Blake Eriks',
+        accountHolderName: 'Sam Rivera',
         accountHolderAddress: null,
         bankName: 'First Federal Bank',
         bankAddress: null,
@@ -296,7 +315,7 @@ export function seed(now: Date): Db {
         id: ids.wire,
         name: 'International wire',
         isDefault: false,
-        accountHolderName: 'Blake Eriks',
+        accountHolderName: 'Sam Rivera',
         accountHolderAddress: '1200 Pine St, Suite 4\nSeattle, WA 98101',
         bankName: 'First Federal Bank',
         bankAddress: '1 Federal Plaza\nNew York, NY 10007',
@@ -447,6 +466,12 @@ const INVOICES: InvoiceSpec[] = [
   },
 ];
 
+/** The From and Bill to blocks an invoice freezes when it is generated. */
+export const parties = (s: Settings, c: Client) => ({
+  business: businessOf(s),
+  billTo: { name: c.name, email: c.email ?? null, address: c.address ?? null },
+});
+
 /** Each invoice claims its client's entries in its period, as issuing does. */
 function invoicesFor(
   entries: TimeEntry[],
@@ -512,6 +537,7 @@ function invoicesFor(
       reference: null,
       supportingDetail: null,
       paymentDetails: null,
+      ...parties(settings(), who),
       sentAt:
         spec.status === 'draft'
           ? null

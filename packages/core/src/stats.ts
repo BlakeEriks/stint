@@ -6,7 +6,11 @@
  * and reports hours alone.
  */
 
-import { businessDaysInLocalMonth, localDateKey } from './calendar.ts';
+import {
+  businessDaysInLocalMonth,
+  daysInMonth,
+  localDateKey,
+} from './calendar.ts';
 import { findOverlaps } from './overlaps.ts';
 
 /** A draft left this long is usually forgotten, not deliberate. */
@@ -518,6 +522,8 @@ export interface WeekDay {
   date: string;
   /** All billable worked time, unrated work included — this is the height. */
   seconds: number;
+  /** `seconds` per client id (`''` for none) — how the bar is stacked. */
+  byClient: Record<string, number>;
   /** Null when the day's work resolves no rate: the bar prints no figure. */
   amount: number | null;
 }
@@ -533,7 +539,11 @@ export interface WeekDay {
  * unrated work has a real height and no figure to print: substituting 0 would
  * claim the work was free.
  */
-export function buildWeek(rows: DayRow[], dateKeys: string[]): WeekDay[] {
+export function buildWeek(
+  rows: DayRow[],
+  dateKeys: string[],
+  split: Map<string, Record<string, number>> = new Map(),
+): WeekDay[] {
   const byDate = new Map(rows.map((r) => [dayKey(r), r]));
   return dateKeys.map((date) => {
     const row = byDate.get(date);
@@ -541,6 +551,7 @@ export function buildWeek(rows: DayRow[], dateKeys: string[]): WeekDay[] {
       date,
       seconds: row ? Number(row.seconds) : 0,
       amount: row?.amount == null ? null : roundMoney(Number(row.amount)),
+      byClient: split.get(date) ?? {},
     };
   });
 }
@@ -600,11 +611,10 @@ export function businessDayKeysInLocalMonth(now: Date, tz: string): string[] {
     number,
     number,
   ];
-  // Day 0 of the next month is the last day of this one.
-  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const days = daysInMonth(y, m);
 
   const keys: string[] = [];
-  for (let d = 1; d <= daysInMonth; d += 1) {
+  for (let d = 1; d <= days; d += 1) {
     // getUTCDay on a UTC-midnight date gives that calendar date's weekday.
     const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
     if (dow === 0 || dow === 6) continue;

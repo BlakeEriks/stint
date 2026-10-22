@@ -1,4 +1,5 @@
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
+import type { IncludedName } from './api';
 
 /**
  * Every cache key in one place.
@@ -16,20 +17,18 @@ export const keys = {
   entry: (id: string) => ['entries', id] as const,
   stats: (tz?: string) =>
     tz ? (['stats', tz] as const) : (['stats'] as const),
-  activity: (tz?: string, days?: number) =>
-    tz ? (['activity', tz, days] as const) : (['activity'] as const),
   calendar: (weekStart?: string, tz?: string) =>
     weekStart
       ? (['calendar', weekStart, tz] as const)
       : (['calendar'] as const),
   clients: (opts?: { archived?: boolean; scale?: boolean }) =>
     opts ? (['clients', opts] as const) : (['clients'] as const),
-  client: (id: string) => ['clients', id] as const,
   projects: (opts?: { archived?: boolean; clientId?: string }) =>
     opts ? (['projects', opts] as const) : (['projects'] as const),
   taskNames: (opts?: { projectId?: string | null }) =>
     opts ? (['task-names', opts] as const) : (['task-names'] as const),
   account: () => ['account'] as const,
+  billing: () => ['billing'] as const,
   /** The Supabase session, which sign-out ends. */
   session: () => ['session'] as const,
   invoices: () => ['invoices'] as const,
@@ -84,10 +83,9 @@ export function predictArchive(
 
 /**
  * A restore's prediction, the reverse of `predictArchive`: the row is marked
- * active in a list that holds archived rows, joins a list of active rows it
- * belongs in, and is marked active where it is cached alone (a client's page).
- * `listed` false keeps it out of active lists, as the server does a project
- * whose client is archived.
+ * active in a list that holds archived rows, and joins a list of active rows
+ * it belongs in. `listed` false keeps it out of active lists, as the server
+ * does a project whose client is archived.
  */
 export function predictRestore(
   rows: 'clients' | 'projects',
@@ -96,12 +94,9 @@ export function predictRestore(
   key: QueryKey,
   listed = true,
 ): unknown {
-  if (typeof current !== 'object' || current === null) return current;
+  if (typeof current !== 'object' || current === null || !(rows in current))
+    return current;
   const restored = { ...row, archivedAt: null };
-  if (!(rows in current))
-    return (current as { id?: string }).id === row.id
-      ? { ...current, archivedAt: null }
-      : current;
   const list = (current as Record<typeof rows, Array<{ id: string }>>)[rows];
   if (listsArchived(key))
     return {
@@ -152,13 +147,18 @@ export function predictSave(
  * change the same underlying rows, and each of the four views reads them
  * differently — so any one of them refreshed alone disagrees with the rest.
  */
-export function invalidateEntryData(queryClient: QueryClient) {
+export function invalidateEntryData(
+  queryClient: QueryClient,
+  /** What the press's answer already brought (`include`), left alone. */
+  settled: readonly IncludedName[] = [],
+) {
+  const unless = (name: IncludedName, queryKey: QueryKey) =>
+    settled.includes(name) ? null : queryClient.invalidateQueries({ queryKey });
   return Promise.all([
-    queryClient.invalidateQueries({ queryKey: keys.summary() }),
+    unless('summary', keys.summary()),
     queryClient.invalidateQueries({ queryKey: keys.entries() }),
-    queryClient.invalidateQueries({ queryKey: keys.stats() }),
+    unless('stats', keys.stats()),
     queryClient.invalidateQueries({ queryKey: keys.calendar() }),
-    queryClient.invalidateQueries({ queryKey: keys.activity() }),
     /* Starting a timer or saving an entry mints a task name, so a list held
        from before it is one suggestion short of what the user just typed. */
     queryClient.invalidateQueries({ queryKey: keys.taskNames() }),

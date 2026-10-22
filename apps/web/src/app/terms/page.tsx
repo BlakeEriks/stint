@@ -12,13 +12,14 @@ export const metadata = legalMetadata('Terms');
  */
 export default function Page() {
   return (
-    <LegalPage title="Terms" updated="September 2026">
+    <LegalPage title="Terms" updated="October 2026">
       <Clause heading="The short version">
         <p>
-          Stint is a time tracking and invoicing tool for one person. It is free
-          to use. It records what you tell it and produces invoices from that
-          &mdash; it does not give you accounting, tax or legal advice, and the
-          numbers on your invoices are your responsibility.
+          Stint is a time tracking and invoicing tool for one person. Tracking
+          is free, and a paid plan is available. It records what you tell it and
+          produces invoices from that &mdash; it does not give you accounting,
+          tax or legal advice, and the numbers on your invoices are your
+          responsibility.
         </p>
       </Clause>
 
@@ -47,16 +48,44 @@ export default function Page() {
         </p>
       </Clause>
 
-      <Clause heading="Price">
+      <Clause heading="Price and billing">
         <p>
-          Stint is free. A paid option may be introduced later that removes the
-          Stint mark from generated invoice PDFs. Nothing that affects whether
-          you get paid &mdash; tracking, invoicing, or exporting your data
-          &mdash; will be put behind a payment.
+          Tracking time is free. Where a feature needs the paid plan, the app
+          says so before you use it. The paid plan costs $40 a year, billed
+          yearly in advance, in US dollars. Payments are handled by Stripe;
+          Stint never sees your card number.
         </p>
         <p>
-          If a paid option is introduced, you will not be charged for anything
-          without agreeing to it first.
+          <strong className="text-primary">
+            The paid plan renews automatically every year
+          </strong>{' '}
+          at the then-current price, charged to the card on file, until you
+          cancel. You will get an email reminder before each renewal.
+        </p>
+        <p>
+          Cancel any time, online, from Settings &rarr; Plan &rarr; Manage
+          billing. You keep the paid plan until the end of the year you paid
+          for, and you are not charged again.
+        </p>
+        <p>
+          If you ask within 30 days of any charge, including a renewal, you get
+          a full refund of that charge. After 30 days, payments are not
+          refunded.
+        </p>
+        <p>
+          If a renewal payment fails, it is retried over the following two weeks
+          and you keep the paid plan meanwhile. If every retry fails, the
+          subscription ends.
+        </p>
+        <p>
+          A price change applies only from your next renewal, and you will be
+          told at least 30 days before it. Prices do not include sales tax; none
+          is charged today.
+        </p>
+        <p>
+          Canceling, or a payment failing, never deletes or locks your records
+          or the invoices you have already generated. Tracking and exporting
+          your data stay free on every plan.
         </p>
       </Clause>
 

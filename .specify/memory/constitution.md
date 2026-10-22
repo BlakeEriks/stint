@@ -75,8 +75,8 @@ bound, because "try again" on a write that landed could make it twice.
 `apps/web/scripts/check-mutation-usage.mjs` fails a web file that imports `useMutation`, with
 no opt-out; on macOS the PR checklist asks.
 
-The server stays the truth (Principle III): the refetch after the last press
-replaces every prediction. A rejection takes the prediction back and says
+The server stays the truth (Principle III): its answer to the last press,
+refetched or included with the write, replaces every prediction. A rejection takes the prediction back and says
 why — in the form that stays open, otherwise in the app-wide notice, which
 outlives the screen that pressed — never silently (Principle I).
 
@@ -96,9 +96,9 @@ Facts a design works around:
   retried insert lands on the same row.
 - **Clients and projects are archived, never deleted**; invoices reference
   them.
-- **No new fixed cost.** Vercel Pro and Supabase Pro are the whole overhead
-  (`docs/positioning.md`); an always-on service or a paid tier changes
-  positioning first.
+- **No new fixed cost.** The Vercel and Supabase plans in
+  `docs/positioning.md` are the whole overhead; an always-on service or a
+  paid tier changes positioning first.
 - **Online-only, US-first**, on Next.js route handlers, Supabase Postgres
   with RLS, and a native Swift macOS app (`docs/architecture.md`).
 
@@ -116,4 +116,4 @@ change, the plausible design that breaks it, and why no check catches that
 in time. The version follows semver: MAJOR removes or redefines a principle,
 MINOR adds one, PATCH rewords. The reasoning goes in the PR.
 
-**Version**: 8.0.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-10-03
+**Version**: 8.0.2 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-10-21

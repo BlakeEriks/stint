@@ -53,8 +53,8 @@ then restart its dev server, which otherwise serves the last branch's build.
     <!-- work-issues -->
     🤖 **From the /work-issues agent**
 
-`gh` runs as Blake, so his name is on it: the second line tells people it is
-not his, and the hidden marker is how the loop tells.
+`gh` runs as the repo owner, so their name is on it: the second line tells
+people it is not theirs, and the hidden marker is how the loop tells.
 
 ## Triage
 
@@ -70,8 +70,8 @@ behavior — against `origin/main` today:
   and `looks wrong` what a user sees; local tooling is `enhancement`.
   Relabel it and say why in the same comment. The label sets pick order.
 
-Then read its comments and the docs that own the area it touches. It needs
-Blake when it:
+Then read its comments and the docs that own the area it touches. It needs the
+reviewer when it:
 
 - decides a price, a thesis, a scope or a milestone (`docs/positioning.md`,
   the `Alpha` and `Launch` milestones)
@@ -82,9 +82,9 @@ Blake when it:
   more than a revision
 - is a `Redesign` issue that doesn't already name the design to build
 - says a decision comes first ("decide which table is authoritative before
-  writing the fix"): the issue's author has already said it is Blake's
+  writing the fix"): the issue's author has already said it is the reviewer's
 
-Anything else, decide yourself and say why in the PR. When it needs Blake:
+Anything else, decide yourself and say why in the PR. When it needs the reviewer:
 one marked comment with the question, the options and your recommendation;
 label it `needs-input`; report back.
 
@@ -95,13 +95,13 @@ Then two checks, each kept as a label so nobody makes it twice:
   feature stacks on. A shared file makes
   it `blocked`, with a marked comment: "Blocked by #31: both change the
   inbox." Report back.
-- **Migration:** if the fix needs one, label it `migration`. If an open PR
-  is labeled `migration` too, it is `blocked` on that PR.
+- **Migration:** if the fix needs one, label it `migration`. Another open
+  `migration` PR does not block it: only QA waits for the preview database.
 
 ## Build
 
 An answered `needs-input` issue — catch-up has already removed the label:
-build on Blake's answer, continuing its pushed branch if it has one.
+build on the reviewer's answer, continuing its pushed branch if it has one.
 Otherwise branch off `origin/main`, the name under 30 characters — it
 becomes the preview's URL, and Vercel hashes longer ones.
 
@@ -120,22 +120,21 @@ order — `speckit-specify`, `speckit-clarify`, `design-review`,
 Commit after each. `speckit-implement`'s `after_implement` hook,
 `standards-review`, is the loop's own review of your round: skip it. The
 whole feature ships as one PR. Wherever a skill
-asks Blake, decide yourself and record it in the spec, marked "(decided
+asks the reviewer, decide yourself and record it in the spec, marked "(decided
 autonomously)", except:
 
 - **A price, a thesis, a scope or a milestone** is still `needs-input`.
 - **Design review** you start only when a screen has a real choice of
-  layout or hierarchy that Blake should see before it is built; otherwise
+  layout or hierarchy that the reviewer should see before it is built; otherwise
   record the skip and why. To start one, follow `design-review`'s Unattended
-  section and report `design-review: <path>`. Each reply of his is a round
-  of it.
+  section and report `design-review: <path>`. Each reply of the repo owner's is a round of it.
 
 A feature that needs an open PR's unmerged work branches off that PR's
 branch instead of `origin/main`.
 
 **The seed is shared.** Add to `scripts/seed-account.mjs` only a state that
 cannot be reached by hand in a minute — a condition that needs days to pass,
-like the inbox rows. Anything else, **Try it** has Blake create by clicking.
+like the inbox rows. Anything else, **Try it** has the reviewer create by clicking.
 
 **Verify once, after the round's last edit** — not after every change.
 **Never `pnpm dev:reset`, and `pnpm dev:up` only when the stack is down**:
@@ -165,13 +164,12 @@ yet".
    seen with `apps/macos/qa.sh`: the panel in a plain window, screenshotted
    with `qa.sh shot` and driven with `qa.sh click` and `qa.sh type`.
    **Never run `bundle.sh`, and never quit, launch or click an installed
-   Stint app or the menu bar:** Blake's production `Stint.app` runs there while
-   he works, a `prod` bundle installs over it, and any other lands in his menu
-   bar beside it. He sees it with
-   `pnpm try-mac`, so a Mac issue never waits on `needs-input` because nobody
+   Stint app or the menu bar:** the production `Stint.app` runs there all day,
+   a `prod` bundle installs over it, and any other lands in the menu bar
+   beside it. The reviewer sees it with `pnpm try-mac`, so a Mac issue never waits on `needs-input` because nobody
    has looked at it.
 
-Commit, unpushed, and report back. A check that cannot pass without Blake is
+Commit, unpushed, and report back. A check that cannot pass without the reviewer is
 `needs-input`, with the branch pushed so the work survives.
 
 ## Fixes
@@ -182,18 +180,24 @@ comment only on `ship`, as for a new PR.
 
 **Conflicts with `main`:** `git merge origin/main` into the branch — never rebase,
 never force-push. Resolve any conflicts, verify as above, commit, and report
-back whether it merged clean or needed resolving. For a failed check, read
+back whether it merged clean or needed resolving. **A PR whose diff adds a
+migration, merging `main`,** also checks its migration sorts after main's newest; one that does
+not is recreated with `pnpm exec supabase migration new`, in a new commit,
+or `release.yml` rejects it. For a failed check, read
 the failing job's log first. For doc drift, fix each finding in the doc or
 the code; a finding that is wrong is reported back with the reason.
 
 ## Ship
 
-On `ship` for a new PR: push, and `gh pr create` with `Closes #<n>`, what
-changed, how it was verified — only commands you ran this round and what
-they showed, and plainly what nobody has seen yet, like the menu bar — any
-call Blake might make differently (a feature lists every decision marked
-"(decided autonomously)"), and the **Try it** section of
-`.github/pull_request_template.md`, filled in as its comment says. `<n>` there is the number `gh pr create` prints — never the
+On `ship` for a new PR: push, and `gh pr create` with a body that follows
+`.github/pull_request_template.md`, each section filled in as its comment
+says. **Why** stands on its own: the reviewer should know whether they want the
+change without opening the issue, so restate the problem in plain words
+even when the issue doesn't. **Needs you** holds any call the reviewer might make
+differently (a feature lists every decision marked "(decided
+autonomously)"). **How it works** holds how it was verified — only
+commands you ran this round and what they showed, and plainly what nobody
+has seen yet, like the menu bar. In **Try it**, `<n>` is the number `gh pr create` prints — never the
 issue's. Label the PR `migration` if its issue is. A stacked PR is opened
 with `--base <that PR's branch>` and says which merges first.
 

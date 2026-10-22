@@ -11,7 +11,7 @@ const BASE: PaymentProfile = {
   id: 'pp-1',
   name: 'Chase business',
   isDefault: true,
-  accountHolderName: 'Blake Eriks LLC',
+  accountHolderName: 'Sam Rivera LLC',
   accountHolderAddress: null,
   bankName: 'Chase',
   bankAddress: null,
@@ -151,6 +151,30 @@ describe('PaymentProfiles', () => {
         'Couldn’t make Wise USD the default. Archived details cannot be made default',
       ),
     ).toBeInTheDocument();
+  });
+
+  /* The server refuses it too, but only the form can say which field and
+     why while the user still has their bank's page open. */
+  it('a routing number that fails the ABA check is never sent', async () => {
+    const fetch = vi.fn(
+      async (_url: string, _init?: RequestInit) =>
+        new Response(JSON.stringify({ paymentProfiles: [BASE] }), {
+          status: 200,
+        }),
+    );
+    vi.stubGlobal('fetch', fetch);
+    const user = userEvent.setup();
+    render(<PaymentProfiles />, { wrapper });
+
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    const routing = screen.getByLabelText('Routing number');
+    await user.clear(routing);
+    await user.type(routing, '021000022');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(fetch.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(
+      false,
+    );
   });
 
   it('hides an archived profile', async () => {

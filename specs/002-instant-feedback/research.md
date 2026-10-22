@@ -39,7 +39,7 @@ mode needs no extra state, only the discipline of routing through the same
 call so FR-009's lint has one thing to allow).
 
 **Rationale**: One function, one lint rule, two behaviors — this is what
-"the shared helper offers both modes... no opt-out" (Blake's clarification)
+"the shared helper offers both modes... no opt-out" (the contractor's clarification)
 requires structurally: a developer cannot bypass the timeout/rollback/
 supersession machinery by omitting `predict`, they only opt out of showing
 a prediction.

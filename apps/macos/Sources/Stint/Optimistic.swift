@@ -20,6 +20,10 @@ import Foundation
 /// pending press has no bound: "try again" on a write that did land could
 /// make it twice.
 ///
+/// **An answer can settle the press.** Given `settle`, the last press's
+/// answer goes to it in place of `refresh()`, for a write that returns what
+/// the refetch would read.
+///
 /// A failure is never silent (Constitution I): its reason goes to `report`.
 @MainActor
 protocol Optimistic: AnyObject {
@@ -43,7 +47,8 @@ extension Optimistic {
         _ scope: String,
         timeout: Duration = .seconds(10),
         apply: () -> (() -> Void)?,
-        perform: @escaping @Sendable () async throws -> T
+        perform: @escaping @Sendable () async throws -> T,
+        settle: ((T) async -> Void)? = nil
     ) async -> T? {
         let undo = apply()
         inFlight[scope, default: 0] += 1
@@ -60,7 +65,11 @@ extension Optimistic {
 
         switch result {
         case .success(let value):
-            if isLast { await refresh() }
+            if isLast, let settle {
+                await settle(value)
+            } else if isLast {
+                await refresh()
+            }
             return value
         case .failure(let error):
             if isLast {

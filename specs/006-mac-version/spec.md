@@ -24,29 +24,28 @@ Design review: skipped in autonomous run; follows docs/design/menubar.html.
 - Q: What is the release tag called? → A: `macos-v0.1.0`. The repo also
   holds a web app that deploys on every merge and has no version, so an
   unprefixed `v0.1.0` would read as the whole repo's release. (decided
-  autonomously — Blake to review)
+  autonomously)
 - Q: Where is the one version source: a file in the repo, or the latest
   git tag? → A: A file, `apps/macos/VERSION`. A tag-derived version is blank
   on a shallow clone and before the first tag, and a version bump made in a
   PR is reviewed like any other change; the tag then marks the commit whose
-  file reads that version. (decided autonomously — Blake to review)
+  file reads that version. (decided autonomously)
 - Q: Where in Settings does the version go? → A: The right of the Settings
   header, opposite the title, in the muted meta style. The header is already
   there, so Settings gains no height and the menubar spec's two rows stay
-  two. (decided autonomously — Blake to review)
+  two. (decided autonomously)
 - Q: What does the line say? → A: `0.1.0 (a1b2c3d)`; a build from
   uncommitted changes adds `-dirty` to the commit, git's own word for it;
-  an unbundled run says `dev build`. (decided autonomously — Blake to review)
+  an unbundled run says `dev build`. (decided autonomously)
 - Q: Is the version also sent to the server with each request? → A: No. Not
   in this feature: nothing on the server reads it yet, and the macOS
-  feedback form, when it comes, is where it gets sent. (decided autonomously
-  — Blake to review)
+  feedback form, when it comes, is where it gets sent. (decided autonomously)
 
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - The app says which build it is (Priority: P1)
 
-A friend on the alpha reports that stopping the timer did nothing. Blake asks
+A friend on the alpha reports that stopping the timer did nothing. The owner asks
 which version they're on. They open the panel's Settings and read it off, one
 line, without leaving the panel; the line names the release and the exact
 build it came from.
@@ -97,10 +96,10 @@ the version source and the commit.
 
 ### User Story 3 - Cutting a release is written down (Priority: P3)
 
-At alpha, Blake cuts 0.1.0: he knows where the version is set, how it's
+At alpha, the owner cuts 0.1.0: they know where the version is set, how it's
 bumped, and the one command that tags the commit it was cut from.
 
-**Why this priority**: The tag is Blake's step and happens once at alpha, but
+**Why this priority**: The tag is the owner's step and happens once at alpha, but
 it has to be findable then, not rediscovered.
 
 **Independent Test**: Follow the macOS doc from a clean checkout and name the
@@ -108,7 +107,7 @@ file to edit, the tag to create and the build to ship.
 
 **Acceptance Scenarios**:
 
-1. **Given** the macOS doc, **When** Blake looks for how to release, **Then**
+1. **Given** the macOS doc, **When** the owner looks for how to release, **Then**
    it says where the version lives, when to bump it, and how to tag it.
 
 ---
@@ -144,7 +143,7 @@ file to edit, the tag to create and the build to ship.
 - **FR-007**: `docs/macos.md` MUST say where the version is set, when it's
   bumped, and how a release is tagged.
 - **FR-008**: The feature MUST NOT create or push a tag; tagging
-  `macos-v0.1.0` is Blake's step at alpha.
+  `macos-v0.1.0` is the owner's step at alpha.
 
 ### Key Entities
 

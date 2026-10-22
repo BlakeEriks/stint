@@ -1,6 +1,19 @@
-## What and why
+## Why
 
-<!-- The change, and what it is for. Link an issue if there is one. -->
+<!-- One or two plain sentences: what goes wrong or is missing today, and
+     who it hurts. No code names. Readable without opening the issue: if
+     the reader stops here, they still know whether they want this. Then
+     `Closes #<issue>.` -->
+
+## What changes
+
+<!-- Three bullets at most, each an outcome someone notices, not how it's
+     built. -->
+
+## Needs you
+
+<!-- Calls you might make differently, anything to do before merging, and
+     risks. "Nothing." if none. -->
 
 ## Try it
 
@@ -9,14 +22,18 @@
      the PR first and add this with `gh pr edit`. A macOS change opens with
      `pnpm try-mac <n>` instead: "Opens Stint Preview in the menu bar,
      signed in as this PR's seeded account." Every step says what you should
-     see, never just what to do. -->
+     see, never just what to do. A step that needs an account in another
+     state names a seed scenario on its own line, `Preview accounts:
+     first-signin`, and links with `&as=first-signin`
+     (docs/deploying.md §3d). -->
 
 [Open the preview](https://stint-git-<branch>-blakeeriks-projects.vercel.app/preview/signin?pr=<n>&next=<path>)
 — signs in as this PR's seeded account, on the page this changes.
 
 1. <an action> — <what you should see>
 
-Data back to the seed: re-run this PR's **preview-db** check.
+Data back to the seed: re-run this PR's **preview-db** check (a PR with a
+migration only while it is `ready-for-qa`).
 
 ## Checks CI cannot make
 
@@ -28,3 +45,11 @@ Data back to the seed: re-run this PR's **preview-db** check.
 - [ ] Verified by running it, not only by the suite passing.
 
 <!-- Delete any line that does not apply. -->
+
+<details><summary>How it works</summary>
+
+<!-- The mechanism, alternatives turned down, edge cases, and how it was
+     verified: commands run and what they showed, and what nobody has seen
+     yet. -->
+
+</details>

@@ -1,4 +1,8 @@
+'use client';
+
 import Link from 'next/link';
+import { Loader } from './loader';
+import { useHydrated } from '@/lib/client/use-hydrated';
 import { ApiError } from '@/lib/client/api';
 import { BackLink } from './back-link';
 
@@ -117,7 +121,8 @@ export function Panel({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * The message standing in for rows: loading, or nothing to show.
+ * The message standing in for rows: nothing to show, or a failure. Loading is
+ * `Loader`'s.
  *
  * `tight` is the in-page variant — today's entries sit under a heading that
  * already has space above it, where a list filling its own panel does not.
@@ -140,50 +145,102 @@ export function Empty({
   );
 }
 
+/** What `Listing` reads off a query. */
+type Query<T> = { data: T | undefined; error: unknown; isLoading: boolean };
+type DataOf<Q> = Q extends { data: infer D } ? Exclude<D, undefined> : never;
+type Loaded<Q> = Q extends readonly Query<unknown>[]
+  ? { -readonly [K in keyof Q]: DataOf<Q[K]> }
+  : DataOf<Q>;
+
 /**
- * A query's non-answers, then its data. The failure message is neutral, never
- * red: a list that could not load is a condition, and the answer is to try
- * again.
+ * A region's non-answers, then its data. The failure message is neutral,
+ * never red: a list that could not load is a condition, and the answer is to
+ * try again.
+ *
+ * Given several queries, the region renders only once every one of them has
+ * data, and its children get them as a tuple: a region paints once, with all
+ * of it, never with a `?? []` standing in for a query still on its way.
+ *
+ * `also` is what the region shows if it answers: waited for, so it paints
+ * with the rest, but a failure there leaves the region to render without it
+ * rather than blanking it.
  *
  * `empty` is the message for data that arrived and holds nothing — omit it
  * where the record is a single object, which is never empty, only missing.
+ * With several queries, it reads the first.
  */
-export function Listing<T>({
+export function Listing<
+  const Q extends Query<unknown> | readonly Query<unknown>[],
+>({
   query,
+  also = [],
   empty,
   missing,
   tight = false,
   children,
 }: {
-  query: { data: T | undefined; error: unknown; isLoading: boolean };
+  query: Q;
+  also?: readonly Query<unknown>[];
   empty?: React.ReactNode;
   /** What a 404 says, where the screen is about one record. */
   missing?: React.ReactNode;
   tight?: boolean;
-  children: (data: T) => React.ReactNode;
+  children: (data: Loaded<Q>) => React.ReactNode;
 }) {
-  const message = (text: React.ReactNode) => (
-    <Empty tight={tight}>{text}</Empty>
-  );
+  const queries: readonly Query<unknown>[] = Array.isArray(query)
+    ? query
+    : [query as Query<unknown>];
+  const hydrated = useHydrated();
 
   /* A 401 has already sent the browser to `/signin`. Reporting a failure over
      the top of a navigation in flight tells the user something is broken when
      nothing is. */
-  const leaving = query.error instanceof ApiError && query.error.isUnauthorized;
+  const leaving = queries.some(
+    (q) => q.error instanceof ApiError && q.error.isUnauthorized,
+  );
 
-  if (query.isLoading || leaving) return message('Loading…');
+  /* No data and no error is a wait, whether or not a fetch is in flight:
+     while the kept cache is restored a query is pending without fetching.
+     Until hydration is done the server's loader stands, since the server
+     never holds the browser's kept cache. */
+  const waiting = [...queries, ...also].some(
+    (q) => q.isLoading || (q.data === undefined && q.error == null),
+  );
+  if (!hydrated || waiting || leaving) return <Loader tight={tight} />;
   /* Data the user can still read beats an error message in its place: a failed
      REFETCH would otherwise replace a form mid-edit and take the unsent text
      with it. */
-  if (query.data === undefined) {
+  const failed = queries.find((q) => q.data === undefined);
+  if (failed) {
     const gone =
       missing !== undefined &&
-      query.error instanceof ApiError &&
-      query.error.status === 404;
-    return message(gone ? missing : 'Could not load this. Try again.');
+      failed.error instanceof ApiError &&
+      failed.error.status === 404;
+    return (
+      <Empty tight={tight}>
+        {gone ? missing : 'Could not load this. Try again.'}
+      </Empty>
+    );
   }
-  if (empty !== undefined && isEmpty(query.data)) return message(empty);
-  return <>{children(query.data)}</>;
+  if (empty !== undefined && isEmpty(queries[0]!.data)) {
+    return <Empty tight={tight}>{empty}</Empty>;
+  }
+  const data = (
+    Array.isArray(query)
+      ? queries.map((q) => q.data)
+      : (query as Query<unknown>).data
+  ) as Loaded<Q>;
+  return <>{children(data)}</>;
+}
+
+/**
+ * Whether every query has its data, for a figure in a page's header: the
+ * header's title and tabs are its frame and paint at once, but a figure
+ * there waits with the content rather than reading 0 first. It renders what
+ * the server did until hydration, as `Listing` does.
+ */
+export function useLoaded(...queries: Query<unknown>[]) {
+  return useHydrated() && queries.every((q) => q.data !== undefined);
 }
 
 /** An empty array is the only "nothing" a `Listing` decides on its own. */

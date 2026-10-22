@@ -17,8 +17,11 @@ everything else. `formatCurrency` and `formatHours` are in core for the same
 reason: the preview and the PDF render one number one way.
 
 **An invalid `tz` is rejected rather than swallowed here.** The period is local
-dates, so the zone decides which entries are billed; the read endpoints fall
-back to UTC, these two return 422. An omitted one still defaults to UTC.
+dates, so the zone decides which entries are billed. Preview, generation,
+`GET /invoices`, `GET /invoices/:id`, `/pdf` and `/status` return 422 for
+one, the reads included, since each refreshes a draft and a draft keeps the
+first zone it is read in. An omitted one defaults to UTC on
+preview and generation, and leaves a zone-less draft as it stands elsewhere.
 
 ### Rules that must not regress
 
@@ -31,8 +34,10 @@ back to UTC, these two return 422. An omitted one still defaults to UTC.
   three: the arithmetic a client checks on the page is the arithmetic that
   produced it, and the total never moves with the grouping. Every rollup
   prices the same per-entry hours (`00000000000028_bill_printed_hours.sql`).
-- **Line items are frozen at generation.** Never recompute a PDF from time
-  entries; re-downloading a year later must produce the same document.
+- **A draft collects its period's work until it is sent; sending freezes
+  it.** Every read of a draft refreshes it through `refreshDraft()`, keeping
+  the choices made on New invoice. An issued invoice's lines are never
+  recomputed: re-downloading a year later must produce the same document.
 - **Only drafts can be marked sent or deleted.** The user sends the PDF;
   `PATCH /invoices/:id/status` records it.
 - **Voiding releases entries and expenses; it does not remove the number.**
@@ -57,7 +62,8 @@ payers to challenge.
 order and the resolution chain.
 
 - **Invoices freeze the rendered snapshot** into `payment_details` (JSONB) at
-  generation, like rates. Editing a profile never alters an issued invoice.
+  generation; a draft keeps that choice across refreshes. Editing a profile
+  never alters an issued invoice.
 - `buildPaymentDetails` in `packages/core/src/payment.ts` drops unset fields
   entirely — never render an empty label, and never an empty section header.
 - The PDF payment block is `wrap={false}`: a stranded "Payment" header with

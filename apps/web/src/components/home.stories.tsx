@@ -88,56 +88,43 @@ export const Light: Story = { ...light };
  *  Earned, the week's bar and the month count the session so far. */
 export const Running: Story = { ...desktop, parameters: account('running') };
 
-/** Pressing a Today row starts that task again, as a new entry. Its
- *  highlight pads the row and reaches past the column's edge, as every
- *  pressable row does, so the text keeps its line under the heading. */
-export const StartFromToday: Story = {
+/** A Today row is a summary line: pressing it starts nothing. */
+export const TodayRowInert: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    const row = await page.findByRole('button', {
-      name: /^Start Filter panel and saved views · /,
-    });
-    const style = getComputedStyle(row);
-    await expect(style.paddingLeft).toBe('8px');
-    await expect(style.paddingRight).toBe('8px');
-    const column = (await page.findByText(/^Today · /)).getBoundingClientRect();
-    await expect(row.getBoundingClientRect().left).toBe(column.left - 8);
-
-    await userEvent.click(row);
-    await expect(
-      await page.findByRole('button', { name: 'Stop timer' }),
-    ).toBeVisible();
+    await page.findByRole('button', { name: 'Start timer' });
+    const [row] = await page.findAllByText(/^Filter panel and saved views/);
+    await userEvent.click(row as HTMLElement);
+    // Past the mock server's answer, so a start would have landed by now.
+    await new Promise((r) => setTimeout(r, 1000));
+    await expect(page.queryByRole('button', { name: 'Stop timer' })).toBeNull();
   },
 };
 
-/** Pressing a Today row while a timer runs: the server's refusal says why. */
-export const StartWhileRunning: Story = {
+/** Stop pressed and not yet answered: the bar and the hours have moved, and
+ *  the money, which the client never predicts, pulses until the answer
+ *  brings it. */
+export const StopSettling: Story = {
   ...desktop,
-  parameters: account('running'),
+  parameters: { ...account('running'), ...stalled('stopTimer') },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
-    await page.findByRole('button', { name: 'Stop timer' });
-    const [row] = await page.findAllByRole('button', { name: /^Start / });
-    await userEvent.click(row as HTMLElement);
+    const panel = within(canvasElement);
+    await panel.findByText(/^Today · /);
+    await expect(canvasElement.querySelector('[data-settling]')).toBeNull();
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Stop timer' }),
+    );
+    await page.findByRole('button', { name: 'Start timer' });
+    await waitFor(() =>
+      expect(
+        canvasElement.querySelectorAll('[data-settling]').length,
+      ).toBeGreaterThan(0),
+    );
     await expect(
-      await page.findByText('A timer is already running'),
-    ).toBeVisible();
-  },
-};
-
-/** A row pressed while a timer runs waits on the server's answer, shown on
- *  the row: nothing is predicted for a start the server will likely refuse. */
-export const StartWhileRunningPending: Story = {
-  ...desktop,
-  parameters: { ...account('running'), ...stalled('startTimer') },
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
-    await page.findByRole('button', { name: 'Stop timer' });
-    const [row] = await page.findAllByRole('button', { name: /^Start / });
-    await userEvent.click(row as HTMLElement);
-    await waitFor(() => expect(row).toHaveAttribute('aria-busy', 'true'));
-    await expect(row).toBeDisabled();
+      canvasElement.querySelector('[data-money][data-settling]'),
+    ).not.toBeNull();
   },
 };
 
@@ -147,6 +134,120 @@ export const RunningUnrated: Story = {
   parameters: account('runningUnrated'),
 };
 
+/** On its way: the panel holds one quiet word, and none of its regions,
+ *  until everything it draws has arrived. */
+export const Loading: Story = {
+  ...desktop,
+  parameters: stalled('stats'),
+  play: async ({ canvasElement }) => {
+    const panel = within(canvasElement.querySelector('main') as HTMLElement);
+    await expect(await panel.findByRole('status')).toHaveTextContent('Loading');
+    await expect(panel.queryByText(/Today ·/)).toBeNull();
+    await expect(
+      panel.queryByRole('img', { name: /not yet worked/ }),
+    ).toBeNull();
+  },
+};
+
+/** The panel paints once: the first frame that has the week's bars already
+ *  has them in their clients' colors, and the legend naming those clients. */
+export const OneStep: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const week = await within(canvasElement).findByRole('img', {
+      name: /not yet worked/,
+    });
+    // No waiting from here: what the bars first show is what they show.
+    await expect(
+      week.querySelectorAll('[data-segment]:not([data-segment="internal"])')
+        .length,
+    ).toBeGreaterThan(0);
+    await expect(
+      canvasElement.querySelectorAll(
+        '[data-legend-key]:not([data-legend-key="internal"])',
+      ).length,
+    ).toBeGreaterThan(0);
+  },
+};
+
+const noRate = account((db) => {
+  db.settings.defaultHourlyRate = null;
+});
+
+/** No default rate: the Inbox asks for one, after the invoice rows and
+ *  before the entry rows, and counts it. */
+export const NoRate: Story = {
+  ...desktop,
+  parameters: noRate,
+  play: async ({ canvasElement }) => {
+    const inbox = within(
+      await within(canvasElement).findByRole('region', { name: 'Inbox' }),
+    );
+    const row = (await inbox.findByText('Set your default rate')).closest('li');
+    const rows = [...(row?.parentElement?.children ?? [])];
+    const at = rows.indexOf(row as Element);
+    await expect(
+      rows[at - 1]?.querySelector('a[href^="/invoices/"]'),
+    ).not.toBeNull();
+    await expect(
+      rows[at + 1]?.querySelector('a[href^="/invoices/"]'),
+    ).toBeNull();
+    await expect(inbox.getByRole('button', { name: 'Save' })).toBeDisabled();
+  },
+};
+
+/** Saving a rate takes the row away at once, and Home prices its work. */
+export const SaveRate: Story = {
+  ...desktop,
+  parameters: noRate,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const field = await page.findByRole('spinbutton', {
+      name: 'Default hourly rate',
+    });
+    await userEvent.type(field, '125');
+    await userEvent.click(page.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(page.queryByText('Set your default rate')).toBeNull(),
+    );
+  },
+};
+
+/** A negative rate is refused on the row, before any request. */
+export const RateInvalid: Story = {
+  ...desktop,
+  parameters: noRate,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await userEvent.type(
+      await page.findByRole('spinbutton', { name: 'Default hourly rate' }),
+      '-5',
+    );
+    await expect(
+      await page.findByText('A rate is a number, zero or more.'),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
+  },
+};
+
+/** The server refuses the rate: the row comes back holding it, and says why. */
+export const RateRejected: Story = {
+  ...desktop,
+  parameters: { ...noRate, ...failing('updateSettings') },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await userEvent.type(
+      await page.findByRole('spinbutton', { name: 'Default hourly rate' }),
+      '125',
+    );
+    await userEvent.click(page.getByRole('button', { name: 'Save' }));
+    await expect(await page.findByText('Internal server error')).toBeVisible();
+    await expect(
+      page.getByRole('spinbutton', { name: 'Default hourly rate' }),
+    ).toHaveValue(125);
+  },
+};
+
 /** A new account: every figure is zero and nothing is extrapolated. */
 export const Empty: Story = {
   ...desktop,
@@ -154,7 +255,6 @@ export const Empty: Story = {
   play: async ({ canvasElement, loaded }) => {
     const page = within(canvasElement);
     await page.findByText('Unbilled');
-    // Today's entries load after the stats, into the same placeholder rows.
     await loaded.settle();
     // No `$0.00 awaiting`: a figure standing in for the absence of one.
     await expect(page.queryByText(/open invoice/)).toBeNull();
@@ -224,8 +324,10 @@ export const Failed: Story = {
   ...desktop,
   parameters: failing('stats'),
   play: async ({ canvasElement }) => {
+    // The panel's; the dock, which reads the same stats, says so too.
+    const panel = within(canvasElement.querySelector('main') as HTMLElement);
     await expect(
-      await within(canvasElement).findByText('Could not load this. Try again.'),
+      await panel.findByText('Could not load this. Try again.'),
     ).toBeVisible();
   },
 };

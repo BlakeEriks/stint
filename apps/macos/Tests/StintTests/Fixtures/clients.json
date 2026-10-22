@@ -1,0 +1,17 @@
+{
+  "clients": [
+    {
+      "id": "01a15408-6a00-72a7-816b-a6cf832da66b",
+      "name": "Northwind",
+      "email": null,
+      "address": null,
+      "hourlyRate": null,
+      "taxRate": null,
+      "currency": null,
+      "color": "#3b82f6",
+      "paymentProfileId": null,
+      "billingSchedule": null,
+      "archivedAt": null
+    }
+  ]
+}

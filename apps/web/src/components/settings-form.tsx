@@ -3,46 +3,34 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Monitor, Moon, Sun } from 'lucide-react';
+import { type Segment, SegmentedControl } from './segmented-control';
 import { Field, inputClass, Section, textareaClass } from './field';
+import { RateInput, parseRate } from './rate-input';
 import { SaveIndicator } from './save-indicator';
 import { useAutosave } from '@/lib/client/use-autosave';
 import { api, type Settings, type SettingsInput } from '@/lib/client/api';
 import { type Theme, useTheme } from '@/lib/client/use-theme';
-import { Listing } from './page';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
+
+const THEMES: Segment<Theme>[] = [
+  { value: 'system', label: 'System', icon: Monitor },
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dark', label: 'Dark', icon: Moon },
+];
 
 /**
  * Settings. No save button: every field here is a default something else
  * falls back to, so nothing needs reviewing before it commits. Edits persist
  * on their own after a pause, and each section owns its own autosave so the
  * indicator refers to the fields the user is looking at.
- */
-export function SettingsForm() {
-  const query = useQuery({
-    queryKey: keys.settings(),
-    queryFn: api.settings,
-  });
-
-  return (
-    <Listing query={query}>{(loaded) => <Cards loaded={loaded} />}</Listing>
-  );
-}
-
-/**
- * The sections, seeded from the server's answer once.
  *
- * Seeded rather than controlled by the query: an autosave invalidates
- * `settings`, and a form that followed every refetch would overwrite what the
- * user is typing with what it last sent.
+ * Seeded from the server's answer once, rather than controlled by the query:
+ * an autosave invalidates `settings`, and a form that followed every refetch
+ * would overwrite what the user is typing with what it last sent. The page
+ * holds it until that answer is in.
  */
-function Cards({ loaded }: { loaded: Settings }) {
+export function SettingsForm({ loaded }: { loaded: Settings }) {
   const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
   const { data: server } = useQuery({
@@ -88,25 +76,23 @@ function Cards({ loaded }: { loaded: Settings }) {
       {/* No SaveIndicator: the theme is a device preference in localStorage,
           not a row on `user_settings`, so it applies on click and there is no
           request to report. An indicator here would imply it syncs. */}
-      <Section title="Appearance" description="This device only.">
-        <Field label="Theme" htmlFor="theme">
-          <Select value={theme} onValueChange={(v) => setTheme(v as Theme)}>
-            <SelectTrigger id="theme" className={inputClass}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="system">System</SelectItem>
-              <SelectItem value="dark">Dark</SelectItem>
-              <SelectItem value="light">Light</SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
-      </Section>
+      <Section
+        title="Appearance"
+        description="This device only."
+        aside={
+          <SegmentedControl
+            label="Theme"
+            value={theme}
+            onValueChange={setTheme}
+            segments={THEMES}
+          />
+        }
+      />
 
       <Section
         title="Billing defaults"
         description="What a client or project falls back to when it sets no rate of its own."
-        status={<SaveIndicator state={billing.state} />}
+        aside={<SaveIndicator state={billing.state} />}
       >
         <div className="flex flex-wrap gap-4">
           <Field
@@ -114,20 +100,13 @@ function Cards({ loaded }: { loaded: Settings }) {
             htmlFor="rate"
             className="flex-1 basis-44"
           >
-            <Input
+            <RateInput
               id="rate"
-              type="number"
-              min="0"
-              step="0.01"
-              inputMode="decimal"
               value={form.defaultHourlyRate ?? ''}
               onChange={(e) =>
-                setBilling(
-                  'defaultHourlyRate',
-                  e.target.value === '' ? null : Number(e.target.value),
-                )
+                setBilling('defaultHourlyRate', parseRate(e.target.value))
               }
-              placeholder="150.00"
+              placeholder="100.00"
             />
           </Field>
 
@@ -171,7 +150,7 @@ function Cards({ loaded }: { loaded: Settings }) {
       <Section
         title="Business identity"
         description="Appears in the invoice header."
-        status={<SaveIndicator state={identity.state} />}
+        aside={<SaveIndicator state={identity.state} />}
       >
         <Field label="Business name" htmlFor="biz-name">
           <Input
@@ -208,24 +187,11 @@ function Cards({ loaded }: { loaded: Settings }) {
             className={textareaClass}
           />
         </Field>
-
-        <Field
-          label="Tax ID"
-          htmlFor="tax-id"
-          hint="EIN or SSN, as it should appear on a 1099."
-        >
-          <Input
-            id="tax-id"
-            value={form.taxId ?? ''}
-            onChange={(e) => setIdentity('taxId', e.target.value || null)}
-            placeholder="12-3456789"
-          />
-        </Field>
       </Section>
 
       <Section
         title="Invoice numbering"
-        status={<SaveIndicator state={numbering.state} />}
+        aside={<SaveIndicator state={numbering.state} />}
       >
         <div className="flex flex-wrap gap-4">
           <Field label="Prefix" htmlFor="prefix" className="flex-1 basis-40">

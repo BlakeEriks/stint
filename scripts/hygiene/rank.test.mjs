@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { churnWeight, debtOf, filedPaths, fixChurn, rank } from './rank.mjs';
+import {
+  churnWeight,
+  debtOf,
+  filedPaths,
+  fixChurn,
+  rank,
+  top,
+} from './rank.mjs';
 
 const complex = (path, value) => ({ path, kind: 'complexity', value });
 
@@ -46,6 +53,30 @@ describe('fixChurn', () => {
       pr(12, 3, 'a.ts'),
     ];
     assert.deepEqual(fixChurn(prs, fixes, hygiene), []);
+  });
+
+  it('skips stories and tests, which change beside a fix by design', () => {
+    const paths = ['a.stories.tsx', 'a.test.ts'];
+    const prs = [pr(10, 1, ...paths), pr(11, 2, ...paths), pr(12, 3, ...paths)];
+    assert.deepEqual(fixChurn(prs, fixes, hygiene), []);
+  });
+});
+
+describe('top', () => {
+  const file = (path, kind) => ({ path, findings: [{ kind }] });
+
+  it('takes at most two redesigns, and fills the rest from the next files', () => {
+    const files = [
+      file('a.ts', 'fixes'),
+      file('b.ts', 'fixes'),
+      file('c.ts', 'fixes'),
+      file('d.ts', 'complexity'),
+      file('e.ts', 'prose'),
+    ];
+    assert.deepEqual(
+      top(files, 3).map((f) => f.path),
+      ['a.ts', 'b.ts', 'd.ts'],
+    );
   });
 });
 

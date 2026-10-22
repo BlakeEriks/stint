@@ -1,13 +1,30 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useOptimisticMutation } from '@/lib/client/mutations';
 import { Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  BILLING_PERIOD_DETAILS,
+  BILLING_PERIOD_LABELS,
+  BILLING_PERIODS,
+  localDateKey,
+  needsAnchor,
+  type BillingPeriod,
+  type BillingSchedule,
+} from '@stint/core';
+import { DescribedSelectItem } from './described-select-item';
+import { timeZone as tz } from '@/lib/client/use-timer';
 import { ColorPicker } from './color-picker';
-import { Field } from './field';
+import { Field, inputClass } from './field';
+import { RateInput, parseRate } from './rate-input';
 import { api, ApiError, type Client, type ClientInput } from '@/lib/client/api';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
@@ -18,12 +35,9 @@ import { keys, invalidateEntryData } from '@/lib/client/query-keys';
  * Rate and tax are optional: a client with no rate falls back to the user
  * default, and a US contractor invoicing services usually owes no tax at all.
  *
- * What happens AFTER a save is injected, because the form renders both as a
- * page and inside a dialog (created mid-flow from the project dialog). The
- * page navigates to the new client; the dialog hands it back to the select
- * that asked for it and stays where it was. Hardcoding `router.push` here
- * would have meant a second copy of the field set, which is the drift this
- * component exists to prevent.
+ * What happens after a save is injected, because two dialogs render it:
+ * `ClientDialog` closes, and the project dialog hands the new client back to
+ * the select that asked for it.
  */
 export function ClientForm({
   existing,
@@ -32,14 +46,12 @@ export function ClientForm({
   footer,
 }: {
   existing?: Client;
-  onSaved?: (client: Client) => void;
-  onCancel?: () => void;
+  onSaved: (client: Client) => void;
+  onCancel: () => void;
   /** A secondary action, at the far left from Save, e.g. the dialog's
       Archive. */
   footer?: React.ReactNode;
 }) {
-  const router = useRouter();
-
   const [name, setName] = useState(existing?.name ?? '');
   const [email, setEmail] = useState(existing?.email ?? '');
   const [address, setAddress] = useState(existing?.address ?? '');
@@ -50,28 +62,11 @@ export function ClientForm({
     existing?.taxRate != null ? String(existing.taxRate) : '',
   );
   const [color, setColor] = useState<string | null>(existing?.color ?? null);
+  const [schedule, setSchedule] = useState<BillingSchedule | null>(
+    existing?.billingSchedule ?? null,
+  );
 
-  /* Pending: the server validates the client, and the form stays to say
-     what it refused. */
-  const save = useOptimisticMutation({
-    queryKey: () => keys.clients(),
-    inline: true,
-    mutationFn: (body: ClientInput) =>
-      existing ? api.updateClient(existing.id, body) : api.createClient(body),
-    /* The client's rate is what unbilled work is valued at — and every
-       other rollup reads the same entries through the same rate chain, so
-       refreshing `stats` alone leaves the activity list disagreeing with
-       the figure above it. */
-    invalidate: (qc) =>
-      Promise.all([
-        qc.invalidateQueries({ queryKey: keys.clients() }),
-        invalidateEntryData(qc),
-      ]),
-    onSuccess: (saved) => {
-      if (onSaved) onSaved(saved);
-      else router.push(`/clients/${saved.id}`);
-    },
-  });
+  const save = useSaveClient(existing, onSaved);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,9 +76,10 @@ export function ClientForm({
       // schema rejects a blank email.
       email: email.trim() || null,
       address: address.trim() || null,
-      hourlyRate: hourlyRate.trim() === '' ? null : Number(hourlyRate),
+      hourlyRate: parseRate(hourlyRate),
       taxRate: taxRate.trim() === '' ? null : Number(taxRate),
       color,
+      billingSchedule: schedule,
     });
   };
 
@@ -135,12 +131,8 @@ export function ClientForm({
           hint="Defaults to your standard rate."
           className="flex-1 basis-40"
         >
-          <Input
+          <RateInput
             id="client-rate"
-            type="number"
-            min="0"
-            step="0.01"
-            inputMode="decimal"
             value={hourlyRate}
             onChange={(e) => setHourlyRate(e.target.value)}
             placeholder="150.00"
@@ -167,6 +159,8 @@ export function ClientForm({
         </Field>
       </div>
 
+      <ScheduleField value={schedule} onChange={setSchedule} />
+
       <ColorPicker value={color} onChange={setColor} />
 
       {save.error ? (
@@ -185,11 +179,7 @@ export function ClientForm({
         {/* No icon: Cancel undoes the intent rather than performing one, and
             a glyph would give a dismissal the same weight as the save it
             sits beside. */}
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => (onCancel ? onCancel() : router.back())}
-        >
+        <Button type="button" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
         <Button
@@ -211,4 +201,97 @@ export function ClientForm({
       </div>
     </form>
   );
+}
+
+const NONE = 'none';
+
+/** Weekly and every two weeks count from a date one period starts on, so
+ *  they reveal it, starting at today so a save never lacks one. */
+function ScheduleField({
+  value,
+  onChange,
+}: {
+  value: BillingSchedule | null;
+  onChange: (value: BillingSchedule | null) => void;
+}) {
+  const pick = (picked: string) => {
+    const period = picked as BillingPeriod | typeof NONE;
+    if (period === NONE) return onChange(null);
+    if (!needsAnchor(period)) return onChange({ period });
+    const anchor =
+      value && 'anchor' in value ? value.anchor : localDateKey(new Date(), tz);
+    onChange({ period, anchor });
+  };
+  return (
+    <div className="flex flex-wrap gap-4">
+      <Field
+        label="Billing schedule"
+        htmlFor="client-schedule"
+        hint="Sets each new invoice's dates."
+        className="flex-1 basis-40"
+      >
+        <Select value={value?.period ?? NONE} onValueChange={pick}>
+          <SelectTrigger id="client-schedule" className={inputClass}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <DescribedSelectItem
+              value={NONE}
+              label="None"
+              description="Dates set on each invoice"
+            />
+            {BILLING_PERIODS.map((p) => (
+              <DescribedSelectItem
+                key={p}
+                value={p}
+                label={BILLING_PERIOD_LABELS[p]}
+                description={BILLING_PERIOD_DETAILS[p]}
+              />
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+      {value && 'anchor' in value ? (
+        <Field
+          label="First period starts"
+          htmlFor="client-anchor"
+          className="flex-1 basis-40"
+        >
+          <Input
+            id="client-anchor"
+            type="date"
+            required
+            value={value.anchor}
+            onChange={(e) => onChange({ ...value, anchor: e.target.value })}
+          />
+        </Field>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Pending: the server validates the client, and the form stays to say what
+ * it refused.
+ */
+export function useSaveClient(
+  existing: Client | undefined,
+  onSaved: (client: Client) => void,
+) {
+  return useOptimisticMutation({
+    queryKey: () => keys.clients(),
+    inline: true,
+    mutationFn: (body: ClientInput) =>
+      existing ? api.updateClient(existing.id, body) : api.createClient(body),
+    /* The client's rate is what unbilled work is valued at — and every
+       other rollup reads the same entries through the same rate chain, so
+       refreshing `stats` alone leaves the activity list disagreeing with
+       the figure above it. */
+    invalidate: (qc) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: keys.clients() }),
+        invalidateEntryData(qc),
+      ]),
+    onSuccess: onSaved,
+  });
 }

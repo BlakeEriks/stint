@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { reportError } from '@/lib/client/report-error';
 import Link from 'next/link';
 import { RotateCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -33,8 +34,8 @@ export default function AppError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Nothing collects this yet; the console is where it is findable today.
     console.error('Screen failed to render:', error);
+    void reportError(error);
   }, [error]);
 
   return (

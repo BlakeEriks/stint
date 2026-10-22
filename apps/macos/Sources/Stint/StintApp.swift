@@ -28,6 +28,8 @@ enum Config {
     /// Vercel's protection bypass, which a preview deployment asks of every request.
     static let vercelBypass = ProcessInfo.processInfo.environment["STINT_VERCEL_BYPASS"]
 
+    static let sentryDSN = ProcessInfo.processInfo.environment["STINT_SENTRY_DSN"]
+
     /// The panel in an ordinary window instead of the menu bar, for QA that
     /// never opens the menu bar. `./qa.sh` sets it.
     static let windowed = ProcessInfo.processInfo.environment["STINT_WINDOW"] != nil
@@ -40,6 +42,7 @@ enum Config {
 @main
 enum Launch {
     static func main() {
+        CrashReporting.start()
         Config.windowed ? WindowedApp.main() : StintApp.main()
     }
 
@@ -47,7 +50,12 @@ enum Launch {
         let tokens = TokenStore(supabaseURL: Config.supabaseURL, anonKey: Config.anonKey)
         let api = API(baseURL: Config.appURL, tokens: tokens)
         let auth = Auth(supabaseURL: Config.supabaseURL, anonKey: Config.anonKey, tokens: tokens)
-        return TimerModel(api: api, auth: auth, tokens: tokens)
+        // Per backend host, as the Keychain's session is: a local account's
+        // lists must never paint under a production sign-in.
+        let snapshots = SnapshotStore(
+            directory: SnapshotStore.caches.appending(path: Config.supabaseURL.host() ?? "unknown")
+        )
+        return TimerModel(api: api, auth: auth, tokens: tokens, snapshots: snapshots)
     }
 }
 

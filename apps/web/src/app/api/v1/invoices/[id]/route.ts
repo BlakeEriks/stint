@@ -2,27 +2,36 @@ import { NextResponse } from 'next/server';
 import { handle, ApiError, isCheckViolation } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { loadPdfData } from '@/lib/invoicing';
+import { parseQuery } from '@/lib/validate';
+import { InvoiceReadQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
 
 type Ctx = { params: Promise<{ id: string }> };
 
-/** GET /api/v1/invoices/:id — the invoice with its frozen line items. */
+/**
+ * GET /api/v1/invoices/:id — the invoice with its line items, and whether its
+ * PDF opens for the caller, so the screen knows before a press. A draft is
+ * refreshed first, and says how it moved since its PDF was last rendered.
+ */
 export const GET = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
   const { id } = await ctx.params;
 
-  const { invoice, client, pdfData } = await loadPdfData(db, id);
+  const { tz } = parseQuery(req, InvoiceReadQuery);
+
+  const { invoice, pdfData, canDownload, draft } = await loadPdfData(db, id, {
+    tz,
+  });
 
   return NextResponse.json({
     ...invoice,
-    client: {
-      id: client.id,
-      name: client.name,
-      email: client.email,
-      address: client.address,
-    },
-    lineItems: pdfData.lineItems,
+    canDownload,
+    changedSinceDownload: draft.change,
+    lineItems: pdfData.lineItems.map((l, i) => ({
+      ...l,
+      isNew: draft.isNew?.[i] ?? false,
+    })),
   });
 });
 

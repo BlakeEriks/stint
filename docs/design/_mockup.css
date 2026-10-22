@@ -33,6 +33,7 @@
     --timer-warning: #5CABF2;
     --success: #36C52A;
     --warning: #5CABF2;
+    --warning-muted: #162B40;
     --danger: #F64B66;
     --danger-muted: #471F23;
     --info: #6D7FAE;
@@ -68,6 +69,15 @@
 
     --cat-1: #64A3E3;
     --cat-2: #F6964E;
+
+    --print-ground: #FFFFFF;
+    --print-ink: #1A1C21;
+    --print-muted: #626875;
+    --print-faint: #707784;
+    --print-rule: #D1D5DD;
+    --print-hairline: #E4E6EC;
+    --print-band: #F2F3F6;
+    --print-void: #E9504D;
 }
 
 [data-theme="light"] {
@@ -99,6 +109,7 @@
     --timer-warning: #1C6DAD;
     --success: #457036;
     --warning: #1C6DAD;
+    --warning-muted: #E3EEF8;
     --danger: #C21F43;
     --danger-muted: #FFEBEB;
     --info: #4A5A85;

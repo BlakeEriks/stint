@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { shortDate } from './invoice-bits';
 import {
   keepPreviousData,
   useQuery,
@@ -24,34 +26,42 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ChevronDown, Pencil, Plus } from 'lucide-react';
 import {
+  BILLING_PERIOD_LABELS,
   buildPaymentDetails,
   defaultInvoicePeriod,
   attachedSchedules,
   dueDateForTerms,
   formatCurrency,
   formatInvoiceNumber,
+  isPeriod,
   localDateKey,
   resolvePaymentProfile,
   SCHEDULE_KINDS,
   SCHEDULE_TITLES,
+  type Period,
   type ScheduleKind,
 } from '@stint/core';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import {
   api,
   ApiError,
+  type Client,
   type Expense,
   type GroupingMode,
   type Invoice,
+  type InvoicePreview,
   type PaymentProfile,
+  type Settings,
 } from '@/lib/client/api';
-import { DetailPage } from './page';
+import { DetailPage, Listing } from './page';
 import { ExpenseDialog } from './expense-dialog';
 import { ExpenseRow } from './expense-row';
 import { type Charge, ChargeDialog } from './charge-dialog';
 import { PaymentProfileDialog } from './payment-profile-dialog';
+import { missingBusiness, SenderNotice } from './business-dialog';
+import { ClientDialog } from './client-dialog';
 import { summarize } from './payment-profiles';
-import { InvoicePreviewCard } from './invoice-preview-card';
+import { businessOf, InvoicePreviewCard } from './invoice-preview-card';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 import { rowButton } from './row-button';
 
@@ -79,8 +89,10 @@ type DraftCharge = Charge & { key: string };
 
 interface Draft {
   clientId: string;
-  periodStart: string;
-  periodEnd: string;
+  /** `null` until the user edits either date, so the period follows the
+   *  client's billing schedule. */
+  periodStart: string | null;
+  periodEnd: string | null;
   /** `null` until the user picks one, so it follows the payment terms the
    *  invoice prints. */
   dueDate: string | null;
@@ -102,10 +114,10 @@ interface Draft {
   paymentProfileId: string;
 }
 
-/** Computed on mount, not at import, from the day the user is in. */
-const empty = (): Draft => ({
+const EMPTY: Draft = {
   clientId: '',
-  ...defaultInvoicePeriod(localDateKey(new Date(), tz)),
+  periodStart: null,
+  periodEnd: null,
   dueDate: null,
   reference: '',
   groupingMode: null,
@@ -114,7 +126,44 @@ const empty = (): Draft => ({
   charges: [],
   excludedExpenseIds: [],
   paymentProfileId: '',
-});
+};
+
+/** The period the user set, else the client's default for `today`. */
+function periodOf(
+  draft: Draft,
+  client: Client | undefined,
+  today: string,
+): Period {
+  const suggested = defaultInvoicePeriod(today, client?.billingSchedule);
+  return {
+    periodStart: draft.periodStart ?? suggested.periodStart,
+    periodEnd: draft.periodEnd ?? suggested.periodEnd,
+  };
+}
+
+/** A hint, not a block: a first or last invoice can cover part of a
+ *  period, and a contract can change. */
+function ScheduleHint({
+  client,
+  periodStart,
+  periodEnd,
+}: {
+  client: Client | undefined;
+  periodStart: string;
+  periodEnd: string;
+}) {
+  const schedule = client?.billingSchedule;
+  // A cleared date is still being typed, not a period.
+  if (!schedule || !periodStart || !periodEnd) return null;
+  if (isPeriod(schedule, periodStart, periodEnd)) return null;
+  return (
+    <p role="status" className="type-support text-warning">
+      {client.name} is billed{' '}
+      {BILLING_PERIOD_LABELS[schedule.period].toLowerCase()}, and this isn't one
+      of its periods.
+    </p>
+  );
+}
 
 /** What a client's last invoice carries into the next: a summary's text and
  *  attachments, so a monthly invoice isn't retyped. */
@@ -126,6 +175,91 @@ const carriedFrom = (last: Invoice | undefined) =>
         schedules: attachedSchedules(last.supportingDetail),
       }
     : { groupingMode: 'entry' as const, summaryText: '', schedules: [] };
+
+/** `key` `'new'` adds the charge; any other replaces the charge it names. */
+const putCharge = (
+  charges: DraftCharge[],
+  key: string | undefined,
+  charge: Charge,
+): DraftCharge[] =>
+  key === 'new'
+    ? [...charges, { ...charge, key: crypto.randomUUID() }]
+    : charges.map((c) => (c.key === key ? { ...charge, key: c.key } : c));
+
+/** What the draft takes from the client's last invoice until the user sets
+ *  its own, and whether that invoice has answered yet. */
+function useCarried(draft: Draft) {
+  /* Newest first. */
+  const lastInvoice = useQuery({
+    queryKey: [...keys.invoices(), { clientId: draft.clientId }],
+    queryFn: () => api.invoices({ clientId: draft.clientId }),
+    enabled: draft.clientId !== '',
+    select: (r) => r.invoices.find((i) => i.status !== 'void'),
+  });
+  const carried = carriedFrom(lastInvoice.data);
+  const groupingMode = draft.groupingMode ?? carried.groupingMode;
+  return {
+    lastPending: lastInvoice.isPending,
+    groupingMode,
+    summaryText: draft.summaryText ?? carried.summaryText,
+    schedules:
+      groupingMode === 'summary' ? (draft.schedules ?? carried.schedules) : [],
+  };
+}
+
+/** What this invoice can bill of the client's expenses: every recurring one,
+ *  and every one-off paid by the period's end. */
+function useWaitingExpenses(clientId: string, periodEnd: string) {
+  const { data } = useQuery({
+    queryKey: [...keys.expenses(), { clientId, status: 'unbilled' }],
+    queryFn: () => api.expenses({ clientId, status: 'unbilled' }),
+    enabled: clientId !== '',
+    select: (r) => r.expenses,
+  });
+  return (data ?? []).filter(
+    (e) => e.recurring || (e.spentOn as string) <= periodEnd,
+  );
+}
+
+/**
+ * The server's answer for `billed`, asked once typing settles. `current` is
+ * that answer while a client is chosen; `updating` says it may not match the
+ * form.
+ */
+function useLivePreview(
+  billed: Parameters<typeof api.previewInvoice>[0],
+  chosen: boolean,
+) {
+  const settled = useSettled(billed, SETTLE_MS);
+  /* A query rather than a press: it writes nothing, so an answer that no
+     longer matches the form is simply dropped, and the last one stays on
+     screen until the next lands. */
+  const preview = useQuery({
+    queryKey: keys.invoicePreview(settled),
+    queryFn: () => api.previewInvoice(settled),
+    enabled: settled.clientId !== '',
+    placeholderData: keepPreviousData,
+  });
+  const updating =
+    chosen &&
+    (JSON.stringify(billed) !== JSON.stringify(settled) ||
+      preview.isFetching ||
+      preview.isPlaceholderData);
+  return { preview, current: chosen ? preview.data : undefined, updating };
+}
+
+/** The number Generate takes, and the due date the payment terms set from
+ *  `issued`; both '' until the settings answer. */
+function fromSettings(settings: Settings | undefined, issued: string) {
+  if (!settings) return { number: '', termsDue: '' };
+  return {
+    number: formatInvoiceNumber(
+      settings.invoiceNumberPrefix,
+      settings.nextInvoiceNumber,
+    ),
+    termsDue: dueDateForTerms(issued, settings.defaultPaymentTerms),
+  };
+}
 
 /** `value` once it has stopped changing for `ms`. */
 function useSettled<T>(value: T, ms: number): T {
@@ -144,14 +278,40 @@ function useSettled<T>(value: T, ms: number): T {
  *
  * The card answers every change: what the form knows at once, what the
  * server computes (the lines) once typing settles. Generating allocates a
- * gapless number, freezes the rates and locks the entries, so it waits until
- * the card is the server's current answer.
+ * gapless number and creates the draft, so it waits until the card is the
+ * server's current answer.
  */
 export function NewInvoice() {
+  /* The form paints once, its client list, terms and payment profiles in
+     place; what a chosen client then loads fills in as it is asked for. The
+     back link is the frame, so it stands while they load. */
+  const clients = useQuery({
+    queryKey: keys.clients(),
+    queryFn: () => api.clients(),
+  });
+  const settings = useQuery({
+    queryKey: keys.settings(),
+    queryFn: () => api.settings(),
+  });
+  const profiles = useQuery({
+    queryKey: keys.paymentProfiles(),
+    queryFn: () => api.paymentProfiles(),
+  });
+  return (
+    <DetailPage back="/invoices" label="Invoices" workspace fills>
+      <Listing query={[clients, settings, profiles]}>{() => <Form />}</Listing>
+    </DetailPage>
+  );
+}
+
+function Form() {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const [draft, setDraft] = useState<Draft>(empty);
+  const [draft, setDraft] = useState<Draft>(EMPTY);
+  /* Read once: a form left open past midnight keeps the dates it showed
+     rather than moving them to the next period unseen. */
+  const [issued] = useState(() => localDateKey(new Date(), tz));
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
@@ -163,54 +323,32 @@ export function NewInvoice() {
     queryKey: keys.settings(),
     queryFn: () => api.settings(),
   });
+  const noSender = missingBusiness(settings);
   const profiles =
     useQuery({
       queryKey: keys.paymentProfiles(),
       queryFn: () => api.paymentProfiles(),
     }).data?.paymentProfiles ?? [];
 
-  /* Newest first. */
-  const lastInvoice = useQuery({
-    queryKey: [...keys.invoices(), { clientId: draft.clientId }],
-    queryFn: () => api.invoices({ clientId: draft.clientId }),
-    enabled: draft.clientId !== '',
-    select: (r) => r.invoices.find((i) => i.status !== 'void'),
-  });
-  const carried = carriedFrom(lastInvoice.data);
-  const groupingMode = draft.groupingMode ?? carried.groupingMode;
-  const summaryText = draft.summaryText ?? carried.summaryText;
-  const schedules =
-    groupingMode === 'summary' ? (draft.schedules ?? carried.schedules) : [];
-
-  /* What this invoice can bill of the client's expenses: every recurring one,
-     and every one-off paid by the period's end. */
-  const { data: expenseData } = useQuery({
-    queryKey: [
-      ...keys.expenses(),
-      { clientId: draft.clientId, status: 'unbilled' },
-    ],
-    queryFn: () =>
-      api.expenses({ clientId: draft.clientId, status: 'unbilled' }),
-    enabled: draft.clientId !== '',
-    select: (r) => r.expenses,
-  });
-  const waiting = (expenseData ?? []).filter(
-    (e) => e.recurring || (e.spentOn as string) <= draft.periodEnd,
-  );
+  const { lastPending, groupingMode, summaryText, schedules } =
+    useCarried(draft);
+  const { periodStart, periodEnd } = periodOf(draft, client, issued);
+  const waiting = useWaitingExpenses(draft.clientId, periodEnd);
   /* `undefined` adds an expense; an expense, edits it. */
   const expenseDialog = useDialog<Expense | undefined>();
   /* `'new'` adds a charge; a key, edits that one. */
   const chargeDialog = useDialog<string>();
   const [newProfileOpen, setNewProfileOpen] = useState(false);
+  const [clientOpen, setClientOpen] = useState(false);
 
   /* Only what decides the lines is sent, so a due date or a tick never asks
      the server again. */
   const billed = {
     // No client until the last invoice has answered, so no preview is asked
     // for in a grouping it is about to change.
-    clientId: lastInvoice.isPending ? '' : draft.clientId,
-    periodStart: draft.periodStart,
-    periodEnd: draft.periodEnd,
+    clientId: lastPending ? '' : draft.clientId,
+    periodStart,
+    periodEnd,
     groupingMode,
     summaryText,
     tz,
@@ -220,28 +358,13 @@ export function NewInvoice() {
     })),
     excludedExpenseIds: draft.excludedExpenseIds,
   };
-  const settled = useSettled(billed, SETTLE_MS);
+  const { preview, current, updating } = useLivePreview(
+    billed,
+    draft.clientId !== '',
+  );
 
-  /* A query rather than a press: it writes nothing, so an answer that no
-     longer matches the form is simply dropped, and the last one stays on
-     screen until the next lands. */
-  const preview = useQuery({
-    queryKey: keys.invoicePreview(settled),
-    queryFn: () => api.previewInvoice(settled),
-    enabled: settled.clientId !== '',
-    placeholderData: keepPreviousData,
-  });
-  const updating =
-    draft.clientId !== '' &&
-    (JSON.stringify(billed) !== JSON.stringify(settled) ||
-      preview.isFetching ||
-      preview.isPlaceholderData);
-  const current = draft.clientId !== '' ? preview.data : undefined;
-
-  const issued = localDateKey(new Date(), tz);
-  const due =
-    draft.dueDate ??
-    (settings ? dueDateForTerms(issued, settings.defaultPaymentTerms) : '');
+  const { number, termsDue } = fromSettings(settings, issued);
+  const due = draft.dueDate ?? termsDue;
 
   const generate = useOptimisticMutation({
     queryKey: () => keys.invoices(),
@@ -278,13 +401,27 @@ export function NewInvoice() {
         ? draft.excludedExpenseIds.filter((x) => x !== id)
         : [...draft.excludedExpenseIds, id],
     );
+  const saveCharge = (charge: Charge) =>
+    set('charges', putCharge(draft.charges, chargeDialog.subject, charge));
+  const removeCharge = () =>
+    set(
+      'charges',
+      draft.charges.filter((c) => c.key !== chargeDialog.subject),
+    );
+  const addProfile = (p: PaymentProfile) => {
+    /* Into the list at once: until the refetch lands, a pick the list
+       lacks would fall back to another profile, and Generate would
+       freeze that one. */
+    qc.setQueryData<{ paymentProfiles: PaymentProfile[] }>(
+      keys.paymentProfiles(),
+      (d) =>
+        d && !d.paymentProfiles.some((x) => x.id === p.id)
+          ? { ...d, paymentProfiles: [...d.paymentProfiles, p] }
+          : d,
+    );
+    set('paymentProfileId', p.id);
+  };
 
-  const number = settings
-    ? formatInvoiceNumber(
-        settings.invoiceNumberPrefix,
-        settings.nextInvoiceNumber,
-      )
-    : '';
   const profile =
     profiles.find((p) => p.id === draft.paymentProfileId) ??
     resolvePaymentProfile(profiles, {
@@ -293,23 +430,37 @@ export function NewInvoice() {
     });
   const payment = buildPaymentDetails(profile, { invoiceNumber: number });
 
-  const unrated = current?.unratedEntryIds.length ?? 0;
-  const overlapping = current?.overlappingEntryIds.length ?? 0;
-  const nothingToBill = current !== undefined && current.lineItems.length === 0;
-  const noSummaryText = groupingMode === 'summary' && summaryText.trim() === '';
-  const canGenerate =
-    current !== undefined &&
-    // Due follows the settings' terms; without them it would be sent blank.
-    settings !== undefined &&
-    !updating &&
-    !preview.isError &&
-    unrated === 0 &&
-    !nothingToBill &&
-    !noSummaryText &&
-    !generate.isPending;
+  /* One open draft per client and date: the server refuses another, so the
+     form says which draft holds these dates before Generate is pressed. */
+  const openDrafts =
+    useQuery({
+      queryKey: [...keys.invoices(), 'drafts', draft.clientId],
+      queryFn: () =>
+        api.invoices({ clientId: draft.clientId, status: 'draft' }),
+      enabled: draft.clientId !== '',
+    }).data?.invoices ?? [];
+  const covering = openDrafts.find(
+    (i) =>
+      periodStart !== '' &&
+      periodEnd !== '' &&
+      i.periodStart <= periodEnd &&
+      i.periodEnd >= periodStart,
+  );
+
+  const { canGenerate, noSummaryText } = generateState({
+    covered: covering !== undefined,
+    preview: current,
+    updating,
+    failed: preview.isError,
+    hasSettings: settings !== undefined,
+    hasSender: !noSender,
+    generating: generate.isPending,
+    groupingMode,
+    summaryText,
+  });
 
   return (
-    <DetailPage back="/invoices" label="Invoices" workspace fills>
+    <>
       {/* From `xl`, where the panel has a height of its own, nothing scrolls
           but the two columns: the form and the preview each scroll alone, so
           reading a long page never moves the field being typed in. Below it
@@ -340,8 +491,28 @@ export function NewInvoice() {
               focus ring, taken back with a negative margin so the fields
               don't move. */}
           <div className="flex min-w-0 flex-col xl:-mx-1 xl:min-h-0 xl:overflow-y-auto xl:px-1 [&>*]:border-t [&>*]:border-edge-subtle [&>*]:py-5 [&>*:first-child]:border-0 [&>*:first-child]:pt-1">
+            {/* First on the form: it is why Generate is disabled. */}
+            <SenderNotice settings={settings} />
             <div className="flex flex-col gap-4">
-              <Field label="Client" htmlFor="inv-client" required>
+              <Field
+                label="Client"
+                htmlFor="inv-client"
+                required
+                hint={
+                  client && missingDetails(client) ? (
+                    <span className="text-danger">
+                      {missingDetails(client)} ·{' '}
+                      <button
+                        type="button"
+                        onClick={() => setClientOpen(true)}
+                        className="rounded-sm underline hover:text-strong focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+                      >
+                        Edit client
+                      </button>
+                    </span>
+                  ) : undefined
+                }
+              >
                 <ClientPicker
                   id="inv-client"
                   clients={clients}
@@ -361,14 +532,20 @@ export function NewInvoice() {
                 <DateField
                   id="inv-from"
                   label="From"
-                  value={draft.periodStart}
-                  onChange={(v) => set('periodStart', v)}
+                  value={periodStart}
+                  // Either date pins both, so another client's schedule
+                  // cannot move the other end under the user.
+                  onChange={(v) =>
+                    setDraft((d) => ({ ...d, periodStart: v, periodEnd }))
+                  }
                 />
                 <DateField
                   id="inv-to"
                   label="To"
-                  value={draft.periodEnd}
-                  onChange={(v) => set('periodEnd', v)}
+                  value={periodEnd}
+                  onChange={(v) =>
+                    setDraft((d) => ({ ...d, periodStart, periodEnd: v }))
+                  }
                 />
                 <DateField
                   id="inv-due"
@@ -377,6 +554,25 @@ export function NewInvoice() {
                   onChange={(v) => set('dueDate', v)}
                 />
               </div>
+              <ScheduleHint
+                client={client}
+                periodStart={periodStart}
+                periodEnd={periodEnd}
+              />
+              {covering && client ? (
+                <p role="status" className="type-support text-warning">
+                  A draft already covers {shortDate(covering.periodStart)} –{' '}
+                  {shortDate(covering.periodEnd)} for {client.name}:{' '}
+                  <Link
+                    href={`/invoices/${covering.id}`}
+                    className="text-strong underline underline-offset-2"
+                  >
+                    {covering.invoiceNumber}
+                  </Link>
+                  . Start after {shortDate(covering.periodEnd)}, or open that
+                  draft.
+                </p>
+              ) : null}
               <Field label="Reference" htmlFor="inv-reference">
                 <Input
                   id="inv-reference"
@@ -393,33 +589,12 @@ export function NewInvoice() {
                 value={groupingMode}
                 onChange={(mode) => set('groupingMode', mode)}
               />
-              {/* Under the picker on a rule of its own, so the text reads as
-                  part of this choice rather than a field of the invoice. */}
               {groupingMode === 'summary' ? (
-                <div className="mt-1.5 ml-3 border-l-2 border-edge-subtle pl-3">
-                  <Field label="Summary line" htmlFor="inv-summary" required>
-                    <Input
-                      id="inv-summary"
-                      value={summaryText}
-                      onChange={(e) => set('summaryText', e.target.value)}
-                      placeholder="Professional services"
-                      maxLength={200}
-                      aria-invalid={noSummaryText}
-                      aria-describedby={
-                        noSummaryText ? 'inv-summary-error' : undefined
-                      }
-                    />
-                    {noSummaryText ? (
-                      <p
-                        id="inv-summary-error"
-                        role="alert"
-                        className="type-support text-danger"
-                      >
-                        Give the summary line its text.
-                      </p>
-                    ) : null}
-                  </Field>
-                </div>
+                <SummaryLineField
+                  value={summaryText}
+                  missing={noSummaryText}
+                  onChange={(v) => set('summaryText', v)}
+                />
               ) : null}
             </Field>
 
@@ -457,38 +632,10 @@ export function NewInvoice() {
             {/* Only a summary has detail to support: every other grouping
                 already breaks the time down on the invoice. */}
             {groupingMode === 'summary' ? (
-              // In a div: a fieldset's legend sits on its border, and the band
-              // rule is a border.
-              <div>
-                <fieldset className="flex flex-col gap-1.5">
-                  <legend className="mb-1.5 type-label text-subtle">
-                    Attach
-                  </legend>
-                  {SCHEDULE_KINDS.map((kind) => (
-                    <label
-                      key={kind}
-                      className="flex items-center gap-2 type-control text-primary"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={schedules.includes(kind)}
-                        onChange={(e) =>
-                          set(
-                            'schedules',
-                            SCHEDULE_KINDS.filter((k) =>
-                              k === kind
-                                ? e.target.checked
-                                : schedules.includes(k),
-                            ),
-                          )
-                        }
-                        className="size-4 flex-none accent-[var(--text-muted)]"
-                      />
-                      {SCHEDULE_TITLES[kind]}
-                    </label>
-                  ))}
-                </fieldset>
-              </div>
+              <ScheduleChecklist
+                value={schedules}
+                onChange={(v) => set('schedules', v)}
+              />
             ) : null}
           </div>
 
@@ -496,8 +643,10 @@ export function NewInvoice() {
               `xl` its caption stays put and the card scrolls under it. */}
           <div className="mt-6 min-w-0 @min-[800px]/new:mt-0 xl:flex xl:min-h-0 xl:flex-col">
             <InvoicePreviewCard
+              noSender={noSender}
               preview={current}
               client={client}
+              business={businessOf(settings)}
               settings={settings}
               number={number}
               issued={issued}
@@ -507,27 +656,10 @@ export function NewInvoice() {
               schedules={schedules}
               updating={updating}
             >
-              {unrated > 0 ? (
-                <p role="alert" className="type-support text-warning">
-                  {unrated} entr{unrated === 1 ? 'y has' : 'ies have'} no rate.
-                  Set a rate on the client, the project, or your defaults before
-                  generating.
-                </p>
-              ) : null}
-              {/* A warning, not a block: an overlap can be deliberate, and
-                  this is the last place to see it before it bills. */}
-              {overlapping > 0 ? (
-                <p role="alert" className="type-support text-warning">
-                  {overlapping} entr
-                  {overlapping === 1 ? 'y overlaps' : 'ies overlap'} other time,
-                  already billed or on this invoice.
-                </p>
-              ) : null}
-              {preview.isError || generate.error ? (
-                <p role="alert" className="type-support text-danger">
-                  {errorText(generate.error ?? preview.error)}
-                </p>
-              ) : null}
+              <PreviewNotices
+                preview={current}
+                error={generate.error ?? preview.error}
+              />
             </InvoicePreviewCard>
           </div>
         </div>
@@ -550,53 +682,176 @@ export function NewInvoice() {
         open={chargeDialog.open}
         onOpenChange={chargeDialog.onOpenChange}
         charge={draft.charges.find((c) => c.key === chargeDialog.subject)}
-        onSave={(charge) =>
-          set(
-            'charges',
-            chargeDialog.subject === 'new'
-              ? [...draft.charges, { ...charge, key: crypto.randomUUID() }]
-              : draft.charges.map((c) =>
-                  c.key === chargeDialog.subject
-                    ? { ...charge, key: c.key }
-                    : c,
-                ),
-          )
-        }
-        onRemove={
-          chargeDialog.subject !== 'new'
-            ? () =>
-                set(
-                  'charges',
-                  draft.charges.filter((c) => c.key !== chargeDialog.subject),
-                )
-            : undefined
-        }
+        onSave={saveCharge}
+        onRemove={chargeDialog.subject !== 'new' ? removeCharge : undefined}
+      />
+      {/* No Archive: the draft would keep a client the picker has dropped. */}
+      <ClientDialog
+        open={clientOpen}
+        onOpenChange={setClientOpen}
+        client={client}
+        archivable={false}
       />
       <PaymentProfileDialog
         open={newProfileOpen}
         onOpenChange={setNewProfileOpen}
-        onSaved={(p) => {
-          /* Into the list at once: until the refetch lands, a pick the list
-             lacks would fall back to another profile, and Generate would
-             freeze that one. */
-          qc.setQueryData<{ paymentProfiles: PaymentProfile[] }>(
-            keys.paymentProfiles(),
-            (d) =>
-              d && !d.paymentProfiles.some((x) => x.id === p.id)
-                ? { ...d, paymentProfiles: [...d.paymentProfiles, p] }
-                : d,
-          );
-          set('paymentProfileId', p.id);
-        }}
+        onSaved={addProfile}
       />
-    </DetailPage>
+    </>
   );
 }
 
-function errorText(error: unknown) {
-  return error instanceof ApiError
-    ? error.message
-    : 'Could not build this invoice.';
+/** What Bill to will lack, said; null when it has both. */
+function missingDetails(client: Pick<Client, 'address' | 'email'>) {
+  if (client.address && client.email) return null;
+  if (client.address) return 'No email';
+  if (client.email) return 'No address';
+  return 'No address or email';
+}
+
+/**
+ * Whether Generate can be pressed. Generating freezes what the card shows, so
+ * it waits for a current, complete answer from the server.
+ */
+function generateState(s: {
+  /** An open draft for this client holds some of these dates. */
+  covered: boolean;
+  /** The server's answer for this client; `undefined` before one. */
+  preview: Pick<InvoicePreview, 'lineItems' | 'unratedEntryIds'> | undefined;
+  /** The form has changed since the answer, or the server is recomputing. */
+  updating: boolean;
+  failed: boolean;
+  /** Due follows the settings' terms; without them it would be sent blank. */
+  hasSettings: boolean;
+  /** The server refuses an invoice with no sender; the notice says why. */
+  hasSender: boolean;
+  generating: boolean;
+  groupingMode: GroupingMode;
+  summaryText: string;
+}) {
+  const noSummaryText =
+    s.groupingMode === 'summary' && s.summaryText.trim() === '';
+  const complete =
+    s.preview !== undefined &&
+    s.preview.lineItems.length > 0 &&
+    s.preview.unratedEntryIds.length === 0 &&
+    !noSummaryText;
+  const canGenerate =
+    complete &&
+    !s.covered &&
+    s.hasSettings &&
+    s.hasSender &&
+    !s.updating &&
+    !s.failed &&
+    !s.generating;
+  return { canGenerate, noSummaryText };
+}
+
+function PreviewNotices({
+  preview,
+  error,
+}: {
+  preview: InvoicePreview | undefined;
+  error: unknown;
+}) {
+  const unrated = preview?.unratedEntryIds.length ?? 0;
+  const overlapping = preview?.overlappingEntryIds.length ?? 0;
+  return (
+    <>
+      {unrated > 0 ? (
+        <p role="alert" className="type-support text-warning">
+          {unrated} entr{unrated === 1 ? 'y has' : 'ies have'} no rate. Set a
+          rate on the client, the project, or your defaults before generating.
+        </p>
+      ) : null}
+      {/* A warning, not a block: an overlap can be deliberate, and this is
+          the last place to see it before it bills. */}
+      {overlapping > 0 ? (
+        <p role="alert" className="type-support text-warning">
+          {overlapping} entr
+          {overlapping === 1 ? 'y overlaps' : 'ies overlap'} other time, already
+          billed or on this invoice.
+        </p>
+      ) : null}
+      {error ? (
+        <p role="alert" className="type-support text-danger">
+          {error instanceof ApiError
+            ? error.message
+            : 'Could not build this invoice.'}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+/** The one line's text, under the grouping picker on a rule of its own so it
+ *  reads as part of that choice rather than a field of the invoice. */
+function SummaryLineField({
+  value,
+  missing,
+  onChange,
+}: {
+  value: string;
+  missing: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="mt-1.5 ml-3 border-l-2 border-edge-subtle pl-3">
+      <Field
+        label="Summary line"
+        htmlFor="inv-summary"
+        required
+        error={missing ? 'Give the summary line its text.' : undefined}
+      >
+        <Input
+          id="inv-summary"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Professional services"
+          maxLength={200}
+        />
+      </Field>
+    </div>
+  );
+}
+
+/** The supporting detail a summary attaches, kept in print order. */
+function ScheduleChecklist({
+  value,
+  onChange,
+}: {
+  value: ScheduleKind[];
+  onChange: (value: ScheduleKind[]) => void;
+}) {
+  return (
+    // In a div: a fieldset's legend sits on its border, and the band rule is
+    // a border.
+    <div>
+      <fieldset className="flex flex-col gap-1.5">
+        <legend className="mb-1.5 type-label text-subtle">Attach</legend>
+        {SCHEDULE_KINDS.map((kind) => (
+          <label
+            key={kind}
+            className="flex items-center gap-2 type-control text-primary"
+          >
+            <input
+              type="checkbox"
+              checked={value.includes(kind)}
+              onChange={(e) =>
+                onChange(
+                  SCHEDULE_KINDS.filter((k) =>
+                    k === kind ? e.target.checked : value.includes(k),
+                  ),
+                )
+              }
+              className="size-4 flex-none accent-[var(--text-muted)]"
+            />
+            {SCHEDULE_TITLES[kind]}
+          </label>
+        ))}
+      </fieldset>
+    </div>
+  );
 }
 
 function DateField({

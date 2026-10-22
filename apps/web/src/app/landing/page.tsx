@@ -1,9 +1,12 @@
 import type { Metadata } from 'next';
 import { Laptop, Monitor, Smartphone } from 'lucide-react';
+import Image from 'next/image';
 import { DemoTimer } from '@/components/marketing/demo-timer';
 import { InviteRequest } from '@/components/marketing/invite-request';
 import { ScrollRegion } from '@/components/marketing/scroll-region';
 import { Wordmark } from '@/components/wordmark';
+import homeUnbilled from './home-unbilled.png';
+import macTimer from './mac-timer.png';
 
 /**
  * Served at `/` on the apex domain, rewritten there by `src/proxy.ts`.
@@ -22,11 +25,11 @@ export const metadata: Metadata = {
     absolute: 'Stint — time tracking and invoicing for solo contractors',
   },
   description:
-    'Free time tracking and invoicing for solo contractors. One timer, your rates, and an invoice your client takes seriously. No teams, no seats, no upsell.',
+    'Time tracking and invoicing for solo contractors. Tracking is free; invoices are $40 a year. One timer, your rates, and an invoice your client takes seriously. No teams, no seats.',
   openGraph: {
     title: 'Time tracking and invoicing for solo contractors. That’s it.',
     description:
-      'Track hours, know what you are owed, send the invoice. Free to use, fully.',
+      'Track hours, know what you are owed, send the invoice. Tracking is free.',
     type: 'website',
   },
 };
@@ -81,7 +84,7 @@ export default function LandingPage() {
       <Unbilled />
       <Invoice />
       <Platforms />
-      <Free />
+      <Price />
       <Questions />
       <Closing />
       <Footer />
@@ -137,7 +140,8 @@ function Hero() {
           <div id="invite" className="mt-4 flex flex-col gap-3">
             <InviteRequest />
             <span className="type-meta text-subtle">
-              Free, fully &mdash; no card, no trial. Invite-only during alpha.
+              Tracking is free, no card. Invoices are $40 a year. Invite-only
+              during alpha.
             </span>
           </div>
         </div>
@@ -206,67 +210,24 @@ function Unbilled() {
       lede={
         <>
           Most trackers only count hours, so they can&rsquo;t tell you. Stint
-          knows your rates, so it can &mdash; per client, on the home screen,
-          every time you open it.
+          knows your rates, so it can &mdash; on the home screen, every time you
+          open it.
         </>
       }
       aside={
-        /* Figures from the app's own seed data. Unbilled and awaiting payment
-           are different money and are never summed: adding them double-counts
-           the same hours. Awaiting payment is one line at the foot, not a
-           card and not a row per invoice. */
-        <div className="w-full rounded-xl bg-surface-primary p-6 shadow-float sm:p-7">
-          <p className="type-label text-muted">Unbilled</p>
-          <p className="type-figure mt-2 text-strong">$1,462.50</p>
-          <dl className="mt-6 flex flex-col gap-3">
-            <UnbilledRow
-              color="#64A3E3"
-              name="Northwind Trading"
-              detail="18h 30m"
-              amount="$975.00"
-            />
-            <UnbilledRow
-              color="#F6964E"
-              name="Harbour & Co."
-              detail="9h 45m"
-              amount="$487.50"
-            />
-          </dl>
-          <p className="type-support mt-5 flex justify-between border-t border-edge-subtle pt-4 text-muted">
-            <span>Awaiting payment</span>
-            <span className="type-duration text-primary">$2,340.00</span>
-          </p>
-        </div>
+        /* The home's month figures, captured from the seeded local account
+           (`pnpm seed`) at 2x in the dark theme the page is set in, and shown
+           at 1:1 so their labels stay legible. The chart beside them is left
+           out: its projection ends in a green dot, and green here means a
+           running timer. Retake it when the month region changes. */
+        <Image
+          src={homeUnbilled}
+          alt="Stint's home screen: this month's billable total, what it is on track for, the unbilled total, and what is awaiting payment"
+          sizes="19.5rem"
+          className="mx-auto h-auto w-full max-w-78 rounded-xl shadow-float"
+        />
       }
     />
-  );
-}
-
-function UnbilledRow({
-  color,
-  name,
-  detail,
-  amount,
-}: {
-  color: string;
-  name: string;
-  detail: string;
-  amount: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <dt className="flex min-w-0 items-center gap-2.5">
-        {/* Color belongs to the client, never the project. */}
-        <span
-          aria-hidden
-          className="size-2 flex-none rounded-full"
-          style={{ backgroundColor: color }}
-        />
-        <span className="type-control truncate text-primary">{name}</span>
-        <span className="type-meta flex-none text-subtle">{detail}</span>
-      </dt>
-      <dd className="type-duration flex-none text-primary">{amount}</dd>
-    </div>
   );
 }
 
@@ -333,20 +294,13 @@ function Aside({
 }
 
 /**
- * A styled preview rather than a screenshot: it stays sharp at any width,
- * costs no image bytes, and cannot go stale against the real template.
+ * Drawn, where the rest of the page shows screenshots: the invoice is the
+ * deliverable, and set in HTML its figures stay sharp at any width, where a
+ * picture of the PDF would blur and show nothing more.
  *
  * Deliberately rendered on white with near-black figures. The real PDF sets
  * its total in the light-theme accent, which is correct on paper but would
  * put a second green meaning on this page beside the CTA.
- *
- * Hardcoded hexes, because this is ink on WHITE paper, not app chrome: a
- * drawing of a printed invoice sitting on a dark marketing page. They are
- * deliberately not the light theme, which is cream — `theme.light` would
- * tint this picture of paper and is what `invoice-pdf.tsx` reads instead.
- * A neutral gray ramp on white: `#1A1C21` ink, `#626875` and `#707784`
- * secondary (the lighter still AA on white), `#D1D5DD` and `#E4E6EC` rules,
- * `#F2F3F6` the banded row.
  */
 function InvoicePreview() {
   const lines = [
@@ -369,42 +323,42 @@ function InvoicePreview() {
         aria-label="Sample invoice"
         className="overflow-x-auto rounded-lg shadow-float"
       >
-        <div className="min-w-[34rem] bg-white p-6 text-[#1A1C21]">
+        <div className="min-w-[34rem] bg-print-ground p-6 text-print-ink">
           <div className="flex items-start justify-between gap-4">
             {/* A generic example, never a real person: this page is public and
               the invoice carries a name, an email and bank details. */}
             <div className="flex flex-col">
               <span className="type-heading">Your name here</span>
-              <span className="type-support text-[#626875]">
+              <span className="type-support text-print-muted">
                 you@yourdomain.com
               </span>
             </div>
             <div className="text-right">
               <div className="type-section">INVOICE</div>
-              <div className="type-meta text-[#626875]">INV-0042</div>
+              <div className="type-meta text-print-muted">INV-0042</div>
             </div>
           </div>
 
           <table className="mt-6 w-full border-collapse">
             <thead>
-              <tr className="border-b border-[#D1D5DD]">
-                <th className="type-label pb-2 text-left text-[#707784]">
+              <tr className="border-b border-print-rule">
+                <th className="type-label pb-2 text-left text-print-faint">
                   Description
                 </th>
-                <th className="type-label pb-2 text-right text-[#707784]">
+                <th className="type-label pb-2 text-right text-print-faint">
                   Hours
                 </th>
-                <th className="type-label pb-2 text-right text-[#707784]">
+                <th className="type-label pb-2 text-right text-print-faint">
                   Rate
                 </th>
-                <th className="type-label pb-2 text-right text-[#707784]">
+                <th className="type-label pb-2 text-right text-print-faint">
                   Amount
                 </th>
               </tr>
             </thead>
             <tbody>
               {lines.map(([desc, hours, rate, amount]) => (
-                <tr key={desc} className="border-b border-[#E4E6EC]">
+                <tr key={desc} className="border-b border-print-hairline">
                   <td className="type-control py-2">{desc}</td>
                   <td className="type-duration py-2 text-right">{hours}</td>
                   <td className="type-duration py-2 text-right">{rate}</td>
@@ -421,9 +375,9 @@ function InvoicePreview() {
             <span className="type-amount-hero">$6,779.16</span>
           </div>
 
-          <div className="mt-6 border-l-2 border-[#1A1C21] bg-[#F2F3F6] p-3">
+          <div className="mt-6 border-l-2 border-print-ink bg-print-band p-3">
             <p className="type-heading">Payment — USD ACH</p>
-            <p className="type-support mt-1 text-[#626875]">
+            <p className="type-support mt-1 text-print-muted">
               Our payment details never change. If you receive any message
               stating otherwise, call to verify before paying.
             </p>
@@ -459,17 +413,28 @@ function Platforms() {
         </>
       }
       aside={
-        <div className="grid gap-3 sm:grid-cols-3">
-          {surfaces.map(({ icon: Icon, label, detail }) => (
-            <div
-              key={label}
-              className="flex flex-col gap-2 rounded-lg bg-surface-primary p-4 shadow-card"
-            >
-              <Icon aria-hidden className="size-4 text-muted" />
-              <span className="type-heading text-strong">{label}</span>
-              <span className="type-support text-muted">{detail}</span>
-            </div>
-          ))}
+        <div className="flex flex-col gap-6">
+          {/* The Mac panel, captured with `apps/macos/qa.sh shot` signed in
+              as the seeded local account, then cropped to its timer and
+              today: below that it lists task names. */}
+          <Image
+            src={macTimer}
+            alt="Stint's Mac menu bar panel: a running timer, its task and project, and today's hours and their value"
+            sizes="20rem"
+            className="mx-auto h-auto w-full max-w-xs rounded-xl shadow-float"
+          />
+          <div className="grid gap-3 sm:grid-cols-3">
+            {surfaces.map(({ icon: Icon, label, detail }) => (
+              <div
+                key={label}
+                className="flex flex-col gap-2 rounded-lg bg-surface-primary p-4 shadow-card"
+              >
+                <Icon aria-hidden className="size-4 text-muted" />
+                <span className="type-heading text-strong">{label}</span>
+                <span className="type-support text-muted">{detail}</span>
+              </div>
+            ))}
+          </div>
         </div>
       }
     />
@@ -480,25 +445,24 @@ function Platforms() {
  * The price and the promises: a centered statement with three short pillars,
  * one of the two shapes that break the page's split-section rhythm.
  */
-function Free() {
+function Price() {
   return (
     <section>
       <Container className="py-20 sm:py-28">
         <div className="mx-auto max-w-xl text-center">
           <h2 className="type-display text-balance text-strong">
-            Free, and here&rsquo;s the catch.
+            Free to track. $40 a year to invoice.
           </h2>
           <p className="type-body mt-4 text-muted">
-            There isn&rsquo;t one. Later, a few dollars a month will take the
-            Stint mark off your invoices &mdash; and that is the only thing it
-            will ever buy.
+            Downloading the invoice is the only thing the paid plan buys, billed
+            yearly. Everything else is free for as long as you need it.
           </p>
         </div>
 
         <dl className="mt-12 grid gap-8 sm:grid-cols-3 sm:gap-10">
-          <Pillar term="Nothing is gated.">
-            Every feature, every export. Nothing that affects whether you get
-            paid will sit behind a payment.
+          <Pillar term="Your records are never held back.">
+            Clients, hours, the money view and every export stay free, so
+            leaving costs you nothing.
           </Pillar>
           <Pillar term="Your hours are never edited.">
             Left the timer running overnight? Stint shows you and asks.
@@ -532,7 +496,7 @@ function Pillar({
 /**
  * Objection handling, plainly.
  *
- * "Will this exist in a year?" is the hardest question a free billing tool
+ * "Will this exist in a year?" is the hardest question a new billing tool
  * faces, and it is severe rather than idle: an invoice is a tax record. The
  * answer is not a promise about longevity — a promise from an unknown party
  * is worth nothing — but the fact that every invoice is a PDF the user has
@@ -626,7 +590,7 @@ function Closing() {
 }
 
 /**
- * A free financial tool from an unknown party with no way to reach a human is
+ * A financial tool from an unknown party with no way to reach a human is
  * a trust hole, and the cheapest one on the page to plug.
  *
  * The support address waits on the domain — a personal Gmail on a billing

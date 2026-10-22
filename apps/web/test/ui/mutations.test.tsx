@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import {
   useOptimisticMutation,
+  usePressedSince,
   type OptimisticOptions,
 } from '@/lib/client/mutations';
 import { MutationNotice } from '@/components/mutation-notice';
@@ -255,6 +256,173 @@ describe('useOptimisticMutation — review fixes', () => {
 
     await act(async () => calls[1].resolve({ value: 'b' }));
     await waitFor(() => expect(onSettled).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe('useOptimisticMutation — include', () => {
+  type Answer = { included?: { summary?: unknown; stats?: unknown } };
+
+  function setupIncluding(
+    opts: Partial<OptimisticOptions<Vars, Answer, Cache>> &
+      Pick<OptimisticOptions<Vars, Answer, Cache>, 'mutationFn'>,
+  ) {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    });
+    queryClient.setQueryData(['summary'], 'old summary');
+    queryClient.setQueryData(['stats', 'UTC'], 'old stats');
+    const invalidate = vi.fn();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+    const hook = renderHook(
+      () =>
+        useOptimisticMutation<Vars, Answer, Cache>({
+          queryKey: () => key,
+          predict: (_current, vars) => ({ value: vars.value }),
+          include: { names: ['summary', 'stats'], tz: 'UTC' },
+          invalidate,
+          ...opts,
+        }),
+      { wrapper },
+    );
+    return { queryClient, invalidate, hook };
+  }
+
+  it('settles each included read from the answer, and refetches only the rest', async () => {
+    const { queryClient, invalidate, hook } = setupIncluding({
+      mutationFn: async () => ({
+        included: { summary: 'new summary', stats: 'new stats' },
+      }),
+    });
+
+    await act(async () => hook.result.current.mutate({ value: 'x' }));
+
+    await waitFor(() => expect(invalidate).toHaveBeenCalledTimes(1));
+    expect(invalidate.mock.calls[0]?.[2]).toEqual(['summary', 'stats']);
+    expect(queryClient.getQueryData(['summary'])).toBe('new summary');
+    expect(queryClient.getQueryData(['stats', 'UTC'])).toBe('new stats');
+  });
+
+  it('is not overwritten by a read already in flight when the answer lands', async () => {
+    const { queryClient, hook } = setupIncluding({
+      mutationFn: async () => ({ included: { stats: 'new stats' } }),
+    });
+    const stale = deferred<string>();
+    void queryClient.fetchQuery({
+      queryKey: ['stats', 'UTC'],
+      queryFn: () => stale.promise,
+      staleTime: 0,
+    });
+
+    await act(async () => hook.result.current.mutate({ value: 'x' }));
+    await waitFor(() =>
+      expect(queryClient.getQueryData(['stats', 'UTC'])).toBe('new stats'),
+    );
+    await act(async () => stale.resolve('stats from before the press'));
+
+    expect(queryClient.getQueryData(['stats', 'UTC'])).toBe('new stats');
+  });
+
+  it('refetches everything when the answer brought nothing', async () => {
+    const { queryClient, invalidate, hook } = setupIncluding({
+      mutationFn: async () => ({}),
+    });
+
+    await act(async () => hook.result.current.mutate({ value: 'x' }));
+
+    await waitFor(() => expect(invalidate).toHaveBeenCalledTimes(1));
+    expect(invalidate.mock.calls[0]?.[2]).toEqual([]);
+    expect(queryClient.getQueryData(['summary'])).toBe('old summary');
+  });
+
+  it('writes only the last overlapping press’s answer', async () => {
+    const calls = [deferred<Answer>(), deferred<Answer>()] as const;
+    let n = 0;
+    const { queryClient, hook } = setupIncluding({
+      mutationFn: () => calls[n++ as 0 | 1].promise,
+    });
+
+    act(() => hook.result.current.mutate({ value: 'start' }));
+    act(() => hook.result.current.mutate({ value: 'stop' }));
+    await act(async () =>
+      calls[0].resolve({ included: { summary: 'after start' } }),
+    );
+    expect(queryClient.getQueryData(['summary'])).toBe('old summary');
+
+    await act(async () =>
+      calls[1].resolve({ included: { summary: 'after stop' } }),
+    );
+    await waitFor(() =>
+      expect(queryClient.getQueryData(['summary'])).toBe('after stop'),
+    );
+  });
+
+  it('predicts a second cache too, and puts it back on a rejection', async () => {
+    const call = deferred<Answer>();
+    const { queryClient, hook } = setupIncluding({
+      mutationFn: () => call.promise,
+      alsoPredict: [
+        { queryKey: ['other'], predict: (_c, vars) => `other ${vars.value}` },
+      ],
+    });
+    queryClient.setQueryData(['other'], 'other original');
+
+    act(() => hook.result.current.mutate({ value: 'x' }));
+    await waitFor(() =>
+      expect(queryClient.getQueryData(['other'])).toBe('other x'),
+    );
+
+    await act(async () => call.reject(rejection('no')));
+    await waitFor(() =>
+      expect(queryClient.getQueryData(['other'])).toBe('other original'),
+    );
+  });
+
+  it('keeps the second cache’s fetch time, since it counts nothing newer', async () => {
+    const { queryClient, hook } = setupIncluding({
+      mutationFn: () => new Promise(() => {}),
+      alsoPredict: [{ queryKey: ['other'], predict: () => 'predicted' }],
+    });
+    queryClient.setQueryData(['other'], 'fetched', { updatedAt: 1000 });
+
+    act(() => hook.result.current.mutate({ value: 'x' }));
+    await waitFor(() =>
+      expect(queryClient.getQueryData(['other'])).toBe('predicted'),
+    );
+    expect(queryClient.getQueryState(['other'])?.dataUpdatedAt).toBe(1000);
+  });
+});
+
+describe('usePressedSince', () => {
+  it('ignores a press that does not move Home', async () => {
+    const { queryClient, wrapper, hook } = setup({
+      mutationFn: () => new Promise(() => {}),
+    });
+    const fetchedAt = queryClient.getQueryState(key)?.dataUpdatedAt ?? 0;
+    const pressed = renderHook(() => usePressedSince(fetchedAt), { wrapper });
+
+    act(() => hook.result.current.mutate({ value: 'x' }));
+    await waitFor(() => expect(hook.result.current.isPending).toBe(true));
+    expect(pressed.result.current).toBe(false);
+  });
+
+  it('is true only while a press made after the data is in flight', async () => {
+    const call = deferred<Cache>();
+    const { queryClient, wrapper, hook } = setup({
+      mutationFn: () => call.promise,
+      movesHome: true,
+    });
+    const fetchedAt = queryClient.getQueryState(key)?.dataUpdatedAt ?? 0;
+    const pressed = renderHook(() => usePressedSince(fetchedAt), { wrapper });
+    expect(pressed.result.current).toBe(false);
+
+    await new Promise((r) => setTimeout(r, 2));
+    act(() => hook.result.current.mutate({ value: 'x' }));
+    await waitFor(() => expect(pressed.result.current).toBe(true));
+
+    await act(async () => call.resolve({ value: 'x' }));
+    await waitFor(() => expect(pressed.result.current).toBe(false));
   });
 });
 

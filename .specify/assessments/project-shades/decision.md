@@ -9,7 +9,7 @@
 
 | Criterion | Rating | Justification |
 |-----------|--------|---------------|
-| Problem validity | weak | Blake confirmed the pain is that the page looks flat and no information is missing; the Feature form rejects annoyance. |
+| Problem validity | weak | The owner confirmed the pain is that the page looks flat and no information is missing; the Feature form rejects annoyance. |
 | Evidence strength | weak | One user, one shape, stated not observed; no sign-up or retention signal. |
 | Value vs. inaction | weak | Doing nothing hides no data and breaks nothing; names and amounts already separate projects. |
 | Feasibility / appetite | adequate | Option B is a credible medium build, and #66 has already worked out the shade steps. The cost is real but not the blocker. |
@@ -18,7 +18,7 @@
 
 ## Verdict & Rationale
 
-Kill. The problem is cosmetic by Blake's own account, the evidence is one
+Kill. The problem is cosmetic by the owner's own account, the evidence is one
 user's impression, and every option that fixes it spends a structural change
 (stats API, token generator, legend, a core color rule) on how one panel
 looks. Doing nothing costs nothing measurable. This also answers issue #66:

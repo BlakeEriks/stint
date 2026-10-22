@@ -14,8 +14,8 @@
  * CSS, no warning and exit 0 — verified against 4.3.3. So this also checks
  * every `type-*` against the generated scale.
  *
- * `src/components/ui/**` is exempt: it is vendored shadcn, policed by
- * shadcn-detox.mjs instead.
+ * `src/components/ui/**` is exempt: it holds vendored shadcn, policed by
+ * shadcn-detox.mjs instead, and the hand-written `Kbd`, which passes anyway.
  *
  * Swift files get the macOS app's version of the rule: a view names a
  * `TypeRole`, and only the generated `Tokens.swift` builds a font from a size.

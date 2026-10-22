@@ -1,0 +1,29 @@
+{
+  "entry": {
+    "id": "01a15408-6a00-743a-9ee3-5b4830021f53",
+    "projectId": "01a15408-6a00-7f59-96a5-ca40d41f0f35",
+    "taskName": "Write copy",
+    "startedAt": "2026-10-19T11:00:00+00:00",
+    "endedAt": "2026-10-19T12:00:00+00:00",
+    "isBillable": true,
+    "rateOverride": 200,
+    "invoiceId": "157f1ebc-e596-4f17-8f12-eade7e85d883",
+    "durationSeconds": 3600,
+    "durationOk": false
+  },
+  "currency": "USD",
+  "unbilled": {
+    "total": 0,
+    "seconds": 0,
+    "byClient": [],
+    "moreClients": 0
+  },
+  "included": {
+    "summary": {
+      "running": null,
+      "todaySeconds": 3600,
+      "weekSeconds": 3600,
+      "serverTime": "2026-10-19T12:00:00.000Z"
+    }
+  }
+}

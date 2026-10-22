@@ -68,17 +68,22 @@ preview about the same work is what that produces.
 bono) does not fall through to the client's rate. Both implementations use
 null-coalescing, never truthiness.
 
-**Rates are frozen onto invoice line items at generation time.** Changing a
-client's rate next year must never retroactively alter an invoice already sent.
+**Rates are frozen onto invoice line items when it is sent.** A draft shows
+current rates until then; changing a client's rate next year must never
+retroactively alter an invoice already sent.
 
 ## Tables
 
 ### `user_settings`
 One row per user, auto-created by a trigger on `auth.users` insert. Holds the
 global rate fallback, display preferences, the invoice
-identity block (business name, address, logo, tax id, terms), the invoice
+identity block (business name, address, logo, terms), the invoice
 number sequence, `payment_notice`, and the entry-length thresholds
 (`min_entry_seconds`, `max_entry_hours`).
+
+**`welcomed_at` is null until the welcome dialog is finished or skipped**,
+and null is what shows it. The signup trigger leaves it null; every account
+that existed before the dialog was backfilled as welcomed.
 
 **`max_entry_hours` defaults to 12; `min_entry_seconds` to null.** The long
 side is how a timer left running overnight reaches the inbox once it is
@@ -98,6 +103,11 @@ it. **Any future definer function needs the same treatment.**
 ### `clients`
 Billing entity. `hourly_rate`, `tax_rate` and `currency` are all nullable —
 null means "fall back". `color` is here because color identifies a client.
+`billing_period` is how often its contract bills it, null for no schedule;
+weekly and biweekly count from `period_anchor`, which the
+`billing_period_anchor` check requires for them and refuses for the others.
+A new invoice's period defaults from it, and one off the schedule is hinted
+at, never refused.
 
 ### `projects`
 `client_id` is **nullable** — that is how internal/unbilled work is modeled.
@@ -120,6 +130,10 @@ account number + ACH routing is the default path; IBAN/SWIFT, a labeled
 national bank code, and intermediary-bank fields are additive and render only
 when set.
 
+`routing_number` holds exactly 9 digits (`payment_profiles_routing_number_digits`).
+The ABA checksum is checked only by `validateRoutingNumber()` in `@stint/core`,
+which the API runs on every write.
+
 The invoice freezes the profile picked on New invoice; a pick archived or
 gone is refused, never swapped. Without a pick, resolution mirrors rates: the
 client's `payment_profile_id`, else the user's default, and a dangling client
@@ -129,13 +143,32 @@ reference falls back rather than rendering nothing.
 Line items are **denormalized on purpose**. An issued invoice is an immutable
 financial record, not a live view over time entries.
 
+**A draft refreshes on every read** (#433). `refresh_draft()` releases what it
+holds, writes the lines `buildLineItems` computes from its client and period
+now, and attaches what they bill, in one transaction; Mark sent passes
+`p_sent_at` and sends in the same call. What the user chose on New invoice is
+read, never rewritten: grouping, summary text, reference, notes, terms, due
+date, payment details, the supporting-detail kinds, its `fixed` lines, and
+two columns kept for the refresh — `tz`, the zone its period's dates are read
+in, and `excluded_expense_ids`, the expenses left off. `downloaded_snapshot`
+is what its PDF last showed; Mark sent refuses with `DRAFT_CHANGED` while
+the draft differs from it. One open draft per client and date: `POST
+/invoices` refuses an overlap with `DRAFT_OVERLAPS`, since two drafts would
+each claim the same new work.
+
 `payment_details` (JSONB) freezes the rendered bank details at generation, for
 the same reason rates freeze: editing a profile must never alter an invoice
-already sent. `supporting_detail` (JSONB) freezes the hours-by-project, -week
-and -date tables printed from page 2 the same way, so a renamed project or a
-void never changes them. `summary_text` is the line text of a `summary`
+already sent. `supporting_detail` (JSONB) holds the hours-by-project, -week
+and -date tables printed from page 2. A draft's are rebuilt with its lines;
+sending freezes them, so a renamed project or a void never changes them. The `business_*` and `logo_url` columns (the From
+block) and the `client_*` columns (Bill to) are copied from `user_settings`
+and the client by a trigger on insert, so editing either never reprints an
+invoice. `summary_text` is the line text of a `summary`
 invoice and is set exactly then; `reference` is the PO, contract or SOW the
-header prints.
+header prints. `issued_subscription_status` is the user's `subscriptions.status`
+when the invoice was inserted, copied by a trigger whatever the insert says
+and never changed after, so an invoice generated while paying keeps its PDF
+when the paid plan ends (`documentOpens()` in `@stint/core`).
 
 **Three kinds of line, one arithmetic.** `unit` is `hour`, `fixed` (a fee, a
 deposit, a retainer) or `expense` (a reimbursement), and every line is
@@ -187,6 +220,17 @@ written once: `authenticated` is granted only `select` and `insert`, so a
 sent message can't be changed or deleted, even by its sender. It goes with the
 account (`on delete cascade`). The checks match `CreateFeedback`: `message`
 1–2,000 characters, `screen` 1–200, `app_version` 1–64.
+
+### `subscriptions`
+A mirror of the user's Stripe subscription, one row per user, keyed on
+`user_id`: the Stripe customer and subscription, Stripe's `status`, the
+`current_period_end` it renews or ends at, and `cancel_at_period_end`. Stripe
+is the source of truth: only the server writes it, as `service_role`, from
+Stripe's current record (`syncCustomer()`, `apps/web/src/lib/billing.ts`).
+`authenticated` may only `select` its own row, so no client can make itself
+paid. Whether a status is paid is `planOf()` in `@stint/core`, not SQL. It
+goes with the account (`on delete cascade`), after `DELETE /account` has
+canceled any live subscription at Stripe.
 
 ## Integrity rules
 
@@ -243,8 +287,8 @@ Two deliberate exceptions:
 
 `guard_billed_expense` holds the same lock on an expense, over `spent_on`,
 `description`, `amount`, `client_id` and `recurring`, with the same two
-exceptions. An edit to an expense on a draft does not reach the draft's
-frozen line; the draft is deleted and generated again to bill it.
+exceptions. An edit to an entry or expense on a draft reaches it on its next
+read.
 
 ### Work invoiced elsewhere
 `time_entries.invoiced_elsewhere` marks work already billed from another tool,
@@ -270,6 +314,7 @@ sequence gapless under concurrency rather than merely usually correct.
   `next_invoice_number > 0`, `monthly_target > 0`,
   `quantity_seconds >= 0`; client, project and payment-profile names must be
   non-blank, and an invoice's period must be ordered.
+- `payment_profiles_routing_number_digits`: `routing_number ~ '^[0-9]{9}$'`.
 - **Paired nullability is a constraint too**: `monthly_target_needs_unit`
   asserts `(monthly_target is null) = (monthly_target_unit is null)`, so a
   target can never exist without the unit that gives it meaning, and
@@ -282,6 +327,8 @@ sequence gapless under concurrency rather than merely usually correct.
   **except `invoice_line_items` and `feedback`**, which have no such column:
   each is written once and never edited, so a "last modified" timestamp would
   be a field that can only ever lie.
+  `subscriptions` has the column but no trigger: its one writer, the Stripe
+  sync's upsert in `apps/web/src/lib/billing.ts`, sets it.
 - Partial indexes back the hot paths: active clients, projects and profiles,
   unbilled entries, and `invoices_user_paid_at_idx` on `(user_id, paid_at)`
   where the invoice is paid — payments are read by date, not by the status
@@ -298,6 +345,11 @@ nothing to `anon`. **GRANT decides whether the role may touch the table at
 all; RLS decides which rows it sees once it may.** Enabling RLS on a new table
 without granting it produces a `42501` that looks nothing like a policy
 problem.
+
+One table is written outside RLS: `subscriptions` grants `select`, `insert`
+and `update` to `service_role`, which bypasses RLS. Only `serviceClient()`
+(`apps/web/src/lib/supabase.ts`) uses that role, from `syncCustomer()`, for
+the Stripe webhook and the Checkout return.
 
 Supabase's **"Automatically expose new tables" must stay OFF** — the grants
 are explicit here so that a new table is unreachable until someone decides
@@ -349,8 +401,10 @@ hold; this list is the record of *what* must.
 - Detaching an entry from a voided invoice is allowed — that is the release
   path voiding depends on.
 - Voiding releases what the invoice billed in the same statement.
-- Rates are frozen onto line items at generation: changing a client's rate
-  later leaves an issued invoice at its original total.
+- Rates are frozen onto line items when an invoice is sent: changing a
+  client's rate later leaves an issued invoice at its original total.
+- `refresh_draft` runs as the caller and refuses anything but the caller's
+  own draft.
 - Editing or deleting an expense billed to a **non-draft** invoice is
   rejected, and voiding or deleting a draft releases it.
 - A generation that loses a race for an expense writes nothing and leaves
@@ -367,13 +421,15 @@ alone must still contain the query.
 | Check | Result |
 |---|---|
 | An unfiltered `select` returns only the caller's rows | isolated |
-| All eight user-scoped tables isolate | isolated |
+| All nine user-scoped tables isolate | isolated |
 | A known-good id belonging to another user returns nothing | no leak |
 | Line items inherit isolation through their invoice | isolated |
 | Insert with a forged `user_id` | rejected by `WITH CHECK` |
 | Update or delete targeting another user's row | matches nothing |
 | Reassigning a row to another user | rejected by `WITH CHECK` |
 | Changing or deleting sent feedback, even your own | refused by the grant |
+| Writing any subscription, your own included | refused by the grant |
+| Claiming or changing the plan an invoice was generated on | overwritten at insert, refused on update |
 | An expense filed under another user's client | rejected by `expense_client_same_owner` |
 | An invoice billed to another user's client | rejected by `invoice_client_same_owner` |
 | A project under another user's client | rejected by `project_client_same_owner` |

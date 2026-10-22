@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useOptimisticMutation } from '@/lib/client/mutations';
-import { formatCompact, formatCurrency } from '@stint/core';
+import { documentOpens, formatCompact, formatCurrency } from '@stint/core';
 import {
   Check,
   DollarSign,
@@ -25,6 +25,7 @@ import { useExit } from '@/lib/client/use-exit';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { EntryDialog } from './entry-dialog';
 import { Button } from '@/components/ui/button';
+import { RateInput, isValidRate, parseRate } from './rate-input';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 type Attention = Stats['attention'];
@@ -32,8 +33,10 @@ type Attention = Stats['attention'];
 /** How many rows the Inbox holds: its header's count and the folded dock's. */
 export function inboxCount(attention: Attention) {
   return (
+    (attention.noDefaultRate ? 1 : 0) +
     attention.overdueInvoices.length +
     attention.staleDrafts.length +
+    attention.lateEntries.length +
     attention.unprojected.length +
     attention.strangeDurations.length +
     attention.overlaps.length
@@ -44,9 +47,11 @@ export function inboxCount(attention: Attention) {
 type InboxRow =
   | { id: string; kind: 'overdue'; row: Attention['overdueInvoices'][number] }
   | { id: string; kind: 'draft'; row: Attention['staleDrafts'][number] }
+  | { id: string; kind: 'late'; row: Attention['lateEntries'][number] }
   | { id: string; kind: 'unprojected'; row: Attention['unprojected'][number] }
   | { id: string; kind: 'strange'; row: Attention['strangeDurations'][number] }
-  | { id: string; kind: 'overlap'; row: Attention['overlaps'][number] };
+  | { id: string; kind: 'overlap'; row: Attention['overlaps'][number] }
+  | { id: 'rate'; kind: 'rate' };
 
 /**
  * The dock's inbox: everything that wants a decision, in one fixed place.
@@ -69,6 +74,7 @@ export function Inbox({ stats }: { stats: Stats }) {
   const {
     overdueInvoices,
     staleDrafts,
+    lateEntries,
     unprojected,
     strangeDurations,
     overlaps,
@@ -135,6 +141,17 @@ export function Inbox({ stats }: { stats: Stats }) {
     select: (r) => r.projects,
   });
 
+  /* The PDF is the paid tier, and the server refuses it to a free user. The
+     rows don't carry the plan each invoice was generated on, so a free user
+     loses the shortcut even for one generated while paying; its page still
+     offers the download. Unknown counts as open: the server decides. */
+  const { data: billing } = useQuery({
+    queryKey: keys.billing(),
+    queryFn: api.billing,
+  });
+  const downloads =
+    !billing || documentOpens(billing.available, billing.plan, null);
+
   const setStatus = useOptimisticMutation({
     ...rowPress,
     mutationFn: ({ id, status }: { id: string; status: InvoiceStatus }) =>
@@ -143,6 +160,23 @@ export function Inbox({ stats }: { stats: Stats }) {
       await leaving.get(id);
       return Promise.all([
         qc.invalidateQueries({ queryKey: keys.invoices() }),
+        invalidateEntryData(qc),
+      ]);
+    },
+  });
+
+  /* The default rate prices every figure on Home, so they all go. The row
+     comes back holding what was typed, so it says why itself. */
+  const saveRate = useOptimisticMutation({
+    queryKey: () => keys.stats(),
+    onError: () => exit.unmark('rate'),
+    inline: true,
+    mutationFn: (defaultHourlyRate: number) =>
+      api.updateSettings({ defaultHourlyRate }),
+    invalidate: async (qc) => {
+      await leaving.get('rate');
+      return Promise.all([
+        qc.invalidateQueries({ queryKey: keys.settings() }),
         invalidateEntryData(qc),
       ]);
     },
@@ -162,6 +196,18 @@ export function Inbox({ stats }: { stats: Stats }) {
       kind: 'draft' as const,
       row: d,
     })),
+    /* Money no invoice holds, beside the invoices: work dated in a period
+       already sent. */
+    ...lateEntries.map((e) => ({
+      id: `late:${e.entryId}`,
+      kind: 'late' as const,
+      row: e,
+    })),
+    /* A chore like a draft, so it sits with them, above the entry rows: the
+       rate is what prices every one of those entries. */
+    ...(stats.attention.noDefaultRate
+      ? [{ id: 'rate' as const, kind: 'rate' as const }]
+      : []),
     ...unprojected.map((u) => ({
       id: u.entryId,
       kind: 'unprojected' as const,
@@ -211,23 +257,37 @@ export function Inbox({ stats }: { stats: Stats }) {
            list: a flex gap belongs to the container and survives a row
            collapsing, so a departing card would leave its gap behind. */
         <ul className="flex flex-col">
-          {rows.map((r) => (
-            <Row
-              key={r.id}
-              entry={r}
-              onStatus={(v) => {
-                leave(v.id);
-                setStatus.mutate(v);
-              }}
-              onOpen={openEntry}
-              onConfirm={(id) => {
-                leave(id);
-                confirmLength.mutate(id);
-              }}
-              exiting={exit.exiting.has(r.id)}
-              ref={exit.register(r.id)}
-            />
-          ))}
+          {rows.map((r) =>
+            r.kind === 'rate' ? (
+              <RateRow
+                key={r.id}
+                onSubmit={(rate) => {
+                  leave(r.id);
+                  saveRate.mutate(rate);
+                }}
+                error={saveRate.error?.message}
+                exiting={exit.exiting.has(r.id)}
+                ref={exit.register(r.id)}
+              />
+            ) : (
+              <Row
+                key={r.id}
+                entry={r}
+                downloads={downloads}
+                onStatus={(v) => {
+                  leave(v.id);
+                  setStatus.mutate(v);
+                }}
+                onOpen={openEntry}
+                onConfirm={(id) => {
+                  leave(id);
+                  confirmLength.mutate(id);
+                }}
+                exiting={exit.exiting.has(r.id)}
+                ref={exit.register(r.id)}
+              />
+            ),
+          )}
         </ul>
       )}
 
@@ -245,174 +305,211 @@ export function Inbox({ stats }: { stats: Stats }) {
   );
 }
 
-/** Which `Item` a row becomes — the one place the five kinds differ. */
-function Row({
-  entry,
-  onStatus,
-  onOpen,
-  onConfirm,
-  ...leaving
-}: {
-  entry: InboxRow;
+/** The rate row holds a form's state, so it is its own component. */
+type ItemRow = Exclude<InboxRow, { kind: 'rate' }>;
+
+type Handlers = {
+  downloads: boolean;
   onStatus: (v: { id: string; status: InvoiceStatus }) => void;
   onOpen: (v: { id: string; focus: 'task' | 'project' }) => void;
   onConfirm: (id: string) => void;
+};
+
+type ItemProps = Omit<React.ComponentProps<typeof Item>, 'exiting' | 'ref'>;
+
+function Row({
+  entry,
+  exiting,
+  ref,
+  ...handlers
+}: Handlers & {
+  entry: ItemRow;
   exiting: boolean;
   ref: React.Ref<HTMLLIElement>;
 }) {
-  const r = entry;
+  return <Item exiting={exiting} ref={ref} {...itemFor(entry, handlers)} />;
+}
 
-  if (r.kind === 'overdue') {
-    const i = r.row;
-    return (
-      <Item
-        {...leaving}
-        href={`/invoices/${i.invoiceId}`}
-        label={i.clientName ?? i.invoiceNumber}
-        detail={`${i.daysLate} ${i.daysLate === 1 ? 'day' : 'days'} late`}
-        value={formatCurrency(i.amount, i.currency)}
-        tone="danger"
-        actions={
-          <>
-            {/* A currency glyph, not a check: the check belongs to "It's
-                correct". */}
-            <Action
-              label="Mark paid"
-              ariaLabel={`Mark ${i.invoiceNumber} paid`}
-              icon={<DollarSign aria-hidden />}
-              onClick={() => onStatus({ id: i.invoiceId, status: 'paid' })}
-            />
-            <Action
-              label="Download"
-              ariaLabel={`Download ${i.invoiceNumber}`}
-              icon={<Download aria-hidden />}
-              href={`/api/v1/invoices/${i.invoiceId}/pdf`}
-            />
-          </>
-        }
-      />
-    );
+/** Which `Item` a row becomes — the one place the five kinds differ. */
+function itemFor(r: ItemRow, h: Handlers): ItemProps {
+  switch (r.kind) {
+    case 'overdue':
+      return invoiceItem(r.row, h, {
+        detail: `${r.row.daysLate} ${r.row.daysLate === 1 ? 'day' : 'days'} late`,
+        tone: 'danger',
+        status: 'paid',
+      });
+    case 'draft':
+      return invoiceItem(r.row, h, {
+        detail: `Draft, ${r.row.ageDays}d old`,
+        tone: 'neutral',
+        status: 'sent',
+      });
+    case 'unprojected':
+      return unprojectedItem(r.row, h);
+    case 'overlap':
+      return overlapItem(r.row, h);
+    case 'late':
+      return lateItem(r.row, h);
+    case 'strange':
+      return strangeItem(r.row, h);
   }
+}
 
-  if (r.kind === 'draft') {
-    const d = r.row;
-    return (
-      <Item
-        {...leaving}
-        href={`/invoices/${d.invoiceId}`}
-        label={d.clientName ?? d.invoiceNumber}
-        detail={`Draft, ${d.ageDays}d old`}
-        value={formatCurrency(d.amount, d.currency)}
-        tone="neutral"
-        actions={
-          <>
-            <Action
-              label="Mark sent"
-              ariaLabel={`Mark ${d.invoiceNumber} sent`}
-              icon={<Send aria-hidden />}
-              onClick={() => onStatus({ id: d.invoiceId, status: 'sent' })}
-            />
-            <Action
-              label="Download"
-              ariaLabel={`Download ${d.invoiceNumber}`}
-              icon={<Download aria-hidden />}
-              href={`/api/v1/invoices/${d.invoiceId}/pdf`}
-            />
-          </>
-        }
+/* A currency glyph for paid, not a check: the check belongs to "It's
+   correct". */
+const MARK = {
+  paid: { label: 'Mark paid', icon: <DollarSign aria-hidden /> },
+  sent: { label: 'Mark sent', icon: <Send aria-hidden /> },
+} as const;
+
+function invoiceItem(
+  i: Attention['overdueInvoices'][number] | Attention['staleDrafts'][number],
+  h: Handlers,
+  {
+    detail,
+    tone,
+    status,
+  }: Pick<ItemProps, 'detail' | 'tone'> & { status: keyof typeof MARK },
+): ItemProps {
+  return {
+    href: `/invoices/${i.invoiceId}`,
+    label: i.clientName ?? i.invoiceNumber,
+    detail,
+    value: formatCurrency(i.amount, i.currency),
+    tone,
+    actions: (
+      <>
+        <Action
+          label={MARK[status].label}
+          ariaLabel={`Mark ${i.invoiceNumber} ${status}`}
+          icon={MARK[status].icon}
+          onClick={() => h.onStatus({ id: i.invoiceId, status })}
+        />
+        {h.downloads ? (
+          <Action
+            label="Download"
+            ariaLabel={`Download ${i.invoiceNumber}`}
+            icon={<Download aria-hidden />}
+            href={api.invoicePdfUrl(i.invoiceId)}
+          />
+        ) : null}
+      </>
+    ),
+  };
+}
+
+function entryItem(
+  e: { entryId: string; taskName: string; seconds: number },
+  h: Handlers,
+  {
+    focus,
+    detail,
+    tone,
+    action,
+    more,
+  }: Pick<ItemProps, 'detail' | 'tone'> & {
+    focus: 'task' | 'project';
+    action: { label: string; ariaLabel: string; icon: React.ReactNode };
+    more?: React.ReactNode;
+  },
+): ItemProps {
+  const open = () => h.onOpen({ id: e.entryId, focus });
+  return {
+    onSelect: open,
+    label: e.taskName || 'Untitled entry',
+    detail,
+    value: formatCompact(e.seconds),
+    tone,
+    actions: (
+      <>
+        <Action {...action} onClick={open} />
+        {more}
+      </>
+    ),
+  };
+}
+
+/* One row per entry, not a rollup: the work is done an entry at a time —
+   open it, assign a project, move to the next. It edits in place because
+   these entries scatter across days, and a trip to the calendar for each
+   would lose the list. */
+function unprojectedItem(u: Attention['unprojected'][number], h: Handlers) {
+  return entryItem(u, h, {
+    focus: 'project',
+    detail: `No project · ${dayLabel(u.startedAt, tz)}`,
+    tone: 'neutral',
+    action: {
+      label: 'Assign project',
+      ariaLabel: `Assign a project to ${u.taskName || 'this entry'}`,
+      icon: <FolderInput aria-hidden />,
+    },
+  });
+}
+
+const editEntry = (taskName: string) => ({
+  label: 'Edit entry',
+  ariaLabel: `Edit ${taskName || 'this entry'}`,
+  icon: <Pencil aria-hidden />,
+});
+
+/* The pair's unbilled entry is opened — the later one when both are, as it
+   started inside the other. A billed other is named by its invoice, since
+   it can't be edited. Resolved by editing, never by an "it's fine": two
+   entries billing the same minutes cannot both be right. */
+function overlapItem(o: Attention['overlaps'][number], h: Handlers) {
+  const invoice = o.otherInvoiceNumber ? ` on ${o.otherInvoiceNumber}` : '';
+  return entryItem(o, h, {
+    focus: 'task',
+    detail: `Overlaps ${o.otherTaskName || 'another entry'}${invoice} · ${dayLabel(o.startedAt, tz)}`,
+    tone: 'warning',
+    action: editEntry(o.taskName),
+  });
+}
+
+/* Billed nowhere, and never moved onto the next invoice unasked: the
+   entry opens, where it can be marked not billable, or it waits for a later
+   invoice. */
+function lateItem(e: Attention['lateEntries'][number], h: Handlers) {
+  return entryItem({ ...e, seconds: Math.round(e.hours * 3600) }, h, {
+    focus: 'task',
+    detail: [
+      e.clientName,
+      dayLabel(e.startedAt, tz),
+      `in ${e.invoiceNumber}'s period, already sent`,
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    tone: 'warning',
+    action: editEntry(e.taskName),
+  });
+}
+
+/* The qualifier names which threshold it tripped, because color alone never
+   says which way. */
+function strangeItem(e: Attention['strangeDurations'][number], h: Handlers) {
+  return entryItem(e, h, {
+    focus: 'task',
+    detail: [
+      e.clientName ?? e.projectName,
+      dayLabel(e.startedAt, tz),
+      e.kind === 'short' ? 'unusually short' : 'unusually long',
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    tone: 'warning',
+    action: editEntry(e.taskName),
+    /* The one action that means "this is already right", and the only one
+       wearing a check mark. */
+    more: (
+      <Action
+        label="It's correct"
+        ariaLabel={`Keep ${e.taskName || 'this entry'} as it is`}
+        icon={<Check aria-hidden />}
+        onClick={() => h.onConfirm(e.entryId)}
       />
-    );
-  }
-
-  /* One row per entry, not a rollup: the work is done an entry at a time —
-     open it, assign a project, move to the next. It edits in place because
-     these entries scatter across days, and a trip to the calendar for each
-     would lose the list. */
-  if (r.kind === 'unprojected') {
-    const u = r.row;
-    return (
-      <Item
-        {...leaving}
-        onSelect={() => onOpen({ id: u.entryId, focus: 'project' })}
-        label={u.taskName || 'Untitled entry'}
-        detail={`No project · ${dayLabel(u.startedAt, tz)}`}
-        value={formatCompact(u.seconds)}
-        tone="neutral"
-        actions={
-          <Action
-            label="Assign project"
-            ariaLabel={`Assign a project to ${u.taskName || 'this entry'}`}
-            icon={<FolderInput aria-hidden />}
-            onClick={() => onOpen({ id: u.entryId, focus: 'project' })}
-          />
-        }
-      />
-    );
-  }
-
-  /* The pair's unbilled entry is opened — the later one when both are, as it
-     started inside the other. A billed other is named by its invoice, since
-     it can't be edited. Resolved by editing, never by an "it's fine": two
-     entries billing the same minutes cannot both be right. */
-  if (r.kind === 'overlap') {
-    const o = r.row;
-    return (
-      <Item
-        {...leaving}
-        onSelect={() => onOpen({ id: o.entryId, focus: 'task' })}
-        label={o.taskName || 'Untitled entry'}
-        detail={`Overlaps ${o.otherTaskName || 'another entry'}${o.otherInvoiceNumber ? ` on ${o.otherInvoiceNumber}` : ''} · ${dayLabel(o.startedAt, tz)}`}
-        value={formatCompact(o.seconds)}
-        tone="warning"
-        actions={
-          <Action
-            label="Edit entry"
-            ariaLabel={`Edit ${o.taskName || 'this entry'}`}
-            icon={<Pencil aria-hidden />}
-            onClick={() => onOpen({ id: o.entryId, focus: 'task' })}
-          />
-        }
-      />
-    );
-  }
-
-  /* The qualifier names which threshold it tripped, because color alone never
-     says which way. */
-  const e = r.row;
-  return (
-    <Item
-      {...leaving}
-      onSelect={() => onOpen({ id: e.entryId, focus: 'task' })}
-      label={e.taskName || 'Untitled entry'}
-      detail={[
-        e.clientName ?? e.projectName,
-        dayLabel(e.startedAt, tz),
-        e.kind === 'short' ? 'unusually short' : 'unusually long',
-      ]
-        .filter(Boolean)
-        .join(' · ')}
-      value={formatCompact(e.seconds)}
-      tone="warning"
-      actions={
-        <>
-          <Action
-            label="Edit entry"
-            ariaLabel={`Edit ${e.taskName || 'this entry'}`}
-            icon={<Pencil aria-hidden />}
-            onClick={() => onOpen({ id: e.entryId, focus: 'task' })}
-          />
-          {/* The one action that means "this is already right", and the only
-              one wearing a check mark. */}
-          <Action
-            label="It's correct"
-            ariaLabel={`Keep ${e.taskName || 'this entry'} as it is`}
-            icon={<Check aria-hidden />}
-            onClick={() => onConfirm(e.entryId)}
-          />
-        </>
-      }
-    />
-  );
+    ),
+  });
 }
 
 /** The entry's own day, in the user's zone. */
@@ -448,7 +545,8 @@ function Item({
   onSelect?: () => void;
   label: string;
   detail: string;
-  value: string;
+  /** The figure beside the detail. The rate row has none: it asks for one. */
+  value?: string;
   /**
    * How urgent the row is, and the ONLY thing on the card that takes color.
    * It paints a 2px edge inside the card and the clause of `detail` that
@@ -515,17 +613,21 @@ function Item({
         {/* The figure is a fact ABOUT the subject, so it sits beside the
             qualifier and the two read as one statement. */}
         <div className="mt-0.5 flex items-baseline gap-1.5 text-subtle">
-          <span
-            className={`flex-none text-primary ${
-              value.startsWith('$') ? 'type-amount' : 'type-duration'
-            }`}
-          >
-            {value}
-          </span>
-          <span
-            aria-hidden
-            className="size-0.5 flex-none rounded-full bg-edge-control"
-          />
+          {value ? (
+            <>
+              <span
+                className={`flex-none text-primary ${
+                  value.startsWith('$') ? 'type-amount' : 'type-duration'
+                }`}
+              >
+                {value}
+              </span>
+              <span
+                aria-hidden
+                className="size-0.5 flex-none rounded-full bg-edge-control"
+              />
+            </>
+          ) : null}
           {/* Wraps rather than truncating: it names which threshold was
               tripped, and an ellipsis eating "over 8h" takes the half of the
               signal that color cannot carry. */}
@@ -596,5 +698,68 @@ function Action({
       {icon}
       {label}
     </Button>
+  );
+}
+
+/**
+ * The account has no default rate, so Home cannot price its work. The rate
+ * is entered here rather than in Settings, since this is where the question
+ * is asked.
+ */
+function RateRow({
+  onSubmit,
+  error,
+  exiting,
+  ref,
+}: {
+  onSubmit: (rate: number) => void;
+  /** The server's refusal of the last save, shown once the row is back. */
+  error?: string;
+  exiting: boolean;
+  ref: React.Ref<HTMLLIElement>;
+}) {
+  const [text, setText] = useState('');
+  const rate = parseRate(text);
+  const shown =
+    text !== '' && !isValidRate(rate)
+      ? 'A rate is a number, zero or more.'
+      : error;
+
+  return (
+    <Item
+      exiting={exiting}
+      ref={ref}
+      label="Set your default rate"
+      detail="Home can't show money without one"
+      tone="neutral"
+      actions={
+        <form
+          className="flex w-full flex-col gap-1.5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (isValidRate(rate)) onSubmit(rate);
+          }}
+        >
+          <div className="flex items-center gap-1.5">
+            <RateInput
+              className="flex-1"
+              aria-label="Default hourly rate"
+              aria-invalid={shown ? true : undefined}
+              placeholder="100.00"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+            <Button type="submit" size="xs" disabled={!isValidRate(rate)}>
+              Save
+            </Button>
+          </div>
+          {shown ? (
+            <p role="alert" className="type-support text-danger">
+              {shown}
+            </p>
+          ) : null}
+        </form>
+      }
+    />
   );
 }

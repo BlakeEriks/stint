@@ -26,12 +26,16 @@ export const debtOf = (f) => MINUTES[f.kind](f);
  * @param hygieneIssues  Set of issue numbers labeled `hygiene`
  */
 export function fixChurn(prs, fixIssues, hygieneIssues) {
+  // A story or a test changes beside every fix (Constitution V), so its
+  // churn says nothing about its design.
+  const incidental = /\.(stories|test)\.\w+$/;
   const byPath = new Map();
   const closes = (pr, set) =>
     pr.closingIssuesReferences.some((i) => set.has(i.number));
   const merged = [...prs].sort((a, b) => a.mergedAt.localeCompare(b.mergedAt));
   for (const pr of merged) {
     for (const { path } of pr.files) {
+      if (incidental.test(path)) continue;
       if (closes(pr, hygieneIssues)) byPath.delete(path);
       else if (closes(pr, fixIssues)) {
         byPath.set(path, [...(byPath.get(path) ?? []), pr.number]);
@@ -78,6 +82,20 @@ export function rank(findings, commits, skip = new Set()) {
       };
     })
     .sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
+}
+
+/* Each redesign waits on a design being picked, and its fix churn outprices
+   most other debt, so a few redesigns a week leave the rest to /reduce and
+   /copyedit. */
+const MAX_REDESIGNS = 2;
+const redesign = (file) => file.findings.some((f) => f.kind === 'fixes');
+
+/** The first `n` ranked files, with at most MAX_REDESIGNS redesigns. */
+export function top(files, n) {
+  let redesigns = 0;
+  return files
+    .filter((file) => !redesign(file) || ++redesigns <= MAX_REDESIGNS)
+    .slice(0, n);
 }
 
 /* An issue owns its file through a marker in its body. A file stays skipped

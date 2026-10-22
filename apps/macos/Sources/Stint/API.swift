@@ -1,8 +1,6 @@
 import Foundation
 
 /// The shapes `/api/v1` returns, mirroring `rows.ts` field for field.
-/// Hand-written and unchecked against `packages/schema`: a renamed field
-/// fails here at runtime.
 struct TimeEntry: Codable, Identifiable, Equatable {
     var id: String
     var projectId: String?
@@ -58,10 +56,9 @@ struct Summary: Codable, Equatable {
     let serverTime: Date
 }
 
-private struct ProjectList: Codable { let projects: [Project] }
-private struct TaskNameList: Codable { let taskNames: [TaskName] }
-private struct ClientList: Codable { let clients: [Client] }
-private struct Stopped: Codable { let entry: TimeEntry }
+struct ProjectList: Codable { let projects: [Project] }
+struct TaskNameList: Codable { let taskNames: [TaskName] }
+struct ClientList: Codable { let clients: [Client] }
 
 struct APIError: LocalizedError, Equatable {
     let status: Int
@@ -86,7 +83,7 @@ actor API {
     }
 
     /// Postgres sends fractional seconds on some columns and not others.
-    private static let decoder: JSONDecoder = {
+    static let decoder: JSONDecoder = {
         let d = JSONDecoder()
         d.dateDecodingStrategy = .custom { decoder in
             let text = try decoder.singleValueContainer().decode(String.self)
@@ -146,6 +143,15 @@ actor API {
         return list.projects.filter { $0.archivedAt == nil }
     }
 
+    /// A timer press's answer with `?include=summary`: the summary read after
+    /// the write, so the press needs no refetch of it.
+    struct Pressed: Codable {
+        let entry: TimeEntry
+        let included: Included
+    }
+
+    struct Included: Codable { let summary: Summary }
+
     struct StartTimer: Encodable {
         let id: String
         let taskName: String
@@ -157,10 +163,11 @@ actor API {
     func startTimer(
         id: String = uuidv7(),
         taskName: String,
-        projectId: String?
-    ) async throws -> TimeEntry {
+        projectId: String?,
+        timeZone: TimeZone = .current
+    ) async throws -> Pressed {
         try await request(
-            "POST", "/timer/start",
+            "POST", "/timer/start?include=summary&tz=\(timeZone.identifier)",
             body: StartTimer(
                 id: id,
                 taskName: taskName,
@@ -171,9 +178,8 @@ actor API {
 
     private struct Empty: Encodable {}
 
-    func stopTimer() async throws -> TimeEntry {
-        let stopped: Stopped = try await request("POST", "/timer/stop", body: Empty())
-        return stopped.entry
+    func stopTimer(timeZone: TimeZone = .current) async throws -> Pressed {
+        try await request("POST", "/timer/stop?include=summary&tz=\(timeZone.identifier)", body: Empty())
     }
 
     struct UpdateTimer: Encodable {

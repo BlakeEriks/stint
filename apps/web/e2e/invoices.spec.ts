@@ -116,12 +116,20 @@ test.describe('invoices', () => {
 
     // The dialog asks when the payment actually arrived; confirming the
     // default (today) matches the pre-dialog behaviour this test checks.
+    const written = page.waitForResponse(
+      (r) =>
+        r.request().method() === 'PATCH' &&
+        /\/api\/v1\/invoices\/[^/]+\/status$/.test(r.url()),
+    );
     await page.getByRole('button', { name: 'Mark paid' }).click();
 
     // The row leaves the open filter because the fact changed, not because
     // the UI hid it.
     await expect(list(page).getByText('STINT-0001')).toBeHidden();
 
+    // The row hides optimistically, so a reload before the write lands
+    // would read the invoice still open.
+    expect((await written).ok()).toBe(true);
     await page.reload();
     await expect(list(page).getByText('STINT-0001')).toBeHidden();
     await expect(list(page).getByText('$900.00 outstanding')).toBeHidden();

@@ -101,9 +101,9 @@
       "suspicious": {
         "noExplicitAny": "off",
         "noConsole": "off",
-        // The only index-keyed lists here are invoice line items, which are
-        // frozen at generation and never reorder — the index IS their stable
-        // identity. Re-enable if a reorderable list is ever added.
+        // The only index-keyed lists here are invoice line items: plain rows
+        // with no state or animation, so a draft's refresh inserting one
+        // only re-renders them. Re-enable if a row ever holds state.
         "noArrayIndexKey": "off"
       },
       "style": {

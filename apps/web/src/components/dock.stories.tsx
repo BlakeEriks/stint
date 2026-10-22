@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { localDateKey } from '@stint/core';
 import { account } from '@/mocks/db';
-import type { Db } from '@/mocks/fixtures';
+import { ids, type Db } from '@/mocks/fixtures';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
-import { desktop, expectOpen, tablet } from '@/mocks/screen';
+import { desktop, expectOpen, stalled, tablet } from '@/mocks/screen';
 import { ZONE } from '@/mocks/time.mts';
 import { Dock } from './dock';
 
@@ -53,6 +53,32 @@ export const Column: Story = {
   },
 };
 
+/** The invoice PDF is the paid tier: a paying account's invoice rows offer
+    Download; the seeded account, free with billing set up, gets none. */
+export const InvoiceDownloads: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    db.billing = { ...db.billing, plan: 'paid', status: 'active' };
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      (await page.findAllByRole('link', { name: /^Download / }))[0],
+    ).toBeVisible();
+  },
+};
+
+export const InvoiceDownloadsFree: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await page.findAllByText(/days late/);
+    await waitFor(() =>
+      expect(page.queryAllByRole('link', { name: /^Download / })).toEqual([]),
+    );
+  },
+};
+
 /** An overlap with billed time opens the unbilled entry and names the
     invoice holding the other, which can't be edited. */
 export const BilledOverlap: Story = {
@@ -79,6 +105,40 @@ export const BilledOverlap: Story = {
     await expect(
       page.getByRole('button', { name: 'Edit Client call and follow-ups' }),
     ).toBeVisible();
+  },
+};
+
+/** Work dated in a period already sent is billed nowhere, so it waits here
+    with the invoice whose period it falls in. */
+export const LateEntry: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    const northwind = new Set(
+      db.projects.filter((p) => p.clientId === ids.northwind).map((p) => p.id),
+    );
+    const late = db.entries.find(
+      (e) =>
+        e.invoiceId == null &&
+        e.endedAt &&
+        e.isBillable &&
+        e.projectId &&
+        northwind.has(e.projectId),
+    );
+    if (!late) return;
+    late.taskName = 'Forgot to log';
+    late.startedAt = '2026-08-10T15:00:00.000Z';
+    late.endedAt = '2026-08-10T17:30:00.000Z';
+    late.durationSeconds = 9000;
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      await page.findByText(/in STINT-0013's period, already sent/),
+    ).toBeVisible();
+    // Its row opens the entry, where it can be marked not billable.
+    await expect(
+      page.getAllByRole('button', { name: 'Edit Forgot to log' }).length,
+    ).toBeGreaterThan(0);
   },
 };
 
@@ -213,5 +273,18 @@ export const TodayScrolls: Story = {
     });
     const dock = page.getByRole('complementary', { name: 'At a glance' });
     await expect(dock.scrollHeight).toBeLessThanOrEqual(dock.clientHeight);
+  },
+};
+
+/** On its way: one quiet word where it will be, and none of it until all of
+ *  it has arrived. */
+export const Loading: Story = {
+  ...desktop,
+  parameters: stalled('stats'),
+  play: async ({ canvasElement }) => {
+    const region = within(canvasElement.querySelector('aside') as HTMLElement);
+    await expect(await region.findByRole('status')).toHaveTextContent(
+      'Loading',
+    );
   },
 };

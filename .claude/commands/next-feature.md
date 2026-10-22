@@ -18,7 +18,7 @@ then skip every issue that:
 - is already pulled down: a branch matching `f<n>-*` exists
   (`git branch --list 'f<n>-*'`), or an open PR closes it
 - is a purchase or a setting, not code (buying the domain, upgrading a plan):
-  list these for Blake at the end instead
+  list these at the end instead
 
 Order: `urgent` first, then milestone `Alpha`, then `Launch`, then none;
 oldest first within each. Name the pick and the runner-up in one line each,

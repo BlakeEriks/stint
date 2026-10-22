@@ -3,11 +3,18 @@
 import {
   hashKey,
   useMutation,
+  useMutationState,
   useQueryClient,
   type QueryClient,
   type QueryKey,
 } from '@tanstack/react-query';
-import { ApiError } from './api';
+import {
+  ApiError,
+  type Include,
+  type Included,
+  type IncludedName,
+} from './api';
+import { keys } from './query-keys';
 
 /**
  * The one way the web app writes (Constitution VI). Every press answers in
@@ -34,6 +41,8 @@ import { ApiError } from './api';
  * - **`serial`** sends presses in one lane to the server in press order,
  *   while each still shows its prediction at once — Start then Stop must
  *   reach the server in that order (TanStack's mutation `scope`).
+ * - **`include`** settles what the write route returned beside its record
+ *   (`?include=`) from that answer, rather than a refetch a round trip later.
  *
  * A failure is never silent (Constitution I): `MutationNotice` shows the
  * reason for every failed mutation in the cache, so it still shows after the
@@ -64,8 +73,29 @@ export interface OptimisticOptions<TVars, TData, TCache> {
    * whose result the server will likely decide otherwise.
    */
   pending?: (vars: TVars) => boolean;
-  /** What to refetch once the last overlapping press settles. Defaults to `queryKey`. */
-  invalidate?: (queryClient: QueryClient, vars: TVars) => unknown;
+  /**
+   * More caches the press predicts, beside `queryKey`'s: put back with them
+   * on a rejection, and refreshed by `invalidate`.
+   */
+  alsoPredict?: Array<{
+    queryKey: QueryKey;
+    predict: (current: unknown, vars: TVars, key: QueryKey) => unknown;
+  }>;
+  /**
+   * What `mutationFn` asks the server to return beside the record. Each read
+   * the answer carries is written into its cache key, and `invalidate` is
+   * told it is `settled` so it leaves it alone.
+   */
+  include?: Include;
+  /**
+   * What to refetch once the last overlapping press settles. Defaults to
+   * `queryKey`. `settled` names what the answer already brought.
+   */
+  invalidate?: (
+    queryClient: QueryClient,
+    vars: TVars,
+    settled: readonly IncludedName[],
+  ) => unknown;
   onSuccess?: (data: TData, vars: TVars) => unknown;
   /** Undo anything the caller showed beyond the cache, such as a row's exit. */
   onError?: (error: Error, vars: TVars) => void;
@@ -76,15 +106,23 @@ export interface OptimisticOptions<TVars, TData, TCache> {
    * of it. Only for a pending-mode form that stays open until the answer.
    */
   inline?: boolean;
+  /** The press changes Home's figures, which show it is settling until they count it. */
+  movesHome?: boolean;
   /** A lane whose presses reach the server one at a time, in press order. */
   serial?: string;
   timeoutMs?: number;
 }
 
-interface Context<TCache> {
+interface Context {
   key: QueryKey;
-  snapshot: Array<[QueryKey, TCache | undefined]>;
+  snapshot: Array<[QueryKey, unknown]>;
 }
+
+/** Where each read a write can include is cached. */
+const INCLUDED_KEY: Record<IncludedName, (tz: string) => QueryKey> = {
+  summary: () => keys.summary(),
+  stats: (tz) => keys.stats(tz),
+};
 
 export const TIMEOUT_MS = 10_000;
 
@@ -95,16 +133,33 @@ export function useOptimisticMutation<
 >(opts: OptimisticOptions<TVars, TData, TCache>) {
   const queryClient = useQueryClient();
 
-  const refetch = (vars: TVars) =>
+  const refetch = (vars: TVars, settled: readonly IncludedName[] = []) =>
     opts.invalidate
-      ? opts.invalidate(queryClient, vars)
+      ? opts.invalidate(queryClient, vars, settled)
       : queryClient.invalidateQueries({ queryKey: opts.queryKey(vars) });
+
+  /** Writes what the answer included into its cache; returns what it wrote. */
+  const settleIncluded = async (
+    data: TData | undefined,
+  ): Promise<IncludedName[]> => {
+    const included = (data as { included?: Included } | undefined)?.included;
+    if (!opts.include || !included) return [];
+    const { tz } = opts.include;
+    const names = opts.include.names.filter((n) => included[n] !== undefined);
+    for (const name of names) {
+      const queryKey = INCLUDED_KEY[name](tz);
+      // A read in flight began before this answer, and would land over it.
+      await queryClient.cancelQueries({ queryKey });
+      queryClient.setQueryData(queryKey, included[name]);
+    }
+    return names;
+  };
 
   // Presses on this key still in flight, the settling one included.
   const inFlight = (key: QueryKey) =>
     queryClient.isMutating({
       predicate: (m) => {
-        const ctx = m.state.context as Context<TCache> | undefined;
+        const ctx = m.state.context as Context | undefined;
         return ctx !== undefined && hashKey(ctx.key) === hashKey(key);
       },
     });
@@ -112,8 +167,8 @@ export function useOptimisticMutation<
   const predicts = (vars: TVars) =>
     opts.predict !== undefined && !opts.pending?.(vars);
 
-  return useMutation<TData, Error, TVars, Context<TCache>>({
-    meta: { inline: opts.inline ?? false },
+  return useMutation<TData, Error, TVars, Context>({
+    meta: { inline: opts.inline ?? false, movesHome: opts.movesHome ?? false },
     scope: opts.serial ? { id: opts.serial } : undefined,
     mutationFn: (vars) =>
       predicts(vars)
@@ -123,13 +178,26 @@ export function useOptimisticMutation<
         : opts.mutationFn(vars),
     onMutate: (vars) => {
       const key = opts.queryKey(vars);
-      // Not awaited: the cancel takes effect at once, and waiting on it
-      // would let a frame render before the prediction.
-      void queryClient.cancelQueries({ queryKey: key });
-      const snapshot = queryClient.getQueriesData<TCache>({ queryKey: key });
-      if (opts.predict && predicts(vars)) {
-        for (const [cached, data] of snapshot)
-          queryClient.setQueryData(cached, opts.predict(data, vars, cached));
+      /* `alsoPredict`'s caches keep the time they were fetched: a figure
+         beside the prediction, such as money, still counts only what was
+         fetched then (`usePressedSince`). */
+      const predictions = [
+        ...(opts.predict
+          ? [
+              {
+                queryKey: key,
+                predict: opts.predict as Predict<TVars>,
+                keepsAge: false,
+              },
+            ]
+          : []),
+        ...(opts.alsoPredict ?? []).map((p) => ({ ...p, keepsAge: true })),
+      ];
+      const snapshot: Context['snapshot'] = [];
+      for (const prediction of predictions) {
+        snapshot.push(
+          ...predictInto(queryClient, prediction, vars, predicts(vars)),
+        );
       }
       return { key, snapshot };
     },
@@ -141,12 +209,60 @@ export function useOptimisticMutation<
       }
     },
     onSuccess: (data, vars) => opts.onSuccess?.(data, vars),
-    onSettled: async (_data, _err, vars, ctx) => {
+    onSettled: async (data, _err, vars, ctx) => {
       if (ctx && inFlight(ctx.key) > 1) return;
-      await refetch(vars);
+      await refetch(vars, await settleIncluded(data));
       opts.onSettled?.(vars);
     },
   });
+}
+
+/**
+ * Whether a press that moves Home (`movesHome`) is still in flight and began
+ * after `updatedAt` — so data fetched then doesn't count it yet. The press's
+ * answer or refetch updates the data and ends it.
+ */
+export function usePressedSince(updatedAt: number): boolean {
+  const pressedAt = useMutationState({
+    filters: {
+      status: 'pending',
+      predicate: (m) => m.options.meta?.movesHome === true,
+    },
+    select: (m) => m.state.submittedAt,
+  });
+  return pressedAt.some((at) => at >= updatedAt);
+}
+
+type Predict<TVars> = (current: unknown, vars: TVars, key: QueryKey) => unknown;
+
+/**
+ * Writes one prediction into every cached query under its key, when
+ * `predicting`, and returns what each held before.
+ */
+function predictInto<TVars>(
+  queryClient: QueryClient,
+  {
+    queryKey,
+    predict,
+    keepsAge,
+  }: { queryKey: QueryKey; predict: Predict<TVars>; keepsAge: boolean },
+  vars: TVars,
+  predicting: boolean,
+): Context['snapshot'] {
+  // Not awaited: the cancel takes effect at once, and waiting on it would
+  // let a frame render before the prediction.
+  void queryClient.cancelQueries({ queryKey });
+  const before = queryClient.getQueriesData({ queryKey });
+  if (!predicting) return before;
+  for (const [cached, data] of before) {
+    const updatedAt = keepsAge
+      ? queryClient.getQueryState(cached)?.dataUpdatedAt
+      : undefined;
+    queryClient.setQueryData(cached, predict(data, vars, cached), {
+      updatedAt,
+    });
+  }
+  return before;
 }
 
 /**

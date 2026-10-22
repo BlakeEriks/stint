@@ -37,7 +37,8 @@ The current design assumes one template. Supporting a gallery later means:
   when it was sent.
 - The fixture in `render-sample-invoice.mjs` is exported so each template can
   render the same data, making samples directly comparable.
-- Anything shared across templates (currency and date formatting, the `Lines`
-  helper, the color constants) moves out of the document module first.
+- Anything shared across templates (date formatting and the `Lines` helper)
+  moves out of the document module first. Ink is already the `print` token
+  ramp, and currency formatting is `@stint/core`'s.
 
 Nothing here anticipates that beyond the export, which costs nothing now.

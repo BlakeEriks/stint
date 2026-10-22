@@ -3,21 +3,12 @@ import { NextResponse } from 'next/server';
    loader cannot see the named exports `@sentry/nextjs` re-exports from
    CommonJS, so the route tests would import `undefined`. */
 import { captureException } from '@sentry/core';
-/** Mirrors ErrorCode in @stint/schema. */
-export type Code =
-  | 'TIMER_ALREADY_RUNNING'
-  | 'NO_TIMER_RUNNING'
-  | 'ENTRY_LOCKED'
-  | 'EXPENSE_LOCKED'
-  | 'EXPENSE_ALREADY_INVOICED'
-  | 'ENTRY_ALREADY_INVOICED'
-  | 'INVOICE_STATUS_CHANGED'
-  | 'ENTRY_NOT_FOUND'
-  | 'NO_RATE_CONFIGURED'
-  | 'INVALID_PERIOD'
-  | 'UNAUTHORIZED'
-  | 'IMPORT_FILE_UNRECOGNIZED'
-  | 'VALIDATION_FAILED';
+import type { z } from 'zod';
+import type { ErrorCode } from '@stint/schema';
+
+/* A type-only import: the schema's codes cost nothing at run time, and
+   STATUS below fails to compile when a code is missing from it. */
+export type Code = z.infer<typeof ErrorCode>;
 
 const STATUS: Record<Code, number> = {
   TIMER_ALREADY_RUNNING: 409,
@@ -27,12 +18,19 @@ const STATUS: Record<Code, number> = {
   EXPENSE_ALREADY_INVOICED: 409,
   ENTRY_ALREADY_INVOICED: 409,
   INVOICE_STATUS_CHANGED: 409,
+  DRAFT_CHANGED: 409,
+  DRAFT_OVERLAPS: 409,
   ENTRY_NOT_FOUND: 404,
   NO_RATE_CONFIGURED: 400,
   INVALID_PERIOD: 400,
   UNAUTHORIZED: 401,
   IMPORT_FILE_UNRECOGNIZED: 422,
   VALIDATION_FAILED: 422,
+  ALREADY_SUBSCRIBED: 409,
+  NOT_SUBSCRIBED: 409,
+  CHECKOUT_NOT_FOUND: 404,
+  BILLING_UNAVAILABLE: 503,
+  PAYMENT_REQUIRED: 402,
 };
 
 /** A failure the client is expected to handle — not a bug. */
@@ -48,7 +46,7 @@ export class ApiError extends Error {
   }
 }
 
-export function errorResponse(code: Code, message: string, details?: unknown) {
+function errorResponse(code: Code, message: string, details?: unknown) {
   return NextResponse.json(
     { code, message, details },
     { status: STATUS[code] },
@@ -88,8 +86,14 @@ export function handle<T extends unknown[]>(
           { constraint: (err as { message?: string }).message },
         );
       }
+      /* Postgres refuses a malformed uuid with an error, not an empty
+         result: an id typed into the URL is still a record that isn't
+         there. */
+      if ((err as { code?: string } | null)?.code === PG.INVALID_TEXT) {
+        return errorResponse('ENTRY_NOT_FOUND', 'Not found');
+      }
       console.error('Unhandled API error:', err);
-      captureException(err);
+      report(err);
       return NextResponse.json(
         { code: 'INTERNAL', message: 'Internal server error' },
         { status: 500 },
@@ -98,12 +102,31 @@ export function handle<T extends unknown[]>(
   };
 }
 
+/* A route rethrows a Supabase `error`, a plain `{ message, code, ... }`.
+   Sentry titles a non-Error by its top frame's function, a minified letter,
+   so it goes up as an Error with the original beside it. That Error's stack
+   is this function's whichever route failed, so the message joins the
+   fingerprint: without it every database failure groups as one issue. */
+function report(err: unknown) {
+  if (err instanceof Error) {
+    captureException(err);
+    return;
+  }
+  const message = String((err as { message?: unknown } | null)?.message ?? err);
+  captureException(new Error(message), {
+    extra: { thrown: err },
+    fingerprint: ['{{ default }}', message],
+  });
+}
+
 /** Postgres error codes surfaced through PostgREST. */
 export const PG = {
   UNIQUE_VIOLATION: '23505',
   CHECK_VIOLATION: '23514',
   FOREIGN_KEY_VIOLATION: '23503',
   NOT_FOUND: 'PGRST116',
+  INVALID_TEXT: '22P02',
+  NO_DATA_FOUND: 'P0002',
 } as const;
 
 export function isSameOwnerViolation(
@@ -153,16 +176,3 @@ export function isEntryClaimConflict(
 ): boolean {
   return (err?.message ?? '').includes('ENTRY_ALREADY_INVOICED');
 }
-
-// ── drift guard ────────────────────────────────────────────────────
-// The union above is hand-written so this module carries no runtime
-// dependency on the schema package. These assertions fail to compile if it
-// diverges from ErrorCode.
-import type { z } from 'zod';
-import type { ErrorCode } from '@stint/schema';
-
-type SchemaCode = z.infer<typeof ErrorCode>;
-type Assert<_A extends B, B> = true;
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-type _CodeMatchesSchema = [Assert<Code, SchemaCode>, Assert<SchemaCode, Code>];

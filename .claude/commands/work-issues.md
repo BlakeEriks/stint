@@ -1,11 +1,11 @@
 ---
-description: Work through open GitHub issues one at a time, to an open PR each, stopping only for what needs Blake
+description: Work through open GitHub issues one at a time, to an open PR each, stopping only for a decision the issue can't settle
 # Follows orchestrator-workers and evaluator-optimizer from "Building effective
 # agents" (anthropic.com/engineering/building-effective-agents).
 ---
 
 Work open issues on `BlakeEriks/stint` one at a time, each to an open PR
-Blake can test from its preview link. Blake merges; merging is the deploy, so
+that can be tested from its preview link. Merging is the deploy, so
 **never merge, and never touch production**.
 
 - `/work-issues 24 18` works those issues, in that order, then stops.
@@ -17,9 +17,9 @@ Blake can test from its preview link. Blake merges; merging is the deploy, so
 - `--max-prs <n>`, with any of these, sets the cap on open PRs (step 1),
   ten by default: `/work-issues --max-prs 20`.
 
-Step 0 runs at every wake and again before every pick, so feedback Blake
-left while a builder worked is answered before anything new. No
-mode starts an issue while the cap's worth of PRs wait on Blake (step 1).
+Step 0 runs at every wake and again before every pick, so feedback left
+while a builder worked is answered before anything new. No
+mode starts an issue while the cap's worth of PRs is open (step 1).
 
 **You orchestrate; subagents build and review.** `issue-builder` does the
 work and `pr-review-toolkit:code-reviewer` reviews it, each in its own subagent reporting back
@@ -32,23 +32,23 @@ long run survives auto-compaction. Nothing smaller than an issue or a round
 of fixes gets a subagent — each one re-reads the project, and that is the
 cost.
 
-**Blake's comment** means one by `BlakeEriks` without the
-`<!-- work-issues -->` marker — `gh` runs as Blake, so the marker is the only
-tell. Every loop comment, yours and the builder's, starts with it and then
-`🤖 **From the /work-issues agent**`, so a reader sees it is not his. Bots'
+**Feedback** means a comment by the repo owner, `BlakeEriks`, without the
+`<!-- work-issues -->` marker — `gh` runs as the repo owner, so the marker is
+the only tell. Every loop comment, yours and the builder's, starts with it and then
+`🤖 **From the /work-issues agent**`, so a reader sees it is not the owner's. Bots'
 comments, Vercel's included, are never feedback, except the doc-drift
 comment step 0 reads.
 
 **Labels are the loop's memory**, so nothing is worked out twice:
 
-- `ready-for-qa` (PR): Blake can test and merge it now — no conflict with
-  `main`, CI green, no question open, nothing he said unanswered. Off the
+- `ready-for-qa` (PR): ready to test and merge now — no conflict with
+  `main`, CI green, no question open, no feedback unanswered. Off the
   moment any of that stops being true.
-- `needs-input` (issue or PR): a question only Blake can answer, asked in a
+- `needs-input` (issue or PR): a question only the reviewer can answer, asked in a
   marked comment.
 - `blocked` (issue): waits on another PR; the marked comment names it and why.
 - `migration` (issue and its PR): the fix needs a database migration.
-- `urgent` (issue): Blake's, to jump the queue.
+- `urgent` (issue): jumps the queue.
 
 ## A round
 
@@ -65,7 +65,7 @@ Every build and every fix goes the same way:
    `git diff --stat` of the fix once it is committed, never in advance.
 4. Send `ship` as its own message.
 
-Blake sees the fixed work, never the findings.
+The PR shows the fixed work, never the findings.
 
 **Log every subagent run** — you alone, as each result arrives, `at` from
 `date -u +%FT%RZ`: append one line to
@@ -90,16 +90,16 @@ is `reviewed`.
   whose PR has merged (`gh pr list --state merged --head <branch>`). PRs
   squash-merge, so `git branch --merged` never lists them.
 - **Each open PR of yours**, in order:
-  1. **`needs-input`:** if Blake has commented since the marked question,
-     remove the label and treat his reply as feedback. Otherwise skip the PR.
-  2. **Feedback** — a comment or review of Blake's newer than the last push
+  1. **`needs-input`:** if feedback has arrived since the marked question,
+     remove the label and treat the reply as feedback. Otherwise skip the PR.
+  2. **Feedback** — the repo owner's comment or review, newer than the last push
      and the last marked comment: remove `ready-for-qa`, then a round of
      fixes. Feedback beyond the PR's scope becomes a new issue instead.
   3. **CI failed** (`gh pr checks <n>`): remove `ready-for-qa`. A red
      `drift` is doc drift, step 4, not a check to fix here.
      - The same check red on `main`, or on another PR the same way, is not
        this PR's fault: open one `urgent` bug issue for it if none exists —
-       or `needs-input`, if only Blake can fix it, like a paused `stint-test`
+       or `needs-input`, if only the reviewer can fix it, like a paused `stint-test`
        — and leave the PRs alone.
      - Otherwise a round of fixes. After two rounds on the same check that
        did not turn it green, label the PR `needs-input`, with a marked
@@ -116,11 +116,17 @@ is `reviewed`.
      to date.
   6. **CI green and none of the above**, all checked in this pass: add
      `ready-for-qa`, once. Only this step adds it — never a look at CI
-     alone, which cannot see Blake's comments.
+     alone, which cannot see feedback.
+     **A migration PR holds the preview database while it is
+     `ready-for-qa`** (`preview-db.yml`), so at most one has the label. A
+     migration PR is one whose diff adds a migration
+     (`gh pr diff <n> --name-only | grep '^supabase/migrations/'`), whatever
+     its labels; the rest wait with green CI. The next to hold it first gets a round in
+     which the builder merges `main` in, then the label.
   7. **CI still running:** leave it for the next pass.
 - **Each open Dependabot PR** (`gh pr list --author app/dependabot`), the
   same steps, except:
-  - 3: first `gh pr merge --disable-auto <n>`, so Blake reviews the fix
+  - 3: first `gh pr merge --disable-auto <n>`, so the fix is reviewed
     before it merges.
   - 5: `DIRTY` with only Dependabot's commits is left to Dependabot, which
     rebases its own.
@@ -128,17 +134,19 @@ is `reviewed`.
     is null). The rest merge themselves (`dependabot-merge.yml`).
 - **Blocked issues:** remove `blocked` from any whose named PR has merged or
   closed — one `gh pr view` each, not a new investigation.
-- **Answered issues:** remove `needs-input` from any issue Blake has
-  commented on since its marked question, so the label says whose move it
+- **Answered issues:** remove `needs-input` from any issue with feedback
+  since its marked question, so the label says whose move it
   is while a builder is busy elsewhere. A reply to a design review goes to
   that issue's builder now, as a round, before anything new is picked.
 
 ## 1. Pick
 
-**At most ten open PRs wait on Blake**, or `--max-prs` if given. Count the
+**Stop picking new issues at ten open PRs**, or `--max-prs` if given. Count the
 open PRs not by Dependabot (`gh pr list --json author`); the cap or more →
-step 2, whatever the mode. Each is his to test and merge, so one more only
-lengthens his queue.
+step 2, whatever the mode. Each waits to be tested and merged, so one more
+only lengthens the queue. Each push is also a Vercel preview build, one
+at a time and 100 a day on Hobby (`docs/deploying.md` §2), so a ship pushes
+once, never commit by commit.
 
 `gh issue list --state open --json number,title,labels`, then skip every
 issue that:
@@ -147,11 +155,9 @@ issue that:
 - is labeled `blocked`
 - is labeled `feature` and is not code yet: it still "owes the gate its
   answers", is a purchase or a setting (buying the domain, upgrading a
-  plan), or waits on an account only Blake can make
+  plan), or waits on an account only the repo owner can make
 - already has an open PR
   (`gh issue view <n> --json closedByPullRequestsReferences`)
-- is labeled `migration` while an open PR is too — previews share one
-  database schema
 
 `urgent` first, then the worst: `wrong data`, `misleading`, `looks wrong`,
 then `enhancement`, then `feature` (milestone `Alpha`, then `Launch`, then
@@ -179,12 +185,12 @@ answers: then a new one. It reports one of: a commit ready for review,
 `design-review: <path>`. Once it has shipped, or reported any but the
 first, step 0 again, then pick again.
 
-**A design review** is a feature's builder asking Blake to see a screen
+**A design review** is a feature's builder asking the reviewer to see a screen
 before it is built. Read the draft at `<path>` whole, publish it with the
-Artifact tool — a private page Blake opens from his phone — and post a
+Artifact tool — a private page the reviewer opens from a phone — and post a
 marked comment on the issue: the link, one line per variation saying what
 it is best at, and "Reply here with a pick or changes." Label the issue
-`needs-input`. His reply goes back to that builder like any answer; a
+`needs-input`. The reply goes back to that builder like any answer; a
 redraft is republished to the same link, named in the comment.
 
 ## 2. Stop
@@ -194,8 +200,8 @@ opened or updated, which are `ready-for-qa`, what is `needs-input` and its
 question, and anything that failed.
 
 Only under `/loop`: wake again in 15 minutes while an open PR's CI is still
-running, and in 60 while the cap's worth of PRs wait on Blake and issues are left to pick,
+running, and in 60 while the cap's worth of PRs is open and issues are left to pick,
 so a merge frees a slot without a restart. Pass the same `/loop` prompt
 back — never a hand-written one, which would skip step 0. Without `/loop`,
-schedule nothing. Otherwise end the loop: Blake finds what needs him by
-label, and starts it again after replying.
+schedule nothing. Otherwise end the loop: what needs the reviewer is found by
+label, and the loop starts again after the reply.

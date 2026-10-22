@@ -21,9 +21,10 @@ issued.
   bundle by design; RLS is the only thing separating one user's rows from
   another's. A policy gap is the highest-severity finding here. `pnpm
   test:rls` runs as a non-superuser `authenticated` role for this reason.
-- **Invoice immutability.** Line items are frozen at generation and a billed
-  time entry is locked by a database trigger. A path that edits either after
-  issue is a real bug.
+- **Invoice immutability.** A draft's line items are rebuilt from its
+  period's work until it is sent, then frozen, and a billed time entry is
+  locked by a database trigger. A path that edits either after issue is a
+  real bug.
 - **The timer invariant.** One running timer per user, enforced by a partial
   unique index rather than by application code.
 - **Anything that renders user-supplied text**, particularly the PDF

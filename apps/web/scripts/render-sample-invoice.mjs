@@ -53,7 +53,7 @@ export const SAMPLE = {
   payment: {
     title: 'USD ACH',
     fields: [
-      { label: 'Account holder', value: 'Blake Eriks' },
+      { label: 'Account holder', value: 'Sam Rivera' },
       { label: 'Bank', value: 'First Republic Bank' },
       { label: 'Account number', value: '1234567890' },
       { label: 'Routing number (ACH)', value: '021000021' },
@@ -62,17 +62,16 @@ export const SAMPLE = {
     ],
     intermediary: [],
     link: null,
-    notes: 'Please email remittance advice to blake@example.dev.',
+    notes: 'Please email remittance advice to sam@example.dev.',
   },
   paymentNotice:
     'Our payment details never change. If you receive any message stating otherwise, call to verify before paying.',
   paymentTerms: 'Net 30',
   business: {
-    name: 'Blake Eriks',
+    name: 'Sam Rivera',
     address: '1847 Clement Street\nSan Francisco, CA 94121\nUnited States',
-    email: 'blake@example.dev',
+    email: 'sam@example.dev',
     logoUrl: null,
-    taxId: 'EIN 88-4471992',
   },
   client: {
     name: 'Northwind Trading Co.',

@@ -26,7 +26,7 @@ const row = (
   to: string,
   duration: string,
 ) =>
-  `Blake Eriks\tdev@localhost.test\t${client}\t${project}\t\t${task}\tYes\t${date}\t${from}\t${date}\t${to}\t${duration}\t\tUSD\t0`;
+  `Sam Rivera\tdev@localhost.test\t${client}\t${project}\t\t${task}\tYes\t${date}\t${from}\t${date}\t${to}\t${duration}\t\tUSD\t0`;
 const EXPORT = [
   HEAD,
   row(

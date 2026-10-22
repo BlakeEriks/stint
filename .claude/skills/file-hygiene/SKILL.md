@@ -35,7 +35,7 @@ run.
    each. The fixer decides; this is a head start.
    For a `fixes` finding, read those PRs (`gh pr view <n>`): what the fixes
    have in common, and the design that would have made each unnecessary.
-   Blake picks the design before it is built.
+   The reviewer picks the design before it is built.
 4. `Score <score> · debt <debt> min · <commits> commits in 30 days`
 5. `Fix with /reduce <path>` or `Fix with /copyedit <path>`; nothing for
    a redesign.

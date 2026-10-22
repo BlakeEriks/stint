@@ -43,12 +43,32 @@ export const Desktop: Story = {
     ).toHaveLength(1);
   },
 };
-export const Phone: Story = { ...phone };
+/** On a phone the theme toggle drops under the Appearance heading, every
+    word still showing, and the page never scrolls sideways. */
+export const Phone: Story = {
+  ...phone,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const group = await page.findByRole('radiogroup', { name: 'Theme' });
+    for (const word of ['System', 'Light', 'Dark']) {
+      await expect(within(group).getByText(word)).toBeVisible();
+    }
+    const heading = page.getByText('This device only.').getBoundingClientRect();
+    const toggle = group.getBoundingClientRect();
+    await expect(toggle.top).toBeGreaterThanOrEqual(heading.bottom);
+    const section = group.closest('section') as HTMLElement;
+    await expect(toggle.right).toBeLessThanOrEqual(
+      section.getBoundingClientRect().right,
+    );
+    const root = canvasElement.ownerDocument.documentElement;
+    await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+  },
+};
 /** The form's theme hook must not restamp the toolbar's light theme. */
 export const Light: Story = {
   ...light,
   play: async ({ canvasElement }) => {
-    await within(canvasElement).findByRole('combobox', { name: 'Theme' });
+    await within(canvasElement).findByRole('radiogroup', { name: 'Theme' });
     await expect(canvasElement.ownerDocument.documentElement).toHaveAttribute(
       'data-theme',
       'light',
@@ -73,19 +93,24 @@ export const NoPaymentProfiles: Story = {
 
 export const Failed: Story = { ...desktop, parameters: failing('settings') };
 
-/** Theme offers System, which follows the OS, beside Dark and Light. */
+/** Appearance is one row: System, which follows the OS, Light and Dark,
+    and a press applies the theme at once. */
 export const ThemeOptions: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
-    const page = within(canvasElement.ownerDocument.body);
-    await userEvent.click(await page.findByRole('combobox', { name: 'Theme' }));
-    const options = await page.findAllByRole('option');
+    const page = within(canvasElement);
+    const group = await page.findByRole('radiogroup', { name: 'Theme' });
+    const options = within(group).getAllByRole('radio');
     await expect(options.map((o) => o.textContent)).toEqual([
       'System',
-      'Dark',
       'Light',
+      'Dark',
     ]);
-    await userEvent.keyboard('{Escape}');
+    const root = canvasElement.ownerDocument.documentElement;
+    const before = root.getAttribute('data-theme');
+    const other = before === 'light' ? 'Dark' : 'Light';
+    await userEvent.click(within(group).getByRole('radio', { name: other }));
+    await expect(root).toHaveAttribute('data-theme', other.toLowerCase());
   },
 };
 
@@ -105,6 +130,7 @@ export const DeleteAccount: Story = {
     leaves for /signin; Delete account waits with it. */
 export const SignOutPending: Story = {
   ...desktop,
+  parameters: stalled('signOut'),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     await userEvent.click(
@@ -235,5 +261,29 @@ export const ExportFailed: Story = {
     await expect(
       section.getByRole('button', { name: 'Download invoices' }),
     ).toBeEnabled();
+  },
+};
+
+/** On its way: one quiet word where it will be, and none of it until all of
+ *  it has arrived. */
+export const Loading: Story = {
+  ...desktop,
+  parameters: stalled('paymentProfiles'),
+  play: async ({ canvasElement }) => {
+    const main = canvasElement.querySelector('main') as HTMLElement;
+    const region = within(main);
+    await expect(await region.findByRole('status')).toHaveTextContent(
+      'Loading',
+    );
+    // The whole page waits: no section paints ahead of the rest.
+    await expect(region.queryByText('Import')).toBeNull();
+    await expect(region.queryByRole('button', { name: /export/i })).toBeNull();
+    // Centered on the card, not tucked under the title.
+    const panel = main.parentElement as HTMLElement;
+    const word = (await region.findByRole('status')).getBoundingClientRect();
+    const box = panel.getBoundingClientRect();
+    await expect(
+      Math.abs(word.top + word.height / 2 - (box.top + box.height / 2)),
+    ).toBeLessThan(4);
   },
 };

@@ -17,8 +17,8 @@ Make every user action in the web and macOS apps change the screen immediately, 
 
 ## Origin & Context
 
-- **Raised by**: Blake
-- **Trigger**: PR #118 fixed the timer with separate hand-built state machines on each platform. It missed restarting a recent task from the macOS menu bar, and it left the app's other mutations unaddressed. Blake closed it in favor of one policy. Tab-switch lag on the web app was noticed separately.
+- **Raised by**: The owner
+- **Trigger**: PR #118 fixed the timer with separate hand-built state machines on each platform. It missed restarting a recent task from the macOS menu bar, and it left the app's other mutations unaddressed. The owner closed it in favor of one policy. Tab-switch lag on the web app was noticed separately.
 
 ## First-Glance Unknowns
 

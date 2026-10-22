@@ -2,14 +2,9 @@ import { NextResponse } from 'next/server';
 import { handle, ApiError } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
-import {
-  loadClient,
-  loadSettings,
-  loadBillableEntries,
-  loadBillableExpenses,
-} from '@/lib/invoicing';
+import { computeInvoice } from '@/lib/invoicing';
 import { loadBilledSpans } from '@/lib/billed-spans';
-import { buildLineItems, buildOverlaps, buildSchedules } from '@stint/core';
+import { buildOverlaps, buildSchedules } from '@stint/core';
 import { InvoicePreviewRequest } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -37,38 +32,16 @@ export const POST = handle(async (req: Request) => {
     );
   }
 
-  const [client, settings] = await Promise.all([
-    loadClient(db, body.clientId),
-    loadSettings(db),
-  ]);
-
-  const clientRate =
-    client.hourly_rate == null ? null : Number(client.hourly_rate);
-  const taxRate = client.tax_rate == null ? 0 : Number(client.tax_rate);
-
-  const [entries, expenses] = await Promise.all([
-    loadBillableEntries(db, {
-      clientId: body.clientId,
-      periodStart: body.periodStart,
-      periodEnd: body.periodEnd,
-      tz: body.tz,
-      userDefaultRate: settings.defaultHourlyRate,
-      clientRate,
-    }),
-    loadBillableExpenses(db, {
-      clientId: body.clientId,
-      periodEnd: body.periodEnd,
-      excludedIds: body.excludedExpenseIds,
-    }),
-  ]);
-
-  const totals = buildLineItems(entries, {
+  const { client, settings, entries, totals } = await computeInvoice(db, {
+    clientId: body.clientId,
+    periodStart: body.periodStart,
+    periodEnd: body.periodEnd,
+    tz: body.tz,
     groupingMode: body.groupingMode,
     summaryText: body.summaryText,
-    taxRate,
-    tz: body.tz,
     manualLines: body.manualLines,
-    expenses,
+    excludedExpenseIds: body.excludedExpenseIds,
+    schedules: [],
   });
 
   const toBill = entries
