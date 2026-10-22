@@ -104,9 +104,9 @@ curve, which is what lets the floor stay where the contrast math wants it.
 | `700` | 3:1, and clear of 600 | the card: the focus ring |
 
 **A text ground is any surface text is set on**: the four planes, `hover` (a
-calendar block's fill, a hovered row) and `accent-muted` (a running block).
-Text is judged against the worst of them — the nearest to the ink, `hover` or
-`accent-muted` — because the card is only where dialogs and menus sit; the
+calendar block's fill, a hovered row), `accent-muted` (a running block) and
+`warning-muted` (a draft's line added since its PDF). Text is judged against
+the worst of them — the nearest to the ink, `hover` or a tint — because the card is only where dialogs and menus sit; the
 panel and its rows are other steps. `active` is left out: it is only a
 pointer's press on a block.
 
@@ -189,6 +189,8 @@ lifted in lightness or dropped in chroma tightens it toward the floor.
 
 `danger-muted` is a tinted surface rather than ink: it keeps the L and C of the
 fill it replaced, moved to hue 16 — `#471F23` dark, `#FFEBEB` light.
+`warning-muted` is the same kind of surface at hue 250 — `#162B40` dark,
+`#E3EEF8` light.
 
 ## Light theme is not the dark script with the numbers flipped
 
