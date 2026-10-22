@@ -158,9 +158,9 @@ each claim the same new work.
 
 `payment_details` (JSONB) freezes the rendered bank details at generation, for
 the same reason rates freeze: editing a profile must never alter an invoice
-already sent. `supporting_detail` (JSONB) freezes the hours-by-project, -week
-and -date tables printed from page 2 the same way, so a renamed project or a
-void never changes them. The `business_*` and `logo_url` columns (the From
+already sent. `supporting_detail` (JSONB) holds the hours-by-project, -week
+and -date tables printed from page 2. A draft's are rebuilt with its lines;
+sending freezes them, so a renamed project or a void never changes them. The `business_*` and `logo_url` columns (the From
 block) and the `client_*` columns (Bill to) are copied from `user_settings`
 and the client by a trigger on insert, so editing either never reprints an
 invoice. `summary_text` is the line text of a `summary`

@@ -374,7 +374,7 @@ const hours = z.number().nonnegative();
 
 /**
  * Supporting detail, in hours only. Every table on a preview; on an invoice,
- * only the ticked ones, frozen at generation.
+ * only the ticked ones, frozen when sent.
  */
 export const Schedules = z.object({
   project: z.array(z.object({ project: z.string(), hours })).optional(),

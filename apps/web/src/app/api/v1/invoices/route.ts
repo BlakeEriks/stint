@@ -52,8 +52,8 @@ export const GET = handle(async (req: Request) => {
  *      expenses (never trusting a preview the client may have cached).
  *   2. Refuse if any billable entry has no resolvable rate.
  *   3. Write it all through `create_invoice`, in one transaction: the gapless
- *      number, the invoice, its frozen lines, and the entries and expenses it
- *      bills. Attaching locks them via the immutability triggers.
+ *      number, the draft and its lines, and the entries and expenses it
+ *      bills. Sending it locks them via the immutability triggers.
  *
  * One transaction is the point of step 3. Allocating a number is not
  * undoable, so a failure after a separate allocation left a gap in a
