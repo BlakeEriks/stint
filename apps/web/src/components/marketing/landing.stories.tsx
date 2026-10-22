@@ -38,6 +38,12 @@ export const Desktop: Story = {
       'href',
       '/signin',
     );
+    await expect(
+      page.getByRole('img', { name: /Stint's home screen/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('img', { name: /Stint's Mac menu bar panel/ }),
+    ).toBeVisible();
   },
 };
 export const Tablet: Story = { ...tablet };
