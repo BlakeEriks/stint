@@ -117,9 +117,11 @@ is `reviewed`.
   6. **CI green and none of the above**, all checked in this pass: add
      `ready-for-qa`, once. Only this step adds it — never a look at CI
      alone, which cannot see Blake's comments.
-     **A `migration` PR holds the preview database while it is
-     `ready-for-qa`** (`preview-db.yml`), so at most one has both labels;
-     the rest wait with green CI. The next to hold it first gets a round in
+     **A migration PR holds the preview database while it is
+     `ready-for-qa`** (`preview-db.yml`), so at most one has the label. A
+     migration PR is one whose diff adds a migration
+     (`gh pr diff <n> --name-only | grep '^supabase/migrations/'`), whatever
+     its labels; the rest wait with green CI. The next to hold it first gets a round in
      which the builder merges `main` in, then the label.
   7. **CI still running:** leave it for the next pass.
 - **Each open Dependabot PR** (`gh pr list --author app/dependabot`), the

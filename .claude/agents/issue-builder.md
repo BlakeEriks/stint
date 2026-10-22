@@ -182,8 +182,8 @@ comment only on `ship`, as for a new PR.
 
 **Conflicts with `main`:** `git merge origin/main` into the branch — never rebase,
 never force-push. Resolve any conflicts, verify as above, commit, and report
-back whether it merged clean or needed resolving. **A `migration` PR merging
-`main`** also checks its migration sorts after main's newest; one that does
+back whether it merged clean or needed resolving. **A PR whose diff adds a
+migration, merging `main`,** also checks its migration sorts after main's newest; one that does
 not is recreated with `pnpm exec supabase migration new`, in a new commit,
 or `release.yml` rejects it. For a failed check, read
 the failing job's log first. For doc drift, fix each finding in the doc or
