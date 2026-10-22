@@ -4389,9 +4389,10 @@ test('every response the macOS app decodes matches its fixture', async (t) => {
     ),
   );
 
+  // The app's presses ask for the summary, so these are recorded as asked.
   const started = await body(
     await start.POST(
-      req('/timer/start', {
+      req('/timer/start?include=summary&tz=UTC', {
         taskName: 'Draft',
         projectId: project.id,
         startedAt: HOUR_AGO,
@@ -4415,7 +4416,7 @@ test('every response the macOS app decodes matches its fixture', async (t) => {
   );
   await pool.query(
     'update time_entries set rate_override = 200, invoice_id = $1 where id = $2',
-    [invoice.rows[0].id, started.id],
+    [invoice.rows[0].id, started.entry.id],
   );
 
   // Named as `ContractTests.swift` reads them.
@@ -4438,7 +4439,9 @@ test('every response the macOS app decodes matches its fixture', async (t) => {
       await projects.GET(req('/projects?includeArchived=true')),
     ),
     'timer-stop': await body(
-      await stop.POST(req('/timer/stop', { endedAt: NOW })),
+      await stop.POST(
+        req('/timer/stop?include=summary&tz=UTC', { endedAt: NOW }),
+      ),
     ),
     'task-names': await body(
       await (await route('entries/task-names')).GET(

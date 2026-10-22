@@ -11,17 +11,33 @@ struct TimerPressTests {
 
     @Test func startAgainShowsTheTimerBeforeTheServerAnswers() async throws {
         let model = try await signedInModel()
+        await FakeServer.shared.setRunning(entry("Design"))
         await FakeServer.shared.hold("POST /timer/start")
 
         let press = Task { await model.resume(name("Design")) }
         await Task.yield()
         #expect(model.running?.taskName == "Design")
 
-        await FakeServer.shared.setRunning(entry("Design"))
         await FakeServer.shared.release("POST /timer/start")
         await press.value
         #expect(model.running?.taskName == "Design")
         #expect(model.errorMessage == nil)
+    }
+
+    @Test func startAndStopSettleOnTheSummaryTheyAnswerWith() async throws {
+        let model = try await signedInModel()
+        await FakeServer.shared.setRunning(entry("Design"))
+        await FakeServer.shared.forgetRequests()
+        await model.resume(name("Design"))
+        #expect(model.running?.taskName == "Design")
+        #expect(await FakeServer.shared.requested.contains("GET /projects"))
+        #expect(await !FakeServer.shared.requested.contains("GET /summary"))
+
+        await FakeServer.shared.forgetRequests()
+        await model.toggle()
+        #expect(model.running == nil)
+        #expect(await FakeServer.shared.requested.contains("GET /projects"))
+        #expect(await !FakeServer.shared.requested.contains("GET /summary"))
     }
 
     @Test func aRejectedStartPutsTheBarBackAndSaysWhy() async throws {
@@ -116,15 +132,18 @@ private actor FakeServer {
     private var holding: Set<String> = []
     private var rejections: [String: (Int, String)] = [:]
     private var holdOnlyFirst: Set<String> = []
+    private(set) var requested: [String] = []
 
     func reset() {
         running = nil
+        requested = []
         holding = []
         rejections = [:]
         holdOnlyFirst = []
     }
 
     func setRunning(_ entry: TimeEntry?) { running = entry }
+    func forgetRequests() { requested = [] }
     func hold(_ route: String) { holding.insert(route) }
     func reject(_ route: String, status: Int, message: String) { rejections[route] = (status, message) }
 
@@ -142,6 +161,7 @@ private actor FakeServer {
     /// Answers with the state as of the request, however long it's held,
     /// the way a real response is already decided when it's delayed.
     func answer(_ route: String) async -> (Int, Data) {
+        requested.append(route)
         let response = respond(route)
         if holding.contains(route) {
             if holdOnlyFirst.remove(route) != nil { holding.remove(route) }
@@ -154,14 +174,18 @@ private actor FakeServer {
         if let (status, message) = rejections.removeValue(forKey: route) {
             return (status, Data(#"{"code":"TIMER_ALREADY_RUNNING","message":"\#(message)"}"#.utf8))
         }
+        let summary = Summary(running: running, todaySeconds: 0, weekSeconds: 0, serverTime: Date())
         switch route {
         case "GET /summary":
-            return (200, json(Summary(running: running, todaySeconds: 0, weekSeconds: 0, serverTime: Date())))
-        case "POST /timer/start", "PATCH /timer/current":
+            return (200, json(summary))
+        case "PATCH /timer/current":
             return (200, json(running ?? entry("unknown")))
+        case "POST /timer/start":
+            return (200, json(API.Pressed(entry: running ?? entry("unknown"), included: .init(summary: summary))))
         case "POST /timer/stop":
-            let stopped = String(decoding: json(entry("Stopped")), as: UTF8.self)
-            return (200, Data(#"{"entry":\#(stopped),"currency":"USD","unbilled":{"total":0}}"#.utf8))
+            running = nil
+            let stopped = Summary(running: nil, todaySeconds: 0, weekSeconds: 0, serverTime: Date())
+            return (200, json(API.Pressed(entry: entry("Stopped"), included: .init(summary: stopped))))
         default:
             return (404, Data(#"{"code":"NOT_FOUND","message":"not found"}"#.utf8))
         }
