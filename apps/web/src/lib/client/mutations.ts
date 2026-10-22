@@ -23,7 +23,8 @@ import { keys } from './query-keys';
  * - **Predicted** (`predict` given): the cache entry at `queryKey` shows the
  *   result at once. A rejection puts the snapshot back.
  * - **Pending** (`predict` omitted): for a result the client cannot know or
- *   cannot take back — the caller renders `isPending` on the control.
+ *   cannot take back — the caller renders `isPending` on the control, and no
+ *   cache shows a result (so no `alsoPredict`).
  *
  * This is TanStack Query's own optimistic-update pattern: `onMutate`
  * snapshots and writes, `onError` restores, `onSettled` refetches. Two
@@ -49,10 +50,6 @@ import { keys } from './query-keys';
  *
  * `scripts/check-mutation-usage.mjs` fails any other file that imports
  * `useMutation`.
- */
-/**
- * `alsoPredict` comes only with `predict`: a pending press shows no result,
- * in any cache.
  */
 export type OptimisticOptions<TVars, TData, TCache> = BaseOptions<
   TVars,
