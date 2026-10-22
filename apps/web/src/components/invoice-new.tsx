@@ -248,6 +248,23 @@ function useLivePreview(
   return { preview, current: chosen ? preview.data : undefined, updating };
 }
 
+/** The number Generate takes, shown before it does: one that repeats an
+    invoice sent before Stint is caught while it can still change. */
+function NumberLine({ number }: { number: string }) {
+  if (!number) return null;
+  return (
+    <p className="type-support text-subtle">
+      Numbered {number} ·{' '}
+      <Link
+        href="/settings#numbering"
+        className="text-strong underline underline-offset-2"
+      >
+        Change
+      </Link>
+    </p>
+  );
+}
+
 /** The number Generate takes, and the due date the payment terms set from
  *  `issued`; both '' until the settings answer. */
 function fromSettings(settings: Settings | undefined, issued: string) {
@@ -582,6 +599,7 @@ function Form() {
                   maxLength={200}
                 />
               </Field>
+              <NumberLine number={number} />
             </div>
 
             <Field label="Show time as" htmlFor="inv-group">

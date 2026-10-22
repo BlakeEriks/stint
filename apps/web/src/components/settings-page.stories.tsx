@@ -91,6 +91,27 @@ export const NoPaymentProfiles: Story = {
   },
 };
 
+/** Next number moves forward to start past invoices sent before Stint. A
+    step back is refused, and the field says why. */
+export const NextNumberForwardOnly: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const field = await page.findByLabelText('Next number');
+    await userEvent.clear(field);
+    await userEvent.type(field, '20');
+    await expect(
+      await page.findByLabelText('Saved', {}, { timeout: 3000 }),
+    ).toBeVisible();
+    await userEvent.clear(field);
+    await userEvent.type(field, '18');
+    await expect(
+      await page.findByText(/can't go below 20/, {}, { timeout: 3000 }),
+    ).toBeVisible();
+    await expect(page.getByText('Not saved')).toBeVisible();
+  },
+};
+
 export const Failed: Story = { ...desktop, parameters: failing('settings') };
 
 /** Appearance is one row: System, which follows the OS, Light and Dark,

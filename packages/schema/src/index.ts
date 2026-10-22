@@ -286,13 +286,9 @@ export const Settings = z.object({
   /** When the welcome dialog was finished or skipped; null shows it. */
   welcomedAt: iso.nullable(),
 });
-/**
- * `nextInvoiceNumber` is not client-settable: gapless numbering depends on
- * allocate_invoice_number() holding the row lock.
- */
-export const UpdateSettings = Settings.partial().omit({
-  nextInvoiceNumber: true,
-});
+/** `nextInvoiceNumber` moves forward only; the settings route refuses a
+    step back. */
+export const UpdateSettings = Settings.partial();
 
 /** What deleting the account removes, counted so the confirm can say so. */
 export const Account = z.object({

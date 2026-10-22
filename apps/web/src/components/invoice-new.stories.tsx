@@ -414,6 +414,18 @@ export const NoReference: Story = {
   },
 };
 
+/** The number Generate takes shows before it does, linked to the setting
+    that moves it. */
+export const NumberLinksToSetting: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const line = await within(canvasElement).findByText(/Numbered STINT-0016/);
+    await expect(
+      within(line).getByRole('link', { name: 'Change' }),
+    ).toHaveAttribute('href', '/settings#numbering');
+  },
+};
+
 /** From `xl` only the form and the preview scroll, each alone: reading
     the end of the page leaves the form where it was. */
 export const ScrollsApart: Story = {

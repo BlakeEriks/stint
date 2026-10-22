@@ -1156,7 +1156,7 @@ test("another user's client is invisible to these handlers", async () => {
 });
 
 // ── settings ───────────────────────────────────────────────────────
-test('settings update, and nextInvoiceNumber cannot be moved by a client', async () => {
+test('settings update', async () => {
   const { GET: get, PATCH: patch } = await import(
     '../src/app/api/v1/settings/route.ts'
   );
@@ -1167,21 +1167,50 @@ test('settings update, and nextInvoiceNumber cannot be moved by a client', async
 
   const after = await json(
     await patch(
-      req(
-        '/settings',
-        { maxEntryHours: 10, defaultHourlyRate: 125, nextInvoiceNumber: 9999 },
-        'PATCH',
-      ),
+      req('/settings', { maxEntryHours: 10, defaultHourlyRate: 125 }, 'PATCH'),
     ),
   );
   assert.equal(after.status, 200);
   assert.equal(after.body.maxEntryHours, 10);
   assert.equal(after.body.defaultHourlyRate, 125);
-  assert.equal(
-    after.body.nextInvoiceNumber,
-    1,
-    'gapless numbering is not a client-settable field',
+});
+
+/* A contractor who already sent invoices outside Stint starts past them.
+   Going back could reissue a number a client already has, so it is
+   refused, and the refusal changes nothing else in the patch. */
+test('the next invoice number moves forward only', async () => {
+  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
+  const set = (body: object) =>
+    patch(req('/settings', body, 'PATCH')).then(json);
+
+  const ahead = await set({ nextInvoiceNumber: 3 });
+  assert.equal(ahead.status, 200);
+  assert.equal(ahead.body.nextInvoiceNumber, 3);
+
+  const same = await set({ nextInvoiceNumber: 3, maxEntryHours: 9 });
+  assert.equal(same.status, 200, 'the current number is not a step back');
+  assert.equal(same.body.maxEntryHours, 9);
+
+  const back = await set({ nextInvoiceNumber: 2, maxEntryHours: 12 });
+  assert.equal(back.status, 422);
+  assert.equal(back.body.code, 'VALIDATION_FAILED');
+  assert.match(back.body.message, /3/);
+  assert.deepEqual(back.body.details, {
+    field: 'nextInvoiceNumber',
+    current: 3,
+  });
+
+  const { rows } = await pool.query(
+    'select next_invoice_number, max_entry_hours::int from user_settings where user_id=$1',
+    [USER],
   );
+  assert.deepEqual(rows[0], { next_invoice_number: 3, max_entry_hours: 9 });
+
+  const { rows: alloc } = await pool.query(
+    'select * from allocate_invoice_number($1)',
+    [USER],
+  );
+  assert.equal(alloc[0].sequence_no, 3, 'the next invoice takes it');
 });
 
 /* Every field the converter maps must survive a PATCH. Zod strips what its

@@ -9,7 +9,12 @@ import { Field, inputClass, Section, textareaClass } from './field';
 import { RateInput, parseRate } from './rate-input';
 import { SaveIndicator } from './save-indicator';
 import { useAutosave } from '@/lib/client/use-autosave';
-import { api, type Settings, type SettingsInput } from '@/lib/client/api';
+import {
+  api,
+  ApiError,
+  type Settings,
+  type SettingsInput,
+} from '@/lib/client/api';
 import { type Theme, useTheme } from '@/lib/client/use-theme';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
@@ -40,15 +45,8 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
 
   const [form, setForm] = useState<Settings>(loaded);
 
-  /**
-   * `nextInvoiceNumber` is server-owned — gapless numbering depends on
-   * allocate_invoice_number() holding the row lock — so it never goes back.
-   */
   const persist = async (patch: SettingsInput) => {
-    const { nextInvoiceNumber: _omit, ...rest } = patch as SettingsInput & {
-      nextInvoiceNumber?: number;
-    };
-    await api.updateSettings(rest);
+    await api.updateSettings(patch);
     queryClient.invalidateQueries({ queryKey: keys.settings() });
     /* The default rate is an input to every figure on Home, and it is the
        last link of the chain every rollup bills through, so they all go. */
@@ -70,6 +68,10 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
   const setBilling = edit(billing);
   const setIdentity = edit(identity);
   const setNumbering = edit(numbering);
+  /* Text, not the number: a cleared field is a step in typing a new one,
+     not a value to save. */
+  const [next, setNext] = useState(String(loaded.nextInvoiceNumber));
+  const nextError = forwardOnly(numbering.error);
 
   return (
     <>
@@ -189,11 +191,36 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
         </Field>
       </Section>
 
+      {/* New invoice links here, so Next number comes first: it is the
+          field that link focuses. */}
       <Section
+        id="numbering"
         title="Invoice numbering"
         aside={<SaveIndicator state={numbering.state} />}
       >
         <div className="flex flex-wrap gap-4">
+          <Field
+            label="Next number"
+            htmlFor="next-number"
+            hint="Start past invoices sent before Stint. It only moves forward."
+            error={nextError}
+            className="flex-1 basis-40"
+          >
+            <Input
+              id="next-number"
+              type="number"
+              min={server?.nextInvoiceNumber ?? 1}
+              step="1"
+              value={next}
+              onChange={(e) => {
+                setNext(e.target.value);
+                if (e.target.value !== '') {
+                  setNumbering('nextInvoiceNumber', Number(e.target.value));
+                }
+              }}
+            />
+          </Field>
+
           <Field label="Prefix" htmlFor="prefix" className="flex-1 basis-40">
             <Input
               id="prefix"
@@ -203,18 +230,6 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
               }
               placeholder="INV-"
             />
-          </Field>
-
-          <Field
-            label="Next number"
-            hint="Set by the system so numbering stays gapless."
-            className="flex-1 basis-40"
-          >
-            {/* The server's value, never the seeded form's: this one is
-                allocated under a row lock and the form never writes it. */}
-            <p className="flex h-9 items-center type-duration text-muted">
-              {server?.nextInvoiceNumber ?? '—'}
-            </p>
           </Field>
         </div>
 
@@ -237,4 +252,11 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
       </Section>
     </>
   );
+}
+
+/** The server's reason a step back was refused, for the field it names. */
+function forwardOnly(error: Error | null) {
+  if (!(error instanceof ApiError)) return undefined;
+  const details = error.details as { field?: string } | undefined;
+  return details?.field === 'nextInvoiceNumber' ? error.message : undefined;
 }

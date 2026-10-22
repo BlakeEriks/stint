@@ -716,8 +716,17 @@ export const handlers = {
 
   updateSettings: http.patch(`${API}/settings`, async ({ request }) => {
     const db = getDb();
-    const { nextInvoiceNumber: _, ...input } =
-      await body<Partial<Settings>>(request);
+    const input = await body<Partial<Settings>>(request);
+    const current = db.settings.nextInvoiceNumber;
+    if (
+      input.nextInvoiceNumber !== undefined &&
+      input.nextInvoiceNumber < current
+    )
+      return fail(
+        'VALIDATION_FAILED',
+        `The next number can't go below ${current}, or an invoice could repeat a number already sent.`,
+        { field: 'nextInvoiceNumber', current },
+      );
     db.settings = { ...db.settings, ...input };
     return ok(schema.Settings, db.settings);
   }),
