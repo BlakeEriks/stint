@@ -50,7 +50,7 @@ export function Month({
   const { month, currency, unbilled } = stats;
 
   return (
-    <div className="mt-6 border-t border-edge-subtle pt-6">
+    <div className="mt-4 border-t border-edge-subtle pt-5">
       <div className="grid items-start gap-8 @2xl:grid-cols-[17.5rem_minmax(0,1fr)]">
         <div className="flex flex-col">
           <RegionHead>This month · {monthName()}</RegionHead>
@@ -59,7 +59,7 @@ export function Month({
               `unbilled.seconds` is a different window — an all-time balance
               rather than the month — so printing it here would label one
               period's hours with another's. */}
-          <FigGroup tier="hero" className="mt-6">
+          <FigGroup tier="hero" className="mt-4">
             <FigLabel>Earned</FigLabel>
             <Money
               figure="month-earned"
@@ -72,7 +72,7 @@ export function Month({
           {/* Spacing alone carries the split: Earned is the month's subject,
               the two below are readings taken from it. A rule here would read
               as a section boundary, which is not what this is. */}
-          <FigGroup tier="minor" className="mt-[26px]">
+          <FigGroup tier="minor" className="mt-5">
             <FigLabel>On track for</FigLabel>
             {/* Null until three business days have elapsed: earned-so-far over
                 one elapsed day carried across twenty-two is a figure that
@@ -96,7 +96,7 @@ export function Month({
             )}
           </FigGroup>
 
-          <FigGroup tier="minor" className="mt-[22px]">
+          <FigGroup tier="minor" className="mt-4">
             <FigLabel>Unbilled</FigLabel>
             <Money
               figure="month-unbilled"
@@ -113,7 +113,7 @@ export function Month({
           {stats.awaitingPayment > 0 ? (
             <Link
               href="/invoices?status=sent"
-              className="mt-[22px] self-start rounded-sm type-meta text-subtle hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+              className="mt-4 self-start rounded-sm type-meta text-subtle hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
             >
               {formatCurrency(stats.awaitingPayment, currency)} awaiting ·{' '}
               {stats.openInvoiceCount} open invoice
@@ -144,26 +144,31 @@ function UnbilledRows({
   if (unbilled.byClient.length === 0) return null;
 
   return (
-    <ul data-unbilled="clients" className="mt-2.5 flex flex-col gap-1">
+    <ul
+      data-unbilled="clients"
+      className="mt-2 grid grid-cols-[minmax(0,1fr)_auto_auto] gap-x-2.5 gap-y-0.5"
+    >
       {unbilled.byClient.map((c) => (
         <li
           key={c.clientId ?? INTERNAL}
-          className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-baseline gap-2.5 type-meta"
+          className="col-span-3 grid grid-cols-subgrid items-baseline type-meta"
         >
           <span className="truncate text-muted">{c.clientName}</span>
           <Money
             figure={`unbilled-${c.clientId ?? 'internal'}`}
             amount={c.amount}
             currency={currency}
-            className="text-primary"
+            className="text-right text-primary"
           />
-          <span className="text-subtle">
+          <span className="text-right text-subtle">
             {c.oldestDays === 0 ? 'today' : `oldest ${c.oldestDays}d`}
           </span>
         </li>
       ))}
       {unbilled.moreClients > 0 ? (
-        <li className="type-meta text-subtle">+{unbilled.moreClients} more</li>
+        <li className="col-span-3 type-meta text-subtle">
+          +{unbilled.moreClients} more
+        </li>
       ) : null}
     </ul>
   );

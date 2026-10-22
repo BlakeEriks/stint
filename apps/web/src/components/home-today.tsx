@@ -51,7 +51,7 @@ export function Today({ stats }: { stats: Stats }) {
     <div className="flex flex-col">
       <RegionHead>Today · {dayLabel()}</RegionHead>
 
-      <FigGroup tier="major" className="mt-6">
+      <FigGroup tier="major" className="mt-4">
         <FigLabel>Earned</FigLabel>
         <PairLine>
           <Money
@@ -69,7 +69,7 @@ export function Today({ stats }: { stats: Stats }) {
       {/* A fixed ceiling rather than the panel's height: the page is a column
           sized by its content, so there is no bounded height to measure
           against. Just under five rows, so the cut-off row says it scrolls. */}
-      <div className="mt-6 flex max-h-48 flex-col overflow-y-auto">
+      <div className="mt-5 flex max-h-48 flex-col overflow-y-auto">
         {entries.length === 0
           ? /* An empty day keeps its rows rather than collapsing, the same way
                an unworked day in the week's chart keeps its caption: the

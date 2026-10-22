@@ -52,7 +52,7 @@ export function Week({
     <div data-region="week" className="flex flex-col">
       <RegionHead>This week · {range(week)}</RegionHead>
 
-      <FigGroup tier="major" className="mt-6 items-start">
+      <FigGroup tier="major" className="mt-4 items-start">
         <FigLabel>Earned</FigLabel>
         <PairLine>
           <Money
@@ -67,11 +67,11 @@ export function Week({
         </PairLine>
       </FigGroup>
 
-      <div className="mt-6" role="img" aria-label={describe(week, currency)}>
+      <div className="mt-5" role="img" aria-label={describe(week, currency)}>
         {/* The bars stand on a baseline. There is no ceiling: the axis is
             unlabeled and each bar prints its own money, so every column is
             read on its own terms. */}
-        <div className="flex h-[150px] items-stretch gap-1 border-b @md:gap-4 border-edge-default">
+        <div className="flex h-[110px] items-stretch gap-1 border-b @md:gap-4 border-edge-default">
           {week.map((d) => (
             <div key={d.date} className="flex min-w-0 flex-1">
               <div className="relative mx-auto flex w-full max-w-[74px] min-h-0 flex-1 flex-col-reverse">
@@ -130,7 +130,7 @@ export function Week({
           ))}
         </div>
 
-        <div className="mt-3 flex gap-1 @md:gap-4">
+        <div className="mt-2 flex gap-1 @md:gap-4">
           {week.map((d) => {
             const rest = d.seconds === 0;
             return (

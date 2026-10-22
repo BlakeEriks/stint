@@ -332,27 +332,36 @@ export const Failed: Story = {
   },
 };
 
-/** Past `2xl` the frame is capped, and Home fits it whole, legend included. */
+/**
+ * Home fits the capped frame whole, legend included: the panel does not
+ * scroll, and the legend's bottom is inside it.
+ */
+async function fitsWide(canvasElement: HTMLElement) {
+  const legend = await waitFor(() => {
+    const found = canvasElement.querySelector('[data-legend="clients"]');
+    if (!found) throw new Error('No legend yet');
+    return found;
+  });
+  await expect(
+    canvasElement.querySelector('[data-unbilled="clients"]'),
+  ).not.toBeNull();
+  let panel = legend.parentElement;
+  while (panel && getComputedStyle(panel).overflowY !== 'auto') {
+    panel = panel.parentElement;
+  }
+  if (!panel) throw new Error('Home sits in no scrolling panel');
+  await waitFor(() => {
+    expect(panel.scrollHeight).toBeLessThanOrEqual(panel.clientHeight);
+    expect(legend.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      panel.getBoundingClientRect().bottom,
+    );
+  });
+}
+
+/** Past `2xl` the frame is capped, and Home fits it whole. */
 export const Wide: Story = {
   ...wide,
-  play: async ({ canvasElement }) => {
-    const legend = await waitFor(() => {
-      const found = canvasElement.querySelector('[data-legend="clients"]');
-      if (!found) throw new Error('No legend yet');
-      return found;
-    });
-    let panel = legend.parentElement;
-    while (panel && getComputedStyle(panel).overflowY !== 'auto') {
-      panel = panel.parentElement;
-    }
-    if (!panel) throw new Error('Home sits in no scrolling panel');
-    await waitFor(() => {
-      expect(panel.scrollHeight).toBeLessThanOrEqual(panel.clientHeight);
-      expect(legend.getBoundingClientRect().bottom).toBeLessThanOrEqual(
-        panel.getBoundingClientRect().bottom,
-      );
-    });
-  },
+  play: ({ canvasElement }) => fitsWide(canvasElement),
 };
 
 /** Below `@2xl` the month stacks under the week rather than dropping out. */
@@ -414,21 +423,28 @@ export const MonthLate: Story = {
   },
 };
 
-/** More unbilled clients than the rows hold: the rest are counted. */
+/**
+ * Six unbilled clients, one more than the rows hold: the rest are counted.
+ */
+const moreClients = account((db) => {
+  const base = db.clients[0] as (typeof db.clients)[number];
+  const work = db.projects[0] as (typeof db.projects)[number];
+  for (let i = 0; i < 2; i++) {
+    const client = id(700 + i);
+    const project = id(800 + i);
+    const day = localDateKey(
+      new Date(db.now.getTime() - (i + 1) * 864e5),
+      ZONE,
+    );
+    db.clients.push({ ...base, id: client, name: `Client ${i + 1}` });
+    db.projects.push({ ...work, id: project, clientId: client });
+    db.entries.push(entry(900 + i, day, '08:00', 30, project, 'Review'));
+  }
+});
+
 export const UnbilledMore: Story = {
   ...desktop,
-  parameters: account((db) => {
-    const today = localDateKey(db.now, ZONE);
-    const base = db.clients[0] as (typeof db.clients)[number];
-    const work = db.projects[0] as (typeof db.projects)[number];
-    for (let i = 0; i < 6; i++) {
-      const client = id(700 + i);
-      const project = id(800 + i);
-      db.clients.push({ ...base, id: client, name: `Client ${i + 1}` });
-      db.projects.push({ ...work, id: project, clientId: client });
-      db.entries.push(entry(900 + i, today, '08:00', 30, project, 'Review'));
-    }
-  }),
+  parameters: moreClients,
   play: async ({ canvasElement }) => {
     const rows = await waitFor(() => {
       const el = canvasElement.querySelector('[data-unbilled="clients"]');
@@ -438,4 +454,11 @@ export const UnbilledMore: Story = {
     await expect(rows.querySelectorAll('li')).toHaveLength(6);
     await expect(within(rows).getByText(/^\+\d+ more$/)).toBeVisible();
   },
+};
+
+/** The most rows Unbilled shows still fit the capped frame. */
+export const WideUnbilledMore: Story = {
+  ...wide,
+  parameters: moreClients,
+  play: ({ canvasElement }) => fitsWide(canvasElement),
 };

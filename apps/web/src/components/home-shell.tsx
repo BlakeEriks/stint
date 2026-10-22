@@ -212,7 +212,7 @@ export function Legend({ hues }: { hues: Map<string, Hue> }) {
   return (
     <ul
       data-legend="clients"
-      className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-edge-subtle pt-3.5"
+      className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-edge-subtle pt-3"
     >
       {[...hues.values()].map((h) => (
         <li
