@@ -204,8 +204,8 @@ describe('useTimer', () => {
     }
   });
 
-  /* A Today row can be pressed while the timer bar counts. Predicting the
-     start would swap the running task out until the 409 put it back. */
+  /* Predicting a start while a timer runs would swap the running task out
+     until the 409 put it back. */
   it('a start while running predicts nothing and surfaces the server refusal', async () => {
     const refusal =
       'A timer is already running. Stop it before starting another.';
