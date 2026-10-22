@@ -389,9 +389,10 @@ route is a 404 anywhere `VERCEL_ENV` is not `preview`.
 `.github/workflows/preview-db.yml` keeps the project in step: it seeds a PR's
 account from that branch's `scripts/seed-account.mjs` on every push, and when
 a PR's migrations change the schema — or migrations land on main — empties
-`stint-test`, migrates it, and reseeds every open PR. Run it by hand after
-closing a migration PR unmerged. The previews share one schema, so **one open
-PR at a time may carry a migration**.
+`stint-test`, migrates it, and reseeds every open PR. The previews share one
+schema, so **the preview database belongs to the one `migration` PR labeled
+`ready-for-qa`**. Other migration PRs build and pass CI on their own
+throwaway Postgres, but their previews get no account until they hold it.
 
 **A PR asks for an account in a named state with a line in its body**:
 `Preview accounts: first-signin`. Each name is a `SEED_SCENARIOS` entry in
