@@ -225,7 +225,7 @@ promotes the next profile by name.
 
 `nextInvoiceNumber` moves **forward only** through `PATCH /settings`, so an
 account can start past invoices sent before Stint, up to
-`NEXT_INVOICE_NUMBER_MAX` (999999). A value below the current one or above
+`NEXT_INVOICE_NUMBER_MAX` (999999). A value below the current one or over
 that ceiling is a `422` whose `details` are
 `{ field: 'nextInvoiceNumber', current }`,
 and nothing else in the patch is written. Every other field of `Settings` is
