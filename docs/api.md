@@ -24,7 +24,7 @@ behavior depends on global state.
 | Method | Path | Notes |
 |---|---|---|
 | `POST` | `/timer/start` | `{ id?, projectId?, taskName?, startedAt?, isBillable? }` — `taskName` defaults to `''`, since a timer started in a hurry can be named later. Returns `201`. **`409 TIMER_ALREADY_RUNNING`** if one is running, with the running entry in `details.running` so the client can display it rather than just reporting a conflict. `startedAt` allows backdating a forgotten start. **`isBillable` omitted takes the project's billable default**, and is billable with no project. `?include` returns `{ entry, included }` instead of the entry ([Including what a write changed](#including-what-a-write-changed)). |
-| `POST` | `/timer/stop` | `{ endedAt? }`, defaults to server `now()`. Returns `{ entry, currency, unbilled }`, `unbilled` being `/stats`'s, counted after the stop, so a client shows the new total without a second request; `?include` adds `included` ([Including what a write changed](#including-what-a-write-changed)). `409 NO_TIMER_RUNNING` if none; `422 VALIDATION_FAILED` if a backdated `endedAt` is at or before `startedAt`. |
+| `POST` | `/timer/stop` | `{ endedAt? }`, defaults to server `now()`. Returns `{ entry, currency, unbilled }`, `unbilled` being `/stats`'s, counted after the stop and aged in `?tz`, so a client shows the new total without a second request; `?include` adds `included` ([Including what a write changed](#including-what-a-write-changed)). `409 NO_TIMER_RUNNING` if none; `422 VALIDATION_FAILED` if a backdated `endedAt` is at or before `startedAt`. |
 | `GET` | `/timer/current` | `{ entry, serverTime }`. |
 | `PATCH` | `/timer/current` | Edit task name / project mid-run. `409 NO_TIMER_RUNNING` if none; `409 ENTRY_LOCKED` if billed. |
 
@@ -418,7 +418,8 @@ question and the server cannot infer the caller's zone, so the client states
 it; an invalid zone falls back to UTC rather than failing the request, because
 a view that renders in the wrong zone beats a view that does not render.
 `POST /timer/start`, `POST /timer/stop` and `PATCH /entries/:id` take `tz`
-the same way, for the reads they include ([Including what a write changed](#including-what-a-write-changed)).
+the same way, for the reads they include ([Including what a write changed](#including-what-a-write-changed));
+`POST /timer/stop` also ages its own `unbilled` rows in it.
 
 `GET /exports/entries` and `GET /exports/invoices` fall back the same way. The
 zone dates each row and names the file, but every record is in the file
