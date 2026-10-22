@@ -6,12 +6,12 @@
 
 ## Users & Demand
 
-- Blake (the sole user/owner) filed issue #11 after feeling start/stop "clunky" only once latency was real — never at localhost. [source: gh issue #11 | cited] (confidence: high)
+- The owner (the sole user/owner) filed issue #11 after feeling start/stop "clunky" only once latency was real — never at localhost. [source: gh issue #11 | cited] (confidence: high)
 - No support tickets or other users exist yet (pre-Alpha product); demand signal is entirely the founder's own dogfooding plus a closed PR (#118) that already tried to fix part of this. [source: gh issue/PR history | cited] (confidence: high)
 
 ## Prior Art
 
-- **PR #118** (closed, superseded by this assessment): built per-surface phase/pending state machines on web (`use-timer.ts`, `timer-bar.tsx`) and macOS (`TimerModel.toggle()`), blocked twice on unrelated PRs touching the same files, and was closed by Blake specifically because it missed the menu-bar "restart a recent task" path and left every other mutation unaddressed — closing comment: "closing this to be superceded by a feature dev instead with speckit." [source: `gh pr view 118 --comments`] (confidence: high)
+- **PR #118** (closed, superseded by this assessment): built per-surface phase/pending state machines on web (`use-timer.ts`, `timer-bar.tsx`) and macOS (`TimerModel.toggle()`), blocked twice on unrelated PRs touching the same files, and was closed by the owner specifically because it missed the menu-bar "restart a recent task" path and left every other mutation unaddressed — closing comment: "closing this to be superceded by a feature dev instead with speckit." [source: `gh pr view 118 --comments`] (confidence: high)
 - **Issue #11** predates #118's close and states the constraint the fix must respect: an optimistic start "must never claim green before the server confirms," and asks for every mutation/listing/transition to be walked at ~1s and ~3s of added latency. [source: gh issue #11] (confidence: high)
 - Current web timer (`apps/web/src/lib/client/use-timer.ts:105-126`): `start`, `stop`, and `update` mutations have **no `onMutate`** — only `onSuccess`/`onError` calling `invalidate()` (a full refetch via `invalidateEntryData`). The bar shows stale state for the full round trip plus refetch, exactly as #11 describes. (confidence: high, cited)
 - Current macOS timer (`apps/macos/Sources/Stint/TimerModel.swift:220-241`): `toggle()` is a plain `await`-then-`refresh()` sequence — `isBusy` is set true for the duration (disables re-entry) but nothing renders a predicted state; the UI only updates after the round trip. `stop` calls set `stats` early from the response (an exception, `TimerModel.swift:224-226`) but `start` does not touch `summary`/`isRunning` until `refresh()` returns. (confidence: high, cited)
@@ -37,7 +37,7 @@
 ## Evidence Against the Idea
 
 - The single strongest piece of counter-evidence is #118 itself: a serious, tested attempt at exactly this problem (phase/pending state machines with rollback + two race-condition tests) was built and still missed a real path (menu-bar resume) and covered only the timer, not every mutation. That is direct evidence that "one shared mechanism" is harder to get complete than it looks, and a second attempt risks the same fate unless the menu-bar path and the full mutation inventory are treated as first-class acceptance criteria from the start (which the intake already does).
-- There is no user demand signal beyond Blake's own use — this is pre-Alpha, single-operator. Spending constitution-level effort (a new principle plus an enforcement check) on responsiveness before there are outside users to feel the lag is a judgment call, not a validated need.
+- There is no user demand signal beyond the owner's own use — this is pre-Alpha, single-operator. Spending constitution-level effort (a new principle plus an enforcement check) on responsiveness before there are outside users to feel the lag is a judgment call, not a validated need.
 - The tab-switch-lag cause is inferred from code reading, not measured (no RUM, no profiling run in this research). It's plausible the real cost is render/query-cache-miss time rather than a missing `loading.tsx`, in which case adding loading boundaries would improve perceived-but-not-actual latency, or worse, mask a query that should be prefetched instead.
 
 ## Gaps & Open Questions
@@ -50,7 +50,7 @@
 ## Sources
 
 - https://github.com/BlakeEriks/stint/issues/11 (host: github.com, policy: allowlisted)
-- https://github.com/BlakeEriks/stint/pull/118 (host: github.com, policy: allowlisted, includes Vercel bot + doc-drift bot comments plus Blake's closing comment)
+- https://github.com/BlakeEriks/stint/pull/118 (host: github.com, policy: allowlisted, includes Vercel bot + doc-drift bot comments plus the owner's closing comment)
 - `gh issue list --search "lag OR loading OR slow"` (host: github.com API via `gh`, policy: allowlisted) — only #11 and an unrelated import-review issue (#23) matched
 - https://raw.githubusercontent.com/TanStack/query/main/docs/framework/react/guides/optimistic-updates.md (host: raw.githubusercontent.com, policy: allowlisted)
 - https://raw.githubusercontent.com/vercel/next.js/canary/docs/01-app/03-api-reference/03-file-conventions/loading.mdx (host: raw.githubusercontent.com, policy: allowlisted)

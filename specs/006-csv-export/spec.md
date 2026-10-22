@@ -38,25 +38,24 @@ Download icon, "Download entries" and "Download invoices".
 - Q: Are dates written US style (`MM/DD/YYYY`) or ISO (`YYYY-MM-DD`)? → A: US
   style, with 12-hour times, in the user's time zone. Positioning makes US
   formats the baseline, and US spreadsheets read them as dates. (decided
-  autonomously — Blake to review)
+  autonomously)
 - Q: What rate does an entry an invoice already billed show: the one it
   resolves to now, or the one that billed it? → A: The one it resolves to
   now. No stored record ties an entry to the line that billed it, and adding
   one needs a migration; the Invoice column points to the invoice, whose
   frozen totals in the invoices file are what was billed. (decided
-  autonomously — Blake to review)
+  autonomously)
 - Q: Which invoices does the invoices file include? → A: Every one: draft,
   sent, paid and void, with the status in its own column. A void row
   explains a gap in the numbering, and a draft is the user's record too.
-  (decided autonomously — Blake to review)
+  (decided autonomously)
 - Q: Can the user narrow an export by date range or client? → A: No; each
   file is the whole history. A retention copy wants everything, a
   spreadsheet filters, and a filter adds controls for no file a spreadsheet
-  can't already make. (decided autonomously — Blake to review)
+  can't already make. (decided autonomously)
 - Q: How is a cell that a spreadsheet would run as a formula neutralized? →
   A: A single quote is put before it, as OWASP recommends, on text cells
-  only; numbers are written as numbers. (decided autonomously — Blake to
-  review)
+  only; numbers are written as numbers. (decided autonomously)
 
 ## User Scenarios & Testing *(mandatory)*
 

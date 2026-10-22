@@ -11,7 +11,7 @@ const BASE: PaymentProfile = {
   id: 'pp-1',
   name: 'Chase business',
   isDefault: true,
-  accountHolderName: 'Blake Eriks LLC',
+  accountHolderName: 'Sam Rivera LLC',
   accountHolderAddress: null,
   bankName: 'Chase',
   bankAddress: null,

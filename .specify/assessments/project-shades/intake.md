@@ -17,7 +17,7 @@ work still reads as grouped by client.
 
 ## Origin & Context
 
-- **Raised by**: Blake
+- **Raised by**: The owner
 - **Trigger**: With one client, every bar, strip segment, and legend entry on
   the home page is the same color. Today color belongs to the client
   (`docs/design/principles.md`), resolved through `useProjectColors()`, and

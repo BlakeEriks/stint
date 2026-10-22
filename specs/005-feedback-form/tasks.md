@@ -98,7 +98,7 @@ None. The feature uses the existing app, packages and suites.
 
 ## Phase 4: User Story 2 - We get enough to act without asking back (Priority: P1)
 
-**Goal**: Every submission carries its sender, screen, client, version and time, and Blake can read them in one place.
+**Goal**: Every submission carries its sender, screen, client, version and time, and the owner can read them in one place.
 
 **Independent Test**: Send from `/invoices` and from `/settings`, then run the saved query. Both rows show the email, path, `web`, version and time.
 
@@ -109,7 +109,7 @@ None. The feature uses the existing app, packages and suites.
 ### Implementation for User Story 2
 
 - [X] T013 [US2] Confirm the context fields are taken from the route (`usePathname()`) and the build (`NEXT_PUBLIC_APP_VERSION`) in `apps/web/src/components/feedback.tsx`, never typed by the user. In `apps/web/test/ui/feedback.test.tsx`, assert that the request body carries the current pathname and the version.
-- [X] T014 [US2] Add the dashboard read to `specs/005-feedback-form/quickstart.md`'s check 2, if it has changed: the query that joins `auth.users` for the email, newest first. After merge, Blake saves it in the production dashboard as "Feedback".
+- [X] T014 [US2] Add the dashboard read to `specs/005-feedback-form/quickstart.md`'s check 2, if it has changed: the query that joins `auth.users` for the email, newest first. After merge, the owner saves it in the production dashboard as "Feedback".
 
 **Checkpoint**: Each submission is complete without anything typed by the user, and readable in one query.
 

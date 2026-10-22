@@ -630,7 +630,7 @@ table.pv { width: 100%; border-collapse: collapse; }
           <p class="msg type-support" id="cardmsg">Choose a client to see what this invoice will say.</p>
           <div class="live" id="live">
             <div class="chead">
-              <p class="party type-support"><b class="type-control">Blake Eriks</b>1200 Pine St, Suite 4
+              <p class="party type-support"><b class="type-control">Sam Rivera</b>1200 Pine St, Suite 4
 Seattle, WA 98101
 dev@localhost.test</p>
               <dl class="cmeta r type-support"><div><dt>No.</dt><dd class="type-duration">STINT-0016</dd></div><div><dt>Issued</dt><dd>Sep 30, 2026</dd></div><div><dt>Due</dt><dd>Oct 30, 2026</dd></div></dl>
@@ -686,7 +686,7 @@ ap@northwind.test</p>
   <div class="dialog" role="dialog" aria-labelledby="pdtitle">
     <div><h2 class="type-section" id="pdtitle">New payment details</h2><p class="dsub type-support">Printed on every invoice that uses them.</p></div>
     <div class="field"><label class="type-label" for="pp-name">Name *</label><input class="in type-control" id="pp-name" placeholder="Business checking"></div>
-    <div class="field"><label class="type-label" for="pp-holder">Account holder</label><input class="in type-control" id="pp-holder" value="Blake Eriks"></div>
+    <div class="field"><label class="type-label" for="pp-holder">Account holder</label><input class="in type-control" id="pp-holder" value="Sam Rivera"></div>
     <div class="field"><label class="type-label" for="pp-bank">Bank name</label><input class="in type-control" id="pp-bank" placeholder="First Federal Bank"></div>
     <div class="two">
       <div class="field"><label class="type-label" for="pp-acct">Account number</label><input class="in type-control" id="pp-acct"></div>
@@ -718,8 +718,8 @@ const GROUPINGS = [
 ];
 /* Payment profiles, as Settings holds them (fixtures.ts). */
 const PROFILES = [
-  { id: 'ach', name: 'Business checking', holder: 'Blake Eriks', bank: 'First Federal Bank', acct: '000123456789', routing: '011000015', type: 'Checking', def: true },
-  { id: 'wire', name: 'International wire', holder: 'Blake Eriks', bank: 'First Federal Bank', acct: '000123456789', swift: 'FFBKUS33', fee: 'SHA' },
+  { id: 'ach', name: 'Business checking', holder: 'Sam Rivera', bank: 'First Federal Bank', acct: '000123456789', routing: '011000015', type: 'Checking', def: true },
+  { id: 'wire', name: 'International wire', holder: 'Sam Rivera', bank: 'First Federal Bank', acct: '000123456789', swift: 'FFBKUS33', fee: 'SHA' },
 ];
 
 /* One list of billed entries; every figure is summed from it. */
@@ -854,7 +854,7 @@ function drawPdf(m) {
   const totalHours = ENTRIES.reduce((t, e) => t + e.n, 0);
   const parts = [{
     html: `<div class="hd">
-      <div><div class="biz">Blake Eriks</div><div class="mu">1200 Pine St, Suite 4<br>Seattle, WA 98101<br>billing@blakeeriks.test</div></div>
+      <div><div class="biz">Sam Rivera</div><div class="mu">1200 Pine St, Suite 4<br>Seattle, WA 98101<br>billing@samrivera.test</div></div>
       <div><div class="ttl">INVOICE</div><div class="num">STINT-0016</div></div></div>
     <div class="meta">
       <div><div class="lb">Bill to</div><b>Northwind Trading</b><div class="mu">400 Market St<br>San Francisco, CA 94105<br>ap@northwind.test</div></div>

@@ -10,8 +10,8 @@ Across the web and macOS apps, the screen only reflects a user's action after a 
 
 ## Affected Users & Stakeholders
 
-- **Users**: Blake, as the app's sole operator, dogfooding in production — feels start/stop, rename, inbox, invoice, client, payment-profile, and calendar-drag actions lag, and tab switches render stale/blank before data arrives.
-- **Stakeholders**: Blake, also as product owner — decides scope and priority pre-Alpha; bears the cost of a second incomplete fix (per #118's precedent) and of constitution-level effort spent before outside users exist.
+- **Users**: The owner, as the app's sole operator, dogfooding in production — feels start/stop, rename, inbox, invoice, client, payment-profile, and calendar-drag actions lag, and tab switches render stale/blank before data arrives.
+- **Stakeholders**: The owner, also as product owner — decides scope and priority pre-Alpha; bears the cost of a second incomplete fix (per #118's precedent) and of constitution-level effort spent before outside users exist.
 
 ## Goals
 
@@ -40,11 +40,11 @@ Across the web and macOS apps, the screen only reflects a user's action after a 
 
 ## Cost of Inaction
 
-Production-only latency bugs stay structurally invisible in local dev and in the current test suite (issue #11's own title), so they will keep surfacing only after Blake notices the app "feels clunky" in real use, and each mutation will keep getting fixed piecemeal and incompletely — as #118 already demonstrated once, at the cost of a full PR cycle blocked twice on unrelated changes, then closed for missing a real path.
+Production-only latency bugs stay structurally invisible in local dev and in the current test suite (issue #11's own title), so they will keep surfacing only after the owner notices the app "feels clunky" in real use, and each mutation will keep getting fixed piecemeal and incompletely — as #118 already demonstrated once, at the cost of a full PR cycle blocked twice on unrelated changes, then closed for missing a real path.
 
 ## Open Questions
 
-- [SETTLED per Blake, 2026-09-28: a predicted timer start shows green (accent, running state) immediately on press, without waiting for the server; the server remains the source of truth, and a rejection rolls back visibly with the reason. This supersedes issue #11's "never claim green before the server confirms" and resolves the tension research flagged against `docs/design/screens/timer-bar.html`'s "only one green thing at a time" rule — that rule is not violated because a predicted start and a confirmed running state are never both shown as distinct elements at once, they are the same element.]
+- [SETTLED per the owner, 2026-09-28: a predicted timer start shows green (accent, running state) immediately on press, without waiting for the server; the server remains the source of truth, and a rejection rolls back visibly with the reason. This supersedes issue #11's "never claim green before the server confirms" and resolves the tension research flagged against `docs/design/screens/timer-bar.html`'s "only one green thing at a time" rule — that rule is not violated because a predicted start and a confirmed running state are never both shown as distinct elements at once, they are the same element.]
 - [NEEDS CLARIFICATION: whether `startedAt` should be stamped client-side (so elapsed time is accurate from the press) rather than server-side as today — the schema already accepts a client value but no call site sends one. Most defensible default: stamp client-side at press time for the optimistic display, and let the server's own `started_at` (used if the client omits it) remain authoritative on reconciliation, since Principle "server owns timer truth" is about which value wins, not which value is shown first.]
 - [NEEDS CLARIFICATION: what happens to a predicted change when the user navigates away or quits before the server answers. Most defensible default: the mutation continues in-flight and reconciles on return/relaunch (web: query cache + refetch; macOS: model refresh on next foreground), consistent with "server owns timer truth."]
 - [NEEDS CLARIFICATION: how much of the tab-switch lag is missing loading boundaries versus data-fetch/render cost — research found this by inference (no `loading.tsx` anywhere, no RUM/profiling), not by measurement. Most defensible default: ship loading boundaries and prefetch first since they are cheap and non-regressive, then measure remaining lag before investing in query/render optimization.]

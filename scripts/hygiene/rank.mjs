@@ -84,7 +84,7 @@ export function rank(findings, commits, skip = new Set()) {
     .sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
 }
 
-/* Each redesign waits on Blake to pick a design, and its fix churn outprices
+/* Each redesign waits on a design being picked, and its fix churn outprices
    most other debt, so a few redesigns a week leave the rest to /reduce and
    /copyedit. */
 const MAX_REDESIGNS = 2;

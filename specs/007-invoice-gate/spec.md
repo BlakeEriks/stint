@@ -47,36 +47,34 @@ Settings Plan section and `.claude/rules/web-ui.md`.
   a paying user has, and subscribing later unlocks the documents of what they
   already generated, with nothing to regenerate. A free user can retype the
   totals from the screen; that is the inconvenience positioning accepts in
-  exchange for keeping records whole and free. (decided autonomously —
-  Blake to review)
+  exchange for keeping records whole and free. (decided autonomously)
 - Q: When billing is first set up, do invoices generated before then stay
   downloadable for free users? → A: No. "Generated while paying" is the only
   exemption, and nobody paid while billing was dark, so those invoices follow
   the free rule once billing is live. Alpha is a handful of invited users;
-  if Blake wants to grandfather them, a one-time backfill marks their
-  invoices as generated while paying. (decided autonomously — Blake to
-  review)
+  if the owner wants to grandfather them, a one-time backfill marks their
+  invoices as generated while paying. (decided autonomously)
 - Q: How does the server refuse a locked document? → A: HTTP 402 Payment
   Required with a new error code, `PAYMENT_REQUIRED`, and a message naming
   the paid plan; a missing or someone else's invoice stays 404. (decided
-  autonomously — Blake to review)
+  autonomously)
 - Q: Where does the locked screen's control lead? → A: To Settings' Plan
   section, which already owns subscribing and confirming the return from
   Checkout; the invoice screen doesn't open Checkout itself, so there is one
-  subscribe flow. (decided autonomously — Blake to review)
+  subscribe flow. (decided autonomously)
 - Q: Where is "data gets out free" said? → A: On the invoice detail's lock
   line and in the Plan section's free description, where a user meets the
   rule. The landing page still says nothing is gated and promises a
   different paid feature; correcting it goes with billing's launch, filed
   as #323, since changing marketing copy now would announce a
-  price while billing is dark. (decided autonomously — Blake to review)
+  price while billing is dark. (decided autonomously)
 - Q: The inbox's late and stale invoice rows also link the PDF. What do they
   offer a free user? → A: No Download. The rows don't carry the plan each
   invoice was generated on, so the inbox decides from the account's plan
   alone: a canceled user loses the shortcut even for an invoice generated
   while paying, whose own page still offers it. Found while verifying;
   adding the stamp to `/stats` wasn't worth it for a shortcut. (decided
-  autonomously — Blake to review)
+  autonomously)
 
 ## User Scenarios & Testing *(mandatory)*
 

@@ -49,7 +49,7 @@ on conflict (id) do nothing;
 -- US-based: USD, Net 30, no tax line. See the jurisdiction notes in CLAUDE.md.
 update user_settings set
   default_hourly_rate   = 125.00,
-  business_name         = 'Blake Eriks',
+  business_name         = 'Sam Rivera',
   business_address      = E'1 Market St\nSan Francisco, CA 94105',
   business_email        = 'dev@localhost.test',
   invoice_number_prefix = 'STINT-',

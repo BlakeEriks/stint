@@ -51,7 +51,7 @@
   link is made by the first sync.
 - **Two open payment pages**: Checkout refuses while the user is paid. Two
   pages completed at once would make two subscriptions; sync keeps the paid
-  one and reports the duplicate to Sentry for Blake to refund. Rare enough
+  one and reports the duplicate to Sentry for the owner to refund. Rare enough
   not to build more.
 
 ## R5. Which state counts as paid
@@ -86,12 +86,12 @@
   `STRIPE_PRICE_ID` and `STRIPE_WEBHOOK_SECRET` are all set. Then every
   billing write answers `503 BILLING_UNAVAILABLE`, `GET /billing` says
   `available: false`, and the Plan section isn't rendered.
-- **Rationale**: Merging is the deploy. Blake turns billing on when #61's
+- **Rationale**: Merging is the deploy. The owner turns billing on when #61's
   gate is ready, by setting env vars, not by shipping code.
 
 ## R9. Dunning and reminders
 
-- **Decision**: Stripe Billing settings, configured by Blake: Smart Retries
+- **Decision**: Stripe Billing settings, configured by the owner: Smart Retries
   (8 attempts, 2 weeks), then cancel; customer emails on failed payment and
   for upcoming renewals; the Portal allows cancel at period end, resume and
   card update. The app shows "payment failed" from `past_due`/`unpaid`.

@@ -38,7 +38,7 @@ Option B. It's the only option that satisfies the problem's explicit goals (one 
 
 ## Assumptions to Validate
 
-- A predicted timer start shows green (accent) immediately on press; server remains source of truth; rejection rolls back visibly with reason (settled per Blake, 2026-09-28).
+- A predicted timer start shows green (accent) immediately on press; server remains source of truth; rejection rolls back visibly with reason (settled per the owner, 2026-09-28).
 - `startedAt` is stamped client-side at press time for optimistic display; server's own value remains authoritative on reconciliation.
 - A predicted change left in-flight by navigation/quit reconciles on return/relaunch (web: query cache + refetch; macOS: model refresh on next foreground) rather than being cancelled.
 - Loading boundaries + prefetch are shipped first, before measuring whether remaining tab-switch lag is data-fetch/render cost rather than missing boundaries.

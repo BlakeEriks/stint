@@ -28,7 +28,7 @@ actor Auth {
             if reported?.code == "otp_disabled" {
                 throw APIError(
                     status: status, code: "NO_ACCOUNT",
-                    message: "Stint is invite-only. Ask Blake for an invite."
+                    message: "Stint is invite-only during alpha. Request an invite at runstint.com."
                 )
             }
             throw reported
