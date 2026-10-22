@@ -149,7 +149,8 @@ final class TimerModel: Optimistic {
                     try await auth.signIn(email: account.email, password: account.password)
                 } catch {
                     previewSignInError = "Could not sign in as \(account.email): \(error.localizedDescription) "
-                        + "Re-run the PR's preview-db check, which seeds it."
+                        + "Re-run the PR's preview-db check, which seeds it; a PR with a migration "
+                        + "only once it is ready-for-qa."
                 }
             }
             if await tokens.isSignedIn {
