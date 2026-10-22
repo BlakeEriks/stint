@@ -61,7 +61,8 @@ payers to challenge.
 order and the resolution chain.
 
 - **Invoices freeze the rendered snapshot** into `payment_details` (JSONB) at
-  generation, like rates. Editing a profile never alters an issued invoice.
+  generation; a draft keeps that choice across refreshes. Editing a profile
+  never alters an issued invoice.
 - `buildPaymentDetails` in `packages/core/src/payment.ts` drops unset fields
   entirely — never render an empty label, and never an empty section header.
 - The PDF payment block is `wrap={false}`: a stranded "Payment" header with
