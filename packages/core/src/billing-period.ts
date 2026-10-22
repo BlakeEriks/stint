@@ -14,6 +14,29 @@ export const BILLING_PERIODS = [
 ] as const;
 export type BillingPeriod = (typeof BILLING_PERIODS)[number];
 
+/** Each schedule's name, wherever it is shown. */
+export const BILLING_PERIOD_LABELS: Record<BillingPeriod, string> = {
+  weekly: 'Weekly',
+  biweekly: 'Biweekly',
+  semimonthly: 'Semi-monthly',
+  monthly: 'Monthly',
+};
+
+/** What each schedule bills, under its name where one is picked. */
+export const BILLING_PERIOD_DETAILS: Record<BillingPeriod, string> = {
+  weekly: 'Every week, from a start date',
+  biweekly: 'Every two weeks, from a start date',
+  semimonthly: 'Twice a month: 1st–15th and 16th–end',
+  monthly: 'The calendar month',
+};
+
+/** Weekly and biweekly count from an anchor; the others are calendar
+ *  periods. */
+export const needsAnchor = (
+  period: BillingPeriod,
+): period is 'weekly' | 'biweekly' =>
+  period === 'weekly' || period === 'biweekly';
+
 /** Weekly and biweekly count from `anchor`, a date one period starts on. */
 export type BillingSchedule =
   | { period: 'weekly' | 'biweekly'; anchor: string }
@@ -31,7 +54,7 @@ export function periodContaining(
   date: string,
   schedule: BillingSchedule,
 ): Period {
-  if (schedule.period === 'weekly' || schedule.period === 'biweekly') {
+  if ('anchor' in schedule) {
     const length = schedule.period === 'weekly' ? 7 : 14;
     const days = (Date.parse(date) - Date.parse(schedule.anchor)) / DAY;
     // Floor, so a date before the anchor lands in an earlier period.

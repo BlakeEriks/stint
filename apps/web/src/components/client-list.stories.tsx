@@ -376,6 +376,22 @@ export const ClientScheduleWeekly: Story = {
   },
 };
 
+/** An archived client bills nothing new, so its row names no schedule,
+    as it names no rate. */
+export const ArchivedClientSchedule: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    for (const c of db.clients)
+      if (c.id === ids.oldEngagement) c.billingSchedule = { period: 'monthly' };
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await openArchived(canvasElement);
+    await page.findByRole('button', { name: 'Edit Old Engagement Co' });
+    await expect(page.queryByText(/Billed monthly/)).toBeNull();
+  },
+};
+
 /** An archived client's dialog offers Restore where Archive was. */
 export const EditArchivedClient: Story = {
   ...desktop,

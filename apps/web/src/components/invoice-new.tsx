@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ChevronDown, Pencil, Plus } from 'lucide-react';
 import {
+  BILLING_PERIOD_LABELS,
   buildPaymentDetails,
   defaultInvoicePeriod,
   attachedSchedules,
@@ -38,7 +39,6 @@ import {
   type Period,
   type ScheduleKind,
 } from '@stint/core';
-import { SCHEDULE_LABELS } from './client-form';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import {
   api,
@@ -112,7 +112,7 @@ interface Draft {
   paymentProfileId: string;
 }
 
-const empty = (): Draft => ({
+const EMPTY: Draft = {
   clientId: '',
   periodStart: null,
   periodEnd: null,
@@ -124,7 +124,7 @@ const empty = (): Draft => ({
   charges: [],
   excludedExpenseIds: [],
   paymentProfileId: '',
-});
+};
 
 /** The period the user set, else the client's default for `today`. */
 function periodOf(
@@ -156,8 +156,9 @@ function ScheduleHint({
   if (isPeriod(schedule, periodStart, periodEnd)) return null;
   return (
     <p role="status" className="type-support text-warning">
-      {client.name} is billed {SCHEDULE_LABELS[schedule.period].toLowerCase()},
-      and this isn't one of its periods.
+      {client.name} is billed{' '}
+      {BILLING_PERIOD_LABELS[schedule.period].toLowerCase()}, and this isn't one
+      of its periods.
     </p>
   );
 }
@@ -305,7 +306,10 @@ function Form() {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const [draft, setDraft] = useState<Draft>(empty);
+  const [draft, setDraft] = useState<Draft>(EMPTY);
+  /* Read once: a form left open past midnight keeps the dates it showed
+     rather than moving them to the next period unseen. */
+  const [issued] = useState(() => localDateKey(new Date(), tz));
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
@@ -326,7 +330,6 @@ function Form() {
 
   const { lastPending, groupingMode, summaryText, schedules } =
     useCarried(draft);
-  const issued = localDateKey(new Date(), tz);
   const { periodStart, periodEnd } = periodOf(draft, client, issued);
   const waiting = useWaitingExpenses(draft.clientId, periodEnd);
   /* `undefined` adds an expense; an expense, edits it. */

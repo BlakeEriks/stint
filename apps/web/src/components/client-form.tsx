@@ -8,16 +8,19 @@ import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
-  SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
 import {
+  BILLING_PERIOD_DETAILS,
+  BILLING_PERIOD_LABELS,
   BILLING_PERIODS,
   localDateKey,
+  needsAnchor,
   type BillingPeriod,
   type BillingSchedule,
 } from '@stint/core';
+import { DescribedSelectItem } from './described-select-item';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { ColorPicker } from './color-picker';
 import { Field, inputClass } from './field';
@@ -200,20 +203,6 @@ export function ClientForm({
   );
 }
 
-export const SCHEDULE_LABELS: Record<BillingPeriod, string> = {
-  weekly: 'Weekly',
-  biweekly: 'Biweekly',
-  semimonthly: 'Semi-monthly',
-  monthly: 'Monthly',
-};
-
-const SCHEDULE_DETAILS: Record<BillingPeriod, string> = {
-  weekly: 'Every week, from a start date',
-  biweekly: 'Every two weeks, from a start date',
-  semimonthly: 'Twice a month: 1st–15th and 16th–end',
-  monthly: 'The calendar month',
-};
-
 const NONE = 'none';
 
 /** Weekly and every two weeks count from a date one period starts on, so
@@ -225,18 +214,13 @@ function ScheduleField({
   value: BillingSchedule | null;
   onChange: (value: BillingSchedule | null) => void;
 }) {
-  const pick = (period: string) => {
-    if (period === 'weekly' || period === 'biweekly')
-      onChange({
-        period,
-        anchor:
-          value && 'anchor' in value
-            ? value.anchor
-            : localDateKey(new Date(), tz),
-      });
-    else if (period === 'semimonthly' || period === 'monthly')
-      onChange({ period });
-    else onChange(null);
+  const pick = (picked: string) => {
+    const period = picked as BillingPeriod | typeof NONE;
+    if (period === NONE) return onChange(null);
+    if (!needsAnchor(period)) return onChange({ period });
+    const anchor =
+      value && 'anchor' in value ? value.anchor : localDateKey(new Date(), tz);
+    onChange({ period, anchor });
   };
   return (
     <div className="flex flex-wrap gap-4">
@@ -251,13 +235,18 @@ function ScheduleField({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={NONE} description="Dates set on each invoice">
-              None
-            </SelectItem>
+            <DescribedSelectItem
+              value={NONE}
+              label="None"
+              description="Dates set on each invoice"
+            />
             {BILLING_PERIODS.map((p) => (
-              <SelectItem key={p} value={p} description={SCHEDULE_DETAILS[p]}>
-                {SCHEDULE_LABELS[p]}
-              </SelectItem>
+              <DescribedSelectItem
+                key={p}
+                value={p}
+                label={BILLING_PERIOD_LABELS[p]}
+                description={BILLING_PERIOD_DETAILS[p]}
+              />
             ))}
           </SelectContent>
         </Select>
