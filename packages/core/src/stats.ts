@@ -6,7 +6,11 @@
  * and reports hours alone.
  */
 
-import { businessDaysInLocalMonth, localDateKey } from './calendar.ts';
+import {
+  businessDaysInLocalMonth,
+  daysInMonth,
+  localDateKey,
+} from './calendar.ts';
 import { findOverlaps } from './overlaps.ts';
 
 /** A draft left this long is usually forgotten, not deliberate. */
@@ -607,11 +611,10 @@ export function businessDayKeysInLocalMonth(now: Date, tz: string): string[] {
     number,
     number,
   ];
-  // Day 0 of the next month is the last day of this one.
-  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const days = daysInMonth(y, m);
 
   const keys: string[] = [];
-  for (let d = 1; d <= daysInMonth; d += 1) {
+  for (let d = 1; d <= days; d += 1) {
     // getUTCDay on a UTC-midnight date gives that calendar date's weekday.
     const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
     if (dow === 0 || dow === 6) continue;

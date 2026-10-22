@@ -234,6 +234,11 @@ reaches the database constraint, which is mapped to the same `422`.
 A client carries `paymentProfileId` on `POST` and `PATCH` — every field of
 `Client` is writable except `id` and `archivedAt`.
 
+`billingSchedule` is `null`, `{ period: 'semimonthly' | 'monthly' }` or
+`{ period: 'weekly' | 'biweekly', anchor }`, one value so the period and its
+anchor change together. Omitted on a `PATCH`, it stays; a weekly schedule
+without an anchor, or an anchor on a calendar period, is `422`.
+
 **Money is cents.** Every rate and amount is validated as a non-negative
 multiple of `0.01`, so `10.005` is a `422` rather than a silently rounded
 rate. `0` is a real rate, distinct from `null`, which means "fall back".

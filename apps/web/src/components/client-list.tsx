@@ -18,6 +18,7 @@ import { ClientExpenses } from './client-expenses';
 import { ExpenseDialog } from './expense-dialog';
 import { keys } from '@/lib/client/query-keys';
 import { rowBleed, rowButton } from './row-button';
+import { BILLING_PERIOD_LABELS } from '@stint/core';
 import { ProjectRate, rateLabel } from './project-rate';
 import { useRestoreClient } from '@/lib/client/use-archive-client';
 import { useRestoreProject } from '@/lib/client/use-restore-project';
@@ -190,7 +191,14 @@ export function ClientList() {
 
 function clientSummary(client: Client | null, defaultRate: number | null) {
   if (!client) return 'Not assigned to a client';
-  return [clientRate(client, defaultRate), client.email]
+  return [
+    clientRate(client, defaultRate),
+    // Like the rate: an archived client bills nothing new.
+    client.billingSchedule && client.archivedAt == null
+      ? `Billed ${BILLING_PERIOD_LABELS[client.billingSchedule.period].toLowerCase()}`
+      : null,
+    client.email,
+  ]
     .filter(Boolean)
     .join(' · ');
 }

@@ -109,6 +109,7 @@ const client = (c: Partial<Client> & Pick<Client, 'id' | 'name'>): Client => ({
   currency: 'USD',
   color: null,
   paymentProfileId: null,
+  billingSchedule: null,
   archivedAt: null,
   ...c,
 });

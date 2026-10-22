@@ -554,6 +554,17 @@ test('a new invoice defaults to the month whose last day is nearest', () => {
   }
 });
 
+test("a scheduled client's new invoice starts on its last ended period", () => {
+  assert.deepEqual(defaultInvoicePeriod('2026-10-29', { period: 'monthly' }), {
+    periodStart: '2026-09-01',
+    periodEnd: '2026-09-30',
+  });
+  assert.deepEqual(defaultInvoicePeriod('2026-10-29', null), {
+    periodStart: '2026-10-01',
+    periodEnd: '2026-10-31',
+  });
+});
+
 // The PDF prints the terms beside the due date, so the default due date
 // must not contradict them.
 test('a new invoice is due when its payment terms say', () => {

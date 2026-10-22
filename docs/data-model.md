@@ -102,6 +102,11 @@ it. **Any future definer function needs the same treatment.**
 ### `clients`
 Billing entity. `hourly_rate`, `tax_rate` and `currency` are all nullable —
 null means "fall back". `color` is here because color identifies a client.
+`billing_period` is how often its contract bills it, null for no schedule;
+weekly and biweekly count from `period_anchor`, which the
+`billing_period_anchor` check requires for them and refuses for the others.
+A new invoice's period defaults from it, and one off the schedule is hinted
+at, never refused.
 
 ### `projects`
 `client_id` is **nullable** — that is how internal/unbilled work is modeled.
