@@ -28,7 +28,7 @@ time.
 
 ## Phase 1: Setup
 
-- [X] T001 Confirm the worktree runs: `pnpm install`, `pnpm dev:up`, and the dev server started in the background from `/Users/blakeeriks/dev/stint-f188-invoice-summary`
+- [X] T001 Confirm the worktree runs: `pnpm install`, `pnpm dev:up`, and the dev server started in the background from the `stint-f188-invoice-summary` worktree
 
 ---
 
@@ -40,7 +40,7 @@ None. The migration ships with US1 (research R2); every later story builds on it
 
 ## Phase 3: User Story 1 — One summary line and a clean total (P1) 🎯 MVP
 
-**Goal**: "Show time as" offers One summary line, which bills one line per rate carrying Blake's text.
+**Goal**: "Show time as" offers One summary line, which bills one line per rate carrying the contractor's text.
 
 **Independent Test**: Generate a month at one rate with One summary line; the invoice has exactly one time line, whose hours and amount equal the month's billable total.
 

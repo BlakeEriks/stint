@@ -48,8 +48,8 @@ beforeEach(async () => {
   await pool.query(
     `update user_settings set default_hourly_rate=100, currency='USD',
      invoice_number_prefix='INV-', next_invoice_number=1,
-     default_payment_terms='Net 30', business_name='Blake Eriks',
-     business_email='blake@test'
+     default_payment_terms='Net 30', business_name='Sam Rivera',
+     business_email='sam@test'
      where user_id=$1`,
     [USER],
   );
@@ -305,9 +305,9 @@ test('generation refuses without a business name or email, and writes nothing', 
   await seedEntry({ id: E(1), hours: 1 });
 
   for (const [name, email] of [
-    [null, 'blake@test'],
-    ['  ', 'blake@test'],
-    ['Blake Eriks', null],
+    [null, 'sam@test'],
+    ['  ', 'sam@test'],
+    ['Sam Rivera', null],
   ]) {
     await pool.query(
       'update user_settings set business_name=$2, business_email=$3 where user_id=$1',
@@ -983,7 +983,7 @@ test('every page is US Letter, and no detail page overflows', async () => {
     notes: null,
     paymentTerms: null,
     business: {
-      name: 'Blake Eriks',
+      name: 'Sam Rivera',
       address: null,
       email: null,
       logoUrl: null,
@@ -1302,7 +1302,7 @@ test('every page of a long invoice shows its footer at the bottom', async () => 
     notes: null,
     paymentTerms: null,
     business: {
-      name: 'Blake Eriks',
+      name: 'Sam Rivera',
       address: null,
       email: null,
       logoUrl: null,
@@ -1526,7 +1526,7 @@ test('an invoice freezes the payment profile at generation', async () => {
   await pool.query(
     `insert into payment_profiles (id,user_id,name,is_default,account_holder_name,
        bank_name,account_number,routing_number,account_type)
-     values ($1,$2,'USD ACH',true,'Blake Eriks','First Republic','1234567890','021000021','checking')`,
+     values ($1,$2,'USD ACH',true,'Sam Rivera','First Republic','1234567890','021000021','checking')`,
     ['dd000000-0000-4000-8000-000000000001', USER],
   );
   await seedEntry({ id: E(1), hours: 1 });
@@ -1613,7 +1613,7 @@ test('an invoice freezes the business and client details at generation', async (
   const params = { params: Promise.resolve({ id: inv.body.id }) };
   const read = await json(await detail(req('/i'), params));
   assert.deepEqual(read.body.business, {
-    name: 'Blake Eriks',
+    name: 'Sam Rivera',
     address: '1 Old St',
     email: 'old@me.test',
     logoUrl: null,
@@ -1630,7 +1630,7 @@ test('an invoice freezes the business and client details at generation', async (
     .flat()
     .map((r) => r.text)
     .join('');
-  for (const kept of ['Blake Eriks', '1 Old St', 'Northwind', '9 Bay Rd'])
+  for (const kept of ['Sam Rivera', '1 Old St', 'Northwind', '9 Bay Rd'])
     assert.ok(printed.includes(kept), `the PDF still prints ${kept}`);
   for (const edited of ['Renamed LLC', '2 New Ave', 'Southwind', '5 Moved Ln'])
     assert.ok(!printed.includes(edited), `the PDF never prints ${edited}`);

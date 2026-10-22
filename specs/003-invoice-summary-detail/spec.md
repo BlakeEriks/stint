@@ -9,7 +9,7 @@ Closes #188
 **Status**: Draft
 
 **Input**: GitHub issue #188 ("Invoice: a one-line summary with supporting
-detail below the total"), and invoice 2026-001 to SystemSphere, which Blake
+detail below the total"), and invoice 2026-001 to SystemSphere, which the contractor
 built by hand because Stint could not produce it
 
 ## Design
@@ -80,8 +80,8 @@ screen in the app's frame on a 16" laptop.
 
 ### User Story 1 - One summary line and a clean total (Priority: P1)
 
-Blake bills one client by the hour at one rate across eight workstreams. On
-New invoice he picks "One summary line" under "Show time as" and types
+The contractor bills one client by the hour at one rate across eight workstreams. On
+New invoice they pick "One summary line" under "Show time as" and type
 "Software consulting services". The invoice has one time line with that text,
 the total hours, the rate and the amount, and the total sits under it.
 
@@ -95,24 +95,24 @@ and amount equal the month's billable total.
 
 **Acceptance Scenarios**:
 
-1. **Given** billable entries in the period all at $80.00, **When** Blake
+1. **Given** billable entries in the period all at $80.00, **When** the contractor
    picks One summary line and types its text, **Then** the preview shows one
    time line with that text, the period's total hours, $80.00 and the summed
    amount.
-2. **Given** entries at $80.00 and others at $120.00, **When** Blake picks One
+2. **Given** entries at $80.00 and others at $120.00, **When** the contractor picks One
    summary line, **Then** there are two lines, one per rate, each with the
    same text and its own hours and amount.
-3. **Given** One summary line is picked and its text is empty, **When** Blake
+3. **Given** One summary line is picked and its text is empty, **When** the contractor
    looks at the form, **Then** the field says "Give the summary line its
    text." and Generate is disabled.
-4. **Given** an issued summary invoice, **When** Blake opens it later,
+4. **Given** an issued summary invoice, **When** the contractor opens it later,
    **Then** the line reads exactly as issued.
 
 ---
 
 ### User Story 2 - Supporting detail from page 2 (Priority: P2)
 
-With One summary line picked, Blake ticks Hours by project and Hours by date.
+With One summary line picked, the contractor ticks Hours by project and Hours by date.
 Page 1 of the PDF holds only the invoice. Each ticked schedule follows from
 page 2 and shows hours, never money.
 
@@ -138,18 +138,18 @@ same invoice with nothing ticked.
    heading repeats with "(continued)" and its column headings repeat, and each
    detail page carries the running header "Supporting detail · Invoice no ·
    client · period".
-6. **Given** a grouping other than One summary line, **When** Blake looks at
+6. **Given** a grouping other than One summary line, **When** the contractor looks at
    the form, **Then** there is no Attach choice.
 7. **Given** an issued invoice with schedules, **When** it is downloaded
    again, **Then** the schedules are identical.
-8. **Given** an invoice with schedules, **When** Blake opens its detail
+8. **Given** an invoice with schedules, **When** the contractor opens its detail
    screen, **Then** the screen names the attached schedules.
 
 ---
 
 ### User Story 3 - A live preview beside the form (Priority: P3)
 
-Blake builds the invoice while watching it. Every change shows in the preview
+The contractor builds the invoice while watching it. Every change shows in the preview
 as the page will print it, without a Preview button.
 
 **Why this priority**: The summary line, reference and schedules only make
@@ -164,15 +164,15 @@ matches the generated PDF's information.
 1. **Given** a client is chosen, **When** the screen shows, **Then** the
    preview shows the business block, No. (the next number), Issued (today),
    Due, Bill to, Engagement, lines, totals and payment details.
-2. **Given** Blake types a reference or ticks a schedule, **When** he does,
+2. **Given** the contractor types a reference or ticks a schedule, **When** they do,
    **Then** the preview changes in the same frame.
-3. **Given** Blake changes the grouping, the summary text, an expense tick or
-   a charge, **When** he does, **Then** the preview says "Updating…" with its
+3. **Given** the contractor changes the grouping, the summary text, an expense tick or
+   a charge, **When** they do, **Then** the preview says "Updating…" with its
    figures dimmed until the server answers, and Generate is disabled until
    then.
 4. **Given** no client is chosen, **When** the screen shows, **Then** Generate
    is disabled.
-5. **Given** a panel 840px or wider, **When** Blake scrolls the form or the
+5. **Given** a panel 840px or wider, **When** the contractor scrolls the form or the
    preview, **Then** the other stays where it was; narrower, the preview
    follows the form.
 
@@ -180,7 +180,7 @@ matches the generated PDF's information.
 
 ### User Story 4 - PO / SOW reference (Priority: P4)
 
-Blake types "ICA dated Aug 5, 2026 · Exhibit A SOW" into Reference. It prints
+The contractor types "ICA dated Aug 5, 2026 · Exhibit A SOW" into Reference. It prints
 under Service period in the invoice header.
 
 **Why this priority**: Accounts payable often matches an invoice to a purchase
@@ -200,7 +200,7 @@ it. Generate one without; the header has no Reference row.
 
 ### User Story 5 - Expenses, charges and payment details in the form (Priority: P5)
 
-Blake ticks this month's expenses, edits one, adds a charge and picks which
+The contractor ticks this month's expenses, edits one, adds a charge and picks which
 payment details the invoice prints, all without leaving New invoice.
 
 **Why this priority**: Each already exists elsewhere; bringing them into the
@@ -211,18 +211,18 @@ payment profile; the generated invoice bills both and prints that profile.
 
 **Acceptance Scenarios**:
 
-1. **Given** an expense row, **When** Blake presses its name, **Then** the
+1. **Given** an expense row, **When** the contractor presses its name, **Then** the
    expense dialog opens for it.
-2. **Given** "+ Add an expense", **When** Blake saves a new expense, **Then**
+2. **Given** "+ Add an expense", **When** the contractor saves a new expense, **Then**
    it appears in the list, ticked.
-3. **Given** "+ Add a charge", **When** Blake saves a description and amount,
+3. **Given** "+ Add a charge", **When** the contractor saves a description and amount,
    **Then** the charge appears in the list and in the preview.
-4. **Given** an existing charge, **When** Blake opens it and presses Remove,
+4. **Given** an existing charge, **When** the contractor opens it and presses Remove,
    **Then** it leaves the list and the preview.
 5. **Given** a client with its own payment profile, **When** the form opens
    for that client, **Then** the picker holds that profile; otherwise it
    holds the default.
-6. **Given** "+ New payment details", **When** Blake saves a profile, **Then**
+6. **Given** "+ New payment details", **When** the contractor saves a profile, **Then**
    the picker selects it.
 7. **Given** a chosen profile, **When** the invoice is generated, **Then** the
    invoice freezes and prints that profile.
@@ -341,7 +341,7 @@ payment profile; the generated invoice bills both and prints that profile.
 
 ### Measurable Outcomes
 
-- **SC-001**: Blake can reproduce invoice 2026-001 to SystemSphere in Stint:
+- **SC-001**: The contractor can reproduce invoice 2026-001 to SystemSphere in Stint:
   one services line, one expense, the reference, and schedules by project, by
   week and by date from page 2.
 - **SC-002**: A month of work at one rate yields a page 1 with one time line,

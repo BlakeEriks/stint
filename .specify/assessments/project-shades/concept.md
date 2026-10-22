@@ -26,14 +26,14 @@
 
 ## Recommendation
 
-**Do not proceed.** Blake confirmed the pain is that the page looks flat, and
+**Do not proceed.** The owner confirmed the pain is that the page looks flat, and
 that no information is missing. Every option that fixes it spends a
 structural change (API, tokens, legend, a core design rule) on an aesthetic
 problem, and each one blurs the rule that color answers only "whose work is
 this?". The Feature form's gate rejects annoyance, and nothing shows a
 contractor signs up or leaves over it.
 
-If flatness keeps bothering Blake, file it as an `enhancement` against the
+If flatness keeps bothering the owner, file it as an `enhancement` against the
 home panel's design, with color out of bounds, and let that issue find a
 non-color answer.
 
@@ -44,5 +44,5 @@ non-color answer.
 
 ## Assumptions to Validate
 
-- A single-client user never needs color to tell projects apart. Blake said so for himself; no second user has said otherwise.
+- A single-client user never needs color to tell projects apart. The owner said so of their own page; no second user has said otherwise.
 - The flatness is cosmetic and costs no sign-ups or retention.

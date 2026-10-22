@@ -413,7 +413,7 @@ export const ScrollsApart: Story = {
 
 // ── one summary line ───────────────────────────────────────────────
 
-/** All the time at one rate is one line of Blake's text (US1 scenario 1). */
+/** All the time at one rate is one line of the contractor's text (US1 scenario 1). */
 export const OneSummaryLine: Story = {
   ...desktop,
   parameters: {

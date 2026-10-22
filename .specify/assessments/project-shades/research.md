@@ -6,7 +6,7 @@
 
 ## Users & Demand
 
-- Blake, the only user, has one client and sees one color across the home page. — [source: chat, 2026-09-28] (confidence: high)
+- The owner, the only user, has one client and sees one color across the home page. — [source: chat, 2026-09-28] (confidence: high)
 - One client with several projects is called "the common solo shape"; that user's month strip is one flat segment and their heatmap one color. — [source: issue #66] (confidence: medium — stated, not measured)
 - No other user has asked for it; the product is pre-Alpha. — [source: `gh issue list --search color`, no milestone on #66] (confidence: high)
 - It is not known whether a single-client user needs to tell projects apart by color, or whether the names already drawn are enough. — ASSUMPTION gap (confidence: low)

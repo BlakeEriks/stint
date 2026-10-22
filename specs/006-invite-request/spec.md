@@ -12,7 +12,7 @@ Closes #55
 ask". Sign-in no longer creates accounts (#271), so the gate holds. But the
 landing page's "Start tracking — free" still sends a stranger to a sign-in
 form that turns them away, and nothing on the page lets them ask in. The page
-should capture their address. Blake reads the list and invites from it, which
+should capture their address. The owner reads the list and invites from it, which
 is all invite-only means at a dozen people. Collecting addresses goes through
 a form service, not a table and a route: an unauthenticated write to our own
 database would need rate limiting so spammers can't abuse it, and an alpha
@@ -24,7 +24,7 @@ tedious to read.
 Design review: skipped in autonomous run; follows the existing landing page
 and `.claude/rules/web-ui.md`.
 
-- **The control** (decided autonomously — Blake to review): each call to
+- **The control** (decided autonomously): each call to
   action becomes the form itself, an email field and a "Request an invite"
   button in the accent, in the hero and in the closing section. Pressing the
   call to action is sending the address; there's no step between.
@@ -46,7 +46,7 @@ and `.claude/rules/web-ui.md`.
 
 ### Autonomous decisions, 2026-10-12
 
-- Form service (decided autonomously — Blake to review): Formspree's free
+- Form service (decided autonomously): Formspree's free
   plan. It accepts a cross-origin POST from a static page and answers JSON
   when asked, so the page stays put. It emails each submission and lists
   them with timestamps in its dashboard, and costs nothing at 50 submissions
@@ -54,7 +54,7 @@ and `.claude/rules/web-ui.md`.
   still reaches the list, landing on Formspree's thank-you page. Web3Forms
   and Basin also fit; Formspree is the longest-running and answers errors
   in a shape the page can tell from success.
-- Without JavaScript (decided autonomously — Blake to review): the form
+- Without JavaScript (decided autonomously): the form
   posts to Formspree and the visitor lands on its thank-you page. The edge
   case's promise is that the address reaches the list, and it does.
 
@@ -79,7 +79,7 @@ Signing in doesn't come up.
 live on the domain: every interested visitor reaches a dead end.
 
 **Independent Test**: On the landing page, request an invite with a new
-address. Confirm the page acknowledges it and the address reaches Blake's
+address. Confirm the page acknowledges it and the address reaches the owner's
 list. Confirm no account exists for that address.
 
 **Acceptance Scenarios**:
@@ -90,7 +90,7 @@ list. Confirm no account exists for that address.
 2. **Given** a valid address, **When** they send it, **Then** the control
    shows a pending state until the result is known, and the page then
    confirms the request and says an invite arrives by email if accepted.
-3. **Given** a sent request, **When** Blake checks the list, **Then** the
+3. **Given** a sent request, **When** the owner checks the list, **Then** the
    address is on it, with when it was sent.
 4. **Given** an address that isn't a valid email, **When** they try to send
    it, **Then** the form says so and sends nothing.
@@ -102,7 +102,7 @@ list. Confirm no account exists for that address.
 
 ### User Story 2 - An invited user still signs in (Priority: P2)
 
-Someone Blake already invited comes back to the landing page to sign in. The
+Someone the owner already invited comes back to the landing page to sign in. The
 header's Sign in link still takes them to the sign-in form.
 
 **Why this priority**: Invited users must not lose their way in, but the
@@ -122,7 +122,7 @@ magic-link sign-in as an invited user.
 
 A stranger who goes straight to sign-in and enters an address without an
 account is told Stint is invite-only. The message links to the invite
-request instead of telling them to "ask Blake", which a stranger can't do.
+request instead of telling them to "ask the owner", which a stranger can't do.
 
 **Why this priority**: It covers a side door. Most visitors arrive through
 the landing page.
@@ -138,7 +138,7 @@ the refusal links to the invite request.
 
 ### Edge Cases
 
-- The same address asks twice: both requests reach the list, and Blake
+- The same address asks twice: both requests reach the list, and the owner
   ignores the duplicate. The visitor sees the same confirmation each time.
 - An already invited address asks: it lands on the list like any other.
   Sign-in still works for it.
@@ -157,7 +157,7 @@ the refusal links to the invite request.
   nothing else.
 - **FR-003**: The form MUST be on the landing page, in Stint's own design,
   not the service's hosted page or embedded widget. It sends to a hosted
-  form service that Blake reads and gets notified from, and nothing is
+  form service that the owner reads and gets notified from, and nothing is
   written to Stint's database. The visitor never leaves the page.
 - **FR-004**: The form service MUST cost nothing at alpha volume (no new
   fixed cost, constitution).
@@ -186,7 +186,7 @@ the refusal links to the invite request.
 - **SC-001**: A visitor can request an invite in under 30 seconds from
   landing on the page.
 - **SC-002**: No path on the landing page creates an account.
-- **SC-003**: Every request reaches Blake's list, and he's notified of it.
+- **SC-003**: Every request reaches the owner's list, and they're notified of it.
 - **SC-004**: An invited user signs in from the landing page with the same
   number of steps as before.
 
@@ -195,7 +195,7 @@ the refusal links to the invite request.
 - The account gate is already in place: sign-up is off, and accounts come
   from the Supabase dashboard's invite (#271, `docs/setup.md`). This feature
   doesn't touch it.
-- Blake invites by hand from the list. Nothing is automated between a
+- The owner invites by hand from the list. Nothing is automated between a
   request and an invite.
 - The visitor gets no confirmation email, only the confirmation on the page.
   The invite email is the only email they get.

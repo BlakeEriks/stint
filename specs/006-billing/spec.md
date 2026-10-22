@@ -45,11 +45,10 @@ Design review: skipped in autonomous run; follows existing Settings and
   economic-nexus threshold (typically $100,000 or 200 transactions a year)
   is in reach of the 15-subscriber bet, and the processor's free threshold
   monitoring says when one is. The open question is the operator's home
-  state, where nexus is physical: about half of states tax SaaS, so Blake
-  confirms his state's rule before live keys. If it taxes SaaS, tax is
+  state, where nexus is physical: about half of states tax SaaS, so the owner
+  confirms their state's rule before live keys. If it taxes SaaS, tax is
   added at checkout (exclusive), never folded into the $40, so the
-  advertised price stays the price. (decided autonomously — Blake to
-  review)
+  advertised price stays the price. (decided autonomously)
 - Q: What must `/terms` state now that the charge recurs? → A: A Billing
   clause replacing today's "Price" clause, which promises Stint stays free
   and is now wrong: the price and that it is billed yearly in advance; that
@@ -61,22 +60,22 @@ Design review: skipped in autonomous run; follows existing Settings and
   away records or invoices already generated. The draft is marked in the
   page source as needing legal review. This follows the FTC's
   negative-option guidance and California's automatic-renewal law, the
-  strictest state rule. (decided autonomously — Blake to review)
+  strictest state rule. (decided autonomously)
 - Q: What refund does a subscriber get? → A: A full refund on request within
-  30 days of any charge, first payment or renewal, which Blake issues from
+  30 days of any charge, first payment or renewal, which the owner issues from
   the processor's dashboard; none after. No partial refund on cancel, since
   the paid tier runs to the end of the year. A forgotten renewal is the
   usual complaint about an annual plan, and a refund window answers it
-  without building anything. (decided autonomously — Blake to review)
+  without building anything. (decided autonomously)
 - Q: Where does the upgrade screen live? → A: A Plan section in Settings,
   not its own route. One subscription with one price needs no comparison
   page, and Settings is where a user already looks for their account.
-  (decided autonomously — Blake to review)
+  (decided autonomously)
 - Q: How long is a failed renewal retried before the subscription ends? →
   A: The processor's recommended Smart Retries, up to 8 attempts over 2
   weeks, with its failed-payment emails on; after the last failure the
   subscription is canceled. The user stays paid throughout. (decided
-  autonomously — Blake to review)
+  autonomously)
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -204,9 +203,9 @@ and the plan becomes free when retries are exhausted.
 - Two Subscribe presses, or two tabs: one customer per user, and Subscribe
   is refused once the user is paid. Two payment pages completed in the same
   moment would make two subscriptions; the server keeps the paid one and
-  reports the duplicate for Blake to refund.
+  reports the duplicate for the owner to refund.
 - Billing not configured (no processor keys in the environment, as on every
-  deploy until Blake sets it up): the plan section doesn't show, and the
+  deploy until the owner sets it up): the plan section doesn't show, and the
   rest of the app is unaffected.
 - The processor is down when Subscribe is pressed: the control's pending
   state ends and the app says why; nothing is recorded.
@@ -294,10 +293,10 @@ and the plan becomes free when retries are exhausted.
 
 - No free trial: tracking is free and complete, so the free tier is the
   trial (`docs/positioning.md`).
-- Stripe is the processor, in test mode until Blake configures live keys.
+- Stripe is the processor, in test mode until the owner configures live keys.
   Its hosted Checkout and Customer Portal, Smart Retries and failed-payment
   and renewal-reminder emails are used rather than built.
 - Billing is web-only. The macOS app shows no plan; a Mac user subscribes
   from the web.
-- During Alpha the section stays dark: Blake configures billing when #61's
+- During Alpha the section stays dark: the owner configures billing when #61's
   gate is ready, so nobody pays before there's something to pay for.

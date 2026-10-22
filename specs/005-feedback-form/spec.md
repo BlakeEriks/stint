@@ -36,7 +36,7 @@ using the app quietly instead.
 
 - Q: Is feedback on web only, or on web and macOS together? → A: Web only;
   macOS comes later.
-- Q: Where do submissions land? → A: A table in our database, which Blake
+- Q: Where do submissions land? → A: A table in our database, which the owner
   reads in the database dashboard. Alpha has no notification.
 
 ## User Scenarios & Testing *(mandatory)*
@@ -70,7 +70,7 @@ version attached.
 
 ### User Story 2 - We get enough to act without asking back (Priority: P1)
 
-Blake reads a submission and knows who sent it, from which screen, on which
+The owner reads a submission and knows who sent it, from which screen, on which
 app and version, and when, without writing back to ask.
 
 **Why this priority**: A message with no context costs us a round trip with
@@ -81,10 +81,10 @@ confirm each submission names its user, screen, client, version and time.
 
 **Acceptance Scenarios**:
 
-1. **Given** a sent message, **When** Blake reads it, **Then** it shows the
+1. **Given** a sent message, **When** the owner reads it, **Then** it shows the
    sender's account, the screen it was sent from, the client (web or macOS),
    the app version and the time it was sent.
-2. **Given** a user who wrote nothing about their setup, **When** Blake reads
+2. **Given** a user who wrote nothing about their setup, **When** the owner reads
    it, **Then** the attached context is still complete, because the user
    never typed it.
 
@@ -114,7 +114,7 @@ confirm each submission names its user, screen, client, version and time.
 - **FR-004**: Feedback MUST be available in the web app. The macOS app is
   out of scope until a later feature; its users send feedback from the web.
 - **FR-005**: Submissions MUST go through the shared API (Constitution III)
-  and be stored in our own database, where Blake reads them in the database
+  and be stored in our own database, where the owner reads them in the database
   dashboard. No email, issue or third party receives them, so a user's words
   never leave where their other data lives.
 - **FR-006**: Sending MUST show a pending state on the send control until the
@@ -136,8 +136,8 @@ confirm each submission names its user, screen, client, version and time.
   without losing their place.
 - **SC-002**: Every submission names its sender, screen, client and version,
   with no follow-up needed to learn them.
-- **SC-003**: Blake can see every submission, newest first with its context,
-  in one place he already uses, with no new tool or account.
+- **SC-003**: The owner can see every submission, newest first with its context,
+  in one place they already use, with no new tool or account.
 - **SC-004**: No submission is ever lost or duplicated.
 
 ## Assumptions
@@ -146,9 +146,9 @@ confirm each submission names its user, screen, client, version and time.
   and client names, and the screen name carries the context.
 - Category pickers (bug or idea) are left out. The message says which, and a
   field nobody fills in only slows the send down.
-- The user gets no reply inside the app. Blake answers by email from the
-  account address when he needs to.
-- Alpha has no notification for a new submission. Blake checks the table,
+- The user gets no reply inside the app. The owner answers by email from the
+  account address when they need to.
+- Alpha has no notification for a new submission. The owner checks the table,
   and a notification is worth adding when checking gets tedious.
 - The existing app version string (shown in the nav today) is the version
   that gets recorded.

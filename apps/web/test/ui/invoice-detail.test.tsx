@@ -40,7 +40,7 @@ function invoice(status: InvoiceStatus, sentAt: string | null = null): Invoice {
     supportingDetail: null,
     paymentDetails: null,
     business: {
-      name: 'Blake Eriks',
+      name: 'Sam Rivera',
       address: null,
       email: null,
       logoUrl: null,
