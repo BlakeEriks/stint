@@ -3327,6 +3327,13 @@ test('a draft generated beside an earlier open one keeps its total on its first 
     [[D(11)], august.body.id],
   );
 
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  const approved = await json(
+    await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(approved.body.total, 165, 'the preview is what generates');
   const september = await json(
     await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
   );

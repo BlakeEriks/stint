@@ -456,6 +456,7 @@ export async function computeInvoice(
   return {
     client,
     settings,
+    entries,
     totals,
     // Bucketed now, so a project renamed or an invoice voided later cannot
     // change what the client was sent.
