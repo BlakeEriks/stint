@@ -113,6 +113,22 @@ export const NextNumberForwardOnly: Story = {
   },
 };
 
+/** Past the ceiling is refused the same way: the field says why and shows
+    the number the next invoice takes. */
+export const NextNumberCeiling: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const field = await page.findByLabelText('Next number');
+    await userEvent.clear(field);
+    await userEvent.type(field, '1000000');
+    await expect(
+      await page.findByText(/can't go above 999999/, {}, { timeout: 3000 }),
+    ).toBeVisible();
+    await expect(field).toHaveValue(16);
+  },
+};
+
 export const Failed: Story = { ...desktop, parameters: failing('settings') };
 
 /** Appearance is one row: System, which follows the OS, Light and Dark,

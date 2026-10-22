@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { NEXT_INVOICE_NUMBER_MAX } from '@stint/schema';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Monitor, Moon, Sun } from 'lucide-react';
@@ -219,7 +220,7 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
               id="next-number"
               type="number"
               min={server?.nextInvoiceNumber ?? 1}
-              max={999999}
+              max={NEXT_INVOICE_NUMBER_MAX}
               step="1"
               value={next}
               onChange={(e) => {

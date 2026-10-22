@@ -8,7 +8,7 @@ import {
   toColumns,
   SETTINGS_FIELDS,
 } from '@/lib/rows';
-import { UpdateSettings } from '@stint/schema';
+import { NEXT_INVOICE_NUMBER_MAX, UpdateSettings } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +41,14 @@ export const PATCH = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
   const patch = await parseBody(req, UpdateSettings);
 
+  const next = patch.nextInvoiceNumber;
+  if (next !== undefined && next > NEXT_INVOICE_NUMBER_MAX) {
+    throw await refusal(
+      db,
+      `The next number can't go above ${NEXT_INVOICE_NUMBER_MAX}.`,
+    );
+  }
+
   const update = toColumns(patch, SETTINGS_FIELDS);
   if (Object.keys(update).length === 0) {
     throw new ApiError('VALIDATION_FAILED', 'No fields to update');
@@ -51,34 +59,40 @@ export const PATCH = handle(async (req: Request) => {
      as an invoice takes the number. Going back would reissue a number a
      client may already have; `invoice_number_unique_per_user` refuses that
      too, but only at Generate. */
-  const next = patch.nextInvoiceNumber;
   if (next !== undefined) query = query.lte('next_invoice_number', next);
 
   const { data, error } = await query.select(SETTINGS_COLUMNS).maybeSingle();
 
   if (error) throw error;
-  if (!data) throw await notUpdated(db, next);
+  if (!data) {
+    throw next === undefined
+      ? new ApiError('ENTRY_NOT_FOUND', 'Settings not found')
+      : await refusal(
+          db,
+          (current) =>
+            `The next number can't go below ${current}, or an invoice could repeat a number already sent.`,
+        );
+  }
 
   return NextResponse.json(toSettings(data));
 });
 
-/** Why the update matched no row: the number went back, or there is none. */
-async function notUpdated(
+/** A refused `nextInvoiceNumber`, naming the field and the number it
+    stays at, so the form can say why there and show that number again. */
+async function refusal(
   db: Awaited<ReturnType<typeof requireSession>>['db'],
-  next: number | undefined,
+  message: string | ((current: number) => string),
 ) {
   const { data, error } = await db
     .from('user_settings')
     .select('next_invoice_number')
     .maybeSingle();
   if (error) throw error;
-  if (!data || next === undefined) {
-    return new ApiError('ENTRY_NOT_FOUND', 'Settings not found');
-  }
+  if (!data) return new ApiError('ENTRY_NOT_FOUND', 'Settings not found');
   const current = data.next_invoice_number;
   return new ApiError(
     'VALIDATION_FAILED',
-    `The next number can't go below ${current}, or an invoice could repeat a number already sent.`,
+    typeof message === 'string' ? message : message(current),
     { field: 'nextInvoiceNumber', current },
   );
 }

@@ -1213,8 +1213,6 @@ test('the next invoice number moves forward only', async () => {
   assert.equal(alloc[0].sequence_no, 3, 'the next invoice takes it');
 });
 
-/* The column is an integer and a step back is refused, so a number near its
-   limit could never be undone and would overflow at Generate. */
 test('the next invoice number has a ceiling', async () => {
   const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
 
@@ -1223,6 +1221,11 @@ test('the next invoice number has a ceiling', async () => {
   );
   assert.equal(res.status, 422);
   assert.equal(res.body.code, 'VALIDATION_FAILED');
+  assert.deepEqual(
+    res.body.details,
+    { field: 'nextInvoiceNumber', current: 1 },
+    'refused like a step back, so the form can say why at the field',
+  );
 
   const { rows } = await pool.query(
     'select next_invoice_number from user_settings where user_id=$1',

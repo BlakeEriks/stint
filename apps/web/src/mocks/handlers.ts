@@ -721,14 +721,19 @@ export const handlers = {
       return fail('VALIDATION_FAILED', 'Request body failed validation');
     const input = parsed.data;
     const current = db.settings.nextInvoiceNumber;
-    if (
-      input.nextInvoiceNumber !== undefined &&
-      input.nextInvoiceNumber < current
-    )
-      return fail(
-        'VALIDATION_FAILED',
+    const next = input.nextInvoiceNumber;
+    const refused = (message: string) =>
+      fail('VALIDATION_FAILED', message, {
+        field: 'nextInvoiceNumber',
+        current,
+      });
+    if (next !== undefined && next > schema.NEXT_INVOICE_NUMBER_MAX)
+      return refused(
+        `The next number can't go above ${schema.NEXT_INVOICE_NUMBER_MAX}.`,
+      );
+    if (next !== undefined && next < current)
+      return refused(
         `The next number can't go below ${current}, or an invoice could repeat a number already sent.`,
-        { field: 'nextInvoiceNumber', current },
       );
     db.settings = { ...db.settings, ...input };
     return ok(schema.Settings, db.settings);
