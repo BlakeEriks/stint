@@ -425,10 +425,13 @@ whatever the zone, so a wrong zone shifts dates rather than dropping work.
 
 **The invoicing routes reject an invalid one instead.** `POST /invoices/preview`
 and `POST /invoices` resolve the billing period in `tz`, and `POST /invoices`
-dates an invoice without an `issueDate` on that zone's today. The zone decides
-which entries are billed — falling back to UTC there would move the boundary by
-hours and put the wrong work on an invoice. An **omitted** `tz` still defaults
-to UTC, so a client that means a local period must send one.
+dates an invoice without an `issueDate` on that zone's today. `GET /invoices`,
+`GET /invoices/:id`, `/pdf` and `/status` refresh a draft, and a draft with no
+zone keeps the first one it is read in. The zone decides which entries are
+billed — falling back to UTC there would move the boundary by hours and put
+the wrong work on an invoice. An **omitted** `tz` defaults to UTC on the two
+`POST`s, so a client that means a local period must send one; on the others it
+leaves a zone-less draft as it stands.
 
 Day and week boundaries are computed by `@stint/core/calendar`, which resolves the
 offset **at the candidate instant** rather than the current one. Using the
