@@ -26,6 +26,17 @@ billing schedule (#432), and must also work for a client with no schedule.
 - Q: What happens when a new invoice's dates overlap an open draft for the same client? → A: New invoice says a draft already covers those dates, links to it, and Generate stays disabled until they no longer overlap.
 - Q: What does Mark sent do when the draft changed since its last download? → A: It warns, shows what changed (hours and total), and asks for the new PDF to be downloaded before the draft can be marked sent.
 
+## Design
+
+[draft.html](design/draft.html) · [new-invoice.html](design/new-invoice.html) · [inbox.html](design/inbox.html)
+
+- **Draft, up to date**: the header keeps Delete draft, Mark sent and Download PDF (primary). The hint under it says the draft keeps collecting its period until it's marked sent.
+- **Draft, changed since download**: a banner under the header, edged in the warning color, says it changed since you downloaded it, with the hours added and the old total struck through beside the new one. Mark sent is disabled until Download PDF is pressed; the banner has no button of its own. Lines added since the download are tinted on the invoice.
+- **Draft, never downloaded**: as up to date; Mark sent works as today.
+- **New invoice, overlapping a draft**: a line under the dates, in the warning color, names the draft's period and links to it; Generate invoice is disabled.
+- **Inbox, late work**: an item per late entry — client, date and hours; that it's dated in a sent invoice's period, naming it; Not billable and Open entry.
+- **Invoices list**: unchanged in layout; a draft's total and the outstanding total are the draft's current total. No badge for a changed draft.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - A draft picks up work logged after it was made (Priority: P1)
@@ -175,6 +186,8 @@ and see it in the inbox.
   and require the new PDF to be downloaded before the draft can be marked
   sent, so the frozen invoice is the one the client received. A draft never
   downloaded can be marked sent as today.
+- **FR-011**: The invoices list MUST show each draft's current total, and its
+  outstanding total MUST count drafts at their current totals.
 - **FR-010**: Every client (web and macOS) MUST read drafts and mark them
   sent through the same API.
 
