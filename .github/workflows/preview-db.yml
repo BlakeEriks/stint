@@ -7,11 +7,11 @@ name: preview-db
 # seeded in that scenario, which `&as=first-signin` signs into
 # (`scripts/preview-seed.sh`).
 #
-# The previews share one schema, so it belongs to the holder: the one open
-# PR labeled both `migration` and `ready-for-qa` (`/work-issues` gives the
-# label to one at a time). Any other PR whose diff touches
-# supabase/migrations is neither reset nor seeded, since its tables are not
-# there; labeling it `ready-for-qa` makes it the holder.
+# The previews share one schema, so it belongs to the holder: the open PR
+# labeled `ready-for-qa` whose diff touches supabase/migrations
+# (`/work-issues` gives that label to one such PR at a time). Any other PR
+# whose diff touches supabase/migrations is neither reset nor seeded, since
+# its tables are not there.
 #
 # Every other run seeds its PR's account from that branch. It first rebuilds
 # the schema — empty, migrate, reseed every open PR — when:
@@ -36,11 +36,6 @@ on:
     paths: ['supabase/migrations/**']
   workflow_dispatch:
 
-# One at a time: a reset racing a seed leaves an account half-written.
-concurrency:
-  group: preview-db
-  cancel-in-progress: false
-
 permissions:
   contents: read
   pull-requests: read
@@ -57,15 +52,20 @@ jobs:
     # A PR merged into main is handled by the push it makes. An edit reseeds
     # only an open PR's changed body: a title edit would reset a reviewer's
     # accounts for nothing, and a closed PR's merge ref is stale. A label
-    # matters only when it makes a migration PR the holder.
+    # matters only when it can make a migration PR the holder.
     if: >-
       github.actor != 'dependabot[bot]' &&
       !(github.event.action == 'closed' && github.event.pull_request.merged) &&
       (github.event.action != 'edited' ||
         (github.event.pull_request.state == 'open' && github.event.changes.body)) &&
       (github.event.action != 'labeled' ||
-        (github.event.label.name == 'ready-for-qa' &&
-          contains(github.event.pull_request.labels.*.name, 'migration')))
+        github.event.label.name == 'ready-for-qa')
+    # One at a time: a reset racing a seed leaves an account half-written.
+    # On the job, not the workflow, so a run its `if` skips never queues:
+    # a group keeps one waiting run, and a skipped one would cancel it.
+    concurrency:
+      group: preview-db
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     environment:
       name: Preview
@@ -97,14 +97,11 @@ jobs:
         env:
           BRANCH: ${{ github.head_ref }}
           EVENT: ${{ github.event_name }}
-          HOLDER: >-
-            ${{ contains(github.event.pull_request.labels.*.name, 'migration') &&
-              contains(github.event.pull_request.labels.*.name, 'ready-for-qa') }}
+          HOLDER: ${{ contains(github.event.pull_request.labels.*.name, 'ready-for-qa') }}
         run: |
           # One collation for both lists, or `comm` misreads them.
           export LC_ALL=C
 
-          # A migration PR that does not hold the database stops here.
           migrates=false
           if [ -n "$PR" ] && [ "$CLOSED" != true ] &&
              ! git diff --quiet HEAD^1 HEAD -- supabase/migrations; then
@@ -128,7 +125,7 @@ jobs:
           # and wiping every account.
           held=""
           if [ -n "$extra" ]; then
-            branches=$(gh pr list --state open --label migration --label ready-for-qa \
+            branches=$(gh pr list --state open --label ready-for-qa \
               --json headRefName -q '.[].headRefName')
             for branch in $branches; do
               git fetch --quiet --depth 1 origin "$branch"
@@ -181,9 +178,9 @@ jobs:
       - name: Reseed the other open PRs
         if: steps.plan.outputs.reset == 'true'
         run: |
-          gh pr list --state open --json number,headRefName,labels -q '.[] |
-              select(all(.labels[]; .name != "migration") or
-                any(.labels[]; .name == "ready-for-qa")) |
+          gh pr list --state open --json number,headRefName,labels,files -q '.[] |
+              select(any(.labels[]; .name == "ready-for-qa") or
+                all(.files[]; .path | startswith("supabase/migrations/") | not)) |
               "\(.number) \(.headRefName)"' |
           while read -r n branch; do
             [ "$n" = "$PR" ] && continue
