@@ -21,7 +21,7 @@ refresh while a timer runs.
 
 The contractor starts a timer on a rated project and leaves the home screen open.
 Every minute, Today's Earned and the running task's row grow together, and
-they never disagree. When he stops the timer, nothing jumps.
+they never disagree. When they stop the timer, nothing jumps.
 
 **Why this priority**: This is the screen and the contradiction that started
 the work: time grew while money sat at `$0.00`.

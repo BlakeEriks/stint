@@ -92,7 +92,7 @@ is `reviewed`.
 - **Each open PR of yours**, in order:
   1. **`needs-input`:** if feedback has arrived since the marked question,
      remove the label and treat the reply as feedback. Otherwise skip the PR.
-  2. **Feedback** — a comment or review newer than the last push
+  2. **Feedback** — the repo owner's comment or review, newer than the last push
      and the last marked comment: remove `ready-for-qa`, then a round of
      fixes. Feedback beyond the PR's scope becomes a new issue instead.
   3. **CI failed** (`gh pr checks <n>`): remove `ready-for-qa`. A red

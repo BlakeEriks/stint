@@ -85,7 +85,7 @@ Its rounds change only in where the page lives and how the reviewer answers:
   it and push the branch, so the draft survives the wait. Then stop and
   report `design-review: <absolute path>`. The loop publishes the page and
   asks on the issue. Step 3 cuts it into its screens' files and deletes it.
-- **Refine** on each reply on the issue, which comes back to you
+- **Refine** on each reply of the repo owner's on the issue, which comes back to you
   as a message: redraft the same file, commit, push, and report again.
 - **Record** on a pick or a reply that it's right: step 3, then go on to
   `speckit-plan`.

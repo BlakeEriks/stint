@@ -127,7 +127,7 @@ autonomously)", except:
 - **Design review** you start only when a screen has a real choice of
   layout or hierarchy that the reviewer should see before it is built; otherwise
   record the skip and why. To start one, follow `design-review`'s Unattended
-  section and report `design-review: <path>`. Each reply is a round of it.
+  section and report `design-review: <path>`. Each reply of the repo owner's is a round of it.
 
 A feature that needs an open PR's unmerged work branches off that PR's
 branch instead of `origin/main`.
