@@ -140,22 +140,10 @@ export function useTimer() {
   const settles = { ...timerPress, include: HOME };
 
   /* `id` comes from the caller so the prediction and the row the server
-     writes are the same entry.
-
-     A start pressed while a timer runs is pending: the server is likely to
-     refuse it, and a swap the 409 takes back reads as broken. It is still
-     sent, since this tab's `running` can be stale (stopped from the Mac), so
-     the server decides and its refusal reaches the notice. Read at the press
-     and carried with it, because a prediction re-renders this hook before
-     the request is made. */
-  const startPress = useOptimisticMutation<
-    StartVars & { whileRunning: boolean },
-    unknown,
-    Summary
-  >({
+     writes are the same entry. */
+  const start = useOptimisticMutation<StartVars, unknown, Summary>({
     ...settles,
-    mutationFn: ({ whileRunning: _, ...body }) => api.startTimer(body, HOME),
-    pending: (body) => body.whileRunning,
+    mutationFn: (body) => api.startTimer(body, HOME),
     predict: (current, body) => showing(current, started(body)),
     // Today's list shows the new row at once, as the bar does.
     alsoPredict: [
@@ -180,15 +168,6 @@ export function useTimer() {
     rateOverride: null,
     invoiceId: null,
   });
-  const start = {
-    ...startPress,
-    mutate: (
-      vars: StartVars,
-      options?: Parameters<typeof startPress.mutate>[1],
-    ) =>
-      startPress.mutate({ ...vars, whileRunning: running !== null }, options),
-  };
-
   /* The running row in every cached list finishes where the readout
      stopped, and today's bar takes the time since `/stats` measured it, at
      most the running entry's own, so

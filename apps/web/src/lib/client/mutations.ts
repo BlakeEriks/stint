@@ -22,9 +22,8 @@ import { keys } from './query-keys';
  *
  * - **Predicted** (`predict` given): the cache entry at `queryKey` shows the
  *   result at once. A rejection puts the snapshot back.
- * - **Pending** (`predict` omitted, or `pending` true for the press): for a
- *   result the client cannot know or cannot take back — the caller renders
- *   `isPending` on the control.
+ * - **Pending** (`predict` omitted): for a result the client cannot know or
+ *   cannot take back — the caller renders `isPending` on the control.
  *
  * This is TanStack Query's own optimistic-update pattern: `onMutate`
  * snapshots and writes, `onError` restores, `onSettled` refetches. Two
@@ -68,11 +67,6 @@ export interface OptimisticOptions<TVars, TData, TCache> {
     vars: TVars,
     key: QueryKey,
   ) => TCache | undefined;
-  /**
-   * Makes this one press pending though `predict` is given, for a press
-   * whose result the server will likely decide otherwise.
-   */
-  pending?: (vars: TVars) => boolean;
   /**
    * More caches the press predicts, beside `queryKey`'s: put back with them
    * on a rejection, and refreshed by `invalidate`.
@@ -164,14 +158,13 @@ export function useOptimisticMutation<
       },
     });
 
-  const predicts = (vars: TVars) =>
-    opts.predict !== undefined && !opts.pending?.(vars);
+  const predicts = opts.predict !== undefined;
 
   return useMutation<TData, Error, TVars, Context>({
     meta: { inline: opts.inline ?? false, movesHome: opts.movesHome ?? false },
     scope: opts.serial ? { id: opts.serial } : undefined,
     mutationFn: (vars) =>
-      predicts(vars)
+      predicts
         ? withTimeout(opts.mutationFn(vars), opts.timeoutMs ?? TIMEOUT_MS, () =>
             refetch(vars),
           )
@@ -195,15 +188,13 @@ export function useOptimisticMutation<
       ];
       const snapshot: Context['snapshot'] = [];
       for (const prediction of predictions) {
-        snapshot.push(
-          ...predictInto(queryClient, prediction, vars, predicts(vars)),
-        );
+        snapshot.push(...predictInto(queryClient, prediction, vars, predicts));
       }
       return { key, snapshot };
     },
     onError: (err, vars, ctx) => {
       opts.onError?.(err, vars);
-      if (predicts(vars) && ctx && inFlight(ctx.key) === 1) {
+      if (predicts && ctx && inFlight(ctx.key) === 1) {
         for (const [key, data] of ctx.snapshot)
           queryClient.setQueryData(key, data);
       }
