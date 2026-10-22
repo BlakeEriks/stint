@@ -194,7 +194,8 @@ and see it in the inbox.
 ### Key Entities
 
 - **Draft invoice**: a client, a period, a number, and the contractor's New
-  invoice choices; its lines are derived, not stored, until sent.
+  invoice choices; its lines are recomputed from its period's work each time
+  it is read, until sent.
 - **Sent invoice**: today's issued invoice — lines, rates and details frozen,
   entries and expenses attached.
 - **Late entry**: an unbilled billable entry dated inside a sent invoice's
