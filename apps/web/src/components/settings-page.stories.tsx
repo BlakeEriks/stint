@@ -109,6 +109,7 @@ export const NextNumberForwardOnly: Story = {
       await page.findByText(/can't go below 20/, {}, { timeout: 3000 }),
     ).toBeVisible();
     await expect(page.getByText('Not saved')).toBeVisible();
+    await expect(field).toHaveValue(20);
   },
 };
 

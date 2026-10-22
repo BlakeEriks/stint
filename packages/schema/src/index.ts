@@ -280,7 +280,10 @@ export const Settings = z.object({
   logoUrl: z.url().nullable(),
   defaultPaymentTerms: z.string().max(200),
   invoiceNumberPrefix: z.string().max(20),
-  nextInvoiceNumber: z.number().int().positive(),
+  /* Well under the integer column's limit: it moves forward only, so a
+     number near the limit could never be undone and would overflow when
+     `allocate_invoice_number()` adds one. */
+  nextInvoiceNumber: z.number().int().positive().max(999_999),
   /** Standing anti-fraud line printed under the invoice payment block. */
   paymentNotice: z.string().max(500).nullable(),
   /** When the welcome dialog was finished or skipped; null shows it. */

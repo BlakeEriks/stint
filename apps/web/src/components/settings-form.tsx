@@ -44,9 +44,21 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
   });
 
   const [form, setForm] = useState<Settings>(loaded);
+  /* Text, not the number: a cleared field is a step in typing a new one,
+     not a value to save. */
+  const [next, setNext] = useState(String(loaded.nextInvoiceNumber));
 
   const persist = async (patch: SettingsInput) => {
-    await api.updateSettings(patch);
+    try {
+      await api.updateSettings(patch);
+    } catch (e) {
+      /* A refused step back leaves the number the next invoice takes, so
+         a later save of another field never shows "Saved" beside one it
+         won't use. */
+      const current = refusedStepBack(e);
+      if (current !== undefined) setNext(String(current));
+      throw e;
+    }
     queryClient.invalidateQueries({ queryKey: keys.settings() });
     /* The default rate is an input to every figure on Home, and it is the
        last link of the chain every rollup bills through, so they all go. */
@@ -68,9 +80,6 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
   const setBilling = edit(billing);
   const setIdentity = edit(identity);
   const setNumbering = edit(numbering);
-  /* Text, not the number: a cleared field is a step in typing a new one,
-     not a value to save. */
-  const [next, setNext] = useState(String(loaded.nextInvoiceNumber));
   const nextError = forwardOnly(numbering.error);
 
   return (
@@ -210,6 +219,7 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
               id="next-number"
               type="number"
               min={server?.nextInvoiceNumber ?? 1}
+              max={999999}
               step="1"
               value={next}
               onChange={(e) => {
@@ -254,9 +264,16 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
   );
 }
 
+/** The current number, when the server refused a step back from it. */
+function refusedStepBack(error: unknown) {
+  if (!(error instanceof ApiError)) return undefined;
+  const details = error.details as
+    | { field?: string; current?: number }
+    | undefined;
+  return details?.field === 'nextInvoiceNumber' ? details.current : undefined;
+}
+
 /** The server's reason a step back was refused, for the field it names. */
 function forwardOnly(error: Error | null) {
-  if (!(error instanceof ApiError)) return undefined;
-  const details = error.details as { field?: string } | undefined;
-  return details?.field === 'nextInvoiceNumber' ? error.message : undefined;
+  return refusedStepBack(error) === undefined ? undefined : error?.message;
 }

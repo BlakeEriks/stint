@@ -716,7 +716,10 @@ export const handlers = {
 
   updateSettings: http.patch(`${API}/settings`, async ({ request }) => {
     const db = getDb();
-    const input = await body<Partial<Settings>>(request);
+    const parsed = schema.UpdateSettings.safeParse(await body(request));
+    if (!parsed.success)
+      return fail('VALIDATION_FAILED', 'Request body failed validation');
+    const input = parsed.data;
     const current = db.settings.nextInvoiceNumber;
     if (
       input.nextInvoiceNumber !== undefined &&
