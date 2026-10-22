@@ -389,7 +389,8 @@ export const api = {
     excludedExpenseIds?: string[];
   }) => request<InvoicePreview>('POST', '/invoices/preview', body),
 
-  /** Allocates the number, freezes line items and rates, locks the entries. */
+  /** Allocates the number and creates the draft, which bills its period's
+   *  work until it is sent. */
   createInvoice: (body: {
     clientId: string;
     periodStart: string;
