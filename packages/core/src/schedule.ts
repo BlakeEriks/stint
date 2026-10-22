@@ -4,8 +4,8 @@
  *
  * It sits after the invoice, from page 2, and never sums into it: the lines
  * are the amount owed, and these tables are how a project lead checks them.
- * Pure, so the preview and the invoice build the same tables; the invoice
- * freezes them at generation.
+ * Pure, so the preview and the invoice build the same tables; a draft
+ * rebuilds them on each refresh, and sending freezes them.
  */
 
 import { resolveRate } from './rates.ts';

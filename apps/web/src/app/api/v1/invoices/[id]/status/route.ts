@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { handle, ApiError, isCheckViolation } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
-import { parseBody } from '@/lib/validate';
+import { parseBody, parseQuery } from '@/lib/validate';
+import { refreshDraft } from '@/lib/invoicing';
 import { INVOICE_COLUMNS, toInvoice, type InvoiceRow } from '@/lib/rows';
-import { UpdateInvoiceStatus } from '@stint/schema';
+import { InvoiceReadQuery, UpdateInvoiceStatus } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,10 +52,11 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
   const { id } = await ctx.params;
   const body = await parseBody(req, UpdateInvoiceStatus);
+  const { tz } = parseQuery(req, InvoiceReadQuery);
 
   const { data: current, error } = await db
     .from('invoices')
-    .select('id, status, sent_at')
+    .select(INVOICE_COLUMNS)
     .eq('id', id)
     .maybeSingle();
 
@@ -62,6 +64,16 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   if (!current) throw new ApiError('ENTRY_NOT_FOUND', 'Invoice not found');
 
   const now = new Date();
+
+  /* A draft is sent as its period's work is now, refreshed and sent in one
+     transaction; one with no zone yet is sent as it stands. */
+  if (body.status === 'sent' && current.status === 'draft') {
+    const { row } = await refreshDraft(db, current as InvoiceRow, tz, {
+      sentAt: body.sentAt ?? now.toISOString(),
+    });
+    if (row.status === 'sent') return NextResponse.json(toInvoice(row));
+  }
+
   if (body.status === 'paid' && body.paidAt)
     assertPaidAt(body.paidAt, current.sent_at as string | null, now);
 

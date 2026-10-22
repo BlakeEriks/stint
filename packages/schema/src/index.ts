@@ -26,15 +26,15 @@ const hexColor = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
  * server cannot infer, so the client states the zone.
  *
  * `catch` rather than a hard failure on the read endpoints: a view that
- * renders in UTC beats a view that does not render. The write endpoints use
- * `timeZoneStrict`, because a zone that silently becomes UTC decides which
- * entries land on an invoice.
+ * renders in UTC beats a view that does not render. The write endpoints, and
+ * the reads that refresh a draft, reject one instead, because a zone that
+ * silently becomes UTC decides which entries land on an invoice.
  */
 export const timeZone = z.string().refine(isValidTimeZone).catch('UTC');
-export const timeZoneStrict = z
+const ianaZone = z
   .string()
-  .refine(isValidTimeZone, { message: 'not an IANA time zone' })
-  .default('UTC');
+  .refine(isValidTimeZone, { message: 'not an IANA time zone' });
+export const timeZoneStrict = ianaZone.default('UTC');
 
 /** Query parameters arrive as strings; a flag is spelled out either way. */
 const boolParam = z
@@ -374,7 +374,7 @@ const hours = z.number().nonnegative();
 
 /**
  * Supporting detail, in hours only. Every table on a preview; on an invoice,
- * only the ticked ones, frozen at generation.
+ * only the ticked ones, frozen when sent.
  */
 export const Schedules = z.object({
   project: z.array(z.object({ project: z.string(), hours })).optional(),
@@ -435,6 +435,12 @@ export const StoredLineItem = InvoiceLineItem.extend({
   id: uuid,
   sortOrder: z.number().int().nonnegative(),
 });
+
+const Change = z.object({ from: z.number(), to: z.number() });
+
+/** How a draft moved since its PDF was last rendered: what Mark sent's
+ *  `DRAFT_CHANGED` carries, and the detail's `changedSinceDownload`. */
+export const DraftChange = z.object({ hours: Change, total: Change });
 
 export const InvoicePreview = z.object({
   clientId: uuid,
@@ -512,10 +518,10 @@ export const InvoiceStatus = z.enum(['draft', 'sent', 'paid', 'void']);
 /**
  * An issued invoice, as the API returns it.
  *
- * Line items are NOT part of this shape: they are frozen at generation and
- * fetched with the detail view, and re-deriving them from time entries is the
- * thing that must never happen — re-downloading a year later has to produce
- * the same document.
+ * Line items are NOT part of this shape: they are fetched with the detail
+ * view. A draft's are re-derived from its period's work on every read; once
+ * sent they are frozen, and re-deriving them is the thing that must never
+ * happen — re-downloading a year later has to produce the same document.
  */
 export const Invoice = z.object({
   id: uuid,
@@ -540,7 +546,7 @@ export const Invoice = z.object({
   summaryText: z.string().nullable(),
   /** The PO, contract or SOW, printed under the service period. */
   reference: z.string().nullable(),
-  /** The ticked schedules, frozen at generation like the lines. */
+  /** The ticked schedules, frozen when sent like the lines. */
   supportingDetail: Schedules.nullable(),
   /** The payment block as rendered at generation. Editing a profile later
    *  never alters an issued invoice, so this is a snapshot, not a reference. */
@@ -642,7 +648,11 @@ export const ListExpensesQuery = z.object({
   status: z.enum(['open', 'unbilled']).default('open'),
 });
 
-export const ListInvoicesQuery = z.object({
+/** A draft is refreshed on every read, in the zone its period's dates are
+ *  read in; a draft with no zone of its own takes the read's. */
+export const InvoiceReadQuery = z.object({ tz: ianaZone.optional() });
+
+export const ListInvoicesQuery = InvoiceReadQuery.extend({
   clientId: uuid.optional(),
   status: InvoiceStatus.optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
@@ -885,6 +895,22 @@ export const Stats = z.object({
         ageDays: z.number().int(),
       }),
     ),
+    /** Unbilled billable work dated inside a sent or paid invoice's period
+     *  for its client, oldest first: billed nowhere until the user says. */
+    lateEntries: z.array(
+      z.object({
+        entryId: uuid,
+        taskName: z.string(),
+        startedAt: z.iso.datetime(),
+        hours: z.number().nonnegative(),
+        clientId: uuid,
+        clientName: z.string().nullable(),
+        invoiceId: uuid,
+        invoiceNumber: z.string(),
+        periodStart: z.iso.date(),
+        periodEnd: z.iso.date(),
+      }),
+    ),
     /** One row per entry, oldest first. Empty array, never null. */
     unprojected: z.array(
       z.object({
@@ -1033,6 +1059,8 @@ export const ErrorCode = z.enum([
   'EXPENSE_ALREADY_INVOICED',
   'ENTRY_ALREADY_INVOICED',
   'INVOICE_STATUS_CHANGED',
+  'DRAFT_CHANGED',
+  'DRAFT_OVERLAPS',
   'ENTRY_NOT_FOUND',
   'NO_RATE_CONFIGURED',
   'INVALID_PERIOD',
@@ -1076,6 +1104,7 @@ export type CalendarDay = z.infer<typeof CalendarDay>;
 export type InvoiceLineItem = z.infer<typeof InvoiceLineItem>;
 export type ComputedLineItem = z.infer<typeof ComputedLineItem>;
 export type StoredLineItem = z.infer<typeof StoredLineItem>;
+export type DraftChange = z.infer<typeof DraftChange>;
 export type ApiError = z.infer<typeof ApiError>;
 export type CreateFeedback = z.infer<typeof CreateFeedback>;
 export type Billing = z.infer<typeof Billing>;

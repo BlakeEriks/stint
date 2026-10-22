@@ -4,6 +4,7 @@ import {
   planOf,
   type BillingPeriod,
   type BillingSchedule,
+  type DraftSnapshot,
   type SubscriptionStatus,
 } from '@stint/core';
 import type {
@@ -326,10 +327,14 @@ export interface InvoiceRow {
   paid_at: string | null;
   created_at: string;
   issued_subscription_status: SubscriptionStatus | null;
+  /** A draft's refresh inputs and last render; never sent to a client. */
+  tz: string | null;
+  excluded_expense_ids: string[];
+  downloaded_snapshot: DraftSnapshot | null;
 }
 
 export const INVOICE_COLUMNS = columns<InvoiceRow>()(
-  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency, notes, payment_terms, grouping_mode, summary_text, reference, supporting_detail, payment_details, business_name, business_address, business_email, logo_url, client_name, client_email, client_address, sent_at, paid_at, created_at, issued_subscription_status',
+  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency, notes, payment_terms, grouping_mode, summary_text, reference, supporting_detail, payment_details, business_name, business_address, business_email, logo_url, client_name, client_email, client_address, sent_at, paid_at, created_at, issued_subscription_status, tz, excluded_expense_ids, downloaded_snapshot',
 );
 
 export function toInvoice(r: InvoiceRow) {
