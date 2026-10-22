@@ -3276,6 +3276,34 @@ test('a draft with no zone is sent as it stands', async () => {
   assert.equal(sent.body.total, 300);
 });
 
+/* A draft with no zone keeps the first one a read gives it, so a typo
+   coerced to UTC would bill the wrong work from then on. */
+test('an invalid timezone is rejected on every route that refreshes a draft', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await pool.query('update invoices set tz = null');
+  const q = '?tz=Mars/Olympus_Mons';
+
+  for (const res of [
+    await r.list(req(`/invoices${q}`)),
+    await r.detail(req(`/invoices/x${q}`), at(inv.body.id)),
+    await r.pdf(req(`/invoices/x/pdf${q}`), at(inv.body.id)),
+    await r.setStatus(
+      req(`/s${q}`, { status: 'sent' }, 'PATCH'),
+      at(inv.body.id),
+    ),
+  ]) {
+    const body = await json(res);
+    assert.equal(body.status, 422, JSON.stringify(body.body));
+    assert.equal(body.body.code, 'VALIDATION_FAILED');
+  }
+  const { rows } = await pool.query('select tz, status from invoices');
+  assert.deepEqual(rows, [{ tz: null, status: 'draft' }]);
+});
+
 test("a client's one-off expense goes to its earliest open draft", async () => {
   const r = await live();
   await seedEntry({ id: D(1), start: '2026-08-10T09:00:00Z', hours: 1 });

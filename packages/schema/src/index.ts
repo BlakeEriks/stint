@@ -26,15 +26,15 @@ const hexColor = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
  * server cannot infer, so the client states the zone.
  *
  * `catch` rather than a hard failure on the read endpoints: a view that
- * renders in UTC beats a view that does not render. The write endpoints use
- * `timeZoneStrict`, because a zone that silently becomes UTC decides which
- * entries land on an invoice.
+ * renders in UTC beats a view that does not render. The write endpoints, and
+ * the reads that refresh a draft, reject one instead, because a zone that
+ * silently becomes UTC decides which entries land on an invoice.
  */
 export const timeZone = z.string().refine(isValidTimeZone).catch('UTC');
-export const timeZoneStrict = z
+const ianaZone = z
   .string()
-  .refine(isValidTimeZone, { message: 'not an IANA time zone' })
-  .default('UTC');
+  .refine(isValidTimeZone, { message: 'not an IANA time zone' });
+export const timeZoneStrict = ianaZone.default('UTC');
 
 /** Query parameters arrive as strings; a flag is spelled out either way. */
 const boolParam = z
@@ -518,10 +518,10 @@ export const InvoiceStatus = z.enum(['draft', 'sent', 'paid', 'void']);
 /**
  * An issued invoice, as the API returns it.
  *
- * Line items are NOT part of this shape: they are frozen at generation and
- * fetched with the detail view, and re-deriving them from time entries is the
- * thing that must never happen — re-downloading a year later has to produce
- * the same document.
+ * Line items are NOT part of this shape: they are fetched with the detail
+ * view. A draft's are re-derived from its period's work on every read; once
+ * sent they are frozen, and re-deriving them is the thing that must never
+ * happen — re-downloading a year later has to produce the same document.
  */
 export const Invoice = z.object({
   id: uuid,
@@ -546,7 +546,7 @@ export const Invoice = z.object({
   summaryText: z.string().nullable(),
   /** The PO, contract or SOW, printed under the service period. */
   reference: z.string().nullable(),
-  /** The ticked schedules, frozen at generation like the lines. */
+  /** The ticked schedules, frozen when sent like the lines. */
   supportingDetail: Schedules.nullable(),
   /** The payment block as rendered at generation. Editing a profile later
    *  never alters an issued invoice, so this is a snapshot, not a reference. */
@@ -650,7 +650,7 @@ export const ListExpensesQuery = z.object({
 
 /** A draft is refreshed on every read, in the zone its period's dates are
  *  read in; a draft with no zone of its own takes the read's. */
-export const InvoiceReadQuery = z.object({ tz: timeZone.optional() });
+export const InvoiceReadQuery = z.object({ tz: ianaZone.optional() });
 
 export const ListInvoicesQuery = InvoiceReadQuery.extend({
   clientId: uuid.optional(),

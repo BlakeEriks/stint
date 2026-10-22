@@ -17,8 +17,10 @@ everything else. `formatCurrency` and `formatHours` are in core for the same
 reason: the preview and the PDF render one number one way.
 
 **An invalid `tz` is rejected rather than swallowed here.** The period is local
-dates, so the zone decides which entries are billed; the read endpoints fall
-back to UTC, these two return 422. An omitted one still defaults to UTC.
+dates, so the zone decides which entries are billed. Every invoice route
+returns 422 for one, the reads included, since each refreshes a draft and a
+draft keeps the first zone it is read in. An omitted one defaults to UTC on
+preview and generation, and leaves a zone-less draft as it stands elsewhere.
 
 ### Rules that must not regress
 
