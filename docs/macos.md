@@ -88,8 +88,8 @@ security add-generic-password -s dev.stint.vercel-bypass -a stint -w <secret>
 ```
 
 **The origin is never guessed, and it is resolved before bundling.** A
-hostname that does not exist reaches the panel as "a server with the specified
-hostname could not be found" — which reads as a network fault, not as a build
+hostname that does not exist reaches the panel as "Can’t reach Stint. Check
+your internet connection." — which reads as a network fault, not as a build
 pointed somewhere wrong, so the check happens where the answer is known.
 
 **The values go in the bundle's `LSEnvironment`, not the shell.** An
