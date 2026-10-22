@@ -202,9 +202,16 @@ export function ClientForm({
 
 export const SCHEDULE_LABELS: Record<BillingPeriod, string> = {
   weekly: 'Weekly',
-  biweekly: 'Every two weeks',
-  semimonthly: 'Twice a month',
+  biweekly: 'Biweekly',
+  semimonthly: 'Semi-monthly',
   monthly: 'Monthly',
+};
+
+const SCHEDULE_DETAILS: Record<BillingPeriod, string> = {
+  weekly: 'Every week, from a start date',
+  biweekly: 'Every two weeks, from a start date',
+  semimonthly: 'Twice a month: 1st–15th and 16th–end',
+  monthly: 'The calendar month',
 };
 
 const NONE = 'none';
@@ -244,12 +251,12 @@ function ScheduleField({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={NONE}>None</SelectItem>
+            <SelectItem value={NONE} description="Dates set on each invoice">
+              None
+            </SelectItem>
             {BILLING_PERIODS.map((p) => (
-              <SelectItem key={p} value={p}>
-                {p === 'semimonthly'
-                  ? 'Twice a month: 1st–15th, 16th–end'
-                  : SCHEDULE_LABELS[p]}
+              <SelectItem key={p} value={p} description={SCHEDULE_DETAILS[p]}>
+                {SCHEDULE_LABELS[p]}
               </SelectItem>
             ))}
           </SelectContent>

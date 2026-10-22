@@ -24,9 +24,9 @@
 
 - **Decision**: Carry over PR #423's New invoice wiring: `periodStart` and `periodEnd` are `null` until the user edits one, so the client's schedule decides them; editing either pins both. The hint is `type-support text-warning`, shown only when both dates are set and the client has a schedule.
 - **Rationale**: It was built, reviewed and seen working in #423; only the rule underneath changes.
-- **Hint copy**: "{Client} is billed {weekly | every two weeks | twice a month | monthly}, and this isn't one of its periods."
+- **Hint copy**: "{Client} is billed {weekly | biweekly | semi-monthly | monthly}, and this isn't one of its periods."
 
 ## R5. The client dialog
 
-- **Decision**: A "Billing schedule" select (None, Weekly, Every two weeks, Twice a month: 1st–15th and 16th–end, Monthly). Weekly and every two weeks reveal a "First period starts" date, prefilled with today so a save never lacks one. The client list's row adds the schedule in its support line when there is one.
+- **Decision**: A "Billing schedule" select: None, Weekly, Biweekly, Semi-monthly, Monthly, each with a line under it saying what it bills (Semi-monthly: 1st–15th and 16th–end). Weekly and every two weeks reveal a "First period starts" date, prefilled with today so a save never lacks one. The client list's row adds the schedule in its support line when there is one.
 - **Rationale**: Follows the dialog's existing `Field` and `Select`; the design review was skipped for this reason.

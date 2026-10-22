@@ -346,11 +346,11 @@ export const ClientSchedule: Story = {
       dialog.getByRole('combobox', { name: /Billing schedule/ });
     await expect(select()).toHaveTextContent('None');
     await expect(dialog.queryByLabelText('First period starts')).toBeNull();
-    await pickSchedule(page, dialog, /Twice a month/);
+    await pickSchedule(page, dialog, /^Semi-monthly/);
     await saveDialog(page, dialog);
-    await expect(await page.findByText(/Billed twice a month/)).toBeVisible();
+    await expect(await page.findByText(/Billed semi-monthly/)).toBeVisible();
     dialog = await editNorthwind(page);
-    await expect(select()).toHaveTextContent(/Twice a month/);
+    await expect(select()).toHaveTextContent('Semi-monthly');
   },
 };
 
@@ -362,7 +362,7 @@ export const ClientScheduleWeekly: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     let dialog = await editNorthwind(page);
-    await pickSchedule(page, dialog, /^Weekly$/);
+    await pickSchedule(page, dialog, /^Weekly/);
     const anchor = dialog.getByLabelText('First period starts');
     await expect(anchor).not.toHaveValue('');
     await userEvent.clear(anchor);
