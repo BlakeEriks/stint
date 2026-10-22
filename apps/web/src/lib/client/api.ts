@@ -148,12 +148,10 @@ export type IncludedName = schema.IncludedName;
 /** What a write returns beside its record when asked (`docs/api.md`). */
 export type Included = { summary?: Summary; stats?: Stats };
 /** A write's `?include=`: the reads to return, and the zone they're in. */
-/** A draft is refreshed on every read, in the zone its dates are read in
- *  (`InvoiceReadQuery`). */
+export type Include = { names: readonly IncludedName[]; tz: string };
+
 const zone = () =>
   `tz=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')}`;
-
-export type Include = { names: readonly IncludedName[]; tz: string };
 
 export type StoppedTimer = { entry: TimeEntry; included?: Included } & Pick<
   Stats,
@@ -418,7 +416,13 @@ export const api = {
   updateInvoiceStatus: (
     id: string,
     body: { status: InvoiceStatus; sentAt?: string; paidAt?: string },
-  ) => request<Invoice>('PATCH', `/invoices/${id}/status?${zone()}`, body),
+  ) =>
+    request<Invoice>(
+      'PATCH',
+      // Sending refreshes a draft first, in its period's zone.
+      `/invoices/${id}/status${body.status === 'sent' ? `?${zone()}` : ''}`,
+      body,
+    ),
 
   /** Drafts only. An issued invoice must be voided so numbering stays gapless. */
   deleteInvoice: (id: string) => request<void>('DELETE', `/invoices/${id}`),

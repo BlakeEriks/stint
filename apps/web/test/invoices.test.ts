@@ -3227,3 +3227,82 @@ test('unbilled work dated in a sent period is late; billed, unbillable or voided
   await r.setStatus(req('/s', { status: 'void' }, 'PATCH'), at(inv.body.id));
   assert.deepEqual(await late(), []);
 });
+
+test('an unrated entry leaves a draft as last refreshed, and refuses Mark sent', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await pool.query('update clients set hourly_rate = null');
+  await pool.query('update user_settings set default_hourly_rate = null');
+  await seedEntry({ id: D(2), start: '2026-09-12T09:00:00Z', hours: 1 });
+
+  const got = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
+  );
+  assert.equal(got.status, 200);
+  assert.equal(got.body.total, 300, 'as last refreshed');
+
+  const refused = await json(
+    await r.setStatus(
+      req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
+      at(inv.body.id),
+    ),
+  );
+  assert.equal(refused.status, 400);
+  assert.equal(refused.body.code, 'NO_RATE_CONFIGURED');
+  const { rows } = await pool.query(
+    'select status from invoices where id = $1',
+    [inv.body.id],
+  );
+  assert.equal(rows[0].status, 'draft');
+});
+
+test('a draft with no zone is sent as it stands', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await pool.query('update invoices set tz = null');
+  await seedEntry({ id: D(2), start: '2026-09-12T09:00:00Z', hours: 1 });
+
+  const sent = await json(
+    await r.setStatus(req('/s', { status: 'sent' }, 'PATCH'), at(inv.body.id)),
+  );
+  assert.equal(sent.status, 200, JSON.stringify(sent.body));
+  assert.equal(sent.body.status, 'sent');
+  assert.equal(sent.body.total, 300);
+});
+
+test("a client's one-off expense goes to its earliest open draft", async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), start: '2026-08-10T09:00:00Z', hours: 1 });
+  await seedEntry({ id: D(2), hours: 1 });
+  const august = await json(
+    await r.create(
+      req('/invoices', {
+        clientId: CLIENT,
+        periodStart: '2026-08-01',
+        periodEnd: '2026-08-31',
+      }),
+    ),
+  );
+  const september = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await seedExpense({ id: D(10), spentOn: '2026-08-20', amount: 40 });
+
+  const listed = await json(await r.list(req('/invoices?tz=UTC')));
+  assert.equal(listed.status, 200, JSON.stringify(listed.body));
+  const total = (id: string) =>
+    listed.body.invoices.find((i: { id: string }) => i.id === id).total;
+  assert.equal(total(august.body.id), 190);
+  assert.equal(total(september.body.id), 150);
+  const { rows } = await pool.query(
+    'select invoice_id from expenses where id = $1',
+    [D(10)],
+  );
+  assert.equal(rows[0].invoice_id, august.body.id);
+});

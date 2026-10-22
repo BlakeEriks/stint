@@ -649,7 +649,7 @@ export const ListExpensesQuery = z.object({
 });
 
 /** A draft is refreshed on every read, in the zone its period's dates are
- *  read in; one made before drafts refreshed learns it from the first read. */
+ *  read in; a draft with no zone of its own takes the read's. */
 export const InvoiceReadQuery = z.object({ tz: timeZone.optional() });
 
 export const ListInvoicesQuery = InvoiceReadQuery.extend({

@@ -8,22 +8,14 @@ import {
 import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import {
-  loadClient,
-  loadSettings,
-  requireSender,
-  loadBillableEntries,
+  computeInvoice,
   loadPaymentProfile,
-  loadBillableExpenses,
   refreshDraft,
+  requireSender,
+  unratedError,
 } from '@/lib/invoicing';
 import { INVOICE_COLUMNS, toInvoice, type InvoiceRow } from '@/lib/rows';
-import {
-  buildLineItems,
-  buildPaymentDetails,
-  buildSchedules,
-  localDateKey,
-  pickSchedules,
-} from '@stint/core';
+import { buildPaymentDetails, localDateKey } from '@stint/core';
 import { CreateInvoice, ListInvoicesQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -44,12 +36,11 @@ export const GET = handle(async (req: Request) => {
   const { data, error } = await query;
   if (error) throw error;
 
-  // A draft's total is its period's work now; a user holds only a few.
-  const rows = await Promise.all(
-    (data ?? []).map(
-      async (r) => (await refreshDraft(db, r as InvoiceRow, q.tz)).row,
-    ),
-  );
+  // A draft's total is its period's work now. One at a time: a user holds
+  // only a few, and each refresh sees what the one before it took.
+  const rows: InvoiceRow[] = [];
+  for (const r of data ?? [])
+    rows.push((await refreshDraft(db, r as InvoiceRow, q.tz)).row);
   return NextResponse.json({ invoices: rows.map(toInvoice) });
 });
 
@@ -80,10 +71,18 @@ export const POST = handle(async (req: Request) => {
     );
   }
 
-  const [client, settings] = await Promise.all([
-    loadClient(db, body.clientId),
-    loadSettings(db),
-  ]);
+  const computed = await computeInvoice(db, {
+    clientId: body.clientId,
+    periodStart: body.periodStart,
+    periodEnd: body.periodEnd,
+    tz: body.tz,
+    groupingMode: body.groupingMode,
+    summaryText: body.summaryText,
+    manualLines: body.manualLines,
+    excludedExpenseIds: body.excludedExpenseIds,
+    schedules: body.schedules,
+  });
+  const { client, settings, totals } = computed;
 
   requireSender(settings);
 
@@ -111,44 +110,8 @@ export const POST = handle(async (req: Request) => {
       },
     );
 
-  const clientRate =
-    client.hourly_rate == null ? null : Number(client.hourly_rate);
-  const taxRate = client.tax_rate == null ? 0 : Number(client.tax_rate);
-
-  const [entries, expenses] = await Promise.all([
-    loadBillableEntries(db, {
-      clientId: body.clientId,
-      periodStart: body.periodStart,
-      periodEnd: body.periodEnd,
-      tz: body.tz,
-      userDefaultRate: settings.defaultHourlyRate,
-      clientRate,
-    }),
-    loadBillableExpenses(db, {
-      clientId: body.clientId,
-      periodEnd: body.periodEnd,
-      excludedIds: body.excludedExpenseIds,
-    }),
-  ]);
-
-  const totals = buildLineItems(entries, {
-    groupingMode: body.groupingMode,
-    summaryText: body.summaryText,
-    taxRate,
-    tz: body.tz,
-    manualLines: body.manualLines,
-    expenses,
-  });
-
-  if (totals.unratedEntryIds.length > 0) {
-    throw new ApiError(
-      'NO_RATE_CONFIGURED',
-      `${totals.unratedEntryIds.length} billable entr${
-        totals.unratedEntryIds.length === 1 ? 'y has' : 'ies have'
-      } no rate. Set a rate on the entry, project, client, or in settings.`,
-      { unratedEntryIds: totals.unratedEntryIds },
-    );
-  }
+  if (totals.unratedEntryIds.length > 0)
+    throw unratedError(totals.unratedEntryIds);
 
   // A fee or an expense alone is a valid invoice — a deposit before any work
   // is done is the ordinary case — so this asks for LINES, not for time.
@@ -164,17 +127,6 @@ export const POST = handle(async (req: Request) => {
   // an issued invoice must still show what the client was actually given.
   // Rendered before the number exists, so `create_invoice` appends the
   // payment reference once it has allocated one.
-  // Frozen too: bucketed now, a project renamed or an invoice voided later
-  // cannot change what the client was sent.
-  const supportingDetail = pickSchedules(
-    buildSchedules(entries, {
-      tz: body.tz,
-      periodStart: body.periodStart,
-      periodEnd: body.periodEnd,
-    }),
-    body.schedules,
-  );
-
   const profile = await loadPaymentProfile(
     db,
     client.payment_profile_id,
@@ -200,24 +152,15 @@ export const POST = handle(async (req: Request) => {
       payment_terms: body.paymentTerms ?? settings.defaultPaymentTerms,
       grouping_mode: body.groupingMode,
       summary_text: body.groupingMode === 'summary' ? body.summaryText : null,
-      supporting_detail: supportingDetail,
+      supporting_detail: computed.supportingDetail,
       reference: body.reference ?? null,
       payment_details: paymentDetails,
-      // Frozen lines: an issued invoice is a financial record, not a live
-      // view over time entries and expenses.
-      lines: totals.lineItems.map((li) => ({
-        description: li.description,
-        unit: li.unit,
-        quantity: li.quantity,
-        unit_price: li.unitPrice,
-        amount: li.amount,
-        spent_on: li.spentOn ?? null,
-      })),
+      tz: body.tz,
+      excluded_expense_ids: body.excludedExpenseIds,
+      lines: computed.lines,
     },
-    p_entry_ids: totals.lineItems.flatMap((li) => li.entryIds),
-    // One-offs only: a recurring expense is frozen onto this invoice but
-    // stays unattached, to bill again on the next.
-    p_expense_ids: expenses.filter((e) => !e.recurring).map((e) => e.id),
+    p_entry_ids: computed.entryIds,
+    p_expense_ids: computed.expenseIds,
   });
 
   if (error) {
@@ -236,16 +179,7 @@ export const POST = handle(async (req: Request) => {
     throw error;
   }
 
-  const created = (Array.isArray(data) ? data[0] : data) as InvoiceRow;
-
-  // What a refresh needs that `create_invoice` doesn't write.
-  const { data: invoice, error: choicesError } = await db
-    .from('invoices')
-    .update({ tz: body.tz, excluded_expense_ids: body.excludedExpenseIds })
-    .eq('id', created.id)
-    .select(INVOICE_COLUMNS)
-    .single();
-  if (choicesError) throw choicesError;
+  const invoice = Array.isArray(data) ? data[0] : data;
 
   return NextResponse.json(
     {

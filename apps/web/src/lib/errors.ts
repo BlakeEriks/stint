@@ -126,6 +126,7 @@ export const PG = {
   FOREIGN_KEY_VIOLATION: '23503',
   NOT_FOUND: 'PGRST116',
   INVALID_TEXT: '22P02',
+  NO_DATA_FOUND: 'P0002',
 } as const;
 
 export function isSameOwnerViolation(

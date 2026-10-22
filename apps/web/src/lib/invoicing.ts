@@ -3,6 +3,7 @@ import {
   ApiError,
   isEntryClaimConflict,
   isExpenseClaimConflict,
+  PG,
 } from './errors';
 import {
   CLIENT_COLUMNS,
@@ -32,7 +33,17 @@ import {
   snapshotChanged,
   startOfLocalDate,
 } from '@stint/core';
-import type { BillableEntry, ExpenseInput, LineItem } from '@stint/core';
+import type {
+  BillableEntry,
+  ExpenseInput,
+  LineItem,
+  ManualLine,
+  ScheduleKind,
+} from '@stint/core';
+import type { z } from 'zod';
+import type { GroupingMode as GroupingModes } from '@stint/schema';
+
+type GroupingMode = z.infer<typeof GroupingModes>;
 
 /** numeric columns arrive from PostgREST as strings. */
 const num = (v: string | number | null | undefined): number | null =>
@@ -309,7 +320,6 @@ export async function loadPdfData(
     billing.plan,
     (stored as InvoiceRow).issued_subscription_status,
   );
-  // A draft is drawn as its period's work is now.
   const { row, lines } = await refreshDraft(db, stored as InvoiceRow, opts.tz, {
     rendering: opts.rendering && canDownload,
   });
@@ -354,6 +364,105 @@ export async function loadPdfData(
   };
 }
 
+/** What an unrated entry costs: the invoice can't be priced, so it isn't
+ *  generated or sent. */
+export function unratedError(ids: string[]) {
+  return new ApiError(
+    'NO_RATE_CONFIGURED',
+    `${ids.length} billable entr${ids.length === 1 ? 'y has' : 'ies have'} no rate. Set a rate on the entry, project, client, or in settings.`,
+    { unratedEntryIds: ids },
+  );
+}
+
+/**
+ * What an invoice for a client and period bills now, priced from
+ * database-resolved rates and the stored expenses, never a preview the
+ * client cached: generation and a draft's refresh both write this.
+ */
+export async function computeInvoice(
+  db: SupabaseClient,
+  opts: {
+    clientId: string;
+    periodStart: string;
+    periodEnd: string;
+    tz: string;
+    groupingMode: GroupingMode;
+    summaryText?: string;
+    manualLines: ManualLine[];
+    excludedExpenseIds: string[];
+    schedules: ScheduleKind[];
+    /** A draft being refreshed: what it already holds is billable to it. */
+    heldBy?: string;
+    /** One-offs dated on or before this belong to an earlier open draft. */
+    expensesAfter?: string;
+  },
+) {
+  const [client, settings] = await Promise.all([
+    loadClient(db, opts.clientId),
+    loadSettings(db),
+  ]);
+  const [entries, expenses] = await Promise.all([
+    loadBillableEntries(db, {
+      clientId: opts.clientId,
+      periodStart: opts.periodStart,
+      periodEnd: opts.periodEnd,
+      tz: opts.tz,
+      userDefaultRate: settings.defaultHourlyRate,
+      clientRate:
+        client.hourly_rate == null ? null : Number(client.hourly_rate),
+      heldBy: opts.heldBy,
+    }),
+    loadBillableExpenses(db, {
+      clientId: opts.clientId,
+      periodEnd: opts.periodEnd,
+      excludedIds: opts.excludedExpenseIds,
+      heldBy: opts.heldBy,
+    }).then((all) =>
+      all.filter(
+        (e) =>
+          e.recurring || !opts.expensesAfter || e.spentOn > opts.expensesAfter,
+      ),
+    ),
+  ]);
+
+  const totals = buildLineItems(entries, {
+    groupingMode: opts.groupingMode,
+    summaryText: opts.summaryText,
+    taxRate: client.tax_rate == null ? 0 : Number(client.tax_rate),
+    tz: opts.tz,
+    manualLines: opts.manualLines,
+    expenses,
+  });
+
+  return {
+    client,
+    settings,
+    totals,
+    // Bucketed now, so a project renamed or an invoice voided later cannot
+    // change what the client was sent.
+    supportingDetail: pickSchedules(
+      buildSchedules(entries, {
+        tz: opts.tz,
+        periodStart: opts.periodStart,
+        periodEnd: opts.periodEnd,
+      }),
+      opts.schedules,
+    ),
+    lines: totals.lineItems.map((li) => ({
+      description: li.description,
+      unit: li.unit,
+      quantity: li.quantity,
+      unit_price: li.unitPrice,
+      amount: li.amount,
+      spent_on: li.spentOn ?? null,
+    })),
+    entryIds: totals.lineItems.flatMap((li) => li.entryIds),
+    // One-offs only: a recurring expense is billed on every invoice and
+    // stays unattached, to bill again on the next.
+    expenseIds: expenses.filter((e) => !e.recurring).map((e) => e.id),
+  };
+}
+
 /**
  * Rebuilds a draft from its client and period as they are now, keeping every
  * choice the user made on New invoice, and writes it through `refresh_draft`
@@ -361,9 +470,10 @@ export async function loadPdfData(
  * sent, so every read of one goes through here; `sentAt` sends it in the
  * same call, so what freezes is exactly what was computed.
  *
- * A draft made before drafts refreshed has no zone until a read supplies
- * one, and isn't refreshed without it. One with an unrated entry is left as
- * last refreshed, and refused only when it is being sent.
+ * A draft with no zone isn't refreshed until a read supplies one. A read
+ * that can't refresh — an unrated entry, work another invoice took that
+ * moment, a draft sent or deleted meanwhile — shows the draft as last
+ * refreshed; only sending refuses.
  */
 export async function refreshDraft(
   db: SupabaseClient,
@@ -372,11 +482,10 @@ export async function refreshDraft(
   opts: { sentAt?: string; rendering?: boolean } = {},
 ): Promise<{ row: InvoiceRow; lines: LineItem[] | null }> {
   const tz = row.tz ?? requestTz;
-  if (row.status !== 'draft' || !tz) return { row, lines: null };
+  const stale = { row, lines: null };
+  if (row.status !== 'draft' || !tz) return stale;
 
-  const [client, settings, stored] = await Promise.all([
-    loadClient(db, row.client_id),
-    loadSettings(db),
+  const [stored, earlier] = await Promise.all([
     selectAll(() =>
       db
         .from('invoice_line_items')
@@ -385,47 +494,42 @@ export async function refreshDraft(
         .eq('unit', 'fixed')
         .order('sort_order', { ascending: true }),
     ),
+    // A client's one-off expense goes to its earliest open draft, so two
+    // drafts never contend for it.
+    db
+      .from('invoices')
+      .select('period_end')
+      .eq('client_id', row.client_id)
+      .eq('status', 'draft')
+      .lt('period_end', row.period_start)
+      .order('period_end', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
-  const clientRate =
-    client.hourly_rate == null ? null : Number(client.hourly_rate);
+  if (earlier.error) throw earlier.error;
 
-  const [entries, expenses] = await Promise.all([
-    loadBillableEntries(db, {
-      clientId: row.client_id,
-      periodStart: row.period_start,
-      periodEnd: row.period_end,
-      tz,
-      userDefaultRate: settings.defaultHourlyRate,
-      clientRate,
-      heldBy: row.id,
-    }),
-    loadBillableExpenses(db, {
-      clientId: row.client_id,
-      periodEnd: row.period_end,
-      excludedIds: row.excluded_expense_ids,
-      heldBy: row.id,
-    }),
-  ]);
-
-  const totals = buildLineItems(entries, {
+  const computed = await computeInvoice(db, {
+    clientId: row.client_id,
+    periodStart: row.period_start,
+    periodEnd: row.period_end,
+    tz,
     groupingMode: row.grouping_mode,
     summaryText: row.summary_text ?? undefined,
-    taxRate: client.tax_rate == null ? 0 : Number(client.tax_rate),
-    tz,
     manualLines: stored.map((r) => {
       const l = toLineItem(r as LineItemRow);
       return { description: l.description, amount: l.amount ?? 0 };
     }),
-    expenses,
+    excludedExpenseIds: row.excluded_expense_ids,
+    schedules: attachedSchedules(row.supporting_detail),
+    heldBy: row.id,
+    expensesAfter:
+      (earlier.data?.period_end as string | undefined) ?? undefined,
   });
+  const { totals } = computed;
 
   if (totals.unratedEntryIds.length > 0) {
-    if (!opts.sentAt) return { row, lines: null };
-    throw new ApiError(
-      'NO_RATE_CONFIGURED',
-      'Some billable entries in this period have no rate. Set one before marking it sent.',
-      { unratedEntryIds: totals.unratedEntryIds },
-    );
+    if (opts.sentAt) throw unratedError(totals.unratedEntryIds);
+    return stale;
   }
 
   const now = draftSnapshot(totals.lineItems, totals.total);
@@ -445,36 +549,33 @@ export async function refreshDraft(
       tax_amount: totals.taxAmount,
       expenses_subtotal: totals.expensesSubtotal,
       total: totals.total,
-      supporting_detail: pickSchedules(
-        buildSchedules(entries, {
-          tz,
-          periodStart: row.period_start,
-          periodEnd: row.period_end,
-        }),
-        attachedSchedules(row.supporting_detail),
-      ),
+      supporting_detail: computed.supportingDetail,
       tz,
       ...(opts.rendering ? { downloaded_snapshot: now } : {}),
-      lines: totals.lineItems.map((li) => ({
-        description: li.description,
-        unit: li.unit,
-        quantity: li.quantity,
-        unit_price: li.unitPrice,
-        amount: li.amount,
-        spent_on: li.spentOn ?? null,
-      })),
+      lines: computed.lines,
     },
-    p_entry_ids: totals.lineItems.flatMap((li) => li.entryIds),
-    p_expense_ids: expenses.filter((e) => !e.recurring).map((e) => e.id),
+    p_entry_ids: computed.entryIds,
+    p_expense_ids: computed.expenseIds,
     p_sent_at: opts.sentAt ?? null,
   });
   if (error) {
-    if (isExpenseClaimConflict(error) || isEntryClaimConflict(error))
-      throw new ApiError(
-        'ENTRY_ALREADY_INVOICED',
-        'Work in this period was billed on another invoice at the same moment. Open the draft again.',
-      );
-    throw error;
+    const claimed =
+      isExpenseClaimConflict(error) || isEntryClaimConflict(error);
+    // Sent, voided or deleted by another request since this one read it.
+    const moved =
+      error.code === PG.CHECK_VIOLATION || error.code === PG.NO_DATA_FOUND;
+    if (!claimed && !moved) throw error;
+    if (!opts.sentAt) return stale;
+    throw moved
+      ? new ApiError(
+          'INVOICE_STATUS_CHANGED',
+          'The invoice changed status since it was read',
+          { from: row.status },
+        )
+      : new ApiError(
+          'ENTRY_ALREADY_INVOICED',
+          'Work in this period was billed on another invoice at the same moment. Open the draft again.',
+        );
   }
   return {
     row: (Array.isArray(data) ? data[0] : data) as InvoiceRow,
