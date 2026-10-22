@@ -284,7 +284,7 @@ and `total` is `subtotal + taxAmount + expensesSubtotal`: tax never applies to
 a reimbursement.
 
 **Preview before generate is mandatory in the UI.** Generation is the step that
-allocates a gapless number and locks entries — it must never be a surprise.
+allocates a gapless number — it must never be a surprise.
 
 **There is no send endpoint.** The PDF is downloaded and sent by the user from
 their own address; `PATCH /status` records that it went out.
