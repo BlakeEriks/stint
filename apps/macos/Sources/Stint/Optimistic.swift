@@ -77,7 +77,7 @@ extension Optimistic {
                 await refresh()
             }
             // After the refresh, which clears the model's last error.
-            report(error.localizedDescription)
+            report(userMessage(for: error))
             return nil
         }
     }

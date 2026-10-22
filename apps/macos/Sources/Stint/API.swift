@@ -70,6 +70,20 @@ struct APIError: LocalizedError, Equatable {
     var isUnauthorized: Bool { status == 401 || code == "UNAUTHORIZED" }
 }
 
+/// What the panel says about `error`. Every error site goes through this,
+/// so a lost connection reads the same everywhere, and never as
+/// Foundation's "A server with the specified hostname could not be found."
+func userMessage(for error: Error) -> String {
+    let offline: [URLError.Code] = [
+        .notConnectedToInternet, .cannotFindHost, .cannotConnectToHost,
+        .networkConnectionLost, .timedOut, .dnsLookupFailed,
+    ]
+    if let error = error as? URLError, offline.contains(error.code) {
+        return "Can’t reach Stint. Check your internet connection."
+    }
+    return error.localizedDescription
+}
+
 /// `/api/v1` as a bearer-token client.
 actor API {
     private let baseURL: URL
