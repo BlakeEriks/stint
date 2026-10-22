@@ -50,7 +50,38 @@ import { keys } from './query-keys';
  * `scripts/check-mutation-usage.mjs` fails any other file that imports
  * `useMutation`.
  */
-export interface OptimisticOptions<TVars, TData, TCache> {
+/**
+ * `alsoPredict` comes only with `predict`: a pending press shows no result,
+ * in any cache.
+ */
+export type OptimisticOptions<TVars, TData, TCache> = BaseOptions<
+  TVars,
+  TData
+> &
+  (
+    | {
+        /**
+         * The result to show at once, for each cached query under
+         * `queryKey`, given that query's own key. Omit for pending mode.
+         */
+        predict: (
+          current: TCache | undefined,
+          vars: TVars,
+          key: QueryKey,
+        ) => TCache | undefined;
+        /**
+         * More caches the press predicts, beside `queryKey`'s: put back with
+         * them on a rejection, and refreshed by `invalidate`.
+         */
+        alsoPredict?: Array<{
+          queryKey: QueryKey;
+          predict: (current: unknown, vars: TVars, key: QueryKey) => unknown;
+        }>;
+      }
+    | { predict?: undefined; alsoPredict?: undefined }
+  );
+
+interface BaseOptions<TVars, TData> {
   mutationFn: (vars: TVars) => Promise<TData>;
   /**
    * What the press changes, and the scope of "latest press". A prefix: the
@@ -58,23 +89,6 @@ export interface OptimisticOptions<TVars, TData, TCache> {
    * variant of a list agrees.
    */
   queryKey: (vars: TVars) => QueryKey;
-  /**
-   * The result to show at once, for each cached query under `queryKey`,
-   * given that query's own key. Omit for pending mode.
-   */
-  predict?: (
-    current: TCache | undefined,
-    vars: TVars,
-    key: QueryKey,
-  ) => TCache | undefined;
-  /**
-   * More caches the press predicts, beside `queryKey`'s: put back with them
-   * on a rejection, and refreshed by `invalidate`.
-   */
-  alsoPredict?: Array<{
-    queryKey: QueryKey;
-    predict: (current: unknown, vars: TVars, key: QueryKey) => unknown;
-  }>;
   /**
    * What `mutationFn` asks the server to return beside the record. Each read
    * the answer carries is written into its cache key, and `invalidate` is
@@ -188,7 +202,7 @@ export function useOptimisticMutation<
       ];
       const snapshot: Context['snapshot'] = [];
       for (const prediction of predictions) {
-        snapshot.push(...predictInto(queryClient, prediction, vars, predicts));
+        snapshot.push(...predictInto(queryClient, prediction, vars));
       }
       return { key, snapshot };
     },
@@ -227,8 +241,8 @@ export function usePressedSince(updatedAt: number): boolean {
 type Predict<TVars> = (current: unknown, vars: TVars, key: QueryKey) => unknown;
 
 /**
- * Writes one prediction into every cached query under its key, when
- * `predicting`, and returns what each held before.
+ * Writes one prediction into every cached query under its key, and returns
+ * what each held before.
  */
 function predictInto<TVars>(
   queryClient: QueryClient,
@@ -238,13 +252,11 @@ function predictInto<TVars>(
     keepsAge,
   }: { queryKey: QueryKey; predict: Predict<TVars>; keepsAge: boolean },
   vars: TVars,
-  predicting: boolean,
 ): Context['snapshot'] {
   // Not awaited: the cancel takes effect at once, and waiting on it would
   // let a frame render before the prediction.
   void queryClient.cancelQueries({ queryKey });
   const before = queryClient.getQueriesData({ queryKey });
-  if (!predicting) return before;
   for (const [cached, data] of before) {
     const updatedAt = keepsAge
       ? queryClient.getQueryState(cached)?.dataUpdatedAt
