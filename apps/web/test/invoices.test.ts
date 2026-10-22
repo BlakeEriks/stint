@@ -2303,8 +2303,12 @@ test('an expense another invoice took rolls generation back, number included', a
     p_expense_ids: [X(1)],
   });
 
-  const { isExpenseClaimConflict } = await import('../src/lib/errors.ts');
-  assert.ok(isExpenseClaimConflict(error), 'the route maps this to 409');
+  const { dbCode } = await import('../src/lib/errors.ts');
+  assert.equal(
+    dbCode(error),
+    'EXPENSE_ALREADY_INVOICED',
+    'the route maps this to 409',
+  );
   const { rows: seq } = await pool.query(
     'select next_invoice_number n from user_settings where user_id=$1',
     [USER],
@@ -2361,8 +2365,12 @@ test('an entry another invoice took rolls generation back, number included (#193
   // entry a moment before the first one attached it.
   const { error } = await billTwoHours();
 
-  const { isEntryClaimConflict } = await import('../src/lib/errors.ts');
-  assert.ok(isEntryClaimConflict(error), 'the route maps this to 409');
+  const { dbCode } = await import('../src/lib/errors.ts');
+  assert.equal(
+    dbCode(error),
+    'ENTRY_ALREADY_INVOICED',
+    'the route maps this to 409',
+  );
   const { rows: seq } = await pool.query(
     'select next_invoice_number n from user_settings where user_id=$1',
     [USER],
@@ -2378,10 +2386,90 @@ test('an entry deleted since it was loaded rolls generation back too', async () 
 
   const { error } = await billTwoHours();
 
-  const { isEntryClaimConflict } = await import('../src/lib/errors.ts');
-  assert.ok(isEntryClaimConflict(error), 'the route maps this to 409');
+  const { dbCode } = await import('../src/lib/errors.ts');
+  assert.equal(
+    dbCode(error),
+    'ENTRY_ALREADY_INVOICED',
+    'the route maps this to 409',
+  );
   const { rows } = await pool.query('select count(*)::int n from invoices');
   assert.equal(rows[0].n, 0, 'no invoice bills hours no entry holds');
+});
+
+// ── refusals the database names ──────────────────────────────────
+// A trigger or function raises the API code in HINT; a constraint is looked
+// up by name. These pin each one a route translates.
+
+test('an entry on an issued invoice cannot be deleted', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { PATCH: setStatus } = await import(
+    '../src/app/api/v1/invoices/[id]/status/route.ts'
+  );
+  const { DELETE } = await import('../src/app/api/v1/entries/[id]/route.ts');
+  await seedEntry({ id: E(1) });
+  const inv = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await setStatus(req('/s', { status: 'sent' }, 'PATCH'), ctx(inv.body.id));
+
+  const del = await json(
+    await DELETE(req('/e', undefined, 'DELETE'), ctx(E(1))),
+  );
+  assert.equal(del.status, 409);
+  assert.equal(del.body.code, 'ENTRY_LOCKED');
+  assert.match(del.body.message, /cannot be deleted/);
+});
+
+test('reopening an entry while a timer runs is TIMER_ALREADY_RUNNING', async () => {
+  const { PATCH } = await import('../src/app/api/v1/entries/[id]/route.ts');
+  await seedEntry({ id: E(1) });
+  await pool.query(
+    `insert into time_entries (id,user_id,task_name,started_at)
+     values ($1,$2,'Running','2026-09-11T09:00:00Z')`,
+    [E(2), USER],
+  );
+
+  const reopen = await json(
+    await PATCH(req('/e', { endedAt: null }, 'PATCH'), ctx(E(1))),
+  );
+  assert.equal(reopen.status, 409);
+  assert.equal(reopen.body.code, 'TIMER_ALREADY_RUNNING');
+});
+
+test('refreshing a draft that was sent meanwhile is INVOICE_STATUS_CHANGED', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1) });
+  const inv = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await pool.query(`update invoices set status = 'sent' where id = $1`, [
+    inv.body.id,
+  ]);
+
+  const db = (globalThis as any).__TEST_DB__;
+  const { error } = await db.rpc('refresh_draft', {
+    p_invoice_id: inv.body.id,
+    p_invoice: { lines: [] },
+    p_entry_ids: [],
+    p_expense_ids: [],
+    p_sent_at: null,
+  });
+  const { dbCode } = await import('../src/lib/errors.ts');
+  assert.equal(dbCode(error), 'INVOICE_STATUS_CHANGED');
+});
+
+test('every same-owner key and the one-timer index name an API code', async () => {
+  const { dbCode } = await import('../src/lib/errors.ts');
+  const { rows } = await pool.query(
+    `select conname as name from pg_constraint where conname like '%\\_same\\_owner'
+     union all select 'one_running_timer_per_user'`,
+  );
+  assert.ok(rows.length > 1);
+  for (const { name } of rows)
+    assert.ok(
+      dbCode({ message: `violates constraint "${name}"` }),
+      `${name} is missing from CONSTRAINT_CODES`,
+    );
 });
 
 test('an expense never counts as earned or unbilled work; awaiting includes it', async () => {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { handle, ApiError, isBilledLock } from '@/lib/errors';
+import { handle, ApiError, dbCode } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import { findRunning } from '@/lib/timer';
@@ -48,7 +48,7 @@ export const PATCH = handle(async (req: Request) => {
     .maybeSingle();
 
   if (error) {
-    if (isBilledLock(error)) {
+    if (dbCode(error) === 'ENTRY_LOCKED') {
       throw new ApiError(
         'ENTRY_LOCKED',
         'This entry is billed and cannot be modified',
