@@ -36,14 +36,11 @@ import {
 import type {
   BillableEntry,
   ExpenseInput,
+  GroupingMode,
   LineItem,
   ManualLine,
   ScheduleKind,
 } from '@stint/core';
-import type { z } from 'zod';
-import type { GroupingMode as GroupingModes } from '@stint/schema';
-
-type GroupingMode = z.infer<typeof GroupingModes>;
 
 /** numeric columns arrive from PostgREST as strings. */
 const num = (v: string | number | null | undefined): number | null =>
@@ -166,11 +163,13 @@ export async function loadBillableExpenses(
     /** A draft being refreshed: what it already holds is billable to it. */
     heldBy?: string;
   },
-): Promise<Array<ExpenseInput & { recurring: boolean }>> {
+): Promise<Array<ExpenseInput & { recurring: boolean; held: boolean }>> {
   const select = (held: string | null) => {
     const q = db
       .from('expenses')
-      .select('id, recurring, spent_on, description, amount, created_at')
+      .select(
+        'id, recurring, spent_on, description, amount, created_at, invoice_id',
+      )
       .eq('client_id', opts.clientId);
     return held ? q.eq('invoice_id', held) : q.is('invoice_id', null);
   };
@@ -196,6 +195,7 @@ export async function loadBillableExpenses(
     .map((row) => ({
       id: row.id as string,
       recurring: row.recurring as boolean,
+      held: opts.heldBy != null && row.invoice_id === opts.heldBy,
       spentOn: (row.spent_on as string | null) ?? opts.periodEnd,
       description: row.description as string,
       amount: num(row.amount) ?? 0,
@@ -393,14 +393,29 @@ export async function computeInvoice(
     schedules: ScheduleKind[];
     /** A draft being refreshed: what it already holds is billable to it. */
     heldBy?: string;
-    /** One-offs dated on or before this belong to an earlier open draft. */
-    expensesAfter?: string;
   },
 ) {
-  const [client, settings] = await Promise.all([
+  const [client, settings, earlier] = await Promise.all([
     loadClient(db, opts.clientId),
     loadSettings(db),
+    /* A one-off expense dated on or before an earlier open draft's period
+       end is that draft's, unless it left the expense off: two drafts never
+       contend for one, whichever is read or made first. */
+    db
+      .from('invoices')
+      .select('period_end, excluded_expense_ids')
+      .eq('client_id', opts.clientId)
+      .eq('status', 'draft')
+      .lt('period_end', opts.periodStart)
+      .order('period_end', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
+  if (earlier.error) throw earlier.error;
+  const prior = earlier.data as {
+    period_end: string;
+    excluded_expense_ids: string[];
+  } | null;
   const [entries, expenses] = await Promise.all([
     loadBillableEntries(db, {
       clientId: opts.clientId,
@@ -420,7 +435,11 @@ export async function computeInvoice(
     }).then((all) =>
       all.filter(
         (e) =>
-          e.recurring || !opts.expensesAfter || e.spentOn > opts.expensesAfter,
+          e.recurring ||
+          e.held ||
+          !prior ||
+          e.spentOn > prior.period_end ||
+          prior.excluded_expense_ids.includes(e.id),
       ),
     ),
   ]);
@@ -485,28 +504,14 @@ export async function refreshDraft(
   const stale = { row, lines: null };
   if (row.status !== 'draft' || !tz) return stale;
 
-  const [stored, earlier] = await Promise.all([
-    selectAll(() =>
-      db
-        .from('invoice_line_items')
-        .select(LINE_ITEM_COLUMNS)
-        .eq('invoice_id', row.id)
-        .eq('unit', 'fixed')
-        .order('sort_order', { ascending: true }),
-    ),
-    // A client's one-off expense goes to its earliest open draft, so two
-    // drafts never contend for it.
+  const stored = await selectAll(() =>
     db
-      .from('invoices')
-      .select('period_end')
-      .eq('client_id', row.client_id)
-      .eq('status', 'draft')
-      .lt('period_end', row.period_start)
-      .order('period_end', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
-  if (earlier.error) throw earlier.error;
+      .from('invoice_line_items')
+      .select(LINE_ITEM_COLUMNS)
+      .eq('invoice_id', row.id)
+      .eq('unit', 'fixed')
+      .order('sort_order', { ascending: true }),
+  );
 
   const computed = await computeInvoice(db, {
     clientId: row.client_id,
@@ -522,8 +527,6 @@ export async function refreshDraft(
     excludedExpenseIds: row.excluded_expense_ids,
     schedules: attachedSchedules(row.supporting_detail),
     heldBy: row.id,
-    expensesAfter:
-      (earlier.data?.period_end as string | undefined) ?? undefined,
   });
   const { totals } = computed;
 
@@ -563,7 +566,8 @@ export async function refreshDraft(
       isExpenseClaimConflict(error) || isEntryClaimConflict(error);
     // Sent, voided or deleted by another request since this one read it.
     const moved =
-      error.code === PG.CHECK_VIOLATION || error.code === PG.NO_DATA_FOUND;
+      (error.message ?? '').startsWith('INVOICE_NOT_DRAFT') ||
+      error.code === PG.NO_DATA_FOUND;
     if (!claimed && !moved) throw error;
     if (!opts.sentAt) return stale;
     throw moved

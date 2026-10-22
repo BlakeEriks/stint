@@ -36,7 +36,7 @@ begin
       using errcode = 'no_data_found';
   end if;
   if v_invoice.status <> 'draft' then
-    raise exception 'Invoice % is % and cannot be refreshed', p_invoice_id, v_invoice.status
+    raise exception 'INVOICE_NOT_DRAFT: Invoice % is % and cannot be refreshed', p_invoice_id, v_invoice.status
       using errcode = 'check_violation';
   end if;
 

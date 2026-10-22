@@ -3306,3 +3306,41 @@ test("a client's one-off expense goes to its earliest open draft", async () => {
   );
   assert.equal(rows[0].invoice_id, august.body.id);
 });
+
+test('a draft generated beside an earlier open one keeps its total on its first read', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), start: '2026-08-10T09:00:00Z', hours: 1 });
+  await seedEntry({ id: D(2), hours: 1 });
+  const august = await json(
+    await r.create(
+      req('/invoices', {
+        clientId: CLIENT,
+        periodStart: '2026-08-01',
+        periodEnd: '2026-08-31',
+      }),
+    ),
+  );
+  await seedExpense({ id: D(10), spentOn: '2026-08-20', amount: 40 });
+  await seedExpense({ id: D(11), spentOn: '2026-08-21', amount: 15 });
+  await pool.query(
+    `update invoices set excluded_expense_ids = $1 where id = $2`,
+    [[D(11)], august.body.id],
+  );
+
+  const september = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(
+    september.body.total,
+    165,
+    'the expense August left off is billable here; the other is August’s',
+  );
+  const read = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(september.body.id)),
+  );
+  assert.equal(read.body.total, 165);
+  const aug = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(august.body.id)),
+  );
+  assert.equal(aug.body.total, 190);
+});
