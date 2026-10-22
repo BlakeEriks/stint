@@ -1,5 +1,6 @@
 import {
   paymentFailed,
+  needsAnchor,
   planOf,
   type BillingPeriod,
   type BillingSchedule,
@@ -136,9 +137,10 @@ export const CLIENT_COLUMNS = columns<ClientRow>()(
 /** The schedule is one value on the wire and two columns, written together
  *  so the pair cannot break (`billing_period_anchor`). */
 export function toBillingSchedule(r: ClientRow): BillingSchedule | null {
-  if (r.billing_period === 'weekly' || r.billing_period === 'biweekly')
-    return { period: r.billing_period, anchor: r.period_anchor! };
-  return r.billing_period ? { period: r.billing_period } : null;
+  if (!r.billing_period) return null;
+  return needsAnchor(r.billing_period)
+    ? { period: r.billing_period, anchor: r.period_anchor! }
+    : { period: r.billing_period };
 }
 
 export const billingScheduleColumns = (s: BillingSchedule | null) => ({

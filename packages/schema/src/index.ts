@@ -7,7 +7,9 @@
  */
 
 import {
+  BILLING_PERIODS,
   isValidTimeZone,
+  needsAnchor,
   SUBSCRIPTION_STATUSES,
   validateRoutingNumber,
 } from '@stint/core';
@@ -46,10 +48,12 @@ const boolParam = z
  *  rather than dropped. */
 export const BillingSchedule = z.discriminatedUnion('period', [
   z.strictObject({
-    period: z.enum(['weekly', 'biweekly']),
+    period: z.enum(BILLING_PERIODS.filter(needsAnchor)),
     anchor: z.iso.date(),
   }),
-  z.strictObject({ period: z.enum(['semimonthly', 'monthly']) }),
+  z.strictObject({
+    period: z.enum(BILLING_PERIODS.filter((p) => !needsAnchor(p))),
+  }),
 ]);
 
 export const Client = z.object({
