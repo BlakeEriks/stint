@@ -23,6 +23,14 @@ when the draft is made, so a deleted draft leaves a gap; with drafts made
 automatically at the start of each period, most would. One sequence per
 user, as today.
 
+## Clarifications
+
+### Session 2026-10-23
+
+- Q: When should an automatic draft get its issue date (and the due date that follows from it)? → A: At first PDF download, alongside the number; until then the draft shows the date it would get today.
+- Q: Should Mark sent be refused until the draft's PDF has been downloaded at least once? → A: Yes: Mark sent is disabled until the first download, with a hint saying so.
+- Q: Should automatic drafts and the ready email also run for accounts on the free tier, who can't download a PDF? → A: Both run for everyone; on a free account the draft's Download asks them to upgrade, as today.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - The draft is waiting (Priority: P1)
@@ -109,7 +117,9 @@ never downloaded leaves the next number unchanged.
    inbox, **Then** it reads as a draft for its client and period, with no
    number.
 2. **Given** a draft never downloaded, **When** its PDF is downloaded,
-   **Then** it takes the next number, and the PDF prints it.
+   **Then** it takes the next number and that day's issue date, its due date
+   follows from its payment terms, and the PDF prints all three. Until then
+   it shows the dates it would get that day.
 3. **Given** a numbered draft, **When** its PDF is downloaded again, **Then**
    it keeps its number.
 4. **Given** a draft never downloaded, **When** it's deleted, **Then** the
@@ -119,9 +129,9 @@ never downloaded leaves the next number unchanged.
    one.
 6. **Given** drafts that already have numbers, **When** this ships, **Then**
    they keep them.
-7. **Given** a draft never downloaded, **When** Mark sent is pressed,
-   **Then** it's refused until the PDF has been downloaded, since what went
-   to the client carried a number.
+7. **Given** a draft never downloaded, **When** its detail is shown,
+   **Then** Mark sent is disabled with a hint to download the PDF first, and
+   the server refuses a Mark sent that arrives anyway.
 
 ### Edge Cases
 
@@ -151,7 +161,7 @@ never downloaded leaves the next number unchanged.
   draft collects the period's work as it's logged.
 - **FR-002**: An automatic draft MUST use what New invoice would choose by
   default for that client and period: grouping, payment terms, payment
-  details, issue date the day it's made in the user's time zone.
+  details.
 - **FR-003**: The day after a draft's period ends in the user's time zone,
   Stint MUST email the user once, at their sign-in address, with the
   client, the period, the total and a link to the draft.
@@ -168,6 +178,10 @@ never downloaded leaves the next number unchanged.
   downloaded, when it takes the next in the user's one sequence and keeps
   it. Drafts numbered before this ships keep their numbers.
 - **FR-012**: Mark sent MUST be refused for a draft without a number.
+- **FR-013**: A draft's issue date MUST be fixed at its first download, in
+  the user's time zone, with its due date that date plus its client's
+  payment terms, else the user's. A due date picked on New invoice is kept
+  as picked.
 - **FR-008**: The user's time zone MUST be recorded from the app so "period
   ended" is judged where the user is.
 - **FR-009**: The job MUST add no fixed cost: a daily scheduled job on the
@@ -179,7 +193,8 @@ never downloaded leaves the next number unchanged.
 
 - **Automatic draft**: an ordinary draft invoice, marked as made by the
   schedule, for one client and one scheduled period.
-- **Invoice number**: empty on a draft until its first download, then fixed.
+- **Invoice number and issue date**: empty on a draft until its first
+  download, then fixed together.
 - **Ready notice**: the record that a draft's ready email went out, so it
   goes once.
 - **User's time zone and switches**: where the user is, and whether they
@@ -204,10 +219,10 @@ never downloaded leaves the next number unchanged.
 - The billing schedule is already a per-client opt-in, so there is no
   separate per-client switch; the Settings switches cover the user who
   wants none.
-- Downloading stays the paid tier, so a free account's drafts stay
-  unnumbered, as it can't send one anyway.
-- The link opens the draft in the app; downloading the PDF stays the paid
-  tier, as today. Drafting and the email are free.
+- Automatic drafts and the ready email run for every account. Downloading
+  stays the paid tier, so a free account's drafts stay unnumbered and its
+  Download asks it to upgrade, as today.
+- The link opens the draft in the app.
 - Mail goes through the provider that already sends sign-in links, within
   its free tier at this scale.
 - A client without a schedule is untouched; New invoice works as today.
