@@ -23,6 +23,7 @@ import {
 import {
   api,
   type InvoiceStatus,
+  type SettingsInput,
   type Stats,
   type TimeEntry,
 } from '@/lib/client/api';
@@ -173,38 +174,25 @@ export function Inbox({ stats }: { stats: Stats }) {
     },
   });
 
-  /* The default rate prices every figure on Home, so they all go. The row
-     comes back holding what was typed, so it says why itself. */
-  const saveRate = useOptimisticMutation({
+  /* A settings question answered in place: the default rate prices every
+     figure on Home, so they all go. The row comes back holding what was
+     typed, so it says why itself. */
+  const answer = useOptimisticMutation({
     queryKey: () => keys.stats(),
-    onError: () => exit.unmark('rate'),
+    onError: (_, { id }) => exit.unmark(id),
     inline: true,
-    mutationFn: (defaultHourlyRate: number) =>
-      api.updateSettings({ defaultHourlyRate }),
-    invalidate: async (qc) => {
-      await leaving.get('rate');
+    mutationFn: ({ patch }: { id: SettingsRowId; patch: SettingsInput }) =>
+      api.updateSettings(patch),
+    invalidate: async (qc, { id }) => {
+      await leaving.get(id);
       return Promise.all([
         qc.invalidateQueries({ queryKey: keys.settings() }),
         invalidateEntryData(qc),
       ]);
     },
   });
-
-  /* Saving terms answers the question, so the row leaves with the save. */
-  const saveTerms = useOptimisticMutation({
-    queryKey: () => keys.stats(),
-    onError: () => exit.unmark('terms'),
-    inline: true,
-    mutationFn: (paymentTermsDays: number) =>
-      api.updateSettings({ paymentTermsDays }),
-    invalidate: async (qc) => {
-      await leaving.get('terms');
-      return Promise.all([
-        qc.invalidateQueries({ queryKey: keys.settings() }),
-        qc.invalidateQueries({ queryKey: keys.stats() }),
-      ]);
-    },
-  });
+  const answered = (id: SettingsRowId) =>
+    answer.variables?.id === id ? answer.error?.message : undefined;
 
   /* The order is this concatenation. Overdue sorts first and carries danger;
      every other row is neutral. Never the accent — that belongs to the
@@ -292,25 +280,51 @@ export function Inbox({ stats }: { stats: Stats }) {
         <ul className="flex flex-col">
           {rows.map((r) =>
             r.kind === 'rate' ? (
-              <RateRow
+              <SettingsRow
                 key={r.id}
-                onSubmit={(rate) => {
-                  leave(r.id);
-                  saveRate.mutate(rate);
+                label="Set your default rate"
+                detail="Home can't show money without one"
+                input={(p) => (
+                  <RateInput
+                    {...p}
+                    aria-label="Default hourly rate"
+                    placeholder="100.00"
+                  />
+                )}
+                initial=""
+                parse={(text) => {
+                  const rate = parseRate(text);
+                  return isValidRate(rate) ? rate : null;
                 }}
-                error={saveRate.error?.message}
+                invalid="A rate is a number, zero or more."
+                onSubmit={(defaultHourlyRate) => {
+                  leave(r.id);
+                  answer.mutate({ id: r.id, patch: { defaultHourlyRate } });
+                }}
+                error={answered(r.id)}
                 exiting={exit.exiting.has(r.id)}
                 ref={exit.register(r.id)}
               />
             ) : r.kind === 'terms' ? (
-              <TermsRow
+              <SettingsRow
                 key={r.id}
-                text={r.text}
-                onSubmit={(days) => {
+                label="Check your payment terms"
+                detail={`You wrote “${r.text}”. Invoices now print Net 30.`}
+                input={(p) => (
+                  <Input
+                    {...p}
+                    aria-label="Payment terms in days"
+                    inputMode="numeric"
+                  />
+                )}
+                initial="30"
+                parse={parseTermsDays}
+                invalid="Whole days, 0 to 365."
+                onSubmit={(paymentTermsDays) => {
                   leave(r.id);
-                  saveTerms.mutate(days);
+                  answer.mutate({ id: r.id, patch: { paymentTermsDays } });
                 }}
-                error={saveTerms.error?.message}
+                error={answered(r.id)}
                 exiting={exit.exiting.has(r.id)}
                 ref={exit.register(r.id)}
               />
@@ -350,8 +364,10 @@ export function Inbox({ stats }: { stats: Stats }) {
   );
 }
 
-/** The rate row holds a form's state, so it is its own component. */
-type ItemRow = Exclude<InboxRow, { kind: 'rate' | 'terms' }>;
+type SettingsRowId = Extract<InboxRow, { kind: 'rate' | 'terms' }>['id'];
+
+/** A settings row holds a form's state, so it is its own component. */
+type ItemRow = Exclude<InboxRow, { kind: SettingsRowId }>;
 
 type Handlers = {
   downloads: boolean;
@@ -747,114 +763,62 @@ function Action({
 }
 
 /**
- * The account has no default rate, so Home cannot price its work. The rate
- * is entered here rather than in Settings, since this is where the question
- * is asked.
+ * A setting the Inbox asks for, answered here rather than in Settings, since
+ * this is where the question is asked: the default rate while there is none,
+ * or payment terms the move to days couldn't read.
  */
-function RateRow({
+function SettingsRow({
+  label,
+  detail,
+  input,
+  initial,
+  parse,
+  invalid,
   onSubmit,
   error,
   exiting,
   ref,
 }: {
-  onSubmit: (rate: number) => void;
+  label: string;
+  detail: string;
+  input: (props: React.ComponentProps<'input'>) => React.ReactNode;
+  initial: string;
+  parse: (text: string) => number | null;
+  /** Said under the field while what's typed doesn't parse. */
+  invalid: string;
+  onSubmit: (value: number) => void;
   /** The server's refusal of the last save, shown once the row is back. */
   error?: string;
   exiting: boolean;
   ref: React.Ref<HTMLLIElement>;
 }) {
-  const [text, setText] = useState('');
-  const rate = parseRate(text);
-  const shown =
-    text !== '' && !isValidRate(rate)
-      ? 'A rate is a number, zero or more.'
-      : error;
+  const [text, setText] = useState(initial);
+  const value = parse(text);
+  const shown = text !== '' && value === null ? invalid : error;
 
   return (
     <Item
       exiting={exiting}
       ref={ref}
-      label="Set your default rate"
-      detail="Home can't show money without one"
+      label={label}
+      detail={detail}
       tone="neutral"
       actions={
         <form
           className="flex w-full flex-col gap-1.5"
           onSubmit={(e) => {
             e.preventDefault();
-            if (isValidRate(rate)) onSubmit(rate);
+            if (value !== null) onSubmit(value);
           }}
         >
           <div className="flex items-center gap-1.5">
-            <RateInput
-              className="flex-1"
-              aria-label="Default hourly rate"
-              aria-invalid={shown ? true : undefined}
-              placeholder="100.00"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-            />
-            <Button type="submit" size="xs" disabled={!isValidRate(rate)}>
-              Save
-            </Button>
-          </div>
-          {shown ? (
-            <p role="alert" className="type-support text-danger">
-              {shown}
-            </p>
-          ) : null}
-        </form>
-      }
-    />
-  );
-}
-
-/**
- * Terms written as text the move to days couldn't read became 30 days. What
- * the user wrote is quoted, so they can see what changed and answer here.
- */
-function TermsRow({
-  text,
-  onSubmit,
-  error,
-  exiting,
-  ref,
-}: {
-  text: string;
-  onSubmit: (days: number) => void;
-  error?: string;
-  exiting: boolean;
-  ref: React.Ref<HTMLLIElement>;
-}) {
-  const [typed, setTyped] = useState('30');
-  const days = parseTermsDays(typed);
-  const shown = days === null ? 'Whole days, 0 to 365.' : error;
-
-  return (
-    <Item
-      exiting={exiting}
-      ref={ref}
-      label="Check your payment terms"
-      detail={`You wrote “${text}”. Invoices now print Net 30.`}
-      tone="neutral"
-      actions={
-        <form
-          className="flex w-full flex-col gap-1.5"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (days !== null) onSubmit(days);
-          }}
-        >
-          <div className="flex items-center gap-1.5">
-            <Input
-              className="flex-1"
-              aria-label="Payment terms in days"
-              aria-invalid={shown ? true : undefined}
-              inputMode="numeric"
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-            />
-            <Button type="submit" size="xs" disabled={days === null}>
+            {input({
+              className: 'flex-1',
+              'aria-invalid': shown ? true : undefined,
+              value: text,
+              onChange: (e) => setText(e.target.value),
+            })}
+            <Button type="submit" size="xs" disabled={value === null}>
               Save
             </Button>
           </div>

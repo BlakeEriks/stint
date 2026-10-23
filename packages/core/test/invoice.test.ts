@@ -566,8 +566,6 @@ test("a scheduled client's new invoice starts on its last ended period", () => {
   });
 });
 
-// The PDF prints the terms beside the due date, so the text is made from
-// the two dates and cannot contradict them.
 test('typed payment terms are whole days from 0 to 365', () => {
   for (const [text, days] of [
     ['30', 30],

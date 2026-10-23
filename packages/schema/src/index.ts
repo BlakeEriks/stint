@@ -37,10 +37,10 @@ const ianaZone = z
   .refine(isValidTimeZone, { message: 'not an IANA time zone' });
 export const timeZoneStrict = ianaZone.default('UTC');
 
-/** Query parameters arrive as strings; a flag is spelled out either way. */
 /** Whole days from issue to due; 0 is due on receipt. */
 const termsDays = z.number().int().min(0).max(PAYMENT_TERMS_MAX_DAYS);
 
+/** Query parameters arrive as strings; a flag is spelled out either way. */
 const boolParam = z
   .enum(['true', 'false'])
   .default('false')
