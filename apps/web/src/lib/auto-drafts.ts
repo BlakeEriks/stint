@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { duePeriods, formatCurrency, localDateKey } from '@stint/core';
 import { CreateInvoice } from '@stint/schema';
-import { ApiError, dbCode, PG } from './errors';
+import { ApiError, PG } from './errors';
 import { createDraft, refreshDraft } from './invoicing';
 import { sendMail } from './mail';
 import {

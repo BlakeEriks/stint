@@ -100,7 +100,8 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 The publishable key is **meant to be public** — it ships in the browser
 bundle, and RLS is what protects the data. A **secret** key
 (`sb_secret_…`) is not: it bypasses RLS entirely. The app server holds
-one only for billing, as the sensitive Vercel variable `SUPABASE_SECRET_KEY`
+one only for billing and the daily job (§4c), as the sensitive Vercel
+variable `SUPABASE_SECRET_KEY`
 (`docs/deploying.md` §2). Never put one in a committed file or anything
 `NEXT_PUBLIC_`.
 
@@ -141,8 +142,8 @@ Vercel also gives each branch a preview URL. Add
 `https://<project>-*-<scope>.vercel.app/**` if you want sign-in on previews —
 though on a private project those URLs sit behind Vercel SSO anyway.
 
-Sign-in mail goes through Resend, which is only for sign-in links — **the app
-never emails invoices**, by design.
+Sign-in mail goes through Resend, and so does the daily job's note to a user
+that a draft is ready (§4c) — **the app never emails a client**, by design.
 
 ## 4a. Sign-in email
 
@@ -182,6 +183,20 @@ visitor to `/signin`. There the invitee enters their email and clicks the
 magic link. The default Invite template works as it is.
 
 Each invitee gets their own account; nothing is shared.
+
+## 4c. Automatic drafts
+
+A Vercel Cron (`apps/web/vercel.json`) calls `/api/v1/cron/drafts` once a day
+to draft each scheduled client's invoice and tell its user when one is
+ready. In the Vercel project's environment variables, all sensitive:
+
+- `CRON_SECRET`: any long random string. Vercel sends it to the job; the job
+  refuses every call without it, and does nothing while it is unset.
+- `RESEND_API_KEY`: a Resend key with sending access to `runstint.com`, as
+  in §4a step 2.
+- `MAIL_FROM`: `Stint <notices@runstint.com>`.
+
+The job reads every user's data with `SUPABASE_SECRET_KEY` (§3).
 
 ## 5. Sign in
 

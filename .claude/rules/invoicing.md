@@ -45,11 +45,19 @@ preview and generation, and leaves a zone-less draft as it stands elsewhere.
 - Running timers, non-billable entries, and already-invoiced entries never
   reach an invoice.
 
-### No email
+### No email to clients
 
-**The app sends no mail.** Invoices are downloaded and sent by the user from
-their own address; `PATCH /invoices/:id/status` records that it went out.
-`docs/positioning.md` says why, and it is not a gap to fill.
+**Stint never sends an invoice to a client.** Invoices are downloaded and
+sent by the user from their own address; `PATCH /invoices/:id/status`
+records that it went out. `docs/positioning.md` says why, and it is not a gap
+to fill. The one email Stint sends besides sign-in is the daily job's note
+to the user that a scheduled draft is ready (`apps/web/src/lib/auto-drafts.ts`):
+a link, never the PDF or payment details.
+
+**A draft has no number until its PDF first renders.** `number_invoice()`
+gives it the next number, its issue date, due date and terms then, so a
+draft deleted before it could reach a client leaves no gap. Mark sent refuses
+one without (`DRAFT_NOT_DOWNLOADED`).
 
 ### Payment details
 

@@ -69,6 +69,12 @@ database whose migration history disagrees with its schema.
 | App | http://localhost:3100 |
 | Studio, after `pnpm dev:up:studio` | http://127.0.0.1:54323 |
 | Mailpit (every sent email) | http://127.0.0.1:54324 |
+
+The daily job runs locally when called with its secret. Add
+`MAILPIT_URL=http://127.0.0.1:54324` and a `CRON_SECRET` to
+`apps/web/.env.development.local`, then
+`curl -H "Authorization: Bearer $CRON_SECRET" localhost:3100/api/v1/cron/drafts`;
+its ready emails land in Mailpit.
 | Postgres | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` |
 
 ## A worktree that runs

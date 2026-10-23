@@ -149,6 +149,16 @@ reference falls back rather than rendering nothing.
 Line items are **denormalized on purpose**. An issued invoice is an immutable
 financial record, not a live view over time entries.
 
+**A draft has no number until its PDF first renders.** `invoice_number`,
+`sequence_no` and `issue_date` are null on a draft until `number_invoice()`
+gives all three, with its due date, terms and payment reference, in one
+transaction; `invoice_issued_numbered` keeps any other status from lacking
+them. A read of an unnumbered draft shows the dates it would take that day.
+`auto` marks a draft the daily job made; `ready_emailed_at` claims its ready
+email, and `invoices_one_auto_draft_per_period` keeps one per client and
+period. `user_settings` holds `time_zone` (where a period ends), and the
+`auto_drafts` and `ready_email` switches.
+
 **A draft refreshes on every read** (#433). `refresh_draft()` releases what it
 holds, writes the lines `buildLineItems` computes from its client and period
 now, and attaches what they bill, in one transaction; Mark sent passes
@@ -397,7 +407,8 @@ hold; this list is the record of *what* must.
 - `ended_at <= started_at` is rejected.
 - Rate resolution walks all four levels, and `0` is a real rate.
 - Invoice numbers are sequential and gapless under concurrency, because
-  `allocate_invoice_number()` holds a row lock.
+  `allocate_invoice_number()` holds a row lock; a draft takes one only at
+  its first render, so deleting one never leaves a gap.
 - A duplicate invoice number is rejected.
 - Editing or deleting an entry billed to a **non-draft** invoice is rejected,
   including its `task_name` — that becomes the invoice line description, so
