@@ -223,9 +223,13 @@ it means `false`.
 the last one is answered with the unchanged profile, and archiving the default
 promotes the next profile by name.
 
-`nextInvoiceNumber` is not settable through `PATCH /settings`: gapless
-numbering depends on `allocate_invoice_number()` holding the row lock. Every
-other field of `Settings` is, including the `minEntrySeconds` /
+`nextInvoiceNumber` moves **forward only** through `PATCH /settings`, so an
+account can start past invoices sent before Stint, up to
+`NEXT_INVOICE_NUMBER_MAX` (999999). A value below the current one or over
+that ceiling is a `422` whose `details` are
+`{ field: 'nextInvoiceNumber', current }`,
+and nothing else in the patch is written. Every other field of `Settings` is
+settable too, including the `minEntrySeconds` /
 `maxEntryHours` thresholds that drive the inbox's strange-duration row, and
 `monthlyTarget` / `monthlyTargetUnit`, which must be set or cleared together.
 `monthlyTarget` is **positive or null** — `0` is a `422`, since a zero target

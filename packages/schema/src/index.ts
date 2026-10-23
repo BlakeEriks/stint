@@ -258,6 +258,11 @@ export const CalendarQuery = z.object({
 });
 
 // ── settings ───────────────────────────────────────────────────────
+/** Well under the integer column's limit: the number moves forward only, so
+    one near the limit could never be undone and would overflow when
+    `allocate_invoice_number()` adds one. */
+export const NEXT_INVOICE_NUMBER_MAX = 999_999;
+
 export const Settings = z.object({
   defaultHourlyRate: money.nullable(),
   currency,
@@ -280,18 +285,17 @@ export const Settings = z.object({
   logoUrl: z.url().nullable(),
   defaultPaymentTerms: z.string().max(200),
   invoiceNumberPrefix: z.string().max(20),
-  nextInvoiceNumber: z.number().int().positive(),
+  nextInvoiceNumber: z.number().int().positive().max(NEXT_INVOICE_NUMBER_MAX),
   /** Standing anti-fraud line printed under the invoice payment block. */
   paymentNotice: z.string().max(500).nullable(),
   /** When the welcome dialog was finished or skipped; null shows it. */
   welcomedAt: iso.nullable(),
 });
-/**
- * `nextInvoiceNumber` is not client-settable: gapless numbering depends on
- * allocate_invoice_number() holding the row lock.
- */
-export const UpdateSettings = Settings.partial().omit({
-  nextInvoiceNumber: true,
+/** `nextInvoiceNumber` moves forward only, under its ceiling. The settings
+    route refuses either in one shape, naming the field, so the ceiling is
+    not Zod's here. */
+export const UpdateSettings = Settings.partial().extend({
+  nextInvoiceNumber: z.number().int().positive().optional(),
 });
 
 /** What deleting the account removes, counted so the confirm can say so. */

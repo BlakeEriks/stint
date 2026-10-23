@@ -180,7 +180,7 @@ export type ProjectInput = Partial<Omit<Project, 'id' | 'archivedAt'>> &
 export type ClientInput = Partial<Omit<Client, 'id' | 'archivedAt'>> &
   Pick<Client, 'name'>;
 
-export type SettingsInput = Partial<Omit<Settings, 'nextInvoiceNumber'>>;
+export type SettingsInput = Partial<Settings>;
 
 /** Everything an expense is recorded or edited with. */
 export type ExpenseInput = Pick<

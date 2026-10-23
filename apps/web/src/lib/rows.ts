@@ -506,6 +506,7 @@ export const SETTINGS_FIELDS = {
   logoUrl: 'logo_url',
   defaultPaymentTerms: 'default_payment_terms',
   invoiceNumberPrefix: 'invoice_number_prefix',
+  nextInvoiceNumber: 'next_invoice_number',
   paymentNotice: 'payment_notice',
   welcomedAt: 'welcomed_at',
 } as const;

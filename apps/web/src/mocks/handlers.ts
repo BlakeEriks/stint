@@ -716,8 +716,25 @@ export const handlers = {
 
   updateSettings: http.patch(`${API}/settings`, async ({ request }) => {
     const db = getDb();
-    const { nextInvoiceNumber: _, ...input } =
-      await body<Partial<Settings>>(request);
+    const parsed = schema.UpdateSettings.safeParse(await body(request));
+    if (!parsed.success)
+      return fail('VALIDATION_FAILED', 'Request body failed validation');
+    const input = parsed.data;
+    const current = db.settings.nextInvoiceNumber;
+    const next = input.nextInvoiceNumber;
+    const refused = (message: string) =>
+      fail('VALIDATION_FAILED', message, {
+        field: 'nextInvoiceNumber',
+        current,
+      });
+    if (next !== undefined && next > schema.NEXT_INVOICE_NUMBER_MAX)
+      return refused(
+        `The next number can't go above ${schema.NEXT_INVOICE_NUMBER_MAX}.`,
+      );
+    if (next !== undefined && next < current)
+      return refused(
+        `The next number can't go below ${current}, or an invoice could repeat a number already sent.`,
+      );
     db.settings = { ...db.settings, ...input };
     return ok(schema.Settings, db.settings);
   }),

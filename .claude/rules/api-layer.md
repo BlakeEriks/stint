@@ -60,8 +60,9 @@ omits one.
   Never pass them straight through.
 - A retried insert: a duplicate-key insert with a client-supplied id returns
   the existing row with 200, not an error.
-- `nextInvoiceNumber` is not client-settable — gapless numbering depends on
-  `allocate_invoice_number()` holding the row lock.
+- `nextInvoiceNumber` moves forward only: the settings route makes it a
+  condition of the update, never a read before it, since
+  `allocate_invoice_number()` may take the number in between.
 
 ### Schemas
 

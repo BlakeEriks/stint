@@ -302,6 +302,8 @@ number and appears in no invoice list, and the entry stays editable.
 lock and returns both the numeric sequence and the rendered string
 (`INV-0001`). The lock serializes concurrent callers, which is what makes the
 sequence gapless under concurrency rather than merely usually correct.
+The user may move `next_invoice_number` forward, to start past invoices sent
+before Stint, and never back (`PATCH /settings`).
 
 ### Other constraints
 - `ended_at is null or ended_at > started_at`.
