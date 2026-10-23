@@ -20,6 +20,19 @@ export function shortDate(date: string | null | undefined): string {
   }).format(new Date(y, m - 1, d));
 }
 
+/** An invoice's name: its number, or for a draft not yet downloaded, which
+ *  has none, its period when known. */
+export function invoiceName(i: {
+  invoiceNumber: string | null;
+  periodStart?: string;
+  periodEnd?: string;
+}): string {
+  if (i.invoiceNumber !== null) return i.invoiceNumber;
+  return i.periodStart && i.periodEnd
+    ? `Draft, ${shortDate(i.periodStart)} – ${shortDate(i.periodEnd)}`
+    : 'Draft';
+}
+
 /**
  * Status is neutral except `void`, which is the only one that means something
  * went wrong, and `paid`, which is the outcome the whole record exists to

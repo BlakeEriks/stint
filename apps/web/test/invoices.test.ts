@@ -3677,7 +3677,7 @@ const NOV_2 = new Date('2026-11-02T15:00:00Z');
 /** The job as the scheduler runs it: the service client, no user scope. */
 async function runJob(now: Date) {
   const { runDrafts } = await import('../src/lib/auto-drafts.ts');
-  return runDrafts(makeDb(pool, null) as never, now);
+  return runDrafts(makeDb(pool, null), now);
 }
 
 const autoDrafts = async () =>

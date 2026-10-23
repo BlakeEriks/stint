@@ -24,8 +24,8 @@ const NO_USER_SCOPE = new Set(['invoice_line_items']);
 /** PostgREST's `max_rows`: the most any one select returns. */
 const MAX_ROWS = 1000;
 
-/** `userId` null is the service client: no user scope, as the secret key
-    bypasses RLS. */
+// `userId` null is the service client: no user scope, as the secret key
+// bypasses RLS.
 export function makeDb(pool, userId) {
   const run = async (sql, params) => {
     try {

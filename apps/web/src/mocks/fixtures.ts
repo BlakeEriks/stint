@@ -102,6 +102,9 @@ export const settings = (): Settings => ({
   businessEmail: 'billing@samrivera.test',
   logoUrl: null,
   paymentTermsDays: 30,
+  timeZone: ZONE,
+  autoDrafts: true,
+  readyEmail: true,
   invoiceNumberPrefix: 'STINT-',
   nextInvoiceNumber: 16,
   paymentNotice:

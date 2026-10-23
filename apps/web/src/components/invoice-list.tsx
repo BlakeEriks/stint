@@ -178,7 +178,7 @@ function Row({
         className="flex min-w-0 flex-1 items-center gap-3 rounded-sm hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
       >
         <span className="w-20 flex-none type-meta text-muted">
-          {invoice.invoiceNumber}
+          {invoice.invoiceNumber ?? 'Draft'}
         </span>
         <span className="min-w-0 flex-1 truncate type-control text-primary">
           {clientName ?? 'Unknown client'}

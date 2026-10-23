@@ -380,7 +380,7 @@ describe('NewInvoice', () => {
     expect(generate()).toBeDisabled();
   });
 
-  it('defaults Due to the payment terms, and sends the date it shows', async () => {
+  it('defaults Due to the payment terms, and leaves it to them', async () => {
     serve();
     settings = { ...SETTINGS, paymentTermsDays: 15 };
     const user = userEvent.setup();
@@ -392,9 +392,10 @@ describe('NewInvoice', () => {
     await user.click(generate());
 
     await waitFor(() => expect(push).toHaveBeenCalled());
-    expect(bodies.find((b) => b.path.endsWith('/invoices'))!.body.dueDate).toBe(
-      due,
-    );
+    // Unpicked, the draft takes its terms' date when its PDF first renders.
+    expect(
+      bodies.find((b) => b.path.endsWith('/invoices'))!.body.dueDate,
+    ).toBeUndefined();
   });
 
   it("defaults Due to the client's own terms over the user's", async () => {
@@ -443,7 +444,7 @@ describe('NewInvoice', () => {
     ).toBeInTheDocument();
   });
 
-  it('generates only when pressed, dated today where the user is', async () => {
+  it('generates only when pressed', async () => {
     serve();
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
@@ -453,8 +454,6 @@ describe('NewInvoice', () => {
     await user.click(generate());
 
     await waitFor(() => expect(push).toHaveBeenCalledWith('/invoices/inv-1'));
-    const sent = bodies.find((b) => b.path.endsWith('/invoices'))!.body;
-    expect(sent.issueDate).toBe(localDateKey(new Date(), tz));
   });
 
   /**

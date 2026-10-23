@@ -594,7 +594,7 @@ export const FromLastInvoice: Story = {
       const last = db.invoices
         .filter((i) => i.clientId === ids.northwind && i.status !== 'void')
         .sort(
-          (a, b) => b.sequenceNo - a.sequenceNo,
+          (a, b) => (b.sequenceNo ?? 0) - (a.sequenceNo ?? 0),
         )[0] as Db['invoices'][number];
       last.groupingMode = 'summary';
       last.summaryText = 'Software consulting services';

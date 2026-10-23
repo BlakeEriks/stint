@@ -4,10 +4,8 @@ import {
   entriesCsv,
   invoicesCsv,
   measured,
-  formatInvoiceNumber,
-  addDays,
+  draftDates,
   localDateKey,
-  paymentTermsText,
   pickSchedules,
   type ImportPreview,
   type ImportResult,
@@ -77,25 +75,36 @@ function applyArchived<T>(
   } as T;
 }
 
+/** The invoices an export lists: a draft not yet numbered isn't one yet. */
+const numbered = (db: Db) =>
+  db.invoices.flatMap((i) =>
+    i.invoiceNumber === null || i.sequenceNo === null
+      ? []
+      : [{ ...i, invoiceNumber: i.invoiceNumber, sequenceNo: i.sequenceNo }],
+  );
+
 const activeProfile = (db: Db, id: string) =>
   db.paymentProfiles.some((p) => p.id === id && !p.archivedAt);
 
 type CreateInvoice = z.infer<typeof schema.CreateInvoice>;
 type Preview = NonNullable<ReturnType<typeof invoicePreview>>;
 
+/** A new draft: unnumbered, showing the dates it would take today, as the
+    route's `withDraftDates` does. The fake renders no PDF, so it stays so. */
 function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
-  const seq = db.settings.nextInvoiceNumber;
-  db.settings.nextInvoiceNumber += 1;
-  const issueDate = input.issueDate ?? localDateKey(db.now, input.tz);
   const days =
     db.clients.find((c) => c.id === preview.clientId)?.paymentTermsDays ??
     db.settings.paymentTermsDays;
-  const dueDate = input.dueDate ?? addDays(issueDate, days);
+  const { issueDate, dueDate, paymentTerms } = draftDates(
+    localDateKey(db.now, input.tz),
+    input.dueDate ?? null,
+    days,
+  );
   return {
     id: uuidv7(db.now.getTime()),
     clientId: preview.clientId,
-    invoiceNumber: formatInvoiceNumber(db.settings.invoiceNumberPrefix, seq),
-    sequenceNo: seq,
+    invoiceNumber: null,
+    sequenceNo: null,
     status: 'draft' as const,
     issueDate,
     dueDate,
@@ -108,7 +117,7 @@ function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
     total: preview.total,
     currency: preview.currency,
     notes: input.notes ?? null,
-    paymentTerms: paymentTermsText(issueDate, dueDate),
+    paymentTerms,
     groupingMode: preview.groupingMode,
     summaryText: preview.groupingMode === 'summary' ? input.summaryText : null,
     reference: input.reference ?? null,
@@ -469,7 +478,12 @@ export const handlers = {
       .invoices.filter((i) => !clientId || i.clientId === clientId)
       .filter((i) => !status || i.status === status)
       .map(({ lineItems: _, changedSinceDownload: __, ...invoice }) => invoice)
-      .sort((a, b) => b.sequenceNo - a.sequenceNo);
+      // Newest first, unnumbered drafts before any, as Postgres sorts nulls.
+      .sort(
+        (a, b) =>
+          (b.sequenceNo ?? Number.MAX_SAFE_INTEGER) -
+          (a.sequenceNo ?? Number.MAX_SAFE_INTEGER),
+      );
     return ok(envelopes.invoices, { invoices });
   }),
 
@@ -560,6 +574,11 @@ export const handlers = {
         sentAt?: string;
         paidAt?: string;
       }>(request);
+      if (input.status === 'sent' && invoice.invoiceNumber === null)
+        return fail(
+          'DRAFT_NOT_DOWNLOADED',
+          'Download this draft first: that gives it its number and dates, and it is what you send.',
+        );
       if (input.status === 'sent' && invoice.changedSinceDownload)
         return fail(
           'DRAFT_CHANGED',
@@ -657,6 +676,7 @@ export const handlers = {
       entriesCsv(
         {
           ...db,
+          invoices: numbered(db),
           defaultRate: db.settings.defaultHourlyRate,
           currency: db.settings.currency,
         },
@@ -667,7 +687,11 @@ export const handlers = {
 
   exportInvoices: http.get(`${API}/exports/invoices`, ({ request }) => {
     const tz = query(request).get('tz') ?? ZONE;
-    return csvResponse('invoices', tz, invoicesCsv(getDb(), tz));
+    return csvResponse(
+      'invoices',
+      tz,
+      invoicesCsv({ invoices: numbered(getDb()) }, tz),
+    );
   }),
 
   sendFeedback: http.post(`${API}/feedback`, async ({ request }) => {

@@ -41,6 +41,7 @@ function arrival(
     attention: {
       noDefaultRate: false,
       paymentTermsToCheck: null,
+      autoDraftsBlocked: false,
       overdueInvoices: [],
       staleDrafts: [],
       lateEntries: [],

@@ -43,16 +43,18 @@ test('stores a draft and claims what it bills', async () => {
   const invoice = res.body;
   expect(invoice).toMatchObject({
     status: 'draft',
-    sequenceNo: next,
+    // Numbered at its first render, as the route's draft is.
+    invoiceNumber: null,
+    sequenceNo: null,
     issueDate: localDateKey(new Date(NOW), ZONE),
-    // The fake fills Due from the terms, as the route does.
+    // What it would take today, as the route shows it.
     dueDate: addDays(localDateKey(new Date(NOW), ZONE), 30),
     paymentTerms: 'Net 30',
     summaryText: null,
     reference: 'PO-7',
     supportingDetail: null,
   });
-  expect(db.settings.nextInvoiceNumber).toBe(next + 1);
+  expect(db.settings.nextInvoiceNumber).toBe(next);
   expect(db.invoices.at(-1)?.id).toBe(invoice.id);
 
   const billedEntries = invoice.lineItems.flatMap(
@@ -75,10 +77,8 @@ test('a summary keeps its text and the detail asked for', async () => {
     groupingMode: 'summary',
     summaryText: ' Consulting ',
     schedules: ['project'],
-    issueDate: '2026-09-01',
   });
   expect(res.status).toBe(200);
   expect(res.body.summaryText).toBe('Consulting');
-  expect(res.body.issueDate).toBe('2026-09-01');
   expect(res.body.supportingDetail).toHaveProperty('project');
 });

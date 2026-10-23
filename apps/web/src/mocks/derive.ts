@@ -278,7 +278,7 @@ export function stats(db: Db, tz: string) {
       due_date: i.dueDate,
       total: i.total,
       currency: i.currency,
-      issue_date: i.issueDate,
+      period_end: i.periodEnd,
     }));
 
   const candidates = db.entries
@@ -333,6 +333,10 @@ export function stats(db: Db, tz: string) {
     attention: {
       noDefaultRate: settings.defaultHourlyRate == null,
       paymentTermsToCheck: db.legacyPaymentTerms,
+      autoDraftsBlocked:
+        settings.autoDrafts &&
+        !(settings.businessName?.trim() && settings.businessEmail?.trim()) &&
+        db.clients.some((c) => c.billingSchedule !== null && !c.archivedAt),
       overdueInvoices: buildOverdueInvoices(
         open,
         clientNames,
@@ -361,7 +365,8 @@ export function stats(db: Db, tz: string) {
           .filter((i) => i.status === 'sent' || i.status === 'paid')
           .map((i) => ({
             id: i.id,
-            invoiceNumber: i.invoiceNumber,
+            // Sent and paid invoices are always numbered.
+            invoiceNumber: i.invoiceNumber as string,
             clientId: i.clientId,
             periodStart: i.periodStart,
             periodEnd: i.periodEnd,
