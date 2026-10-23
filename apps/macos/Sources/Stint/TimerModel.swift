@@ -275,7 +275,7 @@ final class TimerModel: Optimistic {
             // "cancelled" — never the user's business.
         } catch is CancellationError {
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = userMessage(for: error)
         }
     }
 

@@ -107,7 +107,7 @@ struct SignInPanel: View {
         Task {
             defer { busy = false }
             do { try await work() } catch {
-                self.error = error.localizedDescription
+                self.error = userMessage(for: error)
                 onError()
             }
         }
