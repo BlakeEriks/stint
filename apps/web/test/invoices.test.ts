@@ -3804,20 +3804,46 @@ test('the daily job keeps each user’s drafts to their own clients', async () =
     `insert into clients (id,user_id,name,billing_period) values ($1,$2,'Theirs','monthly')`,
     [THEIR_CLIENT, OTHER_USER],
   );
+  // Each user's own bank details, which the job must never cross.
+  await pool.query(
+    `insert into payment_profiles (user_id,name,is_default,bank_name,account_number)
+     values ($1,'Mine',true,'Mine Bank','111111111'),
+            ($2,'Theirs',true,'Their Bank','999999999')`,
+    [USER, OTHER_USER],
+  );
   await scheduleMonthly();
 
   try {
     await runJob(OCT_20);
+    const drafts = (
+      await pool.query(
+        `select * from invoices where auto order by user_id, period_start`,
+      )
+    ).rows;
     assert.deepEqual(
-      (await autoDrafts()).map((d) => [d.user_id, d.client_id]),
+      drafts.map((d) => [d.user_id, d.client_id]),
       [
-        [OTHER_USER, THEIR_CLIENT],
         [USER, CLIENT],
+        [OTHER_USER, THEIR_CLIENT],
       ].sort(),
     );
+
+    const { withDraftDates } = await import('../src/lib/invoicing.ts');
+    const service = makeDb(pool, null);
+    for (const d of drafts) {
+      const mine = d.user_id === USER;
+      const account = JSON.stringify(d.payment_details);
+      assert.match(account, mine ? /111111111/ : /999999999/);
+      assert.doesNotMatch(account, mine ? /999999999/ : /111111111/);
+      const shown = await withDraftDates(service, d, 'UTC');
+      assert.equal(shown.payment_terms, mine ? 'Net 30' : 'Net 15');
+    }
   } finally {
     await pool.query('delete from invoices where user_id=$1', [OTHER_USER]);
     await pool.query('delete from clients where user_id=$1', [OTHER_USER]);
+    await pool.query('delete from payment_profiles where user_id=$1', [
+      OTHER_USER,
+    ]);
   }
 });
 

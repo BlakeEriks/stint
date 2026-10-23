@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, type Settings } from './api';
 import { useOptimisticMutation } from './mutations';
@@ -22,10 +22,15 @@ export function useRecordTimeZone() {
     predict: (current: Settings | undefined, zone) =>
       current ? { ...current, timeZone: zone } : current,
   });
+  /* Once per mount: a refusal puts the old zone back, and trying again on
+     that would retry for as long as the server refuses. */
+  const tried = useRef(false);
   const saved = settings?.timeZone;
   const loaded = settings !== undefined;
   // biome-ignore lint/correctness/useExhaustiveDependencies: once per answer, not per render
   useEffect(() => {
-    if (loaded && saved !== timeZone) record.mutate(timeZone);
+    if (!loaded || tried.current || saved === timeZone) return;
+    tried.current = true;
+    record.mutate(timeZone);
   }, [loaded, saved]);
 }

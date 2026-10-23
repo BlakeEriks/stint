@@ -84,13 +84,13 @@ export function lastEndedPeriod(
   return periodContaining(addDays(current.periodStart, -1), schedule);
 }
 
-/** Whether `periodStart`..`periodEnd` is exactly one of `schedule`'s periods. */
 /** The periods a scheduled client needs a draft for: the last one ended, in
  *  case a run missed it, and the one under way. */
 export function duePeriods(today: string, schedule: BillingSchedule): Period[] {
   return [lastEndedPeriod(today, schedule), periodContaining(today, schedule)];
 }
 
+/** Whether `periodStart`..`periodEnd` is exactly one of `schedule`'s periods. */
 export function isPeriod(
   schedule: BillingSchedule,
   periodStart: string,

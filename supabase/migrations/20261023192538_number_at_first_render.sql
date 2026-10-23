@@ -49,7 +49,7 @@ begin
     subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency,
     notes, payment_terms, grouping_mode, payment_details,
     summary_text, reference, supporting_detail,
-    tz, excluded_expense_ids
+    tz, excluded_expense_ids, auto
   ) values (
     p_user_id,
     (p_invoice->>'client_id')::uuid,
@@ -77,7 +77,8 @@ begin
     coalesce(
       array(select jsonb_array_elements_text(p_invoice->'excluded_expense_ids'))::uuid[],
       '{}'
-    )
+    ),
+    coalesce((p_invoice->>'auto')::boolean, false)
   )
   returning * into v_invoice;
 
