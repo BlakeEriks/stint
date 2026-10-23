@@ -17,8 +17,9 @@ and payment terms in days (#438). `docs/positioning.md` says "The app sends
 no mail" and is reworded first: Stint never sends an invoice to a client; a
 notice to the user is fine, as sign-in links already are.
 
-Pulled in: a draft has no invoice number until its PDF is first
-downloaded, the moment it can reach a client. Today the number is taken
+Pulled in: a draft has no invoice number until its PDF is first opened,
+viewed or downloaded — the moment it can reach a client. "Downloaded" below
+means either. Today the number is taken
 when the draft is made, so a deleted draft leaves a gap; with drafts made
 automatically at the start of each period, most would. One sequence per
 user, as today.
