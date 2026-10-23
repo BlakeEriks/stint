@@ -17,7 +17,13 @@ import { shortDate, StatusBadge } from './invoice-bits';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
 import { PRICE } from './plan-section';
-import { attachedSchedules, formatCurrency, formatHours } from '@stint/core';
+import {
+  attachedSchedules,
+  formatCurrency,
+  formatHours,
+  localDateKey,
+} from '@stint/core';
+import { timeZone as tz } from '@/lib/client/use-timer';
 import {
   api,
   ApiError,
@@ -402,10 +408,7 @@ function Unrated({ entries }: { entries: UnratedEntry[] }) {
         {entries.map((e) => (
           <li key={e.id}>
             {e.taskName || 'Untitled'} ·{' '}
-            {new Date(e.startedAt).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-            })}
+            {shortDate(localDateKey(new Date(e.startedAt), tz))}
           </li>
         ))}
       </ul>
