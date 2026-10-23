@@ -327,7 +327,8 @@ export interface InvoiceRow {
   paid_at: string | null;
   created_at: string;
   issued_subscription_status: SubscriptionStatus | null;
-  /** A draft's refresh inputs and last render; never sent to a client. */
+  /** The zone and expenses a draft is derived with, and its last render;
+   *  never sent to a client. */
   tz: string | null;
   excluded_expense_ids: string[];
   downloaded_snapshot: DraftSnapshot | null;

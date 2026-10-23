@@ -32,7 +32,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Lines and total as last refreshed; no supporting detail named. The
+/** Lines and total; no supporting detail named. The
     actions share the title's row, whatever the length of the status line. */
 export const Draft: Story = {
   ...desktop,

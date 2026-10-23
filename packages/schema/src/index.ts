@@ -27,7 +27,7 @@ const hexColor = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
  *
  * `catch` rather than a hard failure on the read endpoints: a view that
  * renders in UTC beats a view that does not render. The write endpoints, and
- * the reads that refresh a draft, reject one instead, because a zone that
+ * the reads that derive a draft, reject one instead, because a zone that
  * silently becomes UTC decides which entries land on an invoice.
  */
 export const timeZone = z.string().refine(isValidTimeZone).catch('UTC');
