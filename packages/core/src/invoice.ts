@@ -342,6 +342,29 @@ export function parseTermsDays(text: string): number | null {
   return days <= PAYMENT_TERMS_MAX_DAYS ? days : null;
 }
 
+/**
+ * The dates a draft takes on `today`, the day its PDF is first rendered: due
+ * on the date picked for it, else after the payment terms' days. A picked
+ * date already past is due on receipt, never before the invoice exists.
+ */
+export function draftDates(
+  today: string,
+  pickedDue: string | null,
+  days: number,
+) {
+  const dueDate =
+    pickedDue === null
+      ? addDays(today, days)
+      : pickedDue < today
+        ? today
+        : pickedDue;
+  return {
+    issueDate: today,
+    dueDate,
+    paymentTerms: paymentTermsText(today, dueDate),
+  };
+}
+
 /** The terms an invoice prints, made from its own dates so the two agree. */
 export function paymentTermsText(issueDate: string, dueDate: string): string {
   const days = daysBetweenKeys(issueDate, dueDate);

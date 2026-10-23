@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  duePeriods,
   isPeriod,
   lastEndedPeriod,
   periodContaining,
@@ -116,4 +117,11 @@ test('a range is a period only when it is exactly one', () => {
   assert.equal(isPeriod(weekly, '2026-10-12', '2026-10-18'), true);
   assert.equal(isPeriod(weekly, '2026-10-12', '2026-10-25'), false);
   assert.equal(isPeriod(biweekly, '2026-10-12', '2026-10-25'), false);
+});
+
+test('a client needs drafts for its last ended period and its current one', () => {
+  assert.deepEqual(duePeriods('2026-10-20', { period: 'semimonthly' }), [
+    { periodStart: '2026-10-01', periodEnd: '2026-10-15' },
+    { periodStart: '2026-10-16', periodEnd: '2026-10-31' },
+  ]);
 });

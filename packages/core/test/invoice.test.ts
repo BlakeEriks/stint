@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   buildLineItems,
   defaultInvoicePeriod,
+  draftDates,
   formatInvoiceNumber,
   parseTermsDays,
   paymentTermsText,
@@ -594,4 +595,24 @@ test('payment terms text is the days between issue and due', () => {
   for (const [issue, due, text] of cases) {
     assert.equal(paymentTermsText(issue, due), text, `${issue}→${due}`);
   }
+});
+
+test('a draft takes its dates the day it is first rendered', () => {
+  assert.deepEqual(draftDates('2026-11-02', null, 30), {
+    issueDate: '2026-11-02',
+    dueDate: '2026-12-02',
+    paymentTerms: 'Net 30',
+  });
+  assert.deepEqual(draftDates('2026-11-02', '2026-11-20', 30), {
+    issueDate: '2026-11-02',
+    dueDate: '2026-11-20',
+    paymentTerms: 'Net 18',
+  });
+  // A due date picked for a day now past is due on receipt, never before
+  // the invoice exists.
+  assert.deepEqual(draftDates('2026-11-02', '2026-10-31', 30), {
+    issueDate: '2026-11-02',
+    dueDate: '2026-11-02',
+    paymentTerms: 'Due on receipt',
+  });
 });
