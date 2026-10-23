@@ -25,6 +25,10 @@ from the days, so they can't disagree with the due date. Auto-drafting
 - Q: What should happen when someone picks a due date earlier than the invoice's issue date? → A: Reject it: New invoice shows a message and won't generate until the due date is on or after the issue date.
 - Q: When an invoice is created without a due date (through the API, or by auto-drafting), should the server fill one in from the client's terms? → A: Yes: the issue date plus the client's days, else the user's, and its terms follow.
 
+## Design
+
+No design review: each change is one field or message in a pattern the app already has (a Settings field, a client-dialog field beside the billing schedule, a form error, an inbox notice like the missing-rate one); its stories show every state.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Due dates follow each client's terms (Priority: P1)
