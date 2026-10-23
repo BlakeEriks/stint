@@ -694,8 +694,8 @@ async function issueAliceInvoice(status: 'draft' | 'sent') {
   await seedBoth();
   await seedExpenses();
   await admin.query(
-    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,total)
-     values ($1,$2,'cc000000-0000-4000-8000-00000000000a','INV-0001',1,150)`,
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,total,issue_date)
+     values ($1,$2,'cc000000-0000-4000-8000-00000000000a','INV-0001',1,150,current_date)`,
     [ALICE_INVOICE, ALICE],
   );
   await admin.query(
@@ -896,4 +896,25 @@ test('refresh_draft reaches only the caller’s own drafts', async () => {
     () => asAlice(refresh),
     /is sent and cannot be refreshed/,
   );
+});
+
+/* `number_invoice` runs as the caller too: another user can't number, or
+   take a number from, someone else's draft. */
+test('number_invoice reaches only the caller’s own drafts', async () => {
+  const number = `select number_invoice($1, current_date, current_date + 30, 'Net 30')`;
+  await issueAliceInvoice('draft');
+  await admin.query(
+    `update invoices set invoice_number = null, sequence_no = null,
+       issue_date = null where id = $1`,
+    [ALICE_INVOICE],
+  );
+
+  await assert.rejects(() => asUser(BOB, number, [ALICE_INVOICE]), /not found/);
+  await asAlice(number);
+  const [draft] = (
+    await admin.query(`select invoice_number from invoices where id = $1`, [
+      ALICE_INVOICE,
+    ])
+  ).rows;
+  assert.ok(draft.invoice_number, 'the owner numbers it');
 });

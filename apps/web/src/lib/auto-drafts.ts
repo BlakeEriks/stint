@@ -29,16 +29,25 @@ export async function runDrafts(db: SupabaseClient, now = new Date()) {
   if (error) throw error;
 
   const done = { created: 0, deleted: 0, emailed: 0 };
+  /* One user's failure, a refused email say, doesn't stop the others; all
+     of them are raised once every user has had their turn. */
+  const failures: unknown[] = [];
   for (const u of users ?? []) {
-    const tz = (u.time_zone as string | null) ?? 'UTC';
-    const today = localDateKey(now, tz);
-    // Every invoice needs a sender; the inbox asks for one meanwhile.
-    if (u.business_name?.trim() && u.business_email?.trim())
-      done.created += await draftPeriods(db, u.user_id, tz, today);
-    const ended = await endPeriods(db, u.user_id, tz, today, u.ready_email);
-    done.deleted += ended.deleted;
-    done.emailed += ended.emailed;
+    try {
+      const tz = (u.time_zone as string | null) ?? 'UTC';
+      const today = localDateKey(now, tz);
+      // Every invoice needs a sender; the inbox asks for one meanwhile.
+      if (u.business_name?.trim() && u.business_email?.trim())
+        done.created += await draftPeriods(db, u.user_id, tz, today);
+      const ended = await endPeriods(db, u.user_id, tz, today, u.ready_email);
+      done.deleted += ended.deleted;
+      done.emailed += ended.emailed;
+    } catch (e) {
+      failures.push(e);
+    }
   }
+  if (failures.length > 0)
+    throw new AggregateError(failures, `${failures.length} users failed`);
   return done;
 }
 

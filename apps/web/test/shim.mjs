@@ -24,6 +24,8 @@ const NO_USER_SCOPE = new Set(['invoice_line_items']);
 /** PostgREST's `max_rows`: the most any one select returns. */
 const MAX_ROWS = 1000;
 
+/** `userId` null is the service client: no user scope, as the secret key
+    bypasses RLS. */
 export function makeDb(pool, userId) {
   const run = async (sql, params) => {
     try {
@@ -159,7 +161,7 @@ export function makeDb(pool, userId) {
         };
         const whereSql = () => {
           const parts = st.wheres.map((w) => w(P));
-          if (!NO_USER_SCOPE.has(st.table))
+          if (userId !== null && !NO_USER_SCOPE.has(st.table))
             parts.unshift(`user_id = ${P(userId)}`);
           return parts.length ? parts.join(' AND ') : 'true';
         };
@@ -234,6 +236,15 @@ export function makeDb(pool, userId) {
     rpc,
     auth: {
       getUser: async () => ({ data: { user: { id: userId } }, error: null }),
+      admin: {
+        getUserById: async (id) => {
+          const { rows, error } = await run(
+            'select id, email from auth.users where id = $1',
+            [id],
+          );
+          return { data: { user: rows[0] ?? null }, error };
+        },
+      },
     },
   };
 }

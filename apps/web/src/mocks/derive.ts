@@ -64,13 +64,14 @@ function overlapSpans(db: Db, entries: TimeEntry[]) {
     started_at: e.startedAt,
     ended_at: e.endedAt as string,
     is_billable: e.isBillable,
-    invoice_number: invoice,
+    invoice_id: invoice,
+    invoice_number: invoice === null ? null : (number.get(invoice) ?? null),
   });
   return [
     ...entries.map((e) => span(e, null)),
     ...db.entries
       .filter((e) => e.invoiceId !== null && stopped(e))
-      .map((e) => span(e, number.get(e.invoiceId as string) as string)),
+      .map((e) => span(e, e.invoiceId)),
   ];
 }
 
