@@ -1,10 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import {
-  ApiError,
-  isEntryClaimConflict,
-  isExpenseClaimConflict,
-  PG,
-} from './errors';
+import { ApiError, dbCode, PG } from './errors';
 import {
   CLIENT_COLUMNS,
   INVOICE_COLUMNS,
@@ -563,12 +558,12 @@ export async function refreshDraft(
     p_sent_at: opts.sentAt ?? null,
   });
   if (error) {
+    const code = dbCode(error);
     const claimed =
-      isExpenseClaimConflict(error) || isEntryClaimConflict(error);
+      code === 'EXPENSE_ALREADY_INVOICED' || code === 'ENTRY_ALREADY_INVOICED';
     // Sent, voided or deleted by another request since this one read it.
     const moved =
-      (error.message ?? '').startsWith('INVOICE_NOT_DRAFT') ||
-      error.code === PG.NO_DATA_FOUND;
+      code === 'INVOICE_STATUS_CHANGED' || error.code === PG.NO_DATA_FOUND;
     if (!claimed && !moved) throw error;
     if (!opts.sentAt) return stale;
     throw moved

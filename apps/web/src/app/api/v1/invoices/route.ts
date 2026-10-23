@@ -1,10 +1,5 @@
 import { NextResponse } from 'next/server';
-import {
-  handle,
-  ApiError,
-  isEntryClaimConflict,
-  isExpenseClaimConflict,
-} from '@/lib/errors';
+import { handle, ApiError, dbCode } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import {
@@ -164,13 +159,13 @@ export const POST = handle(async (req: Request) => {
   });
 
   if (error) {
-    if (isExpenseClaimConflict(error)) {
+    if (dbCode(error) === 'EXPENSE_ALREADY_INVOICED') {
       throw new ApiError(
         'EXPENSE_ALREADY_INVOICED',
         'An expense on this invoice was billed on another one first. Preview again.',
       );
     }
-    if (isEntryClaimConflict(error)) {
+    if (dbCode(error) === 'ENTRY_ALREADY_INVOICED') {
       throw new ApiError(
         'ENTRY_ALREADY_INVOICED',
         'Time on this invoice changed since the preview. Preview again.',

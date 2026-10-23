@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { handle, ApiError, isTimerConflict } from '@/lib/errors';
+import { handle, ApiError, dbCode } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import { findRunning } from '@/lib/timer';
@@ -43,7 +43,7 @@ export const POST = handle(async (req: Request) => {
     .single();
 
   if (error) {
-    if (isTimerConflict(error)) {
+    if (dbCode(error) === 'TIMER_ALREADY_RUNNING') {
       const running = await findRunning(db);
       throw new ApiError(
         'TIMER_ALREADY_RUNNING',
