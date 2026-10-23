@@ -17,6 +17,14 @@ default and an optional per-client override; the printed terms are generated
 from the days, so they can't disagree with the due date. Auto-drafting
 (#434) depends on this.
 
+## Clarifications
+
+### Session 2026-10-23
+
+- Q: When you pick a due date by hand on one invoice, what should its printed terms say? → A: Terms for that invoice's own days: 20 days out prints "Net 20", the same day prints "Due on receipt".
+- Q: What should happen when someone picks a due date earlier than the invoice's issue date? → A: Reject it: New invoice shows a message and won't generate until the due date is on or after the issue date.
+- Q: When an invoice is created without a due date (through the API, or by auto-drafting), should the server fill one in from the client's terms? → A: Yes: the issue date plus the client's days, else the user's, and its terms follow.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Due dates follow each client's terms (Priority: P1)
@@ -48,8 +56,9 @@ the preview and the PDF.
    issue date, **Then** the due date moves with it until the user picks a
    due date themselves.
 5. **Given** the user picks a due date on one invoice, **When** they
-   generate it, **Then** only that invoice has it, its terms read from its
-   own issue and due dates, and the client's and user's terms are unchanged.
+   generate it, **Then** only that invoice has it, its terms are its own
+   days (a due date 20 days after issue prints "Net 20"), and the client's
+   and user's terms are unchanged.
 6. **Given** a client with an override, **When** the override is cleared,
    **Then** its next invoice uses the user's terms.
 
@@ -117,7 +126,8 @@ an inbox notice for the last.
 - A draft that is still open keeps the due date and terms it was generated
   with when the client's or user's terms change; they're the draft's own
   choice, like its other choices.
-- A due date the user picks before the issue date is rejected, as today.
+- A due date before the issue date is rejected: New invoice says so and
+  won't generate until it's on or after the issue date.
 - A client archived with an override keeps it; it matters only if it's
   unarchived.
 
@@ -130,7 +140,9 @@ an inbox notice for the last.
 - **FR-002**: A client MUST be able to hold an optional number of days in
   the same range, and when it holds none, the user's days apply.
 - **FR-003**: A new invoice's default due date MUST be its issue date plus
-  the client's days, or the user's when the client has none.
+  the client's days, or the user's when the client has none. This holds for
+  every way an invoice is created: one created without a due date gets this
+  one, never none.
 - **FR-004**: An invoice's printed terms MUST be generated from its issue
   and due dates: "Due on receipt" when they're the same day, otherwise
   "Net N" for N days between them. No free text is accepted for terms.
@@ -146,6 +158,8 @@ an inbox notice for the last.
   conversion has run.
 - **FR-009**: Values outside 0–365, or not whole numbers, MUST be rejected
   with a message, saving nothing.
+- **FR-010**: A due date before its invoice's issue date MUST be rejected
+  with a message, generating nothing.
 
 ### Key Entities
 
