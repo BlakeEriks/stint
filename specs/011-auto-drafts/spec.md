@@ -17,6 +17,12 @@ and payment terms in days (#438). `docs/positioning.md` says "The app sends
 no mail" and is reworded first: Stint never sends an invoice to a client; a
 notice to the user is fine, as sign-in links already are.
 
+Pulled in: a draft has no invoice number until its PDF is first
+downloaded, the moment it can reach a client. Today the number is taken
+when the draft is made, so a deleted draft leaves a gap; with drafts made
+automatically at the start of each period, most would. One sequence per
+user, as today.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - The draft is waiting (Priority: P1)
@@ -35,19 +41,19 @@ defaults.
 
 **Acceptance Scenarios**:
 
-1. **Given** a client billed monthly with billable work in October, **When**
-   the daily job runs on a day that makes October's draft due, **Then** a
-   draft exists for that client covering October 1–31, due by the client's
-   payment terms.
+1. **Given** a client billed monthly, **When** the daily job runs on or after
+   October 1, **Then** a draft exists for that client covering October 1–31,
+   due by the client's payment terms, collecting October's work as it's
+   logged.
 2. **Given** that draft already exists, **When** the job runs again the same
    day or any later day, **Then** no second draft is made for that period.
 3. **Given** the user already made a draft for those dates by hand, **When**
    the job runs, **Then** it makes none and leaves the user's draft as it is.
 4. **Given** a client with no billing schedule, or an archived one, **When**
    the job runs, **Then** it makes no draft for that client.
-5. **Given** a period with nothing to bill — no billable time, no expenses —
-   **When** the job runs, **Then** no draft is made and no invoice number is
-   used.
+5. **Given** a draft for a period that ended with nothing to bill, **When**
+   the job runs after it ends, **Then** the draft is deleted and no email is
+   sent; it never had a number, so the sequence keeps no gap.
 6. **Given** the user turned automatic drafts off, **When** the job runs,
    **Then** it makes nothing for any of their clients.
 
@@ -80,6 +86,43 @@ job, and find one email in the user's inbox linking to that draft.
 5. **Given** an email that fails to send, **When** the job runs the next day,
    **Then** it tries again, and stops once one has been sent.
 
+---
+
+### User Story 3 - A draft is numbered when it can first reach a client (Priority: P1)
+
+A draft, made by hand or by the schedule, shows no invoice number. The
+first PDF download gives it the next number in the user's one sequence,
+and it keeps that number through every later download, Mark sent and
+void.
+
+**Why this priority**: Automatic drafts made at the start of every period
+would otherwise each take a number, and the empty ones deleted would leave
+gaps in a sequence promised to have none.
+
+**Independent Test**: Make two drafts, download the second's PDF, then the
+first's: the second is numbered before the first, and deleting a draft
+never downloaded leaves the next number unchanged.
+
+**Acceptance Scenarios**:
+
+1. **Given** a new draft, **When** it's shown in the list, its detail or the
+   inbox, **Then** it reads as a draft for its client and period, with no
+   number.
+2. **Given** a draft never downloaded, **When** its PDF is downloaded,
+   **Then** it takes the next number, and the PDF prints it.
+3. **Given** a numbered draft, **When** its PDF is downloaded again, **Then**
+   it keeps its number.
+4. **Given** a draft never downloaded, **When** it's deleted, **Then** the
+   next invoice number is unchanged.
+5. **Given** New invoice, **When** it's filled in, **Then** it says the
+   number is given when the PDF is first downloaded, rather than predicting
+   one.
+6. **Given** drafts that already have numbers, **When** this ships, **Then**
+   they keep them.
+7. **Given** a draft never downloaded, **When** Mark sent is pressed,
+   **Then** it's refused until the PDF has been downloaded, since what went
+   to the client carried a number.
+
 ### Edge Cases
 
 - The job runs twice in a day, or two runs overlap: still one draft per
@@ -103,11 +146,9 @@ job, and find one email in the user's inbox linking to that draft.
 ### Functional Requirements
 
 - **FR-001**: Once a day, Stint MUST make a draft for each active client
-  with a billing schedule whose period is due for one and has something to
-  bill, unless an open or sent invoice for that client already covers any
-  of those dates. The draft is due [NEEDS CLARIFICATION: when in the period
-  is the draft made — when the period starts (it collects work as it comes,
-  but takes a number before anything bills), or the day after it ends?].
+  with a billing schedule whose current period has started, unless an open
+  or sent invoice for that client already covers any of those dates. The
+  draft collects the period's work as it's logged.
 - **FR-002**: An automatic draft MUST use what New invoice would choose by
   default for that client and period: grouping, payment terms, payment
   details, issue date the day it's made in the user's time zone.
@@ -121,8 +162,12 @@ job, and find one email in the user's inbox linking to that draft.
   draft.
 - **FR-006**: The user MUST be able to turn off automatic drafts, and
   separately the ready email, in Settings; both default to on.
-- **FR-007**: A draft MUST NOT be made for a period with nothing to bill,
-  so no invoice number is used for it.
+- **FR-007**: An automatic draft whose period ended with nothing to bill
+  MUST be deleted the next time the job runs, with no email.
+- **FR-011**: A draft MUST have no invoice number until its PDF is first
+  downloaded, when it takes the next in the user's one sequence and keeps
+  it. Drafts numbered before this ships keep their numbers.
+- **FR-012**: Mark sent MUST be refused for a draft without a number.
 - **FR-008**: The user's time zone MUST be recorded from the app so "period
   ended" is judged where the user is.
 - **FR-009**: The job MUST add no fixed cost: a daily scheduled job on the
@@ -134,6 +179,7 @@ job, and find one email in the user's inbox linking to that draft.
 
 - **Automatic draft**: an ordinary draft invoice, marked as made by the
   schedule, for one client and one scheduled period.
+- **Invoice number**: empty on a draft until its first download, then fixed.
 - **Ready notice**: the record that a draft's ready email went out, so it
   goes once.
 - **User's time zone and switches**: where the user is, and whether they
@@ -151,12 +197,15 @@ job, and find one email in the user's inbox linking to that draft.
 - **SC-004**: Running the job any number of times in a day yields the same
   drafts and emails as running it once.
 - **SC-005**: The monthly hosting bill does not change.
+- **SC-006**: Deleting drafts never leaves a gap in the invoice numbers.
 
 ## Assumptions
 
 - The billing schedule is already a per-client opt-in, so there is no
   separate per-client switch; the Settings switches cover the user who
   wants none.
+- Downloading stays the paid tier, so a free account's drafts stay
+  unnumbered, as it can't send one anyway.
 - The link opens the draft in the app; downloading the PDF stays the paid
   tier, as today. Drafting and the email are free.
 - Mail goes through the provider that already sends sign-in links, within
