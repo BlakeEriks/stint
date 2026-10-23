@@ -46,7 +46,10 @@ export async function loadBilledSpans(
     .in('id', [...new Set(rows.map((r) => r.invoice_id))]);
   if (error) throw error;
   const numbers = new Map(
-    (data ?? []).map((i) => [i.id as string, i.invoice_number as string]),
+    (data ?? []).map((i) => [
+      i.id as string,
+      i.invoice_number as string | null,
+    ]),
   );
 
   return rows.map((r) => ({
@@ -55,6 +58,7 @@ export async function loadBilledSpans(
     started_at: r.started_at,
     ended_at: r.ended_at,
     is_billable: r.is_billable,
-    invoice_number: numbers.get(r.invoice_id) as string,
+    invoice_id: r.invoice_id,
+    invoice_number: numbers.get(r.invoice_id) ?? null,
   }));
 }

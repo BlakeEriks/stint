@@ -1,4 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { z } from 'zod';
+import type { CreateInvoice } from '@stint/schema';
 import { ApiError, dbCode, PG } from './errors';
 import {
   CLIENT_COLUMNS,
@@ -19,9 +21,12 @@ import {
   addDays,
   attachedSchedules,
   buildLineItems,
+  buildPaymentDetails,
   buildSchedules,
   documentOpens,
+  draftDates,
   draftSnapshot,
+  localDateKey,
   newLines,
   pickSchedules,
   resolvePaymentProfile,
@@ -223,12 +228,16 @@ export function requireSender(s: InvoiceSettings) {
 
 export async function loadSettings(
   db: SupabaseClient,
+  /** Explicit, as every account-wide read here is, so the daily job's
+      service client reads only this user's. */
+  userId: string,
 ): Promise<InvoiceSettings> {
   const { data, error } = await db
     .from('user_settings')
     .select(
       'default_hourly_rate, currency, payment_terms_days, invoice_number_prefix, payment_notice, business_name, business_email',
     )
+    .eq('user_id', userId)
     .maybeSingle();
 
   if (error) throw error;
@@ -252,6 +261,7 @@ export async function loadSettings(
  */
 export async function loadPaymentProfile(
   db: SupabaseClient,
+  userId: string,
   clientProfileId: string | null,
   /** Picked on the form. It must exist and be live, never quietly swapped
       for another. */
@@ -260,6 +270,7 @@ export async function loadPaymentProfile(
   const { data, error } = await db
     .from('payment_profiles')
     .select(PAYMENT_PROFILE_COLUMNS)
+    .eq('user_id', userId)
     .is('archived_at', null);
 
   if (error) throw error;
@@ -307,7 +318,7 @@ export async function loadPdfData(
   if (!stored) throw new ApiError('ENTRY_NOT_FOUND', 'Invoice not found');
 
   const [settings, billing] = await Promise.all([
-    loadSettings(db),
+    loadSettings(db, (stored as InvoiceRow).user_id),
     entitlement(db),
   ]);
   const canDownload = documentOpens(
@@ -315,8 +326,14 @@ export async function loadPdfData(
     billing.plan,
     (stored as InvoiceRow).issued_subscription_status,
   );
-  const { row, lines } = await refreshDraft(db, stored as InvoiceRow, opts.tz, {
-    rendering: opts.rendering && canDownload,
+  /* The first render that can reach a client numbers a draft and fixes its
+     dates, so a draft deleted unseen leaves no gap. */
+  const rendering = opts.rendering && canDownload;
+  const numbered = rendering
+    ? await numberDraft(db, stored as InvoiceRow, opts.tz)
+    : (stored as InvoiceRow);
+  const { row, lines } = await refreshDraft(db, numbered, opts.tz, {
+    rendering,
   });
   const invoice = toInvoice(row);
   const items = await selectAll(() =>
@@ -377,6 +394,7 @@ export function unratedError(ids: string[]) {
 export async function computeInvoice(
   db: SupabaseClient,
   opts: {
+    userId: string;
     clientId: string;
     periodStart: string;
     periodEnd: string;
@@ -392,7 +410,7 @@ export async function computeInvoice(
 ) {
   const [client, settings, earlier] = await Promise.all([
     loadClient(db, opts.clientId),
-    loadSettings(db),
+    loadSettings(db, opts.userId),
     /* A one-off expense dated on or before an earlier open draft's period
        end is that draft's, unless it left the expense off: two drafts never
        contend for one, whichever is read or made first. */
@@ -496,6 +514,19 @@ export async function refreshDraft(
   requestTz: string | undefined,
   opts: { sentAt?: string; rendering?: boolean } = {},
 ): Promise<{ row: InvoiceRow; lines: LineItem[] | null }> {
+  const refreshed = await refresh(db, row, requestTz, opts);
+  return {
+    ...refreshed,
+    row: await withDraftDates(db, refreshed.row, row.tz ?? requestTz),
+  };
+}
+
+async function refresh(
+  db: SupabaseClient,
+  row: InvoiceRow,
+  requestTz: string | undefined,
+  opts: { sentAt?: string; rendering?: boolean },
+): Promise<{ row: InvoiceRow; lines: LineItem[] | null }> {
   const tz = row.tz ?? requestTz;
   const stale = { row, lines: null };
   if (row.status !== 'draft' || !tz) return stale;
@@ -510,6 +541,7 @@ export async function refreshDraft(
   );
 
   const computed = await computeInvoice(db, {
+    userId: row.user_id,
     clientId: row.client_id,
     periodStart: row.period_start,
     periodEnd: row.period_end,
@@ -581,6 +613,219 @@ export async function refreshDraft(
     row: (Array.isArray(data) ? data[0] : data) as InvoiceRow,
     lines: totals.lineItems,
   };
+}
+
+/**
+ * A new draft, unnumbered until its PDF is first rendered. In order:
+ *   1. Recompute line items from database-resolved rates and the stored
+ *      expenses (never trusting a preview the client may have cached).
+ *   2. Refuse if any billable entry has no resolvable rate, or nothing
+ *      bills.
+ *   3. Write it all through `create_invoice`, in one transaction: the draft
+ *      and its lines, and the entries and expenses it bills.
+ */
+export async function createDraft(
+  db: SupabaseClient,
+  userId: string,
+  body: z.infer<typeof CreateInvoice>,
+  /** The daily job's: `auto` makes a draft before its period's work is
+      rated, and `emptyOk` before any is logged. */
+  opts: { auto?: boolean; emptyOk?: boolean } = {},
+) {
+  if (body.periodEnd < body.periodStart) {
+    throw new ApiError(
+      'INVALID_PERIOD',
+      '`periodEnd` must not precede `periodStart`',
+    );
+  }
+
+  const computed = await computeInvoice(db, {
+    userId,
+    clientId: body.clientId,
+    periodStart: body.periodStart,
+    periodEnd: body.periodEnd,
+    tz: body.tz,
+    groupingMode: body.groupingMode,
+    summaryText: body.summaryText,
+    manualLines: body.manualLines,
+    excludedExpenseIds: body.excludedExpenseIds,
+    schedules: body.schedules,
+  });
+  const { client, settings, totals } = computed;
+
+  requireSender(settings);
+
+  // Issued, at the earliest, today: its first render fixes the date.
+  if (body.dueDate && body.dueDate < localDateKey(new Date(), body.tz)) {
+    throw new ApiError(
+      'VALIDATION_FAILED',
+      "The due date can't be before the issue date.",
+      { field: 'dueDate' },
+    );
+  }
+
+  /* One open draft per client and date: two would each claim the same new
+     work on their next refresh. */
+  const { data: open, error: openError } = await db
+    .from('invoices')
+    .select('id, invoice_number, period_start, period_end')
+    .eq('client_id', body.clientId)
+    .eq('status', 'draft')
+    .lte('period_start', body.periodEnd)
+    .gte('period_end', body.periodStart)
+    .limit(1)
+    .maybeSingle();
+  if (openError) throw openError;
+  if (open)
+    throw new ApiError(
+      'DRAFT_OVERLAPS',
+      `${open.invoice_number ?? 'A draft'} covers these dates already. Open it, or start after it.`,
+      {
+        invoiceId: open.id,
+        invoiceNumber: open.invoice_number,
+        periodStart: open.period_start,
+        periodEnd: open.period_end,
+      },
+    );
+
+  // On the job's draft, an unrated entry is said there as on any other.
+  if (!opts.auto && totals.unratedEntryIds.length > 0)
+    throw unratedError(totals.unratedEntryIds);
+
+  // A fee or an expense alone is a valid invoice — a deposit before any work
+  // is done is the ordinary case — so this asks for LINES, not for time.
+  if (!opts.emptyOk && totals.lineItems.length === 0) {
+    throw new ApiError(
+      'INVALID_PERIOD',
+      'Nothing to invoice: no unbilled, billable time in this period, no unbilled expenses, and no charges added',
+      { periodStart: body.periodStart, periodEnd: body.periodEnd },
+    );
+  }
+
+  // Frozen alongside the rates: if the profile changes or is deleted later,
+  // an issued invoice must still show what the client was actually given.
+  // Rendered before the number exists, so `number_invoice` appends the
+  // payment reference once it has one.
+  const profile = await loadPaymentProfile(
+    db,
+    userId,
+    client.payment_profile_id,
+    body.paymentProfileId,
+  );
+  const paymentDetails = buildPaymentDetails(profile);
+
+  const { data, error } = await db.rpc('create_invoice', {
+    p_user_id: userId,
+    p_invoice: {
+      client_id: body.clientId,
+      issue_date: null,
+      due_date: body.dueDate ?? null,
+      period_start: body.periodStart,
+      period_end: body.periodEnd,
+      subtotal: totals.subtotal,
+      tax_rate: totals.taxRate,
+      tax_amount: totals.taxAmount,
+      expenses_subtotal: totals.expensesSubtotal,
+      total: totals.total,
+      currency: client.currency ?? settings.currency,
+      notes: body.notes ?? null,
+      payment_terms: null,
+      auto: opts.auto ?? false,
+      grouping_mode: body.groupingMode,
+      summary_text: body.groupingMode === 'summary' ? body.summaryText : null,
+      supporting_detail: computed.supportingDetail,
+      reference: body.reference ?? null,
+      payment_details: paymentDetails,
+      tz: body.tz,
+      excluded_expense_ids: body.excludedExpenseIds,
+      lines: computed.lines,
+    },
+    p_entry_ids: computed.entryIds,
+    p_expense_ids: computed.expenseIds,
+  });
+
+  if (error) {
+    if (dbCode(error) === 'EXPENSE_ALREADY_INVOICED') {
+      throw new ApiError(
+        'EXPENSE_ALREADY_INVOICED',
+        'An expense on this invoice was billed on another one first. Preview again.',
+      );
+    }
+    if (dbCode(error) === 'ENTRY_ALREADY_INVOICED') {
+      throw new ApiError(
+        'ENTRY_ALREADY_INVOICED',
+        'Time on this invoice changed since the preview. Preview again.',
+      );
+    }
+    throw error;
+  }
+
+  const row = (Array.isArray(data) ? data[0] : data) as InvoiceRow;
+  return { row, lineItems: totals.lineItems, entryCount: totals.entryCount };
+}
+
+/** The days a client pays in: its own payment terms, else the user's. */
+async function termsDays(db: SupabaseClient, row: InvoiceRow) {
+  const [client, settings] = await Promise.all([
+    db
+      .from('clients')
+      .select('payment_terms_days')
+      .eq('id', row.client_id)
+      .maybeSingle(),
+    db
+      .from('user_settings')
+      .select('payment_terms_days')
+      .eq('user_id', row.user_id)
+      .maybeSingle(),
+  ]);
+  if (client.error) throw client.error;
+  if (settings.error) throw settings.error;
+  return (
+    (client.data?.payment_terms_days as number | null) ??
+    (settings.data?.payment_terms_days as number)
+  );
+}
+
+/** The dates and terms a draft not yet numbered would take today. */
+async function wouldBe(db: SupabaseClient, row: InvoiceRow, tz?: string) {
+  const today = localDateKey(new Date(), tz ?? 'UTC');
+  return draftDates(today, row.due_date, await termsDays(db, row));
+}
+
+/** An unnumbered draft as a read shows it: with the dates it would take
+ *  today, which its first render fixes. */
+export async function withDraftDates(
+  db: SupabaseClient,
+  row: InvoiceRow,
+  tz: string | undefined,
+): Promise<InvoiceRow> {
+  if (row.invoice_number !== null) return row;
+  const d = await wouldBe(db, row, tz);
+  return {
+    ...row,
+    issue_date: d.issueDate,
+    due_date: d.dueDate,
+    payment_terms: d.paymentTerms,
+  };
+}
+
+/** Numbers a draft and fixes its dates and terms, once; a numbered one is
+ *  returned as it is. */
+async function numberDraft(
+  db: SupabaseClient,
+  row: InvoiceRow,
+  requestTz: string | undefined,
+): Promise<InvoiceRow> {
+  if (row.invoice_number !== null) return row;
+  const d = await wouldBe(db, row, row.tz ?? requestTz);
+  const { data, error } = await db.rpc('number_invoice', {
+    p_invoice_id: row.id,
+    p_issue_date: d.issueDate,
+    p_due_date: d.dueDate,
+    p_terms: d.paymentTerms,
+  });
+  if (error) throw error;
+  return (Array.isArray(data) ? data[0] : data) as InvoiceRow;
 }
 
 /** Which of a draft's lines its last render lacked, and how it moved since;

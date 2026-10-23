@@ -13,7 +13,7 @@ import {
 } from './calendar.ts';
 import { findOverlaps } from './overlaps.ts';
 
-/** A draft left this long is usually forgotten, not deliberate. */
+/** A draft left this long after its period ended is usually forgotten. */
 export const STALE_DRAFT_DAYS = 7;
 
 /**
@@ -66,6 +66,8 @@ export interface SpanRow {
   ended_at: string;
   is_billable: boolean;
   /** The invoice holding the entry, or null while it is unbilled. */
+  invoice_id: string | null;
+  /** That invoice's number; null too on a draft not yet numbered. */
   invoice_number: string | null;
 }
 
@@ -88,9 +90,9 @@ export function buildOverlaps(rows: SpanRow[]) {
     const earlier = byId.get(o.earlier) as SpanRow;
     const later = byId.get(o.later) as SpanRow;
     const [open, other] =
-      later.invoice_number === null ? [later, earlier] : [earlier, later];
-    if (open.invoice_number !== null) return [];
-    if (other.invoice_number !== null && !open.is_billable) return [];
+      later.invoice_id === null ? [later, earlier] : [earlier, later];
+    if (open.invoice_id !== null) return [];
+    if (other.invoice_id !== null && !open.is_billable) return [];
     return [
       {
         entryId: open.id,
@@ -140,13 +142,14 @@ export interface DayRow {
 
 export interface InvoiceRow {
   id: string;
-  invoice_number: string;
+  /** Null on a draft not yet numbered; never on a sent invoice. */
+  invoice_number: string | null;
   client_id: string;
   status: string;
   due_date: string | null;
   total: string | number;
   currency: string | null;
-  issue_date: string;
+  period_end: string;
 }
 
 export interface MonthRow {
@@ -352,7 +355,7 @@ export function buildOverdueInvoices(
     )
     .map((i) => ({
       invoiceId: i.id,
-      invoiceNumber: i.invoice_number,
+      invoiceNumber: i.invoice_number as string,
       clientId: i.client_id,
       clientName: clientNames.get(i.client_id) ?? null,
       amount: Number(i.total),
@@ -362,7 +365,9 @@ export function buildOverdueInvoices(
     .sort((a, b) => b.daysLate - a.daysLate);
 }
 
-/** Drafts old enough to be forgotten rather than pending, oldest first. */
+/** Drafts whose period ended long enough ago to be forgotten rather than
+ *  pending, oldest first. A draft collects its period until then, so the
+ *  period's end, not when the draft was made, is when it could have gone. */
 export function buildStaleDrafts(
   invoices: InvoiceRow[],
   clientNames: Map<string, string>,
@@ -371,7 +376,7 @@ export function buildStaleDrafts(
   cutoffKey: string,
 ) {
   return invoices
-    .filter((i) => i.status === 'draft' && i.issue_date < cutoffKey)
+    .filter((i) => i.status === 'draft' && i.period_end < cutoffKey)
     .map((i) => ({
       invoiceId: i.id,
       invoiceNumber: i.invoice_number,
@@ -379,7 +384,7 @@ export function buildStaleDrafts(
       clientName: clientNames.get(i.client_id) ?? null,
       amount: Number(i.total),
       currency: i.currency ?? fallbackCurrency,
-      ageDays: daysBetweenKeys(i.issue_date, todayKey),
+      ageDays: daysBetweenKeys(i.period_end, todayKey),
     }))
     .sort((a, b) => b.ageDays - a.ageDays);
 }

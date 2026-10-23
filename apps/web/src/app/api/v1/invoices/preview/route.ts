@@ -22,7 +22,7 @@ export const dynamic = 'force-dynamic';
  * be billed twice.
  */
 export const POST = handle(async (req: Request) => {
-  const { db } = await requireSession(req);
+  const { userId, db } = await requireSession(req);
   const body = await parseBody(req, InvoicePreviewRequest);
 
   if (body.periodEnd < body.periodStart) {
@@ -33,6 +33,7 @@ export const POST = handle(async (req: Request) => {
   }
 
   const { client, settings, entries, totals } = await computeInvoice(db, {
+    userId,
     clientId: body.clientId,
     periodStart: body.periodStart,
     periodEnd: body.periodEnd,
@@ -54,6 +55,7 @@ export const POST = handle(async (req: Request) => {
         Date.parse(e.startedAt) + e.durationSeconds * 1000,
       ).toISOString(),
       is_billable: true,
+      invoice_id: null,
       invoice_number: null,
     }));
   const overlapping = new Set(

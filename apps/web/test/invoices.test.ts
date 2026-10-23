@@ -152,8 +152,8 @@ test('preview names the entries that overlap each other or billed time', async (
   );
   const inv = 'ff000000-0000-4000-8000-00000000000b';
   await pool.query(
-    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status)
-     values ($1,$2,$3,'INV-0001',1,'sent')`,
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status,issue_date)
+     values ($1,$2,$3,'INV-0001',1,'sent','2026-09-30')`,
     [inv, USER, CLIENT],
   );
   // Billed 9-10, then 9:30-10:30 added: half an hour about to bill twice.
@@ -242,8 +242,8 @@ test('preview excludes non-billable and already-invoiced entries', async () => {
   await seedEntry({ id: E(2), hours: 1, billable: false });
 
   await pool.query(
-    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status)
-     values ($1,$2,$3,'INV-9000',9000,'sent')`,
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status,issue_date)
+     values ($1,$2,$3,'INV-9000',9000,'sent','2026-09-30')`,
     ['ff000000-0000-4000-8000-00000000000a', USER, CLIENT],
   );
   await seedEntry({ id: E(3), hours: 5 });
@@ -488,17 +488,21 @@ test('a charge cannot be blank or negative', async () => {
 });
 
 // ── payment terms ──────────────────────────────────────────────────
-test('the due date is the issue date plus the client days, else the user days', async () => {
+const TODAY = () => new Date().toISOString().slice(0, 10);
+const daysOn = (n: number) =>
+  new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+
+test('a draft is due after the client days, else the user days', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   await seedEntry({ id: E(1) });
   await seedEntry({ id: E(2), start: '2026-10-10T09:00:00Z' });
-  const issueDate = '2026-10-01';
 
   const user = await json(
-    await create(req('/invoices', { clientId: CLIENT, ...PERIOD, issueDate })),
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD, tz: 'UTC' })),
   );
   assert.equal(user.status, 201);
-  assert.equal(user.body.dueDate, '2026-10-31');
+  assert.equal(user.body.issueDate, TODAY());
+  assert.equal(user.body.dueDate, daysOn(30));
   assert.equal(user.body.paymentTerms, 'Net 30');
 
   await pool.query('update clients set payment_terms_days=15 where id=$1', [
@@ -510,48 +514,26 @@ test('the due date is the issue date plus the client days, else the user days', 
         clientId: CLIENT,
         periodStart: '2026-10-01',
         periodEnd: '2026-10-31',
-        issueDate: '2026-11-01',
+        tz: 'UTC',
       }),
     ),
   );
-  assert.equal(own.status, 201);
-  assert.equal(own.body.dueDate, '2026-11-16');
+  assert.equal(own.body.dueDate, daysOn(15));
   assert.equal(own.body.paymentTerms, 'Net 15');
 });
 
-test('a due date picked by hand prints its own days, and 0 is due on receipt', async () => {
+test('terms of 0 days are due on receipt', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   await seedEntry({ id: E(1) });
-  await seedEntry({ id: E(2), start: '2026-10-10T09:00:00Z' });
-
-  const picked = await json(
-    await create(
-      req('/invoices', {
-        clientId: CLIENT,
-        ...PERIOD,
-        issueDate: '2026-10-01',
-        dueDate: '2026-10-21',
-      }),
-    ),
-  );
-  assert.equal(picked.body.paymentTerms, 'Net 20');
-
   await pool.query('update user_settings set payment_terms_days=0');
-  const receipt = await json(
-    await create(
-      req('/invoices', {
-        clientId: CLIENT,
-        periodStart: '2026-10-01',
-        periodEnd: '2026-10-31',
-        issueDate: '2026-11-01',
-      }),
-    ),
+  const made = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD, tz: 'UTC' })),
   );
-  assert.equal(receipt.body.dueDate, '2026-11-01');
-  assert.equal(receipt.body.paymentTerms, 'Due on receipt');
+  assert.equal(made.body.dueDate, TODAY());
+  assert.equal(made.body.paymentTerms, 'Due on receipt');
 });
 
-test('a due date before the issue date is refused', async () => {
+test('a due date before today is refused', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   await seedEntry({ id: E(1) });
 
@@ -560,8 +542,8 @@ test('a due date before the issue date is refused', async () => {
       req('/invoices', {
         clientId: CLIENT,
         ...PERIOD,
-        issueDate: '2026-10-01',
-        dueDate: '2026-09-30',
+        tz: 'UTC',
+        dueDate: daysOn(-1),
       }),
     ),
   );
@@ -569,31 +551,26 @@ test('a due date before the issue date is refused', async () => {
   assert.equal(res.body.code, 'VALIDATION_FAILED');
   assert.equal(res.body.details.field, 'dueDate');
   const { rows } = await pool.query('select count(*)::int as n from invoices');
-  assert.equal(rows[0].n, 0, 'no number taken');
+  assert.equal(rows[0].n, 0);
 });
 
-test('a draft keeps its terms when the user days change', async () => {
+test('a numbered draft keeps its terms when the user days change', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   const { GET: read } = await import(
     '../src/app/api/v1/invoices/[id]/route.ts'
   );
   await seedEntry({ id: E(1) });
   const made = await json(
-    await create(
-      req('/invoices', {
-        clientId: CLIENT,
-        ...PERIOD,
-        issueDate: '2026-10-01',
-      }),
-    ),
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD, tz: 'UTC' })),
   );
+  await render(made.body.id);
   await pool.query('update user_settings set payment_terms_days=45');
   const again = await json(
-    await read(req(`/invoices/${made.body.id}`), {
+    await read(req(`/invoices/${made.body.id}?tz=UTC`), {
       params: Promise.resolve({ id: made.body.id }),
     }),
   );
-  assert.equal(again.body.dueDate, '2026-10-31');
+  assert.equal(again.body.dueDate, daysOn(30));
   assert.equal(again.body.paymentTerms, 'Net 30');
 });
 
@@ -625,6 +602,149 @@ test('old free-text terms read as days by the rule they always had', async () =>
   }
 });
 
+/**
+ * The status route, after the first render a send needs: most tests here
+ * are about what sending does, not about the PDF that numbers a draft.
+ */
+async function statusRoute() {
+  const { PATCH } = await import(
+    '../src/app/api/v1/invoices/[id]/status/route.ts'
+  );
+  return async (r: Request, ctx: { params: Promise<{ id: string }> }) => {
+    const body = await r
+      .clone()
+      .json()
+      .catch(() => null);
+    if (body?.status === 'sent')
+      await pool.query(
+        `select number_invoice(id, current_date, current_date + 30, 'Net 30')
+           from invoices where id = $1 and invoice_number is null`,
+        [(await ctx.params).id],
+      );
+    return PATCH(r, ctx);
+  };
+}
+
+// ── numbering ──────────────────────────────────────────────────────
+/** Renders an invoice's PDF, which numbers a draft the first time. */
+async function render(id: string) {
+  const { GET: pdf } = await import(
+    '../src/app/api/v1/invoices/[id]/pdf/route.ts'
+  );
+  const res = await pdf(req(`/invoices/${id}/pdf?tz=UTC`), {
+    params: Promise.resolve({ id }),
+  });
+  assert.equal(res.status, 200);
+  return res;
+}
+
+test('a draft is numbered and dated at its first render, and keeps both', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1) });
+  await seedEntry({ id: E(2), start: '2026-10-10T09:00:00Z' });
+  const first = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD, tz: 'UTC' })),
+  );
+  const second = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        periodStart: '2026-10-01',
+        periodEnd: '2026-10-31',
+        tz: 'UTC',
+      }),
+    ),
+  );
+
+  // Numbered in the order they first reach a PDF, not the order made.
+  const res = await render(second.body.id);
+  assert.match(res.headers.get('content-disposition') ?? '', /INV-0001\.pdf/);
+  await render(first.body.id);
+  await render(second.body.id);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const { rows } = await pool.query(
+    `select id, invoice_number, issue_date::text, payment_terms,
+            payment_details from invoices order by invoice_number`,
+  );
+  assert.deepEqual(
+    rows.map((r) => [r.id, r.invoice_number, r.issue_date, r.payment_terms]),
+    [
+      [second.body.id, 'INV-0001', today, 'Net 30'],
+      [first.body.id, 'INV-0002', today, 'Net 30'],
+    ],
+  );
+});
+
+test('a draft deleted before its first render leaves no gap', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { DELETE: remove } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  await seedEntry({ id: E(1) });
+  const made = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD, tz: 'UTC' })),
+  );
+  await remove(req(`/invoices/${made.body.id}`, undefined, 'DELETE'), {
+    params: Promise.resolve({ id: made.body.id }),
+  });
+  const { rows } = await pool.query(
+    'select next_invoice_number from user_settings where user_id=$1',
+    [USER],
+  );
+  assert.equal(rows[0].next_invoice_number, 1);
+});
+
+test('a draft not yet rendered cannot be marked sent', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { PATCH: setStatus } = await import(
+    '../src/app/api/v1/invoices/[id]/status/route.ts'
+  );
+  await seedEntry({ id: E(1) });
+  const made = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD, tz: 'UTC' })),
+  );
+  const ctx = { params: Promise.resolve({ id: made.body.id }) };
+  const refused = await json(
+    await setStatus(req('/s', { status: 'sent' }, 'PATCH'), ctx),
+  );
+  assert.equal(refused.status, 409);
+  assert.equal(refused.body.code, 'DRAFT_NOT_DOWNLOADED');
+
+  await render(made.body.id);
+  const sent = await json(
+    await setStatus(req('/s', { status: 'sent' }, 'PATCH'), {
+      params: Promise.resolve({ id: made.body.id }),
+    }),
+  );
+  assert.equal(sent.status, 200);
+  assert.equal(sent.body.invoiceNumber, 'INV-0001');
+});
+
+test('a due date picked on a draft is kept when it is numbered', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1) });
+  const due = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
+  const made = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...PERIOD,
+        tz: 'UTC',
+        dueDate: due,
+      }),
+    ),
+  );
+  assert.equal(made.body.dueDate, due);
+  assert.equal(made.body.paymentTerms, 'Net 10');
+  await render(made.body.id);
+  const { rows } = await pool.query(
+    'select due_date::text, payment_terms from invoices where id=$1',
+    [made.body.id],
+  );
+  assert.deepEqual(rows[0], { due_date: due, payment_terms: 'Net 10' });
+});
+
 test('generating allocates a number, freezes line items and locks entries', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   await seedEntry({ id: E(1), task: 'Design', hours: 2 });
@@ -633,10 +753,10 @@ test('generating allocates a number, freezes line items and locks entries', asyn
     await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
   );
   assert.equal(res.status, 201);
-  assert.equal(res.body.invoiceNumber, 'INV-0001');
+  assert.equal(res.body.invoiceNumber, null, 'numbered at its first render');
   assert.equal(res.body.status, 'draft');
   assert.equal(res.body.total, 300);
-  assert.equal(res.body.paymentTerms, 'Net 30', 'inherited from settings');
+  assert.equal(res.body.paymentTerms, 'Net 30', 'what it would take today');
 
   const { rows: items } = await pool.query(
     'select description, unit, quantity, unit_price, amount from invoice_line_items where invoice_id=$1',
@@ -721,7 +841,12 @@ test('sequential generations produce gapless numbers', async () => {
       ),
     );
     assert.equal(res.status, 201);
-    numbers.push(res.body.invoiceNumber);
+    await render(res.body.id);
+    const { rows } = await pool.query(
+      'select invoice_number from invoices where id=$1',
+      [res.body.id],
+    );
+    numbers.push(rows[0].invoice_number);
   }
 
   assert.deepEqual(numbers, ['INV-0001', 'INV-0002', 'INV-0003']);
@@ -1027,9 +1152,7 @@ test('frozen detail survives a project rename and a void', async () => {
   const { GET: detail } = await import(
     '../src/app/api/v1/invoices/[id]/route.ts'
   );
-  const { PATCH: setStatus } = await import(
-    '../src/app/api/v1/invoices/[id]/status/route.ts'
-  );
+  const setStatus = await statusRoute();
   await seedEntry({ id: E(1), hours: 2 });
   const inv = await json(
     await create(
@@ -1167,9 +1290,7 @@ test('a reference is trimmed and stored, and a blank one is none', async () => {
 // ── status ─────────────────────────────────────────────────────────
 test('status moves draft -> sent -> paid', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
-  const { PATCH: setStatus } = await import(
-    '../src/app/api/v1/invoices/[id]/status/route.ts'
-  );
+  const setStatus = await statusRoute();
   await seedEntry({ id: E(1), hours: 1 });
   const inv = await json(
     await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
@@ -1193,9 +1314,7 @@ test('status moves draft -> sent -> paid', async () => {
 
 test('an invoice cannot return to draft once issued', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
-  const { PATCH: setStatus } = await import(
-    '../src/app/api/v1/invoices/[id]/status/route.ts'
-  );
+  const setStatus = await statusRoute();
   await seedEntry({ id: E(1), hours: 1 });
   const inv = await json(
     await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
@@ -1217,9 +1336,7 @@ test('an invoice cannot return to draft once issued', async () => {
 
 test('voiding releases the entries so they can be re-billed', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
-  const { PATCH: setStatus } = await import(
-    '../src/app/api/v1/invoices/[id]/status/route.ts'
-  );
+  const setStatus = await statusRoute();
   await seedEntry({ id: E(1), hours: 1 });
   const inv = await json(
     await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
@@ -1251,9 +1368,7 @@ test('voiding releases the entries so they can be re-billed', async () => {
 
 test('of two overlapping status changes, the later is refused as stale', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
-  const { PATCH: setStatus } = await import(
-    '../src/app/api/v1/invoices/[id]/status/route.ts'
-  );
+  const setStatus = await statusRoute();
   await seedEntry({ id: E(1), hours: 1 });
   const inv = await json(
     await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
@@ -1322,9 +1437,7 @@ test('an issued invoice cannot be deleted — it must be voided', async () => {
   const { DELETE: del } = await import(
     '../src/app/api/v1/invoices/[id]/route.ts'
   );
-  const { PATCH: setStatus } = await import(
-    '../src/app/api/v1/invoices/[id]/status/route.ts'
-  );
+  const setStatus = await statusRoute();
   await seedEntry({ id: E(1), hours: 1 });
   const inv = await json(
     await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
@@ -1476,9 +1589,7 @@ test('every page of a long invoice shows its footer at the bottom', async () => 
 // that they sent one themselves.
 test('an invoice is marked sent through the status route', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
-  const { PATCH: setStatus } = await import(
-    '../src/app/api/v1/invoices/[id]/status/route.ts'
-  );
+  const setStatus = await statusRoute();
   await seedEntry({ id: E(1), hours: 1 });
   const inv = await json(
     await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
@@ -1495,9 +1606,7 @@ test('an invoice is marked sent through the status route', async () => {
 
 test('a send date can be backdated', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
-  const { PATCH: setStatus } = await import(
-    '../src/app/api/v1/invoices/[id]/status/route.ts'
-  );
+  const setStatus = await statusRoute();
   await seedEntry({ id: E(1), hours: 1 });
   const inv = await json(
     await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
@@ -1518,9 +1627,7 @@ test('a send date can be backdated', async () => {
    (days-to-pay, collected-by-month) is wrong. */
 test('a paid date can be backdated to any time after it was sent', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
-  const { PATCH: setStatus } = await import(
-    '../src/app/api/v1/invoices/[id]/status/route.ts'
-  );
+  const setStatus = await statusRoute();
   await seedEntry({ id: E(1), hours: 1 });
   const inv = await json(
     await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
@@ -1544,9 +1651,7 @@ test('a paid date can be backdated to any time after it was sent', async () => {
 
 test('an unspecified paid date falls back to now', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
-  const { PATCH: setStatus } = await import(
-    '../src/app/api/v1/invoices/[id]/status/route.ts'
-  );
+  const setStatus = await statusRoute();
   await seedEntry({ id: E(1), hours: 1 });
   const inv = await json(
     await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
@@ -1570,9 +1675,7 @@ test('an unspecified paid date falls back to now', async () => {
    produce one client-side would be an interface bug, not a real payment. */
 test('a paid date earlier than the invoice was sent is rejected', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
-  const { PATCH: setStatus } = await import(
-    '../src/app/api/v1/invoices/[id]/status/route.ts'
-  );
+  const setStatus = await statusRoute();
   await seedEntry({ id: E(1), hours: 1 });
   const inv = await json(
     await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
@@ -1600,9 +1703,7 @@ test('a paid date earlier than the invoice was sent is rejected', async () => {
    is a record of what already happened, not a reminder to set. */
 test('a paid date in the future is rejected', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
-  const { PATCH: setStatus } = await import(
-    '../src/app/api/v1/invoices/[id]/status/route.ts'
-  );
+  const setStatus = await statusRoute();
   await seedEntry({ id: E(1), hours: 1 });
   const inv = await json(
     await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
@@ -1675,6 +1776,8 @@ test('an invoice freezes the payment profile at generation', async () => {
     await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
   );
   assert.equal(inv.status, 201);
+  // The reference is the number, appended when the first render gives one.
+  await render(inv.body.id);
 
   const { rows } = await pool.query(
     'select payment_details from invoices where id=$1',
@@ -2127,7 +2230,11 @@ test('the invoice detail response matches what the browser expects', async () =>
     undefined,
     'the invoice is flat, matching every other detail route',
   );
-  assert.equal(typeof res.body.invoiceNumber, 'string');
+  assert.equal(
+    res.body.invoiceNumber,
+    null,
+    'a draft is unnumbered until its PDF renders',
+  );
   assert.equal(typeof res.body.status, 'string');
   assert.ok(Array.isArray(res.body.lineItems), 'line items travel alongside');
   assert.equal(typeof res.body.billTo?.name, 'string', 'so does who it bills');
@@ -2513,7 +2620,7 @@ test('an entry another invoice took rolls generation back, number included (#193
     'select next_invoice_number n from user_settings where user_id=$1',
     [USER],
   );
-  assert.equal(seq[0].n, 2, 'the losing call used no number');
+  assert.equal(seq[0].n, 1, 'a draft takes no number until its first render');
   const { rows } = await pool.query('select count(*)::int n from invoices');
   assert.equal(rows[0].n, 1, 'only one invoice holds this work');
 });
@@ -2542,9 +2649,11 @@ test('refreshing a draft that was sent meanwhile is INVOICE_STATUS_CHANGED', asy
   const inv = await json(
     await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
   );
-  await pool.query(`update invoices set status = 'sent' where id = $1`, [
-    inv.body.id,
-  ]);
+  await pool.query(
+    `update invoices set status = 'sent', invoice_number = 'INV-0001',
+       sequence_no = 1, issue_date = current_date where id = $1`,
+    [inv.body.id],
+  );
 
   const db = (globalThis as any).__TEST_DB__;
   const { error } = await db.rpc('refresh_draft', {
@@ -2575,9 +2684,7 @@ test('every same-owner key and the one-timer index name an API code', async () =
 test('an expense never counts as earned or unbilled work; awaiting includes it', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
-  const { PATCH: setStatus } = await import(
-    '../src/app/api/v1/invoices/[id]/status/route.ts'
-  );
+  const setStatus = await statusRoute();
   await seedEntry({ id: E(1), hours: 1 }); // 150 unbilled
 
   const before = await json(await stats(req('/stats?tz=UTC')));
@@ -2599,9 +2706,7 @@ test('an expense never counts as earned or unbilled work; awaiting includes it',
 
 test('an expense on an issued invoice is locked; on a draft it is not', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
-  const { PATCH: setStatus } = await import(
-    '../src/app/api/v1/invoices/[id]/status/route.ts'
-  );
+  const setStatus = await statusRoute();
   const { PATCH, DELETE } = await import(
     '../src/app/api/v1/expenses/[id]/route.ts'
   );
@@ -2654,9 +2759,7 @@ test('an expense on an issued invoice is locked; on a draft it is not', async ()
 
 test('voiding releases expenses and keeps the voided lines as sent', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
-  const { PATCH: setStatus } = await import(
-    '../src/app/api/v1/invoices/[id]/status/route.ts'
-  );
+  const setStatus = await statusRoute();
   const { PATCH } = await import('../src/app/api/v1/expenses/[id]/route.ts');
   await seedExpense({ id: X(1), amount: 199 });
   const inv = await json(
@@ -2702,9 +2805,7 @@ test('deleting a draft releases its expenses', async () => {
 test('the open list keeps a billed expense until its invoice is paid', async () => {
   const { GET: list } = await import('../src/app/api/v1/expenses/route.ts');
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
-  const { PATCH: setStatus } = await import(
-    '../src/app/api/v1/invoices/[id]/status/route.ts'
-  );
+  const setStatus = await statusRoute();
   await seedExpense({ id: X(1) });
   const inv = await json(
     await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
@@ -2714,7 +2815,7 @@ test('the open list keeps a billed expense until its invoice is paid', async () 
 
   const sent = await json(await list(req('/expenses')));
   assert.equal(sent.body.expenses.length, 1);
-  assert.equal(sent.body.expenses[0].invoiceNumber, inv.body.invoiceNumber);
+  assert.equal(sent.body.expenses[0].invoiceNumber, 'INV-0001');
   assert.equal(sent.body.expenses[0].invoiceStatus, 'sent');
   const unbilled = await json(await list(req('/expenses?status=unbilled')));
   assert.equal(unbilled.body.expenses.length, 0);
@@ -2774,9 +2875,7 @@ test('changing or deleting a recurring expense reaches only later invoices', asy
   const { PATCH, DELETE } = await import(
     '../src/app/api/v1/expenses/[id]/route.ts'
   );
-  const { PATCH: setStatus } = await import(
-    '../src/app/api/v1/invoices/[id]/status/route.ts'
-  );
+  const setStatus = await statusRoute();
   await seedExpense({ id: X(1), recurring: true, amount: 200 });
   const made = await json(
     await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
@@ -3126,8 +3225,7 @@ const live = async () => ({
   list: (await import('../src/app/api/v1/invoices/route.ts')).GET,
   detail: (await import('../src/app/api/v1/invoices/[id]/route.ts')).GET,
   pdf: (await import('../src/app/api/v1/invoices/[id]/pdf/route.ts')).GET,
-  setStatus: (await import('../src/app/api/v1/invoices/[id]/status/route.ts'))
-    .PATCH,
+  setStatus: await statusRoute(),
 });
 const at = (id: string) => ({ params: Promise.resolve({ id }) });
 const D = (n: number) =>
@@ -3407,7 +3505,7 @@ test('unbilled work dated in a sent period is late; billed, unbillable or voided
       clientId: CLIENT,
       clientName: 'Northwind',
       invoiceId: inv.body.id,
-      invoiceNumber: inv.body.invoiceNumber,
+      invoiceNumber: 'INV-0001',
       ...PERIOD,
     },
   ]);

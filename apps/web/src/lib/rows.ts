@@ -208,11 +208,14 @@ export interface SettingsRow {
   invoice_number_prefix: string;
   next_invoice_number: number;
   payment_notice: string | null;
+  time_zone: string | null;
+  auto_drafts: boolean;
+  ready_email: boolean;
   welcomed_at: string | null;
 }
 
 export const SETTINGS_COLUMNS = columns<SettingsRow>()(
-  'default_hourly_rate, currency, week_starts_on, time_format, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, payment_terms_days, invoice_number_prefix, next_invoice_number, payment_notice, welcomed_at',
+  'default_hourly_rate, currency, week_starts_on, time_format, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, payment_terms_days, invoice_number_prefix, next_invoice_number, payment_notice, time_zone, auto_drafts, ready_email, welcomed_at',
 );
 
 export function toSettings(r: SettingsRow) {
@@ -231,6 +234,9 @@ export function toSettings(r: SettingsRow) {
     invoiceNumberPrefix: r.invoice_number_prefix,
     nextInvoiceNumber: r.next_invoice_number,
     paymentNotice: r.payment_notice,
+    timeZone: r.time_zone,
+    autoDrafts: r.auto_drafts,
+    readyEmail: r.ready_email,
     welcomedAt: r.welcomed_at,
   };
 }
@@ -297,11 +303,13 @@ export function toPaymentProfile(r: PaymentProfileRow) {
 // ── invoices ───────────────────────────────────────────────────────
 export interface InvoiceRow {
   id: string;
+  user_id: string;
   client_id: string;
-  invoice_number: string;
-  sequence_no: number;
+  /** Null on a draft until its PDF is first rendered, with `issue_date`. */
+  invoice_number: string | null;
+  sequence_no: number | null;
   status: z.infer<typeof InvoiceStatus>;
-  issue_date: string;
+  issue_date: string | null;
   due_date: string | null;
   period_start: string;
   period_end: string;
@@ -336,7 +344,7 @@ export interface InvoiceRow {
 }
 
 export const INVOICE_COLUMNS = columns<InvoiceRow>()(
-  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency, notes, payment_terms, grouping_mode, summary_text, reference, supporting_detail, payment_details, business_name, business_address, business_email, logo_url, client_name, client_email, client_address, sent_at, paid_at, created_at, issued_subscription_status, tz, excluded_expense_ids, downloaded_snapshot',
+  'id, user_id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency, notes, payment_terms, grouping_mode, summary_text, reference, supporting_detail, payment_details, business_name, business_address, business_email, logo_url, client_name, client_email, client_address, sent_at, paid_at, created_at, issued_subscription_status, tz, excluded_expense_ids, downloaded_snapshot',
 );
 
 export function toInvoice(r: InvoiceRow) {
@@ -346,7 +354,8 @@ export function toInvoice(r: InvoiceRow) {
     invoiceNumber: r.invoice_number,
     sequenceNo: r.sequence_no,
     status: r.status,
-    issueDate: r.issue_date,
+    // Filled by `withDraftDates` on a draft not yet numbered.
+    issueDate: r.issue_date as string,
     dueDate: r.due_date,
     periodStart: r.period_start,
     periodEnd: r.period_end,
@@ -427,7 +436,10 @@ export const EXPENSE_COLUMNS = columns<ExpenseRow>()(
 /** `invoice` is the billing invoice when there is one, looked up separately. */
 export function toExpense(
   r: ExpenseRow,
-  invoice?: { invoice_number: string; status: z.infer<typeof InvoiceStatus> },
+  invoice?: {
+    invoice_number: string | null;
+    status: z.infer<typeof InvoiceStatus>;
+  },
 ) {
   return {
     id: r.id,
@@ -511,6 +523,9 @@ export const SETTINGS_FIELDS = {
   invoiceNumberPrefix: 'invoice_number_prefix',
   nextInvoiceNumber: 'next_invoice_number',
   paymentNotice: 'payment_notice',
+  timeZone: 'time_zone',
+  autoDrafts: 'auto_drafts',
+  readyEmail: 'ready_email',
   welcomedAt: 'welcomed_at',
 } as const;
 

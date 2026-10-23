@@ -46,7 +46,7 @@ const invoice = (o: Partial<InvoiceRow> = {}): InvoiceRow => ({
   due_date: '2026-03-01',
   total: '250.00',
   currency: 'USD',
-  issue_date: '2026-02-01',
+  period_end: '2026-02-01',
   ...o,
 });
 
@@ -226,8 +226,8 @@ test('overdue invoices lead with the most overdue', () => {
 test('a sent invoice is never a stale draft', () => {
   const rows = buildStaleDrafts(
     [
-      invoice({ id: 'a', status: 'draft', issue_date: '2026-02-01' }),
-      invoice({ id: 'b', status: 'sent', issue_date: '2026-01-01' }),
+      invoice({ id: 'a', status: 'draft', period_end: '2026-02-01' }),
+      invoice({ id: 'b', status: 'sent', period_end: '2026-01-01' }),
     ],
     names,
     'USD',
@@ -835,6 +835,7 @@ test('an overlap with billed time opens the unbilled entry and names the invoice
     started_at: `2026-08-19T${from}:00Z`,
     ended_at: `2026-08-19T${to}:00Z`,
     is_billable: true,
+    invoice_id: invoice,
     invoice_number: invoice,
   });
   assert.deepEqual(
