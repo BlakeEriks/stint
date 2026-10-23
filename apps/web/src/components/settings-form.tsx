@@ -146,31 +146,31 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
               }
             />
           </Field>
-        </div>
 
-        <Field
-          label="Payment terms"
-          htmlFor="terms"
-          hint="Days from issue to due, printed as Net 30. 0 is due on receipt."
-          error={
-            terms !== '' && termsDays === null
-              ? 'Whole days, 0 to 365.'
-              : undefined
-          }
-          className="max-w-44"
-        >
-          <Input
-            id="terms"
-            inputMode="numeric"
-            value={terms}
-            onChange={(e) => {
-              setTerms(e.target.value);
-              const days = parseTermsDays(e.target.value);
-              if (days !== null) setBilling('paymentTermsDays', days);
-            }}
-            placeholder="30"
-          />
-        </Field>
+          <Field
+            label="Payment terms"
+            htmlFor="terms"
+            hint="Days to pay. 0 is due on receipt."
+            error={
+              terms !== '' && termsDays === null
+                ? 'Whole days, 0 to 365.'
+                : undefined
+            }
+            className="flex-1 basis-44"
+          >
+            <Input
+              id="terms"
+              inputMode="numeric"
+              value={terms}
+              onChange={(e) => {
+                setTerms(e.target.value);
+                const days = parseTermsDays(e.target.value);
+                if (days !== null) setBilling('paymentTermsDays', days);
+              }}
+              placeholder="30"
+            />
+          </Field>
+        </div>
       </Section>
 
       <Section

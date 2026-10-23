@@ -173,7 +173,6 @@ export function ClientForm({
         htmlFor="client-terms"
         hint="Days to pay. Defaults to your terms."
         error={badTerms ? 'Whole days, 0 to 365.' : undefined}
-        className="max-w-44"
       >
         <Input
           id="client-terms"
