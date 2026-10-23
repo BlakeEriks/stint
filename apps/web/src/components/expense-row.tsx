@@ -15,9 +15,9 @@ function monthDay(date: string) {
   }).format(new Date(y, m - 1, d));
 }
 
-/** Billed and past editing: on an invoice that is no longer a draft. */
+/** Billed and past editing: a draft claims an expense only when sent. */
 export function isLocked(expense: Expense) {
-  return expense.invoiceStatus !== null && expense.invoiceStatus !== 'draft';
+  return expense.invoiceStatus !== null;
 }
 
 const rowClass = `${rowButton} ${rowBleed} flex items-center gap-3 py-2`;

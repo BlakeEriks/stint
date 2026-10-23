@@ -35,7 +35,7 @@ test('refuses archived payment details', async () => {
   );
 });
 
-test('stores a draft and claims what it bills', async () => {
+test('stores a draft that claims nothing until sent', async () => {
   const db = getDb();
   const next = db.settings.nextInvoiceNumber;
   const res = await create({ groupingMode: 'task', reference: '  PO-7  ' });
@@ -57,15 +57,22 @@ test('stores a draft and claims what it bills', async () => {
     (l: { entryIds: string[] }) => l.entryIds,
   );
   expect(billedEntries.length).toBeGreaterThan(0);
-  for (const e of db.entries)
-    expect(e.invoiceId === invoice.id).toBe(billedEntries.includes(e.id));
+  const claimed = () =>
+    [...db.entries, ...db.expenses].filter((e) => e.invoiceId === invoice.id);
+  expect(claimed()).toEqual([]);
 
-  const billedExpenses = invoice.lineItems
-    .map((l: { expenseId?: string }) => l.expenseId)
-    .filter(Boolean);
-  expect(billedExpenses.length).toBeGreaterThan(0);
-  for (const e of db.expenses.filter((x) => billedExpenses.includes(x.id)))
-    expect(e.invoiceId).toBe(e.recurring ? null : invoice.id);
+  const sent: Response = await (handlers.updateInvoiceStatus as any).resolver({
+    request: new Request(`http://t/api/v1/invoices/${invoice.id}/status`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ status: 'sent' }),
+    }),
+    params: { id: invoice.id },
+  });
+  expect(sent.status).toBe(200);
+  expect(claimed().map((e) => e.id)).toEqual(
+    expect.arrayContaining(billedEntries),
+  );
 });
 
 test('a summary keeps its text and the detail asked for', async () => {
@@ -73,10 +80,8 @@ test('a summary keeps its text and the detail asked for', async () => {
     groupingMode: 'summary',
     summaryText: ' Consulting ',
     schedules: ['project'],
-    issueDate: '2026-09-01',
   });
   expect(res.status).toBe(200);
   expect(res.body.summaryText).toBe('Consulting');
-  expect(res.body.issueDate).toBe('2026-09-01');
   expect(res.body.supportingDetail).toHaveProperty('project');
 });

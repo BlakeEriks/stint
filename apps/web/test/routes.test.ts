@@ -2045,8 +2045,10 @@ test('awaiting payment counts sent invoices and is never the unbilled total', as
     pool.query(
       `insert into invoices
          (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
+          period_start,period_end,
           subtotal,tax_rate,tax_amount,total,currency,grouping_mode,paid_at)
-       values ($1,$2,$3,$4,$5,$6,'2026-09-01',$7,0,0,$7,'USD','entry',
+       values ($1,$2,$3,$4,$5,$6,'2026-09-01','2026-08-01','2026-08-31',
+               $7,0,0,$7,'USD','entry',
                case when $6 = 'paid' then now() else null end)`,
       [id, USER, c, num, Number(num.slice(-1)), status, total],
     );
@@ -2681,9 +2683,9 @@ test('the week sees only its own user’s work', async () => {
 });
 
 // ── stale drafts ───────────────────────────────────────────────────
-// A draft holds no invoice number and has not been sent, so it is not money
-// owed — it is a job half finished. It earns an inbox row because the work is
-// already billed to nobody: entries sit locked to a draft that never went out.
+// A draft has not been sent, so it is not money owed — it is a job half
+// finished. It earns an inbox row once its period is long over: the work is
+// done and billed to nobody.
 
 test('a draft is stale only after a week, and the oldest sorts first', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
@@ -2697,13 +2699,14 @@ test('a draft is stale only after a week, and the oldest sorts first', async () 
   const dayKey = (offset: number) =>
     new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
 
-  const mk = (id: string, num: string, issued: string, status = 'draft') =>
+  const mk = (id: string, num: string, ended: string, status = 'draft') =>
     pool.query(
       `insert into invoices
-         (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
-          subtotal,tax_rate,tax_amount,total,currency,grouping_mode)
-       values ($1,$2,$3,$4,$5,$6,$7,100,0,0,100,'USD','entry')`,
-      [id, USER, c, num, Number(num.slice(-1)), status, issued],
+         (id,user_id,client_id,invoice_number,sequence_no,status,
+          period_start,period_end,subtotal,tax_rate,tax_amount,total,currency,
+          grouping_mode,tz)
+       values ($1,$2,$3,$4,$5,$6,$7,$7,100,0,0,100,'USD','entry','UTC')`,
+      [id, USER, c, num, Number(num.slice(-1)), status, ended],
     );
 
   await mk('45444444-0000-4000-8000-000000000001', 'INV-0001', dayKey(-2));
@@ -2723,8 +2726,9 @@ test('a draft is stale only after a week, and the oldest sorts first', async () 
     (d: { invoiceNumber: string }) => d.invoiceNumber,
   );
 
-  /* Oldest first: the row least likely to still be in anyone's head. Two days
-     old is a draft someone is actively working on, not a forgotten one. */
+  /* Oldest first: the row least likely to still be in anyone's head. A
+     period two days over is a draft someone is actively working on, not a
+     forgotten one. */
   assert.deepEqual(numbers, ['INV-0003', 'INV-0002'], 'a 2-day draft is fine');
   assert.equal(res.body.attention.staleDrafts[0].ageDays, 30);
   assert.equal(res.body.attention.staleDrafts[1].ageDays, 9);
@@ -2749,21 +2753,17 @@ test('a stale draft carries the money and the client it belongs to', async () =>
 
   await pool.query(
     `insert into invoices
-       (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
-        subtotal,tax_rate,tax_amount,total,currency,grouping_mode)
-     values ($1,$2,$3,'INV-0009',9,'draft',$4,400,0,0,400,'USD','entry')`,
-    [
-      '45444444-0000-4000-8000-000000000009',
-      USER,
-      c,
-      new Date(Date.now() - 20 * 86_400_000).toISOString().slice(0, 10),
-    ],
+       (id,user_id,client_id,invoice_number,sequence_no,status,period_start,
+        period_end,currency,grouping_mode,tz)
+     values ($1,$2,$3,'INV-0009',9,'draft','2026-09-01','2026-09-30','USD',
+             'entry','UTC')`,
+    ['45444444-0000-4000-8000-000000000009', USER, c],
   );
 
   const res = await json(await stats(req('/stats?tz=UTC')));
   const [draft] = res.body.attention.staleDrafts;
   assert.equal(draft.clientName, 'Namely');
-  assert.equal(draft.amount, 400);
+  assert.equal(draft.amount, 100, 'what its period’s hour comes to now');
   assert.equal(draft.currency, 'USD');
 });
 
@@ -4295,8 +4295,10 @@ const exportInvoice = (
   pool.query(
     `insert into invoices
        (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
+        period_start,period_end,
         subtotal,tax_rate,tax_amount,total,currency,grouping_mode,paid_at)
-     values ($1,$2,$3,$4,$5,$6,'2026-09-01',100,0,0,100,'USD','entry',$7)`,
+     values ($1,$2,$3,$4,$5,$6,'2026-09-01','2026-08-01','2026-08-31',
+             100,0,0,100,'USD','entry',$7)`,
     [
       id,
       user,
@@ -4553,8 +4555,9 @@ test('every response the macOS app decodes matches its fixture', async (t) => {
     archived.id,
   ]);
   const invoice = await pool.query(
-    `insert into invoices (user_id, client_id, invoice_number, sequence_no)
-     values ($1, $2, 'INV-1', 1) returning id`,
+    `insert into invoices
+       (user_id, client_id, invoice_number, sequence_no, period_start, period_end)
+     values ($1, $2, 'INV-1', 1, current_date, current_date) returning id`,
     [USER, client.id],
   );
   await pool.query(

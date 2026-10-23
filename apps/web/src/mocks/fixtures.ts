@@ -15,7 +15,8 @@ import type {
   PaymentProfile,
   Project,
   Settings,
-  StoredLineItem,
+  InvoiceLineItem,
+  UnratedEntry,
   TimeEntry,
   DraftChange,
 } from '@/lib/client/api';
@@ -33,10 +34,12 @@ import { ZONE } from './time.mts';
  */
 
 /** A draft the story says moved since its PDF was rendered carries the
- *  change and which lines are new; the fake keeps no snapshot of its own. */
+ *  change and which lines are new, and one with unpriced work names it; the
+ *  fake keeps no snapshot of its own and derives nothing on read. */
 type StoredInvoice = Invoice & {
-  lineItems: (StoredLineItem & { isNew?: boolean })[];
+  lineItems: (InvoiceLineItem & { isNew?: boolean })[];
   changedSinceDownload?: DraftChange | null;
+  unratedEntries?: UnratedEntry[];
 };
 
 export interface Db {
@@ -472,13 +475,13 @@ export const parties = (s: Settings, c: Client) => ({
   billTo: { name: c.name, email: c.email ?? null, address: c.address ?? null },
 });
 
-/** Each invoice claims its client's entries in its period, as issuing does. */
+/** Each invoice shows its client's entries in its period, and an issued one
+ *  claims them, as sending does. */
 function invoicesFor(
   entries: TimeEntry[],
   projects: Project[],
   clients: Client[],
 ): StoredInvoice[] {
-  let line = 5000;
   return INVOICES.map((spec) => {
     const invoiceId = id(300 + spec.seq);
     const who = clients.find((c) => c.id === spec.clientId) as Client;
@@ -495,7 +498,8 @@ function invoicesFor(
         date <= to
       );
     });
-    for (const e of claimed) e.invoiceId = invoiceId;
+    if (spec.status !== 'draft')
+      for (const e of claimed) e.invoiceId = invoiceId;
 
     // An invoice older than the entries: one line of hours at the rate.
     const lineItems = spec.hours
@@ -550,11 +554,9 @@ function invoicesFor(
         '09:30',
         ZONE,
       ).toISOString(),
-      lineItems: lineItems.map(({ spentOn: _, expenseId: __, ...l }, i) => ({
+      lineItems: lineItems.map(({ spentOn: _, expenseId: __, ...l }) => ({
         ...l,
         spentOn: null,
-        id: id(line++),
-        sortOrder: i,
       })),
     };
   });
@@ -566,7 +568,7 @@ function invoicesFor(
  * - Northwind reimburses a subscription on every invoice. August's sent
  *   invoice froze a copy of it; the expense itself is never attached.
  * - Northwind also owes a one-off license from last month, waiting.
- * - Byrne's draft carries one, so it is billed and still editable.
+ * - Byrne's draft shows one, which stays unbilled until the draft is sent.
  *
  * A billed expense is a line on its invoice, and the invoice's totals say so.
  */
@@ -611,16 +613,11 @@ function expensesFor(invoices: StoredInvoice[]) {
   const claude = expenses[0] as Expense;
   freeze(invoices, 13, claude, '2026-08-31');
   const photos = expenses[2] as Expense;
-  const draft = freeze(invoices, 15, photos, photos.spentOn as string);
-  Object.assign(photos, {
-    invoiceId: draft.id,
-    invoiceNumber: draft.invoiceNumber,
-    invoiceStatus: draft.status,
-  });
+  freeze(invoices, 15, photos, photos.spentOn as string);
   return expenses;
 }
 
-/** An expense's frozen line on an invoice, as generation would have written
+/** An expense's line on an invoice, as sending writes it or a draft shows
  *  it. Attaching the expense is the caller's: a recurring one never is. */
 function freeze(
   invoices: StoredInvoice[],
@@ -630,8 +627,6 @@ function freeze(
 ) {
   const invoice = invoices.find((i) => i.sequenceNo === seq) as StoredInvoice;
   invoice.lineItems.push({
-    id: id(5900 + seq),
-    sortOrder: invoice.lineItems.length,
     description: e.description,
     unit: 'expense',
     quantity: 1,

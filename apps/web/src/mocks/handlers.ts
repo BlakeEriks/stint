@@ -90,7 +90,7 @@ function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
     invoiceNumber: formatInvoiceNumber(db.settings.invoiceNumberPrefix, seq),
     sequenceNo: seq,
     status: 'draft' as const,
-    issueDate: input.issueDate ?? localDateKey(db.now, input.tz),
+    issueDate: localDateKey(db.now, input.tz),
     dueDate: input.dueDate ?? null,
     periodStart: preview.periodStart,
     periodEnd: preview.periodEnd,
@@ -123,6 +123,22 @@ function claimBilled(db: Db, invoiceId: string, preview: Preview) {
   const billed = new Set(preview.lineItems.map((l) => l.expenseId));
   for (const e of db.expenses)
     if (billed.has(e.id) && !e.recurring) e.invoiceId = invoiceId;
+}
+
+/** A draft claims its work when sent, as the period stands then. */
+function claimDraft(db: Db, invoice: Db['invoices'][number]) {
+  const preview = invoicePreview(
+    db,
+    {
+      clientId: invoice.clientId,
+      periodStart: invoice.periodStart,
+      periodEnd: invoice.periodEnd,
+      groupingMode: invoice.groupingMode,
+      summaryText: invoice.summaryText ?? undefined,
+    },
+    ZONE,
+  );
+  if (preview) claimBilled(db, invoice.id, preview);
 }
 
 function stopEntry(entry: TimeEntry, now: Date): TimeEntry {
@@ -460,7 +476,14 @@ export const handlers = {
     const invoices = getDb()
       .invoices.filter((i) => !clientId || i.clientId === clientId)
       .filter((i) => !status || i.status === status)
-      .map(({ lineItems: _, changedSinceDownload: __, ...invoice }) => invoice)
+      .map(
+        ({
+          lineItems: _,
+          changedSinceDownload: __,
+          unratedEntries: ___,
+          ...invoice
+        }) => invoice,
+      )
       .sort((a, b) => b.sequenceNo - a.sequenceNo);
     return ok(envelopes.invoices, { invoices });
   }),
@@ -471,12 +494,14 @@ export const handlers = {
     if (!invoice) return fail('ENTRY_NOT_FOUND');
     // The fake keeps no plan per invoice: the account's plan decides.
     const { available, plan } = db.billing;
-    const { changedSinceDownload, lineItems, ...rest } = invoice;
+    const { changedSinceDownload, lineItems, unratedEntries, ...rest } =
+      invoice;
     return ok(invoiceDetail, {
       ...rest,
       lineItems: lineItems.map((l) => ({ ...l, isNew: l.isNew ?? false })),
       canDownload: documentOpens(available, plan, null),
       changedSinceDownload: changedSinceDownload ?? null,
+      unratedEntries: unratedEntries ?? [],
     });
   }),
 
@@ -522,15 +547,12 @@ export const handlers = {
     if (preview.unratedEntryIds.length > 0)
       return fail('NO_RATE_CONFIGURED', 'Some billable entries have no rate');
     const invoice = invoiceRow(db, input, preview);
-    claimBilled(db, invoice.id, preview);
     db.invoices.push({
       ...invoice,
       lineItems: preview.lineItems.map(
-        ({ rateSource: _, entryIds: __, expenseId: ___, ...l }, i) => ({
+        ({ rateSource: _, entryIds: __, expenseId: ___, ...l }) => ({
           ...l,
           spentOn: l.spentOn ?? null,
-          id: uuidv7(db.now.getTime()),
-          sortOrder: i,
         }),
       ),
     });
@@ -558,6 +580,8 @@ export const handlers = {
           'This draft changed since you downloaded it. Download the new PDF, send that one, then mark it sent.',
           invoice.changedSinceDownload,
         );
+      if (input.status === 'sent' && invoice.status === 'draft')
+        claimDraft(db, invoice);
       invoice.status = input.status;
       if (input.status === 'sent')
         invoice.sentAt = input.sentAt ?? db.now.toISOString();
@@ -566,7 +590,12 @@ export const handlers = {
       if (input.status === 'void')
         for (const e of [...db.entries, ...db.expenses])
           if (e.invoiceId === invoice.id) e.invoiceId = null;
-      const { lineItems: _, changedSinceDownload: __, ...rest } = invoice;
+      const {
+        lineItems: _,
+        changedSinceDownload: __,
+        unratedEntries: ___,
+        ...rest
+      } = invoice;
       return ok(schema.Invoice, rest);
     },
   ),
@@ -580,8 +609,6 @@ export const handlers = {
         'VALIDATION_FAILED',
         'An issued invoice is voided, not deleted',
       );
-    for (const e of [...db.entries, ...db.expenses])
-      if (e.invoiceId === invoice.id) e.invoiceId = null;
     db.invoices = db.invoices.filter((i) => i !== invoice);
     return noContent();
   }),

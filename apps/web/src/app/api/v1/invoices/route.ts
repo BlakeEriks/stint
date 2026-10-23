@@ -4,13 +4,13 @@ import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import {
   computeInvoice,
+  deriveDraft,
   loadPaymentProfile,
-  refreshDraft,
   requireSender,
   unratedError,
 } from '@/lib/invoicing';
 import { INVOICE_COLUMNS, toInvoice, type InvoiceRow } from '@/lib/rows';
-import { buildPaymentDetails, localDateKey } from '@stint/core';
+import { buildPaymentDetails } from '@stint/core';
 import { CreateInvoice, ListInvoicesQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -31,29 +31,30 @@ export const GET = handle(async (req: Request) => {
   const { data, error } = await query;
   if (error) throw error;
 
-  // A draft's total is its period's work now. One at a time: a user holds
-  // only a few, and each refresh sees what the one before it took.
-  const rows: InvoiceRow[] = [];
-  for (const r of data ?? [])
-    rows.push((await refreshDraft(db, r as InvoiceRow, q.tz)).row);
-  return NextResponse.json({ invoices: rows.map(toInvoice) });
+  // A draft's total is its period's work now.
+  const invoices = await Promise.all(
+    ((data ?? []) as InvoiceRow[]).map(async (r) =>
+      toInvoice((await deriveDraft(db, r, q.tz))?.row ?? r),
+    ),
+  );
+  return NextResponse.json({ invoices });
 });
 
 /**
  * POST /api/v1/invoices
  *
- * The irreversible step. In order:
+ * Allocates the number and creates the draft. In order:
  *   1. Recompute line items from database-resolved rates and the stored
  *      expenses (never trusting a preview the client may have cached).
  *   2. Refuse if any billable entry has no resolvable rate.
- *   3. Write it all through `create_invoice`, in one transaction: the gapless
- *      number, the draft and its lines, and the entries and expenses it
- *      bills. Sending it locks them via the immutability triggers.
+ *   3. Write the draft's choices and its charges through `create_invoice`,
+ *      in one transaction with the gapless number. A draft claims its work
+ *      only when sent.
  *
  * One transaction is the point of step 3. Allocating a number is not
  * undoable, so a failure after a separate allocation left a gap in a
- * sequence promised to have none — and an entry or expense another invoice
- * took in the meantime is exactly such a failure.
+ * sequence promised to have none — and a draft another Generate made over
+ * the same dates meanwhile is exactly such a failure.
  */
 export const POST = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
@@ -81,8 +82,8 @@ export const POST = handle(async (req: Request) => {
 
   requireSender(settings);
 
-  /* One open draft per client and date: two would each claim the same new
-     work on their next refresh. */
+  /* One open draft per client and date: two would both show the same work.
+     `create_invoice` holds the rule; this names the draft in the way. */
   const { data: open, error: openError } = await db
     .from('invoices')
     .select('id, invoice_number, period_start, period_end')
@@ -133,15 +134,9 @@ export const POST = handle(async (req: Request) => {
     p_user_id: userId,
     p_invoice: {
       client_id: body.clientId,
-      issue_date: body.issueDate ?? localDateKey(new Date(), body.tz),
       due_date: body.dueDate ?? null,
       period_start: body.periodStart,
       period_end: body.periodEnd,
-      subtotal: totals.subtotal,
-      tax_rate: totals.taxRate,
-      tax_amount: totals.taxAmount,
-      expenses_subtotal: totals.expensesSubtotal,
-      total: totals.total,
       currency: client.currency ?? settings.currency,
       notes: body.notes ?? null,
       payment_terms: body.paymentTerms ?? settings.defaultPaymentTerms,
@@ -152,35 +147,25 @@ export const POST = handle(async (req: Request) => {
       payment_details: paymentDetails,
       tz: body.tz,
       excluded_expense_ids: body.excludedExpenseIds,
-      lines: computed.lines,
+      manual_lines: body.manualLines,
     },
-    p_entry_ids: computed.entryIds,
-    p_expense_ids: computed.expenseIds,
   });
 
-  if (error) {
-    if (dbCode(error) === 'EXPENSE_ALREADY_INVOICED') {
-      throw new ApiError(
-        'EXPENSE_ALREADY_INVOICED',
-        'An expense on this invoice was billed on another one first. Preview again.',
-      );
-    }
-    if (dbCode(error) === 'ENTRY_ALREADY_INVOICED') {
-      throw new ApiError(
-        'ENTRY_ALREADY_INVOICED',
-        'Time on this invoice changed since the preview. Preview again.',
-      );
-    }
-    throw error;
-  }
+  if (dbCode(error) === 'DRAFT_OVERLAPS')
+    throw new ApiError(
+      'DRAFT_OVERLAPS',
+      'Another draft for these dates was made at the same moment. Open it, or start after it.',
+    );
+  if (error) throw error;
 
-  const invoice = Array.isArray(data) ? data[0] : data;
+  const row = (Array.isArray(data) ? data[0] : data) as InvoiceRow;
+  const draft = (await deriveDraft(db, row, body.tz))!;
 
   return NextResponse.json(
     {
-      ...toInvoice(invoice as InvoiceRow),
-      lineItems: totals.lineItems,
-      entryCount: totals.entryCount,
+      ...toInvoice(draft.row),
+      lineItems: draft.lines,
+      entryCount: draft.computed.totals.entryCount,
     },
     { status: 201 },
   );

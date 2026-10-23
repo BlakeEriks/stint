@@ -430,21 +430,19 @@ export const ComputedLineItem = InvoiceLineItem.extend({
   expenseId: uuid.optional(),
 });
 
-/**
- * A line item frozen onto an issued invoice and read back — what
- * `GET /invoices/:id` returns. `sortOrder` is the stored order that keeps a
- * re-downloaded PDF identical to the one first issued.
- */
-export const StoredLineItem = InvoiceLineItem.extend({
-  id: uuid,
-  sortOrder: z.number().int().nonnegative(),
-});
-
 const Change = z.object({ from: z.number(), to: z.number() });
 
 /** How a draft moved since its PDF was last rendered: what Mark sent's
  *  `DRAFT_CHANGED` carries, and the detail's `changedSinceDownload`. */
 export const DraftChange = z.object({ hours: Change, total: Change });
+
+/** A billable entry on a draft that no rate prices: the draft shows without
+ *  it, and its PDF and Mark sent are refused until it has one. */
+export const UnratedEntry = z.object({
+  id: uuid,
+  taskName: z.string(),
+  startedAt: iso,
+});
 
 export const InvoicePreview = z.object({
   clientId: uuid,
@@ -479,7 +477,8 @@ export type ManualLine = z.infer<
 >['manualLines'][number];
 
 export const CreateInvoice = InvoicePreviewRequest.extend({
-  issueDate: z.iso.date().optional(),
+  /** Typed by the user. Absent, it follows the terms from the day the draft
+   *  is sent, which is also its issue date. */
   dueDate: z.iso.date().optional(),
   notes: z.string().max(2000).optional(),
   paymentTerms: z.string().max(200).optional(),
@@ -523,9 +522,10 @@ export const InvoiceStatus = z.enum(['draft', 'sent', 'paid', 'void']);
  * An issued invoice, as the API returns it.
  *
  * Line items are NOT part of this shape: they are fetched with the detail
- * view. A draft's are re-derived from its period's work on every read; once
- * sent they are frozen, and re-deriving them is the thing that must never
- * happen — re-downloading a year later has to produce the same document.
+ * view. A draft's, its totals and its dates are derived from its period's
+ * work on every read, as if sent today; once sent they are frozen, and
+ * re-deriving them is the thing that must never happen — re-downloading a
+ * year later has to produce the same document.
  */
 export const Invoice = z.object({
   id: uuid,
@@ -652,8 +652,8 @@ export const ListExpensesQuery = z.object({
   status: z.enum(['open', 'unbilled']).default('open'),
 });
 
-/** A draft is refreshed on every read, in the zone its period's dates are
- *  read in; a draft with no zone of its own takes the read's. */
+/** A draft is derived on every read, in the zone its period's dates are
+ *  read in; a draft with no zone of its own takes the read's, else UTC. */
 export const InvoiceReadQuery = z.object({ tz: ianaZone.optional() });
 
 export const ListInvoicesQuery = InvoiceReadQuery.extend({
@@ -1107,8 +1107,8 @@ export type Expense = z.infer<typeof Expense>;
 export type CalendarDay = z.infer<typeof CalendarDay>;
 export type InvoiceLineItem = z.infer<typeof InvoiceLineItem>;
 export type ComputedLineItem = z.infer<typeof ComputedLineItem>;
-export type StoredLineItem = z.infer<typeof StoredLineItem>;
 export type DraftChange = z.infer<typeof DraftChange>;
+export type UnratedEntry = z.infer<typeof UnratedEntry>;
 export type ApiError = z.infer<typeof ApiError>;
 export type CreateFeedback = z.infer<typeof CreateFeedback>;
 export type Billing = z.infer<typeof Billing>;

@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -372,7 +378,7 @@ describe('NewInvoice', () => {
     expect(generate()).toBeDisabled();
   });
 
-  it('defaults Due to the payment terms, and sends the date it shows', async () => {
+  it('shows Due from the payment terms, and sends only a typed one', async () => {
     serve();
     settings = { ...SETTINGS, defaultPaymentTerms: 'Net 15' };
     const user = userEvent.setup();
@@ -384,8 +390,25 @@ describe('NewInvoice', () => {
     await user.click(generate());
 
     await waitFor(() => expect(push).toHaveBeenCalled());
+    expect(
+      bodies.find((b) => b.path.endsWith('/invoices'))!.body,
+    ).not.toHaveProperty('dueDate');
+  });
+
+  it('sends a Due the user typed', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await ready(user);
+    fireEvent.change(screen.getByLabelText('Due'), {
+      target: { value: '2026-12-01' },
+    });
+
+    await user.click(generate());
+
+    await waitFor(() => expect(push).toHaveBeenCalled());
     expect(bodies.find((b) => b.path.endsWith('/invoices'))!.body.dueDate).toBe(
-      due,
+      '2026-12-01',
     );
   });
 
@@ -408,7 +431,7 @@ describe('NewInvoice', () => {
     ).toBeInTheDocument();
   });
 
-  it('generates only when pressed, dated today where the user is', async () => {
+  it('generates only when pressed, leaving its dates to the send', async () => {
     serve();
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
@@ -419,7 +442,8 @@ describe('NewInvoice', () => {
 
     await waitFor(() => expect(push).toHaveBeenCalledWith('/invoices/inv-1'));
     const sent = bodies.find((b) => b.path.endsWith('/invoices'))!.body;
-    expect(sent.issueDate).toBe(localDateKey(new Date(), tz));
+    expect(sent).not.toHaveProperty('issueDate');
+    expect(sent).not.toHaveProperty('dueDate');
   });
 
   /**

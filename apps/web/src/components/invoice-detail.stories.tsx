@@ -89,6 +89,35 @@ export const DraftChanged: Story = {
   },
 };
 export const DraftChangedPhone: Story = { ...phone, parameters: changed };
+
+/* The draft as the server sends it with work no rate prices. */
+const unrated = paying((db) => {
+  const draft = db.invoices.find((i) => i.id === invoice(15));
+  if (!draft) return;
+  draft.unratedEntries = [
+    {
+      id: id(9001),
+      taskName: 'Onboarding call',
+      startedAt: '2026-09-08T15:00:00.000Z',
+    },
+  ];
+});
+
+/** Work with no rate shows on the draft by name, and neither the PDF nor
+    Mark sent is offered until it has one. */
+export const DraftUnrated: Story = {
+  ...desktop,
+  parameters: unrated,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(await page.findByText('1 entry has no rate')).toBeVisible();
+    await expect(page.getByText(/Onboarding call · Sep 8/)).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Mark sent' }),
+    ).toBeDisabled();
+    await expect(page.queryByRole('link', { name: 'Download PDF' })).toBeNull();
+  },
+};
 /** Where it stands is one line under the title, and an issued invoice is
     the invoice, not a preview of it. */
 export const Sent: Story = {
@@ -218,8 +247,6 @@ export const WithCharge: Story = {
     const draft = db.invoices.find((i) => i.id === invoice(15));
     if (!draft) return;
     draft.lineItems.push({
-      id: id(5999),
-      sortOrder: draft.lineItems.length,
       description: 'Hosting, August',
       unit: 'fixed',
       quantity: 1,

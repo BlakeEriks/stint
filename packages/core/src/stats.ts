@@ -146,7 +146,7 @@ export interface InvoiceRow {
   due_date: string | null;
   total: string | number;
   currency: string | null;
-  issue_date: string;
+  period_end: string;
 }
 
 export interface MonthRow {
@@ -362,7 +362,8 @@ export function buildOverdueInvoices(
     .sort((a, b) => b.daysLate - a.daysLate);
 }
 
-/** Drafts old enough to be forgotten rather than pending, oldest first. */
+/** Drafts whose period ended long enough ago to be forgotten rather than
+ *  pending, oldest first. */
 export function buildStaleDrafts(
   invoices: InvoiceRow[],
   clientNames: Map<string, string>,
@@ -371,7 +372,7 @@ export function buildStaleDrafts(
   cutoffKey: string,
 ) {
   return invoices
-    .filter((i) => i.status === 'draft' && i.issue_date < cutoffKey)
+    .filter((i) => i.status === 'draft' && i.period_end < cutoffKey)
     .map((i) => ({
       invoiceId: i.id,
       invoiceNumber: i.invoice_number,
@@ -379,7 +380,7 @@ export function buildStaleDrafts(
       clientName: clientNames.get(i.client_id) ?? null,
       amount: Number(i.total),
       currency: i.currency ?? fallbackCurrency,
-      ageDays: daysBetweenKeys(i.issue_date, todayKey),
+      ageDays: daysBetweenKeys(i.period_end, todayKey),
     }))
     .sort((a, b) => b.ageDays - a.ageDays);
 }

@@ -169,7 +169,8 @@ export type GroupingMode = z.infer<typeof schema.GroupingMode>;
 export type ScheduleKind = z.infer<typeof schema.ScheduleKind>;
 export type InvoiceStatus = z.infer<typeof schema.InvoiceStatus>;
 export type ComputedLineItem = Response<schema.ComputedLineItem>;
-export type StoredLineItem = Response<schema.StoredLineItem>;
+export type InvoiceLineItem = Response<schema.InvoiceLineItem>;
+export type UnratedEntry = Response<schema.UnratedEntry>;
 export type DraftChange = Response<schema.DraftChange>;
 
 /** Everything a project is created or edited with. */
@@ -371,9 +372,10 @@ export const api = {
     request<
       Invoice & {
         /** `isNew`: on a draft, a line its last PDF didn't have. */
-        lineItems: (StoredLineItem & { isNew: boolean })[];
+        lineItems: (InvoiceLineItem & { isNew: boolean })[];
         canDownload: boolean;
         changedSinceDownload: DraftChange | null;
+        unratedEntries: UnratedEntry[];
       }
     >('GET', `/invoices/${id}?${zone()}`),
 
@@ -403,7 +405,6 @@ export const api = {
     schedules?: ScheduleKind[];
     reference?: string;
     paymentProfileId?: string;
-    issueDate?: string;
     dueDate?: string;
     notes?: string;
     paymentTerms?: string;
@@ -420,7 +421,7 @@ export const api = {
   ) =>
     request<Invoice>(
       'PATCH',
-      // Sending refreshes a draft first, in its period's zone.
+      // A draft is sent as its period's work stands, read in its zone.
       `/invoices/${id}/status${body.status === 'sent' ? `?${zone()}` : ''}`,
       body,
     ),

@@ -277,7 +277,7 @@ export function stats(db: Db, tz: string) {
       due_date: i.dueDate,
       total: i.total,
       currency: i.currency,
-      issue_date: i.issueDate,
+      period_end: i.periodEnd,
     }));
 
   const candidates = db.entries
