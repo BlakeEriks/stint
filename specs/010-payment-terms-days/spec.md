@@ -118,8 +118,8 @@ an inbox notice for the last.
    **Then** the user's terms are 30 days and the inbox shows a notice
    quoting what they wrote, with a days field to save; anything else they
    wrote, like a late-fee clause, belongs in the invoice notes.
-4. **Given** the notice, **When** the user saves their payment terms in
-   Settings, **Then** the notice is gone.
+4. **Given** the notice, **When** the user saves their payment terms,
+   in Settings or in the notice, **Then** the notice is gone.
 5. **Given** invoices already issued, **When** the change is applied,
    **Then** each still prints the terms text it was issued with.
 
