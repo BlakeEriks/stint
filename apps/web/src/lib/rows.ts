@@ -128,11 +128,12 @@ export interface ClientRow {
   payment_profile_id: string | null;
   billing_period: BillingPeriod | null;
   period_anchor: string | null;
+  payment_terms_days: number | null;
   archived_at: string | null;
 }
 
 export const CLIENT_COLUMNS = columns<ClientRow>()(
-  'id, name, email, address, hourly_rate, tax_rate, currency, color, payment_profile_id, billing_period, period_anchor, archived_at',
+  'id, name, email, address, hourly_rate, tax_rate, currency, color, payment_profile_id, billing_period, period_anchor, payment_terms_days, archived_at',
 );
 
 /** The schedule is one value on the wire and two columns, written together
@@ -161,6 +162,7 @@ export function toClient(r: ClientRow) {
     color: r.color,
     paymentProfileId: r.payment_profile_id,
     billingSchedule: toBillingSchedule(r),
+    paymentTermsDays: r.payment_terms_days,
     archivedAt: r.archived_at,
   };
 }
@@ -202,7 +204,7 @@ export interface SettingsRow {
   business_address: string | null;
   business_email: string | null;
   logo_url: string | null;
-  default_payment_terms: string;
+  payment_terms_days: number;
   invoice_number_prefix: string;
   next_invoice_number: number;
   payment_notice: string | null;
@@ -210,7 +212,7 @@ export interface SettingsRow {
 }
 
 export const SETTINGS_COLUMNS = columns<SettingsRow>()(
-  'default_hourly_rate, currency, week_starts_on, time_format, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, default_payment_terms, invoice_number_prefix, next_invoice_number, payment_notice, welcomed_at',
+  'default_hourly_rate, currency, week_starts_on, time_format, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, payment_terms_days, invoice_number_prefix, next_invoice_number, payment_notice, welcomed_at',
 );
 
 export function toSettings(r: SettingsRow) {
@@ -225,7 +227,7 @@ export function toSettings(r: SettingsRow) {
     businessAddress: r.business_address,
     businessEmail: r.business_email,
     logoUrl: r.logo_url,
-    defaultPaymentTerms: r.default_payment_terms,
+    paymentTermsDays: r.payment_terms_days,
     invoiceNumberPrefix: r.invoice_number_prefix,
     nextInvoiceNumber: r.next_invoice_number,
     paymentNotice: r.payment_notice,
@@ -484,6 +486,7 @@ export const CLIENT_FIELDS = {
   currency: 'currency',
   color: 'color',
   paymentProfileId: 'payment_profile_id',
+  paymentTermsDays: 'payment_terms_days',
 } as const;
 
 export const PROJECT_FIELDS = {
@@ -504,7 +507,7 @@ export const SETTINGS_FIELDS = {
   businessAddress: 'business_address',
   businessEmail: 'business_email',
   logoUrl: 'logo_url',
-  defaultPaymentTerms: 'default_payment_terms',
+  paymentTermsDays: 'payment_terms_days',
   invoiceNumberPrefix: 'invoice_number_prefix',
   nextInvoiceNumber: 'next_invoice_number',
   paymentNotice: 'payment_notice',

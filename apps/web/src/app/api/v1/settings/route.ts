@@ -49,7 +49,9 @@ export const PATCH = handle(async (req: Request) => {
     );
   }
 
-  const update = toColumns(patch, SETTINGS_FIELDS);
+  const update: Record<string, unknown> = toColumns(patch, SETTINGS_FIELDS);
+  // Saving terms answers the Inbox's question about the old text.
+  if (patch.paymentTermsDays !== undefined) update.legacy_payment_terms = null;
   if (Object.keys(update).length === 0) {
     throw new ApiError('VALIDATION_FAILED', 'No fields to update');
   }

@@ -10,7 +10,12 @@ import {
   unratedError,
 } from '@/lib/invoicing';
 import { INVOICE_COLUMNS, toInvoice, type InvoiceRow } from '@/lib/rows';
-import { buildPaymentDetails, localDateKey } from '@stint/core';
+import {
+  addDays,
+  buildPaymentDetails,
+  localDateKey,
+  paymentTermsText,
+} from '@stint/core';
 import { CreateInvoice, ListInvoicesQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -81,6 +86,18 @@ export const POST = handle(async (req: Request) => {
 
   requireSender(settings);
 
+  const issueDate = body.issueDate ?? localDateKey(new Date(), body.tz);
+  const dueDate =
+    body.dueDate ??
+    addDays(issueDate, client.payment_terms_days ?? settings.paymentTermsDays);
+  if (dueDate < issueDate) {
+    throw new ApiError(
+      'VALIDATION_FAILED',
+      "The due date can't be before the issue date.",
+      { field: 'dueDate' },
+    );
+  }
+
   /* One open draft per client and date: two would each claim the same new
      work on their next refresh. */
   const { data: open, error: openError } = await db
@@ -133,8 +150,8 @@ export const POST = handle(async (req: Request) => {
     p_user_id: userId,
     p_invoice: {
       client_id: body.clientId,
-      issue_date: body.issueDate ?? localDateKey(new Date(), body.tz),
-      due_date: body.dueDate ?? null,
+      issue_date: issueDate,
+      due_date: dueDate,
       period_start: body.periodStart,
       period_end: body.periodEnd,
       subtotal: totals.subtotal,
@@ -144,7 +161,7 @@ export const POST = handle(async (req: Request) => {
       total: totals.total,
       currency: client.currency ?? settings.currency,
       notes: body.notes ?? null,
-      payment_terms: body.paymentTerms ?? settings.defaultPaymentTerms,
+      payment_terms: paymentTermsText(issueDate, dueDate),
       grouping_mode: body.groupingMode,
       summary_text: body.groupingMode === 'summary' ? body.summaryText : null,
       supporting_detail: computed.supportingDetail,

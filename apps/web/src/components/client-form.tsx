@@ -17,6 +17,7 @@ import {
   BILLING_PERIODS,
   localDateKey,
   needsAnchor,
+  parseTermsDays,
   type BillingPeriod,
   type BillingSchedule,
 } from '@stint/core';
@@ -65,6 +66,11 @@ export function ClientForm({
   const [schedule, setSchedule] = useState<BillingSchedule | null>(
     existing?.billingSchedule ?? null,
   );
+  const [terms, setTerms] = useState(
+    existing?.paymentTermsDays != null ? String(existing.paymentTermsDays) : '',
+  );
+  const termsDays = parseTermsDays(terms);
+  const badTerms = terms.trim() !== '' && termsDays === null;
 
   const save = useSaveClient(existing, onSaved);
 
@@ -80,6 +86,7 @@ export function ClientForm({
       taxRate: taxRate.trim() === '' ? null : Number(taxRate),
       color,
       billingSchedule: schedule,
+      paymentTermsDays: termsDays,
     });
   };
 
@@ -161,6 +168,21 @@ export function ClientForm({
 
       <ScheduleField value={schedule} onChange={setSchedule} />
 
+      <Field
+        label="Payment terms"
+        htmlFor="client-terms"
+        hint="Days to pay. Defaults to your terms."
+        error={badTerms ? 'Whole days, 0 to 365.' : undefined}
+      >
+        <Input
+          id="client-terms"
+          inputMode="numeric"
+          value={terms}
+          onChange={(e) => setTerms(e.target.value)}
+          placeholder="30"
+        />
+      </Field>
+
       <ColorPicker value={color} onChange={setColor} />
 
       {save.error ? (
@@ -185,7 +207,7 @@ export function ClientForm({
         <Button
           type="submit"
           variant="accent"
-          disabled={save.isPending || name.trim() === ''}
+          disabled={save.isPending || name.trim() === '' || badTerms}
         >
           {save.isPending ? (
             <Loader2 aria-hidden className="animate-spin" />

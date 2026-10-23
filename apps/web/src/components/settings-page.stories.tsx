@@ -113,6 +113,25 @@ export const NextNumberForwardOnly: Story = {
   },
 };
 
+/** Payment terms are whole days: 45 saves, and 400 is refused at the field
+    without a request. */
+export const PaymentTermsDays: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const field = await page.findByLabelText('Payment terms');
+    await expect(field).toHaveValue('30');
+    await userEvent.clear(field);
+    await userEvent.type(field, '45');
+    await expect(
+      await page.findByLabelText('Saved', {}, { timeout: 3000 }),
+    ).toBeVisible();
+    await userEvent.clear(field);
+    await userEvent.type(field, '400');
+    await expect(page.getByText('Whole days, 0 to 365.')).toBeVisible();
+  },
+};
+
 /** Past the ceiling is refused the same way: the field says why and shows
     the number the next invoice takes. */
 export const NextNumberCeiling: Story = {

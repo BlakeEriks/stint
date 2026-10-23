@@ -48,7 +48,7 @@ beforeEach(async () => {
   await pool.query(
     `update user_settings set default_hourly_rate=100, currency='USD',
      invoice_number_prefix='INV-', next_invoice_number=1,
-     default_payment_terms='Net 30', business_name='Sam Rivera',
+     payment_terms_days=30, legacy_payment_terms=null, business_name='Sam Rivera',
      business_email='sam@test'
      where user_id=$1`,
     [USER],
@@ -484,6 +484,144 @@ test('a charge cannot be blank or negative', async () => {
       `${JSON.stringify(bad)} must be rejected at the edge`,
     );
     assert.equal(res.body.code, 'VALIDATION_FAILED');
+  }
+});
+
+// ── payment terms ──────────────────────────────────────────────────
+test('the due date is the issue date plus the client days, else the user days', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1) });
+  await seedEntry({ id: E(2), start: '2026-10-10T09:00:00Z' });
+  const issueDate = '2026-10-01';
+
+  const user = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD, issueDate })),
+  );
+  assert.equal(user.status, 201);
+  assert.equal(user.body.dueDate, '2026-10-31');
+  assert.equal(user.body.paymentTerms, 'Net 30');
+
+  await pool.query('update clients set payment_terms_days=15 where id=$1', [
+    CLIENT,
+  ]);
+  const own = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        periodStart: '2026-10-01',
+        periodEnd: '2026-10-31',
+        issueDate: '2026-11-01',
+      }),
+    ),
+  );
+  assert.equal(own.status, 201);
+  assert.equal(own.body.dueDate, '2026-11-16');
+  assert.equal(own.body.paymentTerms, 'Net 15');
+});
+
+test('a due date picked by hand prints its own days, and 0 is due on receipt', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1) });
+  await seedEntry({ id: E(2), start: '2026-10-10T09:00:00Z' });
+
+  const picked = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...PERIOD,
+        issueDate: '2026-10-01',
+        dueDate: '2026-10-21',
+      }),
+    ),
+  );
+  assert.equal(picked.body.paymentTerms, 'Net 20');
+
+  await pool.query('update user_settings set payment_terms_days=0');
+  const receipt = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        periodStart: '2026-10-01',
+        periodEnd: '2026-10-31',
+        issueDate: '2026-11-01',
+      }),
+    ),
+  );
+  assert.equal(receipt.body.dueDate, '2026-11-01');
+  assert.equal(receipt.body.paymentTerms, 'Due on receipt');
+});
+
+test('a due date before the issue date is refused', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1) });
+
+  const res = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...PERIOD,
+        issueDate: '2026-10-01',
+        dueDate: '2026-09-30',
+      }),
+    ),
+  );
+  assert.equal(res.status, 422);
+  assert.equal(res.body.code, 'VALIDATION_FAILED');
+  assert.equal(res.body.details.field, 'dueDate');
+  const { rows } = await pool.query('select count(*)::int as n from invoices');
+  assert.equal(rows[0].n, 0, 'no number taken');
+});
+
+test('a draft keeps its terms when the user days change', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { GET: read } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  await seedEntry({ id: E(1) });
+  const made = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...PERIOD,
+        issueDate: '2026-10-01',
+      }),
+    ),
+  );
+  await pool.query('update user_settings set payment_terms_days=45');
+  const again = await json(
+    await read(req(`/invoices/${made.body.id}`), {
+      params: Promise.resolve({ id: made.body.id }),
+    }),
+  );
+  assert.equal(again.body.dueDate, '2026-10-31');
+  assert.equal(again.body.paymentTerms, 'Net 30');
+});
+
+// The migration read each user's old free text once by this rule.
+test('old free-text terms read as days by the rule they always had', async () => {
+  const cases: [string, number | null][] = [
+    ['Net 30', 30],
+    ['net15', 15],
+    ['NET 0', 0],
+    ['2/10 Net 45', 45],
+    ['Payable within 10 days', 10],
+    ['Due on receipt', 0],
+    ['Payable upon receipt', 0],
+    // A day count wins over "receipt" in the same terms.
+    ['Net 30 upon receipt', 30],
+    ['Net 15 days from receipt of invoice', 15],
+    // Text it cannot read, or past the cap, is the user's to check.
+    ['End of month', null],
+    ['Net 400', null],
+    ['', null],
+    [`${'9'.repeat(20_000)} day`, null],
+  ];
+  for (const [terms, days] of cases) {
+    const { rows } = await pool.query(
+      'select legacy_payment_terms_days($1) as d',
+      [terms],
+    );
+    assert.equal(rows[0].d, days, terms.slice(0, 40));
   }
 });
 

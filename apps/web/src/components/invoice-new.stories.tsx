@@ -97,6 +97,44 @@ export const Defaults: Story = {
   },
 };
 
+/** Northwind pays in 15 days: Due is September 17 plus 15, and the card
+    prints Net 15. */
+export const ClientTerms: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      for (const c of db.clients)
+        if (c.id === ids.northwind) c.paymentTermsDays = 15;
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(page.getByLabelText('Due')).toHaveValue('2026-10-02');
+    await expect(await card(page).findByText('Net 15')).toBeVisible();
+  },
+};
+
+/** A due date before the issue date says so under the dates and holds
+    Generate back. */
+export const EarlyDue: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    const due = page.getByLabelText('Due');
+    await userEvent.clear(due);
+    await userEvent.type(due, '2026-09-10');
+    await expect(
+      await page.findByText("Due can't be before the issue date."),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Generate invoice' }),
+    ).toBeDisabled();
+  },
+};
+
 const scheduled = (
   id: string,
   billingSchedule: Db['clients'][number]['billingSchedule'],

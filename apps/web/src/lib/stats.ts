@@ -145,7 +145,7 @@ export async function readStats(
     db
       .from('user_settings')
       .select(
-        'currency, min_entry_seconds, max_entry_hours, week_starts_on, default_hourly_rate',
+        'currency, min_entry_seconds, max_entry_hours, week_starts_on, default_hourly_rate, legacy_payment_terms',
       )
       .maybeSingle(),
 
@@ -358,6 +358,7 @@ export async function readStats(
     ),
     attention: {
       noDefaultRate: settings.data?.default_hourly_rate == null,
+      paymentTermsToCheck: settings.data?.legacy_payment_terms ?? null,
       overdueInvoices: buildOverdueInvoices(
         invoiceRows,
         clientNames,
