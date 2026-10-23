@@ -77,9 +77,14 @@ retroactively alter an invoice already sent.
 ### `user_settings`
 One row per user, auto-created by a trigger on `auth.users` insert. Holds the
 global rate fallback, display preferences, the invoice
-identity block (business name, address, logo, terms), the invoice
-number sequence, `payment_notice`, and the entry-length thresholds
+identity block (business name, address, logo), `payment_terms_days`
+(0–365, default 30), the invoice number sequence, `payment_notice`, and the entry-length thresholds
 (`min_entry_seconds`, `max_entry_hours`).
+
+**`legacy_payment_terms` is free text the move to days couldn't read**,
+kept until the user saves their terms so the Inbox can quote it;
+`legacy_payment_terms_days()` is the rule that read the rest, kept for its
+test.
 
 **`welcomed_at` is null until the welcome dialog is finished or skipped**,
 and null is what shows it. The signup trigger leaves it null; every account
@@ -107,7 +112,8 @@ null means "fall back". `color` is here because color identifies a client.
 weekly and biweekly count from `period_anchor`, which the
 `billing_period_anchor` check requires for them and refuses for the others.
 A new invoice's period defaults from it, and one off the schedule is hinted
-at, never refused.
+at, never refused. `payment_terms_days` overrides the user's; null uses
+theirs.
 
 ### `projects`
 `client_id` is **nullable** — that is how internal/unbilled work is modeled.
