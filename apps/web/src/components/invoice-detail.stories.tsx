@@ -56,6 +56,35 @@ export const Draft: Story = {
 };
 export const DraftPhone: Story = { ...phone };
 
+/* A draft never downloaded, as the daily job or New invoice makes it. */
+const unnumbered = paying((db) => {
+  const draft = db.invoices.find((i) => i.id === invoice(15));
+  if (draft) Object.assign(draft, { invoiceNumber: null, sequenceNo: null });
+});
+
+/** No number until its first download: the title names its period, and Mark
+    sent waits for the download, which says so. */
+export const DraftUnnumbered: Story = {
+  ...desktop,
+  parameters: unnumbered,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByRole('heading', { level: 1, name: /^Draft, / }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Mark sent' }),
+    ).toBeDisabled();
+    await expect(
+      page.getByText(/Downloading it gives it its number/),
+    ).toBeVisible();
+  },
+};
+export const DraftUnnumberedPhone: Story = {
+  ...phone,
+  parameters: unnumbered,
+};
+
 /* The draft as the server sends it once work landed after its PDF. */
 const changed = paying((db) => {
   const draft = db.invoices.find((i) => i.id === invoice(15));

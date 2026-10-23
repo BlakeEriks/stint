@@ -39,6 +39,21 @@ export const Desktop: Story = {
 export const Phone: Story = { ...phone };
 export const Light: Story = { ...light };
 
+/** A draft not yet downloaded has no number, so its row says Draft. */
+export const UnnumberedDraft: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    const draft = db.invoices.find((i) => i.status === 'draft');
+    if (draft) Object.assign(draft, { invoiceNumber: null, sequenceNo: null });
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByText('Draft', { selector: 'span' }),
+    ).toBeVisible();
+  },
+};
+
 export const Paid: Story = {
   ...desktop,
   parameters: at('/invoices', { status: 'paid' }),

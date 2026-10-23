@@ -211,6 +211,48 @@ export const TermsToCheck: Story = {
   },
 };
 
+/** A scheduled client but no sender: the Inbox says why no draft comes,
+ *  and leads to Settings. */
+export const DraftsBlocked: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    db.settings.businessName = null;
+    const client = db.clients[0];
+    if (client) client.billingSchedule = { period: 'monthly' };
+  }),
+  play: async ({ canvasElement }) => {
+    const inbox = within(
+      await within(canvasElement).findByRole('region', { name: 'Inbox' }),
+    );
+    await expect(
+      (await inbox.findByText('Add your business name and email')).closest('a'),
+    ).toHaveAttribute('href', '/settings');
+  },
+};
+
+/** A stale draft not yet downloaded offers Download, not Mark sent: what's
+ *  sent must carry the number its download gives. */
+export const StaleUnnumberedDraft: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    for (const i of db.invoices)
+      if (i.status === 'draft')
+        Object.assign(i, { invoiceNumber: null, sequenceNo: null });
+  }),
+  play: async ({ canvasElement }) => {
+    const inbox = within(
+      await within(canvasElement).findByRole('region', { name: 'Inbox' }),
+    );
+    const row = (await inbox.findByText(/period ended \d+d ago/)).closest('li');
+    await expect(row).not.toBeNull();
+    await expect(
+      within(row as HTMLElement).queryByRole('button', {
+        name: /Mark .* sent/,
+      }),
+    ).toBeNull();
+  },
+};
+
 /** Saving a rate takes the row away at once, and Home prices its work. */
 export const SaveRate: Story = {
   ...desktop,

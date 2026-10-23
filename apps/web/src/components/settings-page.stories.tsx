@@ -132,6 +132,24 @@ export const PaymentTermsDays: Story = {
   },
 };
 
+/** Automatic drafts and their email are on by default; with drafts off,
+    the email has nothing to say, so it can't be turned on. */
+export const AutomaticDrafts: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const drafts = await page.findByLabelText(/Draft each scheduled client/);
+    const email = page.getByLabelText(/Email me when one is ready/);
+    await expect(drafts).toBeChecked();
+    await expect(email).toBeEnabled();
+    await userEvent.click(drafts);
+    await expect(email).toBeDisabled();
+    await expect(
+      await page.findByLabelText('Saved', {}, { timeout: 3000 }),
+    ).toBeVisible();
+  },
+};
+
 /** Past the ceiling is refused the same way: the field says why and shows
     the number the next invoice takes. */
 export const NextNumberCeiling: Story = {

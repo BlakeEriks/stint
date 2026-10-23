@@ -452,12 +452,14 @@ export const NoReference: Story = {
   },
 };
 
-/** The number Generate takes shows before it does, linked to the setting
-    that moves it. */
+/** The number comes at the first download, and the setting that moves it
+    is a link away. */
 export const NumberLinksToSetting: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
-    const line = await within(canvasElement).findByText(/Numbered STINT-0016/);
+    const line = await within(canvasElement).findByText(
+      /Numbered when you first download it/,
+    );
     await expect(
       within(line).getByRole('link', { name: 'Change' }),
     ).toHaveAttribute('href', '/settings#numbering');
