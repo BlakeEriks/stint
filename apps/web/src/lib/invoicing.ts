@@ -200,7 +200,7 @@ export async function loadBillableExpenses(
 export interface InvoiceSettings {
   defaultHourlyRate: number | null;
   currency: string;
-  defaultPaymentTerms: string;
+  paymentTermsDays: number;
   invoiceNumberPrefix: string;
   paymentNotice: string | null;
   businessName: string | null;
@@ -227,7 +227,7 @@ export async function loadSettings(
   const { data, error } = await db
     .from('user_settings')
     .select(
-      'default_hourly_rate, currency, default_payment_terms, invoice_number_prefix, payment_notice, business_name, business_email',
+      'default_hourly_rate, currency, payment_terms_days, invoice_number_prefix, payment_notice, business_name, business_email',
     )
     .maybeSingle();
 
@@ -237,7 +237,7 @@ export async function loadSettings(
   return {
     defaultHourlyRate: num(data.default_hourly_rate),
     currency: (data.currency as string) ?? 'USD',
-    defaultPaymentTerms: (data.default_payment_terms as string) ?? 'Net 30',
+    paymentTermsDays: data.payment_terms_days as number,
     invoiceNumberPrefix: (data.invoice_number_prefix as string) ?? 'INV-',
     paymentNotice: data.payment_notice ?? null,
     businessName: data.business_name ?? null,

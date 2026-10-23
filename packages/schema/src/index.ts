@@ -12,6 +12,7 @@ import {
   needsAnchor,
   SUBSCRIPTION_STATUSES,
   validateRoutingNumber,
+  PAYMENT_TERMS_MAX_DAYS,
 } from '@stint/core';
 import { z } from 'zod';
 
@@ -37,6 +38,9 @@ const ianaZone = z
 export const timeZoneStrict = ianaZone.default('UTC');
 
 /** Query parameters arrive as strings; a flag is spelled out either way. */
+/** Whole days from issue to due; 0 is due on receipt. */
+const termsDays = z.number().int().min(0).max(PAYMENT_TERMS_MAX_DAYS);
+
 const boolParam = z
   .enum(['true', 'false'])
   .default('false')
@@ -70,6 +74,8 @@ export const Client = z.object({
   paymentProfileId: uuid.nullable().optional(),
   /** Null is no schedule; omitted on a PATCH leaves it as it is. */
   billingSchedule: BillingSchedule.nullable().optional(),
+  /** Overrides the user's payment terms; null uses them. */
+  paymentTermsDays: termsDays.nullable().optional(),
   archivedAt: iso.nullable().optional(),
 });
 export const CreateClient = Client.omit({ id: true, archivedAt: true }).extend({
@@ -283,7 +289,7 @@ export const Settings = z.object({
   businessAddress: z.string().max(1000).nullable(),
   businessEmail: z.email().nullable(),
   logoUrl: z.url().nullable(),
-  defaultPaymentTerms: z.string().max(200),
+  paymentTermsDays: termsDays,
   invoiceNumberPrefix: z.string().max(20),
   nextInvoiceNumber: z.number().int().positive().max(NEXT_INVOICE_NUMBER_MAX),
   /** Standing anti-fraud line printed under the invoice payment block. */
@@ -482,7 +488,6 @@ export const CreateInvoice = InvoicePreviewRequest.extend({
   issueDate: z.iso.date().optional(),
   dueDate: z.iso.date().optional(),
   notes: z.string().max(2000).optional(),
-  paymentTerms: z.string().max(200).optional(),
   /** The PO, contract or SOW the client matches the invoice to. */
   reference: z
     .string()
@@ -877,6 +882,9 @@ export const Stats = z.object({
   attention: z.object({
     /** The account has no default hourly rate: the Inbox asks for one. */
     noDefaultRate: z.boolean(),
+    /** Old free-text terms that read as no number of days: the Inbox asks
+     *  the user to check the 30 they became. */
+    paymentTermsToCheck: z.string().nullable(),
     overdueInvoices: z.array(
       z.object({
         invoiceId: uuid,
