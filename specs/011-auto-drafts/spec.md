@@ -31,6 +31,10 @@ user, as today.
 - Q: Should Mark sent be refused until the draft's PDF has been downloaded at least once? → A: Yes: Mark sent is disabled until the first download, with a hint saying so.
 - Q: Should automatic drafts and the ready email also run for accounts on the free tier, who can't download a PDF? → A: Both run for everyone; on a free account the draft's Download asks them to upgrade, as today.
 
+## Design
+
+No design review: the email is a short link-only notice, and an unnumbered draft, the Mark sent hint and the Settings switches follow patterns the app already has; their stories show every state.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - The draft is waiting (Priority: P1)
