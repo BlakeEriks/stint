@@ -5,6 +5,7 @@ import {
   formatHours,
   formatQuantity,
   type PaymentDetails,
+  paymentTermsText,
   SCHEDULE_KINDS,
   SCHEDULE_TITLES,
   type ScheduleKind,
@@ -94,7 +95,7 @@ export function InvoicePreviewCard({
   client: Pick<Client, 'name' | 'address' | 'email'> | undefined;
   /** Undefined while it loads. */
   business: Business | undefined;
-  /** The default terms and the payment notice. */
+  /** The payment notice. */
   settings: Settings | undefined;
   /** A prediction: generation allocates the number. */
   number: string;
@@ -104,7 +105,8 @@ export function InvoicePreviewCard({
   payment: PaymentDetails | null;
   schedules: ScheduleKind[];
   updating: boolean;
-  /** Undefined prints the default terms generation will freeze. */
+  /** Undefined prints the terms generation will freeze, made from `issued`
+   *  and `due`. */
   paymentTerms?: string | null;
   notes?: string | null;
   /** False on an issued invoice, which is the invoice, not a preview of it. */
@@ -116,7 +118,11 @@ export function InvoicePreviewCard({
   children?: React.ReactNode;
 }) {
   const terms =
-    paymentTerms === undefined ? settings?.defaultPaymentTerms : paymentTerms;
+    paymentTerms === undefined
+      ? due && due >= issued
+        ? paymentTermsText(issued, due)
+        : null
+      : paymentTerms;
   const scrollerFocus = useScrollerFocus();
 
   return (

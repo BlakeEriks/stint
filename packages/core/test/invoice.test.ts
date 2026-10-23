@@ -4,6 +4,7 @@ import {
   buildLineItems,
   defaultInvoicePeriod,
   formatInvoiceNumber,
+  parseTermsDays,
   paymentTermsText,
   type BillableEntry,
 } from '../src/invoice.ts';
@@ -567,6 +568,22 @@ test("a scheduled client's new invoice starts on its last ended period", () => {
 
 // The PDF prints the terms beside the due date, so the text is made from
 // the two dates and cannot contradict them.
+test('typed payment terms are whole days from 0 to 365', () => {
+  for (const [text, days] of [
+    ['30', 30],
+    ['0', 0],
+    [' 15 ', 15],
+    ['365', 365],
+    ['366', null],
+    ['-1', null],
+    ['1.5', null],
+    ['', null],
+    ['net 30', null],
+  ] as const) {
+    assert.equal(parseTermsDays(text), days, JSON.stringify(text));
+  }
+});
+
 test('payment terms text is the days between issue and due', () => {
   const cases: [string, string, string][] = [
     ['2026-12-20', '2026-12-20', 'Due on receipt'],

@@ -5,7 +5,12 @@ import { useRef, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useOptimisticMutation } from '@/lib/client/mutations';
-import { documentOpens, formatCompact, formatCurrency } from '@stint/core';
+import {
+  documentOpens,
+  formatCompact,
+  formatCurrency,
+  parseTermsDays,
+} from '@stint/core';
 import {
   Check,
   DollarSign,
@@ -25,6 +30,7 @@ import { useExit } from '@/lib/client/use-exit';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { EntryDialog } from './entry-dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { RateInput, isValidRate, parseRate } from './rate-input';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
@@ -34,6 +40,7 @@ type Attention = Stats['attention'];
 export function inboxCount(attention: Attention) {
   return (
     (attention.noDefaultRate ? 1 : 0) +
+    (attention.paymentTermsToCheck !== null ? 1 : 0) +
     attention.overdueInvoices.length +
     attention.staleDrafts.length +
     attention.lateEntries.length +
@@ -51,7 +58,8 @@ type InboxRow =
   | { id: string; kind: 'unprojected'; row: Attention['unprojected'][number] }
   | { id: string; kind: 'strange'; row: Attention['strangeDurations'][number] }
   | { id: string; kind: 'overlap'; row: Attention['overlaps'][number] }
-  | { id: 'rate'; kind: 'rate' };
+  | { id: 'rate'; kind: 'rate' }
+  | { id: 'terms'; kind: 'terms'; text: string };
 
 /**
  * The dock's inbox: everything that wants a decision, in one fixed place.
@@ -182,6 +190,22 @@ export function Inbox({ stats }: { stats: Stats }) {
     },
   });
 
+  /* Saving terms answers the question, so the row leaves with the save. */
+  const saveTerms = useOptimisticMutation({
+    queryKey: () => keys.stats(),
+    onError: () => exit.unmark('terms'),
+    inline: true,
+    mutationFn: (paymentTermsDays: number) =>
+      api.updateSettings({ paymentTermsDays }),
+    invalidate: async (qc) => {
+      await leaving.get('terms');
+      return Promise.all([
+        qc.invalidateQueries({ queryKey: keys.settings() }),
+        qc.invalidateQueries({ queryKey: keys.stats() }),
+      ]);
+    },
+  });
+
   /* The order is this concatenation. Overdue sorts first and carries danger;
      every other row is neutral. Never the accent — that belongs to the
      running timer. */
@@ -207,6 +231,15 @@ export function Inbox({ stats }: { stats: Stats }) {
        rate is what prices every one of those entries. */
     ...(stats.attention.noDefaultRate
       ? [{ id: 'rate' as const, kind: 'rate' as const }]
+      : []),
+    ...(stats.attention.paymentTermsToCheck !== null
+      ? [
+          {
+            id: 'terms' as const,
+            kind: 'terms' as const,
+            text: stats.attention.paymentTermsToCheck,
+          },
+        ]
       : []),
     ...unprojected.map((u) => ({
       id: u.entryId,
@@ -269,6 +302,18 @@ export function Inbox({ stats }: { stats: Stats }) {
                 exiting={exit.exiting.has(r.id)}
                 ref={exit.register(r.id)}
               />
+            ) : r.kind === 'terms' ? (
+              <TermsRow
+                key={r.id}
+                text={r.text}
+                onSubmit={(days) => {
+                  leave(r.id);
+                  saveTerms.mutate(days);
+                }}
+                error={saveTerms.error?.message}
+                exiting={exit.exiting.has(r.id)}
+                ref={exit.register(r.id)}
+              />
             ) : (
               <Row
                 key={r.id}
@@ -306,7 +351,7 @@ export function Inbox({ stats }: { stats: Stats }) {
 }
 
 /** The rate row holds a form's state, so it is its own component. */
-type ItemRow = Exclude<InboxRow, { kind: 'rate' }>;
+type ItemRow = Exclude<InboxRow, { kind: 'rate' | 'terms' }>;
 
 type Handlers = {
   downloads: boolean;
@@ -750,6 +795,66 @@ function RateRow({
               onChange={(e) => setText(e.target.value)}
             />
             <Button type="submit" size="xs" disabled={!isValidRate(rate)}>
+              Save
+            </Button>
+          </div>
+          {shown ? (
+            <p role="alert" className="type-support text-danger">
+              {shown}
+            </p>
+          ) : null}
+        </form>
+      }
+    />
+  );
+}
+
+/**
+ * Terms written as text the move to days couldn't read became 30 days. What
+ * the user wrote is quoted, so they can see what changed and answer here.
+ */
+function TermsRow({
+  text,
+  onSubmit,
+  error,
+  exiting,
+  ref,
+}: {
+  text: string;
+  onSubmit: (days: number) => void;
+  error?: string;
+  exiting: boolean;
+  ref: React.Ref<HTMLLIElement>;
+}) {
+  const [typed, setTyped] = useState('30');
+  const days = parseTermsDays(typed);
+  const shown = days === null ? 'Whole days, 0 to 365.' : error;
+
+  return (
+    <Item
+      exiting={exiting}
+      ref={ref}
+      label="Check your payment terms"
+      detail={`You wrote “${text}”. Invoices now print Net 30.`}
+      tone="neutral"
+      actions={
+        <form
+          className="flex w-full flex-col gap-1.5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (days !== null) onSubmit(days);
+          }}
+        >
+          <div className="flex items-center gap-1.5">
+            <Input
+              className="flex-1"
+              aria-label="Payment terms in days"
+              aria-invalid={shown ? true : undefined}
+              inputMode="numeric"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+            />
+            <Button type="submit" size="xs" disabled={days === null}>
               Save
             </Button>
           </div>

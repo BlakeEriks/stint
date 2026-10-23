@@ -26,11 +26,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ChevronDown, Pencil, Plus } from 'lucide-react';
 import {
+  addDays,
   BILLING_PERIOD_LABELS,
   buildPaymentDetails,
   defaultInvoicePeriod,
   attachedSchedules,
-  dueDateForTerms,
   formatCurrency,
   formatInvoiceNumber,
   isPeriod,
@@ -265,16 +265,23 @@ function NumberLine({ number }: { number: string }) {
   );
 }
 
-/** The number Generate takes, and the due date the payment terms set from
- *  `issued`; both '' until the settings answer. */
-function fromSettings(settings: Settings | undefined, issued: string) {
+/** The number Generate takes, and the due date the client's payment terms,
+ *  else the user's, set from `issued`; both '' until the settings answer. */
+function fromSettings(
+  settings: Settings | undefined,
+  issued: string,
+  client: Client | undefined,
+) {
   if (!settings) return { number: '', termsDue: '' };
   return {
     number: formatInvoiceNumber(
       settings.invoiceNumberPrefix,
       settings.nextInvoiceNumber,
     ),
-    termsDue: dueDateForTerms(issued, settings.defaultPaymentTerms),
+    termsDue: addDays(
+      issued,
+      client?.paymentTermsDays ?? settings.paymentTermsDays,
+    ),
   };
 }
 
@@ -380,8 +387,9 @@ function Form() {
     draft.clientId !== '',
   );
 
-  const { number, termsDue } = fromSettings(settings, issued);
+  const { number, termsDue } = fromSettings(settings, issued, client);
   const due = draft.dueDate ?? termsDue;
+  const earlyDue = due !== '' && due < issued;
 
   const generate = useOptimisticMutation({
     queryKey: () => keys.invoices(),
@@ -466,6 +474,7 @@ function Form() {
 
   const { canGenerate, noSummaryText } = generateState({
     covered: covering !== undefined,
+    earlyDue,
     preview: current,
     updating,
     failed: preview.isError,
@@ -571,6 +580,11 @@ function Form() {
                   onChange={(v) => set('dueDate', v)}
                 />
               </div>
+              {earlyDue ? (
+                <p role="alert" className="type-support text-danger">
+                  Due can't be before the issue date.
+                </p>
+              ) : null}
               <ScheduleHint
                 client={client}
                 periodStart={periodStart}
@@ -734,6 +748,8 @@ function missingDetails(client: Pick<Client, 'address' | 'email'>) {
 function generateState(s: {
   /** An open draft for this client holds some of these dates. */
   covered: boolean;
+  /** Due is before the issue date, which the server refuses. */
+  earlyDue: boolean;
   /** The server's answer for this client; `undefined` before one. */
   preview: Pick<InvoicePreview, 'lineItems' | 'unratedEntryIds'> | undefined;
   /** The form has changed since the answer, or the server is recomputing. */
@@ -757,6 +773,7 @@ function generateState(s: {
   const canGenerate =
     complete &&
     !s.covered &&
+    !s.earlyDue &&
     s.hasSettings &&
     s.hasSender &&
     !s.updating &&

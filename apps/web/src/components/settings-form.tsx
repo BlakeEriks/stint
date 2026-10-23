@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { parseTermsDays } from '@stint/core';
 import { NEXT_INVOICE_NUMBER_MAX } from '@stint/schema';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
@@ -48,6 +49,8 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
   /* Text, not the number: a cleared field is a step in typing a new one,
      not a value to save. */
   const [next, setNext] = useState(String(loaded.nextInvoiceNumber));
+  const [terms, setTerms] = useState(String(loaded.paymentTermsDays));
+  const termsDays = parseTermsDays(terms);
 
   const persist = async (patch: SettingsInput) => {
     try {
@@ -148,13 +151,24 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
         <Field
           label="Payment terms"
           htmlFor="terms"
-          hint="Printed on every invoice."
+          hint="Days from issue to due, printed as Net 30. 0 is due on receipt."
+          error={
+            terms !== '' && termsDays === null
+              ? 'Whole days, 0 to 365.'
+              : undefined
+          }
+          className="max-w-44"
         >
           <Input
             id="terms"
-            value={form.defaultPaymentTerms}
-            onChange={(e) => setBilling('defaultPaymentTerms', e.target.value)}
-            placeholder="Net 30"
+            inputMode="numeric"
+            value={terms}
+            onChange={(e) => {
+              setTerms(e.target.value);
+              const days = parseTermsDays(e.target.value);
+              if (days !== null) setBilling('paymentTermsDays', days);
+            }}
+            placeholder="30"
           />
         </Field>
       </Section>

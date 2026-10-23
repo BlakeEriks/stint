@@ -334,6 +334,14 @@ export function defaultInvoicePeriod(
 /** The most days a user's or a client's payment terms may give. */
 export const PAYMENT_TERMS_MAX_DAYS = 365;
 
+/** Typed payment terms as days, or null unless a whole number in range. */
+export function parseTermsDays(text: string): number | null {
+  const t = text.trim();
+  if (!/^\d{1,3}$/.test(t)) return null;
+  const days = Number(t);
+  return days <= PAYMENT_TERMS_MAX_DAYS ? days : null;
+}
+
 /** The terms an invoice prints, made from its own dates so the two agree. */
 export function paymentTermsText(issueDate: string, dueDate: string): string {
   const days = daysBetweenKeys(issueDate, dueDate);
