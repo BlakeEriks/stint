@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import {
   buildLineItems,
   defaultInvoicePeriod,
-  dueDateForTerms,
   formatInvoiceNumber,
+  paymentTermsText,
   type BillableEntry,
 } from '../src/invoice.ts';
 
@@ -565,36 +565,18 @@ test("a scheduled client's new invoice starts on its last ended period", () => {
   });
 });
 
-// The PDF prints the terms beside the due date, so the default due date
-// must not contradict them.
-test('a new invoice is due when its payment terms say', () => {
-  const cases: [string, string][] = [
-    // terms, due date for an issue date of 2026-12-20
-    ['Net 30', '2027-01-19'],
-    ['Net 15', '2027-01-04'],
-    ['net15', '2027-01-04'],
-    ['NET 0', '2026-12-20'],
-    ['2/10 Net 45', '2027-02-03'],
-    ['Payable within 10 days', '2026-12-30'],
-    ['Due on receipt', '2026-12-20'],
-    ['Payable upon receipt', '2026-12-20'],
-    // A day count wins over "receipt" in the same terms.
-    ['Net 30 upon receipt', '2027-01-19'],
-    ['Net 15 days from receipt of invoice', '2027-01-04'],
-    // Terms it cannot read fall back to Net 30.
-    ['End of month', '2027-01-19'],
-    ['', '2027-01-19'],
+// The PDF prints the terms beside the due date, so the text is made from
+// the two dates and cannot contradict them.
+test('payment terms text is the days between issue and due', () => {
+  const cases: [string, string, string][] = [
+    ['2026-12-20', '2026-12-20', 'Due on receipt'],
+    ['2027-01-10', '2027-02-09', 'Net 30'],
+    ['2026-12-20', '2027-01-19', 'Net 30'],
+    ['2028-01-31', '2028-03-01', 'Net 30'],
+    ['2027-01-31', '2027-03-02', 'Net 30'],
+    ['2026-10-01', '2026-10-21', 'Net 20'],
   ];
-  for (const [terms, due] of cases) {
-    assert.equal(dueDateForTerms('2026-12-20', terms), due, terms);
+  for (const [issue, due, text] of cases) {
+    assert.equal(paymentTermsText(issue, due), text, `${issue}→${due}`);
   }
-});
-
-// The terms are free text: a long run of digits must not backtrack
-// (CodeQL js/polynomial-redos).
-test('due date terms with a long run of digits answer at once', () => {
-  const terms = `${'9'.repeat(20_000)} day`;
-  const started = performance.now();
-  assert.equal(dueDateForTerms('2026-12-20', terms), '2027-01-19');
-  assert.ok(performance.now() - started < 50, 'no polynomial backtracking');
 });
