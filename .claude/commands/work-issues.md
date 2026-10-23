@@ -168,7 +168,7 @@ builder branches off that PR's branch and opens its PR against it, saying
 which merges first.
 
 Hand it to a builder for triage and build, as a round. A shared file is no
-reason to wait: step 0.5 merges `main` into whichever PR conflicts. An issue a
+reason to wait: step 0's conflict check merges `main` into whichever PR conflicts. An issue a
 builder already triaged — its `agentId` is in the log — goes back to that
 builder by SendMessage, which still holds the reading — unless
 `.claude/agents/issue-builder.md` has changed since that builder's first log row
