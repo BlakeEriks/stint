@@ -115,9 +115,9 @@ an inbox notice for the last.
 2. **Given** terms of "Due on receipt", **When** the change is applied,
    **Then** the user's terms are 0 days and no notice appears.
 3. **Given** terms the rule can't read, **When** the change is applied,
-   **Then** the user's terms are 30 days and the inbox shows a notice that
-   opens Settings; anything else they wrote, like a late-fee clause, belongs
-   in the invoice notes.
+   **Then** the user's terms are 30 days and the inbox shows a notice
+   quoting what they wrote, with a days field to save; anything else they
+   wrote, like a late-fee clause, belongs in the invoice notes.
 4. **Given** the notice, **When** the user saves their payment terms in
    Settings, **Then** the notice is gone.
 5. **Given** invoices already issued, **When** the change is applied,
