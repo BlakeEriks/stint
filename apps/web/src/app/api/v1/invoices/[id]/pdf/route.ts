@@ -47,7 +47,7 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
   // this handler loadable by the type-stripping test runner.
   const { renderInvoicePdf } = await import('@/lib/invoice-pdf');
   const bytes = await renderInvoicePdf(pdfData);
-  if (draft) await recordDownload(db, id, draft.lines, pdfData.total);
+  if (draft) await recordDownload(db, id, draft.lines, pdfData);
 
   // Uint8Array is a valid BodyInit at runtime; the generic ArrayBufferLike
   // parameter in TS 5.7's lib types makes the overload miss.

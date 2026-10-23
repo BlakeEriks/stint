@@ -149,11 +149,11 @@ payment details, the supporting-detail kinds, its `fixed` lines, `tz` (the
 zone its period's dates are read in) and `excluded_expense_ids` (the expenses
 left off). Its time and expense lines, totals and issue date are computed on
 every read and written by nothing; no entry or expense points at a draft.
-`downloaded_snapshot` is what its PDF last showed, the one column a read
-writes; Mark sent refuses with `DRAFT_CHANGED` while the draft differs from
-it. **Mark sent is `send_draft()`**: it writes the lines and totals the route
+`downloaded_snapshot` is what its PDF last showed, dates included, which
+sending keeps; it is the one column a read writes. Mark sent refuses with
+`DRAFT_CHANGED` while the draft differs from it. **Mark sent is `send_draft()`**: it writes the lines and totals the route
 computed, claims the entries and one-off expenses, sets `issue_date` and
-`due_date`, and sends, in one transaction. An entry or expense another
+`due_date` (the last PDF's, else the send date's), and sends, in one transaction. An entry or expense another
 invoice took meanwhile raises `ENTRY_ALREADY_INVOICED` or
 `EXPENSE_ALREADY_INVOICED` and rolls it all back.
 

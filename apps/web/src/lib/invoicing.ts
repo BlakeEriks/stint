@@ -544,18 +544,24 @@ export async function deriveDraft(
 
 /**
  * Records what a draft's PDF showed, so Mark sent can tell when the client
- * was given a copy the draft has since moved past. A draft sent meanwhile
- * keeps the snapshot it was sent with.
+ * was given a copy the draft has since moved past, and dates the invoice as
+ * that copy does. A draft sent meanwhile keeps the snapshot it was sent with.
  */
 export async function recordDownload(
   db: SupabaseClient,
   invoiceId: string,
   lines: LineItem[],
-  total: number,
+  printed: { total: number; issueDate: string; dueDate: string | null },
 ) {
   const { error } = await db
     .from('invoices')
-    .update({ downloaded_snapshot: draftSnapshot(lines, total) })
+    .update({
+      downloaded_snapshot: {
+        ...draftSnapshot(lines, printed.total),
+        issueDate: printed.issueDate,
+        dueDate: printed.dueDate,
+      },
+    })
     .eq('id', invoiceId)
     .eq('status', 'draft');
   if (error) throw error;
@@ -563,7 +569,8 @@ export async function recordDownload(
 
 /**
  * Mark sent: the draft as it stands at `sentAt`, written, claimed, dated and
- * sent by `send_draft` in one transaction. Refused when there is nothing to
+ * sent by `send_draft` in one transaction. It is dated as the PDF the client
+ * was given, else on the send date. Refused when there is nothing to
  * send, no zone to read its dates in, an entry it can't price, or a change
  * since the PDF the client was given.
  */
@@ -579,11 +586,12 @@ export async function sendDraft(
       'VALIDATION_FAILED',
       'Sending a draft needs the time zone its dates are read in (`tz`).',
     );
+  const printed = row.downloaded_snapshot;
   const draft = (await deriveDraft(
     db,
     row,
     tz,
-    localDateKey(new Date(sentAt), tz),
+    printed?.issueDate ?? localDateKey(new Date(sentAt), tz),
   ))!;
   const { totals } = draft.computed;
 
@@ -612,7 +620,7 @@ export async function sendDraft(
       total: totals.total,
       supporting_detail: draft.computed.supportingDetail,
       issue_date: draft.row.issue_date,
-      due_date: draft.row.due_date,
+      due_date: printed?.issueDate ? printed.dueDate : draft.row.due_date,
       tz,
       lines: draft.computed.lines,
     },

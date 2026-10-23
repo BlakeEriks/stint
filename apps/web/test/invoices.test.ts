@@ -3232,6 +3232,29 @@ test('sending dates the invoice: issued that day where it was sent, due by its t
   assert.equal(late.body.dueDate, '2026-11-15', 'the date the user typed');
 });
 
+test('sending keeps the dates the downloaded PDF printed', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  const shown = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
+  );
+  await r.pdf(req('/pdf?tz=UTC&download=1'), at(inv.body.id));
+
+  const later = new Date(Date.now() + 3 * 86_400_000).toISOString();
+  const sent = await json(
+    await r.setStatus(
+      req('/s', { status: 'sent', sentAt: later }, 'PATCH'),
+      at(inv.body.id),
+    ),
+  );
+  assert.equal(sent.status, 200, JSON.stringify(sent.body));
+  assert.equal(sent.body.issueDate, shown.body.issueDate, 'as the PDF says');
+  assert.equal(sent.body.dueDate, shown.body.dueDate);
+});
+
 test('Mark sent refuses a draft with nothing on it', async () => {
   const r = await live();
   await seedEntry({ id: D(1), hours: 2 });

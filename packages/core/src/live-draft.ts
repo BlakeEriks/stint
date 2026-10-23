@@ -16,6 +16,10 @@ export interface DraftSnapshot {
   total: number;
   hours: number;
   lines: { description: string; quantity: number; amount: number }[];
+  /** The dates the PDF printed, which sending keeps; absent on a snapshot
+   *  only compared. */
+  issueDate?: string;
+  dueDate?: string | null;
 }
 
 export function draftSnapshot(lines: Line[], total: number): DraftSnapshot {
