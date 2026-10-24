@@ -10,13 +10,13 @@
 ## Phase 2: Foundational
 
 - [x] T003 [P] Core tests then code: `draftDates(today, pickedDue, days)` in packages/core/src/invoice.ts
-- [x] T004 Schema (packages/schema/src/index.ts): `Invoice.invoiceNumber`, `sequenceNo`, `issueDate` nullable, `wouldBe`; settings `timeZone`, `autoDrafts`, `readyEmail`; `attention.autoDraftsBlocked`, `staleDrafts[].invoiceNumber` nullable; `DRAFT_NOT_DOWNLOADED` error (apps/web/src/lib/errors.ts, 409)
+- [x] T004 Schema (packages/schema/src/index.ts): `Invoice.invoiceNumber`, `sequenceNo`, nullable; settings `timeZone`, `autoDrafts`, `readyEmail`; `attention.autoDraftsBlocked`, `staleDrafts[].invoiceNumber` nullable; `DRAFT_NOT_DOWNLOADED` error (apps/web/src/lib/errors.ts, 409)
 - [x] T005 rows.ts mappings; stats.ts and billed-spans.ts: unbilled is "no invoice", not "no number"; stale drafts aged by `period_end`
 
 ## Phase 3: US3 — numbered at first render (P1)
 
 - [x] T006 [US3] Tests first in apps/web/test/invoices.test.ts: POST /invoices returns no number/issue date/terms; first PDF render numbers it with today's dates and the payment reference; second render keeps them; deleting an unnumbered draft leaves next_invoice_number; Mark sent unnumbered → 409 DRAFT_NOT_DOWNLOADED; picked due date kept; existing numbered drafts untouched; RLS: `number_invoice` can't reach another user's draft (apps/web/test/rls.test.ts)
-- [x] T007 [US3] POST /invoices via `createDraft()` in apps/web/src/lib/invoicing.ts; pdf route calls `number_invoice` before rendering; status route refuses unnumbered; detail/list add `wouldBe`
+- [x] T007 [US3] POST /invoices via `createDraft()` in apps/web/src/lib/invoicing.ts; pdf route calls `number_invoice` before rendering; status route refuses unnumbered; reads fill an unnumbered draft's would-be dates
 - [x] T008 [US3] UI: invoice-list, invoice-detail (Mark sent disabled + hint), inbox, entry-dialog, expense-row, invoice-new ("Numbered when you first open its PDF"; overlap line names the draft by period); label helper for an unnumbered draft; UI tests and stories
 
 ## Phase 4: US1 — the draft is waiting (P1)

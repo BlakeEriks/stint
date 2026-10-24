@@ -1,6 +1,6 @@
 # API changes
 
-- `Invoice`: `invoiceNumber`, `sequenceNo`, `issueDate` nullable (drafts not yet rendered); `wouldBe: { issueDate, dueDate, paymentTerms } | null` on an unnumbered draft.
+- `Invoice`: `invoiceNumber`, `sequenceNo` nullable on a draft not yet rendered, whose `issueDate`, `dueDate` and `paymentTerms` are what it would take today.
 - `GET /invoices/:id/pdf`: numbers an unnumbered draft first.
 - `PATCH /invoices/:id/status` to `sent`: `409 DRAFT_NOT_DOWNLOADED` for an unnumbered draft.
 - `POST /invoices`: no number, issue date or terms on the result; `dueDate` kept only when given.
