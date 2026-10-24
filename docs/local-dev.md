@@ -194,8 +194,8 @@ The wordmark is **one flat `#F9FAFD`**, matching `wordmark.tsx`. It had a
 green `S` and gray pipes, which is the macOS lockup rather than the app's —
 green means the running timer, and the only green in this email is the button.
 
-Both parts must survive in the **plaintext** body as well: `e2e/mailpit.ts`
-reads the text part, not the HTML.
+Both parts must survive in the **plaintext** body as well: `magicLink()` in
+`e2e/mailpit.ts` reads the text part, not the HTML.
 
 **GoTrue reads the template at startup.** Editing it changes nothing until
 `pnpm dev:down && pnpm dev:up` — the file on disk and the email you are
@@ -354,9 +354,9 @@ images are pulled rather than cached; `ci.yml` carries the measurements and
 the warning against reintroducing a cache, at the step where someone would
 add one.
 
-They sign in for real, through Mailpit. `e2e/mailpit.ts` reads the **text**
-part of the email for the reason above — the HTML `href` escapes its
-separators as `&amp;`.
+They sign in for real, through Mailpit. `magicLink()` reads the **text** part
+of the email for the reason above — the HTML `href` escapes its separators as
+`&amp;`. `inviteLink()` reads the HTML `href` and decodes `&amp;` itself.
 
 Three things that will bite again:
 
