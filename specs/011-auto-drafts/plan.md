@@ -19,14 +19,13 @@ get today, computed the same way. Mark sent refuses an unnumbered draft
 Existing drafts keep their numbers.
 
 **The daily job.** A Vercel Cron hits `GET /api/v1/cron/drafts` with
-`CRON_SECRET`. For each user with `auto_drafts` on, it records nothing it
-doesn't need and, per scheduled active client, makes a draft (`auto = true`)
-for the current period, and the last ended one if it was missed, unless an
-invoice covers the dates. Then for each auto draft whose period has ended in
-the user's time zone: refresh it; delete it if it bills nothing and was never
-numbered; else, if `ready_email` is on and it hasn't been emailed, claim it
-(`ready_emailed_at`) and send one link-only email through Resend's HTTP API
-(Mailpit's locally), releasing the claim if sending fails. Creation goes
+`CRON_SECRET`. For each user with `auto_drafts` on, per scheduled active
+client, it makes a draft (`auto = true`) for the last period that has ended
+in the user's time zone, if it has something to bill and no invoice covers
+the dates. Then for each auto draft not yet emailed, if `ready_email` is on:
+refresh it, claim it (`ready_emailed_at`) and send one link-only email
+through Resend's HTTP API (Mailpit's locally), releasing the claim if
+sending fails. Creation goes
 through the same `createDraft()` POST /invoices uses.
 
 ## Technical Context
@@ -59,7 +58,6 @@ through the same `createDraft()` POST /invoices uses.
 ## Project Structure
 
 ```text
-packages/core/src/auto-draft.ts       duePeriods(today, schedule): the periods a client needs a draft for
 packages/core/src/invoice.ts          draftDates(today, picked, days): issue, due, terms
 supabase/migrations/                  numbering + auto columns; number_invoice(); backfill none
 apps/web/src/lib/invoicing.ts         createDraft() shared by POST /invoices and the job; userId filters where RLS was relied on
@@ -78,4 +76,4 @@ docs/positioning.md, api.md, data-model.md, setup.md, deploying.md
 | Choice | Why | Simpler alternative rejected because |
 | --- | --- | --- |
 | The job uses `serviceClient()` with explicit `user_id` filters | No user session exists at 2 p.m. UTC; RLS can't scope it | Minting a user JWT needs a signing secret the project may not expose; a filter per query is checkable in a test with an unscoped shim |
-| Numbering moves from creation to first render | Auto-drafts made at each period start would otherwise burn numbers | Leaving it leaves gaps whenever an empty draft is deleted |
+| Numbering moves from creation to first render | A draft deleted before it reached a client otherwise burns a number | Leaving it leaves a gap whenever a draft is deleted |

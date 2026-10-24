@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { duePeriods, formatCurrency, localDateKey } from '@stint/core';
+import { formatCurrency, lastEndedPeriod, localDateKey } from '@stint/core';
 import { CreateInvoice } from '@stint/schema';
 import { ApiError, PG } from './errors';
 import { createDraft, refreshDraft } from './invoicing';
@@ -13,9 +13,10 @@ import {
 } from './rows';
 
 /**
- * The daily job: a draft for each scheduled client's period, and one email
- * to the user once a period has ended. `db` is the service client, so every
- * read here names its user; nothing relies on RLS to scope it.
+ * The daily job: once a scheduled client's period has ended, a draft for it
+ * if it has something to bill, and one email telling the user it's ready.
+ * `db` is the service client, so every read here names its user; nothing
+ * relies on RLS to scope it.
  *
  * Safe to run any number of times: a period's draft is unique per client
  * (`invoices_one_auto_draft_per_period`), and an email is claimed before it
@@ -28,20 +29,17 @@ export async function runDrafts(db: SupabaseClient, now = new Date()) {
     .eq('auto_drafts', true);
   if (error) throw error;
 
-  const done = { created: 0, deleted: 0, emailed: 0 };
+  const done = { created: 0, emailed: 0 };
   /* One user's failure, a refused email say, doesn't stop the others; all
      of them are raised once every user has had their turn. */
   const failures: unknown[] = [];
   for (const u of users ?? []) {
     try {
       const tz = (u.time_zone as string | null) ?? 'UTC';
-      const today = localDateKey(now, tz);
       // Every invoice needs a sender; the inbox asks for one meanwhile.
       if (u.business_name?.trim() && u.business_email?.trim())
-        done.created += await draftPeriods(db, u.user_id, tz, today);
-      const ended = await endPeriods(db, u.user_id, tz, today, u.ready_email);
-      done.deleted += ended.deleted;
-      done.emailed += ended.emailed;
+        done.created += await draftEnded(db, u.user_id, tz, now);
+      if (u.ready_email) done.emailed += await tellAll(db, u.user_id, tz);
     } catch (e) {
       failures.push(e);
     }
@@ -51,13 +49,14 @@ export async function runDrafts(db: SupabaseClient, now = new Date()) {
   return done;
 }
 
-/** A draft for each scheduled client's last ended period that billed
- *  something, and its current one, unless an invoice covers either. */
-async function draftPeriods(
+/** A draft for each scheduled client's last ended period that has
+ *  something to bill, unless an invoice covers it. Live, so work logged
+ *  late still joins it until it's sent. */
+async function draftEnded(
   db: SupabaseClient,
   userId: string,
   tz: string,
-  today: string,
+  now: Date,
 ) {
   const { data: clients, error } = await db
     .from('clients')
@@ -71,76 +70,57 @@ async function draftPeriods(
   for (const client of (clients ?? []) as ClientRow[]) {
     const schedule = toBillingSchedule(client);
     if (!schedule) continue;
-    for (const p of duePeriods(today, schedule)) {
-      const { data: covering, error: coverError } = await db
-        .from('invoices')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('client_id', client.id)
-        .neq('status', 'void')
-        .lte('period_start', p.periodEnd)
-        .gte('period_end', p.periodStart)
-        .limit(1);
-      if (coverError) throw coverError;
-      if ((covering ?? []).length > 0) continue;
-      try {
-        await createDraft(
-          db,
-          userId,
-          // New invoice's defaults for this client and period.
-          CreateInvoice.parse({ clientId: client.id, ...p, tz }),
-          // A period under way collects its work as it's logged; one already
-          // ended is drafted only if it has something to bill.
-          { auto: true, emptyOk: p.periodEnd >= today },
-        );
-        created++;
-      } catch (e) {
-        // Nothing to bill, or another run drafted it first.
-        const skip =
-          (e instanceof ApiError &&
-            (e.code === 'INVALID_PERIOD' || e.code === 'DRAFT_OVERLAPS')) ||
-          (e as { code?: string }).code === PG.UNIQUE_VIOLATION;
-        if (!skip) throw e;
-      }
+    const p = lastEndedPeriod(localDateKey(now, tz), schedule);
+    const { data: covering, error: coverError } = await db
+      .from('invoices')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('client_id', client.id)
+      .neq('status', 'void')
+      .lte('period_start', p.periodEnd)
+      .gte('period_end', p.periodStart)
+      .limit(1);
+    if (coverError) throw coverError;
+    if ((covering ?? []).length > 0) continue;
+    try {
+      await createDraft(
+        db,
+        userId,
+        // New invoice's defaults for this client and period.
+        CreateInvoice.parse({ clientId: client.id, ...p, tz }),
+        { auto: true },
+      );
+      created++;
+    } catch (e) {
+      // Nothing to bill, or another run drafted it first.
+      const skip =
+        (e instanceof ApiError &&
+          (e.code === 'INVALID_PERIOD' || e.code === 'DRAFT_OVERLAPS')) ||
+        (e as { code?: string }).code === PG.UNIQUE_VIOLATION;
+      if (!skip) throw e;
     }
   }
   return created;
 }
 
-/** Each of the job's drafts whose period has ended: deleted if it bills
- *  nothing and was never numbered, else the user told it's ready, once. */
-async function endPeriods(
-  db: SupabaseClient,
-  userId: string,
-  tz: string,
-  today: string,
-  readyEmail: boolean,
-) {
+/** The ready email for each of the job's drafts not yet told about. */
+async function tellAll(db: SupabaseClient, userId: string, tz: string) {
   const { data, error } = await db
     .from('invoices')
     .select(INVOICE_COLUMNS)
     .eq('user_id', userId)
     .eq('auto', true)
     .eq('status', 'draft')
-    .lt('period_end', today);
+    .is('ready_emailed_at', null);
   if (error) throw error;
 
-  const done = { deleted: 0, emailed: 0 };
+  let emailed = 0;
   for (const stored of (data ?? []) as InvoiceRow[]) {
-    const { row, lines } = await refreshDraft(db, stored, tz);
-    if (row.invoice_number === null && lines?.length === 0) {
-      const { error: deleteError } = await db
-        .from('invoices')
-        .delete()
-        .eq('id', row.id)
-        .eq('user_id', userId);
-      if (deleteError) throw deleteError;
-      done.deleted++;
-    } else if (readyEmail && (await tellReady(db, userId, row))) {
-      done.emailed++;
-    }
+    // Its total as it is now, with any work logged since it was made.
+    const { row } = await refreshDraft(db, stored, tz);
+    if (await tellReady(db, userId, row)) emailed++;
   }
-  return done;
+  return emailed;
 }
 
 /** One email per draft: claimed first, so a concurrent run sends none, and

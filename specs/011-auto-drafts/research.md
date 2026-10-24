@@ -19,8 +19,9 @@
 - **Rationale**: concurrent runs race only on those two writes.
 
 ## Which periods
-- **Decision**: the current period and the last ended one, each only if no invoice for the client overlaps it.
-- **Rationale**: catches up one missed run window, which is any gap shorter than a period, without walking history.
+- **Decision**: the last ended period only, when it has something to bill and no invoice for the client overlaps it.
+- **Rationale**: the draft appears when it can be sent, with its email; nothing empty or half-finished sits on the list, and New invoice stays free for a period under way. A missed run is caught up by the next, as long as it comes within a period.
+- **Alternatives**: a draft at the start of each period, collecting as work is logged; it needed empty drafts deleted and blocked a mid-period invoice.
 
 ## Time zone
 - **Decision**: `user_settings.time_zone`, written by the app shell through `PATCH /settings` when the browser's zone differs; UTC until then.

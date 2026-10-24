@@ -3707,45 +3707,32 @@ async function scheduleMonthly(client = CLIENT) {
   ]);
 }
 
-test('the daily job drafts a scheduled client’s periods once', async () => {
+test('the daily job drafts a period once it has ended, once', async () => {
   stubMail();
   await scheduleMonthly();
   await seedEntry({ id: E(1), start: '2026-09-10T09:00:00Z' });
+  await seedEntry({ id: E(2), start: '2026-10-05T09:00:00Z' });
 
   const first = await runJob(OCT_20);
-  assert.equal(first.created, 2);
+  assert.equal(first.created, 1);
   assert.deepEqual(
     (await autoDrafts()).map((d) => [
       d.period_start,
       d.period_end,
       d.invoice_number,
     ]),
-    [
-      ['2026-09-01', '2026-09-30', null],
-      ['2026-10-01', '2026-10-31', null],
-    ],
+    [['2026-09-01', '2026-09-30', null]],
+    'September has ended; October, still under way, gets none yet',
   );
   assert.equal((await runJob(OCT_20)).created, 0, 'running again adds none');
-  assert.equal((await autoDrafts()).length, 2);
+  assert.equal((await autoDrafts()).length, 1);
 });
 
-test('an ended period with nothing to bill leaves no draft and no number', async () => {
+test('an ended period with nothing to bill gets no draft and no number', async () => {
   stubMail();
   await scheduleMonthly();
-
-  await runJob(OCT_20);
-  assert.deepEqual(
-    (await autoDrafts()).map((d) => d.period_start),
-    ['2026-10-01'],
-    'September billed nothing, so it gets none',
-  );
-
-  const later = await runJob(NOV_2);
-  assert.equal(later.deleted, 1, 'October ended empty');
-  assert.deepEqual(
-    (await autoDrafts()).map((d) => d.period_start),
-    ['2026-11-01'],
-  );
+  assert.equal((await runJob(OCT_20)).created, 0);
+  assert.deepEqual(await autoDrafts(), []);
   const { rows } = await pool.query(
     'select next_invoice_number from user_settings where user_id=$1',
     [USER],
@@ -3757,21 +3744,15 @@ test('the daily job leaves alone what it should', async () => {
   stubMail();
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   await scheduleMonthly();
-  await seedEntry({ id: E(1), start: '2026-10-05T09:00:00Z' });
-  // The user's own draft for October, which the job must not touch.
+  await seedEntry({ id: E(1), start: '2026-09-05T09:00:00Z' });
+  // The user's own draft for September, which the job must not touch.
   const mine = await json(
-    await create(
-      req('/invoices', {
-        clientId: CLIENT,
-        periodStart: '2026-10-01',
-        periodEnd: '2026-10-31',
-        tz: 'UTC',
-      }),
-    ),
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD, tz: 'UTC' })),
   );
   assert.equal(mine.status, 201);
   assert.equal((await runJob(OCT_20)).created, 0);
-  assert.equal((await runJob(NOV_2)).deleted, 0);
+  const { rows } = await pool.query('select count(*)::int n from invoices');
+  assert.equal(rows[0].n, 1, 'only the user’s own');
 
   await pool.query('delete from invoices');
   await pool.query(`update clients set archived_at=now() where id=$1`, [
@@ -3791,6 +3772,7 @@ test('the daily job leaves alone what it should', async () => {
 
 test('the daily job keeps each user’s drafts to their own clients', async () => {
   stubMail();
+  const theirProject = 'bb000000-0000-4000-8000-0000000000f3';
   await pool.query(
     `insert into auth.users (id,email) values ($1,'other@test') on conflict do nothing`,
     [OTHER_USER],
@@ -3801,8 +3783,18 @@ test('the daily job keeps each user’s drafts to their own clients', async () =
     [OTHER_USER],
   );
   await pool.query(
-    `insert into clients (id,user_id,name,billing_period) values ($1,$2,'Theirs','monthly')`,
+    `insert into clients (id,user_id,name,billing_period,hourly_rate)
+     values ($1,$2,'Theirs','monthly',90)`,
     [THEIR_CLIENT, OTHER_USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'Theirs')`,
+    [theirProject, OTHER_USER, THEIR_CLIENT],
+  );
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
+     values ($1,$2,$3,'Their work','2026-09-10T09:00:00Z','2026-09-10T10:00:00Z',true)`,
+    [E(9), OTHER_USER, theirProject],
   );
   // Each user's own bank details, which the job must never cross.
   await pool.query(
@@ -3812,6 +3804,7 @@ test('the daily job keeps each user’s drafts to their own clients', async () =
     [USER, OTHER_USER],
   );
   await scheduleMonthly();
+  await seedEntry({ id: E(1), start: '2026-09-10T09:00:00Z' });
 
   try {
     await runJob(OCT_20);
@@ -3839,7 +3832,13 @@ test('the daily job keeps each user’s drafts to their own clients', async () =
       assert.equal(shown.payment_terms, mine ? 'Net 30' : 'Net 15');
     }
   } finally {
+    await pool.query(
+      'update time_entries set invoice_id=null where user_id=$1',
+      [OTHER_USER],
+    );
     await pool.query('delete from invoices where user_id=$1', [OTHER_USER]);
+    await pool.query('delete from time_entries where user_id=$1', [OTHER_USER]);
+    await pool.query('delete from projects where user_id=$1', [OTHER_USER]);
     await pool.query('delete from clients where user_id=$1', [OTHER_USER]);
     await pool.query('delete from payment_profiles where user_id=$1', [
       OTHER_USER,
@@ -3847,7 +3846,7 @@ test('the daily job keeps each user’s drafts to their own clients', async () =
   }
 });
 
-test('the user is emailed once when a period ends, and never the client', async () => {
+test('the user is emailed once, with the draft, and never the client', async () => {
   const sent = stubMail();
   await scheduleMonthly();
   await seedEntry({ id: E(1), start: '2026-10-05T09:00:00Z', hours: 2 });
@@ -3856,7 +3855,7 @@ test('the user is emailed once when a period ends, and never the client', async 
   assert.equal(sent.length, 0, 'October is still under way');
 
   await runJob(NOV_2);
-  assert.equal(sent.length, 1);
+  assert.equal(sent.length, 1, 'made and told in the same run');
   assert.equal(sent[0]!.to, 'me@test');
   assert.match(sent[0]!.text, /Northwind/);
   assert.match(sent[0]!.text, /\$300\.00/);
@@ -3871,13 +3870,12 @@ test('a refused email is tried again on the next run', async () => {
   stubMail(500);
   await scheduleMonthly();
   await seedEntry({ id: E(1), start: '2026-10-05T09:00:00Z' });
-  await runJob(OCT_20);
 
   await assert.rejects(runJob(NOV_2));
   assert.deepEqual(
-    (await autoDrafts()).filter((d) => d.emailed),
-    [],
-    'the claim is released',
+    (await autoDrafts()).map((d) => d.emailed),
+    [false],
+    'the draft stays, and the claim is released',
   );
 
   mock.restoreAll();
@@ -3891,10 +3889,9 @@ test('no email when the user turned it off', async () => {
   await scheduleMonthly();
   await seedEntry({ id: E(1), start: '2026-10-05T09:00:00Z' });
   await pool.query(`update user_settings set ready_email=false`);
-  await runJob(OCT_20);
   await runJob(NOV_2);
   assert.equal(sent.length, 0);
-  assert.equal((await autoDrafts()).length, 2, 'the drafts are still made');
+  assert.equal((await autoDrafts()).length, 1, 'the draft is still made');
 });
 
 test('only the scheduler can run the job', async () => {
@@ -3915,11 +3912,7 @@ test('only the scheduler can run the job', async () => {
     });
     const res = await json(await cron(right));
     assert.equal(res.status, 200);
-    assert.deepEqual(Object.keys(res.body).sort(), [
-      'created',
-      'deleted',
-      'emailed',
-    ]);
+    assert.deepEqual(Object.keys(res.body).sort(), ['created', 'emailed']);
   } finally {
     delete process.env.CRON_SECRET;
   }

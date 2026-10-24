@@ -628,9 +628,9 @@ export async function createDraft(
   db: SupabaseClient,
   userId: string,
   body: z.infer<typeof CreateInvoice>,
-  /** The daily job's: `auto` makes a draft before its period's work is
-      rated, and `emptyOk` before any is logged. */
-  opts: { auto?: boolean; emptyOk?: boolean } = {},
+  /** The daily job's: an unrated entry is said on its draft, as on any
+      other, rather than holding the whole draft back. */
+  opts: { auto?: boolean } = {},
 ) {
   if (body.periodEnd < body.periodStart) {
     throw new ApiError(
@@ -688,13 +688,12 @@ export async function createDraft(
       },
     );
 
-  // On the job's draft, an unrated entry is said there as on any other.
   if (!opts.auto && totals.unratedEntryIds.length > 0)
     throw unratedError(totals.unratedEntryIds);
 
   // A fee or an expense alone is a valid invoice — a deposit before any work
   // is done is the ordinary case — so this asks for LINES, not for time.
-  if (!opts.emptyOk && totals.lineItems.length === 0) {
+  if (totals.lineItems.length === 0) {
     throw new ApiError(
       'INVALID_PERIOD',
       'Nothing to invoice: no unbilled, billable time in this period, no unbilled expenses, and no charges added',

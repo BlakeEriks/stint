@@ -9,9 +9,9 @@
 
 ## Phase 2: Foundational
 
-- [x] T003 [P] Core tests then code: `draftDates(today, pickedDue, days)` in packages/core/src/invoice.ts; `duePeriods(today, schedule)` in packages/core/src/auto-draft.ts (current period, last ended)
+- [x] T003 [P] Core tests then code: `draftDates(today, pickedDue, days)` in packages/core/src/invoice.ts
 - [x] T004 Schema (packages/schema/src/index.ts): `Invoice.invoiceNumber`, `sequenceNo`, `issueDate` nullable, `wouldBe`; settings `timeZone`, `autoDrafts`, `readyEmail`; `attention.autoDraftsBlocked`, `staleDrafts[].invoiceNumber` nullable; `DRAFT_NOT_DOWNLOADED` error (apps/web/src/lib/errors.ts, 409)
-- [x] T005 rows.ts mappings; stats.ts and billed-spans.ts: unbilled is "no invoice", not "no number"; stale drafts aged by `created_at`
+- [x] T005 rows.ts mappings; stats.ts and billed-spans.ts: unbilled is "no invoice", not "no number"; stale drafts aged by `period_end`
 
 ## Phase 3: US3 — numbered at first render (P1)
 

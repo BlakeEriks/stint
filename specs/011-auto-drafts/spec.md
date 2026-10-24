@@ -20,8 +20,7 @@ notice to the user is fine, as sign-in links already are.
 Pulled in: a draft has no invoice number until its PDF is first opened,
 viewed or downloaded — the moment it can reach a client. "Downloaded" below
 means either. Today the number is taken
-when the draft is made, so a deleted draft leaves a gap; with drafts made
-automatically at the start of each period, most would. One sequence per
+when the draft is made, so a deleted draft leaves a gap. One sequence per
 user, as today.
 
 ## Clarifications
@@ -30,6 +29,7 @@ user, as today.
 
 - Q: When should an automatic draft get its issue date (and the due date that follows from it)? → A: At first PDF download, alongside the number; until then the draft shows the date it would get today.
 - Q: Should Mark sent be refused until the draft's PDF has been downloaded at least once? → A: Yes: Mark sent is disabled until the first download, with a hint saying so.
+- Q: Should the job make a period's draft when the period starts, or once it has ended? → A: Once it has ended: the draft appears with the email, no empty or half-finished drafts sit on the list, and New invoice is free for the period meanwhile.
 - Q: Should automatic drafts and the ready email also run for accounts on the free tier, who can't download a PDF? → A: Both run for everyone; on a free account the draft's Download asks them to upgrade, as today.
 
 ## Design
@@ -40,33 +40,32 @@ No design review: the email is a short link-only notice, and an unnumbered draft
 
 ### User Story 1 - The draft is waiting (Priority: P1)
 
-A contractor bills Northwind semi-monthly. Without opening New invoice,
-they find a draft for Northwind's period on the Invoices list, built with
-the client's defaults: its rate, its payment terms, its payment details.
-Work logged in the period keeps landing on it until it's sent.
+A contractor bills Northwind semi-monthly. The day after a period ends,
+without opening New invoice, they find a draft for it on the Invoices list,
+built with the client's defaults: its rate, its payment terms, its payment
+details. Work logged late for the period still lands on it until it's sent.
 
 **Why this priority**: The draft existing is the whole saving; the email
 only points at it.
 
-**Independent Test**: Give a client a schedule, run the daily job on a date
-in or after its period, and see one draft for that period with the client's
-defaults.
+**Independent Test**: Give a client a schedule and work in a period, run
+the daily job after the period ends, and see one draft for it with the
+client's defaults.
 
 **Acceptance Scenarios**:
 
-1. **Given** a client billed monthly, **When** the daily job runs on or after
-   October 1, **Then** a draft exists for that client covering October 1–31,
-   due by the client's payment terms, collecting October's work as it's
-   logged.
+1. **Given** a client billed monthly with work in October, **When** the
+   daily job runs during October, **Then** it makes no draft; **When** it
+   runs on November 1 or later, **Then** a draft exists covering October
+   1–31, due by the client's payment terms.
 2. **Given** that draft already exists, **When** the job runs again the same
    day or any later day, **Then** no second draft is made for that period.
 3. **Given** the user already made a draft for those dates by hand, **When**
    the job runs, **Then** it makes none and leaves the user's draft as it is.
 4. **Given** a client with no billing schedule, or an archived one, **When**
    the job runs, **Then** it makes no draft for that client.
-5. **Given** a draft for a period that ended with nothing to bill, **When**
-   the job runs after it ends, **Then** the draft is deleted and no email is
-   sent; it never had a number, so the sequence keeps no gap.
+5. **Given** a period that ended with nothing to bill, **When** the job
+   runs, **Then** no draft is made and no email is sent.
 6. **Given** the user turned automatic drafts off, **When** the job runs,
    **Then** it makes nothing for any of their clients.
 
@@ -108,9 +107,9 @@ first PDF download gives it the next number in the user's one sequence,
 and it keeps that number through every later download, Mark sent and
 void.
 
-**Why this priority**: Automatic drafts made at the start of every period
-would otherwise each take a number, and the empty ones deleted would leave
-gaps in a sequence promised to have none.
+**Why this priority**: A draft deleted before it reached a client, made by
+hand or by the job, would otherwise leave a gap in a sequence promised to
+have none.
 
 **Independent Test**: Make two drafts, download the second's PDF, then the
 first's: the second is numbered before the first, and deleting a draft
@@ -161,9 +160,10 @@ never downloaded leaves the next number unchanged.
 ### Functional Requirements
 
 - **FR-001**: Once a day, Stint MUST make a draft for each active client
-  with a billing schedule whose current period has started, unless an open
-  or sent invoice for that client already covers any of those dates. The
-  draft collects the period's work as it's logged.
+  with a billing schedule whose last period has ended and has something to
+  bill, unless an open or sent invoice for that client already covers any
+  of those dates. The draft still collects work logged late for the period
+  until it's sent.
 - **FR-002**: An automatic draft MUST use what New invoice would choose by
   default for that client and period: grouping, payment terms, payment
   details.
@@ -177,8 +177,8 @@ never downloaded leaves the next number unchanged.
   draft.
 - **FR-006**: The user MUST be able to turn off automatic drafts, and
   separately the ready email, in Settings; both default to on.
-- **FR-007**: An automatic draft whose period ended with nothing to bill
-  MUST be deleted the next time the job runs, with no email.
+- **FR-007**: A period that ended with nothing to bill MUST get no draft
+  and no email.
 - **FR-011**: A draft MUST have no invoice number until its PDF is first
   downloaded, when it takes the next in the user's one sequence and keeps
   it. Drafts numbered before this ships keep their numbers.

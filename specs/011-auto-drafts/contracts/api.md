@@ -6,4 +6,4 @@
 - `POST /invoices`: no number, issue date or terms on the result; `dueDate` kept only when given.
 - `GET|PATCH /settings`: `timeZone`, `autoDrafts`, `readyEmail`.
 - `GET /stats`: `staleDrafts[].invoiceNumber` nullable; `attention.autoDraftsBlocked`: the job is on, a client is scheduled, and there's no business name or email.
-- `GET /api/v1/cron/drafts`: `Authorization: Bearer $CRON_SECRET`, else 401; returns `{ created, deleted, emailed }`.
+- `GET /api/v1/cron/drafts`: `Authorization: Bearer $CRON_SECRET`, else 401; returns `{ created, emailed }`.
