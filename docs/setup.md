@@ -181,7 +181,7 @@ body `supabase/templates/invite.html`. Like the magic-link template, the
 dashboard holds its own copy that doesn't track the file.
 
 The invite button signs the invitee in. It carries `{{ .TokenHash }}` to
-`/auth/callback`, which verifies it on the server. The default template
+`/auth/confirm`, which verifies it on the server. The default template
 links to `supabase.co` instead, which returns the session in a URL fragment
 the app ignores, and which spam filters flag in mail from `runstint.com`.
 The link works once: if a mail scanner opens it first, the invitee lands on

@@ -2,7 +2,7 @@
   The invite email. Layout and palette follow `magic_link.html`; its comments
   say why the HTML is tables and inline styles.
 
-  The button carries a token hash to our own `/auth/callback`, not
+  The button carries a token hash to our own `/auth/confirm`, not
   `{{ .ConfirmationURL }}`. That URL sends the session back in a fragment the
   server never sees, and a `supabase.co` link in mail from `runstint.com`
   reads as spam to filters.
@@ -38,7 +38,7 @@
             <table cellpadding="0" cellspacing="0" border="0" width="100%">
               <tr>
                 <td align="center" bgcolor="#52FC43" style="border-radius:8px;">
-                  <a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=invite"
+                  <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}"
                      style="display:block;padding:14px 24px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:14px;font-weight:600;letter-spacing:0.08em;color:#111316;text-decoration:none;">
                     ACCEPT INVITE
                   </a>
