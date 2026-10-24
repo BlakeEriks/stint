@@ -21,6 +21,10 @@ create unique index invoices_one_auto_draft_per_period
   on invoices (user_id, client_id, period_start, period_end)
   where auto and status = 'draft';
 
+-- The last period the job drafted for a client, so a draft the user
+-- deleted isn't made again.
+alter table clients add column auto_drafted_through date;
+
 alter table user_settings
   -- Where "period ended" is judged; null is UTC until the app records one.
   add column time_zone text,

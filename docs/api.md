@@ -299,8 +299,9 @@ They follow the service lines as `unit: "expense"` lines carrying `spentOn`,
 and `total` is `subtotal + taxAmount + expensesSubtotal`: tax never applies to
 a reimbursement.
 
-**Preview before generate is mandatory in the UI.** Generation is the step that
-allocates a gapless number — it must never be a surprise.
+**Preview before generate is mandatory in the UI.** Generation makes the
+draft; its first PDF render (`number_invoice()`) is the step that allocates a
+gapless number, so a draft deleted before then leaves no gap.
 
 **There is no send endpoint.** The PDF is downloaded and sent by the user from
 their own address; `PATCH /status` records that it went out.
@@ -400,6 +401,7 @@ verified by phone.
 | `INVOICE_STATUS_CHANGED` | 409 | Another request changed the invoice's status first. Read it again. |
 | `DRAFT_CHANGED` | 409 | The draft moved since its PDF was rendered. Download it again, then mark it sent. |
 | `DRAFT_OVERLAPS` | 409 | An open draft for the client already covers some of these dates. |
+| `DRAFT_NOT_DOWNLOADED` | 409 | The draft's PDF never rendered, so it has no number. Download it, then mark it sent. |
 | `ENTRY_NOT_FOUND` | 404 | |
 | `NO_RATE_CONFIGURED` | 400 | No rate at any level for a billable entry. |
 | `INVALID_PERIOD` | 400 | |
@@ -440,8 +442,9 @@ zone dates each row and names the file, but every record is in the file
 whatever the zone, so a wrong zone shifts dates rather than dropping work.
 
 **The invoicing routes reject an invalid one instead.** `POST /invoices/preview`
-and `POST /invoices` resolve the billing period in `tz`, and `POST /invoices`
-dates an invoice without an `issueDate` on that zone's today. `GET /invoices`,
+and `POST /invoices` resolve the billing period in `tz`, and a draft's
+would-be dates, then the dates its first render fixes, are that zone's
+today. `GET /invoices`,
 `GET /invoices/:id`, `/pdf` and `/status` refresh a draft, and a draft with no
 zone keeps the first one it is read in. The zone decides which entries are
 billed — falling back to UTC there would move the boundary by hours and put

@@ -71,6 +71,12 @@ async function draftEnded(
     const schedule = toBillingSchedule(client);
     if (!schedule) continue;
     const p = lastEndedPeriod(localDateKey(now, tz), schedule);
+    /* Drafted once: a draft the user deleted stays deleted (Principle I). */
+    if (
+      client.auto_drafted_through !== null &&
+      p.periodEnd <= client.auto_drafted_through
+    )
+      continue;
     const { data: covering, error: coverError } = await db
       .from('invoices')
       .select('id')
@@ -90,6 +96,12 @@ async function draftEnded(
         CreateInvoice.parse({ clientId: client.id, ...p, tz }),
         { auto: true },
       );
+      const { error: markError } = await db
+        .from('clients')
+        .update({ auto_drafted_through: p.periodEnd })
+        .eq('id', client.id)
+        .eq('user_id', userId);
+      if (markError) throw markError;
       created++;
     } catch (e) {
       // Nothing to bill, or another run drafted it first.

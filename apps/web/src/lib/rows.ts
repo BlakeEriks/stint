@@ -129,11 +129,13 @@ export interface ClientRow {
   billing_period: BillingPeriod | null;
   period_anchor: string | null;
   payment_terms_days: number | null;
+  /** The last period end the daily job drafted; read only by the job. */
+  auto_drafted_through: string | null;
   archived_at: string | null;
 }
 
 export const CLIENT_COLUMNS = columns<ClientRow>()(
-  'id, name, email, address, hourly_rate, tax_rate, currency, color, payment_profile_id, billing_period, period_anchor, payment_terms_days, archived_at',
+  'id, name, email, address, hourly_rate, tax_rate, currency, color, payment_profile_id, billing_period, period_anchor, payment_terms_days, auto_drafted_through, archived_at',
 );
 
 /** The schedule is one value on the wire and two columns, written together

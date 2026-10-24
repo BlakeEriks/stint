@@ -3728,6 +3728,21 @@ test('the daily job drafts a period once it has ended, once', async () => {
   assert.equal((await autoDrafts()).length, 1);
 });
 
+test('a draft the user deleted is not made again', async () => {
+  const sent = stubMail();
+  await scheduleMonthly();
+  await seedEntry({ id: E(1), start: '2026-09-10T09:00:00Z' });
+  await runJob(OCT_20);
+  assert.equal(sent.length, 1);
+
+  await pool.query('update time_entries set invoice_id=null');
+  await pool.query('delete from invoices');
+  const again = await runJob(new Date('2026-10-21T15:00:00Z'));
+  assert.deepEqual(again, { created: 0, emailed: 0 });
+  assert.deepEqual(await autoDrafts(), []);
+  assert.equal(sent.length, 1, 'no second email');
+});
+
 test('an ended period with nothing to bill gets no draft and no number', async () => {
   stubMail();
   await scheduleMonthly();

@@ -136,9 +136,15 @@ grandfathered.
   the webhook a plain-text `503`, and `GET /billing` answers `200` with
   `available: false`.
 - `SUPABASE_SECRET_KEY` (**sensitive**), the project's secret key: the
-  Stripe webhook has no user session, so it writes `subscriptions` as
-  `service_role`. Without it, the webhook and the Checkout return fail with
-  `500`. Never `NEXT_PUBLIC_`.
+  Stripe webhook and the daily drafts job have no user session, so they use
+  `serviceClient()`, as `service_role`. Without it, the webhook, the Checkout
+  return and the job fail with `500`. Never `NEXT_PUBLIC_`.
+- `CRON_SECRET` (**sensitive**): Vercel Cron sends it to
+  `/api/v1/cron/drafts`, which refuses every call without it and does
+  nothing while it is unset.
+- `RESEND_API_KEY` (**sensitive**) and `MAIL_FROM`
+  (`Stint <notices@runstint.com>`): the job's ready email to the user.
+  `docs/setup.md` §4c.
 
 In the Stripe dashboard, once:
 
