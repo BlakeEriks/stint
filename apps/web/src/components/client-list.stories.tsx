@@ -347,6 +347,8 @@ export const ClientSchedule: Story = {
     await expect(select()).toHaveTextContent('None');
     await expect(dialog.queryByLabelText('First period starts')).toBeNull();
     await pickSchedule(page, dialog, /^Semi-monthly/);
+    // Said where the schedule is set, so the drafts and email surprise no one.
+    await expect(dialog.getByText(/Stint drafts its invoice/)).toBeVisible();
     await saveDialog(page, dialog);
     await expect(await page.findByText(/Billed semi-monthly/)).toBeVisible();
     dialog = await editNorthwind(page);

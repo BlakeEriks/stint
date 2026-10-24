@@ -249,7 +249,11 @@ function ScheduleField({
       <Field
         label="Billing schedule"
         htmlFor="client-schedule"
-        hint="Sets each new invoice's dates."
+        hint={
+          value
+            ? 'When a period ends, Stint drafts its invoice and emails you. Turn this off in Settings.'
+            : "Sets each new invoice's dates."
+        }
         className="flex-1 basis-40"
       >
         <Select value={value?.period ?? NONE} onValueChange={pick}>
