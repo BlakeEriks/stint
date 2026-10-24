@@ -167,14 +167,8 @@ none); oldest first within a label. None left → step 2.
 builder branches off that PR's branch and opens its PR against it, saying
 which merges first.
 
-**First, overlap, without a builder.** List the paths the issue names and
-each open PR's files (`gh pr view <n> --json files`), save the PR it stacks
-on. A shared path makes it
-`blocked` with a marked comment ("Blocked by #31: both change the inbox"),
-and you pick again. The builder still checks the files it finds it must
-change.
-
-Otherwise hand it to a builder for triage and build, as a round. An issue a
+Hand it to a builder for triage and build, as a round. A shared file is no
+reason to wait: step 0's conflict check merges `main` into whichever PR conflicts. An issue a
 builder already triaged — its `agentId` is in the log — goes back to that
 builder by SendMessage, which still holds the reading — unless
 `.claude/agents/issue-builder.md` has changed since that builder's first log row

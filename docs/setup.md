@@ -142,8 +142,9 @@ Vercel also gives each branch a preview URL. Add
 `https://<project>-*-<scope>.vercel.app/**` if you want sign-in on previews —
 though on a private project those URLs sit behind Vercel SSO anyway.
 
-Sign-in mail goes through Resend, and so does the daily job's note to a user
-that a draft is ready (§4c) — **the app never emails a client**, by design.
+Sign-in and invite mail goes through Resend, and so does the daily job's note
+to a user that a draft is ready (§4c) — **the app never emails a client**, by
+design.
 
 ## 4a. Sign-in email
 
@@ -177,10 +178,16 @@ panel has a code to take.
 Sign-up is off, so an account exists only once it is invited: **Authentication
 → Users → Add user → Send invitation**.
 
-The invite link signs nobody in. It lands on the **Site URL** with tokens in
-the URL fragment, which the app ignores, and the app sends a signed-out
-visitor to `/signin`. There the invitee enters their email and clicks the
-magic link. The default Invite template works as it is.
+**Authentication → Emails → Invite user**: subject `You're invited to Stint`,
+body `supabase/templates/invite.html`. Like the magic-link template, the
+dashboard holds its own copy that doesn't track the file.
+
+The invite button signs the invitee in. It carries `{{ .TokenHash }}` to
+`/auth/confirm`, which verifies it on the server. The default template
+links to `supabase.co` instead, which returns the session in a URL fragment
+the app ignores, and which spam filters flag in mail from `runstint.com`.
+The link works once: if a mail scanner opens it first, the invitee lands on
+`/signin` and signs in with their email.
 
 Each invitee gets their own account; nothing is shared.
 
