@@ -145,14 +145,14 @@ export async function readStats(
     db
       .from('user_settings')
       .select(
-        'currency, min_entry_seconds, max_entry_hours, week_starts_on, default_hourly_rate, legacy_payment_terms',
+        'currency, min_entry_seconds, max_entry_hours, week_starts_on, default_hourly_rate, legacy_payment_terms, auto_drafts, business_name, business_email',
       )
       .maybeSingle(),
 
     db
       .from('invoices')
       .select(
-        'id, invoice_number, client_id, status, due_date, total, currency, issue_date',
+        'id, invoice_number, client_id, status, due_date, total, currency, period_end',
       )
       .in('status', ['sent', 'draft']),
 
@@ -189,16 +189,17 @@ export async function readStats(
 
     /* Candidates for the overlap row: the same uninvoiced, stopped set,
        whatever its length. */
-    selectAll<Omit<SpanRow, 'invoice_number'> & { project_id: string | null }>(
-      () =>
-        db
-          .from('time_entries')
-          .select(
-            'id, task_name, started_at, ended_at, is_billable, project_id',
-          )
-          .is('invoice_id', null)
-          .eq('invoiced_elsewhere', false)
-          .not('ended_at', 'is', null),
+    selectAll<
+      Omit<SpanRow, 'invoice_id' | 'invoice_number'> & {
+        project_id: string | null;
+      }
+    >(() =>
+      db
+        .from('time_entries')
+        .select('id, task_name, started_at, ended_at, is_billable, project_id')
+        .is('invoice_id', null)
+        .eq('invoiced_elsewhere', false)
+        .not('ended_at', 'is', null),
     ),
 
     /* Project and client names for whichever of those rows survives the
@@ -270,8 +271,29 @@ export async function readStats(
     .maybeSingle();
   if (lastPaid.error) throw lastPaid.error;
 
+  /* The daily job skips a user it can't make an invoice for, so the inbox
+     says why while it would otherwise draft one. */
+  let autoDraftsBlocked = false;
+  if (
+    settings.data?.auto_drafts &&
+    !(
+      settings.data.business_name?.trim() &&
+      settings.data.business_email?.trim()
+    )
+  ) {
+    const { data, error } = await db
+      .from('clients')
+      .select('id')
+      .not('billing_period', 'is', null)
+      .is('archived_at', null)
+      .limit(1);
+    if (error) throw error;
+    autoDraftsBlocked = (data ?? []).length > 0;
+  }
+
   const unbilledSpans = overlapCandidates.map((r) => ({
     ...r,
+    invoice_id: null,
     invoice_number: null,
   }));
   const overlapSpans = [
@@ -359,6 +381,7 @@ export async function readStats(
     attention: {
       noDefaultRate: settings.data?.default_hourly_rate == null,
       paymentTermsToCheck: settings.data?.legacy_payment_terms ?? null,
+      autoDraftsBlocked,
       overdueInvoices: buildOverdueInvoices(
         invoiceRows,
         clientNames,

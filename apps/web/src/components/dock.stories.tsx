@@ -34,7 +34,7 @@ export const Column: Story = {
     const page = within(canvasElement.ownerDocument.body);
     for (const row of [
       /days late/,
-      /Draft, \d+d old/,
+      /Draft, period ended \d+d ago/,
       /No project/,
       /unusually long/,
       /unusually short/,

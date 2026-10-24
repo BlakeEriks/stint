@@ -235,7 +235,7 @@ export function EntryDialog({
             {description(
               locked,
               existing?.invoiceId != null,
-              billedOn.data?.invoiceNumber,
+              billedOn.data?.invoiceNumber ?? undefined,
             )}
           </DialogDescription>
         </DialogHeader>
@@ -427,7 +427,7 @@ function description(
   if (locked)
     return `This entry is billed on ${invoiceNumber ?? 'an issued invoice'}, so it can no longer be changed. Void the invoice to release it.`;
   if (onInvoice)
-    return `This entry is on draft ${invoiceNumber}. Editing it changes what that draft would bill, so preview it again before issuing.`;
+    return `This entry is on ${invoiceNumber ? `draft ${invoiceNumber}` : 'a draft'}. Editing it changes what that draft would bill, so preview it again before issuing.`;
   return 'Times are in your local timezone. An end before the start counts as overnight.';
 }
 

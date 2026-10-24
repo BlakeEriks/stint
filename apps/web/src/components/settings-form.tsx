@@ -171,6 +171,33 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
             />
           </Field>
         </div>
+
+        {/* Saved as they change, with the rest of the section. */}
+        <div className="flex flex-col gap-2">
+          <label className="flex items-center gap-2.5 type-control text-primary">
+            <input
+              type="checkbox"
+              checked={form.autoDrafts}
+              onChange={(e) => setBilling('autoDrafts', e.target.checked)}
+              className="size-4 accent-[var(--text-muted)]"
+            />
+            Draft each scheduled client’s invoice for me
+          </label>
+          <label className="flex items-center gap-2.5 type-control text-primary">
+            <input
+              type="checkbox"
+              checked={form.readyEmail}
+              disabled={!form.autoDrafts}
+              onChange={(e) => setBilling('readyEmail', e.target.checked)}
+              className="size-4 accent-[var(--text-muted)]"
+            />
+            Email me when one is ready to send
+          </label>
+          <p className="type-support text-subtle">
+            Only to you, the day after its period ends. Stint never emails your
+            clients.
+          </p>
+        </div>
       </Section>
 
       <Section

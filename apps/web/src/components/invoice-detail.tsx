@@ -13,7 +13,7 @@ import { useMarkPaid } from '@/lib/client/use-mark-paid';
 import { Ban, DollarSign, Download, Lock, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConfirmAction } from './confirm-action';
-import { shortDate, StatusBadge } from './invoice-bits';
+import { invoiceName, shortDate, StatusBadge } from './invoice-bits';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
 import { PRICE } from './plan-section';
@@ -150,6 +150,9 @@ function Loaded({
      and the server, which recorded the render, has the last word. */
   const [downloaded, setDownloaded] = useState(false);
   const changed = isDraft && !downloaded ? invoice.changedSinceDownload : null;
+  /* What reaches the client carries a number, which its first download
+     gives; the server refuses Mark sent before it. */
+  const unnumbered = invoice.invoiceNumber === null && !downloaded;
   /* For the payment notice, which the PDF reads from settings as they are
      now. */
   const { data: settings } = useQuery({
@@ -164,7 +167,7 @@ function Loaded({
       <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <h1 className="truncate type-title text-strong">
-            {invoice.invoiceNumber}
+            {invoiceName(invoice)}
           </h1>
           <StatusBadge status={invoice.status} />
         </div>
@@ -174,7 +177,7 @@ function Loaded({
               asks first. */}
           {isDraft ? (
             <ConfirmAction
-              label={`Delete ${invoice.invoiceNumber} for good`}
+              label={`Delete ${invoiceName(invoice)} for good`}
               pendingLabel="Deleting…"
               consequence="Its entries go back to unbilled."
               pending={remove.isPending}
@@ -187,7 +190,7 @@ function Loaded({
 
           {!isVoid && !isDraft ? (
             <ConfirmAction
-              label={`Void ${invoice.invoiceNumber}`}
+              label={`Void ${invoiceName(invoice)}`}
               pendingLabel="Voiding…"
               consequence="The number stays on record, and this invoice can't be reissued."
               pending={setStatus.isPending}
@@ -201,7 +204,7 @@ function Loaded({
           {isDraft ? (
             <Button
               onClick={() => setStatus.mutate({ status: 'sent' })}
-              disabled={setStatus.isPending || changed != null}
+              disabled={setStatus.isPending || changed != null || unnumbered}
             >
               <Send aria-hidden strokeWidth={1.75} />
               Mark sent
@@ -257,7 +260,9 @@ function Loaded({
         <p className="type-support text-muted">
           {changed
             ? 'Download the new PDF, send it from your own address, then mark it sent.'
-            : statusHint(invoice.status, invoice.dueDate, invoice)}
+            : unnumbered
+              ? `It keeps collecting ${shortDate(invoice.periodStart)} – ${shortDate(invoice.periodEnd)} until you mark it sent. Downloading it gives it its number; send that PDF from your own address, then mark it sent.`
+              : statusHint(invoice.status, invoice.dueDate, invoice)}
         </p>
         {changed ? (
           <Changed change={changed} currency={invoice.currency} />
@@ -279,7 +284,7 @@ function Loaded({
         client={invoice.billTo}
         business={invoice.business}
         settings={settings}
-        number={invoice.invoiceNumber}
+        number={invoice.invoiceNumber ?? 'Given at download'}
         issued={invoice.issueDate}
         due={invoice.dueDate ?? ''}
         reference={invoice.reference ?? ''}

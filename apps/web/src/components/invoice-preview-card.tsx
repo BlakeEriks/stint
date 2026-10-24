@@ -88,7 +88,7 @@ export function InvoicePreviewCard({
   notes,
   heading = true,
   noSender = false,
-  footnote = 'Generating assigns a number and locks these entries. Voiding later keeps the number on record.',
+  footnote = 'Generating makes a draft that collects this period until you mark it sent. Its first download gives it its number.',
   children,
 }: {
   preview: CardFigures | undefined;
@@ -97,7 +97,7 @@ export function InvoicePreviewCard({
   business: Business | undefined;
   /** The payment notice. */
   settings: Settings | undefined;
-  /** A prediction: generation allocates the number. */
+  /** The invoice's number, or what a draft not yet downloaded shows. */
   number: string;
   issued: string;
   due: string;

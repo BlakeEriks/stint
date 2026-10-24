@@ -7,8 +7,9 @@ and deliberately nothing else.
 
 Design system, schema, shared logic and the `/api/v1/*` route handlers —
 including invoicing, payment details and PDF generation — are built and
-covered by integration tests. The app sends no email: invoices are downloaded
-and sent by the user from their own address.
+covered by integration tests. The app never emails a client: invoices are
+downloaded and sent by the user from their own address. It emails only the
+user, to sign in and to say a scheduled draft is ready.
 
 **Not built yet:** the mobile app. The web app is complete: timer, calendar,
 clients, projects, settings, payment profiles, invoicing. The macOS menu bar

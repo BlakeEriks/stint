@@ -30,6 +30,7 @@ import {
 import { useExit } from '@/lib/client/use-exit';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { EntryDialog } from './entry-dialog';
+import { invoiceName } from './invoice-bits';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RateInput, isValidRate, parseRate } from './rate-input';
@@ -42,6 +43,7 @@ export function inboxCount(attention: Attention) {
   return (
     (attention.noDefaultRate ? 1 : 0) +
     (attention.paymentTermsToCheck !== null ? 1 : 0) +
+    (attention.autoDraftsBlocked ? 1 : 0) +
     attention.overdueInvoices.length +
     attention.staleDrafts.length +
     attention.lateEntries.length +
@@ -60,7 +62,8 @@ type InboxRow =
   | { id: string; kind: 'strange'; row: Attention['strangeDurations'][number] }
   | { id: string; kind: 'overlap'; row: Attention['overlaps'][number] }
   | { id: 'rate'; kind: 'rate' }
-  | { id: 'terms'; kind: 'terms'; text: string };
+  | { id: 'terms'; kind: 'terms'; text: string }
+  | { id: 'sender'; kind: 'sender' };
 
 /**
  * The dock's inbox: everything that wants a decision, in one fixed place.
@@ -219,6 +222,11 @@ export function Inbox({ stats }: { stats: Stats }) {
        rate is what prices every one of those entries. */
     ...(stats.attention.noDefaultRate
       ? [{ id: 'rate' as const, kind: 'rate' as const }]
+      : []),
+    /* Before the other chores: until it's answered, no scheduled client is
+       drafted. */
+    ...(stats.attention.autoDraftsBlocked
+      ? [{ id: 'sender' as const, kind: 'sender' as const }]
       : []),
     ...(stats.attention.paymentTermsToCheck !== null
       ? [
@@ -394,6 +402,13 @@ function Row({
 /** Which `Item` a row becomes — the one place the five kinds differ. */
 function itemFor(r: ItemRow, h: Handlers): ItemProps {
   switch (r.kind) {
+    case 'sender':
+      return {
+        href: '/settings',
+        label: 'Add your business name and email',
+        detail: 'Scheduled clients get no drafts until they’re set',
+        tone: 'neutral',
+      };
     case 'overdue':
       return invoiceItem(r.row, h, {
         detail: `${r.row.daysLate} ${r.row.daysLate === 1 ? 'day' : 'days'} late`,
@@ -402,7 +417,7 @@ function itemFor(r: ItemRow, h: Handlers): ItemProps {
       });
     case 'draft':
       return invoiceItem(r.row, h, {
-        detail: `Draft, ${r.row.ageDays}d old`,
+        detail: `Draft, period ended ${r.row.ageDays}d ago`,
         tone: 'neutral',
         status: 'sent',
       });
@@ -433,24 +448,28 @@ function invoiceItem(
     status,
   }: Pick<ItemProps, 'detail' | 'tone'> & { status: keyof typeof MARK },
 ): ItemProps {
+  const name = invoiceName(i);
   return {
     href: `/invoices/${i.invoiceId}`,
-    label: i.clientName ?? i.invoiceNumber,
+    label: i.clientName ?? name,
     detail,
     value: formatCurrency(i.amount, i.currency),
     tone,
     actions: (
       <>
-        <Action
-          label={MARK[status].label}
-          ariaLabel={`Mark ${i.invoiceNumber} ${status}`}
-          icon={MARK[status].icon}
-          onClick={() => h.onStatus({ id: i.invoiceId, status })}
-        />
+        {/* A draft is marked sent only once its download has numbered it. */}
+        {i.invoiceNumber !== null ? (
+          <Action
+            label={MARK[status].label}
+            ariaLabel={`Mark ${name} ${status}`}
+            icon={MARK[status].icon}
+            onClick={() => h.onStatus({ id: i.invoiceId, status })}
+          />
+        ) : null}
         {h.downloads ? (
           <Action
             label="Download"
-            ariaLabel={`Download ${i.invoiceNumber}`}
+            ariaLabel={`Download ${name}`}
             icon={<Download aria-hidden />}
             href={api.invoicePdfUrl(i.invoiceId)}
           />

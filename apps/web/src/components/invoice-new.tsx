@@ -32,7 +32,6 @@ import {
   defaultInvoicePeriod,
   attachedSchedules,
   formatCurrency,
-  formatInvoiceNumber,
   isPeriod,
   localDateKey,
   resolvePaymentProfile,
@@ -248,13 +247,12 @@ function useLivePreview(
   return { preview, current: chosen ? preview.data : undefined, updating };
 }
 
-/** The number Generate takes, shown before it does: one that repeats an
+/** When the number comes, with the way to the next one: one that repeats an
     invoice sent before Stint is caught while it can still change. */
-function NumberLine({ number }: { number: string }) {
-  if (!number) return null;
+function NumberLine() {
   return (
     <p className="type-support text-subtle">
-      Numbered {number} ·{' '}
+      Numbered when you first download it ·{' '}
       <Link
         href="/settings#numbering"
         className="text-strong underline underline-offset-2"
@@ -265,24 +263,15 @@ function NumberLine({ number }: { number: string }) {
   );
 }
 
-/** The number Generate takes, and the due date the client's payment terms,
- *  else the user's, set from `issued`; both '' until the settings answer. */
-function fromSettings(
+/** The due date the client's payment terms, else the user's, set from
+ *  `issued`; '' until the settings answer. */
+function termsDueFrom(
   settings: Settings | undefined,
   issued: string,
   client: Client | undefined,
 ) {
-  if (!settings) return { number: '', termsDue: '' };
-  return {
-    number: formatInvoiceNumber(
-      settings.invoiceNumberPrefix,
-      settings.nextInvoiceNumber,
-    ),
-    termsDue: addDays(
-      issued,
-      client?.paymentTermsDays ?? settings.paymentTermsDays,
-    ),
-  };
+  if (!settings) return '';
+  return addDays(issued, client?.paymentTermsDays ?? settings.paymentTermsDays);
 }
 
 /** `value` once it has stopped changing for `ms`. */
@@ -387,7 +376,7 @@ function Form() {
     draft.clientId !== '',
   );
 
-  const { number, termsDue } = fromSettings(settings, issued, client);
+  const termsDue = termsDueFrom(settings, issued, client);
   const due = draft.dueDate ?? termsDue;
   const earlyDue = due !== '' && due < issued;
 
@@ -406,10 +395,9 @@ function Form() {
       api.createInvoice({
         ...billed,
         schedules,
-        // The date the card shows, where the user is. The server's fallback
-        // is UTC, a day ahead on a US evening.
-        issueDate: issued,
-        dueDate: due || undefined,
+        // Only a date the user picked: otherwise the draft takes its terms'
+        // date when its PDF first renders.
+        dueDate: draft.dueDate ?? undefined,
         reference: draft.reference.trim() || undefined,
         // The profile the card shows, frozen as it is now.
         paymentProfileId: profile?.id,
@@ -453,7 +441,9 @@ function Form() {
       clientProfileId: client?.paymentProfileId,
       defaultProfileId: profiles.find((p) => p.isDefault)?.id,
     });
-  const payment = buildPaymentDetails(profile, { invoiceNumber: number });
+  // The payment reference is the number, added when the first download
+  // gives one.
+  const payment = buildPaymentDetails(profile);
 
   /* One open draft per client and date: the server refuses another, so the
      form says which draft holds these dates before Generate is pressed. */
@@ -598,7 +588,7 @@ function Form() {
                     href={`/invoices/${covering.id}`}
                     className="text-strong underline underline-offset-2"
                   >
-                    {covering.invoiceNumber}
+                    {covering.invoiceNumber ?? 'open it'}
                   </Link>
                   . Start after {shortDate(covering.periodEnd)}, or open that
                   draft.
@@ -613,7 +603,7 @@ function Form() {
                   maxLength={200}
                 />
               </Field>
-              <NumberLine number={number} />
+              <NumberLine />
             </div>
 
             <Field label="Show time as" htmlFor="inv-group">
@@ -680,7 +670,7 @@ function Form() {
               client={client}
               business={businessOf(settings)}
               settings={settings}
-              number={number}
+              number="Given at download"
               issued={issued}
               due={due}
               reference={draft.reference.trim()}

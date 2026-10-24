@@ -68,6 +68,13 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   /* A draft is sent as its period's work is now, refreshed and sent in one
      transaction; one with no zone yet is sent as it stands. */
   if (body.status === 'sent' && current.status === 'draft') {
+    /* What reached the client carried a number, which only its PDF's first
+       render gives. */
+    if (current.invoice_number === null)
+      throw new ApiError(
+        'DRAFT_NOT_DOWNLOADED',
+        'Download this draft first: that gives it its number and dates, and it is what you send.',
+      );
     const { row } = await refreshDraft(db, current as InvoiceRow, tz, {
       sentAt: body.sentAt ?? now.toISOString(),
     });

@@ -8,5 +8,11 @@
   },
   "ignoreCommand": "bash scripts/vercel-ignore.sh",
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm build"
+  "buildCommand": "pnpm build",
+  "crons": [
+    {
+      "path": "/api/v1/cron/drafts",
+      "schedule": "0 14 * * *"
+    }
+  ]
 }

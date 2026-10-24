@@ -403,7 +403,6 @@ export const api = {
     schedules?: ScheduleKind[];
     reference?: string;
     paymentProfileId?: string;
-    issueDate?: string;
     dueDate?: string;
     notes?: string;
   }) =>

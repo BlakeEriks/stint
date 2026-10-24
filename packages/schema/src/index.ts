@@ -294,6 +294,11 @@ export const Settings = z.object({
   nextInvoiceNumber: z.number().int().positive().max(NEXT_INVOICE_NUMBER_MAX),
   /** Standing anti-fraud line printed under the invoice payment block. */
   paymentNotice: z.string().max(500).nullable(),
+  /** Where "a period has ended" is judged; null is UTC until the app
+   *  records the browser's. */
+  timeZone: ianaZone.nullable(),
+  autoDrafts: z.boolean(),
+  readyEmail: z.boolean(),
   /** When the welcome dialog was finished or skipped; null shows it. */
   welcomedAt: iso.nullable(),
 });
@@ -485,7 +490,6 @@ export type ManualLine = z.infer<
 >['manualLines'][number];
 
 export const CreateInvoice = InvoicePreviewRequest.extend({
-  issueDate: z.iso.date().optional(),
   dueDate: z.iso.date().optional(),
   notes: z.string().max(2000).optional(),
   /** The PO, contract or SOW the client matches the invoice to. */
@@ -535,8 +539,11 @@ export const InvoiceStatus = z.enum(['draft', 'sent', 'paid', 'void']);
 export const Invoice = z.object({
   id: uuid,
   clientId: uuid,
-  invoiceNumber: z.string(),
-  sequenceNo: z.number().int().positive(),
+  /** Null on a draft until its PDF is first rendered, which numbers it and
+   *  fixes its dates and terms; until then those are what it would get
+   *  today. */
+  invoiceNumber: z.string().nullable(),
+  sequenceNo: z.number().int().positive().nullable(),
   status: InvoiceStatus,
   issueDate: z.iso.date(),
   dueDate: z.iso.date().nullable(),
@@ -885,6 +892,9 @@ export const Stats = z.object({
     /** Old free-text terms that read as no number of days: the Inbox asks
      *  the user to check the 30 they became. */
     paymentTermsToCheck: z.string().nullable(),
+    /** Automatic drafts are on and a client is scheduled, but there's no
+     *  business name or email, which every invoice needs. */
+    autoDraftsBlocked: z.boolean(),
     overdueInvoices: z.array(
       z.object({
         invoiceId: uuid,
@@ -899,7 +909,7 @@ export const Stats = z.object({
     staleDrafts: z.array(
       z.object({
         invoiceId: uuid,
-        invoiceNumber: z.string(),
+        invoiceNumber: z.string().nullable(),
         clientId: uuid,
         clientName: z.string().nullable(),
         amount: money,
@@ -1072,6 +1082,7 @@ export const ErrorCode = z.enum([
   'ENTRY_ALREADY_INVOICED',
   'INVOICE_STATUS_CHANGED',
   'DRAFT_CHANGED',
+  'DRAFT_NOT_DOWNLOADED',
   'DRAFT_OVERLAPS',
   'ENTRY_NOT_FOUND',
   'NO_RATE_CONFIGURED',

@@ -92,9 +92,11 @@ section first.
 
 **There is no team, so there is nothing to build for one.**
 
-**The app sends no mail.** We render the PDF and the user sends it from their
-own address, where their domain's reputation gets it delivered and their Sent
-folder keeps a copy. Competitors email invoices, so expect the comparison.
+**Stint never sends an invoice to a client.** We render the PDF and the user
+sends it from their own address, where their domain's reputation gets it
+delivered and their Sent folder keeps a copy. Competitors email invoices, so
+expect the comparison. Mail to the user is fine: a sign-in link, or a note
+that a scheduled draft is ready to send.
 
 ## What this is a bet on
 

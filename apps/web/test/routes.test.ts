@@ -57,6 +57,7 @@ beforeEach(async () => {
     `update user_settings set default_hourly_rate=100,
                     week_starts_on=1, next_invoice_number=1,
                     payment_terms_days=30, legacy_payment_terms=null,
+                    auto_drafts=true, ready_email=true, time_zone=null,
                     -- Off, so a long fixture elsewhere does not also raise the
                     -- strange-duration row; its own tests set a threshold.
                     min_entry_seconds=null, max_entry_hours=null
@@ -461,8 +462,8 @@ test('editing an entry billed on a sent invoice returns 409 ENTRY_LOCKED', async
     USER,
   ]);
   await pool.query(
-    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status)
-                    values ($1,$2,$3,'INV-0001',1,'sent')`,
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status,issue_date)
+                    values ($1,$2,$3,'INV-0001',1,'sent',current_date)`,
     [
       'ff000000-0000-4000-8000-000000000001',
       USER,
@@ -1316,6 +1317,9 @@ test('every settable field round-trips, rather than being silently dropped', asy
     businessAddress: '1 Main St\nAustin, TX 78701',
     paymentNotice: 'Details never change. Verify by phone.',
     invoiceNumberPrefix: 'STINT-',
+    timeZone: 'America/Denver',
+    autoDrafts: false,
+    readyEmail: false,
   };
 
   const res = await json(await patch(req('/settings', sent, 'PATCH')));
@@ -1365,6 +1369,33 @@ test('stats asks about old payment terms until the user saves theirs', async () 
 
   await patch(req('/settings', { paymentTermsDays: 30 }, 'PATCH'));
   assert.equal(await ask(), null);
+});
+
+/* The daily job can't make an invoice without a sender, so the Inbox says
+   so while it would otherwise draft one. */
+test('stats says automatic drafts are blocked without a sender', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const blocked = async () =>
+    (await json(await stats(req('/stats?tz=UTC')))).body.attention
+      .autoDraftsBlocked;
+  await pool.query(
+    `update user_settings set business_name=null, auto_drafts=true where user_id=$1`,
+    [USER],
+  );
+  assert.equal(await blocked(), false, 'no client is scheduled');
+
+  await pool.query(
+    `insert into clients (id,user_id,name,billing_period)
+     values ('33333333-0000-4000-8000-0000000000d1',$1,'Northwind','monthly')`,
+    [USER],
+  );
+  assert.equal(await blocked(), true);
+
+  await pool.query(
+    `update user_settings set auto_drafts=false where user_id=$1`,
+    [USER],
+  );
+  assert.equal(await blocked(), false, 'the user turned the job off');
 });
 
 /* The Inbox asks for a default rate while there is none. Zero is a rate,
@@ -2787,13 +2818,14 @@ test('a draft is stale only after a week, and the oldest sorts first', async () 
   const dayKey = (offset: number) =>
     new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
 
-  const mk = (id: string, num: string, issued: string, status = 'draft') =>
+  const mk = (id: string, num: string, ended: string, status = 'draft') =>
     pool.query(
       `insert into invoices
          (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
+          period_start,period_end,
           subtotal,tax_rate,tax_amount,total,currency,grouping_mode)
-       values ($1,$2,$3,$4,$5,$6,$7,100,0,0,100,'USD','entry')`,
-      [id, USER, c, num, Number(num.slice(-1)), status, issued],
+       values ($1,$2,$3,$4,$5,$6,$7,$7,$7,100,0,0,100,'USD','entry')`,
+      [id, USER, c, num, Number(num.slice(-1)), status, ended],
     );
 
   await mk('45444444-0000-4000-8000-000000000001', 'INV-0001', dayKey(-2));
@@ -2840,8 +2872,9 @@ test('a stale draft carries the money and the client it belongs to', async () =>
   await pool.query(
     `insert into invoices
        (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
+        period_start,period_end,
         subtotal,tax_rate,tax_amount,total,currency,grouping_mode)
-     values ($1,$2,$3,'INV-0009',9,'draft',$4,400,0,0,400,'USD','entry')`,
+     values ($1,$2,$3,'INV-0009',9,'draft',$4,$4,$4,400,0,0,400,'USD','entry')`,
     [
       '45444444-0000-4000-8000-000000000009',
       USER,
@@ -3611,8 +3644,8 @@ test('/stats flags an entry that overlaps time already billed', async () => {
     [p, USER, c],
   );
   await pool.query(
-    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status,sent_at)
-     values ($1,$2,$3,'INV-0001',1,'sent',now())`,
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status,sent_at,issue_date)
+     values ($1,$2,$3,'INV-0001',1,'sent',now(),current_date)`,
     [inv, USER, c],
   );
   // 9-10 was billed on that invoice; 9:30-10:30 was added afterwards. The
@@ -3657,8 +3690,8 @@ test('/stats pairs only billable work against billed time', async () => {
     [p, USER, c],
   );
   await pool.query(
-    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status,sent_at)
-     values ($1,$2,$3,'INV-0001',1,'sent',now())`,
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status,sent_at,issue_date)
+     values ($1,$2,$3,'INV-0001',1,'sent',now(),current_date)`,
     [inv, USER, c],
   );
   // Non-billable work is never invoiced, so overlapping billed time bills
@@ -4643,8 +4676,8 @@ test('every response the macOS app decodes matches its fixture', async (t) => {
     archived.id,
   ]);
   const invoice = await pool.query(
-    `insert into invoices (user_id, client_id, invoice_number, sequence_no)
-     values ($1, $2, 'INV-1', 1) returning id`,
+    `insert into invoices (user_id, client_id, invoice_number, sequence_no,issue_date)
+     values ($1, $2, 'INV-1', 1,current_date) returning id`,
     [USER, client.id],
   );
   await pool.query(

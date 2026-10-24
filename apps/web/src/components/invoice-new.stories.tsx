@@ -452,12 +452,14 @@ export const NoReference: Story = {
   },
 };
 
-/** The number Generate takes shows before it does, linked to the setting
-    that moves it. */
+/** The number comes at the first download, and the setting that moves it
+    is a link away. */
 export const NumberLinksToSetting: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
-    const line = await within(canvasElement).findByText(/Numbered STINT-0016/);
+    const line = await within(canvasElement).findByText(
+      /Numbered when you first download it/,
+    );
     await expect(
       within(line).getByRole('link', { name: 'Change' }),
     ).toHaveAttribute('href', '/settings#numbering');
@@ -594,7 +596,7 @@ export const FromLastInvoice: Story = {
       const last = db.invoices
         .filter((i) => i.clientId === ids.northwind && i.status !== 'void')
         .sort(
-          (a, b) => b.sequenceNo - a.sequenceNo,
+          (a, b) => (b.sequenceNo ?? 0) - (a.sequenceNo ?? 0),
         )[0] as Db['invoices'][number];
       last.groupingMode = 'summary';
       last.summaryText = 'Software consulting services';

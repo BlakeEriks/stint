@@ -38,18 +38,21 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
       'Downloading an invoice is on the paid plan. Subscribe in Settings.',
     );
   const download = new URL(req.url).searchParams.get('download') === '1';
+  // Rendering numbered it, so only a failure upstream leaves it without one.
+  const number = invoice.invoiceNumber;
+  if (number === null) throw new Error(`Invoice ${id} rendered unnumbered`);
 
   // Imported dynamically: the renderer module is JSX, and deferring it keeps
   // this handler loadable by the type-stripping test runner.
   const { renderInvoicePdf } = await import('@/lib/invoice-pdf');
-  const bytes = await renderInvoicePdf(pdfData);
+  const bytes = await renderInvoicePdf({ ...pdfData, invoiceNumber: number });
 
   // Uint8Array is a valid BodyInit at runtime; the generic ArrayBufferLike
   // parameter in TS 5.7's lib types makes the overload miss.
   return new Response(bytes as unknown as BodyInit, {
     headers: {
       'content-type': 'application/pdf',
-      'content-disposition': `${download ? 'attachment' : 'inline'}; filename="${invoice.invoiceNumber}.pdf"`,
+      'content-disposition': `${download ? 'attachment' : 'inline'}; filename="${number}.pdf"`,
       'cache-control': 'private, no-store',
     },
   });
