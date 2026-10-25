@@ -20,17 +20,13 @@ import { keys, invalidateEntryData } from './query-keys.ts';
 import { useOptimisticMutation } from './mutations.ts';
 
 /**
- * The zone this render is happening in. "Today" is a local question the
- * server cannot infer.
- *
- * Read once at module load: it cannot change while the page is open.
- *
- * Resolved the same way on both sides deliberately — timestamps reach the
- * markup formatted in this zone, so the prerender is in the deploy region's
- * zone and the browser corrects it on hydration.
+ * The zone the device is in now. "Today" is a local question the server
+ * cannot infer, and the answer moves with a traveling phone, so each app
+ * decides when to ask again and passes it to `useTimer`.
  */
-export const timeZone =
-  Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+export function currentTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+}
 
 /**
  * A second-resolution clock, shared by everything that counts up.
@@ -71,7 +67,7 @@ function useTick(active: boolean): boolean {
  * `api` is the calling app's: the web's sends its cookie, the phone's a
  * bearer token.
  */
-export function useTimer(api: TimerApi) {
+export function useTimer(api: TimerApi, timeZone: string) {
   const queryClient = useQueryClient();
   const summary = useQuery({
     queryKey: keys.summary(),
@@ -141,6 +137,8 @@ export function useTimer(api: TimerApi) {
     serial: 'timer',
     movesHome: true,
   };
+  /** What a start or stop asks back: the bar's summary and Home's figures. */
+  const HOME: Include = { names: ['summary', 'stats'], tz: timeZone };
   const settles = { ...timerPress, include: HOME };
 
   /* `id` comes from the caller so the prediction and the row the server
@@ -206,6 +204,7 @@ export function useTimer(api: TimerApi) {
             ? withTodayBar(
                 current as Stats | undefined,
                 Math.min(sinceSeconds(fetchedAt), liveSeconds),
+                timeZone,
               )
             : current;
         },
@@ -242,9 +241,6 @@ export function useTimer(api: TimerApi) {
   };
 }
 
-/** What a start or stop asks back: the bar's summary and Home's figures. */
-const HOME: Include = { names: ['summary', 'stats'], tz: timeZone };
-
 /**
  * A cached `/entries` list with `change` applied to its rows. A single
  * entry, cached under the same prefix, is left alone.
@@ -259,10 +255,10 @@ function withEntries(
     : current;
 }
 
-/** `stats` with `seconds` more on today's bar. */
-function withTodayBar(stats: Stats | undefined, seconds: number) {
+/** `stats` with `seconds` more on today's bar, today being in `tz`. */
+function withTodayBar(stats: Stats | undefined, seconds: number, tz: string) {
   if (!stats || seconds === 0) return stats;
-  const today = localDateKey(new Date(), timeZone);
+  const today = localDateKey(new Date(), tz);
   return {
     ...stats,
     week: stats.week.map((d) =>

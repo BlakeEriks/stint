@@ -1,7 +1,6 @@
 import {
   ApiError,
   keys,
-  timeZone,
   useFailedPress,
   useTimer,
   type Client,
@@ -24,6 +23,7 @@ import {
   TimerScreen,
 } from '../screens/timer-screen.tsx';
 import type { Api } from '../api.ts';
+import { useTimeZone } from './use-time-zone.ts';
 
 const RECENT = 5;
 
@@ -37,7 +37,8 @@ export function TimerContainer({
   email: string;
   onSignOut: () => void;
 }) {
-  const timer = useTimer(api);
+  const timeZone = useTimeZone();
+  const timer = useTimer(api, timeZone);
   const running = timer.running;
   const [settings, setSettings] = useState(false);
   const notice = useNotice(timer.error);
