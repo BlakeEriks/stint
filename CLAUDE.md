@@ -17,6 +17,7 @@ adding to it, name the doc that owns the claim:
 | A visual or UI convention every screen keeps | `.claude/rules/web-ui.md` |
 | Why one screen or component is the way it is | a comment at the line it governs |
 | About the macOS app | `docs/macos.md`, `docs/design/menubar.html` |
+| About the phone app | `docs/mobile.md` |
 | Enforced by a check or a config | that script or config, in a comment at the line someone edits |
 | True only under one path | `.claude/rules/<topic>.md`, with `paths:` frontmatter |
 | A new capability, or a fault or improvement | a GitHub issue (`docs/sdlc.md`) |

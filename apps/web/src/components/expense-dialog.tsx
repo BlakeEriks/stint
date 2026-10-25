@@ -16,9 +16,8 @@ import { ConfirmAction } from '@/components/confirm-action';
 import { Input } from '@/components/ui/input';
 import { Field, textareaClass } from './field';
 import { timeZone as tz } from '@/lib/client/use-timer';
-import { useOptimisticMutation } from '@/lib/client/mutations';
+import { useOptimisticMutation, keys } from '@stint/client';
 import { api, ApiError, type Client, type Expense } from '@/lib/client/api';
-import { keys } from '@/lib/client/query-keys';
 
 /**
  * Adds or edits one expense for one client. The client is fixed: the dialog

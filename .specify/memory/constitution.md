@@ -48,6 +48,7 @@ money, a write, a route, a policy, sign-in, and the logic in
 | A table | RLS enabled with policies, and a cross-user case in `apps/web/test/rls.test.ts` |
 | `packages/core` | `packages/core/test` |
 | Client logic: a hook, a form's rules | `apps/web/test/ui` |
+| The phone app's client logic: its session, its requests | `apps/mobile/test` |
 | A screen, and each state a user can see | its `*.stories.tsx`, one story per acceptance scenario |
 | Sign-in and invoicing, end to end | `apps/web/e2e` |
 
@@ -66,14 +67,15 @@ validated form, a generated invoice) or that can't be taken back (a send, a
 delete, money) shows a pending state on the control instead. Never neither.
 
 Every write goes through one mechanism per platform —
-`useOptimisticMutation` (`apps/web/src/lib/client/mutations.ts`) or the
+`useOptimisticMutation` (`packages/client/src/mutations.ts`), which the
+web and phone apps share, or the
 `Optimistic` protocol's `press` (`apps/macos/Sources/Stint/Optimistic.swift`)
 — which gives both the same rules: overlapping presses let the latest win,
 a timer's presses reach the server in press order, a silent server fails a
 prediction after 10s, and a late answer refetches. A pending press has no
 bound, because "try again" on a write that landed could make it twice.
-`apps/web/scripts/check-mutation-usage.mjs` fails a web file that imports `useMutation`, with
-no opt-out; on macOS the PR checklist asks.
+`scripts/check-mutation-usage.mjs` fails a web or phone file that imports
+`useMutation`, with no opt-out; on macOS the PR checklist asks.
 
 The server stays the truth (Principle III): its answer to the last press,
 refetched or included with the write, replaces every prediction. A rejection takes the prediction back and says
@@ -100,7 +102,8 @@ Facts a design works around:
   the whole overhead; an always-on service or a paid tier changes
   positioning first.
 - **Online-only, US-first**, on Next.js route handlers, Supabase Postgres
-  with RLS, and a native Swift macOS app (`docs/architecture.md`).
+  with RLS, a native Swift macOS app, and an Expo phone app
+  (`docs/architecture.md`).
 
 ## Development Workflow
 
@@ -116,4 +119,4 @@ change, the plausible design that breaks it, and why no check catches that
 in time. The version follows semver: MAJOR removes or redefines a principle,
 MINOR adds one, PATCH rewords. The reasoning goes in the PR.
 
-**Version**: 8.0.3 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-10-25
+**Version**: 8.0.4 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-10-25

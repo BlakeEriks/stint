@@ -5,7 +5,7 @@ import { api } from '@/lib/client/api';
 import { TimerBar } from './timer-bar';
 import { useTimer } from '@/lib/client/use-timer';
 import { useHydrated } from '@/lib/client/use-hydrated';
-import { keys } from '@/lib/client/query-keys';
+import { keys } from '@stint/client';
 
 /**
  * `TimerBar`, wired to its own data so the server-component layout can mount

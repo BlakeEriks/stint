@@ -13,8 +13,8 @@ import {
   type Include,
   type Included,
   type IncludedName,
-} from './api';
-import { keys } from './query-keys';
+} from './api.ts';
+import { keys } from './query-keys.ts';
 
 /**
  * The one way the web app writes (Constitution VI). Every press answers in
@@ -125,7 +125,7 @@ interface Context {
 
 /** Where each read a write can include is cached. */
 const INCLUDED_KEY: Record<IncludedName, (tz: string) => QueryKey> = {
-  summary: () => keys.summary(),
+  summary: (tz) => keys.summary(tz),
   stats: (tz) => keys.stats(tz),
 };
 

@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stint phone: the timer</title>
+<style>
+/* GENERATED from tokens.json — do not edit by hand. Run `pnpm tokens`. */
+/* The palette for docs/design mockups. Token names are the RAW ones
+   (--bg-primary, --text-muted, --border-subtle), not the Tailwind-stripped
+   utilities the app uses — a mockup writes plain CSS, so there is no prefix
+   collision to work around. */
+
+:root {
+    --bg-recessed: #0A0B0E;
+    --bg-base: #111316;
+    --bg-primary: #181B1F;
+    --bg-elevated: #202328;
+    --bg-hover: #272A30;
+    --bg-active: #2F333A;
+    --text-strong: #F9FAFD;
+    --text-primary: #CACED7;
+    --text-muted: #A0A7B4;
+    --text-subtle: #8F96A4;
+    --text-on-accent: #111316;
+    --text-on-danger: #111316;
+    --overlay: #05060899;
+    --border-grid: #272A30;
+    --border-subtle: #2F333A;
+    --border-default: #393E48;
+    --border-control: #666D79;
+    --border-focus: #ABB1BD;
+    --accent-default: #52FC43;
+    --accent-hover: #8EFD83;
+    --accent-active: #3FE231;
+    --accent-subtle: #0E4B09;
+    --accent-muted: #1B3518;
+    --timer-running: #52FC43;
+    --timer-idle: #666D79;
+    --timer-warning: #5CABF2;
+    --success: #36C52A;
+    --warning: #5CABF2;
+    --warning-muted: #162B40;
+    --danger: #F64B66;
+    --danger-muted: #471F23;
+    --info: #6D7FAE;
+
+    --shadow-card: 0 1px 2px rgba(0,0,0,0.40), 0 2px 10px rgba(0,0,0,0.34);
+    --shadow-float: 0 2px 4px rgba(0,0,0,0.44), 0 8px 24px rgba(0,0,0,0.40);
+    --shadow-halo-running: 0 0 0 3px color-mix(in oklab, var(--timer-running) 18%, transparent);
+
+    --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    --motion-instant: 90ms;
+    --motion-quick: 160ms;
+    --motion-count: 900ms;
+    --motion-rise: 3px;
+    --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+    --ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+    --ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+
+    --mark-bound-width: 0.09em;
+    --mark-bound-height: 1.05em;
+    --mark-bound-gap: 0.18em;
+    --mark-bound-radius: 999px;
+
+    --proj-1: #DA8188;
+    --proj-2: #D38B59;
+    --proj-3: #B49D46;
+    --proj-4: #42B59A;
+    --proj-5: #35AFC9;
+    --proj-6: #6EA1E2;
+    --proj-7: #A390DC;
+    --proj-8: #C984BA;
+
+    --cat-1: #64A3E3;
+    --cat-2: #F6964E;
+
+    --print-ground: #FFFFFF;
+    --print-ink: #1A1C21;
+    --print-muted: #626875;
+    --print-faint: #707784;
+    --print-rule: #D1D5DD;
+    --print-hairline: #E4E6EC;
+    --print-band: #F2F3F6;
+    --print-void: #E9504D;
+}
+
+[data-theme="light"] {
+    --bg-recessed: #E8E2D8;
+    --bg-base: #EEE9E0;
+    --bg-primary: #F4F0E8;
+    --bg-elevated: #FAF6EF;
+    --bg-hover: #DED8CD;
+    --bg-active: #D1CABE;
+    --text-strong: #0B0A09;
+    --text-primary: #2D2A25;
+    --text-muted: #565149;
+    --text-subtle: #635E56;
+    --text-on-accent: #FFFFFF;
+    --text-on-danger: #FFFFFF;
+    --overlay: #1B1E2799;
+    --border-grid: #DED8CD;
+    --border-subtle: #D1CABE;
+    --border-default: #C1BDB5;
+    --border-control: #938E86;
+    --border-focus: #4C4841;
+    --accent-default: #315424;
+    --accent-hover: #2A491E;
+    --accent-active: #233F19;
+    --accent-subtle: #4A783A;
+    --accent-muted: #E0EFDB;
+    --timer-running: #3A632C;
+    --timer-idle: #938E86;
+    --timer-warning: #1C6DAD;
+    --success: #457036;
+    --warning: #1C6DAD;
+    --warning-muted: #E3EEF8;
+    --danger: #C21F43;
+    --danger-muted: #FFEBEB;
+    --info: #4A5A85;
+
+    --shadow-card: 0 1px 2px rgba(16,18,26,0.06), 0 2px 8px rgba(16,18,26,0.07);
+    --shadow-float: 0 2px 4px rgba(16,18,26,0.08), 0 8px 24px rgba(16,18,26,0.10);
+    --shadow-halo-running: 0 0 0 3px color-mix(in oklab, var(--timer-running) 22%, transparent);
+}
+
+/* ── The type scale ────────────────────────────────────────────────
+   One class per role, same as the app's @utility set. A mockup names a
+   role (type-amount) and never assembles one, so a doc cannot invent a
+   size the product does not have. */
+.type-timer {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    @media (width >= 40rem) { font-size: 30px; }
+    font-variant-numeric: tabular-nums;
+}
+
+.type-title {
+    font-family: var(--font-sans);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+}
+
+.type-hero {
+    font-family: var(--font-sans);
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    @media (width >= 40rem) { font-size: 44px; }
+}
+
+.type-figure {
+    font-family: var(--font-mono);
+    font-size: 30px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-figure-hero {
+    font-family: var(--font-mono);
+    font-size: 40px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-lede {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 400;
+    @media (width >= 40rem) { font-size: 17px; }
+}
+
+.type-display {
+    font-family: var(--font-sans);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    @media (width >= 40rem) { font-size: 28px; }
+}
+
+.type-section {
+    font-family: var(--font-sans);
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.type-heading {
+    font-family: var(--font-sans);
+    font-size: 16.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.type-body {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 400;
+}
+
+.type-control {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.type-support {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 400;
+}
+
+.type-amount {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-amount-hero {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-duration {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-meta {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-meta-strong {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-wordmark {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+}
+
+.type-wordmark-small {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+}
+
+.type-nav {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.type-region-head {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+}
+
+.type-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.type-badge {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* ── The mark ──────────────────────────────────────────────────────
+   `|Stint|` — one color, bounds included, inherited via currentColor.
+   Set a font-size on .mark and everything scales from it. */
+.mark {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+.mark::before,
+.mark::after {
+    content: '';
+    display: inline-block;
+    flex: none;
+    width: var(--mark-bound-width);
+    height: var(--mark-bound-height);
+    margin: 0 var(--mark-bound-gap);
+    border-radius: var(--mark-bound-radius);
+    background: currentColor;
+}
+
+</style>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg-recessed); color: var(--text-primary); font-family: var(--font-sans); }
+  .page { max-width: 1240px; margin: 0 auto; padding: 32px 24px 64px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin: 20px 0 8px; }
+  .seg { display: inline-flex; border: 1px solid var(--border-default); border-radius: 8px; overflow: hidden; }
+  .seg button { background: var(--bg-primary); color: var(--text-muted); border: 0; padding: 7px 12px; cursor: pointer; }
+  .seg button + button { border-left: 1px solid var(--border-default); }
+  .seg button[aria-pressed="true"] { background: var(--bg-active); color: var(--text-strong); }
+  .note { color: var(--text-muted); margin: 6px 0 0; }
+  .note b { color: var(--text-strong); font-weight: 500; }
+  .stage { display: flex; flex-wrap: wrap; gap: 40px; margin-top: 28px; align-items: flex-start; }
+  .col { display: flex; flex-direction: column; gap: 10px; }
+  .cap { color: var(--text-subtle); text-transform: uppercase; letter-spacing: .08em; }
+
+  /* The phone: a frame only, so the screen reads at its real size. */
+  .phone { width: var(--w, 390px); height: 844px; border-radius: 44px; padding: 10px;
+           background: var(--bg-active); box-shadow: var(--shadow-float); }
+  .screen { position: relative; height: 100%; border-radius: 36px; overflow: hidden;
+            background: var(--bg-base); display: flex; flex-direction: column; }
+  .status { height: 50px; flex: none; display: flex; justify-content: space-between; align-items: center;
+            padding: 0 28px; color: var(--text-strong); }
+  .home { height: 30px; flex: none; display: grid; place-items: center; }
+  .home i { width: 134px; height: 5px; border-radius: 3px; background: var(--text-strong); opacity: .8; }
+
+  .head { display: flex; align-items: center; justify-content: space-between; padding: 6px 20px 14px; }
+  .mark { color: var(--text-strong); }
+  .target { color: var(--warning); border: 1px solid var(--border-default); border-radius: 999px; padding: 2px 8px; margin-left: 8px; }
+  .gear { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: var(--text-muted); border: 1px solid var(--border-subtle); }
+
+  .body { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  .pad { padding: 0 20px; }
+  .rule { height: 1px; background: var(--border-subtle); margin: 0 20px; }
+
+  .row { display: flex; align-items: center; gap: 12px; }
+  .grow { flex: 1; min-width: 0; }
+  .trunc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .dot.ring { background: transparent; border: 1.5px solid var(--text-subtle); }
+  .strong { color: var(--text-strong); }
+  .muted { color: var(--text-muted); }
+  .subtle { color: var(--text-subtle); }
+  .run { color: var(--timer-running); }
+  .idle { color: var(--timer-idle); }
+
+  .transport { flex: none; width: 56px; height: 56px; border-radius: 50%; border: 0; display: grid; place-items: center;
+               background: var(--accent-default); color: var(--text-on-accent); }
+  .transport.stop { background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border-default); }
+  .transport.big { width: 76px; height: 76px; }
+  .tri { width: 0; height: 0; margin-left: 4px; border-left: 15px solid currentColor; border-top: 10px solid transparent; border-bottom: 10px solid transparent; }
+  .sq { width: 16px; height: 16px; border-radius: 3px; background: currentColor; }
+  .transport.pending { background: var(--bg-active); color: var(--text-muted); }
+
+  .field { width: 100%; background: var(--bg-primary); border: 1px solid var(--border-default); border-radius: 10px;
+           padding: 13px 14px; color: var(--text-strong); }
+  .field.ph { color: var(--text-subtle); }
+  .field.focus { border: 2px solid var(--border-focus); padding: 12px 13px; }
+  .field.code { text-align: center; letter-spacing: .3em; }
+  .picker { display: flex; align-items: center; gap: 8px; background: var(--bg-primary); border: 1px solid var(--border-default);
+            border-radius: 10px; padding: 12px 14px; color: var(--text-primary); }
+  .btn { width: 100%; border: 0; border-radius: 12px; padding: 15px; background: var(--accent-default); color: var(--text-on-accent); text-align: center; }
+  .btn.inert { background: var(--bg-active); color: var(--text-muted); }
+  .btn.quiet { background: transparent; color: var(--text-muted); }
+  .btn.stopbtn { background: var(--bg-elevated); color: var(--text-strong); border: 1px solid var(--border-default); }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .stat { background: var(--bg-primary); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 12px 14px; }
+  .label { text-transform: uppercase; letter-spacing: .14em; color: var(--text-subtle); }
+  .recent .item { display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--border-subtle); }
+  .recent .item:last-child { border-bottom: 0; }
+  .play { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: var(--text-muted); border: 1px solid var(--border-default); flex: none; }
+  .play .tri { border-left-width: 9px; border-top-width: 6px; border-bottom-width: 6px; margin-left: 3px; }
+
+  .dock { background: var(--bg-primary); border-top: 1px solid var(--border-subtle); padding: 16px 20px 6px; }
+  .notice { margin: 0 20px 12px; padding: 10px 12px; border-radius: 10px; background: var(--danger-muted); color: var(--text-strong); border: 1px solid var(--danger); }
+  .notice.warn { background: var(--warning-muted); border-color: var(--warning); }
+  .empty { padding: 18px 0; color: var(--text-muted); }
+  .center { text-align: center; }
+  .stack { display: flex; flex-direction: column; gap: 12px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="type-wordmark-small strong">STINT</div>
+  <h1 class="type-title strong" style="margin:6px 0 4px">The phone timer</h1>
+  <p class="type-body muted" style="margin:0;max-width:72ch">
+    Today and Earned lead, Recent fills the middle, and the whole timer is docked at the bottom in thumb reach.
+    Data is the seeded account's (<code>apps/web/src/mocks/fixtures.ts</code>).
+  </p>
+
+  <div class="bar">
+    <span class="type-meta subtle">State</span>
+    <div class="seg" id="state"></div>
+  </div>
+  <div class="bar">
+    <span class="type-meta subtle">Theme</span>
+    <div class="seg" id="theme"></div>
+    <span class="type-meta subtle">Width</span>
+    <div class="seg" id="width"></div>
+  </div>
+  
+  <div class="stage" id="stage"></div>
+</div>
+
+<script>
+const STATES = {
+  stopped: 'Stopped', running: 'Running', empty: 'First day', refused: 'Refused', offline: 'Offline',
+};
+const SIGNIN = new Set(['email', 'code']);
+let s = 'stopped', theme = 'dark', w = 390;
+
+const RUN = { task: 'Checkout timeout fix', project: 'Rush: peak season fixes', client: 'Northwind Trading', color: 'var(--proj-6)', time: '0:47:12' };
+const RECENT = [
+  ['Filter panel and saved views', 'Warehouse dashboard', 'var(--proj-6)'],
+  ['Pairing on the ingest job', 'Data pipeline audit', 'var(--proj-7)'],
+  ['Client call and follow-ups', 'Rush: peak season fixes', 'var(--proj-6)'],
+  ['Sprint planning', 'Warehouse dashboard', 'var(--proj-6)'],
+  ['Homepage hero layout', 'Brand site rebuild', null],
+];
+const dot = (c) => c ? `<span class="dot" style="background:${c}"></span>` : '<span class="dot ring"></span>';
+const tri = '<span class="tri"></span>', sq = '<span class="sq"></span>';
+
+function figures(st) {
+  if (st === 'empty') return ['0m', '$0.00'];
+  if (st === 'running' || st === 'refused') return ['4h 17m', '$647.15'];
+  return ['3h 30m', '$493.75'];
+}
+const running = (st) => st === 'running';
+
+function stats(st) {
+  const [t, e] = figures(st);
+  return `<div class="stats pad">
+    <div class="stat"><div class="type-meta label">Today</div><div class="type-amount-hero strong">${t}</div></div>
+    <div class="stat"><div class="type-meta label">Earned</div><div class="type-amount-hero strong">${e}</div></div>
+  </div>`;
+}
+function recent(st, n = 5) {
+  if (st === 'empty') return `<div class="pad recent"><div class="type-meta label" style="margin:18px 0 2px">Recent</div>
+    <div class="type-support empty">Tasks you track show here, to start again in one tap.</div></div>`;
+  const list = RECENT.slice(0, n).map(([t, p, c]) => `<div class="item">${dot(c)}
+      <div class="grow"><div class="type-control strong trunc">${t}</div><div class="type-meta muted trunc">${p}</div></div>
+      <span class="play">${tri}</span></div>`).join('');
+  return `<div class="pad recent"><div class="type-meta label" style="margin:18px 0 2px">Recent</div>${list}</div>`;
+}
+function notice(st) {
+  if (st === 'refused') return `<div class="notice type-support">A timer is already running, started on another device. Showing it.</div>`;
+  if (st === 'offline') return `<div class="notice warn type-support">Can't reach Stint. Check your internet connection.</div>`;
+  return '';
+}
+const header = () => `<div class="head"><div class="row"><span class="type-wordmark-small mark">STINT</span></div><span class="gear type-control">⚙</span></div>`;
+const taskField = () => `<div class="field type-body ph">What are you working on?</div>`;
+const picker = () => `<div class="picker type-control">${dot('var(--proj-6)')}<span class="grow trunc">Rush: peak season fixes</span><span class="subtle">▾</span></div>`;
+
+/* A refused start shows what is running; offline keeps the stopped screen. */
+const shownRunning = (st) => st === 'running' || st === 'refused';
+
+function runBlock(big) {
+  return `<div class="row" style="align-items:flex-start">
+      <span class="dot" style="background:var(--timer-running);margin-top:${big ? 18 : 12}px"></span>
+      <div class="grow">
+        <div class="${big ? 'type-figure-hero' : 'type-figure'} run">${RUN.time}</div>
+        <div class="type-body strong trunc" style="margin-top:4px">${RUN.task}</div>
+        <div class="row type-meta muted" style="gap:6px;margin-top:2px">${dot(RUN.color)}<span class="trunc">${RUN.project} · ${RUN.client}</span></div>
+      </div>`;
+}
+
+function B(st) {
+  const dock = shownRunning(st)
+    ? `<div class="dock">${runBlock(false)}<span class="transport stop">${sq}</span></div></div>`
+    : `<div class="dock stack">${taskField()}<div class="row"><div class="grow">${picker()}</div><span class="transport">${tri}</span></div></div>`;
+  return `${header()}${notice(st)}${stats(st)}<div class="body">${recent(st, shownRunning(st) ? 5 : 4)}</div>${dock}`;
+}
+
+function signin(st) {
+  const body = st === 'email'
+    ? `<div class="type-body muted">We'll email you a six-digit code.</div>
+       <div class="field focus type-body">you@example.com</div>
+       <div class="btn type-heading">Email me a code</div>`
+    : `<div class="type-body muted">Sent to you@example.com.</div>
+       <div class="field code focus type-figure strong">482 1</div>
+       <div class="btn inert type-heading">Sign in</div>
+       <div class="btn quiet type-control">Use a different email</div>`;
+  return `<div class="body pad stack" style="justify-content:center;padding-bottom:120px">
+     <div class="type-wordmark strong center" style="margin-bottom:12px">STINT</div>${body}</div>`;
+}
+
+function screen(st) {
+  const inner = SIGNIN.has(st) ? signin(st) : B(st);
+  return `<div class="phone" style="--w:${w}px"><div class="screen">
+    <div class="status type-meta-strong"><span>9:41</span><span>●●● ▮</span></div>
+    ${inner.includes('class="body') ? inner : `<div class="body">${inner}</div>`}
+    <div class="home"><i></i></div></div></div>`;
+}
+
+function seg(id, opts, cur, set) {
+  const el = document.getElementById(id);
+  el.innerHTML = Object.entries(opts).map(([k, label]) =>
+    `<button class="type-control" aria-pressed="${String(k) === String(cur)}" data-k="${k}">${label}</button>`).join('');
+  el.onclick = (e) => { const k = e.target.dataset.k; if (k) { set(k); render(); } };
+}
+function render() {
+  seg('state', STATES, s, (k) => (s = k));
+  seg('theme', { dark: 'Dark', light: 'Light' }, theme, (k) => (theme = k));
+  seg('width', { 390: 'iPhone 390', 360: 'Android 360' }, w, (k) => (w = Number(k)));
+  document.documentElement.dataset.theme = theme;
+  document.getElementById('stage').innerHTML = `<div class="col"><span class="type-meta cap">${STATES[s]}</span>${screen(s)}</div>`;
+}
+render();
+</script>
+</body>
+</html>

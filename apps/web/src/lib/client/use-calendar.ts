@@ -10,7 +10,7 @@ import {
 } from '@stint/core';
 import { api, type CalendarDay, type TimeEntry } from './api';
 import { timeZone as tz } from './use-timer';
-import { keys } from './query-keys';
+import { keys } from '@stint/client';
 
 /**
  * Pixels per hour, in every view that draws a day — the calendar's two and

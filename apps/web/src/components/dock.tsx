@@ -18,7 +18,7 @@ import {
   useClientsQuery,
 } from '@/lib/client/use-project-colors';
 import { Inbox } from './inbox';
-import { keys } from '@/lib/client/query-keys';
+import { keys } from '@stint/client';
 
 /**
  * The frame's inbox column: furniture, always present and empty when there is

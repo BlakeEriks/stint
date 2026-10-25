@@ -16,7 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { textareaClass } from './field';
 import { PortalToast } from './toast';
-import { useOptimisticMutation } from '@/lib/client/mutations';
+import { useOptimisticMutation } from '@stint/client';
 import { api, ApiError } from '@/lib/client/api';
 
 const FAILED = 'Couldn’t send. Your message is still here. Try again.';
