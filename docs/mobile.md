@@ -64,6 +64,34 @@ iOS it uses the `dev.stint.shared` keychain access group once
 a 5xx or a rate limit keeps the session, and the screen says Stint can't be
 reached.
 
+## Push
+
+**A timer changed on another client shows on Android at once.** Signed in,
+the phone registers its FCM token (`POST /api/v1/push-devices`), with no
+permission prompt, and unregisters it on sign-out. The server pushes a data
+message on every change to the running timer (`docs/api.md`, Push
+devices); the app refetches the timer unless one of its own presses is in
+flight (`src/push.ts`). The iPhone waits on APNs (#471).
+
+A build registers only when it was built with `GOOGLE_SERVICES_JSON`, an
+EAS file variable holding Firebase's `google-services.json`, and the server
+sends only with `FCM_SERVICE_ACCOUNT` (`docs/deploying.md`). Firebase,
+once:
+
+1. At console.firebase.google.com, add a project named `stint`, with
+   Google Analytics off. FCM is free on the Spark plan.
+2. Add an Android app for each id in [Which backend it talks
+   to](#which-backend-it-talks-to) that should get pushes:
+   `dev.stint.mobile.preview` and `dev.stint.mobile`. Download
+   `google-services.json` after adding the last: it lists every app.
+3. In `apps/mobile`: `npx eas-cli env:create --name GOOGLE_SERVICES_JSON
+   --type file --value ./google-services.json --environment preview
+   --environment production --visibility sensitive`, then delete the
+   file.
+4. Project settings → Service accounts → Generate new private key. Paste
+   the whole JSON into Vercel as `FCM_SERVICE_ACCOUNT`, then delete the
+   file.
+
 ## Preview builds
 
 `.github/workflows/mobile-preview.yml` builds a PR's Android APK on EAS

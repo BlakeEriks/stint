@@ -227,6 +227,15 @@ sent message can't be changed or deleted, even by its sender. It goes with the
 account (`on delete cascade`). The checks match `CreateFeedback`: `message`
 1–2,000 characters, `screen` 1–200, `app_version` 1–64.
 
+### `push_devices`
+The phones a user's timer changes are pushed to (`apps/web/src/lib/push.ts`):
+`user_id`, the provider's `token`, the `platform` (`android`) and
+`created_at`, keyed on `(user_id, token)`. `authenticated` may select,
+insert and delete its own rows; a new token is a new row, so there is no
+update grant. A token can sit under two accounts when a sign-out didn't
+reach the server, which leaks nothing: the push carries no data. It goes
+with the account (`on delete cascade`).
+
 ### `subscriptions`
 A mirror of the user's Stripe subscription, one row per user, keyed on
 `user_id`: the Stripe customer and subscription, Stripe's `status`, the
@@ -332,9 +341,9 @@ before Stint, and never back (`PATCH /settings`).
   is derived from `paid_at`, so a paid row without one drops a real payment
   out of the figure that says what arrived.
 - `updated_at` is maintained by a `touch_updated_at` trigger on every table
-  **except `invoice_line_items` and `feedback`**, which have no such column:
-  each is written once and never edited, so a "last modified" timestamp would
-  be a field that can only ever lie.
+  **except `invoice_line_items`, `feedback` and `push_devices`**, which have
+  no such column: each is written once and never edited, so a "last
+  modified" timestamp would be a field that can only ever lie.
   `subscriptions` has the column but no trigger: its one writer, the Stripe
   sync's upsert in `apps/web/src/lib/billing.ts`, sets it.
 - Partial indexes back the hot paths: active clients, projects and profiles,
@@ -429,7 +438,7 @@ alone must still contain the query.
 | Check | Result |
 |---|---|
 | An unfiltered `select` returns only the caller's rows | isolated |
-| All nine user-scoped tables isolate | isolated |
+| All ten user-scoped tables isolate | isolated |
 | A known-good id belonging to another user returns nothing | no leak |
 | Line items inherit isolation through their invoice | isolated |
 | Insert with a forged `user_id` | rejected by `WITH CHECK` |
@@ -437,6 +446,7 @@ alone must still contain the query.
 | Reassigning a row to another user | rejected by `WITH CHECK` |
 | Changing or deleting sent feedback, even your own | refused by the grant |
 | Writing any subscription, your own included | refused by the grant |
+| Registering a phone to another user, or changing a registered one | rejected by `WITH CHECK`, refused by the grant |
 | Claiming or changing the plan an invoice was generated on | overwritten at insert, refused on update |
 | An expense filed under another user's client | rejected by `expense_client_same_owner` |
 | An invoice billed to another user's client | rejected by `invoice_client_same_owner` |

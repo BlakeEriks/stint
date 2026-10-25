@@ -140,6 +140,11 @@ grandfathered.
   `service_role`. Without it, the webhook and the Checkout return fail with
   `500`. Never `NEXT_PUBLIC_`.
 
+Push, for Production and Preview: `FCM_SERVICE_ACCOUNT` (**sensitive**),
+the whole JSON key of a Firebase service account allowed to send messages
+(`docs/mobile.md`, Push). Unset, no phone is pushed and every timer route
+answers as before.
+
 In the Stripe dashboard, once:
 
 - A product with one **yearly** price of $40 USD (`docs/positioning.md`);

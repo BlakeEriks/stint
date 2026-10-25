@@ -1,6 +1,6 @@
 // `next/server` outside the Next runtime exports nothing usable. The route
-// handlers only use NextResponse.json / new NextResponse(body, init), both
-// of which are thin wrappers over the standard Response — so the handlers
+// handlers use NextResponse.json / new NextResponse(body, init), both thin
+// wrappers over the standard Response, and `after()` — so the handlers
 // under test are unmodified.
 export class NextResponse extends Response {
   static json(body, init) {
