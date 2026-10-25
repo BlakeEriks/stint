@@ -167,7 +167,9 @@ now, and attaches what they bill, in one transaction; Mark sent passes
 read, never rewritten: grouping, summary text, reference, notes, terms, due
 date, payment details, the supporting-detail kinds, its `fixed` lines, and
 two columns kept for the refresh — `tz`, the zone its period's dates are read
-in, and `excluded_expense_ids`, the expenses left off. `downloaded_snapshot`
+in, and `excluded_expense_ids`, the expenses left off. The one exception is
+a picked due date that has passed by the first render: the draft shows it as
+today, "Due on receipt", and `number_invoice()` stores that. `downloaded_snapshot`
 is what its PDF last showed; Mark sent refuses with `DRAFT_CHANGED` while
 the draft differs from it. One open draft per client and date: `POST
 /invoices` refuses an overlap with `DRAFT_OVERLAPS`, since two drafts would
