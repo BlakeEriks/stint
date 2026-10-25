@@ -31,8 +31,7 @@ const config: ExpoConfig = {
   },
   android: { package: target.appId },
   plugins: ['expo-secure-store', 'expo-font'],
-  // Every build talks to the backend it was built for; nothing updates it over the air.
-  updates: { enabled: false },
+  ...updates(),
   extra: {
     env,
     appleTeamId: process.env.APPLE_TEAM_ID,
@@ -44,3 +43,23 @@ const config: ExpoConfig = {
 };
 
 export default config;
+
+/**
+ * Only a preview takes updates over the air: `mobile-preview.yml` publishes
+ * a push that changes no native code to the PR's channel instead of
+ * building again. The update carries the same `STINT_*` values, so every
+ * build still talks to the backend it was built for.
+ */
+function updates(): Pick<ExpoConfig, 'updates' | 'runtimeVersion'> {
+  const projectId = process.env.EAS_PROJECT_ID;
+  if (target.name !== 'preview' || !projectId)
+    return { updates: { enabled: false } };
+  return {
+    updates: {
+      url: `https://u.expo.dev/${projectId}`,
+      // The update a push published loads on the next launch, not the one after.
+      fallbackToCacheTimeout: 10_000,
+    },
+    runtimeVersion: { policy: 'fingerprint' },
+  };
+}

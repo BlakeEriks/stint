@@ -6,7 +6,8 @@ name: mobile-preview
 # Preview, beside the released app.
 #
 # Only when the app or a package it imports changes: EAS's free tier counts
-# builds by the month.
+# builds by the month. A push that changes no native code ships as an EAS
+# Update to the PR's build instead of a new one.
 #
 # The link is public, so the build holds no secret: the reviewer types
 # Vercel's bypass into the app once (`apps/mobile/src/bypass.ts`).
@@ -62,7 +63,9 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       # EAS hands a cloud build its profile's `env` and nothing from this
-      # shell, so the PR's values go into eas.json here, never into git.
+      # shell, so the PR's values go into eas.json here, never into git. The
+      # shell gets the same values: the fingerprint and `eas update` read
+      # app.config.ts here, and must see what the build saw.
       - name: Point the preview profile at this PR
         working-directory: apps/mobile
         run: |
@@ -70,30 +73,64 @@ jobs:
           url=$(node ../../scripts/preview-url.mjs "$BRANCH")
           jq --arg pr "$PR" --arg url "$url" \
              --arg project "$EAS_PROJECT_ID" --arg owner "$EXPO_OWNER" \
-            '.build.preview.env += {
+            '.build.preview.channel = "pr-\($pr)"
+             | .build.preview.env += {
                STINT_PREVIEW_PR: $pr, STINT_APP_URL: $url,
                EAS_PROJECT_ID: $project, EXPO_OWNER: $owner
              }' eas.json > eas.pr.json
           mv eas.pr.json eas.json
+          printf '%s\n' STINT_TARGET=preview "STINT_PREVIEW_PR=$PR" "STINT_APP_URL=$url" >> "$GITHUB_ENV"
 
-      - name: Build
-        id: build
+      # A push that changes no native code ships its JavaScript to the
+      # installed build with EAS Update, in seconds; one that does, or a PR
+      # with no build yet, builds. The fingerprint is the build's runtime
+      # version (app.config.ts). Expo's continuous-deploy-fingerprint action
+      # does the same, but posts its own comment with a QR for Expo Go, and
+      # doesn't wait for the build, so a failed one would pass this check.
+      - name: Build, or update the last build
+        id: ship
         working-directory: apps/mobile
         run: |
-          eas build --platform android --profile preview --non-interactive --wait --json > build.json
-          id=$(jq -r '.[0].id' build.json)
-          echo "url=https://expo.dev/accounts/${EXPO_OWNER}/projects/stint/builds/${id}" >> "$GITHUB_OUTPUT"
+          fingerprint=$(npx expo-updates fingerprint:generate --platform android | jq -r .hash)
+          # Not one that expires within a day: its link must still install.
+          build=$(eas build:list --platform android --build-profile preview \
+              --channel "pr-$PR" --runtime-version "$fingerprint" --status finished \
+              --limit 1 --json --non-interactive \
+            | jq -r '[.[] | select(.expirationDate > (now + 86400 | todate))][0].id // empty')
+          if [ -n "$build" ]; then
+            # The bundle imports the tokens, which git doesn't carry.
+            pnpm --filter @stint/design-tokens build
+            eas update --channel "pr-$PR" --platform android --environment preview \
+              --message "${SHA:0:7}" --non-interactive --json > /dev/null
+            echo "kind=update" >> "$GITHUB_OUTPUT"
+          else
+            eas build --platform android --profile preview --non-interactive --wait --json > build.json
+            build=$(jq -r '.[0].id' build.json)
+            echo "kind=build" >> "$GITHUB_OUTPUT"
+          fi
+          echo "url=https://expo.dev/accounts/${EXPO_OWNER}/projects/stint/builds/${build}" >> "$GITHUB_OUTPUT"
+        env:
+          SHA: ${{ github.event.pull_request.head.sha }}
 
       - name: Link it on the PR
         env:
-          URL: ${{ steps.build.outputs.url }}
+          KIND: ${{ steps.ship.outputs.kind }}
+          URL: ${{ steps.ship.outputs.url }}
           SHA: ${{ github.event.pull_request.head.sha }}
         # By its marker, and only the bot's: `--edit-last` would take whichever
         # comment the bot wrote last, such as doc drift's, and anyone can type
         # the marker.
         run: |
-          body="<!-- mobile-preview -->
-          **Phone build** for ${SHA:0:7}: open ${URL} on your Android phone and tap Install. On its first launch, paste Vercel's bypass; it opens as Stint Preview, signed in as pr-${PR}@preview.test."
+          if [ "$KIND" = build ]; then
+            qr="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=$(jq -rn --arg u "$URL" '$u | @uri')"
+            body="<!-- mobile-preview -->
+          **Phone build** for ${SHA:0:7}: a new build. Scan it with your Android phone or open ${URL}, and tap Install. On its first launch, paste Vercel's bypass; it opens as Stint Preview, signed in as pr-${PR}@preview.test.
+
+          ![Scan to install](${qr})"
+          else
+            body="<!-- mobile-preview -->
+          **Phone update** for ${SHA:0:7}: no native code changed, so this push shipped as an update to the installed Stint Preview. Close and reopen it to load it. Not installed yet: open ${URL} on your Android phone and tap Install."
+          fi
           id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
             -q '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- mobile-preview -->"))) | .id' \
             | tail -n 1)

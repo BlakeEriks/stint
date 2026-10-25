@@ -72,6 +72,11 @@ install link on the PR. The PR's Try it points there: open the link on the
 phone, tap Install, paste the bypass on first launch, and Stint Preview
 opens signed in as the PR's account.
 
+A push that changes no native code doesn't build again: its JavaScript
+ships to the PR's build with EAS Update, and the installed app loads it on
+its next launch. The comment says which happened. A new dependency with
+native code, or a change to `app.config.ts`, builds.
+
 It needs, once:
 
 1. An Expo account and a project named `stint`
