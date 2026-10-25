@@ -2,7 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ApiError, keys } from '@stint/client';
 import { QueryClient } from '@tanstack/react-query';
-import { createPushDevice, isTimerPush, onTimerPush } from '../src/push.ts';
+import {
+  createPushDevice,
+  isTimerPush,
+  onTimerPush,
+  TokenUnavailable,
+} from '../src/push.ts';
 
 test('a timer push is the data message the server sends, and nothing else', () => {
   assert.equal(
@@ -125,5 +130,21 @@ test('signing out offline still signs out', async () => {
 test('an unexpected failure is not swallowed', async () => {
   const { phone, failing } = device();
   failing.next = new RangeError('bug');
+  await assert.rejects(() => phone.join(), RangeError);
+});
+
+test('a phone that cannot get its token yet registers on the next try', async () => {
+  const { phone, calls, os } = device();
+  const get = os.get;
+  os.get = () => Promise.reject(new TokenUnavailable('SERVICE_NOT_AVAILABLE'));
+  await phone.join();
+  os.get = get;
+  await phone.join();
+  assert.deepEqual(calls, ['register tok-1']);
+});
+
+test('an unexpected failure getting the token is not swallowed', async () => {
+  const { phone, os } = device();
+  os.get = () => Promise.reject(new RangeError('bug'));
   await assert.rejects(() => phone.join(), RangeError);
 });

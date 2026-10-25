@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
 import { Platform } from 'react-native';
-import { isTimerPush, type PushTokens } from './push.ts';
+import { isTimerPush, type PushTokens, TokenUnavailable } from './push.ts';
 
 const TASK = 'stint-timer-push';
 
@@ -13,8 +13,17 @@ export const canPush =
 
 /** FCM's token for this phone, raw: the server sends to FCM, not Expo's service. */
 export const expoTokens: PushTokens = {
-  get: async () =>
-    (await Notifications.getDevicePushTokenAsync()).data as string,
+  async get() {
+    try {
+      return (await Notifications.getDevicePushTokenAsync()).data as string;
+    } catch (err) {
+      // Firebase couldn't be reached, such as SERVICE_NOT_AVAILABLE offline.
+      if ((err as { code?: string }).code === 'E_REGISTRATION_FAILED') {
+        throw new TokenUnavailable((err as Error).message);
+      }
+      throw err;
+    }
+  },
   onChange(listener) {
     const sub = Notifications.addPushTokenListener((t) =>
       listener(t.data as string),

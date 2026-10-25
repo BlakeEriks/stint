@@ -29,9 +29,18 @@ export function onTimerPush(queryClient: QueryClient) {
 
 /** The phone's address with the provider: Expo's in the app, a fake in tests. */
 export interface PushTokens {
+  /** Rejects with `TokenUnavailable` when the provider can't issue one now. */
   get(): Promise<string>;
   /** Returns the unsubscribe. */
   onChange(listener: (token: string) => void): () => void;
+}
+
+/** The provider couldn't issue a token, as offline: the next launch tries again. */
+export class TokenUnavailable extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TokenUnavailable';
+  }
 }
 
 interface Options {
@@ -65,7 +74,14 @@ export function createPushDevice({ tokens, register, unregister }: Options) {
       off ??= tokens.onChange((token) => {
         if (token !== registered) void use(token);
       });
-      await use(await tokens.get());
+      let token: string;
+      try {
+        token = await tokens.get();
+      } catch (err) {
+        offline(err);
+        return;
+      }
+      await use(token);
     },
     async leave() {
       off?.();
@@ -79,6 +95,11 @@ export function createPushDevice({ tokens, register, unregister }: Options) {
 
 /** A server that can't be reached, or refused: the next launch tries again. */
 function offline(err: unknown) {
-  if (err instanceof ApiError || err instanceof TypeError) return;
+  if (
+    err instanceof ApiError ||
+    err instanceof TypeError ||
+    err instanceof TokenUnavailable
+  )
+    return;
   throw err;
 }
