@@ -77,7 +77,7 @@ It needs, once:
 1. An Expo account and a project named `stint`
    (`npx eas-cli init` in `apps/mobile`).
 2. GitHub secret `EXPO_TOKEN` (expo.dev → Access tokens).
-3. GitHub variables `EXPO_OWNER` (the Expo username) and `EAS_PROJECT_ID`.
+3. GitHub variables `EXPO_OWNER` (the Expo account or organization that owns the project) and `EAS_PROJECT_ID`.
 
 ## Releasing
 
