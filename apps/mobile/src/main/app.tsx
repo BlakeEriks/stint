@@ -33,14 +33,9 @@ const api = createApi(
     auth,
     bypass: bypass.current,
     // A wrong or rotated bypass: forget it, and the screen asks again.
-    onProtected: () => void bypass.clear().catch(failed),
+    onProtected: () => void bypass.clear(),
   }),
 );
-
-/** Secure storage that cannot read or write is a fault to report, not to hide. */
-function failed(e: unknown): never {
-  throw e;
-}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -86,7 +81,8 @@ function useSession(): Session | null | undefined {
 /**
  * A preview build needs the bypass before it can reach its PR, and again
  * whenever Vercel refuses it; the others never ask. A store that cannot be
- * read asks for it; one that cannot be written says so on the screen.
+ * read asks for it and still reports the fault; one that cannot be written
+ * says so on the screen.
  */
 function useBypass() {
   const [known, setKnown] = useState<boolean | undefined>(
@@ -97,7 +93,10 @@ function useBypass() {
     if (target.name !== 'preview') return;
     bypass.load().then(
       (value) => setKnown(value !== null),
-      () => setKnown(false),
+      (e: unknown) => {
+        setKnown(false);
+        throw e;
+      },
     );
     return bypass.subscribe((value) => {
       setKnown(value !== null);
