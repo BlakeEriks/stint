@@ -15,6 +15,12 @@ change only how the invoice looks — Standard (today's layout, the default),
 Modern, Classic and Compact — chosen once in Settings. An invoice already
 sent keeps the template it was sent with.
 
+## Clarifications
+
+### Session 2026-10-25
+
+- Q: When the template setting changes, which invoices switch to the new template? → A: Drafts follow the current setting; marking sent freezes the template.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Choose a template in Settings (Priority: P1)
