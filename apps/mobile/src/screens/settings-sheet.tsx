@@ -28,6 +28,7 @@ export function SettingsSheet(props: SettingsSheetProps) {
       <Pressable
         style={[s.scrim, { backgroundColor: c.overlay }]}
         onPress={props.onClose}
+        accessibilityRole="button"
         accessibilityLabel="Close"
       />
       <View

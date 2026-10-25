@@ -34,7 +34,7 @@ export interface RecentTask {
   color: string | null;
 }
 
-export interface RunningTimer {
+interface RunningTimer {
   taskName: string;
   projectName: string | null;
   clientName: string | null;
@@ -218,10 +218,7 @@ function RunningDock({
     .join(' · ');
   return (
     <View style={[parts.row, { gap: 12, alignItems: 'flex-start' }]}>
-      <View
-        style={[s.live, { backgroundColor: c['timer-running'] }]}
-        accessibilityLabel="Running"
-      />
+      <View style={[s.live, { backgroundColor: c['timer-running'] }]} />
       <View style={parts.grow}>
         <Text
           style={[text('figure'), { color: c['timer-running'] }]}
@@ -368,6 +365,7 @@ function ProjectPicker({
       <Pressable
         style={[s.scrim, { backgroundColor: c.overlay }]}
         onPress={onClose}
+        accessibilityRole="button"
         accessibilityLabel="Close"
       />
       <View

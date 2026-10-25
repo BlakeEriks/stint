@@ -1,0 +1,18 @@
+{
+  "cli": { "version": ">= 16.0.0", "appVersionSource": "remote" },
+  "build": {
+    "base": { "node": "24.11.0", "pnpm": "9.15.0" },
+    "preview": {
+      "extends": "base",
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": { "STINT_TARGET": "preview" }
+    },
+    "production": {
+      "extends": "base",
+      "autoIncrement": true,
+      "env": { "STINT_TARGET": "prod" }
+    }
+  },
+  "submit": { "production": {} }
+}

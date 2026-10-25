@@ -114,7 +114,8 @@ export function SignInScreen(props: SignInScreenProps) {
           onPress={submit}
           disabled={!live}
           accessibilityRole="button"
-          accessibilityState={{ disabled: !live, busy: props.pending }}
+          aria-disabled={!live}
+          aria-busy={props.pending}
           style={[
             s.button,
             { backgroundColor: live ? c['accent-default'] : c['bg-active'] },

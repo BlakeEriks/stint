@@ -4,7 +4,7 @@
  * are public, the same values `apps/macos/bundle.sh` bakes in; RLS is what
  * protects the data.
  */
-export type TargetName = 'local' | 'preview' | 'prod';
+type TargetName = 'local' | 'preview' | 'prod';
 
 export interface Target {
   name: TargetName;

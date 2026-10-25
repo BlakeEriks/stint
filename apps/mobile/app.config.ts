@@ -25,13 +25,15 @@ const config: ExpoConfig = {
   ios: {
     bundleIdentifier: target.appId,
     supportsTablet: false,
-    // The group the widgets (#464) read the session from (`storage.ts`).
+    // The group a widget reads the session from (`storage.ts`).
     entitlements: {
       'keychain-access-groups': ['$(AppIdentifierPrefix)dev.stint.shared'],
     },
   },
   android: { package: target.appId },
   plugins: ['expo-secure-store', 'expo-font'],
+  // Every build talks to the backend it was built for; nothing updates it over the air.
+  updates: { enabled: false },
   extra: {
     env,
     appleTeamId: process.env.APPLE_TEAM_ID,
