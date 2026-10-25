@@ -8,8 +8,11 @@ name: mobile-preview
 # Only when the app or a package it imports changes: EAS's free tier counts
 # builds by the month.
 #
-# Requires, once: the EXPO_TOKEN and VERCEL_AUTOMATION_BYPASS_SECRET secrets,
-# and the EAS_PROJECT_ID and EXPO_OWNER variables.
+# The link is public, so the build holds no secret: the reviewer types
+# Vercel's bypass into the app once (`apps/mobile/src/bypass.ts`).
+#
+# Requires, once: the EXPO_TOKEN secret, and the EAS_PROJECT_ID and
+# EXPO_OWNER variables.
 on:
   pull_request:
     types: [opened, synchronize, reopened]
@@ -61,8 +64,6 @@ jobs:
       # shell, so the PR's values go into eas.json here, never into git.
       - name: Point the preview profile at this PR
         working-directory: apps/mobile
-        env:
-          BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           # Vercel's branch alias, as preview-db.yml builds it.
           slug=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g')
@@ -71,10 +72,10 @@ jobs:
             echo "::error::Branch name too long for Vercel's alias; the build would have no preview to talk to."
             exit 1
           fi
-          jq --arg pr "$PR" --arg url "https://${host}.vercel.app" --arg bypass "$BYPASS" \
+          jq --arg pr "$PR" --arg url "https://${host}.vercel.app" \
              --arg project "$EAS_PROJECT_ID" --arg owner "$EXPO_OWNER" \
             '.build.preview.env += {
-               STINT_PREVIEW_PR: $pr, STINT_APP_URL: $url, STINT_VERCEL_BYPASS: $bypass,
+               STINT_PREVIEW_PR: $pr, STINT_APP_URL: $url,
                EAS_PROJECT_ID: $project, EXPO_OWNER: $owner
              }' eas.json > eas.pr.json
           mv eas.pr.json eas.json

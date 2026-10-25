@@ -11,7 +11,6 @@ const env = {
   STINT_TARGET: process.env.STINT_TARGET,
   STINT_APP_URL: process.env.STINT_APP_URL,
   STINT_PREVIEW_PR: process.env.STINT_PREVIEW_PR,
-  STINT_VERCEL_BYPASS: process.env.STINT_VERCEL_BYPASS,
 };
 const target = resolveTarget(env);
 

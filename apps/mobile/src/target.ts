@@ -18,8 +18,6 @@ export interface Target {
   supabaseKey: string;
   /** A preview build's seeded account, signed in on launch. */
   preview: { email: string; password: string } | null;
-  /** Vercel's protection bypass, which a preview deployment asks of every request. */
-  bypass: string | null;
 }
 
 type Env = Record<string, string | undefined>;
@@ -36,7 +34,6 @@ export function resolveTarget(env: Env): Target {
       supabaseUrl: 'http://localhost:54321',
       supabaseKey: 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH',
       preview: null,
-      bypass: null,
     };
   if (name === 'prod')
     return {
@@ -48,7 +45,6 @@ export function resolveTarget(env: Env): Target {
       supabaseUrl: 'https://zwoceqydagxxmqoaqgbf.supabase.co',
       supabaseKey: 'sb_publishable_dpZCXx5Z71lOUznVCIleJA__YjyUk4e',
       preview: null,
-      bypass: null,
     };
   if (name === 'preview') {
     const pr = required(env, 'STINT_PREVIEW_PR');
@@ -64,7 +60,6 @@ export function resolveTarget(env: Env): Target {
       supabaseKey: 'sb_publishable_q79gV5KhfKg05hZMjWVHsg_SqL2HPTH',
       // The password is `LOCAL_PASSWORD` in scripts/seed-account.mjs.
       preview: { email: `pr-${pr}@preview.test`, password: 'devpassword123' },
-      bypass: required(env, 'STINT_VERCEL_BYPASS'),
     };
   }
   throw new Error(`Unknown STINT_TARGET "${name}": local, preview or prod`);

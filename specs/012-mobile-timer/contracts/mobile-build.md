@@ -8,7 +8,6 @@
 | `STINT_TARGET` | `local` (default) | `preview` | `prod` |
 | `STINT_APP_URL` | `http://localhost:3100` unless set | the PR's Vercel origin | `https://app.runstint.com` |
 | `STINT_PREVIEW_PR` | — | the PR number | — |
-| `STINT_VERCEL_BYPASS` | — | Vercel's protection bypass | — |
 
 | Target | App name | Android package / iOS bundle id | Supabase |
 | --- | --- | --- | --- |
@@ -17,7 +16,8 @@
 | prod | Stint | `dev.stint.mobile` | production |
 
 A preview build signs in on launch as `pr-<n>@preview.test` with the seed
-password, as `pnpm try-mac` does, and sends the bypass on every request.
+password, as `pnpm try-mac` does. No secret is built in: its first launch
+asks for Vercel's bypass, kept in secure storage and sent on every request.
 The Supabase URLs and publishable keys are the public values
 `apps/macos/bundle.sh` uses.
 

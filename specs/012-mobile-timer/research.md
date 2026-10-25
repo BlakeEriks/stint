@@ -46,15 +46,15 @@
 ## Preview builds
 
 - **Decision**: `mobile-preview.yml` runs on a PR that changes the app or
-  the packages it imports. It writes the PR's number, preview origin and
-  Vercel bypass into the `preview` profile's `env` in `eas.json` on the
+  the packages it imports. It writes the PR's number and preview origin
+  into the `preview` profile's `env` in `eas.json` on the
   runner, runs `eas build -p android --profile preview --wait`, and
   comments the install link. The APK installs as `dev.stint.mobile.preview`
   beside the released app.
 - **Rationale**: EAS reads a profile's `env` from the local `eas.json`, and
   a cloud build sees nothing else from the runner's shell.
 - **Needs the owner once**: an Expo account and project, and the
-  `EXPO_TOKEN`, `EAS_PROJECT_ID` and `VERCEL_BYPASS` settings
+  `EXPO_TOKEN`, `EAS_PROJECT_ID` and `EXPO_OWNER` settings
   (`docs/mobile.md`).
 
 ## Left for later issues

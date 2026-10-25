@@ -24,7 +24,6 @@ test('prod is Stint, unlabeled, on production', () => {
   assert.equal(t.label, null);
   assert.equal(t.appUrl, 'https://app.runstint.com');
   assert.equal(t.supabaseUrl, 'https://zwoceqydagxxmqoaqgbf.supabase.co');
-  assert.equal(t.bypass, null);
 });
 
 test("preview is one PR's, signed in as its seeded account", () => {
@@ -32,7 +31,6 @@ test("preview is one PR's, signed in as its seeded account", () => {
     STINT_TARGET: 'preview',
     STINT_PREVIEW_PR: '471',
     STINT_APP_URL: 'https://stint-git-x-blakeeriks-projects.vercel.app',
-    STINT_VERCEL_BYPASS: 'secret',
   });
   assert.equal(t.label, 'PR 471');
   assert.equal(t.appName, 'Stint Preview');
@@ -42,21 +40,17 @@ test("preview is one PR's, signed in as its seeded account", () => {
     email: 'pr-471@preview.test',
     password: 'devpassword123',
   });
-  assert.equal(t.bypass, 'secret');
+  // No secret ships in a build: the bypass is typed into the app (`bypass.ts`).
+  assert.equal('bypass' in t, false);
 });
 
-test('a preview missing its PR, origin or bypass is refused', () => {
+test('a preview missing its PR or origin is refused', () => {
   const full = {
     STINT_TARGET: 'preview',
     STINT_PREVIEW_PR: '471',
     STINT_APP_URL: 'https://x.vercel.app',
-    STINT_VERCEL_BYPASS: 'secret',
   };
-  for (const key of [
-    'STINT_PREVIEW_PR',
-    'STINT_APP_URL',
-    'STINT_VERCEL_BYPASS',
-  ] as const) {
+  for (const key of ['STINT_PREVIEW_PR', 'STINT_APP_URL'] as const) {
     assert.throws(() => resolveTarget({ ...full, [key]: undefined }), {
       message: new RegExp(key),
     });

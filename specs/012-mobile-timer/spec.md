@@ -168,9 +168,10 @@ it and see the app signed in as that PR's seeded account.
 **Acceptance Scenarios**:
 
 1. **Given** an open PR, **When** the reviewer installs its Android build
-   from the link in Try it, **Then** the app opens against the PR's
-   preview, signed in as `pr-<n>@preview.test`, and says it is that PR's
-   build. It installs beside the released app, not over it.
+   from the link in Try it, **Then** its first launch asks once for
+   Vercel's bypass, which no build holds, and the app opens against the
+   PR's preview, signed in as `pr-<n>@preview.test`, and says it is that
+   PR's build. It installs beside the released app, not over it.
 2. **Given** a commit on `main`, **When** the maintainer runs the release
    steps in `docs/mobile.md`, **Then** a build reaches TestFlight and Play
    internal testing pointed at production. The iPhone build waits on the

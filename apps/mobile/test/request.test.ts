@@ -48,7 +48,7 @@ test('a request carries the bearer token to the app origin', async () => {
   const request = createRequest({
     origin: 'http://localhost:3100',
     auth: fakeAuth(),
-    bypass: null,
+    bypass: () => null,
     fetch: s.fetch,
   });
   assert.deepEqual(await request('GET', '/summary?tz=UTC'), { ok: true });
@@ -57,16 +57,20 @@ test('a request carries the bearer token to the app origin', async () => {
   assert.equal(s.calls[0]?.headers['x-vercel-protection-bypass'], undefined);
 });
 
-test("a preview build sends Vercel's bypass on every request", async () => {
-  const s = server([json(200, {})]);
+test('a preview build sends the bypass the reviewer typed in, as it is now', async () => {
+  const s = server([json(200, {}), json(200, {})]);
+  let typed: string | null = null;
   const request = createRequest({
     origin: 'https://x.vercel.app',
     auth: fakeAuth(),
-    bypass: 'secret',
+    bypass: () => typed,
     fetch: s.fetch,
   });
   await request('GET', '/summary');
-  assert.equal(s.calls[0]?.headers['x-vercel-protection-bypass'], 'secret');
+  typed = 'secret';
+  await request('GET', '/summary');
+  assert.equal(s.calls[0]?.headers['x-vercel-protection-bypass'], undefined);
+  assert.equal(s.calls[1]?.headers['x-vercel-protection-bypass'], 'secret');
 });
 
 test('a 401 refreshes and retries once', async () => {
@@ -75,7 +79,7 @@ test('a 401 refreshes and retries once', async () => {
   const request = createRequest({
     origin: '',
     auth,
-    bypass: null,
+    bypass: () => null,
     fetch: s.fetch,
   });
   assert.deepEqual(await request('POST', '/timer/stop', {}), { ok: 1 });
@@ -89,7 +93,7 @@ test('a 401 after the retry signs out', async () => {
   const request = createRequest({
     origin: '',
     auth,
-    bypass: null,
+    bypass: () => null,
     fetch: s.fetch,
   });
   await assert.rejects(request('GET', '/summary'), (e: unknown) => {
@@ -104,7 +108,7 @@ test('a rejected refresh fails the request without a retry', async () => {
   const request = createRequest({
     origin: '',
     auth: fakeAuth(true),
-    bypass: null,
+    bypass: () => null,
     fetch: s.fetch,
   });
   await assert.rejects(request('GET', '/summary'), /gone/);
@@ -122,7 +126,7 @@ test('an error body becomes an ApiError with its code and details', async () => 
   const request = createRequest({
     origin: '',
     auth: fakeAuth(),
-    bypass: null,
+    bypass: () => null,
     fetch: s.fetch,
   });
   await assert.rejects(request('POST', '/timer/start', {}), (e: unknown) => {
@@ -142,7 +146,7 @@ test('a JSON body is sent as JSON', async () => {
   const request = createRequest({
     origin: '',
     auth: fakeAuth(),
-    bypass: null,
+    bypass: () => null,
     fetch,
   });
   assert.equal(

@@ -14,7 +14,8 @@ interface Options {
     refresh: () => Promise<{ accessToken: string }>;
     signOut: () => Promise<void>;
   };
-  bypass: string | null;
+  /** Vercel's protection bypass, on a preview build once it is typed in (`bypass.ts`). */
+  bypass: () => string | null;
   fetch?: typeof fetch;
 }
 
@@ -37,7 +38,8 @@ export function createRequest({
       authorization: `Bearer ${token}`,
     };
     if (body !== undefined) headers['content-type'] = 'application/json';
-    if (bypass) headers['x-vercel-protection-bypass'] = bypass;
+    const pass = bypass();
+    if (pass) headers['x-vercel-protection-bypass'] = pass;
     return send(`${origin}/api/v1${path}`, {
       method,
       headers,

@@ -41,9 +41,14 @@ each target installs under its own id, beside the others:
 | `preview` | Stint Preview | `dev.stint.mobile.preview` | one PR's Vercel preview and `stint-test`, signed in as `pr-<n>@preview.test` on launch |
 | `prod` | Stint | `dev.stint.mobile` | production |
 
-A preview build needs `STINT_PREVIEW_PR`, `STINT_APP_URL` and
-`STINT_VERCEL_BYPASS`, and refuses to build without them. The header names
-the target whenever it is not production.
+A preview build needs `STINT_PREVIEW_PR` and `STINT_APP_URL`, and refuses
+to build without them. The header names the target whenever it is not
+production.
+
+**No secret ships in a build**, and a preview's install link is public. Its
+first launch asks for Vercel's Protection Bypass for Automation, the value
+`pnpm try-mac` keeps in the Keychain, and keeps it in secure storage; the
+next preview build installs over this one and finds it there.
 
 ## Sign-in
 
@@ -62,15 +67,14 @@ reached.
 `.github/workflows/mobile-preview.yml` builds a PR's Android APK on EAS
 whenever the PR changes the app or a package it imports, and comments the
 install link on the PR. The PR's Try it points there: open the link on the
-phone, tap Install, and Stint Preview opens signed in as the PR's account.
+phone, tap Install, paste the bypass on first launch, and Stint Preview
+opens signed in as the PR's account.
 
 It needs, once:
 
 1. An Expo account and a project named `stint`
    (`npx eas-cli init` in `apps/mobile`).
-2. GitHub secrets `EXPO_TOKEN` (expo.dev → Access tokens) and
-   `VERCEL_AUTOMATION_BYPASS_SECRET`, Vercel's Protection Bypass for
-   Automation, the value `pnpm try-mac` keeps in the Keychain.
+2. GitHub secret `EXPO_TOKEN` (expo.dev → Access tokens).
 3. GitHub variables `EXPO_OWNER` (the Expo username) and `EAS_PROJECT_ID`.
 
 ## Releasing
