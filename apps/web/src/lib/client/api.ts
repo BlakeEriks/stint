@@ -86,8 +86,6 @@ async function failure(res: globalThis.Response): Promise<ApiError> {
 }
 
 // ── shapes the UI consumes ─────────────────────────────────────────
-/* The shapes the phone reads too are `@stint/client`'s; these are the
-   web's alone. */
 export type ClientWithScale = Res<schema.ClientWithScale>;
 export type Settings = Res<schema.Settings>;
 export type Account = Res<schema.Account>;

@@ -63,9 +63,6 @@ function useTick(active: boolean): boolean {
  *
  * `serverTime` from the response corrects for a skewed device clock — a
  * laptop several minutes off would otherwise show a wrong elapsed time.
- *
- * `api` is the calling app's: the web's sends its cookie, the phone's a
- * bearer token.
  */
 export function useTimer(api: TimerApi, timeZone: string) {
   const queryClient = useQueryClient();

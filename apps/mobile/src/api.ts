@@ -39,7 +39,6 @@ export function createApi(request: Request) {
     updateRunning: (body: { taskName?: string; projectId?: string | null }) =>
       request<TimeEntry>('PATCH', '/timer/current', body),
   };
-  // The calls the shared `useTimer` makes.
   api satisfies TimerApi;
   return api;
 }
