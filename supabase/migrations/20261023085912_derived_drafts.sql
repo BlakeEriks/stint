@@ -32,7 +32,8 @@ begin
     raise exception 'Could not allocate an invoice number';
   end if;
 
-  -- Two open drafts over one date would both show its work.
+  -- Two open drafts over one date would both show its work. DETAIL names the
+  -- draft in the way, for the route's 409.
   select * into v_open
     from invoices
    where user_id = p_user_id
@@ -43,7 +44,13 @@ begin
    limit 1;
   if v_open.id is not null then
     raise exception '% is a draft for these dates already', v_open.invoice_number
-      using hint = 'DRAFT_OVERLAPS';
+      using hint = 'DRAFT_OVERLAPS',
+            detail = json_build_object(
+              'invoiceId', v_open.id,
+              'invoiceNumber', v_open.invoice_number,
+              'periodStart', v_open.period_start,
+              'periodEnd', v_open.period_end
+            )::text;
   end if;
 
   if v_details is not null then

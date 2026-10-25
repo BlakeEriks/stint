@@ -82,30 +82,6 @@ export const POST = handle(async (req: Request) => {
 
   requireSender(settings);
 
-  /* One open draft per client and date: two would both show the same work.
-     `create_invoice` holds the rule; this names the draft in the way. */
-  const { data: open, error: openError } = await db
-    .from('invoices')
-    .select('id, invoice_number, period_start, period_end')
-    .eq('client_id', body.clientId)
-    .eq('status', 'draft')
-    .lte('period_start', body.periodEnd)
-    .gte('period_end', body.periodStart)
-    .limit(1)
-    .maybeSingle();
-  if (openError) throw openError;
-  if (open)
-    throw new ApiError(
-      'DRAFT_OVERLAPS',
-      `${open.invoice_number} is a draft for these dates already. Open it, or start after it.`,
-      {
-        invoiceId: open.id,
-        invoiceNumber: open.invoice_number,
-        periodStart: open.period_start,
-        periodEnd: open.period_end,
-      },
-    );
-
   if (totals.unratedEntryIds.length > 0)
     throw unratedError(totals.unratedEntryIds);
 
@@ -151,11 +127,16 @@ export const POST = handle(async (req: Request) => {
     },
   });
 
-  if (dbCode(error) === 'DRAFT_OVERLAPS')
+  /* One open draft per client and date, which `create_invoice` holds: two
+     would both show the same work. */
+  if (dbCode(error) === 'DRAFT_OVERLAPS') {
+    const open = JSON.parse(error!.details) as { invoiceNumber: string };
     throw new ApiError(
       'DRAFT_OVERLAPS',
-      'Another draft for these dates was made at the same moment. Open it, or start after it.',
+      `${open.invoiceNumber} is a draft for these dates already. Open it, or start after it.`,
+      open,
     );
+  }
   if (error) throw error;
 
   const row = (Array.isArray(data) ? data[0] : data) as InvoiceRow;
