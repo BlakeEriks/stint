@@ -81,8 +81,10 @@ PR.
 
 The update carries the PR's number and Vercel preview; the build carries
 neither (`fingerprint.config.cjs`). A build is made only when no finished
-one has the push's fingerprint: main's native code changed, or the PR's
-does. The PR's comment then links the new build to install.
+one has the push's fingerprint, or the one that does expires within a day
+and its link would stop installing: main's native code changed, the PR's
+does, or the build is about to expire. The PR's comment then links the
+new build to install.
 
 It needs, once:
 
