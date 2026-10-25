@@ -97,8 +97,11 @@ Vercel (Next.js + route handlers) and Supabase (Postgres, Auth, Storage).
   form posts the visitor's email there, and invites go out from its list.
   No table and no route, since an unauthenticated write to our database
   would need rate limiting (`docs/deploying.md` sets it up).
-- **No outbound mail**, so no provider and no domain in the stack. Invoices
-  are downloaded and sent by the user (`docs/positioning.md`).
+- **A daily Vercel Cron** (`apps/web/vercel.json`) calls `/cron/drafts`,
+  which drafts each scheduled invoice and emails the user that it's ready,
+  through Resend's API from `MAIL_FROM` (`docs/setup.md`). Mail only ever
+  goes to the user: invoices are downloaded and sent by the user
+  (`docs/positioning.md`).
 
 ## Repo layout
 

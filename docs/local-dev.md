@@ -35,8 +35,8 @@ is a secret.
 Billing stays hidden locally until Stripe **test-mode** keys are added here
 too: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` and `STRIPE_WEBHOOK_SECRET` (from
 `stripe listen --forward-to localhost:3100/api/v1/billing/webhook`), plus
-`SUPABASE_SECRET_KEY` from `supabase status`, which the webhook writes
-with. Never a live key. With the three Stripe keys set, the invoice gate is on
+`SUPABASE_SECRET_KEY` from `supabase status`, which the webhook and the
+daily job write with. Never a live key. With the three Stripe keys set, the invoice gate is on
 too: a free account's invoice PDF answers `402 PAYMENT_REQUIRED`, and the
 invoice screen offers Subscribe in place of Download PDF.
 
@@ -72,7 +72,8 @@ database whose migration history disagrees with its schema.
 | Postgres | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` |
 
 The daily job runs locally when called with its secret. Add
-`MAILPIT_URL=http://127.0.0.1:54324` and a `CRON_SECRET` to
+`MAILPIT_URL=http://127.0.0.1:54324`, a `CRON_SECRET` and
+`SUPABASE_SECRET_KEY` from `supabase status` to
 `apps/web/.env.development.local`, then
 `curl -H "Authorization: Bearer $CRON_SECRET" localhost:3100/api/v1/cron/drafts`;
 its ready emails land in Mailpit.
