@@ -17,6 +17,11 @@ regexes = [
   # preview builds. Publishable keys ship in every browser bundle; RLS is
   # what protects the data, and stint-test holds only seeded accounts.
   '''sb_publishable_q79gV5KhfKg05hZMjWVHsg_SqL2HPTH''',
+  # Production's publishable key, which apps/macos/bundle.sh and the phone
+  # app's prod target (apps/mobile/src/target.ts) bake in. Public like every
+  # publishable key: it ships in the web app's browser bundle, and RLS is
+  # what protects the data.
+  '''sb_publishable_dpZCXx5Z71lOUznVCIleJA__YjyUk4e''',
 ]
 
 # Placeholders in the example env and the CI build step. Both are committed
