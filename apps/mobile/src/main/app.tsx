@@ -69,13 +69,38 @@ listenForTimerPushes(() => void onTimerPush(queryClient));
 const pushDevice = createPushDevice({
   tokens: expoTokens,
   register: api.registerPushDevice,
-  unregister: api.unregisterPushDevice,
 });
 
-/** Leaves the account's phones before the session that can say so goes. */
+/**
+ * The unregister on sign-out, as the session being left. It never refreshes:
+ * a refresh landing after sign-out would sign the user back in, and a token
+ * it can't remove only wakes a signed-out app.
+ */
+function unregisterAs(accessToken: string) {
+  return createApi(
+    createRequest({
+      origin,
+      auth: {
+        accessToken: async () => accessToken,
+        refresh: () =>
+          Promise.reject(
+            new ApiError(401, { code: 'UNAUTHORIZED', message: 'Signed out.' }),
+          ),
+        signOut: async () => {},
+      },
+      bypass: bypass.current,
+    }),
+  ).unregisterPushDevice;
+}
+
+/** Starts removing this phone from the account, then signs out at once. */
 async function signOut() {
-  if (canPush) await pushDevice.leave();
-  await auth.signOut();
+  try {
+    const session = canPush ? await auth.load() : null;
+    if (session) pushDevice.leave(unregisterAs(session.accessToken));
+  } finally {
+    await auth.signOut();
+  }
 }
 
 /** Undefined while the stored session loads. */

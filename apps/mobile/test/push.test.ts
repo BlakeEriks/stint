@@ -78,9 +78,9 @@ function device(first = 'tok-1') {
   const phone = createPushDevice({
     tokens: os,
     register: (t) => answer(`register ${t}`),
-    unregister: (t) => answer(`unregister ${t}`),
   });
-  return { phone, calls, os, failing };
+  const unregister = (t: string) => answer(`unregister ${t}`);
+  return { phone, calls, os, failing, unregister };
 }
 
 const tick = () => new Promise((r) => setImmediate(r));
@@ -96,9 +96,9 @@ test('a signed-in phone registers its token, and a new one when it changes', asy
 });
 
 test('signing out unregisters the token, and stops following it', async () => {
-  const { phone, calls, os } = device();
+  const { phone, calls, os, unregister } = device();
   await phone.join();
-  await phone.leave();
+  phone.leave(unregister);
   os.rotate('tok-2');
   await tick();
   assert.deepEqual(calls, ['register tok-1', 'unregister tok-1']);
@@ -119,11 +119,23 @@ test('a phone that cannot reach the server registers on the next try', async () 
   assert.deepEqual(calls, ['register tok-1', 'register tok-1']);
 });
 
-test('signing out offline still signs out', async () => {
-  const { phone, calls, failing } = device();
+test('signing out never waits on the server', async () => {
+  const { phone, calls } = device();
+  await phone.join();
+  const left = phone.leave(() => {
+    calls.push('unregister tok-1');
+    return new Promise(() => {});
+  });
+  assert.equal(left, undefined, 'leave returns before the server answers');
+  assert.deepEqual(calls, ['register tok-1', 'unregister tok-1']);
+});
+
+test('an unregister the server refuses is dropped', async () => {
+  const { phone, calls, failing, unregister } = device();
   await phone.join();
   failing.next = new ApiError(503, { code: 'INTERNAL', message: 'down' });
-  await phone.leave();
+  phone.leave(unregister);
+  await tick();
   assert.deepEqual(calls, ['register tok-1', 'unregister tok-1']);
 });
 

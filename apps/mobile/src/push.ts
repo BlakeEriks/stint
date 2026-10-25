@@ -46,16 +46,15 @@ export class TokenUnavailable extends Error {
 interface Options {
   tokens: PushTokens;
   register: (token: string) => Promise<unknown>;
-  unregister: (token: string) => Promise<unknown>;
 }
 
 /**
  * This phone on the account while it is signed in. Offline, a register is
- * tried again on the next launch and an unregister is dropped, so sign-out
- * never waits on the network; a token left behind wakes a signed-out app,
- * which asks nothing.
+ * tried again on the next launch. Sign-out starts the unregister and never
+ * waits for it, dropping it when the server can't be reached; a token left
+ * behind wakes a signed-out app, which asks nothing.
  */
-export function createPushDevice({ tokens, register, unregister }: Options) {
+export function createPushDevice({ tokens, register }: Options) {
   let registered: string | null = null;
   let off: (() => void) | null = null;
 
@@ -83,12 +82,13 @@ export function createPushDevice({ tokens, register, unregister }: Options) {
       }
       await use(token);
     },
-    async leave() {
+    /** `unregister` must not refresh the session it is leaving. */
+    leave(unregister: (token: string) => Promise<unknown>) {
       off?.();
       off = null;
       const token = registered;
       registered = null;
-      if (token) await unregister(token).catch(offline);
+      if (token) void unregister(token).catch(offline);
     },
   };
 }
