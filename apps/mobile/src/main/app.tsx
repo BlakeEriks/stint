@@ -93,7 +93,6 @@ function unregisterAs(accessToken: string) {
   ).unregisterPushDevice;
 }
 
-/** Starts removing this phone from the account, then signs out at once. */
 async function signOut() {
   try {
     const session = canPush ? await auth.load() : null;
