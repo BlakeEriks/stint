@@ -1,20 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createAuth, type Store } from '../src/session.ts';
+import { createAuth } from '../src/session.ts';
+import { memoryStore } from './memory-store.ts';
 import { ApiError } from '@stint/client';
 
 const URL = 'http://localhost:54321';
 const NOW = 1_800_000_000_000;
-
-function memoryStore(): Store & { data: Map<string, string> } {
-  const data = new Map<string, string>();
-  return {
-    data,
-    get: async (k) => data.get(k) ?? null,
-    set: async (k, v) => void data.set(k, v),
-    delete: async (k) => void data.delete(k),
-  };
-}
 
 const gotrue = (n: number, over: object = {}) => ({
   access_token: `access-${n}`,

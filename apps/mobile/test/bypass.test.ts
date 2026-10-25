@@ -1,16 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createBypass } from '../src/bypass.ts';
-
-function memoryStore() {
-  const data = new Map<string, string>();
-  return {
-    data,
-    get: async (k: string) => data.get(k) ?? null,
-    set: async (k: string, v: string) => void data.set(k, v),
-    delete: async (k: string) => void data.delete(k),
-  };
-}
+import { memoryStore } from './memory-store.ts';
 
 test('nothing is known until the reviewer types it in', async () => {
   const bypass = createBypass(memoryStore());
