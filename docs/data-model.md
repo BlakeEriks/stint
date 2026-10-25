@@ -371,10 +371,13 @@ all; RLS decides which rows it sees once it may.** Enabling RLS on a new table
 without granting it produces a `42501` that looks nothing like a policy
 problem.
 
-One table is written outside RLS: `subscriptions` grants `select`, `insert`
-and `update` to `service_role`, which bypasses RLS. Only `serviceClient()`
-(`apps/web/src/lib/supabase.ts`) uses that role, from `syncCustomer()`, for
-the Stripe webhook and the Checkout return.
+`service_role` bypasses RLS, and only `serviceClient()`
+(`apps/web/src/lib/supabase.ts`) uses it, in two places. `syncCustomer()`
+writes `subscriptions`, for the Stripe webhook and the Checkout return; that
+table grants `select`, `insert` and `update` to `service_role`. The daily
+drafts job (`/cron/drafts`, `runDrafts()`) reads every user's settings and
+clients, and writes `invoices`, `ready_emailed_at` and
+`clients.auto_drafted_through`, so every query there names its user.
 
 Supabase's **"Automatically expose new tables" must stay OFF** — the grants
 are explicit here so that a new table is unreachable until someone decides

@@ -127,7 +127,7 @@ const INTERNAL = 'Admin and invoicing';
  * |---------------------|----------------------------------------------|
  * | Unusual length      | ended, past `max_entry_hours` (12)           |
  * | Overdue invoice     | `sent`, `due_date` more than 7 days past     |
- * | Stale draft         | `draft`, issued more than 7 days ago         |
+ * | Stale draft         | `draft`, `period_end` more than 7 days past  |
  * | Unprojected entries | ended, billable, unbilled, no project        |
  *
  * The inbox is the one surface that is genuinely hard to exercise by hand:
