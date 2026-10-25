@@ -10,8 +10,11 @@ name: mobile-preview
 # finds its comment by a marker anyone can type, and publishes on main too,
 # where there is no PR for the update to talk to.
 #
-# The link is public, so neither holds a secret: the reviewer types Vercel's
-# bypass into the app once (`apps/mobile/src/bypass.ts`).
+# The links are public, so neither the build nor an update holds a secret:
+# the reviewer types Vercel's bypass into the app once
+# (`apps/mobile/src/bypass.ts`). A development build runs any bundle a deep
+# link names, so a crafted link could read what the app keeps: the bypass
+# and a preview session on stint-test's seeded data (`docs/mobile.md`).
 #
 # Requires, once: the EXPO_TOKEN secret, and the EAS_PROJECT_ID and
 # EXPO_OWNER variables.

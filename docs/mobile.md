@@ -52,6 +52,12 @@ PR's update, and the next build, finds it there. When Vercel
 refuses it because it was rotated or mistyped, the app forgets it and asks
 again.
 
+**Stint Preview is a development build, so it runs any bundle a deep link
+names.** A crafted link opened on the reviewer's phone could read what it
+keeps: the bypass, and a session on `stint-test`, whose data is seeded
+test data. The answer to a leak is rotating the bypass in Vercel
+(`docs/deploying.md` §3a); the app then asks for the new one.
+
 ## Sign-in
 
 The macOS app's emailed six-digit code (`docs/macos.md`, Sign-in), over
