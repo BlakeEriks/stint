@@ -6,7 +6,7 @@
 | Variable | local | preview | prod |
 | --- | --- | --- | --- |
 | `STINT_TARGET` | `local` (default) | `preview` | `prod` |
-| `STINT_APP_URL` | `http://localhost:3000` unless set | the PR's Vercel origin | `https://app.runstint.com` |
+| `STINT_APP_URL` | `http://localhost:3100` unless set | the PR's Vercel origin | `https://app.runstint.com` |
 | `STINT_PREVIEW_PR` | — | the PR number | — |
 | `STINT_VERCEL_BYPASS` | — | Vercel's protection bypass | — |
 

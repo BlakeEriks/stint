@@ -13,8 +13,8 @@ import {
   type Include,
   type Included,
   type IncludedName,
-} from './api';
-import { keys } from './query-keys';
+} from './api.ts';
+import { keys } from './query-keys.ts';
 
 /**
  * The one way the web app writes (Constitution VI). Every press answers in

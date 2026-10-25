@@ -14,10 +14,10 @@ import type {
   Summary,
   TimeEntry,
   TimerApi,
-} from './api';
+} from './api.ts';
 import { elapsedSeconds, entrySeconds, localDateKey } from '@stint/core';
-import { keys, invalidateEntryData } from './query-keys';
-import { useOptimisticMutation } from './mutations';
+import { keys, invalidateEntryData } from './query-keys.ts';
+import { useOptimisticMutation } from './mutations.ts';
 
 /**
  * The zone this render is happening in. "Today" is a local question the

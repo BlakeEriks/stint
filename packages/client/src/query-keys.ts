@@ -1,5 +1,5 @@
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
-import type { IncludedName } from './api';
+import type { IncludedName } from './api.ts';
 
 /**
  * Every cache key in one place.

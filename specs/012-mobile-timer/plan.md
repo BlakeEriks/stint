@@ -76,7 +76,7 @@ apps/mobile/                 # NEW Expo app
 ├── src/session.ts           # GoTrue code sign-in, refresh, sign-out rule
 ├── src/request.ts           # bearer /api/v1 client, one retry after refresh
 ├── src/storage.ts(.web.ts)  # secure storage; localStorage in the web render
-├── src/app/                 # root, providers, focus wiring
+├── src/main/                 # root, providers, focus wiring
 ├── src/screens/             # SignIn, Timer (+ *.stories.tsx), presentational
 └── test/                    # node --test client-logic suite
 scripts/check-mutation-usage.mjs      # moved from apps/web/scripts, covers both apps

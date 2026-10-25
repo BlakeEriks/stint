@@ -29,7 +29,7 @@ with its neighbors.
 
 - [ ] T012 [P] [US1] Tests first, `apps/mobile/test/request.test.ts`: bearer header, one retry after a refresh on 401, a rejected session after the retry, the bypass header on preview, `ApiError` from an error body
 - [ ] T013 [US1] `apps/mobile/src/request.ts` and `src/api.ts`: the seven calls
-- [ ] T014 [US1] `apps/mobile/src/app/`: QueryClient, `focusManager` on `AppState`, the root that switches sign-in and timer, preview sign-in on launch
+- [ ] T014 [US1] `apps/mobile/src/main/`: QueryClient, `focusManager` on `AppState`, the root that switches sign-in and timer, preview sign-in on launch
 - [ ] T015 [US1] `apps/mobile/src/screens/timer.tsx`: header, dock stopped and running, project picker, Recent, notice; stories for stopped, running, refused, offline, long task name
 - [ ] T016 [US1] `apps/mobile/src/screens/settings.tsx`: email, Sign out
 
