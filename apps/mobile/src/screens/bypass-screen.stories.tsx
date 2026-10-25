@@ -10,10 +10,13 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** US4: a preview build asks once for the bypass, inert until one is typed. */
+/** US4: a preview asks once for the bypass, for every PR, inert until one is typed. */
 export const FirstLaunch: Story = {
   play: async ({ canvasElement, args }) => {
     const screen = within(canvasElement);
+    await expect(
+      screen.getByText(/every PR you open here finds it/),
+    ).toBeVisible();
     const save = screen.getByRole('button', { name: 'Save' });
     await expect(save).toHaveAttribute('aria-disabled', 'true');
     await userEvent.type(screen.getByLabelText('Vercel bypass'), 'abc123');
