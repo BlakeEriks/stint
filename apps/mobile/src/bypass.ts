@@ -12,6 +12,7 @@ const KEY = 'stint.vercel-bypass';
  */
 export function createBypass(store: Store) {
   let value: string | null = null;
+  const listeners = new Set<(value: string | null) => void>();
   return {
     async load() {
       value = await store.get(KEY);
@@ -23,7 +24,17 @@ export function createBypass(store: Store) {
       await store.set(KEY, trimmed);
       value = trimmed;
     },
+    /** Vercel refused it: forget it, so the screen asks again. */
+    async clear() {
+      await store.delete(KEY);
+      value = null;
+      for (const listener of listeners) listener(null);
+    },
     /** What each request sends, read at the time it is sent. */
     current: () => value,
+    subscribe(listener: (value: string | null) => void) {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
+    },
   };
 }

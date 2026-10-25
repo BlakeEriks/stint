@@ -5,7 +5,7 @@ import { BypassScreen } from './bypass-screen.tsx';
 const meta = {
   title: 'Phone/Preview bypass',
   component: BypassScreen,
-  args: { label: 'PR 471', onSave: fn() },
+  args: { label: 'PR 471', error: null, onSave: fn() },
 } satisfies Meta<typeof BypassScreen>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -19,5 +19,15 @@ export const FirstLaunch: Story = {
     await userEvent.type(screen.getByLabelText('Vercel bypass'), 'abc123');
     await userEvent.click(save);
     await expect(args.onSave).toHaveBeenCalledWith('abc123');
+  },
+};
+
+/** The phone could not keep it: the screen says so and stays. */
+export const CouldNotKeep: Story = {
+  args: { error: 'Couldn’t keep it on this phone: Keychain unavailable' },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByRole('alert')).toHaveTextContent(
+      /Couldn’t keep it/,
+    );
   },
 };

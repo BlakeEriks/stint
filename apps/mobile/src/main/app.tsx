@@ -27,7 +27,20 @@ const auth = createAuth({
   store: secureStore,
 });
 const bypass = createBypass(secureStore);
-const api = createApi(createRequest({ origin, auth, bypass: bypass.current }));
+const api = createApi(
+  createRequest({
+    origin,
+    auth,
+    bypass: bypass.current,
+    // A wrong or rotated bypass: forget it, and the screen asks again.
+    onProtected: () => void bypass.clear().catch(failed),
+  }),
+);
+
+/** Secure storage that cannot read or write is a fault to report, not to hide. */
+function failed(e: unknown): never {
+  throw e;
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -70,32 +83,57 @@ function useSession(): Session | null | undefined {
   return session;
 }
 
-/** A preview build needs the bypass before it can reach its PR; the others never ask. */
-function useBypassKnown(): [boolean | undefined, (typed: string) => void] {
+/**
+ * A preview build needs the bypass before it can reach its PR, and again
+ * whenever Vercel refuses it; the others never ask. A store that cannot be
+ * read asks for it; one that cannot be written says so on the screen.
+ */
+function useBypass() {
   const [known, setKnown] = useState<boolean | undefined>(
     target.name === 'preview' ? undefined : true,
   );
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    if (target.name === 'preview')
-      void bypass.load().then((value) => setKnown(value !== null));
+    if (target.name !== 'preview') return;
+    bypass.load().then(
+      (value) => setKnown(value !== null),
+      () => setKnown(false),
+    );
+    return bypass.subscribe((value) => {
+      setKnown(value !== null);
+      // Whatever was showing was refused; refetch once it is typed in again.
+      if (value === null) queryClient.clear();
+    });
   }, []);
-  const save = (typed: string) =>
-    void bypass.save(typed).then(() => setKnown(true));
-  return [known, save];
+  const save = (typed: string) => {
+    setError(null);
+    bypass.save(typed).then(
+      () => setKnown(true),
+      (e: unknown) =>
+        setError(
+          `Couldn’t keep it on this phone: ${e instanceof Error ? e.message : String(e)}`,
+        ),
+    );
+  };
+  return { known, error, save };
 }
 
 export function App() {
   const [fonts] = usePlex();
   const session = useSession();
-  const [bypassKnown, saveBypass] = useBypassKnown();
+  const pass = useBypass();
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <StatusBar style="auto" />
-        {!fonts || session === undefined || bypassKnown === undefined ? (
+        {!fonts || session === undefined || pass.known === undefined ? (
           <Blank />
-        ) : !bypassKnown ? (
-          <BypassScreen label={target.label ?? ''} onSave={saveBypass} />
+        ) : !pass.known ? (
+          <BypassScreen
+            label={target.label ?? ''}
+            error={pass.error}
+            onSave={pass.save}
+          />
         ) : session ? (
           <TimerContainer
             api={api}

@@ -31,3 +31,15 @@ test('an empty bypass is refused', async () => {
   await assert.rejects(createBypass(store).save('   '), /empty/);
   assert.equal(store.data.size, 0);
 });
+
+test('a refused bypass is forgotten, and whoever shows the screen hears it', async () => {
+  const store = memoryStore();
+  const bypass = createBypass(store);
+  await bypass.save('stale');
+  const heard: Array<string | null> = [];
+  bypass.subscribe((value) => heard.push(value));
+  await bypass.clear();
+  assert.equal(bypass.current(), null);
+  assert.equal(store.data.size, 0);
+  assert.deepEqual(heard, [null]);
+});

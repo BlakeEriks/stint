@@ -48,7 +48,9 @@ production.
 **No secret ships in a build**, and a preview's install link is public. Its
 first launch asks for Vercel's Protection Bypass for Automation, the value
 `pnpm try-mac` keeps in the Keychain, and keeps it in secure storage; the
-next preview build installs over this one and finds it there.
+next preview build installs over this one and finds it there. When Vercel
+refuses it because it was rotated or mistyped, the app forgets it and asks
+again.
 
 ## Sign-in
 

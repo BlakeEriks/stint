@@ -7,6 +7,8 @@ import { Wordmark } from './parts.tsx';
 export interface BypassScreenProps {
   /** The PR this build is for, as the header names it. */
   label: string;
+  /** Why the last one could not be kept. */
+  error: string | null;
   onSave: (bypass: string) => void;
 }
 
@@ -15,7 +17,7 @@ export interface BypassScreenProps {
  * lets it reach the PR's protected preview, typed in rather than shipped in
  * the build (`bypass.ts`).
  */
-export function BypassScreen({ label, onSave }: BypassScreenProps) {
+export function BypassScreen({ label, error, onSave }: BypassScreenProps) {
   const c = useColors();
   const [value, setValue] = useState('');
   const live = value.trim().length > 0;
@@ -29,7 +31,8 @@ export function BypassScreen({ label, onSave }: BypassScreenProps) {
         </View>
         <Text style={[text('body'), { color: c['text-muted'] }]}>
           This preview build reaches its PR through Vercel’s Protection Bypass
-          for Automation. Paste it once; the next preview build finds it.
+          for Automation. Paste it once; the next preview build finds it. If it
+          is rotated, this asks again.
         </Text>
         <TextInput
           value={value}
@@ -49,6 +52,14 @@ export function BypassScreen({ label, onSave }: BypassScreenProps) {
             },
           ]}
         />
+        {error && (
+          <Text
+            accessibilityRole="alert"
+            style={[text('support'), { color: c.danger }]}
+          >
+            {error}
+          </Text>
+        )}
         <Pressable
           onPress={save}
           disabled={!live}

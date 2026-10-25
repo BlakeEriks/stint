@@ -157,3 +157,32 @@ test('a JSON body is sent as JSON', async () => {
   const headers = sent[0]?.headers as Record<string, string>;
   assert.equal(headers['content-type'], 'application/json');
 });
+
+test("Vercel's own 401 is the bypass, not the session: no refresh, and it asks again", async () => {
+  // Vercel's protection page, not one of ours: no JSON `code`.
+  const s = server([
+    () => new Response('<html>Authentication Required</html>', { status: 401 }),
+  ]);
+  const auth = fakeAuth();
+  let refreshed = false;
+  let protectedCalls = 0;
+  const request = createRequest({
+    origin: 'https://x.vercel.app',
+    auth: {
+      ...auth,
+      refresh: async () => {
+        refreshed = true;
+        return auth.refresh();
+      },
+    },
+    bypass: () => 'stale',
+    onProtected: () => protectedCalls++,
+    fetch: s.fetch,
+  });
+  await assert.rejects(request('GET', '/summary'), (e: unknown) => {
+    return e instanceof ApiError && e.code === 'VERCEL_PROTECTED';
+  });
+  assert.equal(refreshed, false);
+  assert.equal(auth.signedOut, false);
+  assert.equal(protectedCalls, 1);
+});
