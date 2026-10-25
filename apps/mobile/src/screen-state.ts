@@ -8,8 +8,6 @@ import { formatCompact } from '@stint/core';
 import type { NoticeProps } from './screens/parts.tsx';
 import type { PickerProject, RecentTask } from './screens/timer-screen.tsx';
 
-/** What the timer screen derives from its reads, apart from React. */
-
 const RECENT = 5;
 /** One more than Recent shows, since the running task is left out. */
 export const RECENT_FETCHED = RECENT + 1;

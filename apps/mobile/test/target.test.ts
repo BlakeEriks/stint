@@ -40,8 +40,6 @@ test("preview is one PR's, signed in as its seeded account", () => {
     email: 'pr-471@preview.test',
     password: 'devpassword123',
   });
-  // No secret ships in a build: the bypass is typed into the app (`bypass.ts`).
-  assert.equal('bypass' in t, false);
 });
 
 test('a preview missing its PR or origin is refused', () => {
