@@ -1,6 +1,11 @@
 import { ApiError, handle } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
-import { loadPdfData, recordDownload, unratedError } from '@/lib/invoicing';
+import {
+  loadPdfData,
+  recordDownload,
+  refuseDueBeforeIssue,
+  unratedError,
+} from '@/lib/invoicing';
 import { parseQuery } from '@/lib/validate';
 import { InvoiceReadQuery } from '@stint/schema';
 
@@ -41,6 +46,7 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
     );
   if (draft?.unratedEntries.length)
     throw unratedError(draft.unratedEntries.map((e) => e.id));
+  if (draft) refuseDueBeforeIssue(draft.row.issue_date, draft.row.due_date!);
   const download = new URL(req.url).searchParams.get('download') === '1';
 
   // Imported dynamically: the renderer module is JSX, and deferring it keeps

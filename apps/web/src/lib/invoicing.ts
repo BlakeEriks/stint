@@ -367,6 +367,19 @@ export function unratedError(ids: string[]) {
   );
 }
 
+/**
+ * Refuses a draft whose typed due date its issue date, the day it is sent,
+ * has passed: printed, it would read `Net -N`. The user picks the fix.
+ */
+export function refuseDueBeforeIssue(issueDate: string, dueDate: string) {
+  if (dueDate < issueDate)
+    throw new ApiError(
+      'VALIDATION_FAILED',
+      `The due date typed for this draft, ${dueDate}, is before its issue date, ${issueDate}. Delete the draft and generate it again with a later one.`,
+      { field: 'dueDate' },
+    );
+}
+
 /** The id a draft not yet generated takes among the open drafts. */
 const NEW_DRAFT = 'new';
 
@@ -614,6 +627,7 @@ export async function sendDraft(
     );
 
   const due = printed?.dueDate ?? draft.row.due_date!;
+  refuseDueBeforeIssue(draft.row.issue_date, due);
   const { data, error } = await db.rpc('send_draft', {
     p_invoice_id: row.id,
     p_invoice: {

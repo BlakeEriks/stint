@@ -3363,6 +3363,40 @@ test('sending dates the invoice: issued that day where it was sent, due by its t
   assert.equal(late.body.dueDate, '2026-11-15', 'the date the user typed');
 });
 
+test('a typed due date the issue date has passed is refused, not printed', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await on('2026-10-01', async () =>
+    json(
+      await r.create(
+        req('/invoices', {
+          clientId: CLIENT,
+          ...PERIOD,
+          dueDate: '2026-10-05',
+        }),
+      ),
+    ),
+  );
+  assert.equal(inv.status, 201, JSON.stringify(inv.body));
+
+  const pdf = await json(
+    await r.pdf(req('/pdf?tz=UTC&download=1'), at(inv.body.id)),
+  );
+  assert.equal(pdf.status, 422);
+  assert.equal(pdf.body.details.field, 'dueDate');
+
+  const sent = await json(
+    await r.setStatus(
+      req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
+      at(inv.body.id),
+    ),
+  );
+  assert.equal(sent.status, 422);
+  assert.equal(sent.body.details.field, 'dueDate');
+  const { rows } = await pool.query('select status from invoices');
+  assert.equal(rows[0].status, 'draft');
+});
+
 test('sending keeps the dates the downloaded PDF printed', async () => {
   const r = await live();
   await seedEntry({ id: D(1), hours: 2 });
