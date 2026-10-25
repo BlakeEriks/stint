@@ -91,6 +91,6 @@ the web's `api.ts`; the phone defines the seven reads and writes it uses.
 
 ## Complexity Tracking
 
-None. The constitution changes by PATCH (8.0.3): Principle VI's path moves
+None. The constitution changes by PATCH (8.0.4): Principle VI's path moves
 to `packages/client`, and Principle V's table gains the mobile row the
 issue asks for.

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
-import { followRunningTimer, keys } from '@/lib/client/query-keys';
+import { followRunningTimer, keys } from '@stint/client';
 
 const running = {
   running: { id: 'e1', startedAt: '2026-10-03T09:00:00Z' },

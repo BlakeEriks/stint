@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CalendarDays, Inbox as InboxIcon } from 'lucide-react';
 import { Popover } from 'radix-ui';
 import { api } from '@/lib/client/api';
-import { keys } from '@/lib/client/query-keys';
+import { keys } from '@stint/client';
 import { useDockFold, type FoldRegion } from '@/lib/client/use-dock-fold';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { Button } from '@/components/ui/button';

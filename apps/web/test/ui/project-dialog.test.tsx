@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { ProjectDialog } from '@/components/project-dialog';
 import type { Project } from '@/lib/client/api';
-import { keys } from '@/lib/client/query-keys';
+import { keys } from '@stint/client';
 import { pend } from './pend';
 
 vi.mock('next/navigation', () => ({

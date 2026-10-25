@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useOptimisticMutation } from '@/lib/client/mutations';
+import { useOptimisticMutation, keys } from '@stint/client';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, Section } from './field';
 import { api } from '@/lib/client/api';
-import { keys } from '@/lib/client/query-keys';
 import { forgetCache } from '@/lib/client/query-cache';
 import { browserClient } from '@/lib/client/supabase';
 import { useAccount } from '@/lib/client/use-account';

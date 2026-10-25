@@ -4,7 +4,11 @@ import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useOptimisticMutation } from '@/lib/client/mutations';
+import {
+  useOptimisticMutation,
+  keys,
+  invalidateEntryData,
+} from '@stint/client';
 import {
   documentOpens,
   formatCompact,
@@ -33,7 +37,6 @@ import { EntryDialog } from './entry-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RateInput, isValidRate, parseRate } from './rate-input';
-import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 type Attention = Stats['attention'];
 

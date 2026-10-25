@@ -3,8 +3,11 @@
 import { useRef, useState } from 'react';
 import { instantAt, movedTo, resized, DRAG_THRESHOLD_PX } from '@stint/core';
 import { api, type TimeEntry } from './api';
-import { invalidateEntryData, keys } from './query-keys';
-import { useOptimisticMutation } from './mutations';
+import {
+  invalidateEntryData,
+  keys,
+  useOptimisticMutation,
+} from '@stint/client';
 
 // A block is fixed where the mistake is noticed, so the gesture that writes is
 // made deliberate rather than removed: a threshold and a snap, and a move never

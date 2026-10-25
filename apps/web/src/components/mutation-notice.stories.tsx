@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, userEvent, within } from 'storybook/test';
 import { ApiError } from '@/lib/client/api';
-import { useOptimisticMutation } from '@/lib/client/mutations';
+import { useOptimisticMutation } from '@stint/client';
 import { desktop, phone } from '@/mocks/screen';
 
 /**

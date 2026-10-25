@@ -3,7 +3,7 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { timeZone, useTimer } from '@/lib/client/use-timer';
-import { keys } from '@/lib/client/query-keys';
+import { keys } from '@stint/client';
 import type { Stats, Summary, TimeEntry } from '@/lib/client/api';
 import { localDateKey } from '@stint/core';
 

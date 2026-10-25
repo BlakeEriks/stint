@@ -14,8 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { api, type Settings } from '@/lib/client/api';
-import { useOptimisticMutation } from '@/lib/client/mutations';
-import { keys } from '@/lib/client/query-keys';
+import { useOptimisticMutation, keys } from '@stint/client';
 import { Field } from './field';
 
 /**

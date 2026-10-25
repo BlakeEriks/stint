@@ -15,6 +15,7 @@
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "paths": {
+      "@stint/client": ["./packages/client/src/index.ts"],
       "@stint/core": ["./packages/core/src/index.ts"],
       "@stint/schema": ["./packages/schema/src/index.ts"],
       "@stint/design-tokens": ["./packages/design-tokens/dist/tokens.ts"]

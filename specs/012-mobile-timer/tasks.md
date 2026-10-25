@@ -45,7 +45,7 @@ with its neighbors.
 ## Phase 7: Polish
 
 - [ ] T020 Mobile story runner `apps/mobile/test/stories/stories.test.tsx` and its Vitest config; CI: mobile tests, typecheck, stories
-- [ ] T021 Constitution 8.0.3 (Principle VI's path, Principle V's mobile row); `CLAUDE.md` table row for `docs/mobile.md`; `docs/sdlc.md`
+- [ ] T021 Constitution 8.0.4 (Principle VI's path, Principle V's mobile row); `CLAUDE.md` table row for `docs/mobile.md`; `docs/sdlc.md`
 - [ ] T022 Doc drift, `pnpm hygiene`, `pnpm verify:static`, the web render signed in as `builder@localhost.test`
 
 ## Dependencies

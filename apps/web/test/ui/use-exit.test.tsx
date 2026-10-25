@@ -10,7 +10,7 @@ import type { ReactNode } from 'react';
 import { Inbox } from '@/components/inbox';
 import { useExit } from '@/lib/client/use-exit';
 import type { Stats } from '@/lib/client/api';
-import { keys } from '@/lib/client/query-keys';
+import { keys } from '@stint/client';
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
 

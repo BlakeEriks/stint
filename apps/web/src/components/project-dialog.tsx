@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useOptimisticMutation } from '@/lib/client/mutations';
+import {
+  useOptimisticMutation,
+  keys,
+  predictArchive,
+  predictSave,
+} from '@stint/client';
 import {
   Dialog,
   DialogContent,
@@ -20,7 +25,6 @@ import { api, type Project } from '@/lib/client/api';
 import { ArchiveButton } from './archive-button';
 import { ClientForm } from './client-form';
 import { ClientPicker } from './client-picker';
-import { keys, predictArchive, predictSave } from '@/lib/client/query-keys';
 import {
   invalidateProjects,
   useRestoreProject,

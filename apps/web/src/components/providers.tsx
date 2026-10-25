@@ -8,7 +8,7 @@ import {
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { useEffect, useState } from 'react';
 import { CACHE_MAX_AGE, cachePersister } from '@/lib/client/query-cache';
-import { followRunningTimer } from '@/lib/client/query-keys';
+import { followRunningTimer } from '@stint/client';
 import { MutationNotice } from './mutation-notice';
 
 export function Providers({

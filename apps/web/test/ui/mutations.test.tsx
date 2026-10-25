@@ -12,7 +12,7 @@ import {
   useOptimisticMutation,
   usePressedSince,
   type OptimisticOptions,
-} from '@/lib/client/mutations';
+} from '@stint/client';
 import { MutationNotice } from '@/components/mutation-notice';
 import { ApiError } from '@/lib/client/api';
 

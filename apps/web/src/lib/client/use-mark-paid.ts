@@ -1,8 +1,11 @@
 'use client';
 
 import { api, type Invoice } from './api';
-import { useOptimisticMutation } from './mutations';
-import { invalidateEntryData, keys } from './query-keys';
+import {
+  useOptimisticMutation,
+  invalidateEntryData,
+  keys,
+} from '@stint/client';
 import { useDialog } from './use-dialog';
 
 /**
