@@ -1,4 +1,5 @@
 import { ApiError } from '@stint/client';
+import { startSession } from '../launch.ts';
 import {
   focusManager,
   QueryClient,
@@ -56,28 +57,16 @@ focusManager.setEventListener((setFocused) => {
 /** Undefined while the stored session loads. */
 function useSession(): Session | null | undefined {
   const [session, setSession] = useState<Session | null | undefined>();
-  useEffect(() => {
-    const off = auth.subscribe((next) => {
-      // Nothing of one account outlives its sign-out.
-      if (!next) queryClient.clear();
-      setSession(next);
-    });
-    void (async () => {
-      const stored = await auth.load();
-      // A preview build signs in as its PR's seeded account on launch.
-      if (!stored && target.preview)
-        await auth.signInWithPassword(
-          target.preview.email,
-          target.preview.password,
-        );
-      else setSession(stored);
-    })().catch((e) => {
-      // A preview account the PR hasn't seeded yet: show sign-in.
-      if (!(e instanceof ApiError || e instanceof TypeError)) throw e;
-      setSession(null);
-    });
-    return off;
-  }, []);
+  useEffect(
+    () =>
+      startSession({
+        auth,
+        preview: target.preview,
+        show: setSession,
+        clear: () => queryClient.clear(),
+      }),
+    [],
+  );
   return session;
 }
 

@@ -1,31 +1,20 @@
-import {
-  ApiError,
-  keys,
-  useFailedPress,
-  useTimer,
-  type Client,
-  type Project,
-} from '@stint/client';
-import {
-  formatClock,
-  formatCompact,
-  formatCurrency,
-  uuidv7,
-} from '@stint/core';
+import { keys, useFailedPress, useTimer } from '@stint/client';
+import { formatClock, formatCurrency, uuidv7 } from '@stint/core';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { target } from '../config.ts';
-import { SettingsSheet } from '../screens/settings-sheet.tsx';
-import type { NoticeProps } from '../screens/parts.tsx';
-import {
-  type PickerProject,
-  type RecentTask,
-  TimerScreen,
-} from '../screens/timer-screen.tsx';
 import type { Api } from '../api.ts';
+import { target } from '../config.ts';
+import {
+  chooseNotice,
+  projectLookup,
+  RECENT_FETCHED,
+  recentTasks,
+  wholeMinutes,
+} from '../screen-state.ts';
+import { SettingsSheet } from '../screens/settings-sheet.tsx';
+import type { PickerProject } from '../screens/timer-screen.tsx';
+import { TimerScreen } from '../screens/timer-screen.tsx';
 import { useTimeZone } from './use-time-zone.ts';
-
-const RECENT = 5;
 
 /** The timer screen on the shared timer (`@stint/client`) and the phone's reads. */
 export function TimerContainer({
@@ -41,7 +30,8 @@ export function TimerContainer({
   const timer = useTimer(api, timeZone);
   const running = timer.running;
   const [settings, setSettings] = useState(false);
-  const notice = useNotice(timer.error);
+  const failed = useFailedPress();
+  const notice = chooseNotice(failed, timer.error);
 
   const stats = useQuery({
     queryKey: keys.stats(timeZone),
@@ -60,26 +50,11 @@ export function TimerContainer({
   });
   const names = useQuery({
     queryKey: keys.taskNames({}),
-    queryFn: () => api.taskNames(RECENT + 1).then((r) => r.taskNames),
+    queryFn: () => api.taskNames(RECENT_FETCHED).then((r) => r.taskNames),
   });
 
   const lookup = projectLookup(projects.data ?? [], clients.data ?? []);
-  const recent: RecentTask[] = (names.data ?? [])
-    .filter(
-      (n) =>
-        !(
-          running &&
-          n.taskName === running.taskName &&
-          n.projectId === running.projectId
-        ),
-    )
-    .slice(0, RECENT)
-    .map((n) => ({
-      taskName: n.taskName,
-      projectId: n.projectId,
-      projectName: n.projectId ? (lookup(n.projectId)?.name ?? null) : null,
-      color: n.projectId ? (lookup(n.projectId)?.color ?? null) : null,
-    }));
+  const recent = recentTasks(names.data ?? [], running, lookup);
   const shown = running?.projectId ? lookup(running.projectId) : null;
 
   const start = (taskName: string, projectId: string | null) =>
@@ -124,46 +99,4 @@ export function TimerContainer({
       />
     </>
   );
-}
-
-/** A refused press first; else the timer's own read failing, which is the network. */
-function useNotice(readError: Error | null): NoticeProps | null {
-  const failed = useFailedPress();
-  if (failed)
-    return {
-      message: failed.message,
-      tone: 'error',
-      onDismiss: failed.dismiss,
-    };
-  if (readError && !(readError instanceof ApiError && readError.isUnauthorized))
-    return {
-      message: 'Can’t reach Stint. Check your internet connection.',
-      tone: 'offline',
-    };
-  return null;
-}
-
-/** `0m` until the first minute is up, as the menu bar reads. */
-function wholeMinutes(seconds: number) {
-  const whole = Math.floor(seconds / 60) * 60;
-  return whole === 0 ? '0m' : formatCompact(whole);
-}
-
-function projectLookup(projects: Project[], clients: Client[]) {
-  const clientById = new Map(clients.map((c) => [c.id, c]));
-  const byId = new Map(
-    projects.map((p): [string, PickerProject] => {
-      const client = p.clientId ? clientById.get(p.clientId) : undefined;
-      return [
-        p.id,
-        {
-          id: p.id,
-          name: p.name,
-          clientName: client?.name ?? null,
-          color: client?.color ?? null,
-        },
-      ];
-    }),
-  );
-  return (id: string) => byId.get(id);
 }
