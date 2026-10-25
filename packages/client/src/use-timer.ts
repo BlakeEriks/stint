@@ -67,7 +67,7 @@ function useTick(active: boolean): boolean {
 export function useTimer(api: TimerApi, timeZone: string) {
   const queryClient = useQueryClient();
   const summary = useQuery({
-    queryKey: keys.summary(),
+    queryKey: keys.summary(timeZone),
     queryFn: () => api.summary(timeZone),
     // A running timer is reconciled every 60s; the local tick covers the
     // seconds in between.
@@ -125,7 +125,7 @@ export function useTimer(api: TimerApi, timeZone: string) {
     };
   // One lane: Start then Stop must reach the server in that order.
   const timerPress = {
-    queryKey: () => keys.summary(),
+    queryKey: () => keys.summary(timeZone),
     invalidate: (
       qc: QueryClient,
       _vars: unknown,

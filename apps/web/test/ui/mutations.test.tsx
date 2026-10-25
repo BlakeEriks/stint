@@ -250,7 +250,7 @@ describe('useOptimisticMutation — include', () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false, staleTime: Infinity } },
     });
-    queryClient.setQueryData(['summary'], 'old summary');
+    queryClient.setQueryData(['summary', 'UTC'], 'old summary');
     queryClient.setQueryData(['stats', 'UTC'], 'old stats');
     const invalidate = vi.fn();
     const wrapper = ({ children }: { children: ReactNode }) => (
@@ -281,7 +281,7 @@ describe('useOptimisticMutation — include', () => {
 
     await waitFor(() => expect(invalidate).toHaveBeenCalledTimes(1));
     expect(invalidate.mock.calls[0]?.[2]).toEqual(['summary', 'stats']);
-    expect(queryClient.getQueryData(['summary'])).toBe('new summary');
+    expect(queryClient.getQueryData(['summary', 'UTC'])).toBe('new summary');
     expect(queryClient.getQueryData(['stats', 'UTC'])).toBe('new stats');
   });
 
@@ -314,7 +314,7 @@ describe('useOptimisticMutation — include', () => {
 
     await waitFor(() => expect(invalidate).toHaveBeenCalledTimes(1));
     expect(invalidate.mock.calls[0]?.[2]).toEqual([]);
-    expect(queryClient.getQueryData(['summary'])).toBe('old summary');
+    expect(queryClient.getQueryData(['summary', 'UTC'])).toBe('old summary');
   });
 
   it('writes only the last overlapping press’s answer', async () => {
@@ -329,13 +329,13 @@ describe('useOptimisticMutation — include', () => {
     await act(async () =>
       calls[0].resolve({ included: { summary: 'after start' } }),
     );
-    expect(queryClient.getQueryData(['summary'])).toBe('old summary');
+    expect(queryClient.getQueryData(['summary', 'UTC'])).toBe('old summary');
 
     await act(async () =>
       calls[1].resolve({ included: { summary: 'after stop' } }),
     );
     await waitFor(() =>
-      expect(queryClient.getQueryData(['summary'])).toBe('after stop'),
+      expect(queryClient.getQueryData(['summary', 'UTC'])).toBe('after stop'),
     );
   });
 

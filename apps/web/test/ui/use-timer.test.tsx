@@ -456,9 +456,9 @@ describe('useTimer — Home settles with the answer', () => {
     expect(client.getQueryData(keys.stats(timeZone))).toEqual({
       settled: true,
     });
-    expect(client.getQueryData<Summary>(keys.summary())?.todaySeconds).toBe(
-      3600,
-    );
+    expect(
+      client.getQueryData<Summary>(keys.summary(timeZone))?.todaySeconds,
+    ).toBe(3600);
     expect(invalidated).not.toContain('summary');
     expect(invalidated).not.toContain('stats');
     expect(invalidated).toContain('entries');

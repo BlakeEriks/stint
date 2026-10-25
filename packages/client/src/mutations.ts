@@ -125,7 +125,7 @@ interface Context {
 
 /** Where each read a write can include is cached. */
 const INCLUDED_KEY: Record<IncludedName, (tz: string) => QueryKey> = {
-  summary: () => keys.summary(),
+  summary: (tz) => keys.summary(tz),
   stats: (tz) => keys.stats(tz),
 };
 
