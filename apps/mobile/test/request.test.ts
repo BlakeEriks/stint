@@ -159,7 +159,6 @@ test('a JSON body is sent as JSON', async () => {
 });
 
 test("Vercel's own 401 is the bypass, not the session: no refresh, and it asks again", async () => {
-  // Vercel's protection page, not one of ours: no JSON `code`.
   const s = server([
     () => new Response('<html>Authentication Required</html>', { status: 401 }),
   ]);
