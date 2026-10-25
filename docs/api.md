@@ -2,8 +2,9 @@
 
 Every client (web and the macOS app) uses these endpoints, and an endpoint
 not built yet is marked `(not implemented)`. Auth is a Supabase JWT as
-`Authorization: Bearer <token>`, on every endpoint except `/health` and the
-Stripe webhook, which Stripe's signature authenticates instead. Request/response shapes are defined in
+`Authorization: Bearer <token>`, on every endpoint except `/health`, the
+Stripe webhook, which Stripe's signature authenticates instead, and
+`/cron/drafts`, which takes `Bearer $CRON_SECRET`. Request/response shapes are defined in
 `packages/schema/src/index.ts` — that file is the source of truth, and every
 route parses its request against it; this document is the map.
 
@@ -14,7 +15,7 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 53 of 53, counting handlers rather than files.
+Every handler is covered, counting handlers rather than files.
 
 ## Timer
 
