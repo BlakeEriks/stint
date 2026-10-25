@@ -55,9 +55,10 @@ jobs:
         with: { node-version: '24', cache: 'pnpm' }
       - run: pnpm install --frozen-lockfile
 
-      - uses: expo/expo-github-action@v8
+      # Pinned: this step holds the Expo token.
+      - uses: expo/expo-github-action@9da89d3617bb88139671bad31b09c65714c2ee06 # 9.0.1
         with:
-          eas-version: latest
+          eas-version: 25.3.0
           token: ${{ secrets.EXPO_TOKEN }}
 
       # EAS hands a cloud build its profile's `env` and nothing from this
