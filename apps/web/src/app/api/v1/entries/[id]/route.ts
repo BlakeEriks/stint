@@ -10,6 +10,7 @@ import {
   type EntryRow,
 } from '@/lib/rows';
 import { askedToInclude, entryWith, readIncluded } from '@/lib/include';
+import { pushTimerChanged } from '@/lib/push';
 import { UpdateTimeEntry } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -98,20 +99,24 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
     throw error;
   }
   if (!data) throw new ApiError('ENTRY_NOT_FOUND', 'Entry not found');
+  // Running now, or this edit stopped or reopened it.
+  if ((data as EntryRow).ended_at === null || 'ended_at' in update) {
+    pushTimerChanged(db, userId);
+  }
 
   const included = await readIncluded(asked, db, userId);
   return NextResponse.json(entryWith(toEntry(data as EntryRow), included));
 });
 
 export const DELETE = handle(async (req: Request, ctx: Ctx) => {
-  const { db } = await requireSession(req);
+  const { userId, db } = await requireSession(req);
   const { id } = await ctx.params;
 
   const { data, error } = await db
     .from('time_entries')
     .delete()
     .eq('id', id)
-    .select('id')
+    .select('id, ended_at')
     .maybeSingle();
 
   if (error) {
@@ -124,6 +129,7 @@ export const DELETE = handle(async (req: Request, ctx: Ctx) => {
     throw error;
   }
   if (!data) throw new ApiError('ENTRY_NOT_FOUND', 'Entry not found');
+  if (data.ended_at === null) pushTimerChanged(db, userId);
 
   return new NextResponse(null, { status: 204 });
 });

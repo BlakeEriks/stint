@@ -68,6 +68,7 @@ after(async () => {
 });
 
 beforeEach(async () => {
+  await admin.query('delete from push_devices');
   await admin.query('delete from feedback');
   await admin.query('delete from subscriptions');
   await admin.query('update expenses set invoice_id = null');
@@ -161,6 +162,15 @@ async function seedSubscriptions() {
   );
 }
 
+/** One phone each. */
+async function seedPushDevices() {
+  await admin.query(
+    `insert into push_devices (user_id,token,platform) values
+       ($1,'alice-phone','android'), ($2,'bob-phone','android')`,
+    [ALICE, BOB],
+  );
+}
+
 // ── reads ──────────────────────────────────────────────────────────
 test('an unfiltered select returns only the caller’s rows', async () => {
   await seedBoth();
@@ -203,6 +213,7 @@ test('every user-scoped table is isolated', async () => {
   await seedExpenses();
   await seedFeedback();
   await seedSubscriptions();
+  await seedPushDevices();
 
   for (const table of [
     'clients',
@@ -214,6 +225,7 @@ test('every user-scoped table is isolated', async () => {
     'expenses',
     'feedback',
     'subscriptions',
+    'push_devices',
   ]) {
     const seen = await asUser(ALICE, `select count(*)::int n from ${table}`);
     const total = await admin.query(`select count(*)::int n from ${table}`);
@@ -346,6 +358,30 @@ test('feedback cannot be sent on another user’s behalf', async () => {
         [ALICE_FEEDBACK, BOB],
       ),
     /row-level security/i,
+  );
+});
+
+test('a phone cannot be registered to, changed on or removed from another user', async () => {
+  await seedPushDevices();
+  await assert.rejects(
+    () =>
+      asUser(
+        ALICE,
+        `insert into push_devices (user_id,token,platform) values ($1,'forged','android')`,
+        [BOB],
+      ),
+    /row-level security/i,
+  );
+  await assert.rejects(
+    () => asUser(ALICE, `update push_devices set token = 'moved'`),
+    /permission denied/i,
+  );
+  await asUser(ALICE, 'delete from push_devices');
+  const { rows } = await admin.query('select token from push_devices');
+  assert.deepEqual(
+    rows.map((r) => r.token),
+    ['bob-phone'],
+    'an unfiltered delete takes only the caller’s phone',
   );
 });
 

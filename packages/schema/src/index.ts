@@ -229,6 +229,18 @@ export const UpdateRunningTimer = z.object({
   projectId: uuid.nullable().optional(),
 });
 
+// ── push devices (the phones told when the timer changes) ─────────
+/** Android until iPhone push (#471) adds `ios`. */
+export const PushPlatform = z.enum(['android']);
+const pushToken = z.string().min(1).max(4096);
+
+export const RegisterPushDevice = z.object({
+  token: pushToken,
+  platform: PushPlatform,
+});
+
+export const UnregisterPushDevice = z.object({ token: pushToken });
+
 // ── summary (the menu bar endpoint) ────────────────────────────────
 export const Summary = z.object({
   running: TimeEntry.nullable(),
@@ -1119,6 +1131,8 @@ export type StoredLineItem = z.infer<typeof StoredLineItem>;
 export type DraftChange = z.infer<typeof DraftChange>;
 export type ApiError = z.infer<typeof ApiError>;
 export type CreateFeedback = z.infer<typeof CreateFeedback>;
+export type PushPlatform = z.infer<typeof PushPlatform>;
+export type RegisterPushDevice = z.infer<typeof RegisterPushDevice>;
 export type Billing = z.infer<typeof Billing>;
 export type BillingSync = z.infer<typeof BillingSync>;
 export type BillingRedirect = z.infer<typeof BillingRedirect>;

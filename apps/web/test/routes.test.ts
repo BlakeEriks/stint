@@ -18,6 +18,7 @@ import { makeDb } from './shim.mjs';
 import { fill } from './fill.ts';
 import Stripe from 'stripe';
 import { fakeStripe, subscription } from './fake-stripe.ts';
+import { fakeFcm, serviceAccount, UNREGISTERED } from './fake-fcm.ts';
 
 const USER = '11111111-1111-1111-1111-111111111111';
 const OTHER = '22222222-2222-2222-2222-222222222222';
@@ -40,6 +41,9 @@ after(async () => {
 });
 
 beforeEach(async () => {
+  // A push the last test's write scheduled finishes before its rows go.
+  await settled();
+  await pool.query('delete from push_devices');
   await pool.query('delete from feedback');
   await pool.query('delete from subscriptions');
   await pool.query('update expenses set invoice_id = null');
@@ -69,7 +73,17 @@ beforeEach(async () => {
   for (const k of STRIPE_ENV) delete process.env[k];
   stripeFake = fakeStripe();
   (globalThis as any).__TEST_STRIPE__ = stripeFake.client;
+  // Push starts unconfigured too; `configurePush()` turns it on.
+  delete process.env.FCM_SERVICE_ACCOUNT;
+  fcmFake = fakeFcm();
+  (globalThis as any).__TEST_FCM__ = fcmFake.fetch;
 });
+
+let fcmFake: ReturnType<typeof fakeFcm>;
+
+/** Whatever the handlers scheduled with `after()`, finished. */
+const settled = () =>
+  Promise.all((globalThis as any).__AFTER__?.splice(0) ?? []);
 
 const STRIPE_ENV = [
   'STRIPE_SECRET_KEY',
@@ -4700,4 +4714,259 @@ test('every response the macOS app decodes matches its fixture', async (t) => {
     [],
     'These responses changed shape and their fixtures were rewritten: commit them and make `swift test` pass.',
   );
+});
+
+// ── push devices, and pushing the timer to them ────────────────────
+const ANDROID = { token: 'fcm-token-1', platform: 'android' };
+
+const send = (method: string, url: string, body: unknown) =>
+  new Request(`http://t${url}`, {
+    method,
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+const devices = async () =>
+  (
+    await pool.query(
+      'select user_id, token, platform from push_devices order by token',
+    )
+  ).rows;
+
+const register = async (device: unknown = ANDROID) => {
+  const { POST } = await import('../src/app/api/v1/push-devices/route.ts');
+  return POST(send('POST', '/push-devices', device));
+};
+
+const configurePush = () => {
+  process.env.FCM_SERVICE_ACCOUNT = serviceAccount();
+};
+
+test('a phone registers once, however often it asks', async () => {
+  assert.equal((await register()).status, 204);
+  assert.equal((await register()).status, 204);
+  assert.deepEqual(await devices(), [{ user_id: USER, ...ANDROID }]);
+});
+
+test('registering refuses another platform or no token', async () => {
+  for (const device of [
+    { token: 'x', platform: 'ios' },
+    { platform: 'android' },
+    { token: '', platform: 'android' },
+  ]) {
+    assert.equal((await register(device)).status, 422);
+  }
+  assert.deepEqual(await devices(), []);
+});
+
+test('a phone unregisters, and an unknown token is already gone', async () => {
+  const { DELETE } = await import('../src/app/api/v1/push-devices/route.ts');
+  await register();
+  await pool.query(
+    `insert into push_devices (user_id, token, platform) values ($1, $2, 'android')`,
+    [OTHER, ANDROID.token],
+  );
+  const del = () =>
+    DELETE(send('DELETE', '/push-devices', { token: ANDROID.token }));
+  assert.equal((await del()).status, 204);
+  assert.equal((await del()).status, 204);
+  assert.deepEqual(
+    await devices(),
+    [{ user_id: OTHER, ...ANDROID }],
+    'only the caller’s row goes',
+  );
+});
+
+/** Each timer change, from a running timer where it needs one. */
+async function timerChanges() {
+  const route = (p: string) => import(`../src/app/api/v1/${p}/route.ts`);
+  const start = (await route('timer/start')).POST;
+  const stop = (await route('timer/stop')).POST;
+  const current = (await route('timer/current')).PATCH;
+  const entry = await route('entries/[id]');
+  const started = async () =>
+    (await json(await start(req('/timer/start', { taskName: 'Work' })))).body;
+  const patch = (id: string, body: unknown) =>
+    entry.PATCH(send('PATCH', `/entries/${id}`, body), {
+      params: Promise.resolve({ id }),
+    });
+  /* The setup's own push, sent and forgotten. */
+  const ready = async () => {
+    await settled();
+    fcmFake.state.sent = [];
+  };
+  return {
+    start: () => started(),
+    stop: async () => {
+      await started();
+      await ready();
+      return stop(req('/timer/stop', {}));
+    },
+    retitle: async () => {
+      await started();
+      await ready();
+      return current(send('PATCH', '/timer/current', { taskName: 'Other' }));
+    },
+    'edit the running entry': async () => {
+      const { id } = await started();
+      await ready();
+      return patch(id, { taskName: 'Other' });
+    },
+    'stop it by editing': async () => {
+      const { id, startedAt } = await started();
+      await ready();
+      const endedAt = new Date(Date.parse(startedAt) + 60_000).toISOString();
+      return patch(id, { endedAt });
+    },
+    'delete the running entry': async () => {
+      const { id } = await started();
+      await ready();
+      return entry.DELETE(
+        new Request(`http://t/entries/${id}`, { method: 'DELETE' }),
+        {
+          params: Promise.resolve({ id }),
+        },
+      );
+    },
+  };
+}
+
+test('every change to the running timer pushes once to each phone', async () => {
+  configurePush();
+  await register();
+  await register({ token: 'fcm-token-2', platform: 'android' });
+  for (const [name, change] of Object.entries(await timerChanges())) {
+    await pool.query('delete from time_entries');
+    fcmFake.state.sent = [];
+    await change();
+    await settled();
+    assert.deepEqual(
+      fcmFake.state.sent.map((m) => m.token).sort(),
+      ['fcm-token-1', 'fcm-token-2'],
+      name,
+    );
+    assert.deepEqual(fcmFake.state.sent[0].data, { kind: 'timer' }, name);
+  }
+});
+
+const STOPPED = '018f0000-0000-7000-a000-0000000000aa';
+
+test('a change that leaves the running timer alone pushes nothing', async () => {
+  const { POST: start } = await import(
+    '../src/app/api/v1/timer/start/route.ts'
+  );
+  const entry = await import('../src/app/api/v1/entries/[id]/route.ts');
+  configurePush();
+  await register();
+  await pool.query(
+    `insert into time_entries (id, user_id, task_name, started_at, ended_at)
+     values ($1, $2, 'Done', '2026-01-05T09:00:00Z', '2026-01-05T10:00:00Z')`,
+    [STOPPED, USER],
+  );
+  const res = await entry.PATCH(
+    send('PATCH', `/entries/${STOPPED}`, { taskName: 'Renamed' }),
+    { params: Promise.resolve({ id: STOPPED }) },
+  );
+  assert.equal(res.status, 200);
+  await json(await start(req('/timer/start', { taskName: 'One' })));
+  await settled();
+  fcmFake.state.sent = [];
+  const refused = await start(req('/timer/start', { taskName: 'Two' }));
+  assert.equal(refused.status, 409);
+  await settled();
+  assert.deepEqual(fcmFake.state.sent, []);
+});
+
+/** Starts a timer and returns its status, once its push has settled, and
+ *  what reached Sentry meanwhile. */
+async function startAndReport() {
+  const Sentry = await import('@sentry/nextjs');
+  const { close } = await import('@sentry/core');
+  const reported: (string | undefined)[] = [];
+  Sentry.init({
+    dsn: 'https://key@o0.ingest.sentry.io/0',
+    beforeSend(event) {
+      reported.push(event.exception?.values?.[0]?.value);
+      return null;
+    },
+  });
+  const { POST: start } = await import(
+    '../src/app/api/v1/timer/start/route.ts'
+  );
+  const res = await start(req('/timer/start', { taskName: 'Work' }));
+  await settled();
+  await close(1000);
+  return { status: res.status, reported };
+}
+
+test('a transient failure is retried once', async () => {
+  configurePush();
+  await register();
+  fcmFake.state.answers = [{ status: 503 }];
+  const { status, reported } = await startAndReport();
+  assert.equal(status, 201);
+  assert.equal(fcmFake.state.sent.length, 2);
+  assert.deepEqual(reported, []);
+});
+
+test('a send that keeps failing reaches Sentry and never fails the write', async () => {
+  configurePush();
+  await register();
+  fcmFake.state.answers = [{ status: 500 }, { status: 500 }];
+  const { status, reported } = await startAndReport();
+  assert.equal(status, 201);
+  assert.equal(fcmFake.state.sent.length, 2);
+  assert.equal(reported.length, 1);
+  assert.match(reported[0] ?? '', /^Push not delivered/);
+});
+
+test('a token FCM calls unregistered is deleted, and nothing is reported', async () => {
+  configurePush();
+  await register();
+  await register({ token: 'fcm-token-2', platform: 'android' });
+  fcmFake.state.answers = [UNREGISTERED];
+  const { reported } = await startAndReport();
+  assert.deepEqual(reported, []);
+  assert.equal((await devices()).length, 1);
+});
+
+test('a refused service account reaches Sentry', async () => {
+  process.env.FCM_SERVICE_ACCOUNT = JSON.stringify({
+    ...JSON.parse(serviceAccount()),
+    private_key: (await import('node:crypto'))
+      .generateKeyPairSync('rsa', { modulusLength: 2048 })
+      .privateKey.export({ type: 'pkcs8', format: 'pem' }),
+  });
+  await register();
+  const { status, reported } = await startAndReport();
+  assert.equal(status, 201);
+  assert.match(
+    reported[0] ?? '',
+    /Google refused the FCM service account: 400/,
+  );
+  assert.deepEqual(fcmFake.state.sent, []);
+});
+
+test('with no service account, nothing is sent', async () => {
+  await register();
+  const { status, reported } = await startAndReport();
+  assert.equal(status, 201);
+  assert.deepEqual(fcmFake.state.sent, []);
+  assert.equal(fcmFake.state.tokenRequests, 0);
+  assert.deepEqual(reported, []);
+});
+
+test('the access token is fetched once for many sends', async () => {
+  configurePush();
+  await register();
+  const { POST: start } = await import(
+    '../src/app/api/v1/timer/start/route.ts'
+  );
+  const { POST: stop } = await import('../src/app/api/v1/timer/stop/route.ts');
+  await start(req('/timer/start', { taskName: 'Work' }));
+  await settled();
+  await stop(req('/timer/stop', {}));
+  await settled();
+  assert.equal(fcmFake.state.sent.length, 2);
+  assert.equal(fcmFake.state.tokenRequests, 1);
 });
