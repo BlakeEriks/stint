@@ -163,6 +163,37 @@ export const DraftDueSinceDownload: Story = {
   },
 };
 
+const changedPastDue = paying((db) => {
+  const draft = db.invoices.find((i) => i.id === invoice(15));
+  if (!draft) return;
+  draft.dueDate = addDays(draft.issueDate, -3);
+  draft.changedSinceDownload = {
+    hours: { from: 18.4, to: 20.9 },
+    total: { from: 2512.6, to: 2787.6 },
+  };
+  draft.dueBeforeIssue = { download: true, send: true };
+});
+
+/** Changed since a PDF downloaded before its typed due date: the new PDF it
+    needs is refused, so it asks for a new draft, not a download. */
+export const DraftChangedPastDue: Story = {
+  ...desktop,
+  parameters: changedPastDue,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByText(/Delete this draft and generate it again/),
+    ).toBeVisible();
+    await expect(
+      page.queryByText('Changed since you downloaded it'),
+    ).toBeNull();
+    await expect(page.queryByText(/Download the new PDF/)).toBeNull();
+    await expect(
+      page.getByRole('button', { name: 'Mark sent' }),
+    ).toBeDisabled();
+  },
+};
+
 /** Where it stands is one line under the title, and an issued invoice is
     the invoice, not a preview of it. */
 export const Sent: Story = {
