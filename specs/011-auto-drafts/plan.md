@@ -77,3 +77,4 @@ docs/positioning.md, api.md, data-model.md, setup.md, deploying.md
 | --- | --- | --- |
 | The job uses `serviceClient()` with explicit `user_id` filters | No user session exists at 2 p.m. UTC; RLS can't scope it | Minting a user JWT needs a signing secret the project may not expose; a filter per query is checkable in a test with an unscoped shim |
 | Numbering moves from creation to first render | A draft deleted before it reached a client otherwise burns a number | Leaving it leaves a gap whenever a draft is deleted |
+| A picked due date passed by the first render becomes today, "Due on receipt" (breaks Principle I) | An invoice can't print a due date already past; the draft screen shows today's date before the PDF fixes it | Flagging the draft for the user to pick a new date adds an inbox row, a story and a test for a case the screen already shows |

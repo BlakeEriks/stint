@@ -420,7 +420,7 @@ hold; this list is the record of *what* must.
 - Rate resolution walks all four levels, and `0` is a real rate.
 - Invoice numbers are sequential and gapless under concurrency, because
   `allocate_invoice_number()` holds a row lock; a draft takes one only at
-  its first render, so deleting one never leaves a gap.
+  its first render, so deleting one before then leaves no gap.
 - A duplicate invoice number is rejected.
 - Editing or deleting an entry billed to a **non-draft** invoice is rejected,
   including its `task_name` — that becomes the invoice line description, so
