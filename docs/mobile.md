@@ -41,14 +41,14 @@ each target installs under its own id, beside the others:
 | `preview` | Stint Preview | `dev.stint.mobile.preview` | one PR's Vercel preview and `stint-test`, signed in as `pr-<n>@preview.test` on launch |
 | `prod` | Stint | `dev.stint.mobile` | production |
 
-A preview build needs `STINT_PREVIEW_PR` and `STINT_APP_URL`, and refuses
-to build without them. The header names the target whenever it is not
+A preview's update needs `STINT_PREVIEW_PR` and `STINT_APP_URL`, and the
+app refuses to start without them. The header names the target whenever it is not
 production.
 
-**No secret ships in a build**, and a preview's install link is public. Its
+**No secret ships in a build or an update**, and a preview's links are public. Its
 first launch asks for Vercel's Protection Bypass for Automation, the value
-`pnpm try-mac` keeps in the Keychain, and keeps it in secure storage; the
-next preview build installs over this one and finds it there. When Vercel
+`pnpm try-mac` keeps in the Keychain, and keeps it in secure storage; every
+PR's update, and the next build, finds it there. When Vercel
 refuses it because it was rotated or mistyped, the app forgets it and asks
 again.
 
@@ -66,16 +66,17 @@ reached.
 
 ## Preview builds
 
-`.github/workflows/mobile-preview.yml` builds a PR's Android APK on EAS
-whenever the PR changes the app or a package it imports, and comments the
-install link on the PR. The PR's Try it points there: open the link on the
-phone, tap Install, paste the bypass on first launch, and Stint Preview
-opens signed in as the PR's account.
+A PR's phone preview is an EAS Update, opened in one shared development
+build of Stint Preview. The reviewer installs the build once, then scans
+each PR's QR to open that PR, signed in as its seeded account.
+`.github/workflows/mobile-preview.yml` publishes the update on every push
+that changes the app or a package it imports, and comments the QR on the
+PR.
 
-A push that changes no native code doesn't build again: its JavaScript
-ships to the PR's build with EAS Update, and the installed app loads it on
-its next launch. The comment says which happened. A new dependency with
-native code, or a change to `app.config.ts`, builds.
+The update carries the PR's number and Vercel preview; the build carries
+neither (`fingerprint.config.cjs`). A build is made only when no finished
+one has the push's fingerprint: main's native code changed, or the PR's
+does. The PR's comment then links the new build to install.
 
 It needs, once:
 
