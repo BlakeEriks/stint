@@ -121,15 +121,16 @@ jobs:
         # comment the bot wrote last, such as doc drift's, and anyone can type
         # the marker.
         run: |
+          install="Open ${URL} on your Android phone and tap Install. On its first launch, paste Vercel's bypass; it opens as Stint Preview, signed in as pr-${PR}@preview.test."
           if [ "$KIND" = build ]; then
             qr="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=$(jq -rn --arg u "$URL" '$u | @uri')"
             body="<!-- mobile-preview -->
-          **Phone build** for ${SHA:0:7}: a new build. Scan it with your Android phone or open ${URL}, and tap Install. On its first launch, paste Vercel's bypass; it opens as Stint Preview, signed in as pr-${PR}@preview.test.
+          **Phone build** for ${SHA:0:7}: a new build. ${install}
 
           ![Scan to install](${qr})"
           else
             body="<!-- mobile-preview -->
-          **Phone update** for ${SHA:0:7}: no native code changed, so this push shipped as an update to the installed Stint Preview. Close and reopen it to load it. Not installed yet: open ${URL} on your Android phone and tap Install."
+          **Phone update** for ${SHA:0:7}: no native code changed, so this push shipped as an update. Installed already: close and reopen Stint Preview to load it. Not yet: ${install}"
           fi
           id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
             -q '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- mobile-preview -->"))) | .id' \
