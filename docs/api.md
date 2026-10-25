@@ -163,7 +163,7 @@ rows stop at the boundary.
 
 **`attention` is derived per request** from stored facts, with grace periods:
 an invoice is overdue at `due_date` + 7 days, a draft stale 7 days after
-issue. The one row whose condition never clears on its own is gated by a
+its period ends. The one row whose condition never clears on its own is gated by a
 stored answer instead — `duration_ok` on an entry of unusual length — so it
 cannot return every day once answered. `unprojected` is one row per entry,
 oldest first; `strangeDurations` one per stopped entry of implausible length;
