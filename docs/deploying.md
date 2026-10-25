@@ -414,8 +414,9 @@ can ask for it too.
   (`docs/macos.md`).
 
 A PR that changes the phone app also gets an Android build against its
-preview, from `.github/workflows/mobile-preview.yml`; `docs/mobile.md` has
-its one-time setup.
+preview, or an EAS Update to it when no native code changed, from
+`.github/workflows/mobile-preview.yml`; `docs/mobile.md` has its one-time
+setup.
 
 A free project pauses after a week unused; restore it from the dashboard.
 
