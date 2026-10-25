@@ -64,8 +64,8 @@ jobs:
 
       # EAS hands a cloud build its profile's `env` and nothing from this
       # shell, so the PR's values go into eas.json here, never into git. The
-      # shell gets the same values: the fingerprint and `eas update` read
-      # app.config.ts here, and must see what the build saw.
+      # shell gets the profile's `env` too: the fingerprint and `eas update`
+      # read app.config.ts here, and must see what the build saw.
       - name: Point the preview profile at this PR
         working-directory: apps/mobile
         run: |
@@ -79,7 +79,7 @@ jobs:
                EAS_PROJECT_ID: $project, EXPO_OWNER: $owner
              }' eas.json > eas.pr.json
           mv eas.pr.json eas.json
-          printf '%s\n' STINT_TARGET=preview "STINT_PREVIEW_PR=$PR" "STINT_APP_URL=$url" >> "$GITHUB_ENV"
+          jq -r '.build.preview.env | to_entries[] | "\(.key)=\(.value)"' eas.json >> "$GITHUB_ENV"
 
       # A push that changes no native code ships its JavaScript to the
       # installed build with EAS Update, in seconds; one that does, or a PR
