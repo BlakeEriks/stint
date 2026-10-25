@@ -11,6 +11,8 @@ import { AppState, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { createApi } from '../api.ts';
 import { createBypass } from '../bypass.ts';
+import { createPushDevice, onTimerPush } from '../push.ts';
+import { canPush, expoTokens, listenForTimerPushes } from '../push-native';
 import { origin, target } from '../config.ts';
 import { usePlex } from '../fonts.ts';
 import { createRequest } from '../request.ts';
@@ -61,6 +63,21 @@ focusManager.setEventListener((setFocused) => {
   return () => sub.remove();
 });
 
+/* A timer changed on another client: refetch it now, not on the next
+   foreground (`push.ts`). */
+listenForTimerPushes(() => void onTimerPush(queryClient));
+const pushDevice = createPushDevice({
+  tokens: expoTokens,
+  register: api.registerPushDevice,
+  unregister: api.unregisterPushDevice,
+});
+
+/** Leaves the account's phones before the session that can say so goes. */
+async function signOut() {
+  if (canPush) await pushDevice.leave();
+  await auth.signOut();
+}
+
 /** Undefined while the stored session loads. */
 function useSession(): Session | null | undefined {
   const [session, setSession] = useState<Session | null | undefined>();
@@ -74,6 +91,10 @@ function useSession(): Session | null | undefined {
       }),
     [],
   );
+  const signedIn = Boolean(session);
+  useEffect(() => {
+    if (signedIn && canPush) void pushDevice.join();
+  }, [signedIn]);
   return session;
 }
 
@@ -136,7 +157,7 @@ export function App() {
           <TimerContainer
             api={api}
             email={session.email}
-            onSignOut={() => void auth.signOut()}
+            onSignOut={() => void signOut()}
           />
         ) : (
           <SignInContainer auth={auth} />

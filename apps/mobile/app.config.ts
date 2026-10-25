@@ -13,6 +13,9 @@ const env = {
   STINT_PREVIEW_PR: process.env.STINT_PREVIEW_PR,
 };
 const target = resolveTarget(env);
+/* Firebase's config for the app id, an EAS file variable (`docs/mobile.md`,
+   Push). Without it the build has no FCM and the phone never registers. */
+const googleServices = process.env.GOOGLE_SERVICES_JSON;
 
 const config: ExpoConfig = {
   name: target.appName,
@@ -29,12 +32,16 @@ const config: ExpoConfig = {
       'keychain-access-groups': ['$(AppIdentifierPrefix)dev.stint.shared'],
     },
   },
-  android: { package: target.appId },
-  plugins: ['expo-secure-store', 'expo-font'],
+  android: {
+    package: target.appId,
+    ...(googleServices ? { googleServicesFile: googleServices } : {}),
+  },
+  plugins: ['expo-secure-store', 'expo-font', 'expo-notifications'],
   // Every build talks to the backend it was built for; nothing updates it over the air.
   updates: { enabled: false },
   extra: {
     env,
+    push: Boolean(googleServices),
     appleTeamId: process.env.APPLE_TEAM_ID,
     ...(process.env.EAS_PROJECT_ID
       ? { eas: { projectId: process.env.EAS_PROJECT_ID } }
