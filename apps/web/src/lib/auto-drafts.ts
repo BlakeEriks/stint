@@ -15,8 +15,9 @@ import {
 /**
  * The daily job: once a scheduled client's period has ended, a draft for it
  * if it has something to bill, and one email telling the user it's ready.
- * `db` is the service client, so every read here names its user; nothing
- * relies on RLS to scope it.
+ * `db` is the service client, so nothing relies on RLS to scope it: every
+ * query here names its user, and the invoicing calls take ids from rows
+ * already read for that user.
  *
  * Safe to run any number of times: a period's draft is unique per client
  * (`invoices_one_auto_draft_per_period`), and an email is claimed before it

@@ -379,7 +379,9 @@ writes `subscriptions`, for the Stripe webhook and the Checkout return; that
 table grants `select`, `insert` and `update` to `service_role`. The daily
 drafts job (`/cron/drafts`, `runDrafts()`) reads every user's settings and
 clients, and writes `invoices`, `ready_emailed_at` and
-`clients.auto_drafted_through`, so every query there names its user. No
+`clients.auto_drafted_through`. Its own queries name their user, and the
+shared invoicing reads it calls are keyed by a client or invoice id from a row
+already read for that user. No
 migration grants it those tables or functions: Supabase's default privileges
 on `public` give `service_role` every table and function created there.
 
