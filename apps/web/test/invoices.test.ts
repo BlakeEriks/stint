@@ -3382,11 +3382,19 @@ test('a typed due date the issue date has passed is refused, not printed', async
   const shown = await json(
     await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
   );
-  assert.equal(shown.body.dueBeforeIssue, true, 'the client is told first');
+  assert.deepEqual(
+    shown.body.dueBeforeIssue,
+    { download: true, send: true },
+    'the client is told first',
+  );
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
   const [stale] = (await json(await stats(req('/stats?tz=UTC')))).body.attention
     .staleDrafts;
-  assert.equal(stale.blocked, true, 'its Inbox row offers no send');
+  assert.deepEqual(
+    stale.refuses,
+    { download: true, send: true },
+    'its Inbox row offers neither',
+  );
 
   const pdf = await json(
     await r.pdf(req('/pdf?tz=UTC&download=1'), at(inv.body.id)),
@@ -3404,6 +3412,44 @@ test('a typed due date the issue date has passed is refused, not printed', async
   assert.equal(sent.body.details.field, 'dueDate');
   const { rows } = await pool.query('select status from invoices');
   assert.equal(rows[0].status, 'draft');
+});
+
+test('a PDF downloaded before its typed due date still sends after it', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await on('2026-10-01', async () =>
+    json(
+      await r.create(
+        req('/invoices', {
+          clientId: CLIENT,
+          ...PERIOD,
+          dueDate: '2026-10-05',
+        }),
+      ),
+    ),
+  );
+  const pdf = await on('2026-10-02', () =>
+    r.pdf(req('/pdf?tz=UTC&download=1'), at(inv.body.id)),
+  );
+  assert.equal(pdf.status, 200);
+
+  const shown = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
+  );
+  assert.deepEqual(
+    shown.body.dueBeforeIssue,
+    { download: true, send: false },
+    'the client holds a PDF due after it was issued',
+  );
+  const sent = await json(
+    await r.setStatus(
+      req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
+      at(inv.body.id),
+    ),
+  );
+  assert.equal(sent.status, 200, JSON.stringify(sent.body));
+  assert.equal(sent.body.issueDate, '2026-10-02');
+  assert.equal(sent.body.dueDate, '2026-10-05');
 });
 
 test('sending keeps the dates the downloaded PDF printed', async () => {
@@ -3621,7 +3667,7 @@ test('a draft is stale by its period end, at the total its work comes to now', a
     ]),
     [[inv.body.id, 450]],
   );
-  assert.equal(stale[0].blocked, false);
+  assert.deepEqual(stale[0].refuses, { download: false, send: false });
 });
 
 test('an unrated entry shows on the draft by name; its PDF and Mark sent refuse', async () => {

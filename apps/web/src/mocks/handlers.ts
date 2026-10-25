@@ -489,6 +489,7 @@ export const handlers = {
           lineItems: _,
           changedSinceDownload: __,
           unratedEntries: ___,
+          dueBeforeIssue: ____,
           ...invoice
         }) => invoice,
       )
@@ -502,15 +503,20 @@ export const handlers = {
     if (!invoice) return fail('ENTRY_NOT_FOUND');
     // The fake keeps no plan per invoice: the account's plan decides.
     const { available, plan } = db.billing;
-    const { changedSinceDownload, lineItems, unratedEntries, ...rest } =
-      invoice;
+    const {
+      changedSinceDownload,
+      lineItems,
+      unratedEntries,
+      dueBeforeIssue: due,
+      ...rest
+    } = invoice;
     return ok(invoiceDetail, {
       ...rest,
       lineItems: lineItems.map((l) => ({ ...l, isNew: l.isNew ?? false })),
       canDownload: documentOpens(available, plan, null),
       changedSinceDownload: changedSinceDownload ?? null,
       unratedEntries: unratedEntries ?? [],
-      dueBeforeIssue: dueBeforeIssue(invoice),
+      dueBeforeIssue: due ?? dueBeforeIssue(invoice),
     });
   }),
 
@@ -603,6 +609,7 @@ export const handlers = {
         lineItems: _,
         changedSinceDownload: __,
         unratedEntries: ___,
+        dueBeforeIssue: ____,
         ...rest
       } = invoice;
       return ok(schema.Invoice, rest);

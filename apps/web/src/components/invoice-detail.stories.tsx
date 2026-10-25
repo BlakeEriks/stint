@@ -119,7 +119,7 @@ export const DraftUnrated: Story = {
     await expect(page.queryByRole('link', { name: 'Download PDF' })).toBeNull();
   },
 };
-/* A draft whose typed due date is before today, its issue date. */
+
 const dueBefore = paying((db) => {
   const draft = db.invoices.find((i) => i.id === invoice(15));
   if (!draft) return;
@@ -137,6 +137,28 @@ export const DraftDueBeforeIssue: Story = {
     await expect(
       page.getByRole('button', { name: 'Mark sent' }),
     ).toBeDisabled();
+    await expect(page.queryByRole('link', { name: 'Download PDF' })).toBeNull();
+  },
+};
+
+const dueSinceDownload = paying((db) => {
+  const draft = db.invoices.find((i) => i.id === invoice(15));
+  if (!draft) return;
+  draft.dueDate = addDays(draft.issueDate, -3);
+  draft.dueBeforeIssue = { download: true, send: false };
+});
+
+/** Downloaded before its typed due date: that PDF still sends, and only a
+    new one is refused. */
+export const DraftDueSinceDownload: Story = {
+  ...desktop,
+  parameters: dueSinceDownload,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByText(/Send the PDF you downloaded/),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Mark sent' })).toBeEnabled();
     await expect(page.queryByRole('link', { name: 'Download PDF' })).toBeNull();
   },
 };

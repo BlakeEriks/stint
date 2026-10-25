@@ -3,7 +3,7 @@ import { requireSession } from '@/lib/auth';
 import {
   loadPdfData,
   recordDownload,
-  refuseDueBeforeIssue,
+  dueBeforeIssueError,
   unratedError,
 } from '@/lib/invoicing';
 import { parseQuery } from '@/lib/validate';
@@ -46,7 +46,8 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
     );
   if (draft?.unratedEntries.length)
     throw unratedError(draft.unratedEntries.map((e) => e.id));
-  if (draft) refuseDueBeforeIssue(draft.row.issue_date, draft.row.due_date!);
+  if (draft?.dueBeforeIssue.download)
+    throw dueBeforeIssueError(draft.row.issue_date, draft.row.due_date!);
   const download = new URL(req.url).searchParams.get('download') === '1';
 
   // Imported dynamically: the renderer module is JSX, and deferring it keeps

@@ -40,15 +40,23 @@ type StoredInvoice = Invoice & {
   lineItems: (InvoiceLineItem & { isNew?: boolean })[];
   changedSinceDownload?: DraftChange | null;
   unratedEntries?: UnratedEntry[];
+  /** Set by a story whose draft was downloaded before its due date. */
+  dueBeforeIssue?: { download: boolean; send: boolean };
 };
 
-/** The server's `draftBlocked`, from what the story set: unpriced work, or a
- *  due date before the issue date. */
-export const mockDraftBlocked = (i: StoredInvoice) =>
-  (i.unratedEntries?.length ?? 0) > 0 || dueBeforeIssue(i);
+/** The server's `draftRefusals`, from what the story set. The fake keeps no
+ *  PDF, so a due date before the issue date refuses both. */
+export const mockDraftRefusals = (i: StoredInvoice) => {
+  const unrated = (i.unratedEntries?.length ?? 0) > 0;
+  const due = i.dueBeforeIssue ?? dueBeforeIssue(i);
+  return { download: unrated || due.download, send: unrated || due.send };
+};
 
-export const dueBeforeIssue = (i: Invoice) =>
-  i.status === 'draft' && i.dueDate != null && i.dueDate < i.issueDate;
+export const dueBeforeIssue = (i: Invoice) => {
+  const before =
+    i.status === 'draft' && i.dueDate != null && i.dueDate < i.issueDate;
+  return { download: before, send: before };
+};
 
 export interface Db {
   now: Date;

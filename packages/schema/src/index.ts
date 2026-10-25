@@ -482,6 +482,12 @@ export type ManualLine = z.infer<
   typeof InvoicePreviewRequest
 >['manualLines'][number];
 
+/** One flag each for a draft's PDF and its Mark sent. */
+export const DraftActions = z.object({
+  download: z.boolean(),
+  send: z.boolean(),
+});
+
 export const CreateInvoice = InvoicePreviewRequest.extend({
   /** Typed by the user. Absent, it follows the terms from the day the draft
    *  is sent, which is also its issue date. */
@@ -905,9 +911,8 @@ export const Stats = z.object({
         amount: money,
         currency,
         ageDays: z.number().int(),
-        /** Unrated work or a passed due date: it opens on its page, which
-         *  says why, and offers no download or send here. */
-        blocked: z.boolean(),
+        /** Whether its PDF and Mark sent would refuse it now. */
+        refuses: DraftActions,
       }),
     ),
     /** Unbilled billable work dated inside a sent or paid invoice's period

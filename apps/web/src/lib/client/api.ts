@@ -376,7 +376,7 @@ export const api = {
         canDownload: boolean;
         changedSinceDownload: DraftChange | null;
         unratedEntries: UnratedEntry[];
-        dueBeforeIssue: boolean;
+        dueBeforeIssue: { download: boolean; send: boolean };
       }
     >('GET', `/invoices/${id}?${zone()}`),
 

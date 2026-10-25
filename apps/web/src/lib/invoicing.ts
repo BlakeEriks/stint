@@ -367,22 +367,36 @@ export function unratedError(ids: string[]) {
   );
 }
 
-/** Whether a draft's PDF and Mark sent refuse it as it stands. */
-export function draftBlocked(d: {
+/** Which of a draft's PDF and Mark sent refuse it as it stands. */
+export function draftRefusals(d: {
   unratedEntries: unknown[];
-  dueBeforeIssue: boolean;
+  dueBeforeIssue: { download: boolean; send: boolean };
 }) {
-  return d.unratedEntries.length > 0 || d.dueBeforeIssue;
+  const unrated = d.unratedEntries.length > 0;
+  return {
+    download: unrated || d.dueBeforeIssue.download,
+    send: unrated || d.dueBeforeIssue.send,
+  };
 }
 
 /** Printed, it would read `Net -N`. */
-export function refuseDueBeforeIssue(issueDate: string, dueDate: string) {
-  if (dueDate < issueDate)
-    throw new ApiError(
-      'VALIDATION_FAILED',
-      `The due date typed for this draft, ${dueDate}, is before its issue date, ${issueDate}. Delete the draft and generate it again with a later one.`,
-      { field: 'dueDate' },
-    );
+export function dueBeforeIssueError(issueDate: string, dueDate: string) {
+  return new ApiError(
+    'VALIDATION_FAILED',
+    `The due date typed for this draft, ${dueDate}, is before its issue date, ${issueDate}. Delete the draft and generate it again with a later one.`,
+    { field: 'dueDate' },
+  );
+}
+
+/** The dates Mark sent gives a draft: its last PDF's, else these. */
+function sentDates(
+  printed: InvoiceRow['downloaded_snapshot'],
+  issueDate: string,
+  dueDate: string,
+) {
+  return printed?.issueDate
+    ? { issueDate: printed.issueDate, dueDate: printed.dueDate ?? dueDate }
+    : { issueDate, dueDate };
 }
 
 /** The id a draft not yet generated takes among the open drafts. */
@@ -532,6 +546,7 @@ export async function deriveDraft(
       termsDays(row.payment_terms) ?? computed.settings.paymentTermsDays,
     );
   const unrated = new Set(totals.unratedEntryIds);
+  const sent = sentDates(row.downloaded_snapshot, issued, due);
 
   return {
     tz,
@@ -549,8 +564,11 @@ export async function deriveDraft(
       due_date: due,
       payment_terms: paymentTermsText(issued, due),
     } satisfies InvoiceRow,
-    /** A typed due date the issue date, today, has passed. */
-    dueBeforeIssue: due < issued,
+    sent,
+    dueBeforeIssue: {
+      download: due < issued,
+      send: sent.dueDate < sent.issueDate,
+    },
     unratedEntries: computed.entries
       .filter((e) => unrated.has(e.id))
       .map((e) => ({ id: e.id, taskName: e.taskName, startedAt: e.startedAt })),
@@ -633,8 +651,9 @@ export async function sendDraft(
       draft.change,
     );
 
-  const due = printed?.dueDate ?? draft.row.due_date!;
-  refuseDueBeforeIssue(draft.row.issue_date, due);
+  const { sent } = draft;
+  if (draft.dueBeforeIssue.send)
+    throw dueBeforeIssueError(sent.issueDate, sent.dueDate);
   const { data, error } = await db.rpc('send_draft', {
     p_invoice_id: row.id,
     p_invoice: {
@@ -644,9 +663,9 @@ export async function sendDraft(
       expenses_subtotal: totals.expensesSubtotal,
       total: totals.total,
       supporting_detail: draft.computed.supportingDetail,
-      issue_date: draft.row.issue_date,
-      due_date: due,
-      payment_terms: paymentTermsText(draft.row.issue_date, due),
+      issue_date: sent.issueDate,
+      due_date: sent.dueDate,
+      payment_terms: paymentTermsText(sent.issueDate, sent.dueDate),
       tz,
       lines: draft.computed.lines,
     },

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAll } from '@/lib/select-all';
 import { loadBilledSpans } from '@/lib/billed-spans';
-import { deriveDraft, draftBlocked } from '@/lib/invoicing';
+import { deriveDraft, draftRefusals } from '@/lib/invoicing';
 import {
   INVOICE_COLUMNS,
   type InvoiceRow as StoredInvoiceRow,
@@ -295,7 +295,7 @@ export async function readStats(
       return {
         ...r,
         total: r.total ?? 0,
-        blocked: draft ? draftBlocked(draft) : false,
+        refuses: draft ? draftRefusals(draft) : undefined,
       };
     }),
   );

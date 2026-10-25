@@ -402,12 +402,12 @@ function itemFor(r: ItemRow, h: Handlers): ItemProps {
       });
     case 'draft':
       return invoiceItem(r.row, h, {
-        // Its page says what holds it; here it offers nothing that refuses.
-        detail: r.row.blocked
+        detail: r.row.refuses.send
           ? `Draft, ${r.row.ageDays}d old, can’t be sent yet`
           : `Draft, ${r.row.ageDays}d old`,
         tone: 'neutral',
         status: 'sent',
+        refuses: r.row.refuses,
       });
     case 'unprojected':
       return unprojectedItem(r.row, h);
@@ -434,7 +434,11 @@ function invoiceItem(
     detail,
     tone,
     status,
-  }: Pick<ItemProps, 'detail' | 'tone'> & { status: keyof typeof MARK },
+    refuses = { download: false, send: false },
+  }: Pick<ItemProps, 'detail' | 'tone'> & {
+    status: keyof typeof MARK;
+    refuses?: { download: boolean; send: boolean };
+  },
 ): ItemProps {
   return {
     href: `/invoices/${i.invoiceId}`,
@@ -442,25 +446,26 @@ function invoiceItem(
     detail,
     value: formatCurrency(i.amount, i.currency),
     tone,
-    actions:
-      'blocked' in i && i.blocked ? null : (
-        <>
+    actions: (
+      <>
+        {refuses.send ? null : (
           <Action
             label={MARK[status].label}
             ariaLabel={`Mark ${i.invoiceNumber} ${status}`}
             icon={MARK[status].icon}
             onClick={() => h.onStatus({ id: i.invoiceId, status })}
           />
-          {h.downloads ? (
-            <Action
-              label="Download"
-              ariaLabel={`Download ${i.invoiceNumber}`}
-              icon={<Download aria-hidden />}
-              href={api.invoicePdfUrl(i.invoiceId)}
-            />
-          ) : null}
-        </>
-      ),
+        )}
+        {h.downloads && !refuses.download ? (
+          <Action
+            label="Download"
+            ariaLabel={`Download ${i.invoiceNumber}`}
+            icon={<Download aria-hidden />}
+            href={api.invoicePdfUrl(i.invoiceId)}
+          />
+        ) : null}
+      </>
+    ),
   };
 }
 
