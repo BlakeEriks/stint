@@ -7,6 +7,7 @@ import {
   isTimerPush,
   onTimerPush,
   TokenUnavailable,
+  tokenUnavailable,
 } from '../src/push.ts';
 
 test('a timer push is the data message the server sends, and nothing else', () => {
@@ -159,4 +160,41 @@ test('an unexpected failure getting the token is not swallowed', async () => {
   const { phone, os } = device();
   os.get = () => Promise.reject(new RangeError('bug'));
   await assert.rejects(() => phone.join(), RangeError);
+});
+
+/** What expo-notifications rejects with when Firebase refuses a token. */
+const registrationFailed = (reason: string) =>
+  Object.assign(
+    new Error(`Fetching the token failed: java.io.IOException: ${reason}`),
+    {
+      code: 'E_REGISTRATION_FAILED',
+    },
+  );
+
+test("a token Firebase can't issue offline, or while its server errs, is unavailable for now", () => {
+  assert.equal(
+    tokenUnavailable(registrationFailed('SERVICE_NOT_AVAILABLE')),
+    true,
+  );
+  assert.equal(
+    tokenUnavailable(registrationFailed('INTERNAL_SERVER_ERROR')),
+    true,
+  );
+});
+
+test('a broken Firebase setup is not mistaken for offline', () => {
+  for (const reason of [
+    'AUTHENTICATION_FAILED',
+    'FIS_AUTH_ERROR',
+    'MISSING_INSTANCEID_SERVICE',
+  ]) {
+    assert.equal(tokenUnavailable(registrationFailed(reason)), false, reason);
+  }
+  assert.equal(
+    tokenUnavailable(
+      Object.assign(new Error('SERVICE_NOT_AVAILABLE'), { code: 'E_OTHER' }),
+    ),
+    false,
+  );
+  assert.equal(tokenUnavailable(new RangeError('bug')), false);
 });

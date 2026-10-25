@@ -43,6 +43,24 @@ export class TokenUnavailable extends Error {
   }
 }
 
+/**
+ * Whether `getDevicePushTokenAsync`'s rejection is one a later launch can
+ * mend: Firebase unreachable, or its server erring. The same code carries a
+ * broken setup (AUTHENTICATION_FAILED, FIS_AUTH_ERROR from a bad
+ * `google-services.json`), which must surface instead of retrying forever.
+ */
+export function tokenUnavailable(err: unknown): boolean {
+  const { code, message } = (err ?? {}) as {
+    code?: unknown;
+    message?: unknown;
+  };
+  return (
+    code === 'E_REGISTRATION_FAILED' &&
+    typeof message === 'string' &&
+    /\b(SERVICE_NOT_AVAILABLE|INTERNAL_SERVER_ERROR)\b/.test(message)
+  );
+}
+
 interface Options {
   tokens: PushTokens;
   register: (token: string) => Promise<unknown>;

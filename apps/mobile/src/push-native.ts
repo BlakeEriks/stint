@@ -2,7 +2,12 @@ import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
 import { Platform } from 'react-native';
-import { isTimerPush, type PushTokens, TokenUnavailable } from './push.ts';
+import {
+  isTimerPush,
+  type PushTokens,
+  TokenUnavailable,
+  tokenUnavailable,
+} from './push.ts';
 
 const TASK = 'stint-timer-push';
 
@@ -17,8 +22,7 @@ export const expoTokens: PushTokens = {
     try {
       return (await Notifications.getDevicePushTokenAsync()).data as string;
     } catch (err) {
-      // Firebase couldn't be reached, such as SERVICE_NOT_AVAILABLE offline.
-      if ((err as { code?: string }).code === 'E_REGISTRATION_FAILED') {
+      if (tokenUnavailable(err)) {
         throw new TokenUnavailable((err as Error).message);
       }
       throw err;
