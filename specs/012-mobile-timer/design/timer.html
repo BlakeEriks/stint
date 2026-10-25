@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Stint phone timer — design review, round 1</title>
+<title>Stint phone: the timer</title>
 <style>
 /* GENERATED from tokens.json — do not edit by hand. Run `pnpm tokens`. */
 /* The palette for docs/design mockups. Token names are the RAW ones
@@ -408,15 +408,11 @@
   <div class="type-wordmark-small strong">STINT</div>
   <h1 class="type-title strong" style="margin:6px 0 4px">The phone timer</h1>
   <p class="type-body muted" style="margin:0;max-width:72ch">
-    The macOS panel's scope on a phone: the timer, Today and Earned, and five recent tasks to start again.
-    No entry list, no project change while running. Data is the seeded account's
-    (<code>apps/web/src/mocks/fixtures.ts</code>): Northwind's <i>Rush: peak season fixes</i> at $195 an hour.
-    The app has no desktop layout; the width toggle is a large iPhone against a common Android width.
+    Today and Earned lead, Recent fills the middle, and the whole timer is docked at the bottom in thumb reach.
+    Data is the seeded account's (<code>apps/web/src/mocks/fixtures.ts</code>).
   </p>
 
   <div class="bar">
-    <span class="type-meta subtle">Variation</span>
-    <div class="seg" id="var"></div>
     <span class="type-meta subtle">State</span>
     <div class="seg" id="state"></div>
   </div>
@@ -426,23 +422,16 @@
     <span class="type-meta subtle">Width</span>
     <div class="seg" id="width"></div>
   </div>
-  <p class="type-support note" id="what"></p>
-
+  
   <div class="stage" id="stage"></div>
 </div>
 
 <script>
-const VARS = {
-  A: { name: 'A · The panel', what: '<b>Best at:</b> the Mac panel, top to bottom, so one design is learned once. <b>Costs:</b> start and stop sit in the top third, a stretch for one thumb on a tall phone.' },
-  B: { name: 'B · Docked timer', what: '<b>Best at:</b> the whole timer (task, project, start) docked at the bottom like the web\'s timer bar, every control in thumb reach. <b>Costs:</b> the readout is no longer the first thing read; Today leads.' },
-  C: { name: 'C · Readout first', what: '<b>Best at:</b> a big readout up top and one full-width start/stop pinned at the bottom: glanceable across a room, one obvious press. <b>Costs:</b> the task field and picker sit apart from the button they feed.' },
-};
 const STATES = {
   stopped: 'Stopped', running: 'Running', empty: 'First day', refused: 'Refused', offline: 'Offline',
-  email: 'Sign in: email', code: 'Sign in: code',
 };
 const SIGNIN = new Set(['email', 'code']);
-let v = 'A', s = 'stopped', theme = 'dark', w = 390;
+let s = 'stopped', theme = 'dark', w = 390;
 
 const RUN = { task: 'Checkout timeout fix', project: 'Rush: peak season fixes', client: 'Northwind Trading', color: 'var(--proj-6)', time: '0:47:12' };
 const RECENT = [
@@ -499,31 +488,11 @@ function runBlock(big) {
       </div>`;
 }
 
-function A(st) {
-  const top = shownRunning(st)
-    ? `<div class="pad">${runBlock(false)}<span class="transport stop">${sq}</span></div></div>`
-    : `<div class="pad stack">${taskField()}<div class="row"><div class="grow">${picker()}</div><span class="transport">${tri}</span></div></div>`;
-  return `${header()}${notice(st)}${top}<div style="height:20px"></div>${stats(st)}${recent(st)}`;
-}
 function B(st) {
   const dock = shownRunning(st)
     ? `<div class="dock">${runBlock(false)}<span class="transport stop">${sq}</span></div></div>`
     : `<div class="dock stack">${taskField()}<div class="row"><div class="grow">${picker()}</div><span class="transport">${tri}</span></div></div>`;
   return `${header()}${notice(st)}${stats(st)}<div class="body">${recent(st, shownRunning(st) ? 5 : 4)}</div>${dock}`;
-}
-function C(st) {
-  const hero = shownRunning(st)
-    ? `<div class="pad center" style="padding-top:12px">
-        <div class="type-figure-hero run">${RUN.time}</div>
-        <div class="type-body strong trunc" style="margin-top:6px">${RUN.task}</div>
-        <div class="type-meta muted trunc" style="margin-top:2px">${RUN.project} · ${RUN.client}</div></div>`
-    : `<div class="pad stack" style="padding-top:4px">${taskField()}${picker()}</div>`;
-  const btn = shownRunning(st)
-    ? `<div class="btn stopbtn type-heading">Stop</div>` : `<div class="btn type-heading">Start</div>`;
-  const [t, e] = figures(st);
-  const line = `<div class="pad row type-meta muted" style="justify-content:center;gap:18px;margin:16px 0 0">
-      <span>TODAY <span class="strong">${t}</span></span><span>EARNED <span class="strong">${e}</span></span></div>`;
-  return `${header()}${notice(st)}${hero}${line}<div class="body">${recent(st, 4)}</div><div class="pad" style="padding-bottom:6px">${btn}</div>`;
 }
 
 function signin(st) {
@@ -540,7 +509,7 @@ function signin(st) {
 }
 
 function screen(st) {
-  const inner = SIGNIN.has(st) ? signin(st) : ({ A, B, C })[v](st);
+  const inner = SIGNIN.has(st) ? signin(st) : B(st);
   return `<div class="phone" style="--w:${w}px"><div class="screen">
     <div class="status type-meta-strong"><span>9:41</span><span>●●● ▮</span></div>
     ${inner.includes('class="body') ? inner : `<div class="body">${inner}</div>`}
@@ -554,14 +523,11 @@ function seg(id, opts, cur, set) {
   el.onclick = (e) => { const k = e.target.dataset.k; if (k) { set(k); render(); } };
 }
 function render() {
-  seg('var', Object.fromEntries(Object.entries(VARS).map(([k, x]) => [k, x.name])), v, (k) => (v = k));
   seg('state', STATES, s, (k) => (s = k));
   seg('theme', { dark: 'Dark', light: 'Light' }, theme, (k) => (theme = k));
   seg('width', { 390: 'iPhone 390', 360: 'Android 360' }, w, (k) => (w = Number(k)));
   document.documentElement.dataset.theme = theme;
-  document.getElementById('what').innerHTML = SIGNIN.has(s)
-    ? 'Sign-in is the same in every variation: the macOS panel\'s two steps, full screen.' : VARS[v].what;
-  document.getElementById('stage').innerHTML = `<div class="col"><span class="type-meta cap">${VARS[v].name} · ${STATES[s]}</span>${screen(s)}</div>`;
+  document.getElementById('stage').innerHTML = `<div class="col"><span class="type-meta cap">${STATES[s]}</span>${screen(s)}</div>`;
 }
 render();
 </script>

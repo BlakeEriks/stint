@@ -30,14 +30,41 @@ and refreshes the timer whenever it comes to the foreground. Depends on
 - Q: Can the project be changed while the timer runs? → A: No, as on macOS:
   it would reassign time already tracked. Stop, then start on the other
   project. (decided autonomously)
-- Q: How does the reviewer try a PR's phone build? → A: On their own phone,
-  against that PR's Vercel preview and signed in as its seeded account, with
-  one command and no store release or paid service. (decided autonomously)
+- Q: How does the reviewer try a PR's phone build? → A: The owner installs
+  the PR's EAS cloud build on their Android phone from the link in Try it;
+  it points at that PR's Vercel preview and signs in as its seeded account.
+  Builders check an Expo web render. (the owner's answer, on #462)
+- Q: Which layout? → A: B, the docked timer. (the owner's answer, on #462)
 - Q: When is the user signed out? → A: Only when the server rejects the
   refresh token, as on macOS. Offline or a server error keeps the session
   and says the timer could not be reached. (decided autonomously)
 - Q: Do iPhone and Android ship together? → A: Yes, one codebase, both in
   the first release, as the issue asks. (decided autonomously)
+
+## Design
+
+[`design/timer.html`](design/timer.html) and
+[`design/sign-in.html`](design/sign-in.html), in the app's tokens, dark and
+light, 390 and 360 wide.
+
+- **Header**: the wordmark, a badge naming the backend when the build is not
+  production, and a settings button that opens the account and Sign out.
+- **Today and Earned**: two figures side by side at the top. Today is in
+  whole minutes, so only the readout moves by the second.
+- **Recent**: the middle of the screen, five task names with their project
+  and client dot, the running one left out; a tap starts that task on its
+  project. With none yet, one line says tasks you track show here.
+- **The dock**: the whole timer, pinned to the foot of the screen in thumb
+  reach. Stopped, it holds the task field, then the project picker with a
+  round Start beside it, the one accent object. Running, it holds the live
+  dot, the readout in the running color, the task, and the project and
+  client, with a round Stop beside them; there is no picker.
+- **A notice** sits under the header: a refusal says why while the dock
+  shows what is running; offline says Stint can't be reached and keeps the
+  dock as it was.
+- **Sign-in** is full screen: the wordmark, an email field and "Email me a
+  code", then the code field (no placeholder), Sign in, inert until six
+  digits, and "Use a different email". An error shows under the field.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -135,17 +162,19 @@ internal testing.
 **Why this priority**: Nobody can review or ship the app without it, but a
 user never sees it.
 
-**Independent Test**: Run the try command for an open PR and see the app on
-the phone signed in as that PR's seeded account.
+**Independent Test**: Install an open PR's build from the link in its Try
+it and see the app signed in as that PR's seeded account.
 
 **Acceptance Scenarios**:
 
-1. **Given** an open PR, **When** the reviewer runs one command, **Then**
-   the PR's app opens on their phone against its preview, signed in as
-   `pr-<n>@preview.test`, and says it is that PR's build.
+1. **Given** an open PR, **When** the reviewer installs its Android build
+   from the link in Try it, **Then** the app opens against the PR's
+   preview, signed in as `pr-<n>@preview.test`, and says it is that PR's
+   build. It installs beside the released app, not over it.
 2. **Given** a commit on `main`, **When** the maintainer runs the release
    steps in `docs/mobile.md`, **Then** a build reaches TestFlight and Play
-   internal testing pointed at production.
+   internal testing pointed at production. The iPhone build waits on the
+   Apple Developer Program (#460).
 
 ### Edge Cases
 
@@ -206,7 +235,7 @@ the phone signed in as that PR's seeded account.
 - **SC-002**: A timer started or stopped on another device shows correctly
   within 2 seconds of the app coming to the foreground.
 - **SC-003**: A user stays signed in across a week without opening the app.
-- **SC-004**: The reviewer has a PR's build on their phone with one command.
+- **SC-004**: The reviewer has a PR's build on their phone from one link.
 
 ## Assumptions
 
