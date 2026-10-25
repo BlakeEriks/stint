@@ -175,7 +175,7 @@ per pair of entries sharing a minute or more (`MIN_OVERLAP_SECONDS` in
 `@stint/core`) where at least one is unbilled, except non-billable work
 against billed time, which bills nothing twice. It names the unbilled entry,
 the later-starting one when both are, and `otherInvoiceNumber` when the other
-is on an invoice; it clears when either is edited apart. `noDefaultRate` is
+is on a numbered invoice (null on a draft not yet rendered); it clears when either is edited apart. `noDefaultRate` is
 true while the user has no default hourly rate, and the Inbox asks for one.
 `paymentTermsToCheck` is old free-text terms the move to days couldn't
 read, or null; the Inbox quotes it until a `PATCH /settings` carries
@@ -319,7 +319,7 @@ by every one when `recurring`. The amount is in the client's currency.
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/expenses` | `?clientId&status` — `status` is `open` (default: recurring, unbilled, and on a draft or sent invoice) or `unbilled` (recurring and unbilled). Recurring first, then oldest `spentOn`. Each expense carries `invoiceNumber` and `invoiceStatus` once billed. |
+| `GET` | `/expenses` | `?clientId&status` — `status` is `open` (default: recurring, unbilled, and on a draft or sent invoice) or `unbilled` (recurring and unbilled). Recurring first, then oldest `spentOn`. Each expense carries `invoiceStatus` once billed, and `invoiceNumber` once that invoice is numbered. |
 | `POST` | `/expenses` | `{ id, clientId, recurring?, spentOn?, description, amount, note? }`. `spentOn` is required for a one-off and refused with `recurring: true`. `id` is a client-generated UUIDv7, so a retry returns the stored row with `200`. `amount` is above zero. |
 | `PATCH` | `/expenses/:id` | Any field from `POST` but `id` and `clientId`. `recurring: true` clears `spentOn`; `false` needs one. **`409 EXPENSE_LOCKED`** once billed on a non-draft invoice; `422` to make a billed one recurring. |
 | `DELETE` | `/expenses/:id` | Same lock. A recurring one can always go; invoices that billed it keep their line. |
