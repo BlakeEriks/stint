@@ -367,10 +367,15 @@ export function unratedError(ids: string[]) {
   );
 }
 
-/**
- * Refuses a draft whose typed due date its issue date, the day it is sent,
- * has passed: printed, it would read `Net -N`. The user picks the fix.
- */
+/** Whether a draft's PDF and Mark sent refuse it as it stands. */
+export function draftBlocked(d: {
+  unratedEntries: unknown[];
+  dueBeforeIssue: boolean;
+}) {
+  return d.unratedEntries.length > 0 || d.dueBeforeIssue;
+}
+
+/** Printed, it would read `Net -N`. */
 export function refuseDueBeforeIssue(issueDate: string, dueDate: string) {
   if (dueDate < issueDate)
     throw new ApiError(
@@ -544,6 +549,8 @@ export async function deriveDraft(
       due_date: due,
       payment_terms: paymentTermsText(issued, due),
     } satisfies InvoiceRow,
+    /** A typed due date the issue date, today, has passed. */
+    dueBeforeIssue: due < issued,
     unratedEntries: computed.entries
       .filter((e) => unrated.has(e.id))
       .map((e) => ({ id: e.id, taskName: e.taskName, startedAt: e.startedAt })),

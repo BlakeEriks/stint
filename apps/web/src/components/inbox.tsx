@@ -402,7 +402,10 @@ function itemFor(r: ItemRow, h: Handlers): ItemProps {
       });
     case 'draft':
       return invoiceItem(r.row, h, {
-        detail: `Draft, ${r.row.ageDays}d old`,
+        // Its page says what holds it; here it offers nothing that refuses.
+        detail: r.row.blocked
+          ? `Draft, ${r.row.ageDays}d old, can’t be sent yet`
+          : `Draft, ${r.row.ageDays}d old`,
         tone: 'neutral',
         status: 'sent',
       });
@@ -439,24 +442,25 @@ function invoiceItem(
     detail,
     value: formatCurrency(i.amount, i.currency),
     tone,
-    actions: (
-      <>
-        <Action
-          label={MARK[status].label}
-          ariaLabel={`Mark ${i.invoiceNumber} ${status}`}
-          icon={MARK[status].icon}
-          onClick={() => h.onStatus({ id: i.invoiceId, status })}
-        />
-        {h.downloads ? (
+    actions:
+      'blocked' in i && i.blocked ? null : (
+        <>
           <Action
-            label="Download"
-            ariaLabel={`Download ${i.invoiceNumber}`}
-            icon={<Download aria-hidden />}
-            href={api.invoicePdfUrl(i.invoiceId)}
+            label={MARK[status].label}
+            ariaLabel={`Mark ${i.invoiceNumber} ${status}`}
+            icon={MARK[status].icon}
+            onClick={() => h.onStatus({ id: i.invoiceId, status })}
           />
-        ) : null}
-      </>
-    ),
+          {h.downloads ? (
+            <Action
+              label="Download"
+              ariaLabel={`Download ${i.invoiceNumber}`}
+              icon={<Download aria-hidden />}
+              href={api.invoicePdfUrl(i.invoiceId)}
+            />
+          ) : null}
+        </>
+      ),
   };
 }
 

@@ -42,6 +42,14 @@ type StoredInvoice = Invoice & {
   unratedEntries?: UnratedEntry[];
 };
 
+/** The server's `draftBlocked`, from what the story set: unpriced work, or a
+ *  due date before the issue date. */
+export const mockDraftBlocked = (i: StoredInvoice) =>
+  (i.unratedEntries?.length ?? 0) > 0 || dueBeforeIssue(i);
+
+export const dueBeforeIssue = (i: Invoice) =>
+  i.status === 'draft' && i.dueDate != null && i.dueDate < i.issueDate;
+
 export interface Db {
   now: Date;
   email: string;

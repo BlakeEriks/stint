@@ -1,6 +1,7 @@
 import type { Decorator, Meta, StoryObj } from '@storybook/nextjs-vite';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client/api';
+import { addDays } from '@stint/core';
 import { keys } from '@/lib/client/query-keys';
 import { expect, userEvent, within } from 'storybook/test';
 import { account } from '@/mocks/db';
@@ -118,6 +119,28 @@ export const DraftUnrated: Story = {
     await expect(page.queryByRole('link', { name: 'Download PDF' })).toBeNull();
   },
 };
+/* A draft whose typed due date is before today, its issue date. */
+const dueBefore = paying((db) => {
+  const draft = db.invoices.find((i) => i.id === invoice(15));
+  if (!draft) return;
+  draft.dueDate = addDays(draft.issueDate, -3);
+});
+
+/** A typed due date the issue date has passed says why and how to fix it,
+    and neither the PDF nor Mark sent is offered. */
+export const DraftDueBeforeIssue: Story = {
+  ...desktop,
+  parameters: dueBefore,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(await page.findByText('Due before it’s issued')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Mark sent' }),
+    ).toBeDisabled();
+    await expect(page.queryByRole('link', { name: 'Download PDF' })).toBeNull();
+  },
+};
+
 /** Where it stands is one line under the title, and an issued invoice is
     the invoice, not a preview of it. */
 export const Sent: Story = {

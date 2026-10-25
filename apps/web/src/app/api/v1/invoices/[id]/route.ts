@@ -32,6 +32,7 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
     canDownload,
     changedSinceDownload: draft?.change ?? null,
     unratedEntries: draft?.unratedEntries ?? [],
+    dueBeforeIssue: draft?.dueBeforeIssue ?? false,
     lineItems: pdfData.lineItems.map((l, i) => ({
       ...l,
       isNew: draft?.isNew[i] ?? false,

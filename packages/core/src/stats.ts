@@ -147,6 +147,8 @@ export interface InvoiceRow {
   total: string | number;
   currency: string | null;
   period_end: string;
+  /** A draft that can't be downloaded or sent as it stands. */
+  blocked?: boolean;
 }
 
 export interface MonthRow {
@@ -381,6 +383,7 @@ export function buildStaleDrafts(
       amount: Number(i.total),
       currency: i.currency ?? fallbackCurrency,
       ageDays: daysBetweenKeys(i.period_end, todayKey),
+      blocked: i.blocked ?? false,
     }))
     .sort((a, b) => b.ageDays - a.ageDays);
 }

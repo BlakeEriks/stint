@@ -89,6 +89,7 @@ export const invoiceDetail = schema.Invoice.extend({
   canDownload: z.boolean(),
   changedSinceDownload: schema.DraftChange.nullable(),
   unratedEntries: z.array(schema.UnratedEntry),
+  dueBeforeIssue: z.boolean(),
 });
 
 export const createdInvoice = schema.Invoice.extend({

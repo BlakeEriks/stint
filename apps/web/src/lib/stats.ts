@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAll } from '@/lib/select-all';
 import { loadBilledSpans } from '@/lib/billed-spans';
-import { deriveDraft } from '@/lib/invoicing';
+import { deriveDraft, draftBlocked } from '@/lib/invoicing';
 import {
   INVOICE_COLUMNS,
   type InvoiceRow as StoredInvoiceRow,
@@ -290,8 +290,13 @@ export async function readStats(
   // A draft's total is its period's work now.
   const invoiceRows: InvoiceRow[] = await Promise.all(
     ((invoices.data ?? []) as StoredInvoiceRow[]).map(async (stored) => {
-      const r = (await deriveDraft(db, stored, tz))?.row ?? stored;
-      return { ...r, total: r.total ?? 0 };
+      const draft = await deriveDraft(db, stored, tz);
+      const r = draft?.row ?? stored;
+      return {
+        ...r,
+        total: r.total ?? 0,
+        blocked: draft ? draftBlocked(draft) : false,
+      };
     }),
   );
   const clientNames = clientNamesFrom(unbilledRows);

@@ -905,6 +905,9 @@ export const Stats = z.object({
         amount: money,
         currency,
         ageDays: z.number().int(),
+        /** Unrated work or a passed due date: it opens on its page, which
+         *  says why, and offers no download or send here. */
+        blocked: z.boolean(),
       }),
     ),
     /** Unbilled billable work dated inside a sent or paid invoice's period

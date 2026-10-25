@@ -26,7 +26,7 @@ import type {
 } from '@/lib/client/api';
 import { csvResponse } from '@/lib/exports';
 import { getDb } from './db';
-import { type Db, parties } from './fixtures';
+import { type Db, dueBeforeIssue, parties } from './fixtures';
 import {
   calendar,
   expenseView,
@@ -510,6 +510,7 @@ export const handlers = {
       canDownload: documentOpens(available, plan, null),
       changedSinceDownload: changedSinceDownload ?? null,
       unratedEntries: unratedEntries ?? [],
+      dueBeforeIssue: dueBeforeIssue(invoice),
     });
   }),
 

@@ -43,6 +43,7 @@ type Shown = Invoice & {
   canDownload?: boolean;
   changedSinceDownload?: DraftChange | null;
   unratedEntries?: UnratedEntry[];
+  dueBeforeIssue?: boolean;
 };
 
 /** What the invoice list already holds about this invoice, so opening it
@@ -158,8 +159,10 @@ function Loaded({
      and the server, which recorded the render, has the last word. */
   const [downloaded, setDownloaded] = useState(false);
   const changed = isDraft && !downloaded ? invoice.changedSinceDownload : null;
-  /* The server refuses the PDF and Mark sent while work can't be priced. */
+  /* The server refuses the PDF and Mark sent while work can't be priced, or
+     a typed due date is before the issue date. */
   const unrated = invoice.unratedEntries ?? [];
+  const blocked = unrated.length > 0 || invoice.dueBeforeIssue === true;
   /* For the payment notice, which the PDF reads from settings as they are
      now. */
   const { data: settings } = useQuery({
@@ -211,9 +214,7 @@ function Loaded({
           {isDraft ? (
             <Button
               onClick={() => setStatus.mutate({ status: 'sent' })}
-              disabled={
-                setStatus.isPending || changed != null || unrated.length > 0
-              }
+              disabled={setStatus.isPending || changed != null || blocked}
             >
               <Send aria-hidden strokeWidth={1.75} />
               Mark sent
@@ -241,7 +242,7 @@ function Loaded({
               mail, so it is last, as the primary action. Neither shows until
               the invoice itself answers: the lists it first draws from don't
               say whether its PDF opens. */}
-          {invoice.canDownload === true && unrated.length === 0 ? (
+          {invoice.canDownload === true && !blocked ? (
             <Button asChild>
               <a
                 href={api.invoicePdfUrl(invoice.id, true)}
@@ -341,6 +342,9 @@ function Notices({
         <Changed change={changed} currency={invoice.currency} />
       ) : null}
       {unrated.length > 0 ? <Unrated entries={unrated} /> : null}
+      {invoice.dueBeforeIssue ? (
+        <DueBeforeIssue issued={invoice.issueDate} due={invoice.dueDate!} />
+      ) : null}
       {/* The document is the paid tier; the records never are, and saying
           so here keeps the two rules from reading as one. */}
       {invoice.canDownload === false ? (
@@ -412,6 +416,21 @@ function Unrated({ entries }: { entries: UnratedEntry[] }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/** A typed due date the issue date has passed, which would print
+    `Net -N`. A draft's due date can't be edited, so the fix is a new one. */
+function DueBeforeIssue({ issued, due }: { issued: string; due: string }) {
+  return (
+    <div role="status" className={NOTICE}>
+      <p className="type-body text-strong">Due before it’s issued</p>
+      <p className="type-support text-muted">
+        The due date you typed, {shortDate(due)}, is before today’s issue date,{' '}
+        {shortDate(issued)}, so it can’t be downloaded or sent. Delete this
+        draft and generate it again with a later due date.
+      </p>
     </div>
   );
 }

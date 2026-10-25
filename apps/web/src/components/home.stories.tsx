@@ -185,6 +185,37 @@ export const NoRate: Story = {
   },
 };
 
+const blockedDraft = account((db) => {
+  const draft = db.invoices.find((i) => i.status === 'draft');
+  if (!draft) return;
+  draft.periodEnd = '2026-01-31';
+  draft.unratedEntries = [
+    { id: 'unrated-1', taskName: 'Kickoff', startedAt: '2026-01-05T15:00:00Z' },
+  ];
+});
+
+/** A stale draft that can't be sent as it stands says so and offers no
+ *  Mark sent or Download, which would only be refused; its page says why. */
+export const StaleDraftBlocked: Story = {
+  ...desktop,
+  parameters: blockedDraft,
+  play: async ({ canvasElement }) => {
+    const inbox = within(
+      await within(canvasElement).findByRole('region', { name: 'Inbox' }),
+    );
+    const row = (await inbox.findByText(/can’t be sent yet/)).closest('li');
+    await expect(row?.querySelector('a[href^="/invoices/"]')).not.toBeNull();
+    await expect(
+      within(row as HTMLElement).queryByRole('button', {
+        name: /^Mark .* sent$/,
+      }),
+    ).toBeNull();
+    await expect(
+      within(row as HTMLElement).queryByRole('link', { name: /^Download / }),
+    ).toBeNull();
+  },
+};
+
 const oldTerms = account((db) => {
   db.legacyPaymentTerms = 'Payment by check, thanks';
 });

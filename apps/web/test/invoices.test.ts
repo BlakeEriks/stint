@@ -3379,6 +3379,15 @@ test('a typed due date the issue date has passed is refused, not printed', async
   );
   assert.equal(inv.status, 201, JSON.stringify(inv.body));
 
+  const shown = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
+  );
+  assert.equal(shown.body.dueBeforeIssue, true, 'the client is told first');
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const [stale] = (await json(await stats(req('/stats?tz=UTC')))).body.attention
+    .staleDrafts;
+  assert.equal(stale.blocked, true, 'its Inbox row offers no send');
+
   const pdf = await json(
     await r.pdf(req('/pdf?tz=UTC&download=1'), at(inv.body.id)),
   );
@@ -3612,6 +3621,7 @@ test('a draft is stale by its period end, at the total its work comes to now', a
     ]),
     [[inv.body.id, 450]],
   );
+  assert.equal(stale[0].blocked, false);
 });
 
 test('an unrated entry shows on the draft by name; its PDF and Mark sent refuse', async () => {
