@@ -11,7 +11,7 @@ alter table invoices
     status = 'draft'
     or (invoice_number is not null and sequence_no is not null and issue_date is not null)
   ),
-  -- Made by the daily job, which may delete it if its period bills nothing.
+  -- Made by the daily job: one per client and period, and the ones it emails about.
   add column auto boolean not null default false,
   -- Claimed before the ready email is sent, released if sending fails.
   add column ready_emailed_at timestamptz;
