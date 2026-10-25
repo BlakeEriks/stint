@@ -119,6 +119,8 @@ jobs:
           group=$(eas update --branch "pr-$PR" --platform android --environment preview \
               --message "${SHA:0:7}" --non-interactive --json \
             | jq -r '.[0].group')
+          # qr.expo.dev prefixes `exp+`: the QR opens exp+stint://, which only
+          # the development build registers.
           echo "qr=https://qr.expo.dev/eas-update?appScheme=stint&projectId=${EAS_PROJECT_ID}&groupId=${group}" >> "$GITHUB_OUTPUT"
           echo "url=https://expo.dev/projects/${EAS_PROJECT_ID}/updates/${group}" >> "$GITHUB_OUTPUT"
 
