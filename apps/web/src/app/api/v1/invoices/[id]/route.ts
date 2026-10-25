@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { handle, ApiError, isCheckViolation } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
-import { loadPdfData } from '@/lib/invoicing';
+import { draftRefusals, loadPdfData } from '@/lib/invoicing';
 import { parseQuery } from '@/lib/validate';
 import { InvoiceReadQuery } from '@stint/schema';
 
@@ -33,6 +33,7 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
     changedSinceDownload: draft?.change ?? null,
     unratedEntries: draft?.unratedEntries ?? [],
     dueBeforeIssue: draft?.dueBeforeIssue ?? { download: false, send: false },
+    refuses: draft ? draftRefusals(draft) : { download: false, send: false },
     lineItems: pdfData.lineItems.map((l, i) => ({
       ...l,
       isNew: draft?.isNew[i] ?? false,

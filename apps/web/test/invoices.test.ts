@@ -3441,6 +3441,7 @@ test('a PDF downloaded before its typed due date still sends after it', async ()
     { download: true, send: false },
     'the client holds a PDF due after it was issued',
   );
+  assert.deepEqual(shown.body.refuses, { download: true, send: false });
   const sent = await json(
     await r.setStatus(
       req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
@@ -3450,6 +3451,35 @@ test('a PDF downloaded before its typed due date still sends after it', async ()
   assert.equal(sent.status, 200, JSON.stringify(sent.body));
   assert.equal(sent.body.issueDate, '2026-10-02');
   assert.equal(sent.body.dueDate, '2026-10-05');
+});
+
+test('a PDF downloaded before its typed due date that has since changed is refused both', async () => {
+  const r = await live();
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await on('2026-10-01', async () =>
+    json(
+      await r.create(
+        req('/invoices', {
+          clientId: CLIENT,
+          ...PERIOD,
+          dueDate: '2026-10-05',
+        }),
+      ),
+    ),
+  );
+  await on('2026-10-02', () =>
+    r.pdf(req('/pdf?tz=UTC&download=1'), at(inv.body.id)),
+  );
+  await seedEntry({ id: D(2), start: '2026-09-12T09:00:00Z', hours: 1 });
+
+  const shown = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
+  );
+  assert.deepEqual(shown.body.refuses, { download: true, send: true });
+  const [stale] = (await json(await stats(req('/stats?tz=UTC')))).body.attention
+    .staleDrafts;
+  assert.deepEqual(stale.refuses, { download: true, send: true });
 });
 
 test('sending keeps the dates the downloaded PDF printed', async () => {

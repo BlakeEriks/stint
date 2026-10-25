@@ -44,6 +44,7 @@ type Shown = Invoice & {
   changedSinceDownload?: DraftChange | null;
   unratedEntries?: UnratedEntry[];
   dueBeforeIssue?: { download: boolean; send: boolean };
+  refuses?: { download: boolean; send: boolean };
 };
 
 /** What the invoice list already holds about this invoice, so opening it
@@ -159,13 +160,8 @@ function Loaded({
      and the server, which recorded the render, has the last word. */
   const [downloaded, setDownloaded] = useState(false);
   const changed = isDraft && !downloaded ? invoice.changedSinceDownload : null;
-  /* The server refuses the PDF and Mark sent while work can't be priced, or
-     a typed due date is before the issue date. */
   const unrated = invoice.unratedEntries ?? [];
-  const refuses = {
-    download: unrated.length > 0 || invoice.dueBeforeIssue?.download === true,
-    send: unrated.length > 0 || invoice.dueBeforeIssue?.send === true,
-  };
+  const refuses = invoice.refuses ?? { download: false, send: false };
   /* For the payment notice, which the PDF reads from settings as they are
      now. */
   const { data: settings } = useQuery({
@@ -271,7 +267,8 @@ function Loaded({
       </header>
       <Notices
         invoice={invoice}
-        changed={changed}
+        // A new PDF it can't have is no remedy.
+        changed={refuses.download ? null : changed}
         unrated={unrated}
         error={error}
       />

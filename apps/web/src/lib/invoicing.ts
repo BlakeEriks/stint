@@ -547,6 +547,10 @@ export async function deriveDraft(
     );
   const unrated = new Set(totals.unratedEntryIds);
   const sent = sentDates(row.downloaded_snapshot, issued, due);
+  const change = snapshotChanged(
+    row.downloaded_snapshot,
+    draftSnapshot(totals.lineItems, totals.total),
+  );
 
   return {
     tz,
@@ -567,7 +571,8 @@ export async function deriveDraft(
     sent,
     dueBeforeIssue: {
       download: due < issued,
-      send: sent.dueDate < sent.issueDate,
+      // Changed since its PDF, it needs a new one, which `download` refuses.
+      send: sent.dueDate < sent.issueDate || (due < issued && change != null),
     },
     unratedEntries: computed.entries
       .filter((e) => unrated.has(e.id))
@@ -576,10 +581,7 @@ export async function deriveDraft(
     isNew: newLines(row.downloaded_snapshot, totals.lineItems),
     /** How it moved since its last PDF; null when it hasn't, or never had
      *  one. */
-    change: snapshotChanged(
-      row.downloaded_snapshot,
-      draftSnapshot(totals.lineItems, totals.total),
-    ),
+    change,
   };
 }
 

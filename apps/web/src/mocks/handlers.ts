@@ -26,7 +26,12 @@ import type {
 } from '@/lib/client/api';
 import { csvResponse } from '@/lib/exports';
 import { getDb } from './db';
-import { type Db, dueBeforeIssue, parties } from './fixtures';
+import {
+  type Db,
+  dueBeforeIssue,
+  mockDraftRefusals,
+  parties,
+} from './fixtures';
 import {
   calendar,
   expenseView,
@@ -517,6 +522,7 @@ export const handlers = {
       changedSinceDownload: changedSinceDownload ?? null,
       unratedEntries: unratedEntries ?? [],
       dueBeforeIssue: due ?? dueBeforeIssue(invoice),
+      refuses: mockDraftRefusals(invoice),
     });
   }),
 

@@ -90,6 +90,7 @@ export const invoiceDetail = schema.Invoice.extend({
   changedSinceDownload: schema.DraftChange.nullable(),
   unratedEntries: z.array(schema.UnratedEntry),
   dueBeforeIssue: schema.DraftActions,
+  refuses: schema.DraftActions,
 });
 
 export const createdInvoice = schema.Invoice.extend({

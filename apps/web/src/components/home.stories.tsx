@@ -216,6 +216,34 @@ export const StaleDraftBlocked: Story = {
   },
 };
 
+const downloadedDraft = account((db) => {
+  const draft = db.invoices.find((i) => i.status === 'draft');
+  if (!draft) return;
+  draft.periodEnd = '2026-01-31';
+  draft.dueBeforeIssue = { download: true, send: false };
+});
+
+/** A stale draft downloaded before its typed due date still offers Mark
+ *  sent, for the PDF the client holds, but no new Download. */
+export const StaleDraftDownloaded: Story = {
+  ...desktop,
+  parameters: downloadedDraft,
+  play: async ({ canvasElement }) => {
+    const inbox = within(
+      await within(canvasElement).findByRole('region', { name: 'Inbox' }),
+    );
+    const row = (await inbox.findByText(/^Draft, \d+d old$/)).closest('li');
+    await expect(
+      within(row as HTMLElement).getByRole('button', {
+        name: /^Mark .* sent$/,
+      }),
+    ).toBeVisible();
+    await expect(
+      within(row as HTMLElement).queryByRole('link', { name: /^Download / }),
+    ).toBeNull();
+  },
+};
+
 const oldTerms = account((db) => {
   db.legacyPaymentTerms = 'Payment by check, thanks';
 });
