@@ -88,13 +88,15 @@ jobs:
         env:
           URL: ${{ steps.build.outputs.url }}
           SHA: ${{ github.event.pull_request.head.sha }}
-        # By its marker: `--edit-last` would take whichever comment the bot
-        # wrote last, such as doc drift's.
+        # By its marker, and only the bot's: `--edit-last` would take whichever
+        # comment the bot wrote last, such as doc drift's, and anyone can type
+        # the marker.
         run: |
           body="<!-- mobile-preview -->
           **Phone build** for ${SHA:0:7}: open ${URL} on your Android phone and tap Install. On its first launch, paste Vercel's bypass; it opens as Stint Preview, signed in as pr-${PR}@preview.test."
           id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
-            -q '.[] | select(.body | startswith("<!-- mobile-preview -->")) | .id' | tail -n 1)
+            -q '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- mobile-preview -->"))) | .id' \
+            | tail -n 1)
           if [ -n "$id" ]; then
             gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" > /dev/null
           else
