@@ -195,7 +195,8 @@ Each invitee gets their own account; nothing is shared.
 
 A Vercel Cron (`apps/web/vercel.json`) calls `/api/v1/cron/drafts` once a day
 to draft each scheduled client's invoice and tell its user when one is
-ready. In the Vercel project's environment variables, all sensitive:
+ready. In the Vercel project's environment variables, sensitive but
+`MAIL_FROM`:
 
 - `CRON_SECRET`: any long random string. Vercel sends it to the job; the job
   refuses every call without it, and does nothing while it is unset.

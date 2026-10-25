@@ -102,14 +102,14 @@ It deliberately sets **no `outputDirectory`**: Next.js detection finds
 failed a build that had otherwise succeeded.
 
 Still set in the dashboard:
-- Environment variables, none of them sensitive but the Sentry upload token and
-  billing's three secrets:
+- Environment variables, none of them sensitive but those marked so:
   - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` —
     production's project for Production, `stint-test`'s for Preview
     (§3d). A preview never reaches production data.
   - `NEXT_PUBLIC_APP_ORIGIN` — `https://app.runstint.com`. The code
-    falls back to `''`, so an unset one costs a redirect hop on the landing
-    page's Sign in link rather than failing the build.
+    falls back to `''`, so an unset one doesn't fail the build, but the
+    landing page's Sign in link takes a redirect hop and the ready email's
+    link is a bare `/invoices/<id>` that opens nothing.
   - `NEXT_PUBLIC_INVITE_FORM_URL`, for Production only — the landing
     page's invite request posts here. Create a free form at formspree.io
     with your address as the recipient, and paste its endpoint,
@@ -135,6 +135,12 @@ grandfathered.
   section: `checkout`, `portal` and `sync` answer `503 BILLING_UNAVAILABLE`,
   the webhook a plain-text `503`, and `GET /billing` answers `200` with
   `available: false`.
+- `SUPABASE_SECRET_KEY`, below: the webhook and the Checkout return fail
+  with `500` without it.
+
+The daily drafts job, for Production only, set **before** launch:
+`auto_drafts` defaults to on, so without these the job fails every day.
+
 - `SUPABASE_SECRET_KEY` (**sensitive**), the project's secret key: the
   Stripe webhook and the daily drafts job have no user session, so they use
   `serviceClient()`, as `service_role`. Without it, the webhook, the Checkout
