@@ -76,6 +76,7 @@ export const POST = handle(async (req: Request) => {
       currency: body.currency ?? null,
       color: body.color ?? null,
       payment_profile_id: body.paymentProfileId ?? null,
+      payment_terms_days: body.paymentTermsDays ?? null,
       ...billingScheduleColumns(body.billingSchedule ?? null),
     })
     .select(CLIENT_COLUMNS)

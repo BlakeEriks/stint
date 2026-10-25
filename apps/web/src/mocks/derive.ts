@@ -331,6 +331,7 @@ export function stats(db: Db, tz: string) {
     ),
     attention: {
       noDefaultRate: settings.defaultHourlyRate == null,
+      paymentTermsToCheck: db.legacyPaymentTerms,
       overdueInvoices: buildOverdueInvoices(
         open,
         clientNames,

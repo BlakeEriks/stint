@@ -376,6 +376,28 @@ export const ClientScheduleWeekly: Story = {
   },
 };
 
+/** A client's own payment terms, kept once saved; empty uses the user's,
+    and anything but whole days holds Save back. */
+export const ClientPaymentTerms: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    let dialog = await editNorthwind(page);
+    const field = () => dialog.getByLabelText('Payment terms');
+    await expect(field()).toHaveValue('');
+    await userEvent.type(field(), '1.5');
+    await expect(dialog.getByText('Whole days, 0 to 365.')).toBeVisible();
+    await expect(
+      dialog.getByRole('button', { name: 'Save changes' }),
+    ).toBeDisabled();
+    await userEvent.clear(field());
+    await userEvent.type(field(), '15');
+    await saveDialog(page, dialog);
+    dialog = await editNorthwind(page);
+    await expect(field()).toHaveValue('15');
+  },
+};
+
 /** An archived client bills nothing new, so its row names no schedule,
     as it names no rate. */
 export const ArchivedClientSchedule: Story = {

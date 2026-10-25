@@ -29,7 +29,27 @@ export async function clearInbox(): Promise<void> {
  * exactly like an expired link. A browser decodes the entity on click; a test
  * driving the URL directly does not.
  */
-export async function magicLink(after: number): Promise<string> {
+export function magicLink(after: number): Promise<string> {
+  return linkIn(
+    after,
+    (m) => (m.Text ?? '').match(/http:\/\/\S*verify\S*/)?.[0],
+  );
+}
+
+/** The invite button's link, decoded as a browser would on click. */
+export function inviteLink(after: number): Promise<string> {
+  return linkIn(after, (m) =>
+    m.HTML?.match(/href="([^"]*token_hash[^"]*)"/)?.[1]?.replaceAll(
+      '&amp;',
+      '&',
+    ),
+  );
+}
+
+async function linkIn(
+  after: number,
+  find: (message: { Text?: string; HTML?: string }) => string | undefined,
+): Promise<string> {
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
     const res = await fetch(`${MAILPIT}/api/v1/messages?limit=10`);
@@ -40,13 +60,12 @@ export async function magicLink(after: number): Promise<string> {
     const fresh = messages.filter((m) => Date.parse(m.Created) >= after);
     for (const message of fresh) {
       const full = await fetch(`${MAILPIT}/api/v1/message/${message.ID}`);
-      const body = (await full.json()) as { Text?: string; HTML?: string };
-      const link = (body.Text ?? '').match(/http:\/\/\S*verify\S*/)?.[0];
+      const link = find(await full.json());
       if (link) return link;
     }
     await new Promise((r) => setTimeout(r, 250));
   }
-  throw new Error('No sign-in email arrived within 10s.');
+  throw new Error('No matching email arrived within 10s.');
 }
 
 /**

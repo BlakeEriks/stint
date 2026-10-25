@@ -90,11 +90,12 @@ label it `needs-input`; report back.
 
 Then two checks, each kept as a label so nobody makes it twice:
 
-- **Overlap:** compare the files the fix will touch with each open PR's
-  (`gh pr view <n> --json files` — a list, not a read), save the PR a
-  feature stacks on. A shared file makes
-  it `blocked`, with a marked comment: "Blocked by #31: both change the
-  inbox." Report back.
+- **Overlap:** read each open PR's diff (`gh pr diff <n>`), save the PR a
+  feature stacks on. Only a fix that changes the same function, rule or
+  behavior that PR changes makes it `blocked`, with a marked comment naming
+  the PR and what both change: "Blocked by #31: both change how the inbox
+  sorts." Report back. A shared file alone is no overlap: the loop merges
+  `main` into whichever PR then conflicts.
 - **Migration:** if the fix needs one, label it `migration`. Another open
   `migration` PR does not block it: only QA waits for the preview database.
 

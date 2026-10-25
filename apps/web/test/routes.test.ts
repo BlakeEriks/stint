@@ -56,6 +56,7 @@ beforeEach(async () => {
   await pool.query(
     `update user_settings set default_hourly_rate=100,
                     week_starts_on=1, next_invoice_number=1,
+                    payment_terms_days=30, legacy_payment_terms=null,
                     -- Off, so a long fixture elsewhere does not also raise the
                     -- strange-duration row; its own tests set a threshold.
                     min_entry_seconds=null, max_entry_hours=null
@@ -811,6 +812,53 @@ test('a client billing schedule round-trips, and is null until set', async () =>
   }
 });
 
+/* A client's terms set its invoices' due dates: a field the schema or the
+   column list dropped would put every client back on the user's. */
+test('a client payment terms round-trip, and are null until set', async () => {
+  const { POST: createClient } = await import(
+    '../src/app/api/v1/clients/route.ts'
+  );
+  const { PATCH } = await import('../src/app/api/v1/clients/[id]/route.ts');
+
+  const plain = await json(
+    await createClient(req('/clients', { name: 'Northwind' })),
+  );
+  assert.equal(plain.body.paymentTermsDays, null);
+
+  const own = await json(
+    await createClient(
+      req('/clients', { name: 'Contoso', paymentTermsDays: 15 }),
+    ),
+  );
+  assert.equal(own.body.paymentTermsDays, 15);
+
+  const renamed = await json(
+    await PATCH(
+      patchReq('/clients/x', { name: 'Contoso Ltd' }),
+      ctx(own.body.id),
+    ),
+  );
+  assert.equal(renamed.body.paymentTermsDays, 15, 'omitted leaves it');
+
+  const cleared = await json(
+    await PATCH(
+      patchReq('/clients/x', { paymentTermsDays: null }),
+      ctx(own.body.id),
+    ),
+  );
+  assert.equal(cleared.body.paymentTermsDays, null);
+
+  for (const bad of [-1, 1.5, 366]) {
+    const refused = await json(
+      await PATCH(
+        patchReq('/clients/x', { paymentTermsDays: bad }),
+        ctx(own.body.id),
+      ),
+    );
+    assert.equal(refused.status, 422, String(bad));
+  }
+});
+
 /* Which payment profile a client's invoices carry: a field the route's schema
    must name, or Zod strips it and the write is silently lost. */
 test('a client can be pointed at a payment profile, on create and on patch', async () => {
@@ -1275,6 +1323,48 @@ test('every settable field round-trips, rather than being silently dropped', asy
   for (const [field, value] of Object.entries(sent)) {
     assert.deepEqual(res.body[field], value, field);
   }
+});
+
+test('the user payment terms are whole days from 0 to 365', async () => {
+  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
+  const set = (body: object) =>
+    patch(req('/settings', body, 'PATCH')).then(json);
+
+  const saved = await set({ paymentTermsDays: 45 });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.paymentTermsDays, 45);
+  assert.equal((await set({ paymentTermsDays: 0 })).body.paymentTermsDays, 0);
+
+  for (const bad of [-1, 1.5, 366]) {
+    assert.equal(
+      (await set({ paymentTermsDays: bad })).status,
+      422,
+      String(bad),
+    );
+  }
+});
+
+/* Old terms the migration couldn't read became 30 days; the Inbox shows
+   what was written until the user saves their terms. */
+test('stats asks about old payment terms until the user saves theirs', async () => {
+  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const ask = async () =>
+    (await json(await stats(req('/stats?tz=UTC')))).body.attention
+      .paymentTermsToCheck;
+
+  assert.equal(await ask(), null);
+  await pool.query(
+    `update user_settings set legacy_payment_terms='Payment by check' where user_id=$1`,
+    [USER],
+  );
+  assert.equal(await ask(), 'Payment by check');
+
+  await patch(req('/settings', { maxEntryHours: 9 }, 'PATCH'));
+  assert.equal(await ask(), 'Payment by check', 'another field leaves it');
+
+  await patch(req('/settings', { paymentTermsDays: 30 }, 'PATCH'));
+  assert.equal(await ask(), null);
 });
 
 /* The Inbox asks for a default rate while there is none. Zero is a rate,

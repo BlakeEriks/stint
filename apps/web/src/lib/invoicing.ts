@@ -23,13 +23,14 @@ import {
   buildSchedules,
   documentOpens,
   draftSnapshot,
-  dueDateForTerms,
   localDateKey,
   newLines,
+  paymentTermsText,
   pickSchedules,
   resolvePaymentProfile,
   snapshotChanged,
   startOfLocalDate,
+  termsDays,
 } from '@stint/core';
 import type {
   BillableEntry,
@@ -184,7 +185,7 @@ export async function loadBillableExpenses(
 export interface InvoiceSettings {
   defaultHourlyRate: number | null;
   currency: string;
-  defaultPaymentTerms: string;
+  paymentTermsDays: number;
   invoiceNumberPrefix: string;
   paymentNotice: string | null;
   businessName: string | null;
@@ -211,7 +212,7 @@ export async function loadSettings(
   const { data, error } = await db
     .from('user_settings')
     .select(
-      'default_hourly_rate, currency, default_payment_terms, invoice_number_prefix, payment_notice, business_name, business_email',
+      'default_hourly_rate, currency, payment_terms_days, invoice_number_prefix, payment_notice, business_name, business_email',
     )
     .maybeSingle();
 
@@ -221,7 +222,7 @@ export async function loadSettings(
   return {
     defaultHourlyRate: num(data.default_hourly_rate),
     currency: (data.currency as string) ?? 'USD',
-    defaultPaymentTerms: (data.default_payment_terms as string) ?? 'Net 30',
+    paymentTermsDays: data.payment_terms_days as number,
     invoiceNumberPrefix: (data.invoice_number_prefix as string) ?? 'INV-',
     paymentNotice: data.payment_notice ?? null,
     businessName: data.business_name ?? null,
@@ -506,6 +507,12 @@ export async function deriveDraft(
   });
   const { totals } = computed;
   const issued = issueDate ?? localDateKey(new Date(), tz);
+  const due =
+    row.due_date ??
+    addDays(
+      issued,
+      termsDays(row.payment_terms) ?? computed.settings.paymentTermsDays,
+    );
   const unrated = new Set(totals.unratedEntryIds);
 
   return {
@@ -521,12 +528,8 @@ export async function deriveDraft(
       total: totals.total,
       supporting_detail: computed.supportingDetail,
       issue_date: issued,
-      due_date:
-        row.due_date ??
-        dueDateForTerms(
-          issued,
-          row.payment_terms ?? computed.settings.defaultPaymentTerms,
-        ),
+      due_date: due,
+      payment_terms: paymentTermsText(issued, due),
     } satisfies InvoiceRow,
     unratedEntries: computed.entries
       .filter((e) => unrated.has(e.id))
@@ -610,6 +613,7 @@ export async function sendDraft(
       draft.change,
     );
 
+  const due = printed?.dueDate ?? draft.row.due_date!;
   const { data, error } = await db.rpc('send_draft', {
     p_invoice_id: row.id,
     p_invoice: {
@@ -620,7 +624,8 @@ export async function sendDraft(
       total: totals.total,
       supporting_detail: draft.computed.supportingDetail,
       issue_date: draft.row.issue_date,
-      due_date: printed?.issueDate ? printed.dueDate : draft.row.due_date,
+      due_date: due,
+      payment_terms: paymentTermsText(draft.row.issue_date, due),
       tz,
       lines: draft.computed.lines,
     },

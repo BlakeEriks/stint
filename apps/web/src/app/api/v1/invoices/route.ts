@@ -10,7 +10,7 @@ import {
   unratedError,
 } from '@/lib/invoicing';
 import { INVOICE_COLUMNS, toInvoice, type InvoiceRow } from '@/lib/rows';
-import { buildPaymentDetails } from '@stint/core';
+import { buildPaymentDetails, localDateKey, termsForDays } from '@stint/core';
 import { CreateInvoice, ListInvoicesQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -82,6 +82,17 @@ export const POST = handle(async (req: Request) => {
 
   requireSender(settings);
 
+  /* The issue date is the send date, so a typed due date is held to today:
+     it can only move further behind. */
+  const today = localDateKey(new Date(), body.tz);
+  if (body.dueDate && body.dueDate < today) {
+    throw new ApiError(
+      'VALIDATION_FAILED',
+      "The due date can't be before the issue date.",
+      { field: 'dueDate' },
+    );
+  }
+
   if (totals.unratedEntryIds.length > 0)
     throw unratedError(totals.unratedEntryIds);
 
@@ -115,7 +126,11 @@ export const POST = handle(async (req: Request) => {
       period_end: body.periodEnd,
       currency: client.currency ?? settings.currency,
       notes: body.notes ?? null,
-      payment_terms: body.paymentTerms ?? settings.defaultPaymentTerms,
+      /* The terms the draft keeps: its due date follows them from the day it
+         is sent, unless one was typed. */
+      payment_terms: termsForDays(
+        client.payment_terms_days ?? settings.paymentTermsDays,
+      ),
       grouping_mode: body.groupingMode,
       summary_text: body.groupingMode === 'summary' ? body.summaryText : null,
       supporting_detail: computed.supportingDetail,

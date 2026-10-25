@@ -1,11 +1,24 @@
+import { execSync } from 'node:child_process';
 import { test, expect } from '@playwright/test';
 import {
   signIn,
   clearInbox,
+  inviteLink,
   magicLink,
   requestLink,
   SEED_EMAIL,
 } from './mailpit';
+
+const AUTH = 'http://localhost:54321/auth/v1';
+
+/* The admin API takes the service-role key, which nothing on disk holds:
+   read it from the running stack, as CI's setup step reads the public key. */
+function serviceHeaders(): Record<string, string> {
+  const key = JSON.parse(
+    execSync('npx supabase status -o json', { cwd: '../..' }).toString(),
+  ).SERVICE_ROLE_KEY;
+  return { apikey: key, Authorization: `Bearer ${key}` };
+}
 
 /** Sign-in and sign-out, in a real browser. */
 test.describe('authentication', () => {
@@ -14,6 +27,29 @@ test.describe('authentication', () => {
     // The account menu carries the signed-in address, so this is the right
     // user rather than merely a session.
     await expect(page.getByText(SEED_EMAIL)).toBeVisible();
+  });
+
+  test('the invite link signs the invitee in', async ({ page }) => {
+    const email = `invitee-${Date.now()}@localhost.test`;
+    const headers = serviceHeaders();
+    await clearInbox();
+    const invitedAt = Date.now();
+
+    const res = await fetch(`${AUTH}/invite`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    expect(res.ok).toBe(true);
+    const { id } = await res.json();
+
+    try {
+      await page.goto(await inviteLink(invitedAt));
+      await page.waitForURL('**/');
+      await expect(page.getByText(email)).toBeVisible();
+    } finally {
+      await fetch(`${AUTH}/admin/users/${id}`, { method: 'DELETE', headers });
+    }
   });
 
   test('signing out clears the session, and Back does not reveal the app', async ({

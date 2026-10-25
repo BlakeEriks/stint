@@ -1,5 +1,5 @@
 import { beforeEach, expect, test } from 'vitest';
-import { localDateKey } from '@stint/core';
+import { addDays, localDateKey } from '@stint/core';
 import { getDb, resetDb } from '@/mocks/db';
 import { ids } from '@/mocks/fixtures';
 import { handlers } from '@/mocks/handlers';
@@ -45,7 +45,9 @@ test('stores a draft that claims nothing until sent', async () => {
     status: 'draft',
     sequenceNo: next,
     issueDate: localDateKey(new Date(NOW), ZONE),
-    dueDate: null,
+    // The fake fills Due from the terms, as the route does.
+    dueDate: addDays(localDateKey(new Date(NOW), ZONE), 30),
+    paymentTerms: 'Net 30',
     summaryText: null,
     reference: 'PO-7',
     supportingDetail: null,

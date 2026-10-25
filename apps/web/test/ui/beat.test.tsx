@@ -40,6 +40,7 @@ function arrival(
     },
     attention: {
       noDefaultRate: false,
+      paymentTermsToCheck: null,
       overdueInvoices: [],
       staleDrafts: [],
       lateEntries: [],

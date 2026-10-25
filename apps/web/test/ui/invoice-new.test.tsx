@@ -31,6 +31,7 @@ const CLIENTS = [
     currency: 'USD',
     color: null,
     paymentProfileId: null,
+    paymentTermsDays: null as number | null,
     archivedAt: null,
   },
 ];
@@ -41,7 +42,7 @@ const SETTINGS = {
   businessEmail: 'sam@example.test',
   invoiceNumberPrefix: 'STINT-',
   nextInvoiceNumber: 16,
-  defaultPaymentTerms: 'Net 30',
+  paymentTermsDays: 30,
 };
 
 /** The settings served; a test changes the payment terms. */
@@ -258,6 +259,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   hold = null;
   settings = SETTINGS;
+  CLIENTS[0]!.paymentTermsDays = null;
   holdSettings = null;
   invoices = [];
   holdInvoices = null;
@@ -380,7 +382,7 @@ describe('NewInvoice', () => {
 
   it('shows Due from the payment terms, and sends only a typed one', async () => {
     serve();
-    settings = { ...SETTINGS, defaultPaymentTerms: 'Net 15' };
+    settings = { ...SETTINGS, paymentTermsDays: 15 };
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
     const due = addDays(localDateKey(new Date(), tz), 15);
@@ -410,6 +412,33 @@ describe('NewInvoice', () => {
     expect(bodies.find((b) => b.path.endsWith('/invoices'))!.body.dueDate).toBe(
       '2026-12-01',
     );
+  });
+
+  it("defaults Due to the client's own terms over the user's", async () => {
+    serve();
+    CLIENTS[0]!.paymentTermsDays = 10;
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await ready(user);
+    expect(screen.getByLabelText('Due')).toHaveValue(
+      addDays(localDateKey(new Date(), tz), 10),
+    );
+  });
+
+  it('refuses a due date before the issue date at the field', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await ready(user);
+
+    fireEvent.change(screen.getByLabelText('Due'), {
+      target: { value: addDays(localDateKey(new Date(), tz), -1) },
+    });
+
+    expect(
+      await screen.findByText("Due can't be before the issue date."),
+    ).toHaveAttribute('role', 'alert');
+    expect(generate()).toBeDisabled();
   });
 
   /* The form paints once, with its terms in place, so Generate is

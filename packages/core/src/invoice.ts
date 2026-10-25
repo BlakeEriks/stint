@@ -6,6 +6,7 @@
  */
 
 import { resolveRate, resolveRateSource, type RateSource } from './rates.ts';
+import { daysBetweenKeys } from './stats.ts';
 import { addDays, daysInMonth, localDateKey } from './calendar.ts';
 import {
   lastEndedPeriod,
@@ -330,17 +331,30 @@ export function defaultInvoicePeriod(
   return { periodStart: `${periodEnd.slice(0, 8)}01`, periodEnd };
 }
 
-/**
- * When an invoice issued on `issueDate` is due under its free-text payment
- * `terms`: "Net N" or "N days" is N days on, even "Net 30 upon receipt";
- * "on receipt" with no count is the same day, and anything else Net 30.
- */
-export function dueDateForTerms(issueDate: string, terms: string): string {
-  // A count starts after a non-digit and is at most 4 digits, so a long run
-  // of digits cannot backtrack (CodeQL js/polynomial-redos).
-  const days =
-    /net\s*(\d{1,4})(?!\d)/i.exec(terms) ??
-    /(?<!\d)(\d{1,4})\s*days/i.exec(terms);
-  if (days) return addDays(issueDate, Number(days[1]));
-  return /receipt/i.test(terms) ? issueDate : addDays(issueDate, 30);
+/** The most days a user's or a client's payment terms may give. */
+export const PAYMENT_TERMS_MAX_DAYS = 365;
+
+/** Typed payment terms as days, or null unless a whole number in range. */
+export function parseTermsDays(text: string): number | null {
+  const t = text.trim();
+  if (!/^\d{1,3}$/.test(t)) return null;
+  const days = Number(t);
+  return days <= PAYMENT_TERMS_MAX_DAYS ? days : null;
+}
+
+/** The terms an invoice prints, made from its own dates so the two agree. */
+export function paymentTermsText(issueDate: string, dueDate: string): string {
+  return termsForDays(daysBetweenKeys(issueDate, dueDate));
+}
+
+/** The terms `days` print as. */
+export function termsForDays(days: number): string {
+  return days === 0 ? 'Due on receipt' : `Net ${days}`;
+}
+
+/** The days in terms `termsForDays` wrote; null for any other text. */
+export function termsDays(text: string | null): number | null {
+  if (text === 'Due on receipt') return 0;
+  const net = /^Net (\d{1,3})$/.exec(text ?? '');
+  return net ? Number(net[1]) : null;
 }

@@ -5,7 +5,9 @@ import {
   invoicesCsv,
   measured,
   formatInvoiceNumber,
+  addDays,
   localDateKey,
+  paymentTermsText,
   pickSchedules,
   type ImportPreview,
   type ImportResult,
@@ -84,14 +86,19 @@ type Preview = NonNullable<ReturnType<typeof invoicePreview>>;
 function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
   const seq = db.settings.nextInvoiceNumber;
   db.settings.nextInvoiceNumber += 1;
+  const issueDate = localDateKey(db.now, input.tz);
+  const days =
+    db.clients.find((c) => c.id === preview.clientId)?.paymentTermsDays ??
+    db.settings.paymentTermsDays;
+  const dueDate = input.dueDate ?? addDays(issueDate, days);
   return {
     id: uuidv7(db.now.getTime()),
     clientId: preview.clientId,
     invoiceNumber: formatInvoiceNumber(db.settings.invoiceNumberPrefix, seq),
     sequenceNo: seq,
     status: 'draft' as const,
-    issueDate: localDateKey(db.now, input.tz),
-    dueDate: input.dueDate ?? null,
+    issueDate,
+    dueDate,
     periodStart: preview.periodStart,
     periodEnd: preview.periodEnd,
     subtotal: preview.subtotal,
@@ -101,7 +108,7 @@ function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
     total: preview.total,
     currency: preview.currency,
     notes: input.notes ?? null,
-    paymentTerms: db.settings.defaultPaymentTerms,
+    paymentTerms: paymentTermsText(issueDate, dueDate),
     groupingMode: preview.groupingMode,
     summaryText: preview.groupingMode === 'summary' ? input.summaryText : null,
     reference: input.reference ?? null,
@@ -440,6 +447,7 @@ export const handlers = {
       color: null,
       paymentProfileId: null,
       billingSchedule: null,
+      paymentTermsDays: null,
       archivedAt: null,
       ...(await body<Partial<Client>>(request)),
     };
@@ -763,6 +771,7 @@ export const handlers = {
         `The next number can't go below ${current}, or an invoice could repeat a number already sent.`,
       );
     db.settings = { ...db.settings, ...input };
+    if (input.paymentTermsDays !== undefined) db.legacyPaymentTerms = null;
     return ok(schema.Settings, db.settings);
   }),
 
@@ -883,6 +892,7 @@ export const handlers = {
         color: c.color,
         paymentProfileId: null,
         billingSchedule: null,
+        paymentTermsDays: null,
         archivedAt: null,
       });
     for (const p of preview.newProjects)

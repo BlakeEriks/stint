@@ -7,7 +7,8 @@
 -- `allocate_invoice_number` has taken the user's counter row lock, so of two
 -- concurrent Generates over the same dates the second sees the first's draft.
 -- A draft's issue date is its send date, so it is set then; `due_date` is
--- stored only when the user typed one.
+-- stored only when the user typed one, and otherwise follows the terms it
+-- keeps in `payment_terms`.
 
 drop function refresh_draft(uuid, jsonb, uuid[], uuid[], timestamptz);
 drop function create_invoice(uuid, jsonb, uuid[], uuid[]);
@@ -190,6 +191,7 @@ begin
     supporting_detail = nullif(p_invoice->'supporting_detail', 'null'::jsonb),
     issue_date        = (p_invoice->>'issue_date')::date,
     due_date          = (p_invoice->>'due_date')::date,
+    payment_terms     = p_invoice->>'payment_terms',
     tz                = p_invoice->>'tz',
     status            = 'sent',
     sent_at           = p_sent_at

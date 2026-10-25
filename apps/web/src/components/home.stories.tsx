@@ -185,6 +185,32 @@ export const NoRate: Story = {
   },
 };
 
+const oldTerms = account((db) => {
+  db.legacyPaymentTerms = 'Payment by check, thanks';
+});
+
+/** Old terms the move to days couldn't read: the Inbox quotes them and asks
+ *  for days, and saving takes the row away. */
+export const TermsToCheck: Story = {
+  ...desktop,
+  parameters: oldTerms,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const inbox = within(await page.findByRole('region', { name: 'Inbox' }));
+    await expect(
+      await inbox.findByText(/You wrote “Payment by check, thanks”/),
+    ).toBeVisible();
+    const field = inbox.getByLabelText('Payment terms in days');
+    await expect(field).toHaveValue('30');
+    await userEvent.clear(field);
+    await userEvent.type(field, '15');
+    await userEvent.click(inbox.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(page.queryByText('Check your payment terms')).toBeNull(),
+    );
+  },
+};
+
 /** Saving a rate takes the row away at once, and Home prices its work. */
 export const SaveRate: Story = {
   ...desktop,

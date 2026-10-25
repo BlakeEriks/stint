@@ -407,7 +407,6 @@ export const api = {
     paymentProfileId?: string;
     dueDate?: string;
     notes?: string;
-    paymentTerms?: string;
   }) =>
     request<Invoice & { lineItems: ComputedLineItem[]; entryCount: number }>(
       'POST',

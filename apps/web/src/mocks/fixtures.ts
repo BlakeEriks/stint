@@ -46,6 +46,8 @@ export interface Db {
   now: Date;
   email: string;
   settings: Settings;
+  /** Old terms text the move to days couldn't read (`legacy_payment_terms`). */
+  legacyPaymentTerms: string | null;
   clients: Client[];
   projects: Project[];
   entries: TimeEntry[];
@@ -102,7 +104,7 @@ export const settings = (): Settings => ({
   businessAddress: '1200 Pine St, Suite 4\nSeattle, WA 98101',
   businessEmail: 'billing@samrivera.test',
   logoUrl: null,
-  defaultPaymentTerms: 'Net 30',
+  paymentTermsDays: 30,
   invoiceNumberPrefix: 'STINT-',
   nextInvoiceNumber: 16,
   paymentNotice:
@@ -119,6 +121,7 @@ const client = (c: Partial<Client> & Pick<Client, 'id' | 'name'>): Client => ({
   color: null,
   paymentProfileId: null,
   billingSchedule: null,
+  paymentTermsDays: null,
   archivedAt: null,
   ...c,
 });
@@ -274,6 +277,7 @@ export function seed(now: Date): Db {
     now,
     email: 'dev@localhost.test',
     settings: settings(),
+    legacyPaymentTerms: null,
     clients,
     projects,
     entries,
