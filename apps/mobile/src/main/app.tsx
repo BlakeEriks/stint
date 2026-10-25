@@ -32,7 +32,6 @@ const api = createApi(
     origin,
     auth,
     bypass: bypass.current,
-    // A wrong or rotated bypass: forget it, and the screen asks again.
     onProtected: () => void bypass.clear(),
   }),
 );
