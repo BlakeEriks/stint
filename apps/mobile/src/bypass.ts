@@ -1,3 +1,4 @@
+import { createListeners } from './listeners.ts';
 import type { Store } from './session.ts';
 
 const KEY = 'stint.vercel-bypass';
@@ -12,7 +13,7 @@ const KEY = 'stint.vercel-bypass';
  */
 export function createBypass(store: Store) {
   let value: string | null = null;
-  const listeners = new Set<(value: string | null) => void>();
+  const listeners = createListeners<string | null>();
   return {
     async load() {
       value = await store.get(KEY);
@@ -28,13 +29,10 @@ export function createBypass(store: Store) {
     async clear() {
       await store.delete(KEY);
       value = null;
-      for (const listener of listeners) listener(null);
+      listeners.emit(null);
     },
     /** What each request sends, read at the time it is sent. */
     current: () => value,
-    subscribe(listener: (value: string | null) => void) {
-      listeners.add(listener);
-      return () => void listeners.delete(listener);
-    },
+    subscribe: listeners.subscribe,
   };
 }

@@ -1,4 +1,5 @@
 import { ApiError } from '@stint/client';
+import { createListeners } from './listeners.ts';
 
 /**
  * Sign-in by emailed six-digit code, verified against GoTrue over `fetch`,
@@ -55,7 +56,7 @@ export function createAuth({
   /* Per backend host, so local, preview and production sessions never
      overwrite each other. */
   const key = `stint.session.${new URL(supabaseUrl).host.replace(/[^\w.-]/g, '_')}`;
-  const listeners = new Set<(session: Session | null) => void>();
+  const listeners = createListeners<Session | null>();
   let cached: Session | null | undefined;
   // One in-flight refresh, shared: two callers racing would each spend a
   // rotating refresh token and one would lose.
@@ -73,7 +74,7 @@ export function createAuth({
     cached = session;
     if (session) await store.set(key, JSON.stringify(session));
     else await store.delete(key);
-    for (const listener of listeners) listener(session);
+    listeners.emit(session);
   }
 
   async function post(path: string, body: unknown) {
@@ -187,10 +188,7 @@ export function createAuth({
     },
 
     /** Called with the session on every sign-in, refresh and sign-out. */
-    subscribe(listener: (session: Session | null) => void) {
-      listeners.add(listener);
-      return () => void listeners.delete(listener);
-    },
+    subscribe: listeners.subscribe,
   };
 }
 
