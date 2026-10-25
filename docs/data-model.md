@@ -113,7 +113,8 @@ weekly and biweekly count from `period_anchor`, which the
 `billing_period_anchor` check requires for them and refuses for the others.
 A new invoice's period defaults from it, and one off the schedule is hinted
 at, never refused. `payment_terms_days` overrides the user's; null uses
-theirs.
+theirs. `auto_drafted_through` is the last period end the daily job drafted,
+so a draft the user deleted is not made again.
 
 ### `projects`
 `client_id` is **nullable** — that is how internal/unbilled work is modeled.
@@ -199,14 +200,20 @@ subtotal — time and fees — and the base tax is charged on; the reimbursement
 sit in `expenses_subtotal`, never taxed, and `total = subtotal + tax_amount +
 expenses_subtotal`.
 
-**Generation is one transaction.** `create_invoice()` allocates the number,
-writes the invoice and its lines, and attaches the entries and expenses it
-bills. The call succeeds or fails as a whole. It writes what `buildLineItems` computed and computes
-nothing itself, except the payment reference it appends to the frozen
-payment block once the number exists. An expense another invoice already took
-raises `EXPENSE_ALREADY_INVOICED`; an entry billed on another invoice or
-deleted since the route loaded it raises `ENTRY_ALREADY_INVOICED`. Either
-rolls the whole call back, so a race never uses up a number.
+**Generation is one transaction.** `create_invoice()` writes the draft and
+its lines, and attaches the entries and expenses it bills. The call succeeds
+or fails as a whole. It writes what `buildLineItems` computed and computes
+nothing itself. An expense another invoice already took raises
+`EXPENSE_ALREADY_INVOICED`; an entry billed on another invoice or deleted
+since the route loaded it raises `ENTRY_ALREADY_INVOICED`. Either rolls the
+whole call back.
+
+**A draft is numbered at its first render.** Until then `invoice_number`,
+`sequence_no` and `issue_date` are null; `invoice_issued_numbered` requires
+all three on anything past draft. `number_invoice()` allocates the number,
+fixes the issue date, due date and terms, and appends the payment reference
+to the frozen payment block, so a draft deleted before anyone saw it leaves
+no gap.
 
 ### `expenses`
 A cost the contractor paid that a client reimburses. It has an amount and no
