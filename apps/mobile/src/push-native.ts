@@ -27,7 +27,7 @@ export const expoTokens: PushTokens = {
  * Runs `onPush` for each timer push. `expo-notifications` hands a data-only
  * message to a task, never to its foreground listener, so the task is
  * defined as the app's module loads, as its docs require; the same task
- * runs when the app is in the background, which #465's notification uses.
+ * runs when the app is in the background.
  */
 export function listenForTimerPushes(onPush: () => void) {
   if (!canPush) return;

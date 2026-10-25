@@ -1,5 +1,5 @@
 /**
- * What the server sends a phone when the running timer changes (#463).
+ * What the server sends a phone when the running timer changes.
  *
  * The message says only that the timer changed: the phone asks the server
  * for it, so two pushes arriving out of order can't show the older state,

@@ -10,8 +10,8 @@ export interface PushProvider {
   send(token: string): Promise<{ outcome: PushOutcome; detail: string }>;
 }
 
-/* By platform, each null until its credentials are set. iPhone (#471) adds
-   `ios` beside it. */
+/* By platform, each null until its credentials are set. APNs goes beside
+   it as `ios`. */
 const PROVIDERS: Record<PushPlatform, () => PushProvider | null> = {
   android: fcm,
 };

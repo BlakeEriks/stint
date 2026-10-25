@@ -2,9 +2,9 @@ import { ApiError, invalidateEntryData } from '@stint/client';
 import type { QueryClient } from '@tanstack/react-query';
 
 /**
- * The server pushes a phone when the running timer changes, from any client
- * (#463). The push says only that: the phone asks the server, as it does
- * on foreground. Android only, over FCM, until iPhone push (#471).
+ * The server pushes a phone when the running timer changes, from any
+ * client. The push says only that: the phone asks the server, as it does
+ * on foreground. Android only, over FCM; the iPhone has no provider yet.
  */
 
 /** The data message the server sends (`fcmTimerMessage()` in `@stint/core`),

@@ -4784,8 +4784,16 @@ async function timerChanges() {
   const stop = (await route('timer/stop')).POST;
   const current = (await route('timer/current')).PATCH;
   const entry = await route('entries/[id]');
+  // A minute ago, so a stop in the same millisecond still lands after it.
+  const startedAt = () => new Date(Date.now() - 60_000).toISOString();
   const started = async () =>
-    (await json(await start(req('/timer/start', { taskName: 'Work' })))).body;
+    (
+      await json(
+        await start(
+          req('/timer/start', { taskName: 'Work', startedAt: startedAt() }),
+        ),
+      )
+    ).body;
   const patch = (id: string, body: unknown) =>
     entry.PATCH(send('PATCH', `/entries/${id}`, body), {
       params: Promise.resolve({ id }),
@@ -4845,7 +4853,7 @@ test('every change to the running timer pushes once to each phone', async () => 
       ['fcm-token-1', 'fcm-token-2'],
       name,
     );
-    assert.deepEqual(fcmFake.state.sent[0].data, { kind: 'timer' }, name);
+    assert.deepEqual(fcmFake.state.sent[0]?.data, { kind: 'timer' }, name);
   }
 });
 
@@ -4963,7 +4971,8 @@ test('the access token is fetched once for many sends', async () => {
     '../src/app/api/v1/timer/start/route.ts'
   );
   const { POST: stop } = await import('../src/app/api/v1/timer/stop/route.ts');
-  await start(req('/timer/start', { taskName: 'Work' }));
+  const startedAt = new Date(Date.now() - 60_000).toISOString();
+  await start(req('/timer/start', { taskName: 'Work', startedAt }));
   await settled();
   await stop(req('/timer/stop', {}));
   await settled();
