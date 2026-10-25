@@ -66,14 +66,9 @@ jobs:
       - name: Point the preview profile at this PR
         working-directory: apps/mobile
         run: |
-          # Vercel's branch alias, as preview-db.yml builds it.
-          slug=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g')
-          host="stint-git-${slug}-blakeeriks-projects"
-          if [ ${#host} -gt 63 ]; then
-            echo "::error::Branch name too long for Vercel's alias; the build would have no preview to talk to."
-            exit 1
-          fi
-          jq --arg pr "$PR" --arg url "https://${host}.vercel.app" \
+          # A long branch has no preview for the build to talk to.
+          url=$(node ../../scripts/preview-url.mjs "$BRANCH")
+          jq --arg pr "$PR" --arg url "$url" \
              --arg project "$EAS_PROJECT_ID" --arg owner "$EXPO_OWNER" \
             '.build.preview.env += {
                STINT_PREVIEW_PR: $pr, STINT_APP_URL: $url,
