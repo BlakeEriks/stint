@@ -3743,6 +3743,65 @@ test('a draft the user deleted is not made again', async () => {
   assert.equal(sent.length, 1, 'no second email');
 });
 
+test('a hand-made draft the user deleted is not made again', async () => {
+  stubMail();
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await scheduleMonthly();
+  await seedEntry({ id: E(1), start: '2026-09-10T09:00:00Z' });
+  await create(req('/invoices', { clientId: CLIENT, ...PERIOD, tz: 'UTC' }));
+  await runJob(OCT_20);
+
+  await pool.query('update time_entries set invoice_id=null');
+  await pool.query('delete from invoices');
+  assert.equal((await runJob(new Date('2026-10-21T15:00:00Z'))).created, 0);
+  assert.deepEqual(await autoDrafts(), []);
+});
+
+test('one client failing still drafts and tells the user’s others', async () => {
+  const sent = stubMail();
+  const contoso = 'cc000000-0000-4000-8000-0000000000c2';
+  const contosoProject = 'bb000000-0000-4000-8000-0000000000c3';
+  await pool.query(
+    `insert into clients (id,user_id,name,billing_period,hourly_rate)
+     values ($1,$2,'Contoso','monthly',90)`,
+    [contoso, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'Site')`,
+    [contosoProject, USER, contoso],
+  );
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
+     values ($1,$2,$3,'Site work','2026-09-10T09:00:00Z','2026-09-10T10:00:00Z',true)`,
+    [E(9), USER, contosoProject],
+  );
+  await scheduleMonthly();
+  await seedEntry({ id: E(1), start: '2026-09-10T09:00:00Z' });
+  // Northwind's draft fails every time, as a bad row would.
+  await pool.query(
+    `create function test_refuse_northwind() returns trigger language plpgsql as $$
+     begin
+       if new.client_id = '${CLIENT}' then raise exception 'refused'; end if;
+       return new;
+     end $$;
+     create trigger test_refuse_northwind before insert on invoices
+       for each row execute function test_refuse_northwind();`,
+  );
+  try {
+    await assert.rejects(runJob(OCT_20), 'the failure is still raised');
+    assert.deepEqual(
+      (await autoDrafts()).map((d) => [d.client_id, d.emailed]),
+      [[contoso, true]],
+    );
+    assert.equal(sent.length, 1);
+  } finally {
+    await pool.query(
+      `drop trigger test_refuse_northwind on invoices;
+       drop function test_refuse_northwind();`,
+    );
+  }
+});
+
 test('an ended period with nothing to bill gets no draft and no number', async () => {
   stubMail();
   await scheduleMonthly();

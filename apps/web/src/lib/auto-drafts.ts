@@ -31,22 +31,22 @@ export async function runDrafts(db: SupabaseClient, now = new Date()) {
   if (error) throw error;
 
   const done = { created: 0, emailed: 0 };
-  /* One user's failure, a refused email say, doesn't stop the others; all
-     of them are raised once every user has had their turn. */
+  /* One failure, a refused email or one client's draft, doesn't stop the
+     rest; all of them are raised once every user has had their turn. */
   const failures: unknown[] = [];
   for (const u of users ?? []) {
     try {
       const tz = (u.time_zone as string | null) ?? 'UTC';
       // Every invoice needs a sender; the inbox asks for one meanwhile.
       if (u.business_name?.trim() && u.business_email?.trim())
-        done.created += await draftEnded(db, u.user_id, tz, now);
+        done.created += await draftEnded(db, u.user_id, tz, now, failures);
       if (u.ready_email) done.emailed += await tellAll(db, u.user_id, tz);
     } catch (e) {
       failures.push(e);
     }
   }
   if (failures.length > 0)
-    throw new AggregateError(failures, `${failures.length} users failed`);
+    throw new AggregateError(failures, `${failures.length} failed`);
   return done;
 }
 
@@ -58,6 +58,7 @@ async function draftEnded(
   userId: string,
   tz: string,
   now: Date,
+  failures: unknown[],
 ) {
   const { data: clients, error } = await db
     .from('clients')
@@ -69,51 +70,74 @@ async function draftEnded(
 
   let created = 0;
   for (const client of (clients ?? []) as ClientRow[]) {
-    const schedule = toBillingSchedule(client);
-    if (!schedule) continue;
-    const p = lastEndedPeriod(localDateKey(now, tz), schedule);
-    /* Drafted once: a draft the user deleted stays deleted (Principle I). */
-    if (
-      client.auto_drafted_through !== null &&
-      p.periodEnd <= client.auto_drafted_through
-    )
-      continue;
-    const { data: covering, error: coverError } = await db
-      .from('invoices')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('client_id', client.id)
-      .neq('status', 'void')
-      .lte('period_start', p.periodEnd)
-      .gte('period_end', p.periodStart)
-      .limit(1);
-    if (coverError) throw coverError;
-    if ((covering ?? []).length > 0) continue;
     try {
-      await createDraft(
-        db,
-        userId,
-        // New invoice's defaults for this client and period.
-        CreateInvoice.parse({ clientId: client.id, ...p, tz }),
-        { auto: true },
-      );
-      const { error: markError } = await db
-        .from('clients')
-        .update({ auto_drafted_through: p.periodEnd })
-        .eq('id', client.id)
-        .eq('user_id', userId);
-      if (markError) throw markError;
-      created++;
+      if (await draftClient(db, userId, client, tz, now)) created++;
     } catch (e) {
-      // Nothing to bill, or another run drafted it first.
-      const skip =
-        (e instanceof ApiError &&
-          (e.code === 'INVALID_PERIOD' || e.code === 'DRAFT_OVERLAPS')) ||
-        (e as { code?: string }).code === PG.UNIQUE_VIOLATION;
-      if (!skip) throw e;
+      failures.push(e);
     }
   }
   return created;
+}
+
+/** One client's draft for its last ended period; whether one was made. */
+async function draftClient(
+  db: SupabaseClient,
+  userId: string,
+  client: ClientRow,
+  tz: string,
+  now: Date,
+) {
+  const schedule = toBillingSchedule(client);
+  if (!schedule) return false;
+  const p = lastEndedPeriod(localDateKey(now, tz), schedule);
+  /* Drafted once: a draft the user deleted stays deleted (Principle I),
+     the job's or their own. */
+  if (
+    client.auto_drafted_through !== null &&
+    p.periodEnd <= client.auto_drafted_through
+  )
+    return false;
+  const markDrafted = async () => {
+    const { error } = await db
+      .from('clients')
+      .update({ auto_drafted_through: p.periodEnd })
+      .eq('id', client.id)
+      .eq('user_id', userId);
+    if (error) throw error;
+  };
+  const { data: covering, error: coverError } = await db
+    .from('invoices')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('client_id', client.id)
+    .neq('status', 'void')
+    .lte('period_start', p.periodEnd)
+    .gte('period_end', p.periodStart)
+    .limit(1);
+  if (coverError) throw coverError;
+  if ((covering ?? []).length > 0) {
+    await markDrafted();
+    return false;
+  }
+  try {
+    await createDraft(
+      db,
+      userId,
+      // New invoice's defaults for this client and period.
+      CreateInvoice.parse({ clientId: client.id, ...p, tz }),
+      { auto: true },
+    );
+  } catch (e) {
+    // Nothing to bill, or another run drafted it first.
+    const skip =
+      (e instanceof ApiError &&
+        (e.code === 'INVALID_PERIOD' || e.code === 'DRAFT_OVERLAPS')) ||
+      (e as { code?: string }).code === PG.UNIQUE_VIOLATION;
+    if (!skip) throw e;
+    return false;
+  }
+  await markDrafted();
+  return true;
 }
 
 /** The ready email for each of the job's drafts not yet told about. */
