@@ -228,8 +228,8 @@ function Loaded({
             </Button>
           ) : null}
 
-          {/* Downloading is how an invoice reaches a client: the app sends no
-              mail, so it is last, as the primary action. Neither shows until
+          {/* Downloading is how an invoice reaches a client: Stint never
+              emails a client, so it is last, as the primary action. Neither shows until
               the invoice itself answers: the lists it first draws from don't
               say whether its PDF opens. */}
           {invoice.canDownload === true ? (

@@ -290,9 +290,9 @@ function useSettled<T>(value: T, ms: number): T {
  * The form, and the invoice it makes beside it.
  *
  * The card answers every change: what the form knows at once, what the
- * server computes (the lines) once typing settles. Generating allocates a
- * gapless number and creates the draft, so it waits until the card is the
- * server's current answer.
+ * server computes (the lines) once typing settles. Generating creates the
+ * draft from those lines, so it waits until the card is the server's current
+ * answer.
  */
 export function NewInvoice() {
   /* The form paints once, its client list, terms and payment profiles in
