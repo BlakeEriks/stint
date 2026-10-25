@@ -61,9 +61,10 @@ Supabase Auth. Every client sends the same JWT as a bearer token, and the
 route handlers verify it identically.
 
 - **Web** — `@supabase/ssr`, cookie-based sessions.
-- **macOS and the phone** — an emailed **six-digit code**, typed into the panel and verified
-  in-process against GoTrue's `/verify` (`type: "email"`, digits in `token`),
-  with the session kept in the Keychain. A code rather than a link because a
+- **macOS and the phone** — an emailed **six-digit code**, typed into the
+  panel or the phone's sign-in screen and verified in-process against
+  GoTrue's `/verify` (`type: "email"`, digits in `token`), with the session
+  in the Keychain on the Mac and in secure storage on the phone. A code rather than a link because a
   link has to cross from a browser into a different application: the clipboard
   carries a bearer credential, and a custom URL scheme is silently refused as
   a redirect target. `supabase-swift` is not used — the SDK is not needed to
