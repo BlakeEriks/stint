@@ -45,10 +45,8 @@ const config: ExpoConfig = {
 export default config;
 
 /**
- * Only a preview takes updates over the air: `mobile-preview.yml` publishes
- * a push that changes no native code to the PR's channel instead of
- * building again. The update carries the same `STINT_*` values, so every
- * build still talks to the backend it was built for.
+ * `mobile-preview.yml` publishes a push that changes no native code to the
+ * PR's channel, with the same `STINT_*` values the build saw.
  */
 function updates(): Pick<ExpoConfig, 'updates' | 'runtimeVersion'> {
   const projectId = process.env.EAS_PROJECT_ID;
