@@ -4,7 +4,7 @@ import type { QueryClient } from '@tanstack/react-query';
 /**
  * The server pushes a phone when the running timer changes, from any
  * client. The push says only that: the phone asks the server, as it does
- * on foreground. Android only, over FCM; the iPhone has no provider yet.
+ * on foreground.
  */
 
 /** The data message the server sends (`fcmTimerMessage()` in `@stint/core`),

@@ -230,7 +230,6 @@ export const UpdateRunningTimer = z.object({
 });
 
 // ── push devices (the phones told when the timer changes) ─────────
-/** Android only: the iPhone has no provider yet. */
 export const PushPlatform = z.enum(['android']);
 const pushToken = z.string().min(1).max(4096);
 

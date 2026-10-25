@@ -10,8 +10,7 @@ export interface PushProvider {
   send(token: string): Promise<{ outcome: PushOutcome; detail: string }>;
 }
 
-/* By platform, each null until its credentials are set. APNs goes beside
-   it as `ios`. */
+/* By platform, each null until its credentials are set. */
 const PROVIDERS: Record<PushPlatform, () => PushProvider | null> = {
   android: fcm,
 };
