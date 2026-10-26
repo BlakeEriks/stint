@@ -6,11 +6,7 @@ interface Filterable<T> {
   not(column: string, operator: string, value: unknown): T;
 }
 
-/**
- * The entries a mark may reach: finished and on no invoice. The one rule
- * both routes that mark apply, so the Mac or phone app can't mark a running
- * timer through one of them.
- */
+/** The entries a mark may reach: finished and on no invoice. */
 export function markable<T extends Filterable<T>>(q: T): T {
   return q.is('invoice_id', null).not('ended_at', 'is', null);
 }

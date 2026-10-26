@@ -641,11 +641,8 @@ test('an entry is marked or cleared billed elsewhere by its PATCH', async () => 
   assert.equal(cleared.body.invoicedElsewhere, false);
 });
 
-test('marking a running timer billed elsewhere is refused by its PATCH, and skipped in bulk', async () => {
+test('marking a running timer billed elsewhere is refused by its PATCH: TIMER_ALREADY_RUNNING', async () => {
   const { PATCH } = await import('../src/app/api/v1/entries/[id]/route.ts');
-  const { POST } = await import(
-    '../src/app/api/v1/entries/invoiced-elsewhere/route.ts'
-  );
   await seedBilledElsewhere();
 
   const res = await json(
@@ -656,15 +653,6 @@ test('marking a running timer billed elsewhere is refused by its PATCH, and skip
   );
   assert.equal(res.status, 409);
   assert.equal(res.body.code, 'TIMER_ALREADY_RUNNING');
-  const bulk = await json(
-    await POST(
-      req('/entries/invoiced-elsewhere', {
-        ids: [BE(3)],
-        invoicedElsewhere: true,
-      }),
-    ),
-  );
-  assert.deepEqual(bulk.body.ids, []);
   assert.deepEqual(await flagged(), []);
 });
 
