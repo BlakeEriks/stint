@@ -328,7 +328,7 @@ by every one when `recurring`. The amount is in the client's currency.
 | Method | Path | Notes |
 |---|---|---|
 | `GET` | `/exports/entries` | `?tz`. Every finished entry as a `text/csv` attachment, `stint-entries-<today in tz>.csv`, oldest first: local date and times, billed hours, client, project, task, billable, the rate `resolveRate()` gives it now and its source, the amount an invoice would bill (empty for non-billable or unrated work), currency, and the billing invoice's number or `Invoiced elsewhere`. |
-| `GET` | `/exports/invoices` | `?tz`. Every invoice, any status, as a `text/csv` attachment, newest issue date first, with its dates, frozen totals, and the client name frozen on it (`billTo.name`), so renaming a client doesn't change an issued invoice's row. Both files are UTF-8 with a BOM, CRLF, US dates (`MM/DD/YYYY`), and money as plain two-place decimals; a text cell a spreadsheet would run as a formula gets a leading `'`. |
+| `GET` | `/exports/invoices` | `?tz`. Every invoice, any status, as a `text/csv` attachment, newest issue date first, with its dates, totals, and client name (`billTo.name`). An issued invoice's are frozen, so renaming a client doesn't change its row; a draft's row has its period's work as it stands now. Both files are UTF-8 with a BOM, CRLF, US dates (`MM/DD/YYYY`), and money as plain two-place decimals; a text cell a spreadsheet would run as a formula gets a leading `'`. |
 
 ## Feedback
 
@@ -395,8 +395,7 @@ verified by phone.
 | `NO_TIMER_RUNNING` | 409 | Nothing to stop. |
 | `ENTRY_LOCKED` | 409 | Billed on a non-draft invoice. |
 | `EXPENSE_LOCKED` | 409 | An expense billed on a non-draft invoice. |
-| `EXPENSE_ALREADY_INVOICED` | 409 | Another invoice took one of this invoice's expenses first. Preview again. |
-| `ENTRY_ALREADY_INVOICED` | 409 | One of this invoice's entries was billed on another invoice or deleted since it was loaded. Preview again. |
+| `ENTRY_ALREADY_INVOICED` | 409 | Marking a draft sent: another invoice billed an entry or expense in its period at the same moment. Open the draft again. |
 | `INVOICE_STATUS_CHANGED` | 409 | Another request changed the invoice's status first. Read it again. |
 | `DRAFT_CHANGED` | 409 | The draft moved since its PDF was rendered. Download it again, then mark it sent. |
 | `DRAFT_OVERLAPS` | 409 | An open draft for the client already covers some of these dates. |
