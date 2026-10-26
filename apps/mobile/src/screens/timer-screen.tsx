@@ -190,7 +190,11 @@ function Recent({
               numberOfLines={1}
               style={[text('control'), { color: c['text-strong'] }]}
             >
-              {task.taskName || 'Untitled'}
+              {/* The trailing no-break space keeps this line's words apart
+                  from the project's when the row's text is read as one
+                  string, as the label-in-name check (WCAG 2.5.3) reads it:
+                  a plain space at a line's end collapses and is dropped. */}
+              {`${task.taskName || 'Untitled'}\u00a0`}
             </Text>
             <Text
               numberOfLines={1}
