@@ -2,7 +2,7 @@
 name: doc-drift
 description: Check whether the docs that own what a PR changed still hold, and post one comment on the PR. Run by the Docs workflow; locally, run it on a branch before opening the PR.
 argument-hint: "<pr-number> <base-branch> <head-sha>"
-allowed-tools: Read, Grep, Glob, Write, Bash(git diff:*), Bash(git log:*), Bash(gh pr comment:*)
+allowed-tools: Read, Grep, Glob, Write, Bash(git diff:*), Bash(git log:*)
 # A skill per code.claude.com/docs/en/skills, run in CI by
 # anthropics/claude-code-action.
 ---
@@ -10,7 +10,7 @@ allowed-tools: Read, Grep, Glob, Write, Bash(git diff:*), Bash(git log:*), Bash(
 Check a diff for doc drift: a claim in a doc that the change made false, or
 a change that a doc should now describe and does not. `$ARGUMENTS` is a PR
 number, its base branch and its head commit; locally, with none, check this
-branch against `main` and print the comment instead of posting it.
+branch against `main` and print the comment instead of writing it.
 
 **Report only.** The one file you write is the comment body.
 
@@ -22,7 +22,7 @@ checking what the PR changed in them.
 **In CI, only the allowed commands run, one per call.** The checkout holds
 every branch, so `origin/<base-branch>` is already there: never fetch. Run
 each command on its own — no pipe, `&&`, `;`, redirect or `$(…)` — and no
-`gh` but the final comment. Anything else is denied, and each denial is a
+`gh`. Anything else is denied, and each denial is a
 turn spent on nothing.
 
 ## 1. Read the change
@@ -77,15 +77,10 @@ Verify each against the code before reporting it. Report only drift this
 diff caused: a stale claim about code the PR did not change is out of
 scope.
 
-## 4. Post one comment
+## 4. Write one comment
 
-Write the body to `drift-comment.md`, then:
-
-    gh pr comment <number> --edit-last --create-if-none --body-file drift-comment.md
-
-`--edit-last` updates the comment on each push instead of adding one. A
-file, not `--body`, because the body is full of backticks the shell would
-run.
+Write the body to `drift-comment.md` at the checkout's root. The workflow
+posts it, editing its own comment from the last push.
 
 The body's first line is `<!-- doc-drift:<head-sha> -->`, exactly:
 `/work-issues` reads it to know the comment is about the current commit.
