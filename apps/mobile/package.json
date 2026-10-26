@@ -14,7 +14,8 @@
     "test": "node --test --experimental-strip-types test/*.test.ts",
     "pretest:stories": "pnpm --filter @stint/design-tokens build",
     "test:stories": "vitest run",
-    "eas-build-post-install": "pnpm --filter @stint/design-tokens build && node scripts/google-services.mjs"
+    "eas-build-pre-install": "node --experimental-strip-types scripts/google-services.mjs",
+    "eas-build-post-install": "pnpm --filter @stint/design-tokens build"
   },
   "dependencies": {
     "@expo-google-fonts/ibm-plex-mono": "^0.4.1",

@@ -1,6 +1,9 @@
-// EAS's `eas-build-post-install` hook: puts Firebase's config where
+// EAS's `eas-build-pre-install` hook: puts Firebase's config where
 // `app.config.ts` names it, from the EAS file variable GOOGLE_SERVICES_JSON
-// (`docs/mobile.md`, Push). A build without it would have no FCM, so it stops.
+// (`docs/mobile.md`, Push). Pre-install, since EAS runs prebuild, which reads
+// the file, before the post-install hook. Before install there are no
+// packages, so this imports none. A build without the file would have no FCM,
+// so it stops.
 import { copyFileSync } from 'node:fs';
 import { resolveIdentity } from '../src/target.ts';
 

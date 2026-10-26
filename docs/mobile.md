@@ -80,7 +80,7 @@ devices); the app refetches the timer unless one of its own presses is in
 flight (`src/push.ts`). The iPhone waits on APNs (#471).
 
 Preview and production builds need `GOOGLE_SERVICES_JSON`, an EAS file
-variable holding Firebase's `google-services.json`: `eas-build-post-install`
+variable holding Firebase's `google-services.json`: `eas-build-pre-install`
 copies it into the app (`apps/mobile/scripts/google-services.mjs`), and a build without
 it stops. A local build has no Firebase and never registers. The server
 sends only with `FCM_SERVICE_ACCOUNT` (`docs/deploying.md`). Firebase,
