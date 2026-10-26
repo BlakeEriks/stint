@@ -139,7 +139,7 @@ export const LateEntry: Story = {
     ).toBeVisible();
     // Its row opens the entry, where it can be marked not billable.
     await expect(
-      page.getAllByRole('button', { name: 'Edit Forgot to log' }).length,
+      page.getAllByRole('button', { name: 'Edit entry, Forgot to log' }).length,
     ).toBeGreaterThan(0);
   },
 };
