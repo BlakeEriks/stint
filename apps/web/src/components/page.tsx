@@ -210,16 +210,22 @@ export function Listing<
   /* Data the user can still read beats an error message in its place: a failed
      REFETCH would otherwise replace a form mid-edit and take the unsent text
      with it. */
-  const failed = queries.find((q) => q.data === undefined);
+  const failedAt = queries.findIndex((q) => q.data === undefined);
+  const failed = queries[failedAt];
 
   /* React Query puts a failed query with no data back to pending while it
      refetches, as it does when a second reader mounts, so the last error
-     stands until the refetch answers. */
-  const [standing, setStanding] = useState<unknown>(null);
-  if (!waiting && !leaving && (failed?.error ?? null) !== standing) {
-    setStanding(failed?.error ?? null);
+     stands until that query answers. */
+  const [standing, setStanding] = useState<{ at: number; error: unknown }>();
+  if (!waiting && !leaving && failed?.error !== standing?.error) {
+    setStanding(failed && { at: failedAt, error: failed.error });
   }
-  const error = waiting ? standing : failed?.error;
+  const refetching = standing && queries[standing.at];
+  const error = !waiting
+    ? failed?.error
+    : refetching?.data === undefined
+      ? (refetching?.error ?? standing?.error)
+      : null;
 
   if (!hydrated || leaving || (waiting && error == null)) {
     return <Loader tight={tight} />;
