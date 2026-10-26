@@ -89,6 +89,59 @@ const open = (existing?: TimeEntry) =>
 afterEach(() => vi.unstubAllGlobals());
 
 describe('EntryDialog', () => {
+  it('marks an entry on no invoice billed elsewhere when ticked', async () => {
+    const calls = serve();
+    const user = userEvent.setup();
+    open(entry());
+
+    await user.click(
+      await screen.findByRole('checkbox', { name: 'Billed elsewhere' }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PATCH')?.body).toMatchObject({
+        invoicedElsewhere: true,
+      }),
+    );
+  });
+
+  it('clears billed elsewhere when unticked', async () => {
+    const calls = serve();
+    const user = userEvent.setup();
+    open(entry({ invoicedElsewhere: true }));
+
+    const box = await screen.findByRole('checkbox', {
+      name: 'Billed elsewhere',
+    });
+    expect(box).toBeChecked();
+    await user.click(box);
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PATCH')?.body).toMatchObject({
+        invoicedElsewhere: false,
+      }),
+    );
+  });
+
+  it('offers no billed elsewhere on an invoice, and never sends it', async () => {
+    const calls = serve('draft');
+    const user = userEvent.setup();
+    open(entry({ invoiceId: 'inv1' }));
+
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.method === 'PATCH')).toBe(true),
+    );
+    expect(
+      screen.queryByRole('checkbox', { name: 'Billed elsewhere' }),
+    ).toBeNull();
+    expect(calls.find((c) => c.method === 'PATCH')!.body).not.toHaveProperty(
+      'invoicedElsewhere',
+    );
+  });
+
   it('shows the stored instant as local wall-clock time', async () => {
     serve();
     open(entry());

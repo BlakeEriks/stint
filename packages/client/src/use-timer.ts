@@ -164,6 +164,7 @@ export function useTimer(api: TimerApi, timeZone: string) {
     isBillable: body.isBillable ?? true,
     durationSeconds: null,
     durationOk: false,
+    invoicedElsewhere: false,
     rateOverride: null,
     invoiceId: null,
   });

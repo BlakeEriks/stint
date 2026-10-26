@@ -47,6 +47,7 @@ interface Draft {
   billable: boolean;
   /** Set once the user changes Billable, after which a project leaves it be. */
   billableTouched: boolean;
+  invoicedElsewhere: boolean;
 }
 
 const EMPTY: Draft = {
@@ -57,6 +58,7 @@ const EMPTY: Draft = {
   end: '',
   billable: true,
   billableTouched: false,
+  invoicedElsewhere: false,
 };
 
 /**
@@ -124,6 +126,7 @@ export function EntryDialog({
       end: opened?.endedAt ? localTime(new Date(opened.endedAt), tz) : '',
       billable: existing?.isBillable ?? true,
       billableTouched: false,
+      invoicedElsewhere: existing?.invoicedElsewhere ?? false,
     });
   }, [open, existing, seed, tz]);
 
@@ -168,6 +171,10 @@ export function EntryDialog({
     onSuccess: settle,
   };
 
+  /* On no invoice, so it can be billed elsewhere instead. A new entry is
+     work being logged, not work already billed. */
+  const unbilled = existing !== undefined && existing.invoiceId == null;
+
   const save = useOptimisticMutation({
     ...formPress,
     mutationFn: async () => {
@@ -181,7 +188,11 @@ export function EntryDialog({
       };
 
       return existing
-        ? api.updateEntry(existing.id, body)
+        ? api.updateEntry(existing.id, {
+            ...body,
+            // The server refuses a mark on an invoiced entry, whose box isn't shown.
+            ...(unbilled && { invoicedElsewhere: draft.invoicedElsewhere }),
+          })
         : api.createEntry({ id: uuidv7(), ...body });
     },
     onError: failWith('Could not save this entry.'),
@@ -356,6 +367,18 @@ export function EntryDialog({
             />
             Billable
           </label>
+
+          {unbilled ? (
+            <label className="flex items-center gap-2.5 type-control text-primary">
+              <input
+                type="checkbox"
+                checked={draft.invoicedElsewhere}
+                onChange={(e) => set('invoicedElsewhere', e.target.checked)}
+                className="size-4 accent-[var(--text-muted)]"
+              />
+              Billed elsewhere
+            </label>
+          ) : null}
 
           {error ? (
             <p role="alert" className="type-support text-danger">

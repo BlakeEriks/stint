@@ -238,6 +238,7 @@ export const handlers = {
       invoiceId: null,
       durationSeconds: null,
       durationOk: false,
+      invoicedElsewhere: false,
     };
     db.entries.push(entry);
     return ok(schema.TimeEntry, entry);
@@ -321,6 +322,7 @@ export const handlers = {
       invoiceId: null,
       durationSeconds: null,
       durationOk: false,
+      invoicedElsewhere: false,
     });
     db.entries.push(entry);
     return ok(schema.TimeEntry, entry);
@@ -332,14 +334,35 @@ export const handlers = {
     const entry = db.entries[i];
     if (!entry) return fail('ENTRY_NOT_FOUND');
     const invoice = byId(db.invoices, entry.invoiceId);
+    const patch = await body<Partial<TimeEntry>>(request);
+    if (patch.invoicedElsewhere && entry.invoiceId)
+      return fail('ENTRY_ALREADY_INVOICED', 'This entry is on an invoice');
     if (invoice && invoice.status !== 'draft')
       return fail('ENTRY_LOCKED', 'This entry is billed on an issued invoice');
-    db.entries[i] = withDuration({
-      ...entry,
-      ...(await body<Partial<TimeEntry>>(request)),
-    });
+    db.entries[i] = withDuration({ ...entry, ...patch });
     return ok(schema.TimeEntry, db.entries[i]);
   }),
+
+  markInvoicedElsewhere: http.post(
+    `${API}/entries/invoiced-elsewhere`,
+    async ({ request }) => {
+      const db = getDb();
+      const { ids, invoicedElsewhere } = await body<{
+        ids: string[];
+        invoicedElsewhere: boolean;
+      }>(request);
+      const changed = db.entries.filter(
+        (e) =>
+          ids.includes(e.id) &&
+          e.invoicedElsewhere !== invoicedElsewhere &&
+          (!invoicedElsewhere || (e.invoiceId === null && e.endedAt !== null)),
+      );
+      for (const e of changed) e.invoicedElsewhere = invoicedElsewhere;
+      return ok(envelopes.invoicedElsewhere, {
+        ids: changed.map((e) => e.id),
+      });
+    },
+  ),
 
   deleteEntry: http.delete(`${API}/entries/:id`, ({ params }) => {
     const db = getDb();
@@ -847,8 +870,7 @@ export const handlers = {
   }),
 
   /* `imports/confirm/route.ts`: writes what the preview showed and reports
-     it. Rows billed elsewhere are left out, because the fake has no
-     `invoiced_elsewhere` flag to keep them out of Unbilled. */
+     it. */
   importConfirm: http.post(`${API}/imports/confirm`, async ({ request }) => {
     const preview = await importPreview(request);
     if (preview instanceof Response) return preview;
@@ -878,7 +900,7 @@ export const handlers = {
     const rows = preview.rows.filter((r) => r.willWrite);
     let written = 0;
     for (const r of rows) {
-      if (r.invoicedElsewhere || byId(db.entries, r.id)) continue;
+      if (byId(db.entries, r.id)) continue;
       db.entries.push(
         withDuration({
           id: r.id,
@@ -891,6 +913,7 @@ export const handlers = {
           invoiceId: null,
           durationSeconds: null,
           durationOk: false,
+          invoicedElsewhere: r.invoicedElsewhere,
         }),
       );
       written += 1;

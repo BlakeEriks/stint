@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { shortDate } from './invoice-bits';
 import {
   keepPreviousData,
+  type QueryClient,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
@@ -67,6 +68,7 @@ import { ClientDialog } from './client-dialog';
 import { summarize } from './payment-profiles';
 import { businessOf, InvoicePreviewCard } from './invoice-preview-card';
 import { rowButton } from './row-button';
+import { PortalToast } from './toast';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
   {
@@ -422,6 +424,41 @@ function Form() {
     },
   });
 
+  /* Every entry the card shows, by id: billed elsewhere marks exactly what
+     the user is looking at, never work logged since (Constitution I). */
+  const shownIds = current
+    ? [
+        ...new Set([
+          ...current.lineItems.flatMap((l) => l.entryIds),
+          ...current.unratedEntryIds,
+        ]),
+      ]
+    : [];
+  const [marked, setMarked] = useState<string[] | null>(null);
+  const dismissMarked = useCallback(() => setMarked(null), []);
+  const elsewherePress = {
+    queryKey: () => keys.entries(),
+    movesHome: true,
+    // The card loses or regains that work, as every unbilled view does.
+    invalidate: (qc: QueryClient) =>
+      Promise.all([
+        invalidateEntryData(qc),
+        qc.invalidateQueries({ queryKey: keys.invoicePreview() }),
+      ]),
+  };
+  const markElsewhere = useOptimisticMutation({
+    ...elsewherePress,
+    mutationFn: () =>
+      api.markInvoicedElsewhere({ ids: shownIds, invoicedElsewhere: true }),
+    onSuccess: (res) => setMarked(res.ids),
+  });
+  const undoElsewhere = useOptimisticMutation({
+    ...elsewherePress,
+    mutationFn: (ids: string[]) =>
+      api.markInvoicedElsewhere({ ids, invoicedElsewhere: false }),
+    onSuccess: () => setMarked(null),
+  });
+
   const toggleExpense = (id: string, bill: boolean) =>
     set(
       'excludedExpenseIds',
@@ -500,15 +537,38 @@ function Form() {
           <h1 className="type-title whitespace-nowrap text-strong">
             New invoice
           </h1>
-          <Button
-            type="button"
-            variant="accent"
-            onClick={() => generate.mutate()}
-            disabled={!canGenerate}
-          >
-            {generate.isPending ? 'Generating…' : 'Generate invoice'}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              onClick={() => markElsewhere.mutate()}
+              disabled={
+                shownIds.length === 0 ||
+                updating ||
+                preview.isError ||
+                markElsewhere.isPending ||
+                generate.isPending
+              }
+            >
+              {markElsewhere.isPending ? 'Marking…' : 'Billed elsewhere'}
+            </Button>
+            <Button
+              type="button"
+              variant="accent"
+              onClick={() => generate.mutate()}
+              disabled={!canGenerate || markElsewhere.isPending}
+            >
+              {generate.isPending ? 'Generating…' : 'Generate invoice'}
+            </Button>
+          </div>
         </div>
+        {marked ? (
+          <MarkedToast
+            count={marked.length}
+            undoing={undoElsewhere.isPending}
+            onUndo={() => undoElsewhere.mutate(marked)}
+            onDone={dismissMarked}
+          />
+        ) : null}
 
         {/* A fixed form, and the page up to a Letter page's width (816px):
             more would stretch the lines apart, not show more of them, so
@@ -737,6 +797,45 @@ function Form() {
 }
 
 /** What Bill to will lack, said; null when it has both. */
+/** How long the Undo stays offered. Past it, each entry's dialog clears it. */
+const UNDO_MS = 8000;
+
+function MarkedToast({
+  count,
+  undoing,
+  onUndo,
+  onDone,
+}: {
+  count: number;
+  undoing: boolean;
+  onUndo: () => void;
+  onDone: () => void;
+}) {
+  useEffect(() => {
+    if (undoing) return;
+    const t = setTimeout(onDone, UNDO_MS);
+    return () => clearTimeout(t);
+  }, [undoing, onDone]);
+  if (count === 0)
+    return (
+      <PortalToast>Nothing marked: that work is on an invoice now.</PortalToast>
+    );
+  return (
+    <PortalToast>
+      {count} {count === 1 ? 'entry' : 'entries'} marked billed elsewhere
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={onUndo}
+        disabled={undoing}
+      >
+        {undoing ? 'Undoing…' : 'Undo'}
+      </Button>
+    </PortalToast>
+  );
+}
+
 function missingDetails(client: Pick<Client, 'address' | 'email'>) {
   if (client.address && client.email) return null;
   if (client.address) return 'No email';
