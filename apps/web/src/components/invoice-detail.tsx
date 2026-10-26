@@ -297,7 +297,7 @@ function Loaded({
         footnote={
           isDraft
             ? 'A draft follows its period’s work and current rates until you mark it sent.'
-            : null
+            : undefined
         }
       />
 

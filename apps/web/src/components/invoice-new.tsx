@@ -690,6 +690,7 @@ function Form() {
               payment={payment}
               schedules={schedules}
               updating={updating}
+              footnote="Generating assigns a number and locks these entries."
             >
               <PreviewNotices
                 preview={current}

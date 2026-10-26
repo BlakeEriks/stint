@@ -88,7 +88,7 @@ export function InvoicePreviewCard({
   notes,
   heading = true,
   noSender = false,
-  footnote = 'Generating assigns a number and locks these entries.',
+  footnote,
   children,
 }: {
   preview: CardFigures | undefined;
@@ -113,8 +113,7 @@ export function InvoicePreviewCard({
   heading?: boolean;
   /** No business name or email yet: a draft marks where they will print. */
   noSender?: boolean;
-  /** Null for none. */
-  footnote?: string | null;
+  footnote?: string;
   /** Warnings and errors, above the last line. */
   children?: React.ReactNode;
 }) {
