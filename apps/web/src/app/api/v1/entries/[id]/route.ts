@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { handle, ApiError, dbCode } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
@@ -75,10 +76,11 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
     }
   }
 
-  const { data, error } = await db
-    .from('time_entries')
-    .update(update)
-    .eq('id', id)
+  // Work billed elsewhere is never on an invoice too. Filtered in the update
+  // rather than checked first, so an invoice claiming it meanwhile wins.
+  const marking = patch.invoicedElsewhere === true;
+  const q = db.from('time_entries').update(update).eq('id', id);
+  const { data, error } = await (marking ? q.is('invoice_id', null) : q)
     .select(ENTRY_COLUMNS)
     .maybeSingle();
 
@@ -97,11 +99,27 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
     }
     throw error;
   }
+  if (!data && marking) await refuseInvoiced(db, id);
   if (!data) throw new ApiError('ENTRY_NOT_FOUND', 'Entry not found');
 
   const included = await readIncluded(asked, db, userId);
   return NextResponse.json(entryWith(toEntry(data as EntryRow), included));
 });
+
+/** A mark the update filtered out: 409 if the entry is on an invoice. */
+async function refuseInvoiced(db: SupabaseClient, id: string) {
+  const { data } = await db
+    .from('time_entries')
+    .select('invoice_id')
+    .eq('id', id)
+    .maybeSingle();
+  if (data?.invoice_id) {
+    throw new ApiError(
+      'ENTRY_ALREADY_INVOICED',
+      'This entry is on an invoice, so it can’t be marked billed elsewhere',
+    );
+  }
+}
 
 export const DELETE = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
