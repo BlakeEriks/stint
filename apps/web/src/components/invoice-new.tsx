@@ -64,6 +64,7 @@ import { type Charge, ChargeDialog } from './charge-dialog';
 import { PaymentProfileDialog } from './payment-profile-dialog';
 import { missingBusiness, SenderNotice } from './business-dialog';
 import { ClientDialog } from './client-dialog';
+import { NumberDialog } from './number-dialog';
 import { summarize } from './payment-profiles';
 import { businessOf, InvoicePreviewCard } from './invoice-preview-card';
 import { rowButton } from './row-button';
@@ -253,17 +254,28 @@ function useLivePreview(
 
 /** The number Generate takes, shown before it does: one that repeats an
     invoice sent before Stint is caught while it can still change. */
-function NumberLine({ number }: { number: string }) {
-  if (!number) return null;
+function NumberLine({
+  number,
+  settings,
+}: {
+  number: string;
+  settings: Settings | undefined;
+}) {
+  const [changing, setChanging] = useState(false);
+  if (!number || !settings) return null;
   return (
     <p className="type-support text-subtle">
       Numbered {number} ·{' '}
-      <Link
-        href="/settings#numbering"
+      <button
+        type="button"
         className="text-strong underline underline-offset-2"
+        onClick={() => setChanging(true)}
       >
         Change
-      </Link>
+      </button>
+      {changing ? (
+        <NumberDialog onOpenChange={setChanging} settings={settings} />
+      ) : null}
     </p>
   );
 }
@@ -616,7 +628,7 @@ function Form() {
                   maxLength={200}
                 />
               </Field>
-              <NumberLine number={number} />
+              <NumberLine number={number} settings={settings} />
             </div>
 
             <Field label="Show time as" htmlFor="inv-group">

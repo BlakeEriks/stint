@@ -452,15 +452,46 @@ export const NoReference: Story = {
   },
 };
 
-/** The number Generate takes shows before it does, linked to the setting
-    that moves it. */
-export const NumberLinksToSetting: Story = {
+const changeNumber = async (canvasElement: HTMLElement, next: string) => {
+  const page = await chooseNorthwind(canvasElement);
+  await settled(page);
+  await userEvent.type(page.getByLabelText('Reference'), 'PO-7');
+  const line = page.getByText(/Numbered STINT-0016/);
+  await userEvent.click(within(line).getByRole('button', { name: 'Change' }));
+  const dialog = await page.findByRole('dialog', { name: 'Invoice number' });
+  await waitFor(() => expect(dialog).toBeVisible());
+  const form = within(dialog);
+  const field = form.getByLabelText('Next number');
+  await userEvent.clear(field);
+  await userEvent.type(field, next);
+  await userEvent.click(form.getByRole('button', { name: 'Save' }));
+  return { page, form };
+};
+
+/** The number Generate takes shows before it does. Change moves it in a
+    dialog, so the draft being built stays as it was. */
+export const ChangeNumber: Story = {
   ...desktop,
+  parameters: menuOpen,
   play: async ({ canvasElement }) => {
-    const line = await within(canvasElement).findByText(/Numbered STINT-0016/);
+    const { page } = await changeNumber(canvasElement, '20');
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+    await expect(page.getByText(/Numbered STINT-0020/)).toBeVisible();
+    await expect(page.getByLabelText('Reference')).toHaveValue('PO-7');
+  },
+};
+
+/** The number only moves forward: a step back is refused in the open
+    dialog, which says why. */
+export const ChangeNumberRefused: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const { form } = await changeNumber(canvasElement, '10');
     await expect(
-      within(line).getByRole('link', { name: 'Change' }),
-    ).toHaveAttribute('href', '/settings#numbering');
+      await form.findByText(/can't go below 16/, {}, { timeout: 3000 }),
+    ).toBeVisible();
+    await expect(form.getByLabelText('Next number')).toHaveValue(10);
   },
 };
 

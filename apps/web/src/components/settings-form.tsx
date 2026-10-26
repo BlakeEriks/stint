@@ -215,10 +215,7 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
         </Field>
       </Section>
 
-      {/* New invoice links here, so Next number comes first: it is the
-          field that link focuses. */}
       <Section
-        id="numbering"
         title="Invoice numbering"
         aside={<SaveIndicator state={numbering.state} />}
       >
