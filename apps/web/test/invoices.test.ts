@@ -3567,3 +3567,56 @@ test('a draft generated beside an earlier open one keeps its total on its first 
   );
   assert.equal(aug.body.total, 190);
 });
+
+/* `refresh_draft` failing after the read: another request took the work or
+   moved the draft. Reading shows it as last refreshed; sending names why;
+   anything else is rethrown. Races are hard to stage, so the call fails. */
+test('a refresh the database refuses is stale on read, named on send, else rethrown', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  const { refreshDraft } = await import('../src/lib/invoicing.ts');
+  const real = (globalThis as any).__TEST_DB__;
+  const { data: row } = await real
+    .from('invoices')
+    .select('*')
+    .eq('id', inv.body.id)
+    .single();
+  const failing = (error: object) => ({
+    ...real,
+    rpc: (fn: string, args: object) =>
+      fn === 'refresh_draft'
+        ? Promise.resolve({ data: null, error })
+        : real.rpc(fn, args),
+  });
+  const SENT = { sentAt: '2026-10-01T00:00:00Z' };
+  const claimed = { message: 'x', hint: 'ENTRY_ALREADY_INVOICED' };
+  const expense = { message: 'x', hint: 'EXPENSE_ALREADY_INVOICED' };
+  const moved = { message: 'x', hint: 'INVOICE_STATUS_CHANGED' };
+  const gone = { message: 'x', code: 'P0002' };
+
+  for (const error of [claimed, expense, moved, gone]) {
+    const got = await refreshDraft(failing(error) as any, row, 'UTC');
+    assert.deepEqual(got, { row, lines: null });
+  }
+  for (const [error, code] of [
+    [claimed, 'ENTRY_ALREADY_INVOICED'],
+    [expense, 'ENTRY_ALREADY_INVOICED'],
+    [moved, 'INVOICE_STATUS_CHANGED'],
+    [gone, 'INVOICE_STATUS_CHANGED'],
+  ] as const)
+    await assert.rejects(
+      refreshDraft(failing(error) as any, row, 'UTC', SENT),
+      {
+        code,
+      },
+    );
+  const other = { message: 'boom', code: '23514' };
+  for (const opts of [{}, SENT])
+    await assert.rejects(
+      refreshDraft(failing(other) as any, row, 'UTC', opts),
+      (e) => e === other,
+    );
+});

@@ -41,7 +41,7 @@ import type {
 const num = (v: string | number | null | undefined): number | null =>
   v == null ? null : typeof v === 'number' ? v : Number(v);
 
-export async function loadClient(
+async function loadClient(
   db: SupabaseClient,
   clientId: string,
 ): Promise<ClientRow> {
@@ -71,7 +71,7 @@ export async function loadClient(
  *  - running entries (`ended_at IS NULL`) — you cannot bill time still accruing
  *  - entries already attached to an invoice
  */
-export async function loadBillableEntries(
+async function loadBillableEntries(
   db: SupabaseClient,
   opts: {
     clientId: string;
@@ -149,7 +149,7 @@ export async function loadBillableEntries(
  * last day: the date the invoice claims to cover. `recurring` tells the
  * caller not to attach it, since it bills again on the next invoice.
  */
-export async function loadBillableExpenses(
+async function loadBillableExpenses(
   db: SupabaseClient,
   opts: {
     clientId: string;
@@ -221,9 +221,7 @@ export function requireSender(s: InvoiceSettings) {
   }
 }
 
-export async function loadSettings(
-  db: SupabaseClient,
-): Promise<InvoiceSettings> {
+async function loadSettings(db: SupabaseClient): Promise<InvoiceSettings> {
   const { data, error } = await db
     .from('user_settings')
     .select(
@@ -478,6 +476,50 @@ export async function computeInvoice(
   };
 }
 
+/** The fixed-amount lines the user added on New invoice, as a refresh
+ *  passes them back to `computeInvoice`. */
+async function loadManualLines(db: SupabaseClient, invoiceId: string) {
+  const stored = await selectAll(() =>
+    db
+      .from('invoice_line_items')
+      .select(LINE_ITEM_COLUMNS)
+      .eq('invoice_id', invoiceId)
+      .eq('unit', 'fixed')
+      .order('sort_order', { ascending: true }),
+  );
+  return stored.map((r) => {
+    const l = toLineItem(r as LineItemRow);
+    return { description: l.description, amount: l.amount ?? 0 };
+  });
+}
+
+/** What `refresh_draft` refusing means: the error to throw when sending,
+ *  `null` to show the draft stale when reading. Rethrows any other error. */
+function refreshFailure(
+  error: { message?: string; hint?: string; code?: string },
+  row: InvoiceRow,
+  sending: boolean,
+): ApiError | null {
+  const code = dbCode(error);
+  const claimed =
+    code === 'EXPENSE_ALREADY_INVOICED' || code === 'ENTRY_ALREADY_INVOICED';
+  // Sent, voided or deleted by another request since this one read it.
+  const moved =
+    code === 'INVOICE_STATUS_CHANGED' || error.code === PG.NO_DATA_FOUND;
+  if (!claimed && !moved) throw error;
+  if (!sending) return null;
+  return moved
+    ? new ApiError(
+        'INVOICE_STATUS_CHANGED',
+        'The invoice changed status since it was read',
+        { from: row.status },
+      )
+    : new ApiError(
+        'ENTRY_ALREADY_INVOICED',
+        'Work in this period was billed on another invoice at the same moment. Open the draft again.',
+      );
+}
+
 /**
  * Rebuilds a draft from its client and period as they are now, keeping every
  * choice the user made on New invoice, and writes it through `refresh_draft`
@@ -500,15 +542,6 @@ export async function refreshDraft(
   const stale = { row, lines: null };
   if (row.status !== 'draft' || !tz) return stale;
 
-  const stored = await selectAll(() =>
-    db
-      .from('invoice_line_items')
-      .select(LINE_ITEM_COLUMNS)
-      .eq('invoice_id', row.id)
-      .eq('unit', 'fixed')
-      .order('sort_order', { ascending: true }),
-  );
-
   const computed = await computeInvoice(db, {
     clientId: row.client_id,
     periodStart: row.period_start,
@@ -516,10 +549,7 @@ export async function refreshDraft(
     tz,
     groupingMode: row.grouping_mode,
     summaryText: row.summary_text ?? undefined,
-    manualLines: stored.map((r) => {
-      const l = toLineItem(r as LineItemRow);
-      return { description: l.description, amount: l.amount ?? 0 };
-    }),
+    manualLines: await loadManualLines(db, row.id),
     excludedExpenseIds: row.excluded_expense_ids,
     schedules: attachedSchedules(row.supporting_detail),
     heldBy: row.id,
@@ -558,24 +588,9 @@ export async function refreshDraft(
     p_sent_at: opts.sentAt ?? null,
   });
   if (error) {
-    const code = dbCode(error);
-    const claimed =
-      code === 'EXPENSE_ALREADY_INVOICED' || code === 'ENTRY_ALREADY_INVOICED';
-    // Sent, voided or deleted by another request since this one read it.
-    const moved =
-      code === 'INVOICE_STATUS_CHANGED' || error.code === PG.NO_DATA_FOUND;
-    if (!claimed && !moved) throw error;
-    if (!opts.sentAt) return stale;
-    throw moved
-      ? new ApiError(
-          'INVOICE_STATUS_CHANGED',
-          'The invoice changed status since it was read',
-          { from: row.status },
-        )
-      : new ApiError(
-          'ENTRY_ALREADY_INVOICED',
-          'Work in this period was billed on another invoice at the same moment. Open the draft again.',
-        );
+    const failure = refreshFailure(error, row, Boolean(opts.sentAt));
+    if (failure) throw failure;
+    return stale;
   }
   return {
     row: (Array.isArray(data) ? data[0] : data) as InvoiceRow,
@@ -585,7 +600,7 @@ export async function refreshDraft(
 
 /** Which of a draft's lines its last render lacked, and how it moved since;
  *  nothing for an invoice that isn't a draft. */
-export function draftChange(row: InvoiceRow, lines: LineItem[] | null) {
+function draftChange(row: InvoiceRow, lines: LineItem[] | null) {
   if (row.status !== 'draft' || !lines) return { isNew: null, change: null };
   return {
     isNew: newLines(row.downloaded_snapshot, lines),
