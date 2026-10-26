@@ -38,6 +38,21 @@ describe('Listing', () => {
     expect(screen.queryByText(/could not load/i)).toBeNull();
   });
 
+  /* React Query puts a failed query with no data back to pending while it
+     refetches, as it does when a second reader mounts. */
+  it('keeps its error up while a failed query refetches', () => {
+    const list = (q: ReturnType<typeof query<string[]>>) => (
+      <Listing query={q}>{(rows) => <p>{rows.length} rows</p>}</Listing>
+    );
+    const { rerender } = render(list(query({ error: error(500, 'UNKNOWN') })));
+    rerender(list(query({ isLoading: true })));
+    expect(screen.getByText(/could not load/i)).toBeInTheDocument();
+    expect(loader()).toBeNull();
+
+    rerender(list(query({ data: ['a'] })));
+    expect(screen.getByText('1 rows')).toBeInTheDocument();
+  });
+
   /* While the kept cache is restored, a query is pending without fetching:
      that is a wait, not a failure. */
   it('waits on a query that has neither data nor an error yet', () => {
