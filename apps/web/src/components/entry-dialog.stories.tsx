@@ -82,8 +82,7 @@ export const OnDraft: Story = {
   },
 };
 
-/** Billed from another tool: ticked, and unticking it puts it back in
-    Unbilled. */
+/** Billed from another tool: the box is ticked. */
 export const BilledElsewhere: Story = {
   ...desktop,
   args: { existing: today && { ...today, invoicedElsewhere: true } },
