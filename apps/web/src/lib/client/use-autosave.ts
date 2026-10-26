@@ -12,9 +12,7 @@ export type SaveState = 'idle' | 'pending' | 'saved' | 'error';
  * field that looks saved. It stays pending through the debounce AND the
  * request, and only becomes `saved` once the server has acknowledged.
  *
- * Each edit is a patch, merged into every edit not yet sent, so two fields
- * edited within the pause go out together rather than the second dropping
- * the first.
+ * Each edit is a patch, merged into the edits not yet sent.
  *
  * Saves are coalesced: edits during an in-flight request queue one more save
  * after it, rather than racing it. Without that, a fast typist can land an
@@ -70,7 +68,9 @@ export function useAutosave<T extends object>(
       if (!alive.current) return;
       setError(e as Error);
       setState('error');
-      unsent.current = null;
+      // Put the failed value back under newer edits, so the next save retries
+      // it. The cast: TS keeps the ref narrowed to null across the await.
+      unsent.current = { ...value, ...(unsent.current as T | null) };
       queued.current = false;
     } finally {
       inFlight.current = false;

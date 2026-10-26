@@ -107,7 +107,6 @@ describe('useAutosave', () => {
     expect(save).toHaveBeenLastCalledWith({ n: 2 });
   });
 
-  /** A second field edited within the pause must not drop the first. */
   it('merges edits to different fields made within the pause', async () => {
     const save = vi.fn(async () => {});
     const { result } = renderHook(() => useAutosave(save, { delay: 500 }));
@@ -206,6 +205,33 @@ describe('useAutosave', () => {
 
     await waitFor(() => expect(result.current.state).toBe('error'));
     expect(result.current.error?.message).toBe('offline');
+  });
+
+  it('keeps an edit still in its pause when the open save fails', async () => {
+    const first = deferred();
+    const save = vi
+      .fn<(v: unknown) => Promise<void>>()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementation(async () => {});
+
+    const { result } = renderHook(() => useAutosave(save, { delay: 100 }));
+
+    act(() => result.current.schedule({ a: 1 }));
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+    });
+    act(() => result.current.schedule({ b: 2 }));
+
+    await act(async () => {
+      first.reject(new Error('offline'));
+      await first.promise.catch(() => {});
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+    });
+
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    expect(save).toHaveBeenLastCalledWith({ a: 1, b: 2 });
   });
 
   it('recovers to saved after a failure is followed by a good save', async () => {
