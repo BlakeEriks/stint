@@ -225,9 +225,6 @@ const styles = StyleSheet.create({
     color: accent,
     fontFamily: 'Helvetica-Bold',
   },
-  // Deliberately quiet: a warning that shouts gets tuned out, and this one
-  // needs to still read as normal on the hundredth invoice.
-
   footer: {
     position: 'absolute',
     bottom: PAGE.footerInset,
