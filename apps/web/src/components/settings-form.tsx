@@ -106,7 +106,7 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
 
       <Section
         title="Billing defaults"
-        description="What a client or project falls back to when it sets no rate of its own."
+        description="Used when a client or project has no rate."
         aside={<SaveIndicator state={billing.state} />}
       >
         <div className="flex flex-wrap gap-4">

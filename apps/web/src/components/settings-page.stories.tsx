@@ -229,7 +229,7 @@ export const MakeDefaultRefused: Story = {
   },
 };
 
-/** All or nothing: a failed delete says nothing was removed. */
+/** All or nothing: a failed delete says to try again. */
 export const DeleteAccountFailed: Story = {
   ...desktop,
   parameters: failing('deleteAccount'),
@@ -245,7 +245,9 @@ export const DeleteAccountFailed: Story = {
     await userEvent.click(
       page.getByRole('button', { name: 'Delete account and data' }),
     );
-    await expect(await page.findByText(/nothing was removed/i)).toBeVisible();
+    await expect(
+      await page.findByText(/Couldn't delete your account/),
+    ).toBeVisible();
   },
 };
 

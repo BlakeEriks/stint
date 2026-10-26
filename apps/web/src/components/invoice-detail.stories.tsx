@@ -96,9 +96,7 @@ export const Sent: Story = {
   args: { id: invoice(14) },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    await expect(
-      await page.findByText(/^Awaiting payment\. Due /),
-    ).toBeVisible();
+    await expect(await page.findByText(/^Due /)).toBeVisible();
     await expect(page.queryByRole('heading', { name: 'Status' })).toBeNull();
     await expect(page.queryByRole('heading', { name: 'Preview' })).toBeNull();
   },
@@ -111,7 +109,7 @@ export const Void: Story = {
   args: { id: invoice(9) },
   play: async ({ canvasElement }) => {
     await expect(
-      await within(canvasElement).findByText(/numbering is gapless/),
+      await within(canvasElement).findByText(/Its entries can be billed again/),
     ).toBeVisible();
   },
 };

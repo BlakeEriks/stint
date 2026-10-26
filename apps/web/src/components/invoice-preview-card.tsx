@@ -88,7 +88,7 @@ export function InvoicePreviewCard({
   notes,
   heading = true,
   noSender = false,
-  footnote = 'Generating assigns a number and locks these entries. Voiding later keeps the number on record.',
+  footnote = 'Generating assigns a number and locks these entries.',
   children,
 }: {
   preview: CardFigures | undefined;
@@ -113,7 +113,8 @@ export function InvoicePreviewCard({
   heading?: boolean;
   /** No business name or email yet: a draft marks where they will print. */
   noSender?: boolean;
-  footnote?: string;
+  /** Null for none. */
+  footnote?: string | null;
   /** Warnings and errors, above the last line. */
   children?: React.ReactNode;
 }) {
@@ -191,9 +192,11 @@ export function InvoicePreviewCard({
 
           {children}
 
-          <p className="border-t border-edge-subtle pt-3 type-support text-subtle">
-            {footnote}
-          </p>
+          {footnote ? (
+            <p className="border-t border-edge-subtle pt-3 type-support text-subtle">
+              {footnote}
+            </p>
+          ) : null}
         </div>
       </div>
     </section>
@@ -405,9 +408,7 @@ function Lines({
   if (preview.lineItems.length === 0) {
     return (
       <p className="type-support text-subtle">
-        Nothing to bill: no billable, un-invoiced time in this period, and no
-        expenses or charges. Running timers and non-billable entries never reach
-        an invoice.
+        Nothing to bill in this period.
       </p>
     );
   }

@@ -52,7 +52,7 @@ export function PaymentProfiles() {
   return (
     <Section
       title="Payment details"
-      description="Printed on the invoice itself, never in an email — details that look the same every time make a change worth questioning."
+      description="Shown on your invoices so clients know where to pay."
     >
       {profiles.length === 0 ? (
         <p className="type-support text-subtle">

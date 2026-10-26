@@ -153,6 +153,9 @@ function Loaded({
      and the server, which recorded the render, has the last word. */
   const [downloaded, setDownloaded] = useState(false);
   const changed = isDraft && !downloaded ? invoice.changedSinceDownload : null;
+  const hint = changed
+    ? 'Download the new PDF, send it from your own address, then mark it sent.'
+    : statusHint(invoice.status, invoice.dueDate, invoice);
   /* For the payment notice, which the PDF reads from settings as they are
      now. */
   const { data: settings } = useQuery({
@@ -257,11 +260,7 @@ function Loaded({
         </div>
       </header>
       <div className="flex flex-col gap-1 pt-1 pb-6">
-        <p className="type-support text-muted">
-          {changed
-            ? 'Download the new PDF, send it from your own address, then mark it sent.'
-            : statusHint(invoice.status, invoice.dueDate, invoice)}
-        </p>
+        {hint ? <p className="type-support text-muted">{hint}</p> : null}
         {changed ? (
           <Changed change={changed} currency={invoice.currency} />
         ) : null}
@@ -298,7 +297,7 @@ function Loaded({
         footnote={
           isDraft
             ? 'A draft follows its period’s work and current rates until you mark it sent.'
-            : 'Rates are frozen once sent — editing a client or project later never changes this invoice.'
+            : null
         }
       />
 
@@ -311,15 +310,12 @@ function statusHint(
   status: InvoiceStatus,
   due: string | null,
   period: { periodStart: string; periodEnd: string },
-): string {
+): string | null {
   if (status === 'draft')
     return `It keeps collecting ${shortDate(period.periodStart)} – ${shortDate(period.periodEnd)} until you mark it sent. Download it, send it from your own address, then mark it sent.`;
-  if (status === 'sent')
-    return due
-      ? `Awaiting payment. Due ${shortDate(due)}.`
-      : 'Awaiting payment.';
-  if (status === 'paid') return 'Settled.';
-  return 'Voided. The number stays on record so numbering is gapless, and the entries were released for re-billing.';
+  if (status === 'sent') return due ? `Due ${shortDate(due)}.` : null;
+  if (status === 'paid') return null;
+  return 'Voided. Its entries can be billed again.';
 }
 
 /** What moved since the PDF the client may already hold. No button: the
