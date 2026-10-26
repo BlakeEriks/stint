@@ -47,17 +47,21 @@ time. **Never merge, and never touch production.**
 checkout is `main`, not your branch. One worktree, switched between branches. Every
 switch: `git fetch --prune`, the switch, `pnpm install` and `pnpm tokens`,
 then restart its dev server, which otherwise serves the last branch's build.
-After every push there, `git switch --detach`, so the next builder finds it
-free.
+After every successful push there, `git switch --detach`, so the next
+builder finds it free.
 
 **Never switch a busy folder.** `../stint-issues` on a branch other than
 yours, or with uncommitted changes, is another session's work. Build in your
 own `pnpm worktree <branch>` instead, its dev server on another port
-(`docs/local-dev.md`), and name that folder in every report. A fix round
-works wherever `git worktree list` shows its branch. A branch no folder
-holds has shipped, so `git branch -D` it, then
-`pnpm worktree <branch> --from origin/<branch>`. `/work-issues` removes your
-worktree once the PR merges.
+(`docs/local-dev.md`), and name that folder in every report.
+`/work-issues` removes it once the PR merges.
+
+A fix round works wherever `git worktree list` shows its branch. A local
+branch no folder holds first needs `git rev-list origin/<branch>..<branch>`
+empty: any commit listed is unpushed work, so report back. Then, in
+`../stint-issues` when it is free, `git switch -C <branch> origin/<branch>`;
+when it is busy, `git branch -D <branch>` (if local) and
+`pnpm worktree <branch> --from origin/<branch>`.
 
 **Every comment you post starts with two lines:**
 

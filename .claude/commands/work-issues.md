@@ -90,9 +90,10 @@ is `reviewed`.
   nothing uncommitted. On a branch or with changes, another session is
   building there, so leave it. Then, for every local branch whose PR has
   merged (`gh pr list --state merged --head <branch>`), `git worktree remove`
-  the worktree holding it, if any, and `git branch -D` it. PRs squash-merge,
-  so `git branch --merged` never lists them. Both refuse what is in use: a
-  worktree with changes, the branch `../stint-issues` has checked out.
+  its `../stint-<branch>` worktree, if any — never `../stint-issues` — and
+  `git branch -D` it. PRs squash-merge, so `git branch --merged` never lists
+  them. `remove` refuses a worktree with changes; `branch -D` refuses a
+  branch checked out anywhere.
 - **Each open PR of yours**, in order:
   1. **`needs-input`:** if feedback has arrived since the marked question,
      remove the label and treat the reply as feedback. Otherwise skip the PR.

@@ -54,8 +54,8 @@ and a change verified only against jsdom is a change nobody has seen. The
 script does those three; `--from <ref>` branches off something other than
 main. Two worktrees are long-lived and switch branches: `../stint-issues`, where
 `/work-issues` builds, and `../stint-review`, where `pnpm try-mac` checks out
-a PR. `../stint-issues` on a branch or with uncommitted changes is in use:
-never switch it; build in a `pnpm worktree` of your own.
+a PR. When another session is building in `../stint-issues`,
+`.claude/agents/issue-builder.md` says where to build instead.
 
 **Merging a branch closes its worktree in the same step.** Once its PR has
 merged: `git worktree remove <path>`, then `git branch -D <branch>`. PRs
