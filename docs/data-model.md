@@ -78,7 +78,7 @@ retroactively alter an invoice already sent.
 One row per user, auto-created by a trigger on `auth.users` insert. Holds the
 global rate fallback, display preferences, the invoice
 identity block (business name, address, logo), `payment_terms_days`
-(0–365, default 30), the invoice number sequence, `payment_notice`, and the entry-length thresholds
+(0–365, default 30), the invoice number sequence, and the entry-length thresholds
 (`min_entry_seconds`, `max_entry_hours`).
 
 **`legacy_payment_terms` is free text the move to days couldn't read**,

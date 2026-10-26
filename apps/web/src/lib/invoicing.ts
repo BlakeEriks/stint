@@ -202,7 +202,6 @@ export interface InvoiceSettings {
   currency: string;
   paymentTermsDays: number;
   invoiceNumberPrefix: string;
-  paymentNotice: string | null;
   businessName: string | null;
   businessEmail: string | null;
 }
@@ -227,7 +226,7 @@ export async function loadSettings(
   const { data, error } = await db
     .from('user_settings')
     .select(
-      'default_hourly_rate, currency, payment_terms_days, invoice_number_prefix, payment_notice, business_name, business_email',
+      'default_hourly_rate, currency, payment_terms_days, invoice_number_prefix, business_name, business_email',
     )
     .maybeSingle();
 
@@ -239,7 +238,6 @@ export async function loadSettings(
     currency: (data.currency as string) ?? 'USD',
     paymentTermsDays: data.payment_terms_days as number,
     invoiceNumberPrefix: (data.invoice_number_prefix as string) ?? 'INV-',
-    paymentNotice: data.payment_notice ?? null,
     businessName: data.business_name ?? null,
     businessEmail: data.business_email ?? null,
   };
@@ -306,10 +304,7 @@ export async function loadPdfData(
   if (error) throw error;
   if (!stored) throw new ApiError('ENTRY_NOT_FOUND', 'Invoice not found');
 
-  const [settings, billing] = await Promise.all([
-    loadSettings(db),
-    entitlement(db),
-  ]);
+  const billing = await entitlement(db);
   const canDownload = documentOpens(
     billing.available,
     billing.plan,
@@ -353,7 +348,6 @@ export async function loadPdfData(
       client: invoice.billTo,
       lineItems: items.map((r) => toLineItem(r as LineItemRow)),
       payment: invoice.paymentDetails ?? null,
-      paymentNotice: settings.paymentNotice,
       supportingDetail: invoice.supportingDetail,
     },
   };

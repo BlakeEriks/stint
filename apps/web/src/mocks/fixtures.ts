@@ -104,8 +104,6 @@ export const settings = (): Settings => ({
   paymentTermsDays: 30,
   invoiceNumberPrefix: 'STINT-',
   nextInvoiceNumber: 16,
-  paymentNotice:
-    'Our bank details never change by email. Call before paying new ones.',
   welcomedAt: '2026-09-01T16:00:00.000Z',
 });
 

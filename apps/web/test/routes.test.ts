@@ -1314,7 +1314,6 @@ test('every settable field round-trips, rather than being silently dropped', asy
     minEntrySeconds: 60,
     maxEntryHours: 10,
     businessAddress: '1 Main St\nAustin, TX 78701',
-    paymentNotice: 'Details never change. Verify by phone.',
     invoiceNumberPrefix: 'STINT-',
   };
 

@@ -207,12 +207,11 @@ export interface SettingsRow {
   payment_terms_days: number;
   invoice_number_prefix: string;
   next_invoice_number: number;
-  payment_notice: string | null;
   welcomed_at: string | null;
 }
 
 export const SETTINGS_COLUMNS = columns<SettingsRow>()(
-  'default_hourly_rate, currency, week_starts_on, time_format, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, payment_terms_days, invoice_number_prefix, next_invoice_number, payment_notice, welcomed_at',
+  'default_hourly_rate, currency, week_starts_on, time_format, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, payment_terms_days, invoice_number_prefix, next_invoice_number, welcomed_at',
 );
 
 export function toSettings(r: SettingsRow) {
@@ -230,7 +229,6 @@ export function toSettings(r: SettingsRow) {
     paymentTermsDays: r.payment_terms_days,
     invoiceNumberPrefix: r.invoice_number_prefix,
     nextInvoiceNumber: r.next_invoice_number,
-    paymentNotice: r.payment_notice,
     welcomedAt: r.welcomed_at,
   };
 }
@@ -510,7 +508,6 @@ export const SETTINGS_FIELDS = {
   paymentTermsDays: 'payment_terms_days',
   invoiceNumberPrefix: 'invoice_number_prefix',
   nextInvoiceNumber: 'next_invoice_number',
-  paymentNotice: 'payment_notice',
   welcomedAt: 'welcomed_at',
 } as const;
 
