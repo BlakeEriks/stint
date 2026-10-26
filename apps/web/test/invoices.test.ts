@@ -3568,9 +3568,7 @@ test('a draft generated beside an earlier open one keeps its total on its first 
   assert.equal(aug.body.total, 190);
 });
 
-/* `refresh_draft` failing after the read: another request took the work or
-   moved the draft. Reading shows it as last refreshed; sending names why;
-   anything else is rethrown. Races are hard to stage, so the call fails. */
+/* Races are hard to stage, so refresh_draft is made to fail. */
 test('a refresh the database refuses is stale on read, named on send, else rethrown', async () => {
   const r = await live();
   await seedEntry({ id: D(1), hours: 2 });
