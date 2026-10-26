@@ -85,15 +85,21 @@ is `reviewed`.
 
 ## 0. Catch up
 
-- **Merged:** in `../stint-issues`, `git fetch --prune`, then
-  `git switch --detach origin/main` only if it is free: detached, with
-  nothing uncommitted. On a branch or with changes, another session is
-  building there, so leave it. Then, for every local branch whose PR has
-  merged (`gh pr list --state merged --head <branch>`), `git worktree remove`
-  its `../stint-<branch>` worktree, if any — never `../stint-issues` — and
-  `git branch -D` it. PRs squash-merge, so `git branch --merged` never lists
-  them. `remove` refuses a worktree with changes; `branch -D` refuses a
-  branch checked out anywhere.
+- **Merged:** in `../stint-issues`, `git fetch --prune`. A local branch
+  whose PR has merged (`gh pr list --state merged --head <branch> --json
+  headRefOid`) is **pushed** when `git rev-list <headRefOid>..<branch>`
+  prints nothing; PRs squash-merge, so `git branch --merged` never lists it,
+  and `--prune` has dropped its `origin/<branch>`. Then:
+  - `git switch --detach origin/main` in `../stint-issues` when it has
+    nothing uncommitted and is detached, or on a merged branch that is
+    pushed. Otherwise another session is building there: leave it.
+  - Every merged branch that is pushed: `git worktree remove` its
+    `../stint-<branch>` worktree, if any, and `git branch -D` it. Report any
+    that is not, and leave it. `remove` refuses a worktree with changes;
+    `branch -D` refuses a branch checked out anywhere.
+
+  Whoever pushes in `../stint-issues`, you included, detaches it after the
+  push succeeds, so the next round finds it free.
 - **Each open PR of yours**, in order:
   1. **`needs-input`:** if feedback has arrived since the marked question,
      remove the label and treat the reply as feedback. Otherwise skip the PR.
