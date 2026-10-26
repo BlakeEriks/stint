@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { EntryDialog } from './entry-dialog';
 import { Listing } from './page';
 import { TodayGrid } from './today-grid';
-import { keys } from '@/lib/client/query-keys';
+import { keys } from '@stint/client';
 
 /**
  * Today's entries, in the dock beneath the inbox and subordinate to it. An

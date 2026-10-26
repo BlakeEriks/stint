@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, type Project } from './api';
-import { keys } from './query-keys';
+import { keys } from '@stint/client';
 
 /**
  * The swatch for internal work, which has no CLIENT and therefore no color.

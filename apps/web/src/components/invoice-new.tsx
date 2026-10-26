@@ -10,7 +10,11 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { useOptimisticMutation } from '@/lib/client/mutations';
+import {
+  useOptimisticMutation,
+  keys,
+  invalidateEntryData,
+} from '@stint/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, inputClass } from './field';
@@ -62,7 +66,6 @@ import { missingBusiness, SenderNotice } from './business-dialog';
 import { ClientDialog } from './client-dialog';
 import { summarize } from './payment-profiles';
 import { businessOf, InvoicePreviewCard } from './invoice-preview-card';
-import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 import { rowButton } from './row-button';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [

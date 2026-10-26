@@ -150,14 +150,10 @@ jobs:
           fi
           echo "reset=$reset" >> "$GITHUB_OUTPUT"
 
-          # Vercel's branch alias: lowercased, anything else a hyphen. Past 63
-          # characters Vercel truncates and hashes it, so a long branch gets
-          # no link rather than a wrong one.
+          # A long branch gets no link rather than a wrong one.
           if [ -n "$PR" ] && [ "$CLOSED" != true ]; then
-            slug=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g')
-            host="stint-git-${slug}-blakeeriks-projects"
-            if [ ${#host} -le 63 ]; then
-              echo "url=https://${host}.vercel.app" >> "$GITHUB_OUTPUT"
+            if url=$(node scripts/preview-url.mjs "$BRANCH"); then
+              echo "url=$url" >> "$GITHUB_OUTPUT"
             else
               echo "::warning::Branch name too long for Vercel's alias; Try it needs the deployment URL."
             fi

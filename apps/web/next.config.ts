@@ -22,7 +22,7 @@ function buildVersion(): string {
 
 const config: NextConfig = {
   // Shared workspace packages ship as TypeScript source.
-  transpilePackages: ['@stint/core', '@stint/schema'],
+  transpilePackages: ['@stint/client', '@stint/core', '@stint/schema'],
 
   /* Read at BUILD time, so the rail can show it from a client component
      without shipping anything else to the browser. A version baked into the

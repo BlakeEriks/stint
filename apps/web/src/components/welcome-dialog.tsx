@@ -13,8 +13,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { api, type Settings } from '@/lib/client/api';
-import { useOptimisticMutation } from '@/lib/client/mutations';
-import { keys, invalidateEntryData } from '@/lib/client/query-keys';
+import {
+  useOptimisticMutation,
+  keys,
+  invalidateEntryData,
+} from '@stint/client';
 import { useSaveClient } from './client-form';
 import { ColorPicker } from './color-picker';
 import { Field } from './field';

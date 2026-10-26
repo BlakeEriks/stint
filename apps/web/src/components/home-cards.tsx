@@ -2,10 +2,9 @@
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { usePressedSince } from '@/lib/client/mutations';
+import { usePressedSince, keys } from '@stint/client';
 import { api, type Stats } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
-import { keys } from '@/lib/client/query-keys';
 import {
   useAllProjects,
   useClients,

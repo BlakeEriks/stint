@@ -2,7 +2,7 @@ import type { Decorator, Meta, StoryObj } from '@storybook/nextjs-vite';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client/api';
 import { addDays } from '@stint/core';
-import { keys } from '@/lib/client/query-keys';
+import { keys } from '@stint/client';
 import { expect, userEvent, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import { type Db, id } from '@/mocks/fixtures';

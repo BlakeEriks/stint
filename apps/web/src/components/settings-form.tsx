@@ -18,7 +18,7 @@ import {
   type SettingsInput,
 } from '@/lib/client/api';
 import { type Theme, useTheme } from '@/lib/client/use-theme';
-import { keys, invalidateEntryData } from '@/lib/client/query-keys';
+import { keys, invalidateEntryData } from '@stint/client';
 
 const THEMES: Segment<Theme>[] = [
   { value: 'system', label: 'System', icon: Monitor },

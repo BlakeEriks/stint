@@ -16,7 +16,7 @@ import { ClientDialog } from './client-dialog';
 import { ProjectDialog } from './project-dialog';
 import { ClientExpenses } from './client-expenses';
 import { ExpenseDialog } from './expense-dialog';
-import { keys } from '@/lib/client/query-keys';
+import { keys } from '@stint/client';
 import { rowBleed, rowButton } from './row-button';
 import { BILLING_PERIOD_LABELS } from '@stint/core';
 import { ProjectRate, rateLabel } from './project-rate';

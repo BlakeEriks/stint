@@ -244,7 +244,7 @@ the target instant.
 
 ### Queries
 
-**Cache keys come from `lib/client/query-keys.ts`, never written inline**, so
+**Cache keys come from `packages/client/src/query-keys.ts`, never written inline**, so
 one shape per query is what an invalidation can match. Anything that changes a
 time entry calls `invalidateEntryData()` — summary, entries, stats and
 calendar all read those rows, and refreshing a subset makes two screens

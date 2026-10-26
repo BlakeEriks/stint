@@ -4,11 +4,10 @@ import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
-import { useOptimisticMutation } from '@/lib/client/mutations';
+import { useOptimisticMutation, keys } from '@stint/client';
 import { Button } from '@/components/ui/button';
 import { Section } from './field';
 import { api, type Billing } from '@/lib/client/api';
-import { keys } from '@/lib/client/query-keys';
 
 /* `docs/positioning.md` owns the price; the Stripe price Checkout charges
    must say the same. */

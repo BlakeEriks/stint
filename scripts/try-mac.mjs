@@ -23,6 +23,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { previewUrl } from './preview-url.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const pr = process.argv[2];
@@ -70,14 +71,11 @@ const branch = out('gh', [
   '-q',
   '.headRefName',
 ]);
-/* Vercel's branch alias, as `.github/workflows/preview-db.yml` builds it.
-   Past 63 characters Vercel truncates and hashes it. */
-const host = `stint-git-${branch.toLowerCase().replace(/[^a-z0-9]/g, '-')}-blakeeriks-projects`;
-if (host.length > 63) {
+const url = previewUrl(branch);
+if (!url) {
   console.error(`${branch} is too long for Vercel's branch alias.`);
   process.exit(1);
 }
-const url = `https://${host}.vercel.app`;
 
 /* By SHA: FETCH_HEAD belongs to the worktree that fetched, not to `dest`. */
 run('git', ['fetch', '--quiet', 'origin', branch]);
