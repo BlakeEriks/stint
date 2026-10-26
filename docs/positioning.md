@@ -81,9 +81,12 @@ product.
 **During Alpha, an account comes only by invite**; sign-up is closed.
 
 **The price covers the bill, not a margin.** Until Stint makes money, the
-overhead is $0 on Vercel Hobby and Supabase Free. The first revenue moves both
-to Pro, since Hobby forbids commercial use, and from then on $555 a year is
-the whole overhead; net of Stripe **fifteen subscribers cover it.** One more
+overhead is the Apple Developer Program's $99 a year, which signs and
+notarizes the macOS app and publishes the iPhone app; hosting is $0 on Vercel
+Hobby and Supabase Free. The first revenue moves both to Pro, since Hobby
+forbids commercial use, and from then on $654 a year is the whole overhead;
+net of Stripe's subscription fees **eighteen subscribers cover it.** Google
+Play's $25 is paid once, and push and app builds stay on free tiers. One more
 user costs about nothing until roughly a thousand accounts, which is why
 the free tier can be whole. A design that adds a fixed cost changes this
 section first.
@@ -100,11 +103,12 @@ that a scheduled draft is ready to send.
 
 ## What this is a bet on
 
-That fifteen contractors will pay $40 a year for an invoice that is correct,
+That eighteen contractors will pay $40 a year for an invoice that is correct,
 when the tracking around it is free.
 
-Fifteen is the whole bar, and it is what makes this survivable: the product
-does not need to convert a market, only to cover a hosting bill.
+Eighteen is the whole bar, and it is what makes this survivable: the product
+does not need to convert a market, only to cover a hosting bill and Apple's
+fee.
 
 **This is inference from the market, not from customers.** It is well
 supported by what the incumbents did in 2026 — three of them moved money

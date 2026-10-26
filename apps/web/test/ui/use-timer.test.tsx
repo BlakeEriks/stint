@@ -3,7 +3,7 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { timeZone, useTimer } from '@/lib/client/use-timer';
-import { keys } from '@/lib/client/query-keys';
+import { keys } from '@stint/client';
 import type { Stats, Summary, TimeEntry } from '@/lib/client/api';
 import { localDateKey } from '@stint/core';
 
@@ -456,9 +456,9 @@ describe('useTimer — Home settles with the answer', () => {
     expect(client.getQueryData(keys.stats(timeZone))).toEqual({
       settled: true,
     });
-    expect(client.getQueryData<Summary>(keys.summary())?.todaySeconds).toBe(
-      3600,
-    );
+    expect(
+      client.getQueryData<Summary>(keys.summary(timeZone))?.todaySeconds,
+    ).toBe(3600);
     expect(invalidated).not.toContain('summary');
     expect(invalidated).not.toContain('stats');
     expect(invalidated).toContain('entries');

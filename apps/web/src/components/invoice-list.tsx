@@ -11,7 +11,7 @@ import { MarkPaidDialog } from './mark-paid-dialog';
 import { api, type Invoice, type InvoiceStatus } from '@/lib/client/api';
 import { FilterTabs, Listing, Page, Panel, useLoaded } from './page';
 import { DollarSign, Plus } from 'lucide-react';
-import { keys } from '@/lib/client/query-keys';
+import { keys } from '@stint/client';
 
 /**
  * Open means "money still owed": issued and not yet collected. A draft is

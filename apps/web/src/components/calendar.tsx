@@ -29,7 +29,7 @@ import { Plus } from 'lucide-react';
 import { api, type TimeEntry } from '@/lib/client/api';
 import { Listing, Page, useLoaded } from './page';
 import { EntryDialog } from './entry-dialog';
-import { keys } from '@/lib/client/query-keys';
+import { keys } from '@stint/client';
 import { timeZone as tz } from '@/lib/client/use-timer';
 
 /** Hours between gridlines. Every 3 reads cleanly at both column widths. */

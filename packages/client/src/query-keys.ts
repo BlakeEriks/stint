@@ -1,5 +1,5 @@
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
-import type { IncludedName } from './api';
+import type { IncludedName } from './api.ts';
 
 /**
  * Every cache key in one place.
@@ -11,7 +11,9 @@ import type { IncludedName } from './api';
  * invalidation can still miss, so the options object is the single shape.
  */
 export const keys = {
-  summary: () => ['summary'] as const,
+  /** Per zone, since "today" is the zone's: a move fetches the new one. */
+  summary: (tz?: string) =>
+    tz ? (['summary', tz] as const) : (['summary'] as const),
   entries: (opts?: { from: string; to?: string }) =>
     opts ? (['entries', opts] as const) : (['entries'] as const),
   entry: (id: string) => ['entries', id] as const,

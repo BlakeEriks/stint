@@ -7,7 +7,7 @@
 [ "$VERCEL_ENV" = production ] || exit 1
 git diff --quiet HEAD^ HEAD -- ':(top)' \
   ':(top,exclude)docs' ':(top,exclude)specs' ':(top,exclude)scripts' \
-  ':(top,exclude)apps/macos' ':(top,exclude).claude' ':(top,exclude).specify' \
+  ':(top,exclude)apps/macos' ':(top,exclude)apps/mobile' ':(top,exclude).claude' ':(top,exclude).specify' \
   ':(top,exclude).github' ':(top,exclude).husky' ':(top,exclude).vscode' \
   ':(top,exclude).vale' ':(top,exclude).vale.ini' ':(top,exclude).gitignore' \
   ':(top,exclude).gitleaks.toml' ':(top,glob,exclude)*.md'

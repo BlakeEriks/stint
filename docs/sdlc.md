@@ -21,7 +21,8 @@ with the command that moves it at each step.
    built by hand merges one user story at a time, and a story that can't
    stand alone stays unlinked in the UI until the rest lands.
 3. **Review.** A PR runs CI and the Docs checks (Vale, `/doc-drift`), then
-   goes to QA on its Vercel preview or `pnpm try-mac`. A green Dependabot PR
+   goes to QA on its Vercel preview, `pnpm try-mac`, or its phone build
+   (`docs/mobile.md`). A green Dependabot PR
    outside the framework group merges itself; a red one goes to
    `/work-issues`.
 4. **Ship.** Merging is the deploy. The release gate plans, waits for approval and a

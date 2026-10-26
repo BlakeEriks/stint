@@ -188,8 +188,9 @@ Dates are relative to `now()`, so the current week is always populated.
 
 `supabase/templates/magic_link.html` is the sign-in email, and GoTrue allows
 **one** magic-link template — so it has to read correctly whichever client you
-started from. The web app opens the link; the macOS panel takes the six-digit
-code, because a link cannot cross from a browser into another application.
+started from. The web app opens the link; the macOS panel and the phone app
+take the six-digit code, because a link cannot cross from a browser into
+another application.
 
 **Neither is the footnote.** It was written for the desktop case first: the
 code was a 32px hero and the link a small "Signing in on the web instead?"

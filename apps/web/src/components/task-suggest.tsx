@@ -5,7 +5,7 @@ import { useId, useMemo, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { Kbd } from '@/components/ui/kbd';
 import { api } from '@/lib/client/api';
-import { keys } from '@/lib/client/query-keys';
+import { keys } from '@stint/client';
 import { useProjectClients } from '@/lib/client/use-project-colors';
 
 /** The props the caller spreads onto its own input. */

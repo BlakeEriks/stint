@@ -2,12 +2,11 @@
 
 import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery } from '@tanstack/react-query';
-import { useOptimisticMutation } from '@/lib/client/mutations';
+import { useOptimisticMutation, keys } from '@stint/client';
 import { Button } from '@/components/ui/button';
 import { Section } from './field';
 import { PaymentProfileDialog } from './payment-profile-dialog';
 import { api, type PaymentProfile } from '@/lib/client/api';
-import { keys } from '@/lib/client/query-keys';
 
 /**
  * Bank details, as named bundles.

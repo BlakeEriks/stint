@@ -1,7 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useOptimisticMutation } from '@/lib/client/mutations';
+import {
+  useOptimisticMutation,
+  keys,
+  invalidateEntryData,
+} from '@stint/client';
 import { Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,7 +31,6 @@ import { ColorPicker } from './color-picker';
 import { Field, inputClass } from './field';
 import { RateInput, parseRate } from './rate-input';
 import { api, ApiError, type Client, type ClientInput } from '@/lib/client/api';
-import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 /**
  * Create and edit are the same form — the only difference is which request

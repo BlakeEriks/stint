@@ -14,7 +14,7 @@ import {
   type Stats,
   type TimeEntry,
 } from '@/lib/client/api';
-import { keys } from '@/lib/client/query-keys';
+import { keys } from '@stint/client';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import {
   useAllProjects,

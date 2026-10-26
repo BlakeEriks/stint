@@ -18,8 +18,8 @@ not name, so a field the schema forgets is a 200 that discards the value.
 
 Shared plumbing in `apps/web/src/lib/`:
 
-- `auth.ts` — `requireSession()` accepts both a bearer token (macOS) and
-  a cookie session (web); both yield an RLS-scoped client.
+- `auth.ts` — `requireSession()` accepts both a bearer token (macOS and the
+  phone) and a cookie session (web); both yield an RLS-scoped client.
 
   **`getClaims()` must be passed the token explicitly on the bearer path.** It
   reads the *stored session*, not the `Authorization` header `bearerClient`
@@ -43,10 +43,11 @@ Shared plumbing in `apps/web/src/lib/`:
 - `select-all.ts` — `selectAll()` pages a read past PostgREST's 1,000-row
   `max_rows`.
 
-The browser's types in `lib/client/api.ts` **derive** from `@stint/schema`
-rather than copying it.
+The clients' types **derive** from `@stint/schema` rather than copying it:
+the shapes both apps read in `packages/client/src/api.ts`, the web's alone
+in `lib/client/api.ts`.
 
-The wrapper is `Response<T>`, which makes every field required: a schema marks
+The wrapper is `Res<T>`, which makes every field required: a schema marks
 a field `.optional()` to describe what a *request* may omit, but every
 converter in `rows.ts` sets every field unconditionally, so a response never
 omits one.

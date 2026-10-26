@@ -46,7 +46,7 @@ the domain until required checks pass, so the migration runs while the
   because it needs GoTrue and Mailpit, not the bare Postgres the others use,
   and because keeping it separate means a type error reports without waiting
   behind a Docker pull.
-- **`stories`** — every Storybook story in Chromium: it renders, runs its
+- **`stories`** — every Storybook story in Chromium, the web's and the phone's: it renders, runs its
   `play`, and passes its a11y check. A story that skips a rule passes it to
   `skipping()` in `apps/web/src/mocks/screen.tsx`, with the reason beside it.
 
@@ -424,6 +424,10 @@ can ask for it too.
 - **Vercel** → Deployment Protection → **Protection Bypass for Automation**:
   the secret `pnpm try-mac` sends so the menu bar app reaches a preview
   (`docs/macos.md`).
+
+A PR that changes the phone app also gets an Android build against its
+preview, from `.github/workflows/mobile-preview.yml`; `docs/mobile.md` has
+its one-time setup.
 
 A free project pauses after a week unused; restore it from the dashboard.
 

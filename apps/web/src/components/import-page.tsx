@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useOptimisticMutation } from '@/lib/client/mutations';
+import {
+  useOptimisticMutation,
+  invalidateEntryData,
+  keys,
+} from '@stint/client';
 import {
   type ClientChoice,
   formatCompact,
@@ -23,7 +27,6 @@ import { inputClass, Section } from './field';
 import { DetailPage } from './page';
 import { Swatch } from './swatch';
 import { api } from '@/lib/client/api';
-import { invalidateEntryData, keys } from '@/lib/client/query-keys';
 import { timeZone } from '@/lib/client/use-timer';
 
 const were = (n: number) => (n === 1 ? 'was' : 'were');

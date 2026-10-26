@@ -2,13 +2,13 @@
 
 import type { QueryClient } from '@tanstack/react-query';
 import { api, type Client } from './api';
-import { useOptimisticMutation } from './mutations';
 import {
+  useOptimisticMutation,
   keys,
   invalidateEntryData,
   predictArchive,
   predictRestore,
-} from './query-keys';
+} from '@stint/client';
 
 /* Archiving or restoring moves the client's rate in or out of every rollup,
    and its projects in or out of every picker. */

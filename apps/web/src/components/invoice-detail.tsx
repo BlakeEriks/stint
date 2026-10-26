@@ -8,7 +8,11 @@ import {
   useQueryClient,
   type QueryClient,
 } from '@tanstack/react-query';
-import { useOptimisticMutation } from '@/lib/client/mutations';
+import {
+  useOptimisticMutation,
+  keys,
+  invalidateEntryData,
+} from '@stint/client';
 import { useMarkPaid } from '@/lib/client/use-mark-paid';
 import { Ban, DollarSign, Download, Lock, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -27,7 +31,6 @@ import {
   type StoredLineItem,
 } from '@/lib/client/api';
 import { DetailPage, Listing } from './page';
-import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 /** An invoice; the lines, and whether its PDF opens, are absent until they
     load. */
