@@ -36,6 +36,7 @@ import { DetailPage, Listing } from './page';
     load. */
 type Shown = Invoice & {
   lineItems?: (StoredLineItem & { isNew?: boolean })[];
+  entryCount?: number;
   canDownload?: boolean;
   changedSinceDownload?: DraftChange | null;
 };
@@ -278,7 +279,12 @@ function Loaded({
 
       <InvoicePreviewCard
         heading={false}
-        preview={{ ...invoice, schedules: invoice.supportingDetail }}
+        preview={{
+          ...invoice,
+          schedules: invoice.supportingDetail,
+          // Voiding released its entries: "0 entries" would read as empty.
+          entryCount: isVoid ? undefined : invoice.entryCount,
+        }}
         client={invoice.billTo}
         business={invoice.business}
         settings={settings}

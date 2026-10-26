@@ -1382,6 +1382,39 @@ test('detail returns the frozen line items with the client', async () => {
   assert.equal(all.body.invoices.length, 1);
 });
 
+test('detail counts the entries the invoice bills, as generation did', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { GET: detail } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  const { PATCH: setStatus } = await import(
+    '../src/app/api/v1/invoices/[id]/status/route.ts'
+  );
+  await seedEntry({ id: E(1), hours: 2 });
+  await seedEntry({ id: E(2), start: '2026-09-11T09:00:00Z' });
+  await seedEntry({ id: E(3), billable: false, start: '2026-09-12T09:00:00Z' });
+  const inv = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  const ctx = () => ({ params: Promise.resolve({ id: inv.body.id }) });
+
+  const draft = await json(await detail(req('/i'), ctx()));
+  assert.equal(
+    draft.body.entryCount,
+    2,
+    'the non-billable entry is not billed',
+  );
+  assert.equal(draft.body.entryCount, inv.body.entryCount);
+
+  await setStatus(req('/s', { status: 'sent' }, 'PATCH'), ctx());
+  const sent = await json(await detail(req('/i'), ctx()));
+  assert.equal(sent.body.entryCount, 2);
+
+  await setStatus(req('/s', { status: 'void' }, 'PATCH'), ctx());
+  const voided = await json(await detail(req('/i'), ctx()));
+  assert.equal(voided.body.entryCount, 0, 'voiding released them');
+});
+
 test('a missing invoice is 404', async () => {
   const { GET: detail } = await import(
     '../src/app/api/v1/invoices/[id]/route.ts'

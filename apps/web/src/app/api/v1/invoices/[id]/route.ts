@@ -10,9 +10,10 @@ export const dynamic = 'force-dynamic';
 type Ctx = { params: Promise<{ id: string }> };
 
 /**
- * GET /api/v1/invoices/:id — the invoice with its line items, and whether its
- * PDF opens for the caller, so the screen knows before a press. A draft is
- * refreshed first, and says how it moved since its PDF was last rendered.
+ * GET /api/v1/invoices/:id — the invoice with its line items, how many
+ * entries it bills, and whether its PDF opens for the caller, so the screen
+ * knows before a press. A draft is refreshed first, and says how it moved
+ * since its PDF was last rendered. A void bills none: voiding released them.
  */
 export const GET = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
@@ -23,9 +24,16 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
   const { invoice, pdfData, canDownload, draft } = await loadPdfData(db, id, {
     tz,
   });
+  // After the refresh, which may have taken in more of the period's work.
+  const { count, error } = await db
+    .from('time_entries')
+    .select('id', { count: 'exact', head: true })
+    .eq('invoice_id', id);
+  if (error) throw error;
 
   return NextResponse.json({
     ...invoice,
+    entryCount: count ?? 0,
     canDownload,
     changedSinceDownload: draft.change,
     lineItems: pdfData.lineItems.map((l, i) => ({

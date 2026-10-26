@@ -86,6 +86,7 @@ export const envelopes = {
 
 export const invoiceDetail = schema.Invoice.extend({
   lineItems: z.array(schema.StoredLineItem.extend({ isNew: z.boolean() })),
+  entryCount: z.number().int().nonnegative(),
   canDownload: z.boolean(),
   changedSinceDownload: schema.DraftChange.nullable(),
 });

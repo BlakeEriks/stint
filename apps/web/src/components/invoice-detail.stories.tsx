@@ -90,7 +90,7 @@ export const DraftChanged: Story = {
 };
 export const DraftChangedPhone: Story = { ...phone, parameters: changed };
 /** Where it stands is one line under the title, and an issued invoice is
-    the invoice, not a preview of it. */
+    the invoice, not a preview of it, captioned with the entries it bills. */
 export const Sent: Story = {
   ...desktop,
   args: { id: invoice(14) },
@@ -101,18 +101,23 @@ export const Sent: Story = {
     ).toBeVisible();
     await expect(page.queryByRole('heading', { name: 'Status' })).toBeNull();
     await expect(page.queryByRole('heading', { name: 'Preview' })).toBeNull();
+    const card = page.getByRole('region', { name: 'Invoice' });
+    await expect(
+      await within(card).findByText(/^[1-9]\d* entr(y|ies)$/),
+    ).toBeVisible();
   },
 };
 export const Overdue: Story = { ...desktop, args: { id: invoice(13) } };
 export const Paid: Story = { ...desktop, args: { id: invoice(12) } };
-/** Voiding keeps the number and releases the entries. */
+/** Voiding keeps the number and releases the entries, so it counts none. */
 export const Void: Story = {
   ...desktop,
   args: { id: invoice(9) },
   play: async ({ canvasElement }) => {
-    await expect(
-      await within(canvasElement).findByText(/numbering is gapless/),
-    ).toBeVisible();
+    const page = within(canvasElement);
+    await expect(await page.findByText(/numbering is gapless/)).toBeVisible();
+    const card = page.getByRole('region', { name: 'Invoice' });
+    await expect(within(card).queryByText(/ entr(y|ies)$/)).toBeNull();
   },
 };
 export const Missing: Story = { ...desktop, args: { id: invoice(99) } };

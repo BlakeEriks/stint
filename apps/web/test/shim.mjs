@@ -57,8 +57,11 @@ export function makeDb(pool, userId) {
     };
 
     const api = {
-      select(cols) {
+      /** `{ count: 'exact', head: true }` answers the count alone, as
+          supabase-js does; the shim supports no other options. */
+      select(cols, opts) {
         st.cols = cols || '*';
+        st.count = opts?.count === 'exact' && opts.head === true;
         return api;
       },
       insert(obj) {
@@ -186,6 +189,8 @@ export function makeDb(pool, userId) {
           sql = `update ${st.table} set ${sets.join(',')} where ${whereSql()} returning ${st.cols}`;
         } else if (st.op === 'delete') {
           sql = `delete from ${st.table} where ${whereSql()} returning ${st.cols}`;
+        } else if (st.count) {
+          sql = `select count(*)::int as count from ${st.table} where ${whereSql()}`;
         } else {
           sql = `select ${st.cols} from ${st.table} where ${whereSql()}`;
           if (st.order.length) sql += ` order by ${st.order.join(', ')}`;
@@ -211,7 +216,11 @@ export function makeDb(pool, userId) {
       then(res, rej) {
         return api
           ._exec()
-          .then(({ rows, error }) => ({ data: rows, error }))
+          .then(({ rows, error }) =>
+            st.count
+              ? { data: null, count: error ? null : rows[0].count, error }
+              : { data: rows, error },
+          )
           .then(res, rej);
       },
     };

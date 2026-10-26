@@ -302,6 +302,8 @@ export const api = {
       Invoice & {
         /** `isNew`: on a draft, a line its last PDF didn't have. */
         lineItems: (StoredLineItem & { isNew: boolean })[];
+        /** The entries it bills now; none on a void, which released them. */
+        entryCount: number;
         canDownload: boolean;
         changedSinceDownload: DraftChange | null;
       }

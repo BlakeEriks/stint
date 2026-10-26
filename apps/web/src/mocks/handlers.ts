@@ -483,6 +483,7 @@ export const handlers = {
     return ok(invoiceDetail, {
       ...rest,
       lineItems: lineItems.map((l) => ({ ...l, isNew: l.isNew ?? false })),
+      entryCount: db.entries.filter((e) => e.invoiceId === invoice.id).length,
       canDownload: documentOpens(available, plan, null),
       changedSinceDownload: changedSinceDownload ?? null,
     });
