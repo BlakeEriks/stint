@@ -174,7 +174,10 @@ function Recent({
           key={`${task.taskName}:${task.projectId}`}
           onPress={() => onPick(task)}
           accessibilityRole="button"
-          accessibilityLabel={`Start ${task.taskName || 'untitled'}`}
+          /* The visible text, in order, after the verb (WCAG 2.5.3). */
+          accessibilityLabel={`Start ${task.taskName || 'Untitled'} ${
+            task.projectName ?? 'No project'
+          }`}
           style={[
             parts.row,
             s.recentRow,

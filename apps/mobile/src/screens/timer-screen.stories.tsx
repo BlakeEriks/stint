@@ -119,7 +119,7 @@ export const PickProject: Story = {
     await userEvent.click(screen.getByRole('button', { name: /^Project:/ }));
     const sheet = within(document.body);
     await userEvent.click(
-      await sheet.findByRole('button', { name: /Data pipeline audit/ }),
+      await sheet.findByRole('button', { name: /^Data pipeline audit/ }),
     );
     await userEvent.click(screen.getByRole('button', { name: 'Start timer' }));
     await expect(args.onStart).toHaveBeenCalledWith('', 'p-pipeline');
@@ -145,7 +145,7 @@ export const StartRecent: Story = {
   play: async ({ canvasElement, args }) => {
     const screen = within(canvasElement);
     await userEvent.click(
-      screen.getByRole('button', { name: 'Start Sprint planning' }),
+      screen.getByRole('button', { name: /^Start Sprint planning / }),
     );
     await expect(args.onRecent).toHaveBeenCalledWith(recent[3]);
   },
