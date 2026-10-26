@@ -14,7 +14,7 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 53 of 53, counting handlers rather than files.
+Every handler is covered — 55 of 55, counting handlers rather than files.
 
 ## Timer
 
@@ -348,8 +348,8 @@ to Sentry. Without `FCM_SERVICE_ACCOUNT` nothing is sent.
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST` | `/push-devices` | `{ token, platform }` → `204`, the same when already registered. `platform` is `android`; iPhone is #471. `422` for an empty token. |
-| `DELETE` | `/push-devices` | `{ token }` → `204`, the same when it was never registered. |
+| `POST` | `/push-devices` | `{ token, platform }` → `204`, the same when already registered. `platform` is `android`; iPhone is #471. `422` for an empty token or one over 4,096 characters. |
+| `DELETE` | `/push-devices` | `{ token }` → `204`, the same when it was never registered. `422` for an empty token or one over 4,096 characters. |
 
 ## Billing
 
