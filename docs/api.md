@@ -318,7 +318,7 @@ by every one when `recurring`. The amount is in the client's currency.
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/expenses` | `?clientId&status` — `status` is `open` (default: recurring, unbilled, and on a draft or sent invoice) or `unbilled` (recurring and unbilled). Recurring first, then oldest `spentOn`. Each expense carries `invoiceNumber` and `invoiceStatus` once billed. |
+| `GET` | `/expenses` | `?clientId&status` — `status` is `open` (default: recurring, unbilled, and on a sent invoice) or `unbilled` (recurring and unbilled). Recurring first, then oldest `spentOn`. Each expense carries `invoiceNumber` and `invoiceStatus` once billed. |
 | `POST` | `/expenses` | `{ id, clientId, recurring?, spentOn?, description, amount, note? }`. `spentOn` is required for a one-off and refused with `recurring: true`. `id` is a client-generated UUIDv7, so a retry returns the stored row with `200`. `amount` is above zero. |
 | `PATCH` | `/expenses/:id` | Any field from `POST` but `id` and `clientId`. `recurring: true` clears `spentOn`; `false` needs one. **`409 EXPENSE_LOCKED`** once billed on a non-draft invoice; `422` to make a billed one recurring. |
 | `DELETE` | `/expenses/:id` | Same lock. A recurring one can always go; invoices that billed it keep their line. |
