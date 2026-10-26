@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { handle, ApiError, isBilledLock, isTimerConflict } from '@/lib/errors';
+import { handle, ApiError, dbCode } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import {
@@ -83,13 +83,13 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
     .maybeSingle();
 
   if (error) {
-    if (isBilledLock(error)) {
+    if (dbCode(error) === 'ENTRY_LOCKED') {
       throw new ApiError(
         'ENTRY_LOCKED',
         'This entry is billed on an issued invoice and cannot be modified',
       );
     }
-    if (isTimerConflict(error)) {
+    if (dbCode(error) === 'TIMER_ALREADY_RUNNING') {
       throw new ApiError(
         'TIMER_ALREADY_RUNNING',
         'Reopening this entry would leave two timers running',
@@ -115,7 +115,7 @@ export const DELETE = handle(async (req: Request, ctx: Ctx) => {
     .maybeSingle();
 
   if (error) {
-    if (isBilledLock(error)) {
+    if (dbCode(error) === 'ENTRY_LOCKED') {
       throw new ApiError(
         'ENTRY_LOCKED',
         'This entry is billed on an issued invoice and cannot be deleted',

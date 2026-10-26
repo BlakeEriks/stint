@@ -39,6 +39,8 @@ const STATUS: Record<Exclude<Code, 'UNAUTHORIZED'>, number> = {
   EXPENSE_ALREADY_INVOICED: 409,
   ENTRY_ALREADY_INVOICED: 409,
   INVOICE_STATUS_CHANGED: 409,
+  DRAFT_CHANGED: 409,
+  DRAFT_OVERLAPS: 409,
   ENTRY_NOT_FOUND: 404,
   NO_RATE_CONFIGURED: 400,
   INVALID_PERIOD: 400,
@@ -56,8 +58,12 @@ const STATUS: Record<Exclude<Code, 'UNAUTHORIZED'>, number> = {
 export function fail(
   code: keyof typeof STATUS,
   message = code === 'INTERNAL' ? 'Internal server error' : code,
+  details?: unknown,
 ) {
-  return HttpResponse.json({ code, message }, { status: STATUS[code] });
+  return HttpResponse.json(
+    details === undefined ? { code, message } : { code, message, details },
+    { status: STATUS[code] },
+  );
 }
 
 export const noContent = () => new HttpResponse(null, { status: 204 });
@@ -79,8 +85,9 @@ export const envelopes = {
 };
 
 export const invoiceDetail = schema.Invoice.extend({
-  lineItems: z.array(schema.StoredLineItem),
+  lineItems: z.array(schema.StoredLineItem.extend({ isNew: z.boolean() })),
   canDownload: z.boolean(),
+  changedSinceDownload: schema.DraftChange.nullable(),
 });
 
 export const createdInvoice = schema.Invoice.extend({

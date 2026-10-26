@@ -6,11 +6,10 @@
 |---|---|---|
 | Web | Next.js App Router, API-first | The primary product. Every feature lands here first. |
 | macOS | Native Swift menu bar app (`apps/macos`, SwiftPM, no Xcode) | The timer and nothing else: start, stop, task name, project. The menu bar toggles between the running timer and today's total. |
-| iOS + Android | React Native (Expo) | Start / stop / view, light editing. |
+| iOS + Android | Expo app (`apps/mobile`) on the web's own client code (`packages/client`) | The macOS app's scope: start, stop, task name, project, with today's total and earnings. |
 
 The scopes are ceilings: a native app does only what only it can do, and
-neither is a port of the web. Web and macOS exist today; what's unbuilt lives
-in `feature` issues.
+neither is a port of the web. What's unbuilt lives in `feature` issues.
 
 ## The shape: a client shell over an HTTP API
 
@@ -43,10 +42,9 @@ including one written later — can produce an overlap.
 The cost is that starting a timer needs the network. A running timer keeps
 ticking locally from its known `startedAt` — the client owns responsiveness,
 the server owns truth — but nothing is queued while offline; see *Offline*
-below. A start pressed while the client shows a running timer predicts
-nothing and waits on the server, whose 409 says why. When the client's view
-was stale, the start was predicted, and its 409 takes the prediction back.
-Either way, the refetch then shows what is running.
+below. A client offers a start only while it shows no running timer. When
+that view is stale, the start is predicted, its 409 takes the prediction
+back, and the refetch shows what is running.
 
 ## Offline
 
@@ -63,9 +61,10 @@ Supabase Auth. Every client sends the same JWT as a bearer token, and the
 route handlers verify it identically.
 
 - **Web** — `@supabase/ssr`, cookie-based sessions.
-- **macOS** — an emailed **six-digit code**, typed into the panel and verified
-  in-process against GoTrue's `/verify` (`type: "email"`, digits in `token`),
-  with the session kept in the Keychain. A code rather than a link because a
+- **macOS and the phone** — an emailed **six-digit code**, typed into the
+  panel or the phone's sign-in screen and verified in-process against
+  GoTrue's `/verify` (`type: "email"`, digits in `token`), with the session
+  in the Keychain on the Mac and in secure storage on the phone. A code rather than a link because a
   link has to cross from a browser into a different application: the clipboard
   carries a bearer credential, and a custom URL scheme is silently refused as
   a redirect target. `supabase-swift` is not used — the SDK is not needed to
@@ -95,7 +94,7 @@ Vercel (Next.js + route handlers) and Supabase (Postgres, Auth, Storage).
   with no fixed fee. Stripe sends the receipts and dunning mail; the webhook
   mirrors each subscription into `subscriptions` (`docs/api.md` §Billing).
 - **Invite requests go to Formspree**, on its free plan: the landing page's
-  form posts the visitor's email there, and Blake invites from its list.
+  form posts the visitor's email there, and invites go out from its list.
   No table and no route, since an unauthenticated write to our database
   would need rate limiting (`docs/deploying.md` sets it up).
 - **No outbound mail**, so no provider and no domain in the stack. Invoices

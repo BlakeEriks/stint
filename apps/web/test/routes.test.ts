@@ -56,6 +56,7 @@ beforeEach(async () => {
   await pool.query(
     `update user_settings set default_hourly_rate=100,
                     week_starts_on=1, next_invoice_number=1,
+                    payment_terms_days=30, legacy_payment_terms=null,
                     -- Off, so a long fixture elsewhere does not also raise the
                     -- strange-duration row; its own tests set a threshold.
                     min_entry_seconds=null, max_entry_hours=null
@@ -486,6 +487,28 @@ test('editing an entry billed on a sent invoice returns 409 ENTRY_LOCKED', async
     }),
   );
   assert.equal(removed.status, 409, 'deleting a billed entry is refused too');
+  assert.equal(removed.body.code, 'ENTRY_LOCKED');
+});
+
+test('reopening an entry while a timer runs is TIMER_ALREADY_RUNNING', async () => {
+  const { PATCH: patch } = await import(
+    '../src/app/api/v1/entries/[id]/route.ts'
+  );
+  const id = '018f0000-0000-7000-8000-000000000004';
+  await pool.query(
+    `insert into time_entries (id,user_id,task_name,started_at,ended_at)
+     values ($1,$2,'Done','2026-09-11T09:00:00Z','2026-09-11T10:00:00Z'),
+            ($3,$2,'Running','2026-09-11T11:00:00Z',null)`,
+    [id, USER, '018f0000-0000-7000-8000-000000000005'],
+  );
+
+  const reopen = await json(
+    await patch(req(`/entries/${id}`, { endedAt: null }, 'PATCH'), {
+      params: Promise.resolve({ id }),
+    }),
+  );
+  assert.equal(reopen.status, 409);
+  assert.equal(reopen.body.code, 'TIMER_ALREADY_RUNNING');
 });
 
 test('a missing entry is 404, not 500', async () => {
@@ -716,6 +739,124 @@ test('a patch naming no known field is rejected, not a silent no-op', async () =
     await PATCH(patchReq('/clients/x', {}), ctx(clientId)),
   );
   assert.equal(res.status, 422);
+});
+
+/* The schedule sets a new invoice's period: a field the schema or the column
+   list dropped would leave every client unscheduled, unseen. */
+test('a client billing schedule round-trips, and is null until set', async () => {
+  const { POST: createClient, GET: listClients } = await import(
+    '../src/app/api/v1/clients/route.ts'
+  );
+  const { PATCH } = await import('../src/app/api/v1/clients/[id]/route.ts');
+  const weekly = { period: 'weekly', anchor: '2026-10-05' };
+
+  const plain = await json(
+    await createClient(req('/clients', { name: 'Northwind' })),
+  );
+  assert.equal(plain.body.billingSchedule, null);
+
+  const semi = await json(
+    await createClient(
+      req('/clients', {
+        name: 'Contoso',
+        billingSchedule: { period: 'semimonthly' },
+      }),
+    ),
+  );
+  assert.deepEqual(semi.body.billingSchedule, { period: 'semimonthly' });
+
+  const moved = await json(
+    await PATCH(
+      patchReq('/clients/x', { billingSchedule: weekly }),
+      ctx(plain.body.id),
+    ),
+  );
+  assert.deepEqual(moved.body.billingSchedule, weekly);
+
+  const renamed = await json(
+    await PATCH(
+      patchReq('/clients/x', { name: 'Northwind Trading' }),
+      ctx(plain.body.id),
+    ),
+  );
+  assert.deepEqual(renamed.body.billingSchedule, weekly);
+
+  const list = await json(await listClients(req('/clients')));
+  assert.deepEqual(
+    list.body.clients.map(
+      (c: { billingSchedule: unknown }) => c.billingSchedule,
+    ),
+    [{ period: 'semimonthly' }, weekly],
+  );
+
+  const cleared = await json(
+    await PATCH(
+      patchReq('/clients/x', { billingSchedule: null }),
+      ctx(plain.body.id),
+    ),
+  );
+  assert.equal(cleared.body.billingSchedule, null);
+
+  for (const bad of [
+    { period: 'weekly' },
+    { period: 'monthly', anchor: '2026-10-05' },
+    { period: 'quarterly' },
+  ]) {
+    const refused = await json(
+      await PATCH(
+        patchReq('/clients/x', { billingSchedule: bad }),
+        ctx(plain.body.id),
+      ),
+    );
+    assert.equal(refused.status, 422, JSON.stringify(bad));
+  }
+});
+
+/* A client's terms set its invoices' due dates: a field the schema or the
+   column list dropped would put every client back on the user's. */
+test('a client payment terms round-trip, and are null until set', async () => {
+  const { POST: createClient } = await import(
+    '../src/app/api/v1/clients/route.ts'
+  );
+  const { PATCH } = await import('../src/app/api/v1/clients/[id]/route.ts');
+
+  const plain = await json(
+    await createClient(req('/clients', { name: 'Northwind' })),
+  );
+  assert.equal(plain.body.paymentTermsDays, null);
+
+  const own = await json(
+    await createClient(
+      req('/clients', { name: 'Contoso', paymentTermsDays: 15 }),
+    ),
+  );
+  assert.equal(own.body.paymentTermsDays, 15);
+
+  const renamed = await json(
+    await PATCH(
+      patchReq('/clients/x', { name: 'Contoso Ltd' }),
+      ctx(own.body.id),
+    ),
+  );
+  assert.equal(renamed.body.paymentTermsDays, 15, 'omitted leaves it');
+
+  const cleared = await json(
+    await PATCH(
+      patchReq('/clients/x', { paymentTermsDays: null }),
+      ctx(own.body.id),
+    ),
+  );
+  assert.equal(cleared.body.paymentTermsDays, null);
+
+  for (const bad of [-1, 1.5, 366]) {
+    const refused = await json(
+      await PATCH(
+        patchReq('/clients/x', { paymentTermsDays: bad }),
+        ctx(own.body.id),
+      ),
+    );
+    assert.equal(refused.status, 422, String(bad));
+  }
 });
 
 /* Which payment profile a client's invoices carry: a field the route's schema
@@ -1085,7 +1226,7 @@ test("another user's client is invisible to these handlers", async () => {
 });
 
 // ── settings ───────────────────────────────────────────────────────
-test('settings update, and nextInvoiceNumber cannot be moved by a client', async () => {
+test('settings update', async () => {
   const { GET: get, PATCH: patch } = await import(
     '../src/app/api/v1/settings/route.ts'
   );
@@ -1096,21 +1237,71 @@ test('settings update, and nextInvoiceNumber cannot be moved by a client', async
 
   const after = await json(
     await patch(
-      req(
-        '/settings',
-        { maxEntryHours: 10, defaultHourlyRate: 125, nextInvoiceNumber: 9999 },
-        'PATCH',
-      ),
+      req('/settings', { maxEntryHours: 10, defaultHourlyRate: 125 }, 'PATCH'),
     ),
   );
   assert.equal(after.status, 200);
   assert.equal(after.body.maxEntryHours, 10);
   assert.equal(after.body.defaultHourlyRate, 125);
-  assert.equal(
-    after.body.nextInvoiceNumber,
-    1,
-    'gapless numbering is not a client-settable field',
+});
+
+/* A contractor who already sent invoices outside Stint starts past them.
+   Going back could reissue a number a client already has, so it is
+   refused, and the refusal changes nothing else in the patch. */
+test('the next invoice number moves forward only', async () => {
+  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
+  const set = (body: object) =>
+    patch(req('/settings', body, 'PATCH')).then(json);
+
+  const ahead = await set({ nextInvoiceNumber: 3 });
+  assert.equal(ahead.status, 200);
+  assert.equal(ahead.body.nextInvoiceNumber, 3);
+
+  const same = await set({ nextInvoiceNumber: 3, maxEntryHours: 9 });
+  assert.equal(same.status, 200, 'the current number is not a step back');
+  assert.equal(same.body.maxEntryHours, 9);
+
+  const back = await set({ nextInvoiceNumber: 2, maxEntryHours: 12 });
+  assert.equal(back.status, 422);
+  assert.equal(back.body.code, 'VALIDATION_FAILED');
+  assert.match(back.body.message, /3/);
+  assert.deepEqual(back.body.details, {
+    field: 'nextInvoiceNumber',
+    current: 3,
+  });
+
+  const { rows } = await pool.query(
+    'select next_invoice_number, max_entry_hours::int from user_settings where user_id=$1',
+    [USER],
   );
+  assert.deepEqual(rows[0], { next_invoice_number: 3, max_entry_hours: 9 });
+
+  const { rows: alloc } = await pool.query(
+    'select * from allocate_invoice_number($1)',
+    [USER],
+  );
+  assert.equal(alloc[0].sequence_no, 3, 'the next invoice takes it');
+});
+
+test('the next invoice number has a ceiling', async () => {
+  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
+
+  const res = await json(
+    await patch(req('/settings', { nextInvoiceNumber: 2147483647 }, 'PATCH')),
+  );
+  assert.equal(res.status, 422);
+  assert.equal(res.body.code, 'VALIDATION_FAILED');
+  assert.deepEqual(
+    res.body.details,
+    { field: 'nextInvoiceNumber', current: 1 },
+    'refused like a step back, so the form can say why at the field',
+  );
+
+  const { rows } = await pool.query(
+    'select next_invoice_number from user_settings where user_id=$1',
+    [USER],
+  );
+  assert.equal(rows[0].next_invoice_number, 1, 'the row is unchanged');
 });
 
 /* Every field the converter maps must survive a PATCH. Zod strips what its
@@ -1132,6 +1323,48 @@ test('every settable field round-trips, rather than being silently dropped', asy
   for (const [field, value] of Object.entries(sent)) {
     assert.deepEqual(res.body[field], value, field);
   }
+});
+
+test('the user payment terms are whole days from 0 to 365', async () => {
+  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
+  const set = (body: object) =>
+    patch(req('/settings', body, 'PATCH')).then(json);
+
+  const saved = await set({ paymentTermsDays: 45 });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.paymentTermsDays, 45);
+  assert.equal((await set({ paymentTermsDays: 0 })).body.paymentTermsDays, 0);
+
+  for (const bad of [-1, 1.5, 366]) {
+    assert.equal(
+      (await set({ paymentTermsDays: bad })).status,
+      422,
+      String(bad),
+    );
+  }
+});
+
+/* Old terms the migration couldn't read became 30 days; the Inbox shows
+   what was written until the user saves their terms. */
+test('stats asks about old payment terms until the user saves theirs', async () => {
+  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const ask = async () =>
+    (await json(await stats(req('/stats?tz=UTC')))).body.attention
+      .paymentTermsToCheck;
+
+  assert.equal(await ask(), null);
+  await pool.query(
+    `update user_settings set legacy_payment_terms='Payment by check' where user_id=$1`,
+    [USER],
+  );
+  assert.equal(await ask(), 'Payment by check');
+
+  await patch(req('/settings', { maxEntryHours: 9 }, 'PATCH'));
+  assert.equal(await ask(), 'Payment by check', 'another field leaves it');
+
+  await patch(req('/settings', { paymentTermsDays: 30 }, 'PATCH'));
+  assert.equal(await ask(), null);
 });
 
 /* The Inbox asks for a default rate while there is none. Zero is a rate,
@@ -4389,9 +4622,10 @@ test('every response the macOS app decodes matches its fixture', async (t) => {
     ),
   );
 
+  // The app's presses ask for the summary, so these are recorded as asked.
   const started = await body(
     await start.POST(
-      req('/timer/start', {
+      req('/timer/start?include=summary&tz=UTC', {
         taskName: 'Draft',
         projectId: project.id,
         startedAt: HOUR_AGO,
@@ -4415,7 +4649,7 @@ test('every response the macOS app decodes matches its fixture', async (t) => {
   );
   await pool.query(
     'update time_entries set rate_override = 200, invoice_id = $1 where id = $2',
-    [invoice.rows[0].id, started.id],
+    [invoice.rows[0].id, started.entry.id],
   );
 
   // Named as `ContractTests.swift` reads them.
@@ -4438,7 +4672,9 @@ test('every response the macOS app decodes matches its fixture', async (t) => {
       await projects.GET(req('/projects?includeArchived=true')),
     ),
     'timer-stop': await body(
-      await stop.POST(req('/timer/stop', { endedAt: NOW })),
+      await stop.POST(
+        req('/timer/stop?include=summary&tz=UTC', { endedAt: NOW }),
+      ),
     ),
     'task-names': await body(
       await (await route('entries/task-names')).GET(

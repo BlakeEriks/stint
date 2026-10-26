@@ -97,6 +97,168 @@ export const Defaults: Story = {
   },
 };
 
+/** Northwind pays in 15 days: Due is September 17 plus 15, and the card
+    prints Net 15. */
+export const ClientTerms: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      for (const c of db.clients)
+        if (c.id === ids.northwind) c.paymentTermsDays = 15;
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(page.getByLabelText('Due')).toHaveValue('2026-10-02');
+    await expect(await card(page).findByText('Net 15')).toBeVisible();
+  },
+};
+
+/** A due date before the issue date says so under the dates and holds
+    Generate back. */
+export const EarlyDue: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    const due = page.getByLabelText('Due');
+    await userEvent.clear(due);
+    await userEvent.type(due, '2026-09-10');
+    await expect(
+      await page.findByText("Due can't be before the issue date."),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Generate invoice' }),
+    ).toBeDisabled();
+  },
+};
+
+const scheduled = (
+  id: string,
+  billingSchedule: Db['clients'][number]['billingSchedule'],
+) =>
+  account((db) => {
+    for (const c of db.clients)
+      if (c.id === id) c.billingSchedule = billingSchedule;
+  });
+
+/** Billed twice a month: on September 17 the period is the last half that
+    has ended, the 1st to the 15th. */
+export const ScheduledDefaults: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...scheduled(ids.northwind, { period: 'semimonthly' }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(page.getByLabelText('From')).toHaveValue('2026-09-01');
+    await expect(page.getByLabelText('To')).toHaveValue('2026-09-15');
+    await expect(page.queryByText(/is billed/)).toBeNull();
+  },
+};
+
+/** Billed weekly from a Monday: on Thursday September 17 the period is the
+    week before, Monday to Sunday, counted back from a later anchor. */
+export const WeeklyDefaults: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...scheduled(ids.northwind, { period: 'weekly', anchor: '2026-10-05' }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(page.getByLabelText('From')).toHaveValue('2026-09-07');
+    await expect(page.getByLabelText('To')).toHaveValue('2026-09-13');
+  },
+};
+
+/** Dates the user edited stay when another client is chosen. */
+export const EditedDatesStay: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...scheduled(ids.meridian, { period: 'semimonthly' }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await userEvent.clear(page.getByLabelText('From'));
+    await userEvent.type(page.getByLabelText('From'), '2026-09-05');
+    await chooseMeridian(canvasElement);
+    await expect(page.getByLabelText('From')).toHaveValue('2026-09-05');
+    await expect(page.getByLabelText('To')).toHaveValue('2026-09-30');
+  },
+};
+
+/** A period that isn't one of the client's is named, but the invoice can
+    still be generated: a first or last invoice can cover part of one. */
+export const OffSchedule: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...scheduled(ids.northwind, { period: 'monthly' }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(page.queryByText(/is billed/)).toBeNull();
+    await userEvent.clear(page.getByLabelText('From'));
+    await expect(page.queryByText(/is billed/)).toBeNull();
+    await userEvent.type(page.getByLabelText('From'), '2026-09-16');
+    await expect(
+      await page.findByText(
+        "Northwind Trading is billed monthly, and this isn't one of its periods.",
+      ),
+    ).toBeVisible();
+    await settled(page);
+  },
+};
+export const OffSchedulePhone: Story = { ...OffSchedule, ...phone };
+
+/** Without a schedule, any period is the user's own, and nothing is said. */
+export const NoScheduleNoHint: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await userEvent.clear(page.getByLabelText('From'));
+    await userEvent.type(page.getByLabelText('From'), '2026-09-16');
+    await settled(page);
+    await expect(page.queryByText(/is billed/)).toBeNull();
+  },
+};
+
+/** Byrne's August draft is open, so a period reaching into August says
+    which draft holds those dates and Generate waits. */
+export const OverlapsDraft: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(await page.findByRole('button', { name: 'Client' }));
+    await userEvent.click(
+      await page.findByRole('menuitemradio', { name: /Byrne/ }),
+    );
+    await waitFor(() => expect(page.queryByRole('menu')).toBeNull());
+    await userEvent.clear(page.getByLabelText('From'));
+    await userEvent.type(page.getByLabelText('From'), '2026-08-20');
+    await expect(
+      await page.findByText(
+        (_, el) =>
+          el?.tagName === 'P' &&
+          /^A draft already covers Aug 1.*for Byrne Studio: STINT-0015\./.test(
+            el.textContent ?? '',
+          ),
+      ),
+    ).toBeVisible();
+    await expect(page.getByRole('link', { name: 'STINT-0015' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Generate invoice' }),
+    ).toBeDisabled();
+  },
+};
+
 /** A client chosen: the card is the invoice as the PDF prints it, and
     follows the form without a Preview button (US3 scenario 1). Northwind
     has an address and email, so the Client field offers no Edit client. */
@@ -290,6 +452,18 @@ export const NoReference: Story = {
   },
 };
 
+/** The number Generate takes shows before it does, linked to the setting
+    that moves it. */
+export const NumberLinksToSetting: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const line = await within(canvasElement).findByText(/Numbered STINT-0016/);
+    await expect(
+      within(line).getByRole('link', { name: 'Change' }),
+    ).toHaveAttribute('href', '/settings#numbering');
+  },
+};
+
 /** From `xl` only the form and the preview scroll, each alone: reading
     the end of the page leaves the form where it was. */
 export const ScrollsApart: Story = {
@@ -319,7 +493,7 @@ export const ScrollsApart: Story = {
 
 // ── one summary line ───────────────────────────────────────────────
 
-/** All the time at one rate is one line of Blake's text (US1 scenario 1). */
+/** All the time at one rate is one line of the contractor's text (US1 scenario 1). */
 export const OneSummaryLine: Story = {
   ...desktop,
   parameters: {

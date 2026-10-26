@@ -16,16 +16,18 @@ behind.
 hex, and no alpha modifier on a semantic token — `bg-danger/12` is a
 one-off that exists in one file, has no light-mode counterpart, and cannot be
 found by anyone auditing the palette. Need a tint? Add it to `tokens.json` and
-run `pnpm tokens`. `accent-muted` and `danger-muted` are the tinted-surface
-pair, each a near-ground tint on its own hue:
+run `pnpm tokens`. `accent-muted`, `warning-muted` and `danger-muted` are the
+tinted surfaces, each a near-ground tint on its own hue:
 
 | token | dark | light |
 |---|---|---|
 | `accent-muted` | L 0.299 / C 0.060 | L 0.936 / C 0.031 |
+| `warning-muted` | L 0.282 / C 0.047 | L 0.944 / C 0.018 |
 | `danger-muted` | L 0.298 / C 0.061 | L 0.956 / C 0.022 |
 
-Dark holds one pair of numbers for both; light tunes each against the card it
-sits on, so a third is tuned the same way rather than copied. Opacity is for
+Dark holds one pair of numbers for accent and danger; light tunes each
+against the card it sits on, so a third is tuned the same way rather than
+copied. Opacity is for
 *elevation* —
 overlays, scrims, a disabled control — not for deriving a color that should
 have a name.
@@ -243,7 +245,7 @@ the target instant.
 
 ### Queries
 
-**Cache keys come from `lib/client/query-keys.ts`, never written inline**, so
+**Cache keys come from `packages/client/src/query-keys.ts`, never written inline**, so
 one shape per query is what an invalidation can match. Anything that changes a
 time entry calls `invalidateEntryData()` — summary, entries, stats and
 calendar all read those rows, and refreshing a subset makes two screens

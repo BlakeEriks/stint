@@ -33,8 +33,10 @@ function stats(attention: Partial<Stats['attention']> = {}): Stats {
     },
     earnedToday: 0,
     attention: {
+      paymentTermsToCheck: null,
       overdueInvoices: [],
       staleDrafts: [],
+      lateEntries: [],
       unprojected: [],
       strangeDurations: [],
       overlaps: [],

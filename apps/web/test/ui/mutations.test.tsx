@@ -12,7 +12,7 @@ import {
   useOptimisticMutation,
   usePressedSince,
   type OptimisticOptions,
-} from '@/lib/client/mutations';
+} from '@stint/client';
 import { MutationNotice } from '@/components/mutation-notice';
 import { ApiError } from '@/lib/client/api';
 
@@ -176,25 +176,6 @@ describe('useOptimisticMutation — review fixes', () => {
     expect(hook.result.current.isError).toBe(false);
   });
 
-  /* A press can be pending on one call and predicted on the next (a start
-     while a timer runs). Pending must mean the same as having no `predict`:
-     no write, no timeout, nothing put back. */
-  it('treats a press its `pending` picks as pending: no write, no timeout', async () => {
-    vi.useFakeTimers();
-    const call = deferred<Cache>();
-    const { queryClient, hook } = setup({
-      mutationFn: () => call.promise,
-      pending: (vars) => vars.value === 'wait',
-    });
-
-    act(() => hook.result.current.mutate({ value: 'wait' }));
-    await act(async () => vi.advanceTimersByTimeAsync(30_000));
-
-    expect(cached(queryClient)).toBe('original');
-    expect(hook.result.current.isPending).toBe(true);
-    expect(hook.result.current.isError).toBe(false);
-  });
-
   it('predicts each cached query under the key with that query’s own key', async () => {
     const { queryClient, hook } = setup({
       mutationFn: () => new Promise(() => {}),
@@ -269,7 +250,7 @@ describe('useOptimisticMutation — include', () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false, staleTime: Infinity } },
     });
-    queryClient.setQueryData(['summary'], 'old summary');
+    queryClient.setQueryData(['summary', 'UTC'], 'old summary');
     queryClient.setQueryData(['stats', 'UTC'], 'old stats');
     const invalidate = vi.fn();
     const wrapper = ({ children }: { children: ReactNode }) => (
@@ -300,7 +281,7 @@ describe('useOptimisticMutation — include', () => {
 
     await waitFor(() => expect(invalidate).toHaveBeenCalledTimes(1));
     expect(invalidate.mock.calls[0]?.[2]).toEqual(['summary', 'stats']);
-    expect(queryClient.getQueryData(['summary'])).toBe('new summary');
+    expect(queryClient.getQueryData(['summary', 'UTC'])).toBe('new summary');
     expect(queryClient.getQueryData(['stats', 'UTC'])).toBe('new stats');
   });
 
@@ -333,7 +314,7 @@ describe('useOptimisticMutation — include', () => {
 
     await waitFor(() => expect(invalidate).toHaveBeenCalledTimes(1));
     expect(invalidate.mock.calls[0]?.[2]).toEqual([]);
-    expect(queryClient.getQueryData(['summary'])).toBe('old summary');
+    expect(queryClient.getQueryData(['summary', 'UTC'])).toBe('old summary');
   });
 
   it('writes only the last overlapping press’s answer', async () => {
@@ -348,13 +329,13 @@ describe('useOptimisticMutation — include', () => {
     await act(async () =>
       calls[0].resolve({ included: { summary: 'after start' } }),
     );
-    expect(queryClient.getQueryData(['summary'])).toBe('old summary');
+    expect(queryClient.getQueryData(['summary', 'UTC'])).toBe('old summary');
 
     await act(async () =>
       calls[1].resolve({ included: { summary: 'after stop' } }),
     );
     await waitFor(() =>
-      expect(queryClient.getQueryData(['summary'])).toBe('after stop'),
+      expect(queryClient.getQueryData(['summary', 'UTC'])).toBe('after stop'),
     );
   });
 

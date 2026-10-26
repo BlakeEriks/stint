@@ -17,6 +17,7 @@ import type {
   Settings,
   StoredLineItem,
   TimeEntry,
+  DraftChange,
 } from '@/lib/client/api';
 import { businessOf } from '@/components/invoice-preview-card';
 import { ZONE } from './time.mts';
@@ -31,12 +32,19 @@ import { ZONE } from './time.mts';
  * internal work.
  */
 
-type StoredInvoice = Invoice & { lineItems: StoredLineItem[] };
+/** A draft the story says moved since its PDF was rendered carries the
+ *  change and which lines are new; the fake keeps no snapshot of its own. */
+type StoredInvoice = Invoice & {
+  lineItems: (StoredLineItem & { isNew?: boolean })[];
+  changedSinceDownload?: DraftChange | null;
+};
 
 export interface Db {
   now: Date;
   email: string;
   settings: Settings;
+  /** Old terms text the move to days couldn't read (`legacy_payment_terms`). */
+  legacyPaymentTerms: string | null;
   clients: Client[];
   projects: Project[];
   entries: TimeEntry[];
@@ -89,11 +97,11 @@ export const settings = (): Settings => ({
   timeFormat: '12h',
   minEntrySeconds: 60,
   maxEntryHours: 12,
-  businessName: 'Blake Eriks',
+  businessName: 'Sam Rivera',
   businessAddress: '1200 Pine St, Suite 4\nSeattle, WA 98101',
-  businessEmail: 'billing@blakeeriks.test',
+  businessEmail: 'billing@samrivera.test',
   logoUrl: null,
-  defaultPaymentTerms: 'Net 30',
+  paymentTermsDays: 30,
   invoiceNumberPrefix: 'STINT-',
   nextInvoiceNumber: 16,
   paymentNotice:
@@ -109,6 +117,8 @@ const client = (c: Partial<Client> & Pick<Client, 'id' | 'name'>): Client => ({
   currency: 'USD',
   color: null,
   paymentProfileId: null,
+  billingSchedule: null,
+  paymentTermsDays: null,
   archivedAt: null,
   ...c,
 });
@@ -264,6 +274,7 @@ export function seed(now: Date): Db {
     now,
     email: 'dev@localhost.test',
     settings: settings(),
+    legacyPaymentTerms: null,
     clients,
     projects,
     entries,
@@ -283,7 +294,7 @@ export function seed(now: Date): Db {
         id: ids.ach,
         name: 'Business checking',
         isDefault: true,
-        accountHolderName: 'Blake Eriks',
+        accountHolderName: 'Sam Rivera',
         accountHolderAddress: null,
         bankName: 'First Federal Bank',
         bankAddress: null,
@@ -308,7 +319,7 @@ export function seed(now: Date): Db {
         id: ids.wire,
         name: 'International wire',
         isDefault: false,
-        accountHolderName: 'Blake Eriks',
+        accountHolderName: 'Sam Rivera',
         accountHolderAddress: '1200 Pine St, Suite 4\nSeattle, WA 98101',
         bankName: 'First Federal Bank',
         bankAddress: '1 Federal Plaza\nNew York, NY 10007',

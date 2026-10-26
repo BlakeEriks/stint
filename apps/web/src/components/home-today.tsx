@@ -7,7 +7,6 @@ import {
   localDateKey,
   startOfLocalDate,
   startOfLocalDayOffset,
-  uuidv7,
 } from '@stint/core';
 import {
   api,
@@ -15,15 +14,14 @@ import {
   type Stats,
   type TimeEntry,
 } from '@/lib/client/api';
-import { keys } from '@/lib/client/query-keys';
-import { timeZone as tz, useTimer } from '@/lib/client/use-timer';
+import { keys } from '@stint/client';
+import { timeZone as tz } from '@/lib/client/use-timer';
 import {
   useAllProjects,
   useProjectColors,
 } from '@/lib/client/use-project-colors';
 import { Money } from './money';
 import { FigGroup, FigLabel, PairLine, RegionHead, Pip } from './home-shell';
-import { rowBleed, rowButton } from './row-button';
 
 /**
  * Today: one figure and the day's tasks.
@@ -33,12 +31,6 @@ import { rowBleed, rowButton } from './row-button';
  */
 export function Today({ stats }: { stats: Stats }) {
   const colors = useProjectColors();
-  const timer = useTimer();
-  const pressed = timer.start.variables;
-  const pending =
-    timer.start.isPending && pressed?.whileRunning
-      ? taskKey(pressed.projectId ?? null, pressed.taskName)
-      : null;
 
   const { data } = useTodayEntries();
 
@@ -76,9 +68,8 @@ export function Today({ stats }: { stats: Stats }) {
 
       {/* A fixed ceiling rather than the panel's height: the page is a column
           sized by its content, so there is no bounded height to measure
-          against. Just under five rows, so the cut-off row says it scrolls.
-          Padded out by the rows' bleed, since a scroller clips sideways too. */}
-      <div className="-mx-2 mt-6 flex max-h-48 flex-col overflow-y-auto px-2">
+          against. Just under five rows, so the cut-off row says it scrolls. */}
+      <div className="mt-6 flex max-h-48 flex-col overflow-y-auto">
         {entries.length === 0
           ? /* An empty day keeps its rows rather than collapsing, the same way
                an unworked day in the week's chart keeps its caption: the
@@ -101,53 +92,30 @@ export function Today({ stats }: { stats: Stats }) {
               </div>
             ))
           : tasks.map((t) => (
-              /* The highlight sits a hair inside the rules. */
               <div
                 key={t.key}
-                className="border-t border-edge-subtle py-0.5 first:border-t-0"
+                data-task={t.key}
+                className="grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-edge-subtle py-2.5 first:border-t-0"
               >
-                {/* Starts the task again as a new entry, as the menu bar's
-                    recent rows do. */}
-                <button
-                  type="button"
-                  data-task={t.key}
-                  /* Pending only while a timer runs: otherwise the timer bar
-                     already shows the start. */
-                  aria-busy={pending === t.key}
-                  disabled={pending === t.key}
-                  onClick={() =>
-                    timer.start.mutate({
-                      id: uuidv7(),
-                      taskName: t.taskName,
-                      projectId: t.projectId,
-                      isBillable: t.isBillable,
-                    })
-                  }
-                  className={`${rowButton} ${rowBleed} grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 py-2 focus-visible:ring-inset disabled:opacity-60`}
+                {/* Only clients have a color; internal work takes the hollow
+                    ring, which is what having none looks like on a screen
+                    otherwise keyed by client. */}
+                <Pip
+                  color={t.projectId ? (colors.get(t.projectId) ?? null) : null}
+                />
+                <span
+                  className={`type-support truncate ${
+                    t.live ? 'text-primary' : 'text-muted'
+                  }`}
                 >
-                  <span className="sr-only">Start</span>{' '}
-                  {/* Only clients have a color; internal work takes the hollow
-                      ring, which is what having none looks like on a screen
-                      otherwise keyed by client. */}
-                  <Pip
-                    color={
-                      t.projectId ? (colors.get(t.projectId) ?? null) : null
-                    }
-                  />
-                  <span
-                    className={`type-support truncate ${
-                      t.live ? 'text-primary' : 'text-muted'
-                    }`}
-                  >
-                    {t.name}
-                    {t.projectName ? (
-                      <span className="text-subtle"> · {t.projectName}</span>
-                    ) : null}
-                  </span>
-                  <span className="type-duration text-subtle">
-                    {clock(t.seconds)}
-                  </span>
-                </button>
+                  {t.name}
+                  {t.projectName ? (
+                    <span className="text-subtle"> · {t.projectName}</span>
+                  ) : null}
+                </span>
+                <span className="type-duration text-subtle">
+                  {clock(t.seconds)}
+                </span>
               </div>
             ))}
       </div>
@@ -199,8 +167,7 @@ function useLocalDay(): string {
 
 /**
  * One row per task: a name under two projects is two tasks. Entries arrive
- * newest first, so a task sits where its latest entry would, and takes that
- * entry's billable flag to start with.
+ * newest first, so a task sits where its latest entry would.
  */
 function groupByTask(entries: TimeEntry[], projects: Project[]) {
   const names = new Map(projects.map((p) => [p.id, p.name]));
@@ -209,8 +176,6 @@ function groupByTask(entries: TimeEntry[], projects: Project[]) {
     {
       key: string;
       name: string;
-      taskName: string;
-      isBillable: boolean;
       projectId: string | null;
       projectName: string | null;
       seconds: number;
@@ -223,8 +188,6 @@ function groupByTask(entries: TimeEntry[], projects: Project[]) {
     const t = tasks.get(key) ?? {
       key,
       name,
-      taskName: e.taskName,
-      isBillable: e.isBillable,
       projectId: e.projectId,
       projectName: e.projectId ? (names.get(e.projectId) ?? null) : null,
       seconds: 0,

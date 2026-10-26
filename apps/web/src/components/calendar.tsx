@@ -29,7 +29,7 @@ import { Plus } from 'lucide-react';
 import { api, type TimeEntry } from '@/lib/client/api';
 import { Listing, Page, useLoaded } from './page';
 import { EntryDialog } from './entry-dialog';
-import { keys } from '@/lib/client/query-keys';
+import { keys } from '@stint/client';
 import { timeZone as tz } from '@/lib/client/use-timer';
 
 /** Hours between gridlines. Every 3 reads cleanly at both column widths. */
@@ -569,7 +569,8 @@ function DayHeading({
         {/* The keyboard path to adding an entry, and the discoverable one:
             clicking a time in the grid is faster but invisible until tried.
             Always in the DOM so it is tabbable; shown on hover or focus so
-            seven of them do not compete with the durations. */}
+            seven of them do not compete with the durations, and always where
+            there is no hover, or a touch screen could never reach it. */}
         <button
           type="button"
           onClick={onAdd}
@@ -577,7 +578,8 @@ function DayHeading({
           className="rounded-sm px-0.5 text-subtle opacity-0 transition-opacity
                      hover:text-primary focus-visible:opacity-100
                      focus-visible:ring-2 focus-visible:ring-edge-focus
-                     focus-visible:outline-none group-hover:opacity-100"
+                     focus-visible:outline-none group-hover:opacity-100
+                     [@media(hover:none)]:opacity-100"
         >
           <Plus aria-hidden className="size-3" strokeWidth={2.5} />
         </button>

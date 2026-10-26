@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ApiError, isBilledLock, isSameOwnerViolation } from './errors';
+import { ApiError, dbCode } from './errors';
 import { toExpense, type ExpenseRow, type InvoiceRow } from './rows';
 
 type InvoiceRef = Pick<InvoiceRow, 'id' | 'invoice_number' | 'status'>;
@@ -32,17 +32,17 @@ export async function withInvoices(db: SupabaseClient, rows: ExpenseRow[]) {
  * is a trigger, so it holds on every path; this only names it.
  */
 export function expenseWriteError(
-  error: { code?: string; message?: string },
+  error: { code?: string; message?: string; hint?: string },
   verb: 'modified' | 'deleted',
 ): Error {
-  if (isBilledLock(error)) {
+  if (dbCode(error) === 'EXPENSE_LOCKED') {
     return new ApiError(
       'EXPENSE_LOCKED',
       `This expense is billed on an issued invoice and cannot be ${verb}`,
     );
   }
   // A client that is not the caller's fails the same-owner key.
-  if (isSameOwnerViolation(error)) {
+  if (dbCode(error) === 'VALIDATION_FAILED') {
     return new ApiError('VALIDATION_FAILED', 'No such client', {
       constraint: error.message,
     });

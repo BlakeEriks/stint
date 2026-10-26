@@ -10,6 +10,8 @@
       "currency": null,
       "color": "#3b82f6",
       "paymentProfileId": null,
+      "billingSchedule": null,
+      "paymentTermsDays": null,
       "archivedAt": null
     }
   ]

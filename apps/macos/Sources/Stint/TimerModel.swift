@@ -149,7 +149,8 @@ final class TimerModel: Optimistic {
                     try await auth.signIn(email: account.email, password: account.password)
                 } catch {
                     previewSignInError = "Could not sign in as \(account.email): \(error.localizedDescription) "
-                        + "Re-run the PR's preview-db check, which seeds it."
+                        + "Re-run the PR's preview-db check, which seeds it; a PR with a migration "
+                        + "only once it is ready-for-qa."
                 }
             }
             if await tokens.isSignedIn {
@@ -217,13 +218,13 @@ final class TimerModel: Optimistic {
 
     /// Every request at once, then one assignment, so the panel changes in
     /// one step and waits on the slowest request rather than their sum.
-    private func fetch(full: Bool, recent: Bool) async {
+    private func fetch(full: Bool, recent: Bool, answered: Summary? = nil) async {
         guard await tokens.isSignedIn else { return }
         do {
             let fetchedAt = Date()
             let generation = predictions
             let api = api
-            async let summaryResult = api.summary()
+            async let summaryResult = answered == nil ? api.summary() : answered!
             guard full else {
                 let summary = try await summaryResult
                 guard generation == predictions, inFlight["timer", default: 0] == 0 else { return }
@@ -274,7 +275,7 @@ final class TimerModel: Optimistic {
             // "cancelled" — never the user's business.
         } catch is CancellationError {
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = userMessage(for: error)
         }
     }
 
@@ -357,7 +358,7 @@ final class TimerModel: Optimistic {
             }
         } perform: {
             try await api.startTimer(id: id, taskName: taskName, projectId: projectId)
-        }
+        } settle: { await self.settle($0) }
     }
 
     private func stop() async {
@@ -366,7 +367,12 @@ final class TimerModel: Optimistic {
             show(running: nil)
         } perform: {
             try await api.stopTimer()
-        }
+        } settle: { await self.settle($0) }
+    }
+
+    /// The refetch after a start or stop, less the summary it answered with.
+    private func settle(_ pressed: API.Pressed) async {
+        await fetch(full: true, recent: true, answered: pressed.included.summary)
     }
 
     private func patch(_ update: API.UpdateTimer) async {

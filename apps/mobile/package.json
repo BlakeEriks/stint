@@ -1,0 +1,61 @@
+{
+  "name": "@stint/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "index.ts",
+  "scripts": {
+    "prestart": "pnpm --filter @stint/design-tokens build",
+    "start": "expo start",
+    "preweb": "pnpm --filter @stint/design-tokens build",
+    "web": "expo start --web",
+    "pretypecheck": "pnpm --filter @stint/design-tokens build",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types test/*.test.ts",
+    "pretest:stories": "pnpm --filter @stint/design-tokens build",
+    "test:stories": "vitest run",
+    "eas-build-post-install": "pnpm --filter @stint/design-tokens build"
+  },
+  "dependencies": {
+    "@expo-google-fonts/ibm-plex-mono": "^0.4.1",
+    "@expo-google-fonts/ibm-plex-sans": "^0.4.1",
+    "@expo/metro-runtime": "~58.0.15",
+    "@stint/client": "workspace:*",
+    "@stint/core": "workspace:*",
+    "@stint/design-tokens": "workspace:^",
+    "@tanstack/react-query": "^5.104.1",
+    "expo": "~58.0.19",
+    "expo-constants": "~58.0.13",
+    "expo-crypto": "~58.0.7",
+    "expo-dev-client": "~58.0.15",
+    "expo-font": "~58.0.10",
+    "expo-secure-store": "~58.0.2",
+    "expo-status-bar": "~58.0.4",
+    "expo-system-ui": "~58.0.6",
+    "expo-updates": "~58.0.18",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-native": "0.88.0",
+    "react-native-safe-area-context": "~5.10.1",
+    "react-native-web": "~0.21.4"
+  },
+  "devDependencies": {
+    "@storybook/addon-a11y": "10.6.2",
+    "@storybook/react-native-web-vite": "10.6.1",
+    "@types/react": "^19.0.2",
+    "@vitest/browser-playwright": "5.0.5",
+    "playwright": "1.64.1",
+    "storybook": "10.6.2",
+    "typescript": "^6.0.3",
+    "vite": "8.3.4",
+    "vitest": "^5.0.5"
+  },
+  "expo": {
+    "install": {
+      "exclude": [
+        "react",
+        "react-dom"
+      ]
+    }
+  }
+}

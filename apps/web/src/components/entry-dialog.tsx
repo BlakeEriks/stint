@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useOptimisticMutation } from '@/lib/client/mutations';
+import {
+  useOptimisticMutation,
+  keys,
+  invalidateEntryData,
+} from '@stint/client';
 import {
   uuidv7,
   addDays,
@@ -29,7 +33,6 @@ import { ProjectPicker } from '@/components/project-picker';
 import { EntryScrubber } from '@/components/entry-scrubber';
 import { useProjectColors } from '@/lib/client/use-project-colors';
 import { api, ApiError, type Project, type TimeEntry } from '@/lib/client/api';
-import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 import { timeZone } from '@/lib/client/use-timer';
 
 const LABEL = 'type-label text-subtle';

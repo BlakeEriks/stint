@@ -21,30 +21,29 @@ To check the Inbox they leave New invoice, and the draft is lost.
   once? → A: Per-screen. Every workspace screen folds the dock on its own; no
   setting. A toggle would be a preference to store and a choice nobody needs
   to make, since a screen is a workspace because it needs the room. (decided
-  autonomously — Blake to review)
+  autonomously)
 - Q: How does an open fold close, and does it trap focus like a dialog? → A:
   It's a non-modal popover. It closes on a press outside it, Escape, its icon
   pressed again, focus leaving it, and navigation; pressing the other icon
   swaps to that region. Focus moves into it on open and back to the icon on
   close. It doesn't trap focus or dim the screen, because it's a glance at
   something beside the work, not a step the work waits on. (decided
-  autonomously — Blake to review)
+  autonomously)
 - Q: Does the Inbox earn the strip alone, with Today waiting? → A: Both, as
   option B draws them. Today costs one icon and no new content, and the
   strip with Today keeps the folded dock a fold of the whole dock rather
   than a second, smaller one. Only the Inbox carries a count. (decided
-  autonomously — Blake to review)
+  autonomously)
 - Q: What does a workspace screen show below laptop width, where the dock is
   a band beneath the content rather than a side column? → A: The full dock
   band, as on every other screen. Below laptop width the dock takes height
   under the content, not width beside it, so there's no room to win by
   hiding it. The strip shows only where the full dock would be a side
-  column. (decided autonomously — Blake to review)
+  column. (decided autonomously)
 - Q: Can the strip's icons go without a visible label, against the
   convention that every action carries one? → A: Yes, as a third exception
   in `.claude/rules/web-ui.md`: each icon has an accessible name and a
-  tooltip, and the strip is 44px by design. (decided autonomously — Blake to
-  review)
+  tooltip, and the strip is 44px by design. (decided autonomously)
 
 ## Design
 

@@ -4,8 +4,17 @@ import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useOptimisticMutation } from '@/lib/client/mutations';
-import { documentOpens, formatCompact, formatCurrency } from '@stint/core';
+import {
+  useOptimisticMutation,
+  keys,
+  invalidateEntryData,
+} from '@stint/client';
+import {
+  documentOpens,
+  formatCompact,
+  formatCurrency,
+  parseTermsDays,
+} from '@stint/core';
 import {
   Check,
   DollarSign,
@@ -18,6 +27,7 @@ import {
 import {
   api,
   type InvoiceStatus,
+  type SettingsInput,
   type Stats,
   type TimeEntry,
 } from '@/lib/client/api';
@@ -25,8 +35,8 @@ import { useExit } from '@/lib/client/use-exit';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { EntryDialog } from './entry-dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { RateInput, isValidRate, parseRate } from './rate-input';
-import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 type Attention = Stats['attention'];
 
@@ -34,8 +44,10 @@ type Attention = Stats['attention'];
 export function inboxCount(attention: Attention) {
   return (
     (attention.noDefaultRate ? 1 : 0) +
+    (attention.paymentTermsToCheck !== null ? 1 : 0) +
     attention.overdueInvoices.length +
     attention.staleDrafts.length +
+    attention.lateEntries.length +
     attention.unprojected.length +
     attention.strangeDurations.length +
     attention.overlaps.length
@@ -46,10 +58,12 @@ export function inboxCount(attention: Attention) {
 type InboxRow =
   | { id: string; kind: 'overdue'; row: Attention['overdueInvoices'][number] }
   | { id: string; kind: 'draft'; row: Attention['staleDrafts'][number] }
+  | { id: string; kind: 'late'; row: Attention['lateEntries'][number] }
   | { id: string; kind: 'unprojected'; row: Attention['unprojected'][number] }
   | { id: string; kind: 'strange'; row: Attention['strangeDurations'][number] }
   | { id: string; kind: 'overlap'; row: Attention['overlaps'][number] }
-  | { id: 'rate'; kind: 'rate' };
+  | { id: 'rate'; kind: 'rate' }
+  | { id: 'terms'; kind: 'terms'; text: string };
 
 /**
  * The dock's inbox: everything that wants a decision, in one fixed place.
@@ -72,6 +86,7 @@ export function Inbox({ stats }: { stats: Stats }) {
   const {
     overdueInvoices,
     staleDrafts,
+    lateEntries,
     unprojected,
     strangeDurations,
     overlaps,
@@ -162,22 +177,25 @@ export function Inbox({ stats }: { stats: Stats }) {
     },
   });
 
-  /* The default rate prices every figure on Home, so they all go. The row
-     comes back holding what was typed, so it says why itself. */
-  const saveRate = useOptimisticMutation({
+  /* A settings question answered in place: the default rate prices every
+     figure on Home, so they all go. The row comes back holding what was
+     typed, so it says why itself. */
+  const answer = useOptimisticMutation({
     queryKey: () => keys.stats(),
-    onError: () => exit.unmark('rate'),
+    onError: (_, { id }) => exit.unmark(id),
     inline: true,
-    mutationFn: (defaultHourlyRate: number) =>
-      api.updateSettings({ defaultHourlyRate }),
-    invalidate: async (qc) => {
-      await leaving.get('rate');
+    mutationFn: ({ patch }: { id: SettingsRowId; patch: SettingsInput }) =>
+      api.updateSettings(patch),
+    invalidate: async (qc, { id }) => {
+      await leaving.get(id);
       return Promise.all([
         qc.invalidateQueries({ queryKey: keys.settings() }),
         invalidateEntryData(qc),
       ]);
     },
   });
+  const answered = (id: SettingsRowId) =>
+    answer.variables?.id === id ? answer.error?.message : undefined;
 
   /* The order is this concatenation. Overdue sorts first and carries danger;
      every other row is neutral. Never the accent — that belongs to the
@@ -193,10 +211,26 @@ export function Inbox({ stats }: { stats: Stats }) {
       kind: 'draft' as const,
       row: d,
     })),
+    /* Money no invoice holds, beside the invoices: work dated in a period
+       already sent. */
+    ...lateEntries.map((e) => ({
+      id: `late:${e.entryId}`,
+      kind: 'late' as const,
+      row: e,
+    })),
     /* A chore like a draft, so it sits with them, above the entry rows: the
        rate is what prices every one of those entries. */
     ...(stats.attention.noDefaultRate
       ? [{ id: 'rate' as const, kind: 'rate' as const }]
+      : []),
+    ...(stats.attention.paymentTermsToCheck !== null
+      ? [
+          {
+            id: 'terms' as const,
+            kind: 'terms' as const,
+            text: stats.attention.paymentTermsToCheck,
+          },
+        ]
       : []),
     ...unprojected.map((u) => ({
       id: u.entryId,
@@ -249,13 +283,51 @@ export function Inbox({ stats }: { stats: Stats }) {
         <ul className="flex flex-col">
           {rows.map((r) =>
             r.kind === 'rate' ? (
-              <RateRow
+              <SettingsRow
                 key={r.id}
-                onSubmit={(rate) => {
-                  leave(r.id);
-                  saveRate.mutate(rate);
+                label="Set your default rate"
+                detail="Home can't show money without one"
+                input={(p) => (
+                  <RateInput
+                    {...p}
+                    aria-label="Default hourly rate"
+                    placeholder="100.00"
+                  />
+                )}
+                initial=""
+                parse={(text) => {
+                  const rate = parseRate(text);
+                  return isValidRate(rate) ? rate : null;
                 }}
-                error={saveRate.error?.message}
+                invalid="A rate is a number, zero or more."
+                onSubmit={(defaultHourlyRate) => {
+                  leave(r.id);
+                  answer.mutate({ id: r.id, patch: { defaultHourlyRate } });
+                }}
+                error={answered(r.id)}
+                exiting={exit.exiting.has(r.id)}
+                ref={exit.register(r.id)}
+              />
+            ) : r.kind === 'terms' ? (
+              <SettingsRow
+                key={r.id}
+                label="Check your payment terms"
+                detail={`You wrote “${r.text}”. Invoices now print Net 30.`}
+                input={(p) => (
+                  <Input
+                    {...p}
+                    aria-label="Payment terms in days"
+                    inputMode="numeric"
+                  />
+                )}
+                initial="30"
+                parse={parseTermsDays}
+                invalid="Whole days, 0 to 365."
+                onSubmit={(paymentTermsDays) => {
+                  leave(r.id);
+                  answer.mutate({ id: r.id, patch: { paymentTermsDays } });
+                }}
+                error={answered(r.id)}
                 exiting={exit.exiting.has(r.id)}
                 ref={exit.register(r.id)}
               />
@@ -295,8 +367,10 @@ export function Inbox({ stats }: { stats: Stats }) {
   );
 }
 
-/** The rate row holds a form's state, so it is its own component. */
-type ItemRow = Exclude<InboxRow, { kind: 'rate' }>;
+type SettingsRowId = Extract<InboxRow, { kind: 'rate' | 'terms' }>['id'];
+
+/** A settings row holds a form's state, so it is its own component. */
+type ItemRow = Exclude<InboxRow, { kind: SettingsRowId }>;
 
 type Handlers = {
   downloads: boolean;
@@ -339,6 +413,8 @@ function itemFor(r: ItemRow, h: Handlers): ItemProps {
       return unprojectedItem(r.row, h);
     case 'overlap':
       return overlapItem(r.row, h);
+    case 'late':
+      return lateItem(r.row, h);
     case 'strange':
       return strangeItem(r.row, h);
   }
@@ -452,6 +528,24 @@ function overlapItem(o: Attention['overlaps'][number], h: Handlers) {
     detail: `Overlaps ${o.otherTaskName || 'another entry'}${invoice} · ${dayLabel(o.startedAt, tz)}`,
     tone: 'warning',
     action: editEntry(o.taskName),
+  });
+}
+
+/* Billed nowhere, and never moved onto the next invoice unasked: the
+   entry opens, where it can be marked not billable, or it waits for a later
+   invoice. */
+function lateItem(e: Attention['lateEntries'][number], h: Handlers) {
+  return entryItem({ ...e, seconds: Math.round(e.hours * 3600) }, h, {
+    focus: 'task',
+    detail: [
+      e.clientName,
+      dayLabel(e.startedAt, tz),
+      `in ${e.invoiceNumber}'s period, already sent`,
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    tone: 'warning',
+    action: editEntry(e.taskName),
   });
 }
 
@@ -669,54 +763,62 @@ function Action({
 }
 
 /**
- * The account has no default rate, so Home cannot price its work. The rate
- * is entered here rather than in Settings, since this is where the question
- * is asked.
+ * A setting the Inbox asks for, answered here rather than in Settings, since
+ * this is where the question is asked: the default rate while there is none,
+ * or payment terms the move to days couldn't read.
  */
-function RateRow({
+function SettingsRow({
+  label,
+  detail,
+  input,
+  initial,
+  parse,
+  invalid,
   onSubmit,
   error,
   exiting,
   ref,
 }: {
-  onSubmit: (rate: number) => void;
+  label: string;
+  detail: string;
+  input: (props: React.ComponentProps<'input'>) => React.ReactNode;
+  initial: string;
+  parse: (text: string) => number | null;
+  /** Said under the field while what's typed doesn't parse. */
+  invalid: string;
+  onSubmit: (value: number) => void;
   /** The server's refusal of the last save, shown once the row is back. */
   error?: string;
   exiting: boolean;
   ref: React.Ref<HTMLLIElement>;
 }) {
-  const [text, setText] = useState('');
-  const rate = parseRate(text);
-  const shown =
-    text !== '' && !isValidRate(rate)
-      ? 'A rate is a number, zero or more.'
-      : error;
+  const [text, setText] = useState(initial);
+  const value = parse(text);
+  const shown = text !== '' && value === null ? invalid : error;
 
   return (
     <Item
       exiting={exiting}
       ref={ref}
-      label="Set your default rate"
-      detail="Home can't show money without one"
+      label={label}
+      detail={detail}
       tone="neutral"
       actions={
         <form
           className="flex w-full flex-col gap-1.5"
           onSubmit={(e) => {
             e.preventDefault();
-            if (isValidRate(rate)) onSubmit(rate);
+            if (value !== null) onSubmit(value);
           }}
         >
           <div className="flex items-center gap-1.5">
-            <RateInput
-              className="flex-1"
-              aria-label="Default hourly rate"
-              aria-invalid={shown ? true : undefined}
-              placeholder="100.00"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-            />
-            <Button type="submit" size="xs" disabled={!isValidRate(rate)}>
+            {input({
+              className: 'flex-1',
+              'aria-invalid': shown ? true : undefined,
+              value: text,
+              onChange: (e) => setText(e.target.value),
+            })}
+            <Button type="submit" size="xs" disabled={value === null}>
               Save
             </Button>
           </div>

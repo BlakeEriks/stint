@@ -30,7 +30,10 @@ export function makeDb(pool, userId) {
       const r = await pool.query(sql, params);
       return { rows: r.rows, error: null };
     } catch (e) {
-      return { rows: [], error: { code: e.code, message: e.message } };
+      return {
+        rows: [],
+        error: { code: e.code, message: e.message, hint: e.hint },
+      };
     }
   };
 

@@ -5,6 +5,7 @@ import {
   formatHours,
   formatQuantity,
   type PaymentDetails,
+  paymentTermsText,
   SCHEDULE_KINDS,
   SCHEDULE_TITLES,
   type ScheduleKind,
@@ -56,7 +57,7 @@ export type CardFigures = Pick<
     Pick<
       InvoicePreview['lineItems'][number],
       'description' | 'unit' | 'quantity' | 'unitPrice' | 'amount' | 'spentOn'
-    >
+    > & { isNew?: boolean }
   >;
   entryCount?: number;
 };
@@ -94,7 +95,7 @@ export function InvoicePreviewCard({
   client: Pick<Client, 'name' | 'address' | 'email'> | undefined;
   /** Undefined while it loads. */
   business: Business | undefined;
-  /** The default terms and the payment notice. */
+  /** The payment notice. */
   settings: Settings | undefined;
   /** A prediction: generation allocates the number. */
   number: string;
@@ -104,7 +105,8 @@ export function InvoicePreviewCard({
   payment: PaymentDetails | null;
   schedules: ScheduleKind[];
   updating: boolean;
-  /** Undefined prints the default terms generation will freeze. */
+  /** Undefined prints the terms generation will freeze, made from `issued`
+   *  and `due`. */
   paymentTerms?: string | null;
   notes?: string | null;
   /** False on an issued invoice, which is the invoice, not a preview of it. */
@@ -116,7 +118,11 @@ export function InvoicePreviewCard({
   children?: React.ReactNode;
 }) {
   const terms =
-    paymentTerms === undefined ? settings?.defaultPaymentTerms : paymentTerms;
+    paymentTerms === undefined
+      ? due && due >= issued
+        ? paymentTermsText(issued, due)
+        : null
+      : paymentTerms;
   const scrollerFocus = useScrollerFocus();
 
   return (
@@ -382,6 +388,9 @@ function PaymentFields({ fields }: { fields: PaymentDetails['fields'] }) {
   );
 }
 
+/** A draft's line its last PDF didn't have: the reason Mark sent waits. */
+const NEW = 'bg-warning-muted';
+
 function Lines({
   preview,
   terms,
@@ -424,7 +433,10 @@ function Lines({
         </thead>
         <tbody>
           {services.map((li, i) => (
-            <tr key={i} className="border-b border-edge-subtle last:border-0">
+            <tr
+              key={i}
+              className={`border-b border-edge-subtle last:border-0 ${li.isNew ? NEW : ''}`}
+            >
               <td className="py-2.5 text-primary">{li.description}</td>
               <td className={`${TD} text-muted`}>
                 {formatQuantity(li.unit, li.quantity)}
@@ -446,7 +458,10 @@ function Lines({
               </th>
             </tr>
             {expenses.map((li, i) => (
-              <tr key={i} className="border-b border-edge-subtle last:border-0">
+              <tr
+                key={i}
+                className={`border-b border-edge-subtle last:border-0 ${li.isNew ? NEW : ''}`}
+              >
                 <td className="py-2.5 text-primary">{li.description}</td>
                 <td className={`${TD} text-muted`}>{shortDate(li.spentOn)}</td>
                 <td className={RATE} />

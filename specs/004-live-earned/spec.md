@@ -7,7 +7,7 @@
 **Status**: Draft
 
 **Input**: The go decision in `.specify/assessments/live-earned/decision.md`,
-from Today showing `$0.00` beside `22m` with a timer running, and Blake's
+from Today showing `$0.00` beside `22m` with a timer running, and the contractor's
 direction to refresh only while the app is in view
 
 ## Design
@@ -19,9 +19,9 @@ refresh while a timer runs.
 
 ### User Story 1 - Today's money moves with today's time (Priority: P1)
 
-Blake starts a timer on a rated project and leaves the home screen open.
+The contractor starts a timer on a rated project and leaves the home screen open.
 Every minute, Today's Earned and the running task's row grow together, and
-they never disagree. When he stops the timer, nothing jumps.
+they never disagree. When they stop the timer, nothing jumps.
 
 **Why this priority**: This is the screen and the contradiction that started
 the work: time grew while money sat at `$0.00`.
@@ -35,11 +35,11 @@ the duration, and stopping changes no figure.
 1. **Given** a timer running on a $100.00/h project with the home screen in
    view, **When** a minute passes, **Then** Today's duration, the running
    task's row and Earned all reflect the same elapsed time, from one answer.
-2. **Given** a timer that has run 30 minutes, **When** Blake stops it,
+2. **Given** a timer that has run 30 minutes, **When** the contractor stops it,
    **Then** Today's Earned and duration are unchanged by the stop.
 3. **Given** a timer running on a project with no rate, **When** a minute
    passes, **Then** the duration grows and Earned does not.
-4. **Given** earlier entries today and a running timer, **When** Blake reads
+4. **Given** earlier entries today and a running timer, **When** the contractor reads
    Earned, **Then** it is the closed entries plus the running session, priced
    the way the invoice will price it.
 
@@ -63,7 +63,7 @@ the same minutes.
 1. **Given** a running timer, **When** a minute passes, **Then** today's week
    bar, the month's Earned, the month's projection and the dock's Earned
    take in the running session alongside Today.
-2. **Given** a running timer, **When** Blake compares Today's Earned with the
+2. **Given** a running timer, **When** the contractor compares Today's Earned with the
    growth of the month's Earned since the timer started, **Then** they
    agree.
 
@@ -74,7 +74,7 @@ the same minutes.
 Unbilled on web and in the macOS menu bar panel include the running session,
 because it is work done and not yet invoiced.
 
-**Why this priority**: The menu bar is where Blake glances mid-session, and
+**Why this priority**: The menu bar is where the contractor glances mid-session, and
 it shows Unbilled, not Earned.
 
 **Independent Test**: With a timer running, open the menu bar panel and the
@@ -83,11 +83,11 @@ includes the running session.
 
 **Acceptance Scenarios**:
 
-1. **Given** a running timer, **When** Blake opens the menu bar panel,
+1. **Given** a running timer, **When** the contractor opens the menu bar panel,
    **Then** Unbilled includes the session so far.
 2. **Given** the panel stays open, **When** a minute passes, **Then**
    Unbilled grows with the session.
-3. **Given** a running timer, **When** Blake creates an invoice, **Then** the
+3. **Given** a running timer, **When** the contractor creates an invoice, **Then** the
    running entry is not on it.
 
 ---

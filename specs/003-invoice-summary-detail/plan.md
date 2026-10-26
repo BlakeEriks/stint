@@ -9,8 +9,8 @@
 ## Summary
 
 New invoice gains a fifth way to show time, **One summary line**. It gives one
-line per rate, carrying Blake's own text, so the total sits right under the
-work. With a summary, he can attach **supporting detail**: hours by project,
+line per rate, carrying the contractor's own text, so the total sits right under the
+work. With a summary, they can attach **supporting detail**: hours by project,
 by week and by date, from page 2 of the PDF. The tables are computed from the
 billed entries at generation, by the same pure function the preview uses, and
 frozen with the invoice. The form becomes one
@@ -66,7 +66,7 @@ No NEEDS CLARIFICATION remain. `research.md` settles each decision.
 
 | Principle (`.specify/memory/constitution.md`) | Applies | How the design meets it |
 | --- | --- | --- |
-| I. Never silently modifies user data | Yes | Nothing is corrected for Blake. An empty summary line blocks Generate with its reason at the field. An unrated entry blocks as in every mode. |
+| I. Never silently modifies user data | Yes | Nothing is corrected for the contractor. An empty summary line blocks Generate with its reason at the field. An unrated entry blocks as in every mode. |
 | II. Logic written twice has a parity test | Yes, no SQL twin | Lines and schedules are computed only in `@stint/core` and called by the preview, `POST /invoices` and the mock `/api/v1`. `mocks-parity.test.ts` extends to `schedules`. |
 | III. Every client through `/api/v1`; server owns truth | Yes | The preview and generation are route handlers. No Server Actions. The card's number is a prediction that generation replaces (R7). |
 | IV. `packages/core` does no I/O | Yes | `buildSchedules` and `paginateSchedules` take entries, the zone and the period as arguments. The routes read, core transforms. |

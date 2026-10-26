@@ -2,7 +2,7 @@
 
 ## Where a submission lands
 
-- **Decision**: a `feedback` table in our Postgres, read by Blake in the
+- **Decision**: a `feedback` table in our Postgres, read by the owner in the
   Supabase dashboard with a saved query that joins `auth.users` for the
   email.
 - **Rationale**: It costs nothing new, adds no secret and no third party,
@@ -24,7 +24,7 @@
 ## What "the screen" is
 
 - **Decision**: the pathname from `usePathname()`, such as `/invoices/<id>`.
-- **Rationale**: It's exact, needs no mapping table, and the id points Blake
+- **Rationale**: It's exact, needs no mapping table, and the id points the owner
   at the record the user was looking at.
 
 ## Retries

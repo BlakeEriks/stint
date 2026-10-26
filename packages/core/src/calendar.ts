@@ -167,12 +167,11 @@ export function businessDaysInLocalMonth(
   tz: string,
 ): { elapsed: number; total: number } {
   const { y, m, d: today } = localDate(now, tz);
-  // Day 0 of the next month is the last day of this one.
-  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const days = daysInMonth(y, m);
 
   let elapsed = 0;
   let total = 0;
-  for (let d = 1; d <= daysInMonth; d += 1) {
+  for (let d = 1; d <= days; d += 1) {
     // getUTCDay on a UTC-midnight date gives that calendar date's weekday.
     const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
     if (dow === 0 || dow === 6) continue;
@@ -296,6 +295,11 @@ export function localDateTimeToInstant(
   guess = new Date(wall - tzOffset(guess, tz));
   return guess;
 }
+
+/** Days in month `m` (1–12) of year `y`: day 0 of the next month is the
+ *  last day of this one. */
+export const daysInMonth = (y: number, m: number): number =>
+  new Date(Date.UTC(y, m, 0)).getUTCDate();
 
 /** `date` stepped `n` days on the calendar rather than in milliseconds. */
 export function addDays(date: string, n: number): string {

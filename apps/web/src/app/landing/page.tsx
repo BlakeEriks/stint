@@ -1,9 +1,12 @@
 import type { Metadata } from 'next';
 import { Laptop, Monitor, Smartphone } from 'lucide-react';
+import Image from 'next/image';
 import { DemoTimer } from '@/components/marketing/demo-timer';
 import { InviteRequest } from '@/components/marketing/invite-request';
 import { ScrollRegion } from '@/components/marketing/scroll-region';
 import { Wordmark } from '@/components/wordmark';
+import homeUnbilled from './home-unbilled.png';
+import macTimer from './mac-timer.png';
 
 /**
  * Served at `/` on the apex domain, rewritten there by `src/proxy.ts`.
@@ -207,67 +210,24 @@ function Unbilled() {
       lede={
         <>
           Most trackers only count hours, so they can&rsquo;t tell you. Stint
-          knows your rates, so it can &mdash; per client, on the home screen,
-          every time you open it.
+          knows your rates, so it can &mdash; on the home screen, every time you
+          open it.
         </>
       }
       aside={
-        /* Figures from the app's own seed data. Unbilled and awaiting payment
-           are different money and are never summed: adding them double-counts
-           the same hours. Awaiting payment is one line at the foot, not a
-           card and not a row per invoice. */
-        <div className="w-full rounded-xl bg-surface-primary p-6 shadow-float sm:p-7">
-          <p className="type-label text-muted">Unbilled</p>
-          <p className="type-figure mt-2 text-strong">$1,462.50</p>
-          <dl className="mt-6 flex flex-col gap-3">
-            <UnbilledRow
-              color="#64A3E3"
-              name="Northwind Trading"
-              detail="18h 30m"
-              amount="$975.00"
-            />
-            <UnbilledRow
-              color="#F6964E"
-              name="Harbour & Co."
-              detail="9h 45m"
-              amount="$487.50"
-            />
-          </dl>
-          <p className="type-support mt-5 flex justify-between border-t border-edge-subtle pt-4 text-muted">
-            <span>Awaiting payment</span>
-            <span className="type-duration text-primary">$2,340.00</span>
-          </p>
-        </div>
+        /* The home's month figures, captured from the seeded local account
+           (`pnpm seed`) at 2x in the dark theme the page is set in, and shown
+           at 1:1 so their labels stay legible. The chart beside them is left
+           out: its projection ends in a green dot, and green here means a
+           running timer. Retake it when the month region changes. */
+        <Image
+          src={homeUnbilled}
+          alt="Stint's home screen: this month's billable total, what it is on track for, the unbilled total, and what is awaiting payment"
+          sizes="19.5rem"
+          className="mx-auto h-auto w-full max-w-78 rounded-xl shadow-float"
+        />
       }
     />
-  );
-}
-
-function UnbilledRow({
-  color,
-  name,
-  detail,
-  amount,
-}: {
-  color: string;
-  name: string;
-  detail: string;
-  amount: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <dt className="flex min-w-0 items-center gap-2.5">
-        {/* Color belongs to the client, never the project. */}
-        <span
-          aria-hidden
-          className="size-2 flex-none rounded-full"
-          style={{ backgroundColor: color }}
-        />
-        <span className="type-control truncate text-primary">{name}</span>
-        <span className="type-meta flex-none text-subtle">{detail}</span>
-      </dt>
-      <dd className="type-duration flex-none text-primary">{amount}</dd>
-    </div>
   );
 }
 
@@ -334,8 +294,9 @@ function Aside({
 }
 
 /**
- * A styled preview rather than a screenshot: it stays sharp at any width,
- * costs no image bytes, and cannot go stale against the real template.
+ * Drawn, where the rest of the page shows screenshots: the invoice is the
+ * deliverable, and set in HTML its figures stay sharp at any width, where a
+ * picture of the PDF would blur and show nothing more.
  *
  * Deliberately rendered on white with near-black figures. The real PDF sets
  * its total in the light-theme accent, which is correct on paper but would
@@ -452,17 +413,28 @@ function Platforms() {
         </>
       }
       aside={
-        <div className="grid gap-3 sm:grid-cols-3">
-          {surfaces.map(({ icon: Icon, label, detail }) => (
-            <div
-              key={label}
-              className="flex flex-col gap-2 rounded-lg bg-surface-primary p-4 shadow-card"
-            >
-              <Icon aria-hidden className="size-4 text-muted" />
-              <span className="type-heading text-strong">{label}</span>
-              <span className="type-support text-muted">{detail}</span>
-            </div>
-          ))}
+        <div className="flex flex-col gap-6">
+          {/* The Mac panel, captured with `apps/macos/qa.sh shot` signed in
+              as the seeded local account, then cropped to its timer and
+              today: below that it lists task names. */}
+          <Image
+            src={macTimer}
+            alt="Stint's Mac menu bar panel: a running timer, its task and project, and today's hours and their value"
+            sizes="20rem"
+            className="mx-auto h-auto w-full max-w-xs rounded-xl shadow-float"
+          />
+          <div className="grid gap-3 sm:grid-cols-3">
+            {surfaces.map(({ icon: Icon, label, detail }) => (
+              <div
+                key={label}
+                className="flex flex-col gap-2 rounded-lg bg-surface-primary p-4 shadow-card"
+              >
+                <Icon aria-hidden className="size-4 text-muted" />
+                <span className="type-heading text-strong">{label}</span>
+                <span className="type-support text-muted">{detail}</span>
+              </div>
+            ))}
+          </div>
         </div>
       }
     />

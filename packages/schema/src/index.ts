@@ -7,9 +7,12 @@
  */
 
 import {
+  BILLING_PERIODS,
   isValidTimeZone,
+  needsAnchor,
   SUBSCRIPTION_STATUSES,
   validateRoutingNumber,
+  PAYMENT_TERMS_MAX_DAYS,
 } from '@stint/core';
 import { z } from 'zod';
 
@@ -24,15 +27,18 @@ const hexColor = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
  * server cannot infer, so the client states the zone.
  *
  * `catch` rather than a hard failure on the read endpoints: a view that
- * renders in UTC beats a view that does not render. The write endpoints use
- * `timeZoneStrict`, because a zone that silently becomes UTC decides which
- * entries land on an invoice.
+ * renders in UTC beats a view that does not render. The write endpoints, and
+ * the reads that refresh a draft, reject one instead, because a zone that
+ * silently becomes UTC decides which entries land on an invoice.
  */
 export const timeZone = z.string().refine(isValidTimeZone).catch('UTC');
-export const timeZoneStrict = z
+const ianaZone = z
   .string()
-  .refine(isValidTimeZone, { message: 'not an IANA time zone' })
-  .default('UTC');
+  .refine(isValidTimeZone, { message: 'not an IANA time zone' });
+export const timeZoneStrict = ianaZone.default('UTC');
+
+/** Whole days from issue to due; 0 is due on receipt. */
+const termsDays = z.number().int().min(0).max(PAYMENT_TERMS_MAX_DAYS);
 
 /** Query parameters arrive as strings; a flag is spelled out either way. */
 const boolParam = z
@@ -41,6 +47,19 @@ const boolParam = z
   .transform((v) => v === 'true');
 
 // ── client ─────────────────────────────────────────────────────────
+/** How often a client's contract bills it (`BillingSchedule` in
+ *  `@stint/core`). Strict, so an anchor on a calendar period is refused
+ *  rather than dropped. */
+export const BillingSchedule = z.discriminatedUnion('period', [
+  z.strictObject({
+    period: z.enum(BILLING_PERIODS.filter(needsAnchor)),
+    anchor: z.iso.date(),
+  }),
+  z.strictObject({
+    period: z.enum(BILLING_PERIODS.filter((p) => !needsAnchor(p))),
+  }),
+]);
+
 export const Client = z.object({
   id: uuid,
   name: z.string().trim().min(1).max(200),
@@ -53,6 +72,10 @@ export const Client = z.object({
   /** Overrides the user's default payment profile on this client's invoices;
    *  a dangling reference falls back rather than rendering nothing. */
   paymentProfileId: uuid.nullable().optional(),
+  /** Null is no schedule; omitted on a PATCH leaves it as it is. */
+  billingSchedule: BillingSchedule.nullable().optional(),
+  /** Overrides the user's payment terms; null uses them. */
+  paymentTermsDays: termsDays.nullable().optional(),
   archivedAt: iso.nullable().optional(),
 });
 export const CreateClient = Client.omit({ id: true, archivedAt: true }).extend({
@@ -241,6 +264,11 @@ export const CalendarQuery = z.object({
 });
 
 // ── settings ───────────────────────────────────────────────────────
+/** Well under the integer column's limit: the number moves forward only, so
+    one near the limit could never be undone and would overflow when
+    `allocate_invoice_number()` adds one. */
+export const NEXT_INVOICE_NUMBER_MAX = 999_999;
+
 export const Settings = z.object({
   defaultHourlyRate: money.nullable(),
   currency,
@@ -261,20 +289,19 @@ export const Settings = z.object({
   businessAddress: z.string().max(1000).nullable(),
   businessEmail: z.email().nullable(),
   logoUrl: z.url().nullable(),
-  defaultPaymentTerms: z.string().max(200),
+  paymentTermsDays: termsDays,
   invoiceNumberPrefix: z.string().max(20),
-  nextInvoiceNumber: z.number().int().positive(),
+  nextInvoiceNumber: z.number().int().positive().max(NEXT_INVOICE_NUMBER_MAX),
   /** Standing anti-fraud line printed under the invoice payment block. */
   paymentNotice: z.string().max(500).nullable(),
   /** When the welcome dialog was finished or skipped; null shows it. */
   welcomedAt: iso.nullable(),
 });
-/**
- * `nextInvoiceNumber` is not client-settable: gapless numbering depends on
- * allocate_invoice_number() holding the row lock.
- */
-export const UpdateSettings = Settings.partial().omit({
-  nextInvoiceNumber: true,
+/** `nextInvoiceNumber` moves forward only, under its ceiling. The settings
+    route refuses either in one shape, naming the field, so the ceiling is
+    not Zod's here. */
+export const UpdateSettings = Settings.partial().extend({
+  nextInvoiceNumber: z.number().int().positive().optional(),
 });
 
 /** What deleting the account removes, counted so the confirm can say so. */
@@ -357,7 +384,7 @@ const hours = z.number().nonnegative();
 
 /**
  * Supporting detail, in hours only. Every table on a preview; on an invoice,
- * only the ticked ones, frozen at generation.
+ * only the ticked ones, frozen when sent.
  */
 export const Schedules = z.object({
   project: z.array(z.object({ project: z.string(), hours })).optional(),
@@ -419,6 +446,12 @@ export const StoredLineItem = InvoiceLineItem.extend({
   sortOrder: z.number().int().nonnegative(),
 });
 
+const Change = z.object({ from: z.number(), to: z.number() });
+
+/** How a draft moved since its PDF was last rendered: what Mark sent's
+ *  `DRAFT_CHANGED` carries, and the detail's `changedSinceDownload`. */
+export const DraftChange = z.object({ hours: Change, total: Change });
+
 export const InvoicePreview = z.object({
   clientId: uuid,
   /** Echoed back so the approval screen names the client it priced, rather
@@ -455,7 +488,6 @@ export const CreateInvoice = InvoicePreviewRequest.extend({
   issueDate: z.iso.date().optional(),
   dueDate: z.iso.date().optional(),
   notes: z.string().max(2000).optional(),
-  paymentTerms: z.string().max(200).optional(),
   /** The PO, contract or SOW the client matches the invoice to. */
   reference: z
     .string()
@@ -495,10 +527,10 @@ export const InvoiceStatus = z.enum(['draft', 'sent', 'paid', 'void']);
 /**
  * An issued invoice, as the API returns it.
  *
- * Line items are NOT part of this shape: they are frozen at generation and
- * fetched with the detail view, and re-deriving them from time entries is the
- * thing that must never happen — re-downloading a year later has to produce
- * the same document.
+ * Line items are NOT part of this shape: they are fetched with the detail
+ * view. A draft's are re-derived from its period's work on every read; once
+ * sent they are frozen, and re-deriving them is the thing that must never
+ * happen — re-downloading a year later has to produce the same document.
  */
 export const Invoice = z.object({
   id: uuid,
@@ -523,7 +555,7 @@ export const Invoice = z.object({
   summaryText: z.string().nullable(),
   /** The PO, contract or SOW, printed under the service period. */
   reference: z.string().nullable(),
-  /** The ticked schedules, frozen at generation like the lines. */
+  /** The ticked schedules, frozen when sent like the lines. */
   supportingDetail: Schedules.nullable(),
   /** The payment block as rendered at generation. Editing a profile later
    *  never alters an issued invoice, so this is a snapshot, not a reference. */
@@ -625,7 +657,11 @@ export const ListExpensesQuery = z.object({
   status: z.enum(['open', 'unbilled']).default('open'),
 });
 
-export const ListInvoicesQuery = z.object({
+/** A draft is refreshed on every read, in the zone its period's dates are
+ *  read in; a draft with no zone of its own takes the read's. */
+export const InvoiceReadQuery = z.object({ tz: ianaZone.optional() });
+
+export const ListInvoicesQuery = InvoiceReadQuery.extend({
   clientId: uuid.optional(),
   status: InvoiceStatus.optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
@@ -846,6 +882,9 @@ export const Stats = z.object({
   attention: z.object({
     /** The account has no default hourly rate: the Inbox asks for one. */
     noDefaultRate: z.boolean(),
+    /** Old free-text terms that read as no number of days: the Inbox asks
+     *  the user to check the 30 they became. */
+    paymentTermsToCheck: z.string().nullable(),
     overdueInvoices: z.array(
       z.object({
         invoiceId: uuid,
@@ -866,6 +905,22 @@ export const Stats = z.object({
         amount: money,
         currency,
         ageDays: z.number().int(),
+      }),
+    ),
+    /** Unbilled billable work dated inside a sent or paid invoice's period
+     *  for its client, oldest first: billed nowhere until the user says. */
+    lateEntries: z.array(
+      z.object({
+        entryId: uuid,
+        taskName: z.string(),
+        startedAt: z.iso.datetime(),
+        hours: z.number().nonnegative(),
+        clientId: uuid,
+        clientName: z.string().nullable(),
+        invoiceId: uuid,
+        invoiceNumber: z.string(),
+        periodStart: z.iso.date(),
+        periodEnd: z.iso.date(),
       }),
     ),
     /** One row per entry, oldest first. Empty array, never null. */
@@ -1016,6 +1071,8 @@ export const ErrorCode = z.enum([
   'EXPENSE_ALREADY_INVOICED',
   'ENTRY_ALREADY_INVOICED',
   'INVOICE_STATUS_CHANGED',
+  'DRAFT_CHANGED',
+  'DRAFT_OVERLAPS',
   'ENTRY_NOT_FOUND',
   'NO_RATE_CONFIGURED',
   'INVALID_PERIOD',
@@ -1059,6 +1116,7 @@ export type CalendarDay = z.infer<typeof CalendarDay>;
 export type InvoiceLineItem = z.infer<typeof InvoiceLineItem>;
 export type ComputedLineItem = z.infer<typeof ComputedLineItem>;
 export type StoredLineItem = z.infer<typeof StoredLineItem>;
+export type DraftChange = z.infer<typeof DraftChange>;
 export type ApiError = z.infer<typeof ApiError>;
 export type CreateFeedback = z.infer<typeof CreateFeedback>;
 export type Billing = z.infer<typeof Billing>;

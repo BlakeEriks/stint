@@ -32,7 +32,8 @@
 
 1. <an action> — <what you should see>
 
-Data back to the seed: re-run this PR's **preview-db** check.
+Data back to the seed: re-run this PR's **preview-db** check (a PR with a
+migration only while it is `ready-for-qa`).
 
 ## Checks CI cannot make
 

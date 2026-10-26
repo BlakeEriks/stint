@@ -2,8 +2,12 @@
 
 import type { QueryClient } from '@tanstack/react-query';
 import { api, type Client, type Project } from './api';
-import { useOptimisticMutation } from './mutations';
-import { keys, invalidateEntryData, predictRestore } from './query-keys';
+import {
+  useOptimisticMutation,
+  keys,
+  invalidateEntryData,
+  predictRestore,
+} from '@stint/client';
 
 /** A project's rate is what its unbilled work is valued at, in every
     rollup. */

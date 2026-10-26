@@ -1,4 +1,12 @@
-import { paymentFailed, planOf, type SubscriptionStatus } from '@stint/core';
+import {
+  paymentFailed,
+  needsAnchor,
+  planOf,
+  type BillingPeriod,
+  type BillingSchedule,
+  type DraftSnapshot,
+  type SubscriptionStatus,
+} from '@stint/core';
 import type {
   Billing,
   GroupingMode,
@@ -118,12 +126,29 @@ export interface ClientRow {
   currency: string | null;
   color: string | null;
   payment_profile_id: string | null;
+  billing_period: BillingPeriod | null;
+  period_anchor: string | null;
+  payment_terms_days: number | null;
   archived_at: string | null;
 }
 
 export const CLIENT_COLUMNS = columns<ClientRow>()(
-  'id, name, email, address, hourly_rate, tax_rate, currency, color, payment_profile_id, archived_at',
+  'id, name, email, address, hourly_rate, tax_rate, currency, color, payment_profile_id, billing_period, period_anchor, payment_terms_days, archived_at',
 );
+
+/** The schedule is one value on the wire and two columns, written together
+ *  so the pair cannot break (`billing_period_anchor`). */
+export function toBillingSchedule(r: ClientRow): BillingSchedule | null {
+  if (!r.billing_period) return null;
+  return needsAnchor(r.billing_period)
+    ? { period: r.billing_period, anchor: r.period_anchor! }
+    : { period: r.billing_period };
+}
+
+export const billingScheduleColumns = (s: BillingSchedule | null) => ({
+  billing_period: s?.period ?? null,
+  period_anchor: s && 'anchor' in s ? s.anchor : null,
+});
 
 export function toClient(r: ClientRow) {
   return {
@@ -136,6 +161,8 @@ export function toClient(r: ClientRow) {
     currency: r.currency,
     color: r.color,
     paymentProfileId: r.payment_profile_id,
+    billingSchedule: toBillingSchedule(r),
+    paymentTermsDays: r.payment_terms_days,
     archivedAt: r.archived_at,
   };
 }
@@ -177,7 +204,7 @@ export interface SettingsRow {
   business_address: string | null;
   business_email: string | null;
   logo_url: string | null;
-  default_payment_terms: string;
+  payment_terms_days: number;
   invoice_number_prefix: string;
   next_invoice_number: number;
   payment_notice: string | null;
@@ -185,7 +212,7 @@ export interface SettingsRow {
 }
 
 export const SETTINGS_COLUMNS = columns<SettingsRow>()(
-  'default_hourly_rate, currency, week_starts_on, time_format, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, default_payment_terms, invoice_number_prefix, next_invoice_number, payment_notice, welcomed_at',
+  'default_hourly_rate, currency, week_starts_on, time_format, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, payment_terms_days, invoice_number_prefix, next_invoice_number, payment_notice, welcomed_at',
 );
 
 export function toSettings(r: SettingsRow) {
@@ -200,7 +227,7 @@ export function toSettings(r: SettingsRow) {
     businessAddress: r.business_address,
     businessEmail: r.business_email,
     logoUrl: r.logo_url,
-    defaultPaymentTerms: r.default_payment_terms,
+    paymentTermsDays: r.payment_terms_days,
     invoiceNumberPrefix: r.invoice_number_prefix,
     nextInvoiceNumber: r.next_invoice_number,
     paymentNotice: r.payment_notice,
@@ -302,10 +329,14 @@ export interface InvoiceRow {
   paid_at: string | null;
   created_at: string;
   issued_subscription_status: SubscriptionStatus | null;
+  /** A draft's refresh inputs and last render; never sent to a client. */
+  tz: string | null;
+  excluded_expense_ids: string[];
+  downloaded_snapshot: DraftSnapshot | null;
 }
 
 export const INVOICE_COLUMNS = columns<InvoiceRow>()(
-  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency, notes, payment_terms, grouping_mode, summary_text, reference, supporting_detail, payment_details, business_name, business_address, business_email, logo_url, client_name, client_email, client_address, sent_at, paid_at, created_at, issued_subscription_status',
+  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency, notes, payment_terms, grouping_mode, summary_text, reference, supporting_detail, payment_details, business_name, business_address, business_email, logo_url, client_name, client_email, client_address, sent_at, paid_at, created_at, issued_subscription_status, tz, excluded_expense_ids, downloaded_snapshot',
 );
 
 export function toInvoice(r: InvoiceRow) {
@@ -455,6 +486,7 @@ export const CLIENT_FIELDS = {
   currency: 'currency',
   color: 'color',
   paymentProfileId: 'payment_profile_id',
+  paymentTermsDays: 'payment_terms_days',
 } as const;
 
 export const PROJECT_FIELDS = {
@@ -475,8 +507,9 @@ export const SETTINGS_FIELDS = {
   businessAddress: 'business_address',
   businessEmail: 'business_email',
   logoUrl: 'logo_url',
-  defaultPaymentTerms: 'default_payment_terms',
+  paymentTermsDays: 'payment_terms_days',
   invoiceNumberPrefix: 'invoice_number_prefix',
+  nextInvoiceNumber: 'next_invoice_number',
   paymentNotice: 'payment_notice',
   welcomedAt: 'welcomed_at',
 } as const;

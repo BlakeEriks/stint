@@ -18,6 +18,8 @@ const STATUS: Record<Code, number> = {
   EXPENSE_ALREADY_INVOICED: 409,
   ENTRY_ALREADY_INVOICED: 409,
   INVOICE_STATUS_CHANGED: 409,
+  DRAFT_CHANGED: 409,
+  DRAFT_OVERLAPS: 409,
   ENTRY_NOT_FOUND: 404,
   NO_RATE_CONFIGURED: 400,
   INVALID_PERIOD: 400,
@@ -75,9 +77,7 @@ export function handle<T extends unknown[]>(
           { constraint: (err as { message?: string }).message },
         );
       }
-      /* A same-owner key fails as a missing reference: the caller named a
-         record that is not theirs, or not there. */
-      if (isSameOwnerViolation(err as { message?: string })) {
+      if (dbCode(err as { message?: string }) === 'VALIDATION_FAILED') {
         return errorResponse(
           'VALIDATION_FAILED',
           'This refers to a record that does not exist',
@@ -124,52 +124,32 @@ export const PG = {
   FOREIGN_KEY_VIOLATION: '23503',
   NOT_FOUND: 'PGRST116',
   INVALID_TEXT: '22P02',
+  NO_DATA_FOUND: 'P0002',
 } as const;
 
-export function isSameOwnerViolation(
-  err: { code?: string; message?: string } | null,
-): boolean {
-  return (
-    err?.code === PG.FOREIGN_KEY_VIOLATION &&
-    /_same_owner\b/.test(err.message ?? '')
-  );
-}
+/* The constraints whose violation the API names. A trigger or function has no
+   constraint to name, so it raises its code in HINT instead (`dbCode`). */
+const CONSTRAINT_CODES: Record<string, Code> = {
+  one_running_timer_per_user: 'TIMER_ALREADY_RUNNING',
+  // A same-owner key fails as a missing reference: the caller named a record
+  // that is not theirs, or not there.
+  entry_project_same_owner: 'VALIDATION_FAILED',
+  expense_client_same_owner: 'VALIDATION_FAILED',
+  invoice_client_same_owner: 'VALIDATION_FAILED',
+  project_client_same_owner: 'VALIDATION_FAILED',
+};
 
-/** The partial unique index that enforces one running timer per user. */
-export function isTimerConflict(
-  err: { code?: string; message?: string } | null,
-): boolean {
-  return (
-    err?.code === PG.UNIQUE_VIOLATION &&
-    (err.message ?? '').includes('one_running_timer_per_user')
-  );
+/** The API code a database refusal carries, if it is one the API names; the
+ *  route that meets it chooses the message. */
+export function dbCode(
+  err: { message?: string; hint?: string } | null,
+): Code | undefined {
+  if (err?.hint && Object.hasOwn(STATUS, err.hint)) return err.hint as Code;
+  const constraint = /constraint "([^"]+)"/.exec(err?.message ?? '')?.[1];
+  return constraint ? CONSTRAINT_CODES[constraint] : undefined;
 }
 
 /** Postgres rejected the row against a CHECK — a rule the request broke. */
 export function isCheckViolation(err: unknown): boolean {
   return (err as { code?: string } | null)?.code === PG.CHECK_VIOLATION;
-}
-
-/** The triggers guarding entries and expenses billed on a non-draft invoice. */
-export function isBilledLock(
-  err: { code?: string; message?: string } | null,
-): boolean {
-  return (
-    err?.code === PG.CHECK_VIOLATION &&
-    /billed on a .* invoice/.test(err.message ?? '')
-  );
-}
-
-/** `create_invoice` found an expense another invoice had already taken. */
-export function isExpenseClaimConflict(
-  err: { code?: string; message?: string } | null,
-): boolean {
-  return (err?.message ?? '').includes('EXPENSE_ALREADY_INVOICED');
-}
-
-/** `create_invoice` found an entry another invoice had already taken. */
-export function isEntryClaimConflict(
-  err: { code?: string; message?: string } | null,
-): boolean {
-  return (err?.message ?? '').includes('ENTRY_ALREADY_INVOICED');
 }

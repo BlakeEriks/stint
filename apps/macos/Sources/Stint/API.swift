@@ -59,7 +59,6 @@ struct Summary: Codable, Equatable {
 struct ProjectList: Codable { let projects: [Project] }
 struct TaskNameList: Codable { let taskNames: [TaskName] }
 struct ClientList: Codable { let clients: [Client] }
-struct Stopped: Codable { let entry: TimeEntry }
 
 struct APIError: LocalizedError, Equatable {
     let status: Int
@@ -69,6 +68,20 @@ struct APIError: LocalizedError, Equatable {
     var errorDescription: String? { message }
     var isTimerConflict: Bool { code == "TIMER_ALREADY_RUNNING" }
     var isUnauthorized: Bool { status == 401 || code == "UNAUTHORIZED" }
+}
+
+/// What the panel says about `error`. Every error site goes through this,
+/// so a lost connection reads the same everywhere, and never as
+/// Foundation's "A server with the specified hostname could not be found."
+func userMessage(for error: Error) -> String {
+    let offline: [URLError.Code] = [
+        .notConnectedToInternet, .cannotFindHost, .cannotConnectToHost,
+        .networkConnectionLost, .timedOut, .dnsLookupFailed,
+    ]
+    if let error = error as? URLError, offline.contains(error.code) {
+        return "Can’t reach Stint. Check your internet connection."
+    }
+    return error.localizedDescription
 }
 
 /// `/api/v1` as a bearer-token client.
@@ -144,6 +157,15 @@ actor API {
         return list.projects.filter { $0.archivedAt == nil }
     }
 
+    /// A timer press's answer with `?include=summary`: the summary read after
+    /// the write, so the press needs no refetch of it.
+    struct Pressed: Codable {
+        let entry: TimeEntry
+        let included: Included
+    }
+
+    struct Included: Codable { let summary: Summary }
+
     struct StartTimer: Encodable {
         let id: String
         let taskName: String
@@ -155,10 +177,11 @@ actor API {
     func startTimer(
         id: String = uuidv7(),
         taskName: String,
-        projectId: String?
-    ) async throws -> TimeEntry {
+        projectId: String?,
+        timeZone: TimeZone = .current
+    ) async throws -> Pressed {
         try await request(
-            "POST", "/timer/start",
+            "POST", "/timer/start?include=summary&tz=\(timeZone.identifier)",
             body: StartTimer(
                 id: id,
                 taskName: taskName,
@@ -169,9 +192,8 @@ actor API {
 
     private struct Empty: Encodable {}
 
-    func stopTimer() async throws -> TimeEntry {
-        let stopped: Stopped = try await request("POST", "/timer/stop", body: Empty())
-        return stopped.entry
+    func stopTimer(timeZone: TimeZone = .current) async throws -> Pressed {
+        try await request("POST", "/timer/stop?include=summary&tz=\(timeZone.identifier)", body: Empty())
     }
 
     struct UpdateTimer: Encodable {

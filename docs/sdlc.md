@@ -10,21 +10,22 @@ with the command that moves it at each step.
    `/design-review` → `/speckit-plan` → `/speckit-tasks` →
    `/speckit-analyze`, then `/speckit-implement` in a `pnpm worktree`.
    `/design-review` is offered to every feature that adds or changes UI,
-   never assumed. Blake settles the look from a draft of each screen
+   never assumed. The reviewer settles the look from a draft of each screen
    before anything is built, or skips it when the change has no visible UI
    or a trivial one. Planning waits for the spec to record either.
    `/work-issues` builds issues in `../stint-issues`, and features too, by
    running that same chain unattended. Its builder decides each question itself,
    listing the decisions in the PR, and starts a design review only when a
    screen has a real choice of layout: the draft is posted to the issue as
-   a link, and Blake replies there. It ships the feature as one PR; one
+   a link, and the reviewer replies there. It ships the feature as one PR; one
    built by hand merges one user story at a time, and a story that can't
    stand alone stays unlinked in the UI until the rest lands.
 3. **Review.** A PR runs CI and the Docs checks (Vale, `/doc-drift`), then
-   goes to QA on its Vercel preview or `pnpm try-mac`. A green Dependabot PR
+   goes to QA on its Vercel preview, `pnpm try-mac`, or its phone update
+   (`docs/mobile.md`). A green Dependabot PR
    outside the framework group merges itself; a red one goes to
    `/work-issues`.
-4. **Ship.** Blake merges. The release gate plans, waits for approval and a
+4. **Ship.** Merging is the deploy. The release gate plans, waits for approval and a
    backup if a migration is pending, then migrates, verifies, and asks the new
    build for `/api/v1/health` before promoting it. Then the worktree is
    removed and the branch deleted.
@@ -57,6 +58,7 @@ Every PR reaches QA the same way, whether `/work-issues` built it or not:
   without the issue. Its Try it links the preview signed in as
   `pr-<n>@preview.test`, which `preview-db` seeds from the branch.
 - **`migration` labels a PR that adds one.** The previews share one schema,
-  so one such PR is open at a time.
+  so only one PR whose diff touches `supabase/migrations`, labeled or not,
+  is `ready-for-qa` at a time; it holds the preview database.
 - **`ready-for-qa` goes on once CI is green and nothing is unanswered**: no
   feedback, doc drift or conflict with `main` left open.

@@ -1,7 +1,7 @@
 import type { Decorator, Meta, StoryObj } from '@storybook/nextjs-vite';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client/api';
-import { keys } from '@/lib/client/query-keys';
+import { keys } from '@stint/client';
 import { expect, userEvent, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import { type Db, id } from '@/mocks/fixtures';
@@ -32,7 +32,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Lines and total as frozen at generation; no supporting detail named. The
+/** Lines and total as last refreshed; no supporting detail named. The
     actions share the title's row, whatever the length of the status line. */
 export const Draft: Story = {
   ...desktop,
@@ -55,6 +55,40 @@ export const Draft: Story = {
   },
 };
 export const DraftPhone: Story = { ...phone };
+
+/* The draft as the server sends it once work landed after its PDF. */
+const changed = paying((db) => {
+  const draft = db.invoices.find((i) => i.id === invoice(15));
+  if (!draft) return;
+  draft.changedSinceDownload = {
+    hours: { from: 18.4, to: 20.9 },
+    total: { from: 2512.6, to: 2787.6 },
+  };
+  const line = draft.lineItems[0];
+  if (line) line.isNew = true;
+});
+
+/** Work landed after the PDF was downloaded: the banner says what moved,
+    Mark sent waits for the new PDF, and the new line is tinted. */
+export const DraftChanged: Story = {
+  ...desktop,
+  parameters: changed,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByText('Changed since you downloaded it'),
+    ).toBeVisible();
+    await expect(page.getByText(/2\.50h added/)).toBeVisible();
+    await expect(page.getByText('$2,512.60')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Mark sent' }),
+    ).toBeDisabled();
+    await expect(
+      page.getByText('Type scale for the brand site').closest('tr'),
+    ).toHaveClass(/bg-warning-muted/);
+  },
+};
+export const DraftChangedPhone: Story = { ...phone, parameters: changed };
 /** Where it stands is one line under the title, and an issued invoice is
     the invoice, not a preview of it. */
 export const Sent: Story = {
@@ -260,11 +294,11 @@ export const AsPrinted: Story = {
     sent.paymentDetails = {
       title: 'USD wire',
       fields: [
-        { label: 'Account holder', value: 'Blake Eriks' },
+        { label: 'Account holder', value: 'Sam Rivera' },
         { label: 'Routing number (ACH)', value: '021000021' },
       ],
       intermediary: [],
-      link: { label: 'Pay online', url: 'https://pay.example.test/blake' },
+      link: { label: 'Pay online', url: 'https://pay.example.test/sam' },
       notes: 'Include the invoice number in the memo.',
     };
   }),
@@ -273,7 +307,7 @@ export const AsPrinted: Story = {
     for (const text of [
       'Net 30',
       'Payment — USD wire',
-      'Pay online: https://pay.example.test/blake',
+      'Pay online: https://pay.example.test/sam',
       'Include the invoice number in the memo.',
       /bank details never change by email/,
       'Thank you for the work this month.',

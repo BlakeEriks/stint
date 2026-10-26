@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { handle } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
-import { CLIENT_COLUMNS, toClient } from '@/lib/rows';
+import { billingScheduleColumns, CLIENT_COLUMNS, toClient } from '@/lib/rows';
 import { uuidv7 } from '@stint/core';
 import { CreateClient, ListClientsQuery } from '@stint/schema';
 
@@ -76,6 +76,8 @@ export const POST = handle(async (req: Request) => {
       currency: body.currency ?? null,
       color: body.color ?? null,
       payment_profile_id: body.paymentProfileId ?? null,
+      payment_terms_days: body.paymentTermsDays ?? null,
+      ...billingScheduleColumns(body.billingSchedule ?? null),
     })
     .select(CLIENT_COLUMNS)
     .single();

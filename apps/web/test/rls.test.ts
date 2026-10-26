@@ -870,3 +870,30 @@ test('a project cannot reference another user’s client', async () => {
     /project_client_same_owner/,
   );
 });
+
+/* `refresh_draft` runs as the caller: another user's draft is out of
+   its reach, and a sent invoice can't be rewritten through it. */
+test('refresh_draft reaches only the caller’s own drafts', async () => {
+  const refresh = `select refresh_draft($1, '{"lines": [], "subtotal": 0, "tax_rate": 0, "tax_amount": 0, "expenses_subtotal": 0, "total": 0}'::jsonb, '{}', '{}', null)`;
+
+  await issueAliceInvoice('draft');
+  await assert.rejects(
+    () => asUser(BOB, refresh, [ALICE_INVOICE]),
+    /not found/,
+  );
+  await asAlice(refresh);
+  const [draft] = (
+    await admin.query(`select total::float from invoices where id = $1`, [
+      ALICE_INVOICE,
+    ])
+  ).rows;
+  assert.equal(draft.total, 0, 'the owner refreshes it');
+
+  await admin.query(`update invoices set status = 'sent' where id = $1`, [
+    ALICE_INVOICE,
+  ]);
+  await assert.rejects(
+    () => asAlice(refresh),
+    /is sent and cannot be refreshed/,
+  );
+});

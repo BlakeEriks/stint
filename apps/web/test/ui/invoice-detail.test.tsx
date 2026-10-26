@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { InvoiceDetail } from '@/components/invoice-detail';
 import type { Invoice, InvoiceStatus } from '@/lib/client/api';
-import { keys } from '@/lib/client/query-keys';
+import { keys } from '@stint/client';
 import { localDateKey, localDateTimeToInstant } from '@stint/core';
 
 const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -40,7 +40,7 @@ function invoice(status: InvoiceStatus, sentAt: string | null = null): Invoice {
     supportingDetail: null,
     paymentDetails: null,
     business: {
-      name: 'Blake Eriks',
+      name: 'Sam Rivera',
       address: null,
       email: null,
       logoUrl: null,
@@ -141,7 +141,13 @@ describe('InvoiceDetail', () => {
       const { unmount } = show();
       expect(
         await screen.findByRole('link', { name: 'Download PDF' }),
-      ).toHaveAttribute('href', '/api/v1/invoices/inv-1/pdf?download=1');
+      ).toHaveAttribute(
+        'href',
+        // The zone a draft's period is read in, as on every invoice read.
+        expect.stringMatching(
+          /^\/api\/v1\/invoices\/inv-1\/pdf\?tz=.+&download=1$/,
+        ),
+      );
       unmount();
       vi.unstubAllGlobals();
     }

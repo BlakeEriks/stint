@@ -6,7 +6,13 @@
  */
 
 import { resolveRate, resolveRateSource, type RateSource } from './rates.ts';
-import { addDays, localDateKey } from './calendar.ts';
+import { daysBetweenKeys } from './stats.ts';
+import { addDays, daysInMonth, localDateKey } from './calendar.ts';
+import {
+  lastEndedPeriod,
+  type BillingSchedule,
+  type Period,
+} from './billing-period.ts';
 
 /**
  * `summary` is one line of the user's own text for all the time, split only
@@ -307,33 +313,37 @@ export function formatInvoiceNumber(prefix: string, sequence: number): string {
 }
 
 /**
- * The period a new invoice starts with, for `today` (`YYYY-MM-DD`): the month
- * whose last day is nearest, since a contractor bills a month just as it ends
- * or just after. Equidistant, the earlier month wins.
+ * The period a new invoice starts with, for `today` (`YYYY-MM-DD`): a
+ * scheduled client's last ended period. Without a schedule, the month whose
+ * last day is nearest, since a contractor bills a month just as it ends or
+ * just after; equidistant, the earlier month wins.
  */
-export function defaultInvoicePeriod(today: string): {
-  periodStart: string;
-  periodEnd: string;
-} {
+export function defaultInvoicePeriod(
+  today: string,
+  schedule: BillingSchedule | null = null,
+): Period {
+  if (schedule) return lastEndedPeriod(today, schedule);
   const [y = 0, m = 1, d = 1] = today.split('-').map(Number);
   const back = d;
-  const ahead = new Date(Date.UTC(y, m, 0)).getUTCDate() - d;
+  const ahead = daysInMonth(y, m) - d;
   const periodEnd =
     ahead < back ? addDays(today, ahead) : addDays(today, -back);
   return { periodStart: `${periodEnd.slice(0, 8)}01`, periodEnd };
 }
 
-/**
- * When an invoice issued on `issueDate` is due under its free-text payment
- * `terms`: "Net N" or "N days" is N days on, even "Net 30 upon receipt";
- * "on receipt" with no count is the same day, and anything else Net 30.
- */
-export function dueDateForTerms(issueDate: string, terms: string): string {
-  // A count starts after a non-digit and is at most 4 digits, so a long run
-  // of digits cannot backtrack (CodeQL js/polynomial-redos).
-  const days =
-    /net\s*(\d{1,4})(?!\d)/i.exec(terms) ??
-    /(?<!\d)(\d{1,4})\s*days/i.exec(terms);
-  if (days) return addDays(issueDate, Number(days[1]));
-  return /receipt/i.test(terms) ? issueDate : addDays(issueDate, 30);
+/** The most days a user's or a client's payment terms may give. */
+export const PAYMENT_TERMS_MAX_DAYS = 365;
+
+/** Typed payment terms as days, or null unless a whole number in range. */
+export function parseTermsDays(text: string): number | null {
+  const t = text.trim();
+  if (!/^\d{1,3}$/.test(t)) return null;
+  const days = Number(t);
+  return days <= PAYMENT_TERMS_MAX_DAYS ? days : null;
+}
+
+/** The terms an invoice prints, made from its own dates so the two agree. */
+export function paymentTermsText(issueDate: string, dueDate: string): string {
+  const days = daysBetweenKeys(issueDate, dueDate);
+  return days === 0 ? 'Due on receipt' : `Net ${days}`;
 }

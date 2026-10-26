@@ -16,7 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { textareaClass } from './field';
 import { PortalToast } from './toast';
-import { useOptimisticMutation } from '@/lib/client/mutations';
+import { useOptimisticMutation } from '@stint/client';
 import { api, ApiError } from '@/lib/client/api';
 
 const FAILED = 'Couldn’t send. Your message is still here. Try again.';
@@ -26,7 +26,7 @@ const FAILED = 'Couldn’t send. Your message is still here. Try again.';
  *
  * The user types only the message. The screen, the client and the version go
  * with it, so a report never needs a reply asking where it happened. It lands
- * in the `feedback` table, which Blake reads in the Supabase dashboard.
+ * in the `feedback` table, read in the Supabase dashboard.
  *
  * Nothing to predict, so Send is pending until the server answers, and a
  * refusal stays in the open form beside the text it would have lost.

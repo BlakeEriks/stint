@@ -66,6 +66,19 @@ struct OptimisticTests {
         #expect(model.reasons.isEmpty)
     }
 
+    @Test func anAnswerThatSettlesReplacesTheRefetch() async {
+        let model = Model()
+        var settled: [String] = []
+        await model.press("value") {
+            model.value = "predicted"
+            return { model.value = "original" }
+        } perform: {
+            "answer"
+        } settle: { settled.append($0) }
+        #expect(settled == ["answer"])
+        #expect(model.refreshes == 0)
+    }
+
     @Test func undoesAndSaysWhyWhenRejected() async {
         let model = Model()
         let answer = await model.set("predicted") { throw Rejected() }

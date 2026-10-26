@@ -3,12 +3,18 @@
 import { useEffect, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { shortDate } from './invoice-bits';
 import {
   keepPreviousData,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { useOptimisticMutation } from '@/lib/client/mutations';
+import {
+  useOptimisticMutation,
+  keys,
+  invalidateEntryData,
+} from '@stint/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, inputClass } from './field';
@@ -24,16 +30,19 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ChevronDown, Pencil, Plus } from 'lucide-react';
 import {
+  addDays,
+  BILLING_PERIOD_LABELS,
   buildPaymentDetails,
   defaultInvoicePeriod,
   attachedSchedules,
-  dueDateForTerms,
   formatCurrency,
   formatInvoiceNumber,
+  isPeriod,
   localDateKey,
   resolvePaymentProfile,
   SCHEDULE_KINDS,
   SCHEDULE_TITLES,
+  type Period,
   type ScheduleKind,
 } from '@stint/core';
 import { timeZone as tz } from '@/lib/client/use-timer';
@@ -57,7 +66,6 @@ import { missingBusiness, SenderNotice } from './business-dialog';
 import { ClientDialog } from './client-dialog';
 import { summarize } from './payment-profiles';
 import { businessOf, InvoicePreviewCard } from './invoice-preview-card';
-import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 import { rowButton } from './row-button';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
@@ -84,8 +92,10 @@ type DraftCharge = Charge & { key: string };
 
 interface Draft {
   clientId: string;
-  periodStart: string;
-  periodEnd: string;
+  /** `null` until the user edits either date, so the period follows the
+   *  client's billing schedule. */
+  periodStart: string | null;
+  periodEnd: string | null;
   /** `null` until the user picks one, so it follows the payment terms the
    *  invoice prints. */
   dueDate: string | null;
@@ -107,10 +117,10 @@ interface Draft {
   paymentProfileId: string;
 }
 
-/** Computed on mount, not at import, from the day the user is in. */
-const empty = (): Draft => ({
+const EMPTY: Draft = {
   clientId: '',
-  ...defaultInvoicePeriod(localDateKey(new Date(), tz)),
+  periodStart: null,
+  periodEnd: null,
   dueDate: null,
   reference: '',
   groupingMode: null,
@@ -119,7 +129,44 @@ const empty = (): Draft => ({
   charges: [],
   excludedExpenseIds: [],
   paymentProfileId: '',
-});
+};
+
+/** The period the user set, else the client's default for `today`. */
+function periodOf(
+  draft: Draft,
+  client: Client | undefined,
+  today: string,
+): Period {
+  const suggested = defaultInvoicePeriod(today, client?.billingSchedule);
+  return {
+    periodStart: draft.periodStart ?? suggested.periodStart,
+    periodEnd: draft.periodEnd ?? suggested.periodEnd,
+  };
+}
+
+/** A hint, not a block: a first or last invoice can cover part of a
+ *  period, and a contract can change. */
+function ScheduleHint({
+  client,
+  periodStart,
+  periodEnd,
+}: {
+  client: Client | undefined;
+  periodStart: string;
+  periodEnd: string;
+}) {
+  const schedule = client?.billingSchedule;
+  // A cleared date is still being typed, not a period.
+  if (!schedule || !periodStart || !periodEnd) return null;
+  if (isPeriod(schedule, periodStart, periodEnd)) return null;
+  return (
+    <p role="status" className="type-support text-warning">
+      {client.name} is billed{' '}
+      {BILLING_PERIOD_LABELS[schedule.period].toLowerCase()}, and this isn't one
+      of its periods.
+    </p>
+  );
+}
 
 /** What a client's last invoice carries into the next: a summary's text and
  *  attachments, so a monthly invoice isn't retyped. */
@@ -204,16 +251,40 @@ function useLivePreview(
   return { preview, current: chosen ? preview.data : undefined, updating };
 }
 
-/** The number Generate takes, and the due date the payment terms set from
- *  `issued`; both '' until the settings answer. */
-function fromSettings(settings: Settings | undefined, issued: string) {
+/** The number Generate takes, shown before it does: one that repeats an
+    invoice sent before Stint is caught while it can still change. */
+function NumberLine({ number }: { number: string }) {
+  if (!number) return null;
+  return (
+    <p className="type-support text-subtle">
+      Numbered {number} ·{' '}
+      <Link
+        href="/settings#numbering"
+        className="text-strong underline underline-offset-2"
+      >
+        Change
+      </Link>
+    </p>
+  );
+}
+
+/** The number Generate takes, and the due date the client's payment terms,
+ *  else the user's, set from `issued`; both '' until the settings answer. */
+function fromSettings(
+  settings: Settings | undefined,
+  issued: string,
+  client: Client | undefined,
+) {
   if (!settings) return { number: '', termsDue: '' };
   return {
     number: formatInvoiceNumber(
       settings.invoiceNumberPrefix,
       settings.nextInvoiceNumber,
     ),
-    termsDue: dueDateForTerms(issued, settings.defaultPaymentTerms),
+    termsDue: addDays(
+      issued,
+      client?.paymentTermsDays ?? settings.paymentTermsDays,
+    ),
   };
 }
 
@@ -234,8 +305,8 @@ function useSettled<T>(value: T, ms: number): T {
  *
  * The card answers every change: what the form knows at once, what the
  * server computes (the lines) once typing settles. Generating allocates a
- * gapless number, freezes the rates and locks the entries, so it waits until
- * the card is the server's current answer.
+ * gapless number and creates the draft, so it waits until the card is the
+ * server's current answer.
  */
 export function NewInvoice() {
   /* The form paints once, its client list, terms and payment profiles in
@@ -264,7 +335,10 @@ function Form() {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const [draft, setDraft] = useState<Draft>(empty);
+  const [draft, setDraft] = useState<Draft>(EMPTY);
+  /* Read once: a form left open past midnight keeps the dates it showed
+     rather than moving them to the next period unseen. */
+  const [issued] = useState(() => localDateKey(new Date(), tz));
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
@@ -285,7 +359,8 @@ function Form() {
 
   const { lastPending, groupingMode, summaryText, schedules } =
     useCarried(draft);
-  const waiting = useWaitingExpenses(draft.clientId, draft.periodEnd);
+  const { periodStart, periodEnd } = periodOf(draft, client, issued);
+  const waiting = useWaitingExpenses(draft.clientId, periodEnd);
   /* `undefined` adds an expense; an expense, edits it. */
   const expenseDialog = useDialog<Expense | undefined>();
   /* `'new'` adds a charge; a key, edits that one. */
@@ -299,8 +374,8 @@ function Form() {
     // No client until the last invoice has answered, so no preview is asked
     // for in a grouping it is about to change.
     clientId: lastPending ? '' : draft.clientId,
-    periodStart: draft.periodStart,
-    periodEnd: draft.periodEnd,
+    periodStart,
+    periodEnd,
     groupingMode,
     summaryText,
     tz,
@@ -315,9 +390,9 @@ function Form() {
     draft.clientId !== '',
   );
 
-  const issued = localDateKey(new Date(), tz);
-  const { number, termsDue } = fromSettings(settings, issued);
+  const { number, termsDue } = fromSettings(settings, issued, client);
   const due = draft.dueDate ?? termsDue;
+  const earlyDue = due !== '' && due < issued;
 
   const generate = useOptimisticMutation({
     queryKey: () => keys.invoices(),
@@ -383,7 +458,26 @@ function Form() {
     });
   const payment = buildPaymentDetails(profile, { invoiceNumber: number });
 
+  /* One open draft per client and date: the server refuses another, so the
+     form says which draft holds these dates before Generate is pressed. */
+  const openDrafts =
+    useQuery({
+      queryKey: [...keys.invoices(), 'drafts', draft.clientId],
+      queryFn: () =>
+        api.invoices({ clientId: draft.clientId, status: 'draft' }),
+      enabled: draft.clientId !== '',
+    }).data?.invoices ?? [];
+  const covering = openDrafts.find(
+    (i) =>
+      periodStart !== '' &&
+      periodEnd !== '' &&
+      i.periodStart <= periodEnd &&
+      i.periodEnd >= periodStart,
+  );
+
   const { canGenerate, noSummaryText } = generateState({
+    covered: covering !== undefined,
+    earlyDue,
     preview: current,
     updating,
     failed: preview.isError,
@@ -467,14 +561,20 @@ function Form() {
                 <DateField
                   id="inv-from"
                   label="From"
-                  value={draft.periodStart}
-                  onChange={(v) => set('periodStart', v)}
+                  value={periodStart}
+                  // Either date pins both, so another client's schedule
+                  // cannot move the other end under the user.
+                  onChange={(v) =>
+                    setDraft((d) => ({ ...d, periodStart: v, periodEnd }))
+                  }
                 />
                 <DateField
                   id="inv-to"
                   label="To"
-                  value={draft.periodEnd}
-                  onChange={(v) => set('periodEnd', v)}
+                  value={periodEnd}
+                  onChange={(v) =>
+                    setDraft((d) => ({ ...d, periodStart, periodEnd: v }))
+                  }
                 />
                 <DateField
                   id="inv-due"
@@ -483,6 +583,30 @@ function Form() {
                   onChange={(v) => set('dueDate', v)}
                 />
               </div>
+              {earlyDue ? (
+                <p role="alert" className="type-support text-danger">
+                  Due can't be before the issue date.
+                </p>
+              ) : null}
+              <ScheduleHint
+                client={client}
+                periodStart={periodStart}
+                periodEnd={periodEnd}
+              />
+              {covering && client ? (
+                <p role="status" className="type-support text-warning">
+                  A draft already covers {shortDate(covering.periodStart)} –{' '}
+                  {shortDate(covering.periodEnd)} for {client.name}:{' '}
+                  <Link
+                    href={`/invoices/${covering.id}`}
+                    className="text-strong underline underline-offset-2"
+                  >
+                    {covering.invoiceNumber}
+                  </Link>
+                  . Start after {shortDate(covering.periodEnd)}, or open that
+                  draft.
+                </p>
+              ) : null}
               <Field label="Reference" htmlFor="inv-reference">
                 <Input
                   id="inv-reference"
@@ -492,6 +616,7 @@ function Form() {
                   maxLength={200}
                 />
               </Field>
+              <NumberLine number={number} />
             </div>
 
             <Field label="Show time as" htmlFor="inv-group">
@@ -624,6 +749,10 @@ function missingDetails(client: Pick<Client, 'address' | 'email'>) {
  * it waits for a current, complete answer from the server.
  */
 function generateState(s: {
+  /** An open draft for this client holds some of these dates. */
+  covered: boolean;
+  /** Due is before the issue date, which the server refuses. */
+  earlyDue: boolean;
   /** The server's answer for this client; `undefined` before one. */
   preview: Pick<InvoicePreview, 'lineItems' | 'unratedEntryIds'> | undefined;
   /** The form has changed since the answer, or the server is recomputing. */
@@ -646,6 +775,8 @@ function generateState(s: {
     !noSummaryText;
   const canGenerate =
     complete &&
+    !s.covered &&
+    !s.earlyDue &&
     s.hasSettings &&
     s.hasSender &&
     !s.updating &&

@@ -10,7 +10,7 @@ A Feedback button in the web header opens a dialog with one message box.
 Sending posts the message to `POST /api/v1/feedback` with the screen's path,
 the client (`web`) and the build version. The route stores it in a new
 `feedback` table that the user can insert into and read only their own rows
-from, and nothing can change. Blake reads the table in the Supabase
+from, and nothing can change. The owner reads the table in the Supabase
 dashboard. The send is a pending press: the dialog stays open on failure
 with the message intact, and closes into a short "Feedback sent" toast on
 success.

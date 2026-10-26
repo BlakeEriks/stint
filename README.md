@@ -10,9 +10,9 @@ including invoicing, payment details and PDF generation — are built and
 covered by integration tests. The app sends no email: invoices are downloaded
 and sent by the user from their own address.
 
-**Not built yet:** the mobile app. The web app is complete: timer, calendar,
-clients, projects, settings, payment profiles, invoicing. The macOS menu bar
-app runs the timer — start, stop, task name, project — and nothing else.
+The web app is complete: timer, calendar, clients, projects, settings,
+payment profiles, invoicing. The macOS menu bar app and the phone app run
+the timer — start, stop, task name, project — and nothing else.
 
 ## Layout
 
@@ -24,9 +24,11 @@ packages/
   core/          duration, rates, timer, uuid, calendar,
                  invoice, payment, billing
   design-tokens/ tokens.json -> CSS + TS + Swift (generated into dist/)
+  client/        the timer, writes and cache keys both apps share
 apps/
   web/           Next.js — the API layer
   macos/         Swift menu bar app — the timer only
+  mobile/        Expo phone app — the timer only
 supabase/migrations/
 ```
 
@@ -74,6 +76,7 @@ navigation, redirects and server components — see `docs/local-dev.md`.
 - [docs/data-model.md](docs/data-model.md) — schema and integrity rules
 - [docs/api.md](docs/api.md) — endpoint contract
 - [docs/macos.md](docs/macos.md) — the menu bar app: building it, and which backend it talks to
+- [docs/mobile.md](docs/mobile.md) — the phone app: running it, its preview builds, and which backend it talks to
 - [docs/positioning.md](docs/positioning.md) — who this is for, what it competes with, what it costs
 - [The constitution](.specify/memory/constitution.md) — the bar every plan and PR is held to
 - [docs/sdlc.md](docs/sdlc.md) — how work moves from an idea to production

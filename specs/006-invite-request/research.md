@@ -9,9 +9,9 @@
   `Accept: application/json`, so the page stays put and can tell a failure
   from a success. Without that header it answers a plain HTML POST with its
   own thank-you page, which covers a visitor with JavaScript off. It emails
-  Blake each submission and lists them with timestamps in its dashboard
+  the owner each submission and lists them with timestamps in its dashboard
   (SC-003). The endpoint is public by design (`https://formspree.io/f/<id>`),
-  so it's a `NEXT_PUBLIC_` variable and Blake plugs in his own form id.
+  so it's a `NEXT_PUBLIC_` variable and the owner plugs in their own form id.
 - **Alternatives considered**: Web3Forms (free, generous, but its access key
   rides in the form and its stored-submission view is a paid feature).
   Basin (free tier fits, smaller and newer). A table and a route in Stint

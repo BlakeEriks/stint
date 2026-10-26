@@ -38,6 +38,7 @@ import {
   startOfNextLocalMonth,
   type UnbilledRow,
   type UnprojectedRow,
+  lateEntries,
 } from '@stint/core';
 
 /**
@@ -99,6 +100,7 @@ export async function readStats(
     projectRows,
     collectedRows,
     weekEntries,
+    issuedPeriods,
   ] = await Promise.all([
     /* `p_now` on every rollup: a running entry is measured at the same
        instant the windows are cut at. */
@@ -143,7 +145,7 @@ export async function readStats(
     db
       .from('user_settings')
       .select(
-        'currency, min_entry_seconds, max_entry_hours, week_starts_on, default_hourly_rate',
+        'currency, min_entry_seconds, max_entry_hours, week_starts_on, default_hourly_rate, legacy_payment_terms',
       )
       .maybeSingle(),
 
@@ -187,13 +189,16 @@ export async function readStats(
 
     /* Candidates for the overlap row: the same uninvoiced, stopped set,
        whatever its length. */
-    selectAll<Omit<SpanRow, 'invoice_number'>>(() =>
-      db
-        .from('time_entries')
-        .select('id, task_name, started_at, ended_at, is_billable')
-        .is('invoice_id', null)
-        .eq('invoiced_elsewhere', false)
-        .not('ended_at', 'is', null),
+    selectAll<Omit<SpanRow, 'invoice_number'> & { project_id: string | null }>(
+      () =>
+        db
+          .from('time_entries')
+          .select(
+            'id, task_name, started_at, ended_at, is_billable, project_id',
+          )
+          .is('invoice_id', null)
+          .eq('invoiced_elsewhere', false)
+          .not('ended_at', 'is', null),
     ),
 
     /* Project and client names for whichever of those rows survives the
@@ -222,6 +227,13 @@ export async function readStats(
         .gte('started_at', weekWindowStart.toISOString())
         .lt('started_at', weekWindowEnd.toISOString()),
     ),
+
+    /* The periods already sent, for work dated inside one that no invoice
+       holds. */
+    db
+      .from('invoices')
+      .select('id, invoice_number, client_id, period_start, period_end')
+      .in('status', ['sent', 'paid']),
   ]);
 
   for (const r of [
@@ -233,6 +245,7 @@ export async function readStats(
     invoices,
     projectRows,
     collectedRows,
+    issuedPeriods,
   ]) {
     if (r.error) throw r.error;
   }
@@ -345,6 +358,7 @@ export async function readStats(
     ),
     attention: {
       noDefaultRate: settings.data?.default_hourly_rate == null,
+      paymentTermsToCheck: settings.data?.legacy_payment_terms ?? null,
       overdueInvoices: buildOverdueInvoices(
         invoiceRows,
         clientNames,
@@ -361,6 +375,26 @@ export async function readStats(
         todayKey,
         localDateKey(startOfLocalDayOffset(now, tz, STALE_DRAFT_DAYS), tz),
       ),
+      lateEntries: lateEntries(
+        overlapCandidates.map((r) => ({
+          id: r.id,
+          taskName: r.task_name,
+          startedAt: new Date(r.started_at).toISOString(),
+          durationSeconds:
+            (Date.parse(r.ended_at as string) - Date.parse(r.started_at)) /
+            1000,
+          isBillable: r.is_billable,
+          clientId: r.project_id ? (clientOf.get(r.project_id) ?? null) : null,
+        })),
+        (issuedPeriods.data ?? []).map((i) => ({
+          id: i.id as string,
+          invoiceNumber: i.invoice_number as string,
+          clientId: i.client_id as string,
+          periodStart: i.period_start as string,
+          periodEnd: i.period_end as string,
+        })),
+        tz,
+      ).map((e) => ({ ...e, clientName: clientNames.get(e.clientId) ?? null })),
       unprojected: buildUnprojected(unprojected),
       strangeDurations: buildStrangeDurations(
         durationCandidates,

@@ -77,56 +77,17 @@ export const Light: Story = { ...light };
  *  Earned, the week's bar and the month count the session so far. */
 export const Running: Story = { ...desktop, parameters: account('running') };
 
-/** Pressing a Today row starts that task again, as a new entry. Its
- *  highlight pads the row and reaches past the column's edge, as every
- *  pressable row does, so the text keeps its line under the heading. */
-export const StartFromToday: Story = {
+/** A Today row is a summary line: pressing it starts nothing. */
+export const TodayRowInert: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    const row = await page.findByRole('button', {
-      name: /^Start Filter panel and saved views/,
-    });
-    const style = getComputedStyle(row);
-    await expect(style.paddingLeft).toBe('8px');
-    await expect(style.paddingRight).toBe('8px');
-    const column = (await page.findByText(/^Today · /)).getBoundingClientRect();
-    await expect(row.getBoundingClientRect().left).toBe(column.left - 8);
-
-    await userEvent.click(row);
-    await expect(
-      await page.findByRole('button', { name: 'Stop timer' }),
-    ).toBeVisible();
-  },
-};
-
-/** Pressing a Today row while a timer runs: the server's refusal says why. */
-export const StartWhileRunning: Story = {
-  ...desktop,
-  parameters: account('running'),
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement.ownerDocument.body);
-    await page.findByRole('button', { name: 'Stop timer' });
-    const [row] = await page.findAllByRole('button', { name: /^Start / });
+    await page.findByRole('button', { name: 'Start timer' });
+    const [row] = await page.findAllByText(/^Filter panel and saved views/);
     await userEvent.click(row as HTMLElement);
-    await expect(
-      await page.findByText('A timer is already running'),
-    ).toBeVisible();
-  },
-};
-
-/** A row pressed while a timer runs waits on the server's answer, shown on
- *  the row: nothing is predicted for a start the server will likely refuse. */
-export const StartWhileRunningPending: Story = {
-  ...desktop,
-  parameters: { ...account('running'), ...stalled('startTimer') },
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
-    await page.findByRole('button', { name: 'Stop timer' });
-    const [row] = await page.findAllByRole('button', { name: /^Start / });
-    await userEvent.click(row as HTMLElement);
-    await waitFor(() => expect(row).toHaveAttribute('aria-busy', 'true'));
-    await expect(row).toBeDisabled();
+    // Past the mock server's answer, so a start would have landed by now.
+    await new Promise((r) => setTimeout(r, 1000));
+    await expect(page.queryByRole('button', { name: 'Stop timer' })).toBeNull();
   },
 };
 
@@ -221,6 +182,32 @@ export const NoRate: Story = {
       rows[at + 1]?.querySelector('a[href^="/invoices/"]'),
     ).toBeNull();
     await expect(inbox.getByRole('button', { name: 'Save' })).toBeDisabled();
+  },
+};
+
+const oldTerms = account((db) => {
+  db.legacyPaymentTerms = 'Payment by check, thanks';
+});
+
+/** Old terms the move to days couldn't read: the Inbox quotes them and asks
+ *  for days, and saving takes the row away. */
+export const TermsToCheck: Story = {
+  ...desktop,
+  parameters: oldTerms,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const inbox = within(await page.findByRole('region', { name: 'Inbox' }));
+    await expect(
+      await inbox.findByText(/You wrote “Payment by check, thanks”/),
+    ).toBeVisible();
+    const field = inbox.getByLabelText('Payment terms in days');
+    await expect(field).toHaveValue('30');
+    await userEvent.clear(field);
+    await userEvent.type(field, '15');
+    await userEvent.click(inbox.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(page.queryByText('Check your payment terms')).toBeNull(),
+    );
   },
 };
 
@@ -338,7 +325,7 @@ export const InternalToday: Story = {
   play: async ({ canvasElement }) => {
     const ring = (task: string) =>
       [...canvasElement.querySelectorAll('[data-task]')]
-        .find((row) => row.textContent?.startsWith(`Start ${task}`))
+        .find((row) => row.textContent?.startsWith(task))
         ?.querySelector('[data-pip="internal"]');
     await waitFor(async () => {
       await expect(ring('Invoicing and bookkeeping')).toBeTruthy();

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useOptimisticMutation } from '@/lib/client/mutations';
+import { useOptimisticMutation, keys } from '@stint/client';
 import { validateRoutingNumber } from '@stint/core';
 import {
   Dialog,
@@ -28,7 +28,6 @@ import {
   type PaymentProfile,
   type PaymentProfileInput,
 } from '@/lib/client/api';
-import { keys } from '@/lib/client/query-keys';
 
 type Draft = Partial<PaymentProfile> & { name: string };
 

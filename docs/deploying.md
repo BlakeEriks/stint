@@ -46,7 +46,7 @@ the domain until required checks pass, so the migration runs while the
   because it needs GoTrue and Mailpit, not the bare Postgres the others use,
   and because keeping it separate means a type error reports without waiting
   behind a Docker pull.
-- **`stories`** — every Storybook story in Chromium: it renders, runs its
+- **`stories`** — every Storybook story in Chromium, the web's and the phone's: it renders, runs its
   `play`, and passes its a11y check. A story that skips a rule passes it to
   `skipping()` in `apps/web/src/mocks/screen.tsx`, with the reason beside it.
 
@@ -81,6 +81,12 @@ it to merge Dependabot's bumps once the required checks pass.
 ## 2. Vercel project
 
 Import `BlakeEriks/stint` at vercel.com.
+
+The team is on the **Hobby** plan until Stint makes money
+(`docs/positioning.md`). Hobby builds one deployment at a time and at most
+100 a day. Every push to a PR is a preview deployment, so a merge's
+production build can wait behind previews, and a day of pushes past the cap
+builds nothing, production included, until the next day.
 
 - **Root Directory:** `apps/web`
 - Build settings live in `apps/web/vercel.json`, beside the app they
@@ -380,12 +386,16 @@ there, `pr-<n>@preview.test`, and `/preview/signin?pr=<n>&next=<path>` signs
 into it and lands on `next` — the link a PR's **Try it** section opens. The
 route is a 404 anywhere `VERCEL_ENV` is not `preview`.
 
+The previews share one schema, so **the preview database belongs to the one
+PR labeled `ready-for-qa` whose diff touches `supabase/migrations`**: the
+holder. Other such PRs build and pass CI on their own throwaway Postgres,
+but their previews get no account until they hold it.
+
 `.github/workflows/preview-db.yml` keeps the project in step: it seeds a PR's
-account from that branch's `scripts/seed-account.mjs` on every push, and when
-a PR's migrations change the schema — or migrations land on main — empties
-`stint-test`, migrates it, and reseeds every open PR. Run it by hand after
-closing a migration PR unmerged. The previews share one schema, so **one open
-PR at a time may carry a migration**.
+account from that branch's `scripts/seed-account.mjs` on every push, except
+a PR with a migration that does not hold the database. When the holder's
+migrations change the schema — or migrations land on main — it empties
+`stint-test`, migrates it, and reseeds every open PR but those.
 
 **A PR asks for an account in a named state with a line in its body**:
 `Preview accounts: first-signin`. Each name is a `SEED_SCENARIOS` entry in
@@ -402,6 +412,11 @@ can ask for it too.
 - **Vercel** → Deployment Protection → **Protection Bypass for Automation**:
   the secret `pnpm try-mac` sends so the menu bar app reaches a preview
   (`docs/macos.md`).
+
+A PR that changes the phone app also gets an EAS Update against its
+preview, opened in a shared Android build, from
+`.github/workflows/mobile-preview.yml`; `docs/mobile.md` has its one-time
+setup.
 
 A free project pauses after a week unused; restore it from the dashboard.
 

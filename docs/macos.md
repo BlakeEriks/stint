@@ -88,8 +88,8 @@ security add-generic-password -s dev.stint.vercel-bypass -a stint -w <secret>
 ```
 
 **The origin is never guessed, and it is resolved before bundling.** A
-hostname that does not exist reaches the panel as "a server with the specified
-hostname could not be found" — which reads as a network fault, not as a build
+hostname that does not exist reaches the panel as "Can’t reach Stint. Check
+your internet connection." — which reads as a network fault, not as a build
 pointed somewhere wrong, so the check happens where the answer is known.
 
 **The values go in the bundle's `LSEnvironment`, not the shell.** An
@@ -140,7 +140,8 @@ opened after a night shut would otherwise come back signed out.
 - **Every press shows its result before the server answers** — start, stop,
   rename, project, start again — through `press` in `apps/macos/Sources/Stint/Optimistic.swift`. A
   refusal takes it back and says why in the panel; a 409 from
-  `/timer/start` then shows what *is* running.
+  `/timer/start` then shows what *is* running. Start and stop ask for
+  `?include=summary`, so the refetch after them skips `/summary`.
 - **A refresh that began before a press is dropped**, so a poll that was in
   flight can't undo what the press showed.
 - **The task field follows the server only when unfocused**, so it never

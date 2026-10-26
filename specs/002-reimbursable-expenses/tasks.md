@@ -33,7 +33,7 @@ bill needs something to bill. Both are P1. User Stories 1 to 3 are the
 
 ## Phase 1: Setup
 
-- [X] T001 In `/Users/blakeeriks/dev/stint-f48-expenses`, run `pnpm dev:up`, `pnpm db:setup`, the dev server and Storybook (port 6007), and sign in to the seeded account (`docs/local-dev.md`). Confirm `pnpm verify:static` and `pnpm verify:db` pass before any change.
+- [X] T001 In the `stint-f48-expenses` worktree, run `pnpm dev:up`, `pnpm db:setup`, the dev server and Storybook (port 6007), and sign in to the seeded account (`docs/local-dev.md`). Confirm `pnpm verify:static` and `pnpm verify:db` pass before any change.
 
 ---
 
@@ -159,7 +159,7 @@ bill needs something to bill. Both are P1. User Stories 1 to 3 are the
 - [X] T029 [P] Update `docs/api.md`: `/expenses` with `recurring`, `status=open|unbilled` and the invoice reference; remove `/recurring-expenses`.
 - [X] T030 [P] Update `docs/data-model.md`: `expenses.recurring`, its two checks, and recurring lines dated the period's end; remove the recurrence table and producer.
 - [X] T031 Run `pnpm verify:static`, `pnpm verify:db` and `pnpm --filter @stint/web test:stories`. Walk `quickstart.md` on local Stint, signed in to the seeded account, in dark and light and at phone width, and compare each screen with `design/expenses.html`. Screenshot Clients, New invoice and the PDF for the PR's Try it.
-- [ ] T032 Ask Blake before force-pushing `f48-expenses`; then update the Try it section of BlakeEriks/stint#126 and add `ready-for-qa` once CI is green.
+- [ ] T032 Ask the owner before force-pushing `f48-expenses`; then update the Try it section of BlakeEriks/stint#126 and add `ready-for-qa` once CI is green.
 
 ---
 

@@ -5,7 +5,9 @@ import {
   invoicesCsv,
   measured,
   formatInvoiceNumber,
+  addDays,
   localDateKey,
+  paymentTermsText,
   pickSchedules,
   type ImportPreview,
   type ImportResult,
@@ -84,14 +86,19 @@ type Preview = NonNullable<ReturnType<typeof invoicePreview>>;
 function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
   const seq = db.settings.nextInvoiceNumber;
   db.settings.nextInvoiceNumber += 1;
+  const issueDate = input.issueDate ?? localDateKey(db.now, input.tz);
+  const days =
+    db.clients.find((c) => c.id === preview.clientId)?.paymentTermsDays ??
+    db.settings.paymentTermsDays;
+  const dueDate = input.dueDate ?? addDays(issueDate, days);
   return {
     id: uuidv7(db.now.getTime()),
     clientId: preview.clientId,
     invoiceNumber: formatInvoiceNumber(db.settings.invoiceNumberPrefix, seq),
     sequenceNo: seq,
     status: 'draft' as const,
-    issueDate: input.issueDate ?? localDateKey(db.now, input.tz),
-    dueDate: input.dueDate ?? null,
+    issueDate,
+    dueDate,
     periodStart: preview.periodStart,
     periodEnd: preview.periodEnd,
     subtotal: preview.subtotal,
@@ -101,7 +108,7 @@ function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
     total: preview.total,
     currency: preview.currency,
     notes: input.notes ?? null,
-    paymentTerms: db.settings.defaultPaymentTerms,
+    paymentTerms: paymentTermsText(issueDate, dueDate),
     groupingMode: preview.groupingMode,
     summaryText: preview.groupingMode === 'summary' ? input.summaryText : null,
     reference: input.reference ?? null,
@@ -423,6 +430,8 @@ export const handlers = {
       currency: null,
       color: null,
       paymentProfileId: null,
+      billingSchedule: null,
+      paymentTermsDays: null,
       archivedAt: null,
       ...(await body<Partial<Client>>(request)),
     };
@@ -455,9 +464,11 @@ export const handlers = {
 
   invoices: http.get(`${API}/invoices`, ({ request }) => {
     const clientId = query(request).get('clientId');
+    const status = query(request).get('status');
     const invoices = getDb()
       .invoices.filter((i) => !clientId || i.clientId === clientId)
-      .map(({ lineItems: _, ...invoice }) => invoice)
+      .filter((i) => !status || i.status === status)
+      .map(({ lineItems: _, changedSinceDownload: __, ...invoice }) => invoice)
       .sort((a, b) => b.sequenceNo - a.sequenceNo);
     return ok(envelopes.invoices, { invoices });
   }),
@@ -468,9 +479,12 @@ export const handlers = {
     if (!invoice) return fail('ENTRY_NOT_FOUND');
     // The fake keeps no plan per invoice: the account's plan decides.
     const { available, plan } = db.billing;
+    const { changedSinceDownload, lineItems, ...rest } = invoice;
     return ok(invoiceDetail, {
-      ...invoice,
+      ...rest,
+      lineItems: lineItems.map((l) => ({ ...l, isNew: l.isNew ?? false })),
       canDownload: documentOpens(available, plan, null),
+      changedSinceDownload: changedSinceDownload ?? null,
     });
   }),
 
@@ -492,6 +506,24 @@ export const handlers = {
       return fail(
         'VALIDATION_FAILED',
         'Those payment details are archived or gone. Choose others.',
+      );
+    const open = db.invoices.find(
+      (i) =>
+        i.clientId === input.clientId &&
+        i.status === 'draft' &&
+        i.periodStart <= input.periodEnd &&
+        i.periodEnd >= input.periodStart,
+    );
+    if (open)
+      return fail(
+        'DRAFT_OVERLAPS',
+        `${open.invoiceNumber} is a draft for these dates already. Open it, or start after it.`,
+        {
+          invoiceId: open.id,
+          invoiceNumber: open.invoiceNumber,
+          periodStart: open.periodStart,
+          periodEnd: open.periodEnd,
+        },
       );
     const preview = invoicePreview(db, input, input.tz);
     if (!preview) return fail('ENTRY_NOT_FOUND');
@@ -528,6 +560,12 @@ export const handlers = {
         sentAt?: string;
         paidAt?: string;
       }>(request);
+      if (input.status === 'sent' && invoice.changedSinceDownload)
+        return fail(
+          'DRAFT_CHANGED',
+          'This draft changed since you downloaded it. Download the new PDF, send that one, then mark it sent.',
+          invoice.changedSinceDownload,
+        );
       invoice.status = input.status;
       if (input.status === 'sent')
         invoice.sentAt = input.sentAt ?? db.now.toISOString();
@@ -536,7 +574,7 @@ export const handlers = {
       if (input.status === 'void')
         for (const e of [...db.entries, ...db.expenses])
           if (e.invoiceId === invoice.id) e.invoiceId = null;
-      const { lineItems: _, ...rest } = invoice;
+      const { lineItems: _, changedSinceDownload: __, ...rest } = invoice;
       return ok(schema.Invoice, rest);
     },
   ),
@@ -686,9 +724,27 @@ export const handlers = {
 
   updateSettings: http.patch(`${API}/settings`, async ({ request }) => {
     const db = getDb();
-    const { nextInvoiceNumber: _, ...input } =
-      await body<Partial<Settings>>(request);
+    const parsed = schema.UpdateSettings.safeParse(await body(request));
+    if (!parsed.success)
+      return fail('VALIDATION_FAILED', 'Request body failed validation');
+    const input = parsed.data;
+    const current = db.settings.nextInvoiceNumber;
+    const next = input.nextInvoiceNumber;
+    const refused = (message: string) =>
+      fail('VALIDATION_FAILED', message, {
+        field: 'nextInvoiceNumber',
+        current,
+      });
+    if (next !== undefined && next > schema.NEXT_INVOICE_NUMBER_MAX)
+      return refused(
+        `The next number can't go above ${schema.NEXT_INVOICE_NUMBER_MAX}.`,
+      );
+    if (next !== undefined && next < current)
+      return refused(
+        `The next number can't go below ${current}, or an invoice could repeat a number already sent.`,
+      );
     db.settings = { ...db.settings, ...input };
+    if (input.paymentTermsDays !== undefined) db.legacyPaymentTerms = null;
     return ok(schema.Settings, db.settings);
   }),
 
@@ -808,6 +864,8 @@ export const handlers = {
         currency: null,
         color: c.color,
         paymentProfileId: null,
+        billingSchedule: null,
+        paymentTermsDays: null,
         archivedAt: null,
       });
     for (const p of preview.newProjects)
