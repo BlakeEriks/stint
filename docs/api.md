@@ -99,10 +99,10 @@ invoiced — here or, for an entry marked `invoiced_elsewhere`, anywhere — `aw
 money that arrived. `openInvoiceCount` is how many invoices make up the
 second.
 
-**Only invoices and work in the response's `currency` count**, since the
-screen prints one currency beside the figure and a euro added in would be
-reported as a dollar. `unbilled.mixed` is true when work in another currency
-was left out of `unbilled.total`; its rows still carry their own currency.
+**Only invoices in the response's `currency` count, and only its work counts
+toward `unbilled.total`**, since the screen prints one currency beside the
+figure and a euro added in would be reported as a dollar. `unbilled.mixed` is
+true when work in another currency was left out of `unbilled.total`.
 `collected.daysSincePaid` is whole calendar days in `tz` from the
 latest `paid_at` in that same currency, and **null** when nothing in it has
 ever been paid or that `paid_at` is in the future.

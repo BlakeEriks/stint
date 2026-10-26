@@ -796,7 +796,7 @@ export const Stats = z.object({
      *  included. Never "earned" and never "revenue". */
     total: money,
     /** Rows in another currency are left out of `total`, which is only the
-     *  response's `currency`. Their rows still carry their own. */
+     *  response's `currency`. */
     mixed: z.boolean(),
     seconds: z.number().int().nonnegative(),
     byClient: z.array(UnbilledClient),

@@ -64,7 +64,6 @@ test('the unbilled total rounds once, so a sum of rounded lines is money', () =>
 });
 
 test('unbilled totals only the account currency and says when others are left out', () => {
-  // A euro added to a dollar total is a euro reported as a dollar.
   const u = buildUnbilled(
     [
       unbilledRow({ amount: '100.00' }),
