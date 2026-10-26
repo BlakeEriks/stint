@@ -59,7 +59,7 @@ Every build and every fix goes the same way:
    branch on a first build — unless the round is small: under about 20 lines
    and no logic change in auth, the API or data access. Start it on Opus with
    the brief in `.claude/skills/standards-review/SKILL.md`, the one Spec Kit
-   work gets too, for the commit range in `../stint-issues`.
+   work gets too, for the commit range in the folder the builder names.
 3. Findings that hold up go back to the same builder (SendMessage); its fix
    is reviewed again only if it is not small — judged from
    `git diff --stat` of the fix once it is committed, never in advance.
@@ -85,10 +85,14 @@ is `reviewed`.
 
 ## 0. Catch up
 
-- **Merged:** in `../stint-issues`, `git fetch --prune`,
-  `git switch --detach origin/main`, then `git branch -D` every local branch
-  whose PR has merged (`gh pr list --state merged --head <branch>`). PRs
-  squash-merge, so `git branch --merged` never lists them.
+- **Merged:** in `../stint-issues`, `git fetch --prune`, then
+  `git switch --detach origin/main` only if it is free: detached, with
+  nothing uncommitted. On a branch or with changes, another session is
+  building there, so leave it. Then, for every local branch whose PR has
+  merged (`gh pr list --state merged --head <branch>`), `git worktree remove`
+  the worktree holding it, if any, and `git branch -D` it. PRs squash-merge,
+  so `git branch --merged` never lists them. Both refuse what is in use: a
+  worktree with changes, the branch `../stint-issues` has checked out.
 - **Each open PR of yours**, in order:
   1. **`needs-input`:** if feedback has arrived since the marked question,
      remove the label and treat the reply as feedback. Otherwise skip the PR.
