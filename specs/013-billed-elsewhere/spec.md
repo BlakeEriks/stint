@@ -25,14 +25,15 @@ already in Stint.
 - Q: Is an entry billed elsewhere locked, as one on an issued invoice is? → A: No. Stint never told a client what that entry says, so nothing it printed can disagree with an edit. It stays editable, as imported history already is. (decided autonomously)
 - Q: How is a mistaken mark undone? → A: Right after marking a range, the confirmation offers Undo, which clears exactly the entries it marked. Later, any one entry is cleared from its edit dialog. (decided autonomously)
 - Q: Where does the range selection live? → A: On New invoice, where the client and dates are already picked and the card shows the work. A second action marks that work billed elsewhere instead of generating. (decided autonomously)
-- Q: Which entries does a range mark? → A: The ones the card counts: finished, billable, on no invoice, for that client and dates. Non-billable work bills nothing either way, so it's left alone. (decided autonomously)
+- Q: Which entries does a range mark? → A: Exactly the entries the card shows, by id, so nothing logged after she looked is marked. The server marks only those still finished and on no invoice. (decided autonomously)
+- Q: Is there a confirm step? → A: No. The mark removes nothing and comes back with Undo, and the app's rules keep a confirm for what removes something saved. The button shows it's pending, then a toast says how many it marked, with Undo. (decided autonomously)
 - Q: Expenses? → A: Out of scope. The issue is about tracked time, and expenses have no such flag. (decided autonomously)
 
 ## Design
 
 No design review (decided autonomously): each change is a control in a
 pattern the app already has. New invoice gains a secondary button beside
-Generate that opens the app's confirm step, the edit-entry dialog gains a
+Generate, the edit-entry dialog gains a
 checkbox under Billable, and the result is a toast with an action. Their
 stories show every state.
 
@@ -42,8 +43,7 @@ stories show every state.
 
 She opens New invoice, picks the client and the dates she already billed
 from her old tool, and sees that work on the card. She presses "Billed
-elsewhere", confirms the count and hours, and that work leaves Unbilled and
-never appears on an invoice.
+elsewhere", and that work leaves Unbilled and never appears on an invoice.
 
 **Why this priority**: It's the switch-mid-engagement case the issue names,
 and every new user is in it.
@@ -55,22 +55,22 @@ refuse with nothing to bill.
 
 **Acceptance Scenarios**:
 
-1. **Given** a client with 3 finished, billable, unbilled entries in the
-   chosen dates, **When** she presses Billed elsewhere, **Then** a confirm
-   step names the client, the dates, "3 entries" and their hours, and
-   nothing is marked until she confirms.
-2. **Given** she confirms, **When** the server answers, **Then** those 3
-   entries are billed elsewhere, Unbilled drops by their amount, Earned is
-   unchanged, and a toast says "3 entries marked billed elsewhere" with
-   Undo.
+1. **Given** the card shows 3 entries for the chosen client and dates,
+   **When** she presses Billed elsewhere, **Then** the button shows it's
+   pending until the server answers.
+2. **Given** the server answers, **Then** those 3 entries are billed
+   elsewhere, Unbilled drops by their amount, Earned is unchanged, the card
+   has nothing to bill, and a toast says "3 entries marked billed elsewhere"
+   with Undo.
 3. **Given** the toast, **When** she presses Undo, **Then** exactly those 3
    entries are unbilled again, and none other.
 4. **Given** the dates hold no unbilled billable work, **Then** Billed
    elsewhere is disabled, as Generate is.
-5. **Given** an entry in the dates is on a draft or issued invoice, **When**
-   she marks the range, **Then** that entry is left as it is.
-6. **Given** the server refuses or fails, **Then** nothing is marked and the
-   reason shows in the confirm step, which stays open.
+5. **Given** an entry the card showed was put on an invoice since, **When**
+   she marks, **Then** that entry is left as it is, and the toast counts
+   only the ones marked.
+6. **Given** the server fails, **Then** nothing is marked and the app-wide
+   notice says why.
 
 ---
 
@@ -100,9 +100,8 @@ and see Unbilled drop; open it again, untick, save, and see it return.
 ### Edge Cases
 
 - A timer still running in the range: it isn't finished, so it isn't marked.
-- An entry logged in the range while the confirm step is open: the server
-  marks what is unbilled when she confirms, so it is marked too, since she
-  said those dates were billed. The toast's count says how many it marked.
+- An entry logged in the range after the card loaded: it isn't on the ids
+  she pressed with, so it stays unbilled.
 - Undo after one of the marked entries was deleted: the rest are cleared.
 - Two tabs: a second mark of the same range finds nothing left and marks 0.
 - The phone and macOS apps ignore the new field on an entry.
@@ -111,17 +110,17 @@ and see Unbilled drop; open it again, untick, save, and see it return.
 
 ### Functional Requirements
 
-- **FR-001**: The API MUST mark as billed elsewhere every finished, billable
-  entry on no invoice, for a client and inclusive local dates in a time zone,
-  and return the ids it marked.
+- **FR-001**: The API MUST mark as billed elsewhere a given list of the
+  user's entry ids, skipping any running or on an invoice, and return the
+  ids it changed.
 - **FR-002**: The API MUST clear billed elsewhere on a given list of the
-  user's entry ids, and return the ids it cleared.
+  user's entry ids, and return the ids it changed.
 - **FR-003**: The API MUST never set billed elsewhere on an entry that is on
   an invoice, whether draft or issued; one entry asked for by id is refused
   with a conflict naming why.
 - **FR-004**: An entry MUST carry whether it is billed elsewhere, and its
   update MUST accept it.
-- **FR-005**: Nothing MUST be marked without a confirm press (Principle I).
+- **FR-005**: Nothing MUST be marked but the entries the user pressed on (Principle I).
 - **FR-006**: An entry billed elsewhere MUST count as earned and never as
   unbilled, in every figure and list, as imported history does today.
 - **FR-007**: Every write MUST go through `/api/v1` and the app's one
@@ -139,7 +138,7 @@ and see Unbilled drop; open it again, untick, save, and see it return.
 ### Measurable Outcomes
 
 - **SC-001**: A period's prior billing is taken out of Unbilled in one
-  confirm, without deleting an entry.
+  press, without deleting an entry.
 - **SC-002**: After marking, month Earned is unchanged and Unbilled drops by
   exactly the marked work's amount.
 - **SC-003**: No marked entry ever appears on a new invoice.
