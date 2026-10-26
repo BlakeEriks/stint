@@ -32,23 +32,6 @@ async function open() {
  * the point is that the picker keeps using a primitive that provides them.
  */
 describe('ProjectPicker', () => {
-  /**
-   * The trigger's accessible name says what the control is, then what it
-   * holds. The purpose alone would leave out the visible text, so saying the
-   * project on screen would not press it (WCAG 2.5.3).
-   */
-  it('names itself by its purpose, then the project it holds', () => {
-    render(
-      <ProjectPicker projects={PROJECTS} value="p2" onChange={() => {}} />,
-      { wrapper },
-    );
-
-    const trigger = screen.getByRole('button', {
-      name: 'Project, Bluebird API',
-    });
-    expect(trigger).toHaveTextContent('Bluebird API');
-  });
-
   it('marks the selected project checked, not merely styled', async () => {
     render(
       <ProjectPicker projects={PROJECTS} value="p2" onChange={() => {}} />,

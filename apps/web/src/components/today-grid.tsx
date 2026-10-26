@@ -194,9 +194,9 @@ function Block({
       className={`${shape} hover:bg-surface-active focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none`}
       style={style}
     >
+      <span className="sr-only">Edit</span> {body}
       {/* The visible text is a truncated name and a duration, so the times go
           in the accessible name or a screen reader cannot tell two apart. */}
-      <span className="sr-only">Edit</span> {body}
       <span className="sr-only">{`${range}${entry.invoiceId ? ', billed' : ''}`}</span>
     </button>
   );
