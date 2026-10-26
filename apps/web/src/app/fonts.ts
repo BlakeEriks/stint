@@ -14,10 +14,8 @@ const sans = localFont({
     { path: '../fonts/ibm-plex-sans-latin-500-normal.woff2', weight: '500' },
     { path: '../fonts/ibm-plex-sans-latin-600-normal.woff2', weight: '600' },
   ],
-  /* Named as the tokens' `--font-sans` stack names it, the stack that wins
-     the cascade; otherwise `next/font/local` names the face after this
-     constant. Turbopack still writes the constant's name into
-     `--font-plex-sans`, so that variable no longer names the face. */
+  /* Named as the tokens' `--font-sans` stack names it; otherwise
+     `next/font/local` names the face after this constant. */
   declarations: [{ prop: 'font-family', value: "'IBM Plex Sans'" }],
   variable: '--font-plex-sans',
   display: 'swap',
