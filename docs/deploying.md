@@ -418,9 +418,10 @@ can ask for it too.
   the secret `pnpm try-mac` sends so the menu bar app reaches a preview
   (`docs/macos.md`).
 
-A PR that changes the phone app also gets an Android build against its
-preview, from `.github/workflows/mobile-preview.yml`; `docs/mobile.md` has
-its one-time setup.
+A PR that changes the phone app also gets an EAS Update against its
+preview, opened in a shared Android build, from
+`.github/workflows/mobile-preview.yml`; `docs/mobile.md` has its one-time
+setup.
 
 A free project pauses after a week unused; restore it from the dashboard.
 

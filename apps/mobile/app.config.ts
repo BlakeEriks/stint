@@ -1,21 +1,25 @@
 import type { ExpoConfig } from 'expo/config';
-import { resolveTarget } from './src/target.ts';
+import { resolveIdentity } from './src/target.ts';
 
 /**
  * One config for every backend (`docs/mobile.md`, Which backend). The
- * `STINT_*` variables pick it at build time; `src/config.ts` reads them back
- * from `extra.env`. Local and preview have their own name and id, so they
- * install beside the released app rather than over it.
+ * `STINT_*` variables pick it at build or update time; `src/config.ts` reads
+ * them back from `extra.env`, and resolves the backend there, since one
+ * preview build serves every PR. Local and preview have their own name and
+ * id, so they install beside the released app rather than over it.
  */
 const env = {
   STINT_TARGET: process.env.STINT_TARGET,
   STINT_APP_URL: process.env.STINT_APP_URL,
   STINT_PREVIEW_PR: process.env.STINT_PREVIEW_PR,
 };
-const target = resolveTarget(env);
-/* Firebase's config for the app id, an EAS file variable (`docs/mobile.md`,
-   Push). Without it the build has no FCM and the phone never registers. */
-const googleServices = process.env.GOOGLE_SERVICES_JSON;
+const target = resolveIdentity(env);
+/* Firebase's config, which `eas-build-post-install` copies here from the EAS
+   file variable `GOOGLE_SERVICES_JSON` (`docs/mobile.md`, Push). A fixed path,
+   so the fingerprint reads the same in CI as on EAS
+   (`fingerprint.config.cjs`). A local build has no Firebase and never
+   registers. */
+const push = target.name !== 'local';
 
 const config: ExpoConfig = {
   name: target.appName,
@@ -34,14 +38,13 @@ const config: ExpoConfig = {
   },
   android: {
     package: target.appId,
-    ...(googleServices ? { googleServicesFile: googleServices } : {}),
+    ...(push ? { googleServicesFile: './google-services.json' } : {}),
   },
   plugins: ['expo-secure-store', 'expo-font', 'expo-notifications'],
-  // Every build talks to the backend it was built for; nothing updates it over the air.
-  updates: { enabled: false },
+  ...updates(),
   extra: {
     env,
-    push: Boolean(googleServices),
+    push,
     appleTeamId: process.env.APPLE_TEAM_ID,
     ...(process.env.EAS_PROJECT_ID
       ? { eas: { projectId: process.env.EAS_PROJECT_ID } }
@@ -51,3 +54,18 @@ const config: ExpoConfig = {
 };
 
 export default config;
+
+/**
+ * The preview build is a development build: it opens a PR's update from the
+ * QR on the PR (`mobile-preview.yml`). `extra` is out of its fingerprint
+ * (`fingerprint.config.cjs`), so one build serves every PR.
+ */
+function updates(): Pick<ExpoConfig, 'updates' | 'runtimeVersion'> {
+  const projectId = process.env.EAS_PROJECT_ID;
+  if (target.name !== 'preview' || !projectId)
+    return { updates: { enabled: false } };
+  return {
+    updates: { url: `https://u.expo.dev/${projectId}` },
+    runtimeVersion: { policy: 'fingerprint' },
+  };
+}
