@@ -1,6 +1,6 @@
 ---
 name: doc-drift
-description: Check whether the docs that own what a PR changed still hold, and post one comment on the PR. Run by the Docs workflow; locally, run it on a branch before opening the PR.
+description: Check whether the docs that own what a PR changed still hold, and write one comment for the PR, which the Docs workflow posts. Run by the Docs workflow; locally, run it on a branch before opening the PR.
 argument-hint: "<pr-number> <base-branch> <head-sha>"
 allowed-tools: Read, Grep, Glob, Write, Bash(git diff:*), Bash(git log:*)
 # A skill per code.claude.com/docs/en/skills, run in CI by
