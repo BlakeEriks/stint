@@ -198,7 +198,9 @@ export const TaskNamesQuery = z.object({
      every other name still follows. Omitting it ranks by recency alone, which
      is also what the picker's "No project" state wants. */
   projectId: uuid.optional(),
-  limit: z.coerce.number().int().min(1).max(20).default(8),
+  /* High enough for the web picker to fetch every name once and filter as
+     the user types; the default stays a recent list. */
+  limit: z.coerce.number().int().min(1).max(1000).default(8),
 });
 
 /** One row of `recent_task_names`; ranked by the server and never re-sorted. */

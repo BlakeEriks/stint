@@ -26,6 +26,10 @@ export type TaskSuggestInputProps = {
 /** The list is a shortcut past typing, not a browsable history. */
 const MAX_ROWS = 4;
 
+/* Every name, fetched once and filtered here, so a keystroke never waits on
+   the server. The API's maximum; past it the oldest names drop out. */
+const FETCHED = 1000;
+
 export function TaskSuggest({
   value,
   onChange,
@@ -64,7 +68,7 @@ export function TaskSuggest({
 
   const { data } = useQuery({
     queryKey: keys.taskNames({ projectId }),
-    queryFn: () => api.taskNames({ projectId }),
+    queryFn: () => api.taskNames({ projectId, limit: FETCHED }),
     /* Above the 10s default: a name typed minutes ago is still the right
        suggestion, and refetching on every focus of the timer bar is traffic
        for an accelerator nobody waited on. */
