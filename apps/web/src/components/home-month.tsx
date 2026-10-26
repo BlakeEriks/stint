@@ -103,6 +103,13 @@ export function Month({
               currency={currency}
               className="type-amount-hero text-strong"
             />
+            {/* The total is this currency's alone; without the note it would
+                read as everything owed. */}
+            {unbilled.mixed ? (
+              <span className="type-meta text-subtle">
+                Other currencies not included
+              </span>
+            ) : null}
           </FigGroup>
 
           {/* Awaiting counts rather than describes, and is rendered only when

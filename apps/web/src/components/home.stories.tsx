@@ -392,6 +392,20 @@ export const MonthStart: Story = {
   },
 };
 
+/** A client billed in euros: Unbilled totals the dollars alone and says
+ *  other currencies are left out, rather than adding euros to dollars. */
+export const OtherCurrency: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    for (const c of db.clients.slice(1)) c.currency = 'EUR';
+  }),
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByText('Other currencies not included'),
+    ).toBeVisible();
+  },
+};
+
 /** The month's first day: no projection yet, so a dash holds On track for's place. */
 export const MonthFirst: Story = {
   ...desktop,

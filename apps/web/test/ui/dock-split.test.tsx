@@ -47,7 +47,13 @@ function serve() {
         return new Response(
           JSON.stringify({
             currency: 'USD',
-            unbilled: { total: 0, seconds: 0, byClient: [], moreClients: 0 },
+            unbilled: {
+              total: 0,
+              mixed: false,
+              seconds: 0,
+              byClient: [],
+              moreClients: 0,
+            },
             awaitingPayment: 0,
             earnedToday: 0,
             attention: {
