@@ -297,11 +297,13 @@ exceptions. An edit to an entry or expense on a draft reaches it on its next
 read.
 
 ### Work invoiced elsewhere
-`time_entries.invoiced_elsewhere` marks work already billed from another tool,
-usually history an import brought in. It counts as **earned** and is never
-**unbilled**: `unbilled_by_client`, invoice generation and the inbox's
-uninvoiced rows all skip it. It is a flag, not an invoice, so it takes no
-number and appears in no invoice list, and the entry stays editable.
+`time_entries.invoiced_elsewhere` marks work already billed from another tool:
+history an import brought in, or entries the user marks on New invoice or in
+the entry dialog. It counts as **earned** and is never **unbilled**:
+`unbilled_by_client`, invoice generation and the inbox's uninvoiced rows all
+skip it. It is a flag, not an invoice, so it takes no number and appears in
+no invoice list, and the entry stays editable. It is never set on an entry
+on an invoice.
 
 ### Gapless invoice numbering
 `allocate_invoice_number(user_id)` increments `next_invoice_number` under a row
