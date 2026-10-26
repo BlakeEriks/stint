@@ -210,9 +210,10 @@ there is no currency column, because an expense is never converted.
 
 - `client_id` is required, and references its row **with `user_id`**, as
   `time_entries.project_id` does.
-- `invoice_id` set means billed. An invoice takes every unbilled expense for
-  its client dated on or before the period's end, so one missed invoice does
-  not strand a reimbursement.
+- `invoice_id` set means billed, by a sent invoice. A one-off shows on one
+  open draft for its client: the one whose period ends first on or after its
+  date (`assignExpenses`), so one missed invoice does not strand a
+  reimbursement.
 - `recurring` bills it on **every** invoice for the client instead of once: a
   subscription the client reimburses. It has no `spent_on`
   (`expense_dated`), is never attached (`recurring_never_billed`), and so is
@@ -288,16 +289,13 @@ name becomes the invoice line description, so editing it after issue changes
 what the client was told they were billed for, even when the money is
 unchanged.
 
-Two deliberate exceptions:
-
-- Entries on a **draft** invoice remain editable.
-- **Detaching** an entry (`invoice_id → null`) stays allowed, so a voided
-  invoice can release its entries.
+No entry or expense points at a draft, so only sent work is locked.
+**Detaching** an entry (`invoice_id → null`) stays allowed, so a voided
+invoice can release its entries.
 
 `guard_billed_expense` holds the same lock on an expense, over `spent_on`,
-`description`, `amount`, `client_id` and `recurring`, with the same two
-exceptions. An edit to an entry or expense on a draft reaches it on its next
-read.
+`description`, `amount`, `client_id` and `recurring`, with the same
+exception. An edit to unbilled work shows on the next read of any draft.
 
 ### Work invoiced elsewhere
 `time_entries.invoiced_elsewhere` marks work already billed from another tool,
@@ -405,8 +403,6 @@ hold; this list is the record of *what* must.
 - Editing or deleting an entry billed to a **non-draft** invoice is rejected,
   including its `task_name` — that becomes the invoice line description, so
   changing it after issue rewrites what the client was told.
-- Entries on a **draft** invoice stay editable; a draft holds no number and
-  has been sent to nobody.
 - Changing a **non-draft** invoice or its lines is rejected, and its status
   moves only along the transition table, whichever client writes it.
 - Detaching an entry from a voided invoice is allowed — that is the release

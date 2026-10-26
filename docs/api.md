@@ -291,10 +291,10 @@ record.
 accruing), non-billable entries, and entries already attached to an invoice.
 
 **Expenses are billed from what is stored, never from the request.** An
-invoice takes every recurring expense for its client, dated `periodEnd`, and
-every unbilled one dated on or before `periodEnd`, an earlier month's
-included, less any in `excludedExpenseIds`. Only the dated ones are attached;
-a recurring one bills again on the next invoice.
+invoice shows every recurring expense for its client, dated `periodEnd`, and
+the unbilled one-offs `assignExpenses` gives it, an earlier month's included,
+less any in `excludedExpenseIds`. Sending attaches the one-offs; a recurring
+one bills again on the next invoice.
 They follow the service lines as `unit: "expense"` lines carrying `spentOn`,
 and `total` is `subtotal + taxAmount + expensesSubtotal`: tax never applies to
 a reimbursement.
