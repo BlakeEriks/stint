@@ -796,7 +796,6 @@ function Form() {
   );
 }
 
-/** What Bill to will lack, said; null when it has both. */
 /** How long the Undo stays offered. Past it, each entry's dialog clears it. */
 const UNDO_MS = 8000;
 
@@ -836,6 +835,7 @@ function MarkedToast({
   );
 }
 
+/** What Bill to will lack, said; null when it has both. */
 function missingDetails(client: Pick<Client, 'address' | 'email'>) {
   if (client.address && client.email) return null;
   if (client.address) return 'No email';
