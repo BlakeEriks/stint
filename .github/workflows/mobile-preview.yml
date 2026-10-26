@@ -1,36 +1,45 @@
 name: mobile-preview
 
-# A PR's phone build: an Android APK pointed at the PR's Vercel preview and
-# signed in on launch as pr-<n>@preview.test, built on EAS and linked on the
-# PR for its Try it (`docs/mobile.md`, Preview builds). It installs as Stint
-# Preview, beside the released app.
+# The phone's previews (`docs/mobile.md`, Preview builds): one development
+# build of Stint Preview, which the reviewer installs once, and an EAS Update
+# per PR that the build opens from a QR on the PR. The update carries the
+# PR's number and Vercel preview; the build carries neither, so its
+# fingerprint changes only with native code, and only then does it build.
 #
-# Only when the app or a package it imports changes: EAS's free tier counts
-# builds by the month.
+# Expo's continuous-deploy-fingerprint action runs these same commands, but
+# finds its comment by a marker anyone can type, and publishes on main too,
+# where there is no PR for the update to talk to.
 #
-# The link is public, so the build holds no secret: the reviewer types
-# Vercel's bypass into the app once (`apps/mobile/src/bypass.ts`).
+# The links are public, so neither the build nor an update holds a secret:
+# the reviewer types Vercel's bypass into the app once
+# (`apps/mobile/src/bypass.ts`). A development build runs any bundle a deep
+# link names, so a crafted link could read what the app keeps: the bypass
+# and a preview session on stint-test's seeded data (`docs/mobile.md`).
 #
 # Requires, once: the EXPO_TOKEN secret, and the EAS_PROJECT_ID and
 # EXPO_OWNER variables.
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    paths:
+  # Main keeps the shared build current, so a PR rarely builds its own.
+  push:
+    branches: [main]
+    paths: &app
       - 'apps/mobile/**'
       - 'packages/client/**'
       - 'packages/core/**'
       - 'packages/schema/**'
       - 'packages/design-tokens/**'
       - 'pnpm-lock.yaml'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths: *app
 
 permissions:
   contents: read
   pull-requests: write
 
-# A newer push supersedes a build still queued for the last one.
+# A newer push supersedes the last one's run.
 concurrency:
-  group: mobile-preview-${{ github.event.pull_request.number }}
+  group: mobile-preview-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 defaults:
@@ -62,38 +71,89 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       # EAS hands a cloud build its profile's `env` and nothing from this
-      # shell, so the PR's values go into eas.json here, never into git.
-      - name: Point the preview profile at this PR
+      # shell, so the project's values go into eas.json here, never into git.
+      # The shell gets the profile's `env` too: the fingerprint reads
+      # app.config.ts here, and must see what the build saw.
+      - name: Point the preview profile at the project
         working-directory: apps/mobile
         run: |
-          # A long branch has no preview for the build to talk to.
-          url=$(node ../../scripts/preview-url.mjs "$BRANCH")
-          jq --arg pr "$PR" --arg url "$url" \
-             --arg project "$EAS_PROJECT_ID" --arg owner "$EXPO_OWNER" \
-            '.build.preview.env += {
-               STINT_PREVIEW_PR: $pr, STINT_APP_URL: $url,
-               EAS_PROJECT_ID: $project, EXPO_OWNER: $owner
-             }' eas.json > eas.pr.json
+          jq --arg project "$EAS_PROJECT_ID" --arg owner "$EXPO_OWNER" \
+            '.build.preview.env += { EAS_PROJECT_ID: $project, EXPO_OWNER: $owner }' \
+            eas.json > eas.pr.json
           mv eas.pr.json eas.json
+          jq -r '.build.preview.env | to_entries[] | "\(.key)=\(.value)"' eas.json >> "$GITHUB_ENV"
 
-      - name: Build
+      # A finished build with this fingerprint runs this push's JavaScript;
+      # one that expires within a day can no longer be installed from its link.
+      - name: Build, if no build runs this native code
         id: build
         working-directory: apps/mobile
         run: |
-          eas build --platform android --profile preview --non-interactive --wait --json > build.json
-          id=$(jq -r '.[0].id' build.json)
-          echo "url=https://expo.dev/accounts/${EXPO_OWNER}/projects/stint/builds/${id}" >> "$GITHUB_OUTPUT"
+          fingerprint=$(npx expo-updates fingerprint:generate --platform android | jq -r .hash)
+          build=$(eas build:list --platform android --build-profile preview \
+              --runtime-version "$fingerprint" --status finished \
+              --limit 1 --json --non-interactive \
+            | jq -r '[.[] | select(.expirationDate > (now + 86400 | todate))][0].id // empty')
+          if [ -n "$build" ]; then
+            echo "new=false" >> "$GITHUB_OUTPUT"
+          else
+            eas build --platform android --profile preview --non-interactive --wait --json > build.json
+            build=$(jq -r '.[0].id' build.json)
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "url=https://expo.dev/accounts/${EXPO_OWNER}/projects/stint/builds/${build}" >> "$GITHUB_OUTPUT"
+
+      # Only the update knows the PR: the build serves every PR.
+      - name: Publish this PR's update
+        id: update
+        if: github.event_name == 'pull_request'
+        working-directory: apps/mobile
+        env:
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # A long branch has no preview for the update to talk to.
+          STINT_APP_URL=$(node ../../scripts/preview-url.mjs "$BRANCH")
+          export STINT_APP_URL STINT_PREVIEW_PR="$PR"
+          # The bundle imports the tokens, which git doesn't carry.
+          pnpm --filter @stint/design-tokens build
+          group=$(eas update --branch "pr-$PR" --platform android --environment preview \
+              --message "${SHA:0:7}" --non-interactive --json \
+            | jq -r '.[0].group')
+          # qr.expo.dev prefixes `exp+`: the QR opens exp+stint://, which only
+          # the development build registers.
+          echo "qr=https://qr.expo.dev/eas-update?appScheme=stint&projectId=${EAS_PROJECT_ID}&groupId=${group}" >> "$GITHUB_OUTPUT"
+          echo "url=https://expo.dev/projects/${EAS_PROJECT_ID}/updates/${group}" >> "$GITHUB_OUTPUT"
 
       - name: Link it on the PR
+        if: github.event_name == 'pull_request'
         env:
-          URL: ${{ steps.build.outputs.url }}
+          NEW: ${{ steps.build.outputs.new }}
+          BUILD: ${{ steps.build.outputs.url }}
+          QR: ${{ steps.update.outputs.qr }}
+          UPDATE: ${{ steps.update.outputs.url }}
           SHA: ${{ github.event.pull_request.head.sha }}
         # By its marker, and only the bot's: `--edit-last` would take whichever
         # comment the bot wrote last, such as doc drift's, and anyone can type
         # the marker.
         run: |
-          body="<!-- mobile-preview -->
-          **Phone build** for ${SHA:0:7}: open ${URL} on your Android phone and tap Install. On its first launch, paste Vercel's bypass; it opens as Stint Preview, signed in as pr-${PR}@preview.test."
+          install="install Stint Preview from ${BUILD} on your Android phone. On its first launch, paste Vercel's bypass."
+          open="Then scan this with the phone's camera: Stint Preview opens this PR, signed in as pr-${PR}@preview.test (or open ${UPDATE}).
+
+          ![Scan to open this PR](${QR})"
+          if [ "$NEW" = true ]; then
+            scan="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=$(jq -rn --arg u "$BUILD" '$u | @uri')"
+            body="<!-- mobile-preview -->
+          **Phone preview** for ${SHA:0:7}: no build ran this push's native code, so it has a new one. Scan this to ${install}
+
+          ![Scan to install](${scan})
+
+          ${open}"
+          else
+            body="<!-- mobile-preview -->
+          **Phone preview** for ${SHA:0:7}: this push needed no new build. No Stint Preview yet, or it won't open this PR: ${install}
+
+          ${open}"
+          fi
           id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
             -q '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- mobile-preview -->"))) | .id' \
             | tail -n 1)

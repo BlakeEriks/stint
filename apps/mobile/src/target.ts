@@ -6,30 +6,54 @@
  */
 type TargetName = 'local' | 'preview' | 'prod';
 
-export interface Target {
+/** What the native build is: a preview build serves every PR, so it needs none. */
+export interface Identity {
   name: TargetName;
-  /** Shown beside the wordmark; null on production. */
-  label: string | null;
   appName: string;
   /** The Android package and iOS bundle id, so each installs beside the others. */
   appId: string;
+}
+
+export interface Target extends Identity {
+  /** Shown beside the wordmark; null on production. */
+  label: string | null;
   appUrl: string;
   supabaseUrl: string;
   supabaseKey: string;
-  /** A preview build's seeded account, signed in on launch. */
+  /** A preview's seeded account, signed in on launch. */
   preview: { email: string; password: string } | null;
 }
 
 type Env = Record<string, string | undefined>;
 
-export function resolveTarget(env: Env): Target {
+const identities: Record<TargetName, Identity> = {
+  local: {
+    name: 'local',
+    appName: 'Stint Local',
+    appId: 'dev.stint.mobile.local',
+  },
+  preview: {
+    name: 'preview',
+    appName: 'Stint Preview',
+    appId: 'dev.stint.mobile.preview',
+  },
+  prod: { name: 'prod', appName: 'Stint', appId: 'dev.stint.mobile' },
+};
+
+export function resolveIdentity(env: Env): Identity {
   const name = env.STINT_TARGET ?? 'local';
+  if (!Object.hasOwn(identities, name))
+    throw new Error(`Unknown STINT_TARGET "${name}": local, preview or prod`);
+  return identities[name as TargetName];
+}
+
+export function resolveTarget(env: Env): Target {
+  const identity = resolveIdentity(env);
+  const { name } = identity;
   if (name === 'local')
     return {
-      name,
+      ...identity,
       label: 'Local',
-      appName: 'Stint Local',
-      appId: 'dev.stint.mobile.local',
       appUrl: env.STINT_APP_URL ?? 'http://localhost:3100',
       supabaseUrl: 'http://localhost:54321',
       supabaseKey: 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH',
@@ -37,36 +61,29 @@ export function resolveTarget(env: Env): Target {
     };
   if (name === 'prod')
     return {
-      name,
+      ...identity,
       label: null,
-      appName: 'Stint',
-      appId: 'dev.stint.mobile',
       appUrl: env.STINT_APP_URL ?? 'https://app.runstint.com',
       supabaseUrl: 'https://zwoceqydagxxmqoaqgbf.supabase.co',
       supabaseKey: 'sb_publishable_dpZCXx5Z71lOUznVCIleJA__YjyUk4e',
       preview: null,
     };
-  if (name === 'preview') {
-    const pr = required(env, 'STINT_PREVIEW_PR');
-    if (!/^\d{1,6}$/.test(pr))
-      throw new Error(`STINT_PREVIEW_PR must be a PR number, got "${pr}"`);
-    return {
-      name,
-      label: `PR ${pr}`,
-      appName: 'Stint Preview',
-      appId: 'dev.stint.mobile.preview',
-      appUrl: required(env, 'STINT_APP_URL'),
-      supabaseUrl: 'https://aywejkegniljsljdzfrk.supabase.co',
-      supabaseKey: 'sb_publishable_q79gV5KhfKg05hZMjWVHsg_SqL2HPTH',
-      // The password is `LOCAL_PASSWORD` in scripts/seed-account.mjs.
-      preview: { email: `pr-${pr}@preview.test`, password: 'devpassword123' },
-    };
-  }
-  throw new Error(`Unknown STINT_TARGET "${name}": local, preview or prod`);
+  const pr = required(env, 'STINT_PREVIEW_PR');
+  if (!/^\d{1,6}$/.test(pr))
+    throw new Error(`STINT_PREVIEW_PR must be a PR number, got "${pr}"`);
+  return {
+    ...identity,
+    label: `PR ${pr}`,
+    appUrl: required(env, 'STINT_APP_URL'),
+    supabaseUrl: 'https://aywejkegniljsljdzfrk.supabase.co',
+    supabaseKey: 'sb_publishable_q79gV5KhfKg05hZMjWVHsg_SqL2HPTH',
+    // The password is `LOCAL_PASSWORD` in scripts/seed-account.mjs.
+    preview: { email: `pr-${pr}@preview.test`, password: 'devpassword123' },
+  };
 }
 
 function required(env: Env, key: string): string {
   const value = env[key];
-  if (!value) throw new Error(`A preview build needs ${key}`);
+  if (!value) throw new Error(`A preview needs ${key}`);
   return value;
 }
