@@ -231,7 +231,7 @@ function Climb({
   const line = plot.solid
     .map((p, i) => `${i === 0 ? 'M' : 'L'}${at(p)}`)
     .join(' ');
-  const today = plot.solid.at(-1) ?? { x: 0, y: 0 };
+  const { today } = plot;
   const area = `${line} L${at({ x: today.x, y: 0 })} L0,${PLOT_H} Z`;
   const dashed = plot.dashed
     ? `M${at(plot.dashed[0])} L${at(plot.dashed[1])}`
@@ -340,7 +340,7 @@ function Climb({
       <DayAxis
         first={dayLabel(month.series[0]?.date)}
         end={dayLabel(month.series.at(-1)?.date)}
-        today={plot.today}
+        today={today}
       />
     </div>
   );
@@ -358,7 +358,7 @@ const AXIS_GAP = 8;
 function DayAxis({
   first,
   end,
-  today: { at, anchor },
+  today: { x: at, anchor },
 }: {
   first: string;
   end: string;

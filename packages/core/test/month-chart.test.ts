@@ -7,6 +7,9 @@ import { monthChart } from '../src/month-chart.ts';
    every day so the peak never lands on a round step. Feb 2026 opens on a
    Sunday, Aug 2026 on a Saturday and ends on a Monday, Jan 2026 ends on a
    Saturday. */
+/* The smallest top the scale has: a peak below it is drawn against it. */
+const MIN_TOP = 4;
+
 const MONTHS = [
   ['2026-02', 28],
   ['2026-09', 30],
@@ -49,13 +52,13 @@ for (const [prefix, length] of MONTHS) {
         assert.ok(p.x >= 0 && p.x <= 1, `${day}: ${p.x} inside the month`);
       }
       const peak = Math.max(...points.map((p) => p.y)) * plot.top;
-      if (peak >= plot.gridlines.length) {
+      if (peak >= MIN_TOP) {
         assert.ok(peak / plot.top >= 0.8, `${day}: under a fifth empty`);
       }
-      assert.deepEqual(plot.today.at, plot.solid.at(-1)?.x);
+      assert.deepEqual({ x: plot.today.x, y: plot.today.y }, plot.solid.at(-1));
       assert.equal(
         plot.today.anchor,
-        plot.today.at === 1 ? 'end' : 'middle',
+        plot.today.x === 1 ? 'end' : 'middle',
         `${day}: today anchors flush only at the axis's end`,
       );
     }
@@ -67,7 +70,7 @@ for (const [prefix, length] of MONTHS) {
       buildEarnedPace({ byDay, now: new Date(`${day}T12:00:00Z`), tz: 'UTC' }),
     ).plot;
     assert.ok(plot);
-    assert.equal(plot.today.at, 1);
+    assert.equal(plot.today.x, 1);
     assert.equal(plot.today.anchor, 'end');
   });
 }
@@ -131,5 +134,9 @@ test('a projection is a figure with its dashed segment', () => {
     { x: 1 / 3, y: 300 / 1000 },
     { x: 1, y: 900 / 1000 },
   ]);
-  assert.deepEqual(chart.plot?.today, { at: 1 / 3, anchor: 'middle' });
+  assert.deepEqual(chart.plot?.today, {
+    x: 1 / 3,
+    y: 300 / 1000,
+    anchor: 'middle',
+  });
 });

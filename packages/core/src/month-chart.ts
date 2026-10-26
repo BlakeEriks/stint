@@ -32,9 +32,9 @@ export interface MonthPlot {
   solid: ChartPoint[];
   /** Today to the projected month end; null with no projection. */
   dashed: [ChartPoint, ChartPoint] | null;
-  /** Where `today` sits on the x axis. On the axis's last day it anchors
-   *  flush at its end rather than hanging half past it. */
-  today: { at: number; anchor: 'middle' | 'end' };
+  /** The solid line's last point. On the axis's last day its label anchors
+   *  flush at the end rather than hanging half past it. */
+  today: ChartPoint & { anchor: 'middle' | 'end' };
 }
 
 export interface MonthChart {
@@ -71,7 +71,7 @@ function monthPlot({
      finished month on the 13th. */
   const span = Math.max(series.length - 1, 1);
   const solid = done.map((v, i) => ({ x: i / span, y: v / top }));
-  const today = (done.length - 1) / span;
+  const today = solid.at(-1) as ChartPoint;
 
   return {
     top,
@@ -82,11 +82,11 @@ function monthPlot({
     solid,
     dashed: projection
       ? [
-          { x: today, y: projection.from.amount / top },
+          { x: today.x, y: projection.from.amount / top },
           { x: 1, y: projection.to.amount / top },
         ]
       : null,
-    today: { at: today, anchor: today >= 1 ? 'end' : 'middle' },
+    today: { ...today, anchor: today.x >= 1 ? 'end' : 'middle' },
   };
 }
 
