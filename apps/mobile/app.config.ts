@@ -14,12 +14,6 @@ const env = {
   STINT_PREVIEW_PR: process.env.STINT_PREVIEW_PR,
 };
 const target = resolveIdentity(env);
-/* Firebase's config, which `eas-build-post-install` copies here from the EAS
-   file variable `GOOGLE_SERVICES_JSON` (`docs/mobile.md`, Push). A fixed path,
-   so the fingerprint reads the same in CI as on EAS
-   (`fingerprint.config.cjs`). A local build has no Firebase and never
-   registers. */
-const push = target.name !== 'local';
 
 const config: ExpoConfig = {
   name: target.appName,
@@ -38,13 +32,14 @@ const config: ExpoConfig = {
   },
   android: {
     package: target.appId,
-    ...(push ? { googleServicesFile: './google-services.json' } : {}),
+    // Copied here by an EAS build hook (scripts/google-services.mjs).
+    ...(target.push ? { googleServicesFile: './google-services.json' } : {}),
   },
   plugins: ['expo-secure-store', 'expo-font', 'expo-notifications'],
   ...updates(),
   extra: {
     env,
-    push,
+    push: target.push,
     appleTeamId: process.env.APPLE_TEAM_ID,
     ...(process.env.EAS_PROJECT_ID
       ? { eas: { projectId: process.env.EAS_PROJECT_ID } }

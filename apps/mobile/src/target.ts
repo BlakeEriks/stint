@@ -12,6 +12,8 @@ export interface Identity {
   appName: string;
   /** The Android package and iOS bundle id, so each installs beside the others. */
   appId: string;
+  /** Built with Firebase, so it registers for timer pushes (`docs/mobile.md`, Push). */
+  push: boolean;
 }
 
 export interface Target extends Identity {
@@ -31,13 +33,20 @@ const identities: Record<TargetName, Identity> = {
     name: 'local',
     appName: 'Stint Local',
     appId: 'dev.stint.mobile.local',
+    push: false,
   },
   preview: {
     name: 'preview',
     appName: 'Stint Preview',
     appId: 'dev.stint.mobile.preview',
+    push: true,
   },
-  prod: { name: 'prod', appName: 'Stint', appId: 'dev.stint.mobile' },
+  prod: {
+    name: 'prod',
+    appName: 'Stint',
+    appId: 'dev.stint.mobile',
+    push: true,
+  },
 };
 
 export function resolveIdentity(env: Env): Identity {

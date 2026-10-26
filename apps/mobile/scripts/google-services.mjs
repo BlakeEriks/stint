@@ -2,8 +2,9 @@
 // `app.config.ts` names it, from the EAS file variable GOOGLE_SERVICES_JSON
 // (`docs/mobile.md`, Push). A build without it would have no FCM, so it stops.
 import { copyFileSync } from 'node:fs';
+import { resolveIdentity } from '../src/target.ts';
 
-if ((process.env.STINT_TARGET ?? 'local') !== 'local') {
+if (resolveIdentity(process.env).push) {
   const from = process.env.GOOGLE_SERVICES_JSON;
   if (!from) {
     console.error(
