@@ -5,11 +5,10 @@ const KEY = 'stint.vercel-bypass';
 
 /**
  * Vercel's Protection Bypass for Automation, which a protected preview
- * deployment asks of every request. A secret never ships in a build, and a
- * preview build's install link is posted on a public PR, so the reviewer
- * types it in once (`screens/bypass-screen.tsx`) and the phone keeps it in
- * secure storage, where the next PR's build, installed over this one, finds
- * it again.
+ * deployment asks of every request. A secret never ships in a build or an
+ * update, and their links are posted on public PRs, so the reviewer types it
+ * in once (`screens/bypass-screen.tsx`) and the phone keeps it in secure
+ * storage, where every PR opened in this install finds it again.
  */
 export function createBypass(store: Store) {
   let value: string | null = null;

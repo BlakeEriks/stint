@@ -30,9 +30,9 @@ export function BypassScreen({ label, error, onSave }: BypassScreenProps) {
           <Text style={[text('meta'), { color: c.warning }]}>{label}</Text>
         </View>
         <Text style={[text('body'), { color: c['text-muted'] }]}>
-          This preview build reaches its PR through Vercel’s Protection Bypass
-          for Automation. Paste it once; the next preview build finds it. If it
-          is rotated, this asks again.
+          This preview reaches its PR through Vercel’s Protection Bypass for
+          Automation. Paste it once; every PR you open here finds it. If it is
+          rotated, this asks again.
         </Text>
         <TextInput
           value={value}
