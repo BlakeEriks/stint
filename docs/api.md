@@ -392,7 +392,7 @@ verified by phone.
 | `ENTRY_LOCKED` | 409 | Billed on a non-draft invoice. |
 | `EXPENSE_LOCKED` | 409 | An expense billed on a non-draft invoice. |
 | `EXPENSE_ALREADY_INVOICED` | 409 | Another invoice took one of this invoice's expenses first. Preview again. |
-| `ENTRY_ALREADY_INVOICED` | 409 | One of this invoice's entries was billed on another invoice or deleted since it was loaded. Preview again. |
+| `ENTRY_ALREADY_INVOICED` | 409 | One of this invoice's entries was billed on another invoice, marked billed elsewhere, or deleted since it was loaded: preview again. Or a mark named an entry already on an invoice. |
 | `INVOICE_STATUS_CHANGED` | 409 | Another request changed the invoice's status first. Read it again. |
 | `DRAFT_CHANGED` | 409 | The draft moved since its PDF was rendered. Download it again, then mark it sent. |
 | `DRAFT_OVERLAPS` | 409 | An open draft for the client already covers some of these dates. |
