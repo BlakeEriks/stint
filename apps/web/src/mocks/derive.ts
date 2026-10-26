@@ -489,7 +489,7 @@ export function expenseView(db: Db, e: Expense): Expense {
  * `loadBillableExpenses`: every recurring expense, dated the period's end,
  * and every unbilled one-off dated on or before it, less the excluded.
  */
-export function billableExpenses(db: Db, body: PreviewRequest) {
+function billableExpenses(db: Db, body: PreviewRequest) {
   return db.expenses
     .filter(
       (e) =>
