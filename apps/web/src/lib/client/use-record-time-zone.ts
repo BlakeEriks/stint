@@ -2,9 +2,8 @@
 
 import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { keys, useOptimisticMutation } from '@stint/client';
 import { api, type Settings } from './api';
-import { useOptimisticMutation } from './mutations';
-import { keys } from './query-keys';
 import { timeZone } from './use-timer';
 
 /**
