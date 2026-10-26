@@ -641,6 +641,57 @@ test('an entry is marked or cleared billed elsewhere by its PATCH', async () => 
   assert.equal(cleared.body.invoicedElsewhere, false);
 });
 
+test('marking a running timer billed elsewhere is refused by its PATCH, and skipped in bulk', async () => {
+  const { PATCH } = await import('../src/app/api/v1/entries/[id]/route.ts');
+  const { POST } = await import(
+    '../src/app/api/v1/entries/invoiced-elsewhere/route.ts'
+  );
+  await seedBilledElsewhere();
+
+  const res = await json(
+    await PATCH(
+      req(`/entries/${BE(3)}`, { invoicedElsewhere: true }, 'PATCH'),
+      ctx(BE(3)),
+    ),
+  );
+  assert.equal(res.status, 409);
+  assert.equal(res.body.code, 'TIMER_ALREADY_RUNNING');
+  const bulk = await json(
+    await POST(
+      req('/entries/invoiced-elsewhere', {
+        ids: [BE(3)],
+        invoicedElsewhere: true,
+      }),
+    ),
+  );
+  assert.deepEqual(bulk.body.ids, []);
+  assert.deepEqual(await flagged(), []);
+});
+
+/* Both orders of a mark racing an invoice: the routes filter out an entry
+   already attached, and the database refuses to attach one already marked,
+   which an invoice's read-then-attach would otherwise do. */
+test('an entry billed elsewhere can’t be attached to an invoice: ENTRY_ALREADY_INVOICED', async () => {
+  const { dbCode } = await import('../src/lib/errors.ts');
+  await seedBilledElsewhere('draft');
+  await pool.query(
+    'update time_entries set invoiced_elsewhere = true where id = $1',
+    [BE(1)],
+  );
+
+  const refused = await pool
+    .query('update time_entries set invoice_id = $1 where id = $2', [
+      BE_INVOICE,
+      BE(1),
+    ])
+    .then(
+      () => null,
+      (e: Error) => e,
+    );
+  assert.ok(refused, 'the attach is refused');
+  assert.equal(dbCode(refused), 'ENTRY_ALREADY_INVOICED');
+});
+
 // A draft too: the billed-entry lock lets its entries' other edits through.
 for (const status of ['draft', 'sent']) {
   test(`marking an entry on a ${status} invoice billed elsewhere is ENTRY_ALREADY_INVOICED`, async () => {
