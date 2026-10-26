@@ -1,6 +1,6 @@
 'use client';
 
-import { formatCurrency } from '@stint/core';
+import { formatCurrency, type MonthPlot, monthChart } from '@stint/core';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { Stats } from '@/lib/client/api';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
@@ -16,16 +16,6 @@ import {
 /** The climb's viewport, in its own units — the paths are scaled by SVG. */
 const PLOT_W = 300;
 const PLOT_H = 200;
-
-/** Four value gridlines, so the climb is read against something. */
-const GRIDLINES = 4;
-
-/**
- * Gridline steps a reader can add up at a glance, per power of ten. No step is
- * more than 1.25× the one before, so at most a fifth of the plot sits empty
- * above the peak.
- */
-const NICE = [1, 1.2, 1.5, 1.8, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8, 10];
 
 /**
  * This month: three figures beside the cumulative climb.
@@ -47,6 +37,7 @@ export function Month({
   hues: Map<string, Hue>;
 }) {
   const { month, currency, unbilled } = stats;
+  const chart = monthChart(month);
 
   return (
     <div className="mt-6 border-t border-edge-subtle pt-6">
@@ -73,13 +64,10 @@ export function Month({
               as a section boundary, which is not what this is. */}
           <FigGroup tier="minor" className="mt-[26px]">
             <FigLabel>On track for</FigLabel>
-            {/* Null until three business days have elapsed: earned-so-far over
-                one elapsed day carried across twenty-two is a figure that
-                swings by thousands, so it is withheld rather than guessed. */}
-            {month.projected != null ? (
+            {chart.projection.state === 'figure' ? (
               <Money
                 figure="month-projected"
-                amount={month.projected}
+                amount={chart.projection.amount}
                 currency={currency}
                 className="type-amount-hero text-strong"
               />
@@ -117,7 +105,12 @@ export function Month({
           ) : null}
         </div>
 
-        <Climb month={month} currency={currency} hues={hues} />
+        <Climb
+          month={month}
+          plot={chart.plot}
+          currency={currency}
+          hues={hues}
+        />
       </div>
     </div>
   );
@@ -208,15 +201,16 @@ function stripLabel(
  */
 function Climb({
   month,
+  plot,
   currency,
   hues,
 }: {
   month: Stats['month'];
+  plot: MonthPlot | null;
   currency: string;
   hues: Map<string, Hue>;
 }) {
-  const done = month.series.filter((p) => p.actual != null);
-  if (done.length < 2) {
+  if (!plot) {
     return (
       <div className="min-w-0">
         <div
@@ -232,29 +226,17 @@ function Climb({
     );
   }
 
-  const proj = month.projection;
-  /* The scale takes the projection's endpoint when there is one, so the dashed
-     segment lands inside the box rather than leaving the top of it. */
-  const peak = scaleTop(
-    Math.max(...done.map((p) => p.actual ?? 0), proj?.to.amount ?? 0),
-  );
-
-  /* The x axis is the whole month, so the solid line stops where the month
-     does rather than stretching to fill the box — which would draw a finished
-     month on the 13th. */
-  const total = Math.max(month.series.length - 1, 1);
-  const x = (i: number) => (i / total) * PLOT_W;
-  const y = (v: number) => PLOT_H - (v / peak) * PLOT_H;
-
-  const line = done
-    .map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.actual ?? 0)}`)
+  const at = ({ x, y }: { x: number; y: number }) =>
+    `${x * PLOT_W},${PLOT_H - y * PLOT_H}`;
+  const line = plot.solid
+    .map((p, i) => `${i === 0 ? 'M' : 'L'}${at(p)}`)
     .join(' ');
-  const last = done.length - 1;
-  const area = `${line} L${x(last)},${PLOT_H} L0,${PLOT_H} Z`;
-
-  const dashed = proj
-    ? `M${x(last)},${y(proj.from.amount)} L${PLOT_W},${y(proj.to.amount)}`
+  const today = plot.solid.at(-1) ?? { x: 0, y: 0 };
+  const area = `${line} L${at({ x: today.x, y: 0 })} L0,${PLOT_H} Z`;
+  const dashed = plot.dashed
+    ? `M${at(plot.dashed[0])} L${at(plot.dashed[1])}`
     : null;
+  const end = plot.dashed?.[1];
 
   return (
     <div className="min-w-0">
@@ -267,15 +249,15 @@ function Climb({
             role="img"
             aria-label={label(month, currency)}
           >
-            {Array.from({ length: GRIDLINES }, (_, i) => {
-              const v = (peak / GRIDLINES) * (i + 1);
+            {plot.gridlines.map((v) => {
+              const y = PLOT_H - (v / plot.top) * PLOT_H;
               return (
                 <line
-                  key={i}
+                  key={v}
                   x1="0"
-                  y1={y(v)}
+                  y1={y}
                   x2={PLOT_W}
-                  y2={y(v)}
+                  y2={y}
                   strokeWidth="1"
                   className="stroke-edge-grid"
                   vectorEffect="non-scaling-stroke"
@@ -315,7 +297,7 @@ function Climb({
                 A cap is drawn in stroke space, which `vectorEffect` keeps
                 round. */}
             <path
-              d={`M${x(last)},${y(done[last]?.actual ?? 0)} l0,0`}
+              d={`M${at(today)} l0,0`}
               strokeWidth="6.5"
               strokeLinecap="round"
               className="stroke-strong"
@@ -325,10 +307,10 @@ function Climb({
             {/* `success` marks ONE thing on this screen: the endpoint of the
                 projection. The accent appears nowhere here — it is spent on
                 the running timer in the bar below. */}
-            {proj ? (
+            {end ? (
               <path
                 data-projection="end"
-                d={`M${PLOT_W},${y(proj.to.amount)} l0,0`}
+                d={`M${at(end)} l0,0`}
                 strokeWidth="7.5"
                 strokeLinecap="round"
                 className="stroke-success"
@@ -338,18 +320,15 @@ function Climb({
           </svg>
 
           <div data-axis="y" className="absolute inset-y-0 -left-11 w-11">
-            {Array.from({ length: GRIDLINES }, (_, i) => {
-              const v = (peak / GRIDLINES) * (i + 1);
-              return (
-                <span
-                  key={i}
-                  style={{ top: `${(1 - v / peak) * 100}%` }}
-                  className="absolute left-0 -translate-y-1/2 type-meta whitespace-nowrap text-subtle"
-                >
-                  {compact(v, currency)}
-                </span>
-              );
-            })}
+            {plot.gridlines.map((v) => (
+              <span
+                key={v}
+                style={{ top: `${(1 - v / plot.top) * 100}%` }}
+                className="absolute left-0 -translate-y-1/2 type-meta whitespace-nowrap text-subtle"
+              >
+                {compact(v, currency)}
+              </span>
+            ))}
           </div>
         </div>
       </div>
@@ -361,7 +340,7 @@ function Climb({
       <DayAxis
         first={dayLabel(month.series[0]?.date)}
         end={dayLabel(month.series.at(-1)?.date)}
-        at={last / total}
+        today={plot.today}
       />
     </div>
   );
@@ -379,11 +358,11 @@ const AXIS_GAP = 8;
 function DayAxis({
   first,
   end,
-  at,
+  today: { at, anchor },
 }: {
   first: string;
   end: string;
-  at: number;
+  today: MonthPlot['today'];
 }) {
   const row = useRef<HTMLDivElement>(null);
   const [yields, setYields] = useState({ first: false, end: false });
@@ -412,10 +391,6 @@ function DayAxis({
     return () => observer.disconnect();
   }, [first, end, at]);
 
-  /* On the last day, `today` anchors where the date's label did rather than
-     hanging half past the axis. The first day has no line, so no axis. */
-  const anchor = at >= 1 ? '-translate-x-full' : '-translate-x-1/2';
-
   return (
     <div ref={row} data-axis="x" className="relative mt-2.5 mr-3.5 ml-11 h-4">
       {/* `invisible`, not removed, so the label is still there to measure
@@ -429,7 +404,7 @@ function DayAxis({
       <span
         data-axis-label="today"
         style={{ left: `${at * 100}%` }}
-        className={`absolute ${anchor} type-meta whitespace-nowrap text-primary`}
+        className={`absolute ${anchor === 'end' ? '-translate-x-full' : '-translate-x-1/2'} type-meta whitespace-nowrap text-primary`}
       >
         today
       </span>
@@ -444,20 +419,8 @@ function DayAxis({
 }
 
 /**
- * The scale's top: `GRIDLINES` round steps that hold `v`. The top gridline sits
- * at the top, so the highest point — the projection's endpoint — lands on or
- * below a labeled line instead of in an unlabeled band above the last one.
- */
-function scaleTop(v: number): number {
-  const raw = Math.max(v / GRIDLINES, 1);
-  const mag = 10 ** Math.floor(Math.log10(raw));
-  const step = (NICE.find((n) => n * mag >= raw) ?? 10) * mag;
-  return step * GRIDLINES;
-}
-
-/**
  * `$350`, `$1.05k`, `$10.5k` — an axis label. Every label is a multiple of a
- * `NICE` step, so two decimals hold it exactly; `Number` drops trailing zeros.
+ * round step, so two decimals hold it exactly; `Number` drops trailing zeros.
  */
 function compact(v: number, currency: string): string {
   const symbol = formatCurrency(0, currency).replace(/[\d.,]/g, '');
