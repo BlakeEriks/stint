@@ -6,6 +6,7 @@ import type { KeyboardEvent, ReactNode } from 'react';
 import { Kbd } from '@/components/ui/kbd';
 import { api } from '@/lib/client/api';
 import { keys } from '@stint/client';
+import { TASK_NAMES_MAX } from '@stint/schema';
 import { useProjectClients } from '@/lib/client/use-project-colors';
 
 /** The props the caller spreads onto its own input. */
@@ -25,10 +26,6 @@ export type TaskSuggestInputProps = {
 
 /** The list is a shortcut past typing, not a browsable history. */
 const MAX_ROWS = 4;
-
-/* Every name, fetched once and filtered here, so a keystroke never waits on
-   the server. The API's maximum; past it the oldest names drop out. */
-const FETCHED = 1000;
 
 export function TaskSuggest({
   value,
@@ -68,7 +65,9 @@ export function TaskSuggest({
 
   const { data } = useQuery({
     queryKey: keys.taskNames({ projectId }),
-    queryFn: () => api.taskNames({ projectId, limit: FETCHED }),
+    /* Every name, fetched once and filtered here, so a keystroke never
+       waits on the server. */
+    queryFn: () => api.taskNames({ projectId, limit: TASK_NAMES_MAX }),
     /* Above the 10s default: a name typed minutes ago is still the right
        suggestion, and refetching on every focus of the timer bar is traffic
        for an accelerator nobody waited on. */

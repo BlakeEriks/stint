@@ -193,14 +193,14 @@ export const ListEntriesQuery = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(200),
 });
 
+export const TASK_NAMES_MAX = 1000;
+
 export const TaskNamesQuery = z.object({
   /* A preference, not a filter: names used with this project rank first and
      every other name still follows. Omitting it ranks by recency alone, which
      is also what the picker's "No project" state wants. */
   projectId: uuid.optional(),
-  /* High enough for the web picker to fetch every name once and filter as
-     the user types; the default stays a recent list. */
-  limit: z.coerce.number().int().min(1).max(1000).default(8),
+  limit: z.coerce.number().int().min(1).max(TASK_NAMES_MAX).default(8),
 });
 
 /** One row of `recent_task_names`; ranked by the server and never re-sorted. */

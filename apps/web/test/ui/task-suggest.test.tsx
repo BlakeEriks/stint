@@ -5,6 +5,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { TaskSuggest } from '@/components/task-suggest';
+import { TASK_NAMES_MAX } from '@stint/schema';
 
 const NAMES = [
   { taskName: 'Invoice reconciliation', projectId: 'p1', lastUsedAt: '1' },
@@ -124,7 +125,7 @@ describe('TaskSuggest', () => {
     const url = fetch.mock.calls
       .map(([u]) => String(u))
       .find((u) => u.includes('task-names'));
-    expect(url).toContain('limit=1000');
+    expect(url).toContain(`limit=${TASK_NAMES_MAX}`);
   });
 
   /**
