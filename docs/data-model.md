@@ -302,8 +302,9 @@ history an import brought in, or entries the user marks on New invoice or in
 the entry dialog. It counts as **earned** and is never **unbilled**:
 `unbilled_by_client`, invoice generation and the inbox's uninvoiced rows all
 skip it. It is a flag, not an invoice, so it takes no number and appears in
-no invoice list, and the entry stays editable. It is never set on an entry
-on an invoice.
+no invoice list, and the entry stays editable. `entry_billed_once` refuses
+it on an entry on an invoice, whichever is written first, and the API marks
+only a finished entry.
 
 ### Gapless invoice numbering
 `allocate_invoice_number(user_id)` increments `next_invoice_number` under a row

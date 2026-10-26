@@ -14,6 +14,6 @@
 
 ## Guarding invoiced entries
 
-- **Decision**: the update filters `invoice_id is null` and `ended_at is not null`; the bulk route skips the rest, and `PATCH` reads back to answer `409 ENTRY_ALREADY_INVOICED`.
-- **Rationale**: Postgres rechecks the filter on the locked row, so a concurrent `create_invoice` can't leave an entry both claimed and flagged. `create_invoice` already skips flagged entries.
-- **Alternatives**: a check constraint needs a migration for a state no write path makes.
+- **Decision**: one `markable` filter (no invoice, finished) in both routes; the bulk route skips the rest, and `PATCH` reads back to answer `409 ENTRY_ALREADY_INVOICED` or `409 TIMER_ALREADY_RUNNING`. A check constraint, `entry_billed_once`, refuses the other order: an invoice reads unbilled work, then attaches it, and a mark can land between.
+- **Rationale**: the filter covers a mark after an attach; only the database covers an attach after a mark. `dbCode` maps the constraint to `ENTRY_ALREADY_INVOICED`, which both attach paths already answer.
+- **Alternatives**: filters in the routes alone leave the second order open.

@@ -1,6 +1,6 @@
 # Data model: Mark entries as billed outside Stint
 
-No change to the schema.
+One check constraint, `entry_billed_once`: `invoice_id is null or not invoiced_elsewhere`.
 
 | Table | Column | Rule |
 | --- | --- | --- |

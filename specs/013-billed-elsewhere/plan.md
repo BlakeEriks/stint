@@ -14,7 +14,8 @@ are finished and on no invoice, returning the ids it changed. The entry gains
 to mark an entry on an invoice with `409 ENTRY_ALREADY_INVOICED`. New invoice
 gains a Billed elsewhere button that sends the card's entry ids (its time
 lines' `entryIds`) and answers with an Undo toast; the edit-entry dialog
-gains a checkbox for an entry on no invoice. No migration.
+gains a checkbox for an entry on no invoice. One migration adds the check
+constraint `entry_billed_once`, so an entry is never both.
 
 ## Technical Context
 
@@ -22,7 +23,7 @@ gains a checkbox for an entry on no invoice. No migration.
 
 **Primary Dependencies**: Zod in `@stint/schema`; `useOptimisticMutation` in `@stint/client`
 
-**Storage**: Supabase Postgres, the existing `time_entries.invoiced_elsewhere`; no migration
+**Storage**: Supabase Postgres, the existing `time_entries.invoiced_elsewhere`, and one check constraint
 
 **Testing**: `apps/web/test/routes.test.ts` (real Postgres), `apps/web/test/rls.test.ts`, `apps/web/test/ui`, New invoice and entry dialog stories
 

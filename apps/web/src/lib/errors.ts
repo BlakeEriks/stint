@@ -131,6 +131,8 @@ export const PG = {
    constraint to name, so it raises its code in HINT instead (`dbCode`). */
 const CONSTRAINT_CODES: Record<string, Code> = {
   one_running_timer_per_user: 'TIMER_ALREADY_RUNNING',
+  // An invoice attaching work marked billed elsewhere since it was read.
+  entry_billed_once: 'ENTRY_ALREADY_INVOICED',
   // A same-owner key fails as a missing reference: the caller named a record
   // that is not theirs, or not there.
   entry_project_same_owner: 'VALIDATION_FAILED',

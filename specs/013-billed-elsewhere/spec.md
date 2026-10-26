@@ -145,6 +145,7 @@ and see Unbilled drop; open it again, untick, save, and see it return.
 
 ## Assumptions
 
-- No migration: the column, its default and every unbilled query's
-  exclusion exist since `00000000000021_invoiced_elsewhere.sql`.
+- The column, its default and every unbilled query's exclusion exist since
+  `00000000000021_invoiced_elsewhere.sql`. The one migration is a check that
+  an entry is never both on an invoice and billed elsewhere.
 - The macOS and phone apps get no control for it in this feature.
