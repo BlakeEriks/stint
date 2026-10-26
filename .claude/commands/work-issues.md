@@ -87,9 +87,10 @@ is `reviewed`.
 
 - **Merged:** in `../stint-issues`, `git fetch --prune`. A local branch
   whose PR has merged (`gh pr list --state merged --head <branch> --json
-  headRefOid`) is **pushed** when `git rev-list <headRefOid>..<branch>`
-  prints nothing; PRs squash-merge, so `git branch --merged` never lists it,
-  and `--prune` has dropped its `origin/<branch>`. Then:
+  headRefOid`) is **pushed** when, after `git fetch origin <headRefOid>`,
+  `git rev-list <headRefOid>..<branch>` exits 0 and prints nothing. Any
+  error means not pushed. PRs squash-merge, so `git branch --merged` never
+  lists it, and `--prune` has dropped its `origin/<branch>`. Then:
   - `git switch --detach origin/main` in `../stint-issues` when it has
     nothing uncommitted and is detached, or on a merged branch that is
     pushed. Otherwise another session is building there: leave it.

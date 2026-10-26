@@ -58,10 +58,9 @@ a PR. When another session is building in `../stint-issues`,
 `.claude/agents/issue-builder.md` says where to build instead.
 
 **Merging a branch closes its worktree in the same step.** Once its PR has
-merged: `git worktree remove <path>`, then `git branch -D <branch>`; the
-long-lived `../stint-issues` and `../stint-review` are detached
-(`git switch --detach`) instead of removed. PRs
-squash-merge, so git never sees the branch as merged and `-d` refuses. A
+merged, remove its worktree and branch as `/work-issues` step 0 does
+(`.claude/commands/work-issues.md`): only once nothing is unpushed, and
+`../stint-issues` and `../stint-review` are detached, never removed. A
 worktree with uncommitted changes is someone's work; ask before touching it.
 `git worktree list` should show only what is still in flight.
 
