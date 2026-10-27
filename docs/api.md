@@ -14,7 +14,7 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 53 of 53, counting handlers rather than files.
+Every handler is covered — 55 of 55, counting handlers rather than files.
 
 ## Timer
 
@@ -30,6 +30,12 @@ behavior depends on global state.
 
 `serverTime` is returned so clients can correct for clock skew rather than
 trusting the device clock.
+
+Each of these that changes the running timer (a start, a stop, an edit
+mid-run) pushes the user's phones once it has answered ([Push
+devices](#push-devices)), as do `PATCH /entries/:id` when the entry is
+running or the edit sets `endedAt`, and `DELETE /entries/:id` of the
+running entry.
 
 ### Including what a write changed
 
@@ -335,6 +341,20 @@ by every one when `recurring`. The amount is in the client's currency.
 | Method | Path | Notes |
 |---|---|---|
 | `POST` | `/feedback` | `{ id, message, screen, client, appVersion }` → `201 { id }`. `id` is a client-generated UUIDv7, so a retry returns `200`. `422` for a blank or overlong `message` (2,000 at most), a `screen` not starting with `/`, or a `client` other than `web` or `macos`. Feedback can't be read back or changed through the API. |
+
+## Push devices
+
+The phones told when the running timer changes. The push is an FCM data
+message, `{ kind: 'timer' }`, high priority with collapse key `timer`: it
+carries no timer, so the phone asks `/summary`. A send never delays or
+fails the write that caused it; a 429, a 5xx or a network failure is retried
+once, a token FCM calls `UNREGISTERED` is deleted, and any other failure goes
+to Sentry. Without `FCM_SERVICE_ACCOUNT` nothing is sent.
+
+| Method | Path | Notes |
+|---|---|---|
+| `POST` | `/push-devices` | `{ token, platform }` → `204`, the same when already registered. `platform` is `android`; iPhone is #471. `422` for an empty token or one over 4,096 characters. |
+| `DELETE` | `/push-devices` | `{ token }` → `204`, the same when it was never registered. `422` for an empty token or one over 4,096 characters. |
 
 ## Billing
 

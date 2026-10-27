@@ -30,11 +30,16 @@ const config: ExpoConfig = {
       'keychain-access-groups': ['$(AppIdentifierPrefix)dev.stint.shared'],
     },
   },
-  android: { package: target.appId },
-  plugins: ['expo-secure-store', 'expo-font'],
+  android: {
+    package: target.appId,
+    // Copied here by an EAS build hook (scripts/google-services.mjs).
+    ...(target.push ? { googleServicesFile: './google-services.json' } : {}),
+  },
+  plugins: ['expo-secure-store', 'expo-font', 'expo-notifications'],
   ...updates(),
   extra: {
     env,
+    push: target.push,
     appleTeamId: process.env.APPLE_TEAM_ID,
     ...(process.env.EAS_PROJECT_ID
       ? { eas: { projectId: process.env.EAS_PROJECT_ID } }

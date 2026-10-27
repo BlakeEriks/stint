@@ -3,6 +3,7 @@ import { handle, ApiError } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import { findRunning } from '@/lib/timer';
+import { pushTimerChanged } from '@/lib/push';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
 import { askedToInclude, readIncluded } from '@/lib/include';
 import { buildUnbilled, type UnbilledRow } from '@stint/core';
@@ -53,6 +54,7 @@ export const POST = handle(async (req: Request) => {
   if (error) throw error;
   // Lost the race to another device stopping the same timer.
   if (!data) throw new ApiError('NO_TIMER_RUNNING', 'No timer is running');
+  pushTimerChanged(db, userId);
 
   const [unbilled, settings, included] = await Promise.all([
     db.rpc('unbilled_by_client', { p_user_id: userId }),
