@@ -103,17 +103,28 @@ jobs:
           fi
           echo "url=https://expo.dev/accounts/${EXPO_OWNER}/projects/stint/builds/${build}" >> "$GITHUB_OUTPUT"
 
+      # A long branch has no preview for an update to talk to, so it gets
+      # no update rather than a failed check.
+      - name: Find this PR's web preview
+        id: preview
+        if: github.event_name == 'pull_request'
+        run: |
+          if url=$(node scripts/preview-url.mjs "$BRANCH"); then
+            echo "url=$url" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Branch name too long for Vercel's alias; no phone preview."
+          fi
+
       # Only the update knows the PR: the build serves every PR.
       - name: Publish this PR's update
         id: update
-        if: github.event_name == 'pull_request'
+        if: steps.preview.outputs.url
         working-directory: apps/mobile
         env:
           SHA: ${{ github.event.pull_request.head.sha }}
+          STINT_APP_URL: ${{ steps.preview.outputs.url }}
+          STINT_PREVIEW_PR: ${{ env.PR }}
         run: |
-          # A long branch has no preview for the update to talk to.
-          STINT_APP_URL=$(node ../../scripts/preview-url.mjs "$BRANCH")
-          export STINT_APP_URL STINT_PREVIEW_PR="$PR"
           # The bundle imports the tokens, which git doesn't carry.
           pnpm --filter @stint/design-tokens build
           group=$(eas update --branch "pr-$PR" --platform android --environment preview \
@@ -125,16 +136,13 @@ jobs:
           echo "url=https://expo.dev/projects/${EAS_PROJECT_ID}/updates/${group}" >> "$GITHUB_OUTPUT"
 
       - name: Link it on the PR
-        if: github.event_name == 'pull_request'
+        if: steps.update.outputs.url
         env:
           NEW: ${{ steps.build.outputs.new }}
           BUILD: ${{ steps.build.outputs.url }}
           QR: ${{ steps.update.outputs.qr }}
           UPDATE: ${{ steps.update.outputs.url }}
           SHA: ${{ github.event.pull_request.head.sha }}
-        # By its marker, and only the bot's: `--edit-last` would take whichever
-        # comment the bot wrote last, such as doc drift's, and anyone can type
-        # the marker.
         run: |
           install="install Stint Preview from ${BUILD} on your Android phone. On its first launch, paste Vercel's bypass."
           open="Then scan this with the phone's camera: Stint Preview opens this PR, signed in as pr-${PR}@preview.test (or open ${UPDATE}).
@@ -154,11 +162,5 @@ jobs:
 
           ${open}"
           fi
-          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
-            -q '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- mobile-preview -->"))) | .id' \
-            | tail -n 1)
-          if [ -n "$id" ]; then
-            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" > /dev/null
-          else
-            gh pr comment "$PR" --body "$body"
-          fi
+          printf '%s\n' "$body" > "$RUNNER_TEMP/mobile-preview.md"
+          scripts/pr-comment.sh "$PR" "<!-- mobile-preview -->" "$RUNNER_TEMP/mobile-preview.md"

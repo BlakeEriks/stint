@@ -4,6 +4,7 @@
  *
  *   pnpm migrate                 # uses SUPABASE_DB_URL from the environment
  *   pnpm migrate --dry-run       # show what would run, change nothing
+ *   pnpm migrate --rehearse      # run what is pending, then roll it back
  *   pnpm migrate --url <url>     # explicit connection string
  *
  * Applied migrations are recorded in `schema_migrations`, so re-running is a
@@ -13,6 +14,12 @@
  *
  * Each file runs inside a transaction. A migration that fails rolls back
  * whole, so the database never sits half-migrated.
+ *
+ * A rehearsal is how release.yml learns whether production's data accepts a
+ * migration before asking for approval. Every pending file runs in
+ * one transaction, as a later one may need an earlier, and it always rolls
+ * back. Its output reaches a public Actions log, and Postgres puts a failing
+ * row in an error's detail, so a failure prints only what names no data.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -25,6 +32,7 @@ const dir = join(root, 'supabase', 'migrations');
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
+const rehearse = args.includes('--rehearse');
 
 const url = connectionString();
 if (!url) {
@@ -74,6 +82,8 @@ try {
     process.exit(0);
   }
 
+  if (rehearse) process.exit(await rehearsal(pending));
+
   for (const f of pending) {
     if (dryRun) {
       console.log(`  → ${f} (would apply)`);
@@ -106,4 +116,41 @@ try {
   }
 } finally {
   await client.end();
+}
+
+/** Runs `pending` and rolls back, answering the exit code. */
+async function rehearsal(pending) {
+  await client.query('begin');
+  // Gives up rather than queue live requests behind a lock it waits on.
+  await client.query("set local lock_timeout = '2s'");
+  await client.query("set local statement_timeout = '60s'");
+  try {
+    for (const f of pending) {
+      try {
+        await client.query(readFileSync(join(dir, f), 'utf8'));
+        console.log(`  ✓ ${f}`);
+      } catch (err) {
+        if (!err.code) throw err;
+        console.error(`  ✗ ${f}\n    ${named(err)}`);
+        console.error('\nRolled back. The database is unchanged.');
+        return 1;
+      }
+    }
+    console.log(
+      `\n${pending.length} migration(s) would apply. Rolled back, nothing changed.`,
+    );
+    return 0;
+  } finally {
+    await client.query('rollback');
+  }
+}
+
+/** A Postgres error by its code and the objects it names: never its message
+ *  or detail, which can quote a row. */
+function named(err) {
+  const where = ['constraint', 'table', 'column']
+    .filter((k) => err[k])
+    .map((k) => `${k} ${err[k]}`);
+  const busy = err.code === '55P03' ? ': production was busy, re-run' : '';
+  return [`Postgres error ${err.code}${busy}`, ...where].join(', ');
 }

@@ -38,6 +38,11 @@ export function createApi(request: Request) {
       request<StoppedTimer>('POST', withInclude('/timer/stop', include), {}),
     updateRunning: (body: { taskName?: string; projectId?: string | null }) =>
       request<TimeEntry>('PATCH', '/timer/current', body),
+    /** This phone hears when the timer changes (`push.ts`). */
+    registerPushDevice: (token: string) =>
+      request<void>('POST', '/push-devices', { token, platform: 'android' }),
+    unregisterPushDevice: (token: string) =>
+      request<void>('DELETE', '/push-devices', { token }),
   };
   api satisfies TimerApi;
   return api;

@@ -155,8 +155,8 @@ async function write(db: Db) {
   for (const e of db.entries)
     await pool.query(
       `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at,
-         is_billable,rate_override,invoice_id,duration_ok)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+         is_billable,rate_override,invoice_id,duration_ok,invoiced_elsewhere)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [
         e.id,
         USER,
@@ -168,6 +168,7 @@ async function write(db: Db) {
         e.rateOverride,
         e.invoiceId,
         e.durationOk,
+        e.invoicedElsewhere,
       ],
     );
   // Along the transitions `guard_issued_invoice` allows: paid is reached

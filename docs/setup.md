@@ -63,6 +63,7 @@ Then, with it in `DB` for this shell only:
 
 ```bash
 pnpm migrate --url "$DB" --dry-run   # show what would run
+pnpm migrate --url "$DB" --rehearse  # run it, then roll it back
 pnpm migrate --url "$DB"             # apply it
 ```
 
@@ -77,7 +78,7 @@ applies only the new one.
 pnpm verify:schema --url "$DB"
 ```
 
-This asserts the things nothing else would catch: all ten tables exist with
+This asserts the things nothing else would catch: all eleven tables exist with
 **RLS on**, each has at least one policy (RLS with no policies denies
 everything), the partial unique index enforcing one running timer is present
 and actually partial, and new users get a settings row.

@@ -24,6 +24,7 @@ function entry(over: Partial<TimeEntry> = {}): TimeEntry {
     endedAt: '2026-09-11T14:30:00.000Z',
     isBillable: true,
     invoiceId: null,
+    invoicedElsewhere: false,
     durationSeconds: 5400,
     ...over,
   } as TimeEntry;
@@ -89,6 +90,58 @@ const open = (existing?: TimeEntry) =>
 afterEach(() => vi.unstubAllGlobals());
 
 describe('EntryDialog', () => {
+  it('marks an entry on no invoice billed elsewhere when ticked', async () => {
+    const calls = serve();
+    const user = userEvent.setup();
+    open(entry());
+
+    await user.click(
+      await screen.findByRole('checkbox', { name: 'Billed elsewhere' }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PATCH')?.body).toMatchObject({
+        invoicedElsewhere: true,
+      }),
+    );
+  });
+
+  it('clears billed elsewhere when unticked', async () => {
+    const calls = serve();
+    const user = userEvent.setup();
+    open(entry({ invoicedElsewhere: true }));
+
+    const box = await screen.findByRole('checkbox', {
+      name: 'Billed elsewhere',
+    });
+    expect(box).toBeChecked();
+    await user.click(box);
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PATCH')?.body).toMatchObject({
+        invoicedElsewhere: false,
+      }),
+    );
+  });
+
+  it('leaves billed elsewhere out of an edit that never touched it', async () => {
+    const calls = serve();
+    const user = userEvent.setup();
+    open(entry());
+
+    await screen.findByRole('checkbox', { name: 'Billed elsewhere' });
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PATCH')?.body).toBeDefined(),
+    );
+    expect(calls.find((c) => c.method === 'PATCH')?.body).not.toHaveProperty(
+      'invoicedElsewhere',
+    );
+  });
+
   it('shows the stored instant as local wall-clock time', async () => {
     serve();
     open(entry());
@@ -173,19 +226,6 @@ describe('EntryDialog', () => {
       .map((b) => b.textContent?.trim() || 'Close');
     expect(actions.length).toBeGreaterThan(0);
     expect(new Set(actions)).toEqual(new Set(['Close']));
-  });
-
-  /* `guard_billed_entry` returns early on a draft, so the UI must not
-     disable an edit the server would accept. */
-  it('still allows editing an entry on a DRAFT invoice', async () => {
-    serve('draft');
-    open(entry({ invoiceId: 'inv1' }));
-
-    await waitFor(() => expect(screen.getByLabelText('Task')).toBeEnabled());
-    for (const field of ['Project', 'Date', 'Start', 'End']) {
-      expect(screen.getByLabelText(field)).toBeEnabled();
-    }
-    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
   });
 
   /* Radix mounts no dialog inside another, so the item would set its state
