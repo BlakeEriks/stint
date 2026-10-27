@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The round Start or Stop, included by both widgets. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/button"
+    android:layout_width="48dp"
+    android:layout_height="48dp">
+    <ImageView android:id="@+id/button_disc" android:layout_width="match_parent"
+        android:layout_height="match_parent" android:src="@drawable/stint_disc"
+        android:importantForAccessibility="no" />
+    <ImageView android:id="@+id/button_edge" android:layout_width="match_parent"
+        android:layout_height="match_parent" android:src="@drawable/stint_disc_edge"
+        android:importantForAccessibility="no" />
+    <ImageView android:id="@+id/button_glyph" android:layout_width="20dp"
+        android:layout_height="20dp" android:layout_gravity="center"
+        android:src="@drawable/stint_play" android:importantForAccessibility="no" />
+</FrameLayout>

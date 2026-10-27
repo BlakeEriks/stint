@@ -1,0 +1,34 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Android 16 shows a promoted notification's clock in the status bar (Notifications.kt). -->
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+
+    <application>
+        <receiver android:name="dev.stint.surfaces.RowWidget" android:exported="false"
+            android:label="Stint">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/stint_widget_row" />
+        </receiver>
+        <receiver android:name="dev.stint.surfaces.SquareWidget" android:exported="false"
+            android:label="Stint">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/stint_widget_square" />
+        </receiver>
+        <receiver android:name="dev.stint.surfaces.PressReceiver" android:exported="false" />
+        <activity android:name="dev.stint.surfaces.PressActivity" android:exported="false"
+            android:excludeFromRecents="true" android:noHistory="true"
+            android:taskAffinity="" android:theme="@android:style/Theme.NoDisplay" />
+        <service android:name="dev.stint.surfaces.TimerTileService" android:exported="true"
+            android:icon="@drawable/stint_glyph" android:label="@string/stint_tile"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>

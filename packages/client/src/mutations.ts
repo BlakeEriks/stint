@@ -2,9 +2,11 @@
 
 import {
   hashKey,
+  MutationObserver,
   useMutation,
   useMutationState,
   useQueryClient,
+  type MutationObserverOptions,
   type QueryClient,
   type QueryKey,
 } from '@tanstack/react-query';
@@ -17,8 +19,8 @@ import {
 import { keys } from './query-keys.ts';
 
 /**
- * The one way the web app writes (Constitution VI). Every press answers in
- * the same frame:
+ * The one way the web and phone apps write (Constitution VI). Every press
+ * answers in the same frame:
  *
  * - **Predicted** (`predict` given): the cache entry at `queryKey` shows the
  *   result at once. A rejection puts the snapshot back.
@@ -48,8 +50,9 @@ import { keys } from './query-keys.ts';
  * reason for every failed mutation in the cache, so it still shows after the
  * component that pressed has unmounted.
  *
+ * `pressOnce` runs the same rules with no component.
  * `scripts/check-mutation-usage.mjs` fails any other file that imports
- * `useMutation`.
+ * `useMutation` or `MutationObserver`.
  */
 export type OptimisticOptions<TVars, TData, TCache> = BaseOptions<
   TVars,
@@ -136,8 +139,30 @@ export function useOptimisticMutation<
   TData = unknown,
   TCache = unknown,
 >(opts: OptimisticOptions<TVars, TData, TCache>) {
-  const queryClient = useQueryClient();
+  return useMutation(optimisticOptions(useQueryClient(), opts));
+}
 
+/**
+ * One press with no component to hold it, such as a phone's widget: the
+ * hook's own rules, on the same `QueryClient`, so it shares the app's lanes.
+ * Rejects with the press's failure.
+ */
+export function pressOnce<TVars, TData, TCache>(
+  queryClient: QueryClient,
+  opts: OptimisticOptions<TVars, TData, TCache>,
+  vars: TVars,
+): Promise<TData> {
+  return new MutationObserver(
+    queryClient,
+    optimisticOptions(queryClient, opts),
+  ).mutate(vars);
+}
+
+/** `useOptimisticMutation`'s rules, as TanStack's mutation options. */
+function optimisticOptions<TVars, TData, TCache>(
+  queryClient: QueryClient,
+  opts: OptimisticOptions<TVars, TData, TCache>,
+): MutationObserverOptions<TData, Error, TVars, Context> {
   const refetch = (vars: TVars, settled: readonly IncludedName[] = []) =>
     opts.invalidate
       ? opts.invalidate(queryClient, vars, settled)
@@ -171,7 +196,7 @@ export function useOptimisticMutation<
 
   const predicts = opts.predict !== undefined;
 
-  return useMutation<TData, Error, TVars, Context>({
+  return {
     meta: { inline: opts.inline ?? false, movesHome: opts.movesHome ?? false },
     scope: opts.serial ? { id: opts.serial } : undefined,
     mutationFn: (vars) =>
@@ -216,7 +241,7 @@ export function useOptimisticMutation<
       await refetch(vars, await settleIncluded(data));
       opts.onSettled?.(vars);
     },
-  });
+  };
 }
 
 /**

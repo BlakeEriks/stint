@@ -77,7 +77,8 @@ the phone registers its FCM token (`POST /api/v1/push-devices`), with no
 permission prompt, and unregisters it on sign-out. The server pushes a data
 message on every change to the running timer (`docs/api.md`, Push
 devices); the app refetches the timer unless one of its own presses is in
-flight (`src/push.ts`). The iPhone waits on APNs (#471).
+flight (`src/push.ts`). It also redraws [the timer outside the
+app](#outside-the-app), even with the app closed. The iPhone waits on APNs (#471).
 
 Preview and production builds need `GOOGLE_SERVICES_JSON`, an EAS file
 variable holding Firebase's `google-services.json`: `eas-build-pre-install`
@@ -99,6 +100,35 @@ once:
 4. Project settings → Service accounts → Generate new private key. Paste
    the whole JSON into Vercel as `FCM_SERVICE_ACCOUNT`, then delete the
    file.
+
+## Outside the app
+
+**On Android, the timer is seen and pressed without opening the app**: an
+ongoing notification with a counting clock and Stop, a home screen widget
+in a 4×1 row and a 2×2 square, a Quick Settings tile, and the icon's
+long-press shortcut. `specs/014-android-surfaces/design/surfaces.html` is
+their look; the widget has no story, since Android draws it from XML.
+
+**JavaScript decides and Kotlin draws.** `src/surfaces.ts` turns the
+cached timer into one state on every change and hands it to the local
+module `modules/stint-surfaces`, which draws every surface from it and
+keeps nothing of its own. A press there draws its result at once, then
+WorkManager runs the `StintPress` task (`index.ts`): the app's own press,
+`timerPresses` through `pressOnce` in `@stint/client`, in the same lane as
+the app's Start and Stop. A refusal draws what the server holds, with the
+reason. The shortcut opens a screen that isn't exported, so no other app or
+link can press the timer; it presses as a widget does, then opens the app.
+
+Start begins the most recent task on its project. A press from the lock
+screen asks to unlock first. The app asks Android 13's notification
+permission as soon as it opens signed in, since a timer started on the web
+is pinned with the app closed. While notifications are off, the timer
+screen says so, with a button to Settings.
+Android 16 promotes it, and shows its clock in the status bar.
+
+A local build has no push, so its surfaces follow only the app's own reads
+and presses. The module is native code: a change to it needs a new build,
+not an update.
 
 ## Preview builds
 
