@@ -279,5 +279,5 @@ into. Absent, the list is simply not offered and the field still works. Do not
 clears the approved preview and hides Generate. Tested, and the test was
 verified to fail when the invalidation is removed.
 
-**An issued invoice locks an entry; a draft does not** — `guard_billed_entry`
-returns early on a draft.
+**Any entry with an `invoiceId` is locked**: a draft claims its work only
+when it is sent, so only an issued invoice sets one.

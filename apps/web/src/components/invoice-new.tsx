@@ -409,10 +409,9 @@ function Form() {
       api.createInvoice({
         ...billed,
         schedules,
-        // The date the card shows, where the user is. The server's fallback
-        // is UTC, a day ahead on a US evening.
-        issueDate: issued,
-        dueDate: due || undefined,
+        // Only a typed one: otherwise the terms date it from the day it is
+        // sent.
+        dueDate: draft.dueDate ?? undefined,
         reference: draft.reference.trim() || undefined,
         // The profile the card shows, frozen as it is now.
         paymentProfileId: profile?.id,

@@ -699,10 +699,25 @@ export const RecurringExpense: Story = {
   },
 };
 
+/** Byrne's draft, sent or paid, with the stock photography it billed. */
+const billPhotos = (status: 'sent' | 'paid') =>
+  account((db) => {
+    const invoice = db.invoices.find((i) => i.sequenceNo === 15)!;
+    invoice.status = status;
+    invoice.sentAt = '2026-09-10T15:00:00.000Z';
+    if (status === 'paid') invoice.paidAt = '2026-09-16T15:00:00.000Z';
+    Object.assign(db.expenses.find((e) => e.id === ids.stockPhotos)!, {
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      invoiceStatus: status,
+    });
+  });
+
 /** On an unpaid invoice (US3 scenario 1): muted, labeled with the invoice,
     and it opens the invoice rather than a dialog, since it is locked. */
 export const BilledExpense: Story = {
   ...desktop,
+  parameters: billPhotos('sent'),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     const row = await page.findByRole('link', { name: /Stock photography/ });
@@ -714,11 +729,7 @@ export const BilledExpense: Story = {
 /** Once its invoice is paid, a billed expense leaves the card. */
 export const PaidExpenseGone: Story = {
   ...desktop,
-  parameters: account((db) => {
-    const draft = db.invoices.find((i) => i.sequenceNo === 15)!;
-    draft.status = 'paid';
-    draft.paidAt = '2026-09-16T15:00:00.000Z';
-  }),
+  parameters: billPhotos('paid'),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     await page.findByText('Figma license, annual');
