@@ -344,6 +344,17 @@ export function parseTermsDays(text: string): number | null {
 
 /** The terms an invoice prints, made from its own dates so the two agree. */
 export function paymentTermsText(issueDate: string, dueDate: string): string {
-  const days = daysBetweenKeys(issueDate, dueDate);
+  return termsForDays(daysBetweenKeys(issueDate, dueDate));
+}
+
+/** The terms `days` print as. */
+export function termsForDays(days: number): string {
   return days === 0 ? 'Due on receipt' : `Net ${days}`;
+}
+
+/** The days in terms `termsForDays` wrote; null for any other text. */
+export function termsDays(text: string | null): number | null {
+  if (text === 'Due on receipt') return 0;
+  const net = /^Net (\d{1,3})$/.exec(text ?? '');
+  return net ? Number(net[1]) : null;
 }

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { handle, ApiError, isCheckViolation } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
-import { refreshDraft } from '@/lib/invoicing';
+import { sendDraft } from '@/lib/invoicing';
 import { INVOICE_COLUMNS, toInvoice, type InvoiceRow } from '@/lib/rows';
 import { InvoiceReadQuery, UpdateInvoiceStatus } from '@stint/schema';
 
@@ -65,14 +65,17 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
 
   const now = new Date();
 
-  /* A draft is sent as its period's work is now, refreshed and sent in one
-     transaction; one with no zone yet is sent as it stands. */
-  if (body.status === 'sent' && current.status === 'draft') {
-    const { row } = await refreshDraft(db, current as InvoiceRow, tz, {
-      sentAt: body.sentAt ?? now.toISOString(),
-    });
-    if (row.status === 'sent') return NextResponse.json(toInvoice(row));
-  }
+  if (body.status === 'sent' && current.status === 'draft')
+    return NextResponse.json(
+      toInvoice(
+        await sendDraft(
+          db,
+          current as InvoiceRow,
+          tz,
+          body.sentAt ?? now.toISOString(),
+        ),
+      ),
+    );
 
   if (body.status === 'paid' && body.paidAt)
     assertPaidAt(body.paidAt, current.sent_at as string | null, now);

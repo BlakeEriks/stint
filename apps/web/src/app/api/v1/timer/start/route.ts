@@ -3,6 +3,7 @@ import { handle, ApiError, dbCode } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import { findRunning } from '@/lib/timer';
+import { pushTimerChanged } from '@/lib/push';
 import { projectBillableDefault } from '@/lib/projects';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
 import { askedToInclude, entryWith, readIncluded } from '@/lib/include';
@@ -54,6 +55,7 @@ export const POST = handle(async (req: Request) => {
     throw error;
   }
 
+  pushTimerChanged(db, userId);
   const included = await readIncluded(asked, db, userId);
   return NextResponse.json(entryWith(toEntry(data as EntryRow), included), {
     status: 201,

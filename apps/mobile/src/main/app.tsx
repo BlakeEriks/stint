@@ -11,6 +11,8 @@ import { AppState, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { createApi } from '../api.ts';
 import { createBypass } from '../bypass.ts';
+import { createPushDevice, onTimerPush } from '../push.ts';
+import { canPush, expoTokens, listenForTimerPushes } from '../push-native';
 import { origin, target } from '../config.ts';
 import { usePlex } from '../fonts.ts';
 import { createRequest } from '../request.ts';
@@ -61,6 +63,45 @@ focusManager.setEventListener((setFocused) => {
   return () => sub.remove();
 });
 
+/* A timer changed on another client: refetch it now, not on the next
+   foreground (`push.ts`). */
+listenForTimerPushes(() => void onTimerPush(queryClient));
+const pushDevice = createPushDevice({
+  tokens: expoTokens,
+  register: api.registerPushDevice,
+});
+
+/**
+ * The unregister on sign-out, as the session being left. It never refreshes:
+ * a refresh landing after sign-out would sign the user back in, and a token
+ * it can't remove only wakes a signed-out app.
+ */
+function unregisterAs(accessToken: string) {
+  return createApi(
+    createRequest({
+      origin,
+      auth: {
+        accessToken: async () => accessToken,
+        refresh: () =>
+          Promise.reject(
+            new ApiError(401, { code: 'UNAUTHORIZED', message: 'Signed out.' }),
+          ),
+        signOut: async () => {},
+      },
+      bypass: bypass.current,
+    }),
+  ).unregisterPushDevice;
+}
+
+async function signOut() {
+  try {
+    const session = canPush ? await auth.load() : null;
+    if (session) pushDevice.leave(unregisterAs(session.accessToken));
+  } finally {
+    await auth.signOut();
+  }
+}
+
 /** Undefined while the stored session loads. */
 function useSession(): Session | null | undefined {
   const [session, setSession] = useState<Session | null | undefined>();
@@ -74,6 +115,10 @@ function useSession(): Session | null | undefined {
       }),
     [],
   );
+  const signedIn = Boolean(session);
+  useEffect(() => {
+    if (signedIn && canPush) void pushDevice.join();
+  }, [signedIn]);
   return session;
 }
 
@@ -136,7 +181,7 @@ export function App() {
           <TimerContainer
             api={api}
             email={session.email}
-            onSignOut={() => void auth.signOut()}
+            onSignOut={() => void signOut()}
           />
         ) : (
           <SignInContainer auth={auth} />

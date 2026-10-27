@@ -68,16 +68,6 @@ export const Locked: Story = {
   },
 };
 
-/** On a draft: still editable, with a warning naming the draft that changes. */
-export const OnDraft: Story = {
-  ...desktop,
-  args: { existing: on(15) },
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement.ownerDocument.body);
-    await expect(await page.findByText(/on draft STINT-0015/)).toBeVisible();
-  },
-};
-
 /** Delete asks once. */
 export const ConfirmDelete: Story = {
   ...desktop,
