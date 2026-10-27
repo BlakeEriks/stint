@@ -72,10 +72,9 @@ function updates(): Pick<ExpoConfig, 'updates' | 'runtimeVersion'> {
 }
 
 /**
- * Only production reports, to Sentry's `stint-mobile` project, as only
- * `prod` does on macOS (`docs/mobile.md`, Crash reporting). Its build uploads
- * source maps and debug symbols when EAS holds `SENTRY_AUTH_TOKEN`; without
- * it the build still passes, and stacks stay minified.
+ * The build uploads source maps and debug symbols when EAS holds
+ * `SENTRY_AUTH_TOKEN`; without it the build still passes, and stacks stay
+ * minified.
  */
 function sentry(): NonNullable<ExpoConfig['plugins']> {
   if (target.name !== 'prod') return [];

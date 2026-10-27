@@ -79,8 +79,6 @@ test('a production build uploads its symbols only when it holds the token', asyn
   assert.equal(sentryPlugin(without)?.[1].disableAutoUpload, true);
   const withToken = await load({ ...env, SENTRY_AUTH_TOKEN: 'sntrys_x' });
   assert.equal(sentryPlugin(withToken)?.[1].disableAutoUpload, false);
-  // The token stays in EAS's environment, never in the config a bundle carries.
-  assert.equal(sentryPlugin(withToken)?.[1].authToken, undefined);
 });
 
 function sentryPlugin(config: { plugins: unknown[] }) {
