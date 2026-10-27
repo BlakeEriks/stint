@@ -77,8 +77,10 @@ route handlers verify it identically.
 Local tick, reconcile on an interval and on wake/focus.
 
 The panel's readout counts seconds locally from the known `startedAt`, and the
-menu bar shows whole minutes from the same tick, at no network cost. The app
-reconciles with `GET /api/v1/summary` roughly every 60s. `serverTime` in the response lets clients correct for clock skew.
+menu bar shows whole minutes from the same tick, at no network cost. The Mac
+app reconciles with `GET /api/v1/summary` roughly every 60s; the web and the
+phone, every 10s while a timer runs and the app is in front, so a stop on
+another device shows within one poll. `serverTime` in the response lets clients correct for clock skew.
 
 Supabase Realtime can drop in later for instant cross-device updates without
 any API change.
