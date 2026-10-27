@@ -212,7 +212,12 @@ migration scripts do, and they run in Actions.
 Vercel dispatches `vercel.deployment.ready` when a production build exists
 but is not yet serving. `plan` marks the check pending and writes the summary,
 and fails the release if a pending migration sorts before one production has
-run, since a fresh build would apply them in a different order.
+run, since a fresh build would apply them in a different order. It then
+rehearses the pending migrations against production in one transaction it
+always rolls back, so a constraint an existing row breaks fails `plan` before
+you're asked to approve. The summary shows each migration's result by error
+code and object name only, since Postgres's error detail can quote a row and
+the logs are public.
 When a migration is pending, `approve` waits for you and `backup` takes a
 snapshot; otherwise both are skipped. `migrate` runs
 `pnpm migrate` and `pnpm verify:schema` while the *previous* build still
