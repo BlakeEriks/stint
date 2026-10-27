@@ -80,7 +80,7 @@ export function chooseNotice(
   if (readError && !(readError instanceof ApiError && readError.isUnauthorized))
     return {
       message: 'Can’t reach Stint. Check your internet connection.',
-      tone: 'offline',
+      tone: 'warning',
     };
   if (turnOnNotifications)
     return {

@@ -51,11 +51,7 @@ export function Wordmark({ large = false }: { large?: boolean }) {
 
 export interface NoticeProps {
   message: string;
-  /**
-   * `error` for a refused press; `offline` when Stint can't be reached;
-   * `warning` for a setting that keeps something from showing.
-   */
-  tone: 'error' | 'offline' | 'warning';
+  tone: 'error' | 'warning';
   onDismiss?: () => void;
   action?: { label: string; onPress: () => void };
 }

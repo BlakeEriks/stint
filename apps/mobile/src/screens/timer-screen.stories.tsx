@@ -173,7 +173,7 @@ export const Refused: Story = {
 export const Offline: Story = {
   args: {
     notice: {
-      tone: 'offline',
+      tone: 'warning',
       message: 'Can’t reach Stint. Check your internet connection.',
     },
   },

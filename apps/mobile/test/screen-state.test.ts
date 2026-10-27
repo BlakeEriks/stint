@@ -86,11 +86,11 @@ test('a refused press is shown before a failed read', () => {
 });
 
 test("a failed read says Stint can't be reached", () => {
-  assert.equal(chooseNotice(null, new TypeError('x'))?.tone, 'offline');
+  assert.match(chooseNotice(null, new TypeError('x'))?.message ?? '', /reach/);
   assert.equal(
     chooseNotice(null, new ApiError(503, { code: 'UNKNOWN', message: '' }))
-      ?.tone,
-    'offline',
+      ?.message,
+    'Can’t reach Stint. Check your internet connection.',
   );
 });
 
@@ -135,7 +135,10 @@ test('a refused press or a failed read comes before notifications off', () => {
     chooseNotice({ message: 'No.', dismiss }, null, open)?.tone,
     'error',
   );
-  assert.equal(chooseNotice(null, new TypeError('x'), open)?.tone, 'offline');
+  assert.match(
+    chooseNotice(null, new TypeError('x'), open)?.message ?? '',
+    /reach/,
+  );
 });
 
 const granted = { granted: true, canAskAgain: false };
