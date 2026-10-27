@@ -21,23 +21,33 @@ import { shortDate, StatusBadge } from './invoice-bits';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
 import { PRICE } from './plan-section';
-import { attachedSchedules, formatCurrency, formatHours } from '@stint/core';
+import {
+  attachedSchedules,
+  formatCurrency,
+  formatHours,
+  localDateKey,
+} from '@stint/core';
+import { timeZone as tz } from '@/lib/client/use-timer';
 import {
   api,
   ApiError,
   type DraftChange,
   type Invoice,
   type InvoiceStatus,
-  type StoredLineItem,
+  type InvoiceLineItem,
+  type UnratedEntry,
 } from '@/lib/client/api';
 import { DetailPage, Listing } from './page';
 
 /** An invoice; the lines, and whether its PDF opens, are absent until they
     load. */
 type Shown = Invoice & {
-  lineItems?: (StoredLineItem & { isNew?: boolean })[];
+  lineItems?: (InvoiceLineItem & { isNew?: boolean })[];
   canDownload?: boolean;
   changedSinceDownload?: DraftChange | null;
+  unratedEntries?: UnratedEntry[];
+  dueBeforeIssue?: { download: boolean; send: boolean };
+  refuses?: { download: boolean; send: boolean };
 };
 
 /** What the invoice list already holds about this invoice, so opening it
@@ -56,12 +66,6 @@ export function InvoiceDetail({ id }: { id: string }) {
     queryKey: keys.invoice(id),
     queryFn: () => api.invoice(id),
     placeholderData: () => fromList(qc, id),
-  });
-  /* The payment notice's, so the invoice paints whole; the list fetches it
-     too, so one opened from there still opens at once. */
-  const settings = useQuery({
-    queryKey: keys.settings(),
-    queryFn: () => api.settings(),
   });
 
   /* Voiding releases the entries and expenses and deleting a draft frees
@@ -95,11 +99,7 @@ export function InvoiceDetail({ id }: { id: string }) {
 
   return (
     <DetailPage back="/invoices" label="Invoices">
-      <Listing
-        query={query}
-        also={[settings]}
-        missing="That invoice no longer exists."
-      >
+      <Listing query={query} missing="That invoice no longer exists.">
         {(data) => (
           <Loaded
             data={data}
@@ -153,12 +153,8 @@ function Loaded({
      and the server, which recorded the render, has the last word. */
   const [downloaded, setDownloaded] = useState(false);
   const changed = isDraft && !downloaded ? invoice.changedSinceDownload : null;
-  /* For the payment notice, which the PDF reads from settings as they are
-     now. */
-  const { data: settings } = useQuery({
-    queryKey: keys.settings(),
-    queryFn: () => api.settings(),
-  });
+  const unrated = invoice.unratedEntries ?? [];
+  const refuses = invoice.refuses ?? { download: false, send: false };
 
   return (
     <>
@@ -179,7 +175,7 @@ function Loaded({
             <ConfirmAction
               label={`Delete ${invoice.invoiceNumber} for good`}
               pendingLabel="Deleting…"
-              consequence="Its entries go back to unbilled."
+              consequence="Its work stays unbilled."
               pending={remove.isPending}
               onConfirm={() => remove.mutate()}
             >
@@ -204,7 +200,7 @@ function Loaded({
           {isDraft ? (
             <Button
               onClick={() => setStatus.mutate({ status: 'sent' })}
-              disabled={setStatus.isPending || changed != null}
+              disabled={setStatus.isPending || changed != null || refuses.send}
             >
               <Send aria-hidden strokeWidth={1.75} />
               Mark sent
@@ -232,7 +228,7 @@ function Loaded({
               mail, so it is last, as the primary action. Neither shows until
               the invoice itself answers: the lists it first draws from don't
               say whether its PDF opens. */}
-          {invoice.canDownload === true ? (
+          {invoice.canDownload === true && !refuses.download ? (
             <Button asChild>
               <a
                 href={api.invoicePdfUrl(invoice.id, true)}
@@ -256,32 +252,19 @@ function Loaded({
           ) : null}
         </div>
       </header>
-      <div className="flex flex-col gap-1 pt-1 pb-6">
-        <p className="type-support text-muted">
-          {changed
-            ? 'Download the new PDF, send it from your own address, then mark it sent.'
-            : statusHint(invoice.status, invoice.dueDate, invoice)}
-        </p>
-        {changed ? (
-          <Changed change={changed} currency={invoice.currency} />
-        ) : null}
-        {/* The document is the paid tier; the records never are, and saying
-            so here keeps the two rules from reading as one. */}
-        {invoice.canDownload === false ? (
-          <p className="type-support text-muted">
-            Downloading the invoice is on the paid plan, {PRICE}. Tracking and
-            your records, exporting them included, stay free.
-          </p>
-        ) : null}
-        <ActionError error={error} />
-      </div>
+      <Notices
+        invoice={invoice}
+        // A new PDF it can't have is no remedy.
+        changed={refuses.download ? null : changed}
+        unrated={unrated}
+        error={error}
+      />
 
       <InvoicePreviewCard
         heading={false}
         preview={{ ...invoice, schedules: invoice.supportingDetail }}
         client={invoice.billTo}
         business={invoice.business}
-        settings={settings}
         number={invoice.invoiceNumber}
         issued={invoice.issueDate}
         due={invoice.dueDate ?? ''}
@@ -322,6 +305,53 @@ function statusHint(
   return 'Voided. The number stays on record so numbering is gapless, and the entries were released for re-billing.';
 }
 
+/** Where the invoice stands, and what holds it, under the title. */
+function Notices({
+  invoice,
+  changed,
+  unrated,
+  error,
+}: {
+  invoice: Shown;
+  changed: DraftChange | null | undefined;
+  unrated: UnratedEntry[];
+  error: unknown;
+}) {
+  return (
+    <div className="flex flex-col gap-1 pt-1 pb-6">
+      <p className="type-support text-muted">
+        {changed
+          ? 'Download the new PDF, send it from your own address, then mark it sent.'
+          : statusHint(invoice.status, invoice.dueDate, invoice)}
+      </p>
+      {changed ? (
+        <Changed change={changed} currency={invoice.currency} />
+      ) : null}
+      {unrated.length > 0 ? <Unrated entries={unrated} /> : null}
+      {invoice.dueBeforeIssue?.download ? (
+        <DueBeforeIssue
+          issued={invoice.issueDate}
+          due={invoice.dueDate!}
+          downloaded={!invoice.dueBeforeIssue.send}
+        />
+      ) : null}
+      {/* The document is the paid tier; the records never are, and saying
+          so here keeps the two rules from reading as one. */}
+      {invoice.canDownload === false ? (
+        <p className="type-support text-muted">
+          Downloading the invoice is on the paid plan, {PRICE}. Tracking and
+          your records, exporting them included, stay free.
+        </p>
+      ) : null}
+      <ActionError error={error} />
+    </div>
+  );
+}
+
+/** A draft's warning, under the hint. */
+const NOTICE =
+  'mt-3 flex flex-col gap-0.5 rounded-md border border-edge-default border-l-[3px] border-l-warning bg-surface-elevated px-3.5 py-3';
+
 /** What moved since the PDF the client may already hold. No button: the
     header's Download PDF is the one action, and this says why Mark sent
     waits for it. */
@@ -334,10 +364,7 @@ function Changed({
 }) {
   const added = change.hours.to - change.hours.from;
   return (
-    <div
-      role="status"
-      className="mt-3 flex flex-col gap-0.5 rounded-md border border-edge-default border-l-[3px] border-l-warning bg-surface-elevated px-3.5 py-3"
-    >
+    <div role="status" className={NOTICE}>
       <p className="type-body text-strong">Changed since you downloaded it</p>
       <p className="type-support text-muted">
         {added === 0
@@ -352,6 +379,56 @@ function Changed({
           {formatCurrency(change.total.to, currency)}
         </span>
         . Download the new PDF to mark it sent.
+      </p>
+    </div>
+  );
+}
+
+/** The work this draft leaves out because no rate prices it, by name, so
+    the user can find each one. */
+function Unrated({ entries }: { entries: UnratedEntry[] }) {
+  return (
+    <div role="status" className={NOTICE}>
+      <p className="type-body text-strong">
+        {entries.length} entr{entries.length === 1 ? 'y has' : 'ies have'} no
+        rate
+      </p>
+      <p className="type-support text-muted">
+        This draft leaves {entries.length === 1 ? 'it' : 'them'} out, and can’t
+        be downloaded or sent until each has a rate. Set one on the entry,
+        project, client, or in settings.
+      </p>
+      <ul className="mt-1 type-support text-primary">
+        {entries.map((e) => (
+          <li key={e.id}>
+            {e.taskName || 'Untitled'} ·{' '}
+            {shortDate(localDateKey(new Date(e.startedAt), tz))}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** A typed due date today has passed, which a new PDF would print as
+    `Net -N`. One already downloaded still sends as it printed; otherwise a
+    draft's due date can't be edited, so the fix is a new draft. */
+function DueBeforeIssue({
+  issued,
+  due,
+  downloaded,
+}: {
+  issued: string;
+  due: string;
+  downloaded: boolean;
+}) {
+  return (
+    <div role="status" className={NOTICE}>
+      <p className="type-body text-strong">Due before it’s issued</p>
+      <p className="type-support text-muted">
+        {downloaded
+          ? `The due date you typed, ${shortDate(due)}, is before today, so it can’t be downloaded again. Send the PDF you downloaded, then mark it sent.`
+          : `The due date you typed, ${shortDate(due)}, is before today’s issue date, ${shortDate(issued)}, so it can’t be downloaded or sent. Delete this draft and generate it again with a later due date.`}
       </p>
     </div>
   );

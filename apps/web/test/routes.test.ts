@@ -18,6 +18,7 @@ import { makeDb } from './shim.mjs';
 import { fill } from './fill.ts';
 import Stripe from 'stripe';
 import { fakeStripe, subscription } from './fake-stripe.ts';
+import { fakeFcm, serviceAccount, UNREGISTERED } from './fake-fcm.ts';
 
 const USER = '11111111-1111-1111-1111-111111111111';
 const OTHER = '22222222-2222-2222-2222-222222222222';
@@ -40,6 +41,9 @@ after(async () => {
 });
 
 beforeEach(async () => {
+  // A push the last test's write scheduled finishes before its rows go.
+  await settled();
+  await pool.query('delete from push_devices');
   await pool.query('delete from feedback');
   await pool.query('delete from subscriptions');
   await pool.query('update expenses set invoice_id = null');
@@ -69,7 +73,17 @@ beforeEach(async () => {
   for (const k of STRIPE_ENV) delete process.env[k];
   stripeFake = fakeStripe();
   (globalThis as any).__TEST_STRIPE__ = stripeFake.client;
+  // Push starts unconfigured too; `configurePush()` turns it on.
+  delete process.env.FCM_SERVICE_ACCOUNT;
+  fcmFake = fakeFcm();
+  (globalThis as any).__TEST_FCM__ = fcmFake.fetch;
 });
+
+let fcmFake: ReturnType<typeof fakeFcm>;
+
+/** Whatever the handlers scheduled with `after()`, finished. */
+const settled = () =>
+  Promise.all((globalThis as any).__AFTER__?.splice(0) ?? []);
 
 const STRIPE_ENV = [
   'STRIPE_SECRET_KEY',
@@ -488,6 +502,211 @@ test('editing an entry billed on a sent invoice returns 409 ENTRY_LOCKED', async
   );
   assert.equal(removed.status, 409, 'deleting a billed entry is refused too');
   assert.equal(removed.body.code, 'ENTRY_LOCKED');
+});
+
+// ── billed elsewhere ───────────────────────────────────────────────
+const BE = (n: number) =>
+  `018f0000-0000-7000-8000-0000000be${String(n).padStart(3, '0')}`;
+const BE_INVOICE = 'ff000000-0000-4000-8000-0000000be001';
+
+/** Four of the user's entries on one project — two unbilled, one running,
+ *  one on an invoice in `status` — and one of another user's. */
+async function seedBilledElsewhere(status = 'sent') {
+  const { clientId, projectId } = await seedClientAndProject();
+  await pool.query(
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status)
+     values ($1,$2,$3,'INV-0001',1,$4)`,
+    [BE_INVOICE, USER, clientId, status],
+  );
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at,invoice_id)
+     values ($1,$6,$7,'One','2026-09-01T14:00:00Z','2026-09-01T15:00:00Z',null),
+            ($2,$6,$7,'Two','2026-09-02T14:00:00Z','2026-09-02T16:00:00Z',null),
+            ($3,$6,$7,'Running','2026-09-03T14:00:00Z',null,null),
+            ($4,$6,$7,'Sent','2026-09-04T14:00:00Z','2026-09-04T15:00:00Z',$8),
+            ($5,$9,null,'Theirs','2026-09-05T14:00:00Z','2026-09-05T15:00:00Z',null)`,
+    [BE(1), BE(2), BE(3), BE(4), BE(5), USER, projectId, BE_INVOICE, OTHER],
+  );
+  return { clientId };
+}
+
+const flagged = async () =>
+  (
+    await pool.query(
+      'select id from time_entries where invoiced_elsewhere order by id',
+    )
+  ).rows.map((r) => r.id);
+
+test('billed elsewhere marks only the user’s finished, uninvoiced entries, and says which', async () => {
+  const { POST } = await import(
+    '../src/app/api/v1/entries/invoiced-elsewhere/route.ts'
+  );
+  await seedBilledElsewhere();
+
+  const res = await json(
+    await POST(
+      req('/entries/invoiced-elsewhere', {
+        ids: [BE(1), BE(2), BE(3), BE(4), BE(5)],
+        invoicedElsewhere: true,
+      }),
+    ),
+  );
+  assert.equal(res.status, 200);
+  assert.deepEqual([...res.body.ids].sort(), [BE(1), BE(2)]);
+  assert.deepEqual(await flagged(), [BE(1), BE(2)]);
+});
+
+test('work marked billed elsewhere leaves Unbilled and the next invoice', async () => {
+  const { POST } = await import(
+    '../src/app/api/v1/entries/invoiced-elsewhere/route.ts'
+  );
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  const { clientId } = await seedBilledElsewhere();
+  // Unbilled counts a running timer live, so it would move under the test.
+  await pool.query('delete from time_entries where id = $1', [BE(3)]);
+  const period = {
+    clientId,
+    periodStart: '2026-09-01',
+    periodEnd: '2026-09-30',
+    tz: 'America/New_York',
+  };
+  const unbilled = async () =>
+    (
+      await pool.query(
+        'select coalesce(sum(seconds),0)::int s from unbilled_by_client($1)',
+        [USER],
+      )
+    ).rows[0].s;
+
+  const before = await json(await preview(req('/invoices/preview', period)));
+  assert.equal(before.body.entryCount, 2);
+  assert.equal(await unbilled(), 3 * 3600);
+
+  await POST(
+    req('/entries/invoiced-elsewhere', {
+      ids: [BE(1), BE(2)],
+      invoicedElsewhere: true,
+    }),
+  );
+  const after = await json(await preview(req('/invoices/preview', period)));
+  assert.equal(after.body.entryCount, 0);
+  assert.equal(await unbilled(), 0);
+});
+
+test('clearing billed elsewhere puts exactly those entries back', async () => {
+  const { POST } = await import(
+    '../src/app/api/v1/entries/invoiced-elsewhere/route.ts'
+  );
+  await seedBilledElsewhere();
+  await pool.query(
+    'update time_entries set invoiced_elsewhere = true where id = any($1)',
+    [[BE(1), BE(2), BE(5)]],
+  );
+
+  const res = await json(
+    await POST(
+      req('/entries/invoiced-elsewhere', {
+        ids: [BE(1), BE(5)],
+        invoicedElsewhere: false,
+      }),
+    ),
+  );
+  assert.deepEqual(res.body.ids, [BE(1)]);
+  assert.deepEqual(
+    await flagged(),
+    [BE(2), BE(5)],
+    'another user’s entry is not cleared',
+  );
+});
+
+test('billed elsewhere refuses an empty list', async () => {
+  const { POST } = await import(
+    '../src/app/api/v1/entries/invoiced-elsewhere/route.ts'
+  );
+  const res = await json(
+    await POST(
+      req('/entries/invoiced-elsewhere', { ids: [], invoicedElsewhere: true }),
+    ),
+  );
+  assert.equal(res.status, 422);
+});
+
+test('an entry is marked or cleared billed elsewhere by its PATCH', async () => {
+  const { PATCH } = await import('../src/app/api/v1/entries/[id]/route.ts');
+  await seedBilledElsewhere();
+
+  const marked = await json(
+    await PATCH(
+      req(`/entries/${BE(1)}`, { invoicedElsewhere: true }, 'PATCH'),
+      ctx(BE(1)),
+    ),
+  );
+  assert.equal(marked.status, 200);
+  assert.equal(marked.body.invoicedElsewhere, true);
+
+  const cleared = await json(
+    await PATCH(
+      req(`/entries/${BE(1)}`, { invoicedElsewhere: false }, 'PATCH'),
+      ctx(BE(1)),
+    ),
+  );
+  assert.equal(cleared.body.invoicedElsewhere, false);
+});
+
+test('marking a running timer billed elsewhere is refused by its PATCH: TIMER_ALREADY_RUNNING', async () => {
+  const { PATCH } = await import('../src/app/api/v1/entries/[id]/route.ts');
+  await seedBilledElsewhere();
+
+  const res = await json(
+    await PATCH(
+      req(`/entries/${BE(3)}`, { invoicedElsewhere: true }, 'PATCH'),
+      ctx(BE(3)),
+    ),
+  );
+  assert.equal(res.status, 409);
+  assert.equal(res.body.code, 'TIMER_ALREADY_RUNNING');
+  assert.deepEqual(await flagged(), []);
+});
+
+/* Both orders of a mark racing an invoice: the routes filter out an entry
+   already attached, and the database refuses to attach one already marked,
+   which an invoice's read-then-attach would otherwise do. */
+test('an entry billed elsewhere can’t be attached to an invoice: ENTRY_ALREADY_INVOICED', async () => {
+  const { dbCode } = await import('../src/lib/errors.ts');
+  await seedBilledElsewhere();
+  await pool.query(
+    'update time_entries set invoiced_elsewhere = true where id = $1',
+    [BE(1)],
+  );
+
+  const refused = await pool
+    .query('update time_entries set invoice_id = $1 where id = $2', [
+      BE_INVOICE,
+      BE(1),
+    ])
+    .then(
+      () => null,
+      (e: Error) => e,
+    );
+  assert.ok(refused, 'the attach is refused');
+  assert.equal(dbCode(refused), 'ENTRY_ALREADY_INVOICED');
+});
+
+test('marking an entry on a sent invoice billed elsewhere is ENTRY_ALREADY_INVOICED', async () => {
+  const { PATCH } = await import('../src/app/api/v1/entries/[id]/route.ts');
+  await seedBilledElsewhere();
+
+  const res = await json(
+    await PATCH(
+      req(`/entries/${BE(4)}`, { invoicedElsewhere: true }, 'PATCH'),
+      ctx(BE(4)),
+    ),
+  );
+  assert.equal(res.status, 409);
+  assert.equal(res.body.code, 'ENTRY_ALREADY_INVOICED');
+  assert.deepEqual(await flagged(), []);
 });
 
 test('reopening an entry while a timer runs is TIMER_ALREADY_RUNNING', async () => {
@@ -1314,7 +1533,6 @@ test('every settable field round-trips, rather than being silently dropped', asy
     minEntrySeconds: 60,
     maxEntryHours: 10,
     businessAddress: '1 Main St\nAustin, TX 78701',
-    paymentNotice: 'Details never change. Verify by phone.',
     invoiceNumberPrefix: 'STINT-',
   };
 
@@ -2135,8 +2353,10 @@ test('awaiting payment counts sent invoices and is never the unbilled total', as
     pool.query(
       `insert into invoices
          (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
+          period_start,period_end,
           subtotal,tax_rate,tax_amount,total,currency,grouping_mode,paid_at)
-       values ($1,$2,$3,$4,$5,$6,'2026-09-01',$7,0,0,$7,'USD','entry',
+       values ($1,$2,$3,$4,$5,$6,'2026-09-01','2026-08-01','2026-08-31',
+               $7,0,0,$7,'USD','entry',
                case when $6 = 'paid' then now() else null end)`,
       [id, USER, c, num, Number(num.slice(-1)), status, total],
     );
@@ -2771,9 +2991,9 @@ test('the week sees only its own user’s work', async () => {
 });
 
 // ── stale drafts ───────────────────────────────────────────────────
-// A draft holds no invoice number and has not been sent, so it is not money
-// owed — it is a job half finished. It earns an inbox row because the work is
-// already billed to nobody: entries sit locked to a draft that never went out.
+// A draft has not been sent, so it is not money owed — it is a job half
+// finished. It earns an inbox row once its period is long over: the work is
+// done and billed to nobody.
 
 test('a draft is stale only after a week, and the oldest sorts first', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
@@ -2787,13 +3007,14 @@ test('a draft is stale only after a week, and the oldest sorts first', async () 
   const dayKey = (offset: number) =>
     new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
 
-  const mk = (id: string, num: string, issued: string, status = 'draft') =>
+  const mk = (id: string, num: string, ended: string, status = 'draft') =>
     pool.query(
       `insert into invoices
-         (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
-          subtotal,tax_rate,tax_amount,total,currency,grouping_mode)
-       values ($1,$2,$3,$4,$5,$6,$7,100,0,0,100,'USD','entry')`,
-      [id, USER, c, num, Number(num.slice(-1)), status, issued],
+         (id,user_id,client_id,invoice_number,sequence_no,status,
+          period_start,period_end,subtotal,tax_rate,tax_amount,total,currency,
+          grouping_mode,tz)
+       values ($1,$2,$3,$4,$5,$6,$7,$7,100,0,0,100,'USD','entry','UTC')`,
+      [id, USER, c, num, Number(num.slice(-1)), status, ended],
     );
 
   await mk('45444444-0000-4000-8000-000000000001', 'INV-0001', dayKey(-2));
@@ -2813,8 +3034,9 @@ test('a draft is stale only after a week, and the oldest sorts first', async () 
     (d: { invoiceNumber: string }) => d.invoiceNumber,
   );
 
-  /* Oldest first: the row least likely to still be in anyone's head. Two days
-     old is a draft someone is actively working on, not a forgotten one. */
+  /* Oldest first: the row least likely to still be in anyone's head. A
+     period two days over is a draft someone is actively working on, not a
+     forgotten one. */
   assert.deepEqual(numbers, ['INV-0003', 'INV-0002'], 'a 2-day draft is fine');
   assert.equal(res.body.attention.staleDrafts[0].ageDays, 30);
   assert.equal(res.body.attention.staleDrafts[1].ageDays, 9);
@@ -2839,21 +3061,17 @@ test('a stale draft carries the money and the client it belongs to', async () =>
 
   await pool.query(
     `insert into invoices
-       (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
-        subtotal,tax_rate,tax_amount,total,currency,grouping_mode)
-     values ($1,$2,$3,'INV-0009',9,'draft',$4,400,0,0,400,'USD','entry')`,
-    [
-      '45444444-0000-4000-8000-000000000009',
-      USER,
-      c,
-      new Date(Date.now() - 20 * 86_400_000).toISOString().slice(0, 10),
-    ],
+       (id,user_id,client_id,invoice_number,sequence_no,status,period_start,
+        period_end,currency,grouping_mode,tz)
+     values ($1,$2,$3,'INV-0009',9,'draft','2026-09-01','2026-09-30','USD',
+             'entry','UTC')`,
+    ['45444444-0000-4000-8000-000000000009', USER, c],
   );
 
   const res = await json(await stats(req('/stats?tz=UTC')));
   const [draft] = res.body.attention.staleDrafts;
   assert.equal(draft.clientName, 'Namely');
-  assert.equal(draft.amount, 400);
+  assert.equal(draft.amount, 100, 'what its period’s hour comes to now');
   assert.equal(draft.currency, 'USD');
 });
 
@@ -3392,10 +3610,15 @@ test('task names honor limit', async () => {
   assert.deepEqual(names(res.body), ['Task 0', 'Task 1']);
 });
 
-test('task names reject a limit outside the range', async () => {
+test('task names accept a limit up to 1000 and reject one past it', async () => {
   const { GET: taskNames } = await import(TASK_NAMES);
 
-  const res = await json(await taskNames(req('/entries/task-names?limit=99')));
+  const ok = await json(await taskNames(req('/entries/task-names?limit=1000')));
+  assert.equal(ok.status, 200);
+
+  const res = await json(
+    await taskNames(req('/entries/task-names?limit=1001')),
+  );
   assert.equal(res.status, 422);
   assert.equal(res.body.code, 'VALIDATION_FAILED');
 });
@@ -4385,8 +4608,10 @@ const exportInvoice = (
   pool.query(
     `insert into invoices
        (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
+        period_start,period_end,
         subtotal,tax_rate,tax_amount,total,currency,grouping_mode,paid_at)
-     values ($1,$2,$3,$4,$5,$6,'2026-09-01',100,0,0,100,'USD','entry',$7)`,
+     values ($1,$2,$3,$4,$5,$6,'2026-09-01','2026-08-01','2026-08-31',
+             100,0,0,100,'USD','entry',$7)`,
     [
       id,
       user,
@@ -4643,8 +4868,9 @@ test('every response the macOS app decodes matches its fixture', async (t) => {
     archived.id,
   ]);
   const invoice = await pool.query(
-    `insert into invoices (user_id, client_id, invoice_number, sequence_no)
-     values ($1, $2, 'INV-1', 1) returning id`,
+    `insert into invoices
+       (user_id, client_id, invoice_number, sequence_no, period_start, period_end)
+     values ($1, $2, 'INV-1', 1, current_date, current_date) returning id`,
     [USER, client.id],
   );
   await pool.query(
@@ -4700,4 +4926,268 @@ test('every response the macOS app decodes matches its fixture', async (t) => {
     [],
     'These responses changed shape and their fixtures were rewritten: commit them and make `swift test` pass.',
   );
+});
+
+// ── push devices, and pushing the timer to them ────────────────────
+const ANDROID = { token: 'fcm-token-1', platform: 'android' };
+
+const send = (method: string, url: string, body: unknown) =>
+  new Request(`http://t${url}`, {
+    method,
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+const devices = async () =>
+  (
+    await pool.query(
+      'select user_id, token, platform from push_devices order by token',
+    )
+  ).rows;
+
+const register = async (device: unknown = ANDROID) => {
+  const { POST } = await import('../src/app/api/v1/push-devices/route.ts');
+  return POST(send('POST', '/push-devices', device));
+};
+
+const configurePush = () => {
+  process.env.FCM_SERVICE_ACCOUNT = serviceAccount();
+};
+
+test('a phone registers once, however often it asks', async () => {
+  assert.equal((await register()).status, 204);
+  assert.equal((await register()).status, 204);
+  assert.deepEqual(await devices(), [{ user_id: USER, ...ANDROID }]);
+});
+
+test('registering refuses another platform or no token', async () => {
+  for (const device of [
+    { token: 'x', platform: 'ios' },
+    { platform: 'android' },
+    { token: '', platform: 'android' },
+  ]) {
+    assert.equal((await register(device)).status, 422);
+  }
+  assert.deepEqual(await devices(), []);
+});
+
+test('a phone unregisters, and an unknown token is already gone', async () => {
+  const { DELETE } = await import('../src/app/api/v1/push-devices/route.ts');
+  await register();
+  await pool.query(
+    `insert into push_devices (user_id, token, platform) values ($1, $2, 'android')`,
+    [OTHER, ANDROID.token],
+  );
+  const del = () =>
+    DELETE(send('DELETE', '/push-devices', { token: ANDROID.token }));
+  assert.equal((await del()).status, 204);
+  assert.equal((await del()).status, 204);
+  assert.deepEqual(
+    await devices(),
+    [{ user_id: OTHER, ...ANDROID }],
+    'only the caller’s row goes',
+  );
+});
+
+/** Each timer change, from a running timer where it needs one. */
+async function timerChanges() {
+  const route = (p: string) => import(`../src/app/api/v1/${p}/route.ts`);
+  const start = (await route('timer/start')).POST;
+  const stop = (await route('timer/stop')).POST;
+  const current = (await route('timer/current')).PATCH;
+  const entry = await route('entries/[id]');
+  // A minute ago, so a stop in the same millisecond still lands after it.
+  const startedAt = () => new Date(Date.now() - 60_000).toISOString();
+  const started = async () =>
+    (
+      await json(
+        await start(
+          req('/timer/start', { taskName: 'Work', startedAt: startedAt() }),
+        ),
+      )
+    ).body;
+  const patch = (id: string, body: unknown) =>
+    entry.PATCH(send('PATCH', `/entries/${id}`, body), {
+      params: Promise.resolve({ id }),
+    });
+  /* The setup's own push, sent and forgotten. */
+  const ready = async () => {
+    await settled();
+    fcmFake.state.sent = [];
+  };
+  return {
+    start: () => started(),
+    stop: async () => {
+      await started();
+      await ready();
+      return stop(req('/timer/stop', {}));
+    },
+    retitle: async () => {
+      await started();
+      await ready();
+      return current(send('PATCH', '/timer/current', { taskName: 'Other' }));
+    },
+    'edit the running entry': async () => {
+      const { id } = await started();
+      await ready();
+      return patch(id, { taskName: 'Other' });
+    },
+    'stop it by editing': async () => {
+      const { id, startedAt } = await started();
+      await ready();
+      const endedAt = new Date(Date.parse(startedAt) + 60_000).toISOString();
+      return patch(id, { endedAt });
+    },
+    'delete the running entry': async () => {
+      const { id } = await started();
+      await ready();
+      return entry.DELETE(
+        new Request(`http://t/entries/${id}`, { method: 'DELETE' }),
+        {
+          params: Promise.resolve({ id }),
+        },
+      );
+    },
+  };
+}
+
+test('every change to the running timer pushes once to each phone', async () => {
+  configurePush();
+  await register();
+  await register({ token: 'fcm-token-2', platform: 'android' });
+  for (const [name, change] of Object.entries(await timerChanges())) {
+    await pool.query('delete from time_entries');
+    fcmFake.state.sent = [];
+    await change();
+    await settled();
+    assert.deepEqual(
+      fcmFake.state.sent.map((m) => m.token).sort(),
+      ['fcm-token-1', 'fcm-token-2'],
+      name,
+    );
+    assert.deepEqual(fcmFake.state.sent[0]?.data, { kind: 'timer' }, name);
+  }
+});
+
+const STOPPED = '018f0000-0000-7000-a000-0000000000aa';
+
+test('a change that leaves the running timer alone pushes nothing', async () => {
+  const { POST: start } = await import(
+    '../src/app/api/v1/timer/start/route.ts'
+  );
+  const entry = await import('../src/app/api/v1/entries/[id]/route.ts');
+  configurePush();
+  await register();
+  await pool.query(
+    `insert into time_entries (id, user_id, task_name, started_at, ended_at)
+     values ($1, $2, 'Done', '2026-01-05T09:00:00Z', '2026-01-05T10:00:00Z')`,
+    [STOPPED, USER],
+  );
+  const res = await entry.PATCH(
+    send('PATCH', `/entries/${STOPPED}`, { taskName: 'Renamed' }),
+    { params: Promise.resolve({ id: STOPPED }) },
+  );
+  assert.equal(res.status, 200);
+  await json(await start(req('/timer/start', { taskName: 'One' })));
+  await settled();
+  fcmFake.state.sent = [];
+  const refused = await start(req('/timer/start', { taskName: 'Two' }));
+  assert.equal(refused.status, 409);
+  await settled();
+  assert.deepEqual(fcmFake.state.sent, []);
+});
+
+/** Starts a timer and returns its status, once its push has settled, and
+ *  what reached Sentry meanwhile. */
+async function startAndReport() {
+  const Sentry = await import('@sentry/nextjs');
+  const { close } = await import('@sentry/core');
+  const reported: (string | undefined)[] = [];
+  Sentry.init({
+    dsn: 'https://key@o0.ingest.sentry.io/0',
+    beforeSend(event) {
+      reported.push(event.exception?.values?.[0]?.value);
+      return null;
+    },
+  });
+  const { POST: start } = await import(
+    '../src/app/api/v1/timer/start/route.ts'
+  );
+  const res = await start(req('/timer/start', { taskName: 'Work' }));
+  await settled();
+  await close(1000);
+  return { status: res.status, reported };
+}
+
+test('a transient failure is retried once', async () => {
+  configurePush();
+  await register();
+  fcmFake.state.answers = [{ status: 503 }];
+  const { status, reported } = await startAndReport();
+  assert.equal(status, 201);
+  assert.equal(fcmFake.state.sent.length, 2);
+  assert.deepEqual(reported, []);
+});
+
+test('a send that keeps failing reaches Sentry and never fails the write', async () => {
+  configurePush();
+  await register();
+  fcmFake.state.answers = [{ status: 500 }, { status: 500 }];
+  const { status, reported } = await startAndReport();
+  assert.equal(status, 201);
+  assert.equal(fcmFake.state.sent.length, 2);
+  assert.equal(reported.length, 1);
+  assert.match(reported[0] ?? '', /^Push not delivered/);
+});
+
+test('a token FCM calls unregistered is deleted, and nothing is reported', async () => {
+  configurePush();
+  await register();
+  await register({ token: 'fcm-token-2', platform: 'android' });
+  fcmFake.state.answers = [UNREGISTERED];
+  const { reported } = await startAndReport();
+  assert.deepEqual(reported, []);
+  assert.equal((await devices()).length, 1);
+});
+
+test('a refused service account reaches Sentry', async () => {
+  process.env.FCM_SERVICE_ACCOUNT = JSON.stringify({
+    ...JSON.parse(serviceAccount()),
+    private_key: (await import('node:crypto'))
+      .generateKeyPairSync('rsa', { modulusLength: 2048 })
+      .privateKey.export({ type: 'pkcs8', format: 'pem' }),
+  });
+  await register();
+  const { status, reported } = await startAndReport();
+  assert.equal(status, 201);
+  assert.match(
+    reported[0] ?? '',
+    /Google refused the FCM service account: 400/,
+  );
+  assert.deepEqual(fcmFake.state.sent, []);
+});
+
+test('with no service account, nothing is sent', async () => {
+  await register();
+  const { status, reported } = await startAndReport();
+  assert.equal(status, 201);
+  assert.deepEqual(fcmFake.state.sent, []);
+  assert.equal(fcmFake.state.tokenRequests, 0);
+  assert.deepEqual(reported, []);
+});
+
+test('the access token is fetched once for many sends', async () => {
+  configurePush();
+  await register();
+  const { POST: start } = await import(
+    '../src/app/api/v1/timer/start/route.ts'
+  );
+  const { POST: stop } = await import('../src/app/api/v1/timer/stop/route.ts');
+  const startedAt = new Date(Date.now() - 60_000).toISOString();
+  await start(req('/timer/start', { taskName: 'Work', startedAt }));
+  await settled();
+  await stop(req('/timer/stop', {}));
+  await settled();
+  assert.equal(fcmFake.state.sent.length, 2);
+  assert.equal(fcmFake.state.tokenRequests, 1);
 });

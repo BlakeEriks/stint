@@ -105,7 +105,7 @@ export function handle<T extends unknown[]>(
    so it goes up as an Error with the original beside it. That Error's stack
    is this function's whichever route failed, so the message joins the
    fingerprint: without it every database failure groups as one issue. */
-function report(err: unknown) {
+export function report(err: unknown) {
   if (err instanceof Error) {
     captureException(err);
     return;
@@ -131,6 +131,8 @@ export const PG = {
    constraint to name, so it raises its code in HINT instead (`dbCode`). */
 const CONSTRAINT_CODES: Record<string, Code> = {
   one_running_timer_per_user: 'TIMER_ALREADY_RUNNING',
+  // An invoice attaching work marked billed elsewhere since it was read.
+  entry_billed_once: 'ENTRY_ALREADY_INVOICED',
   // A same-owner key fails as a missing reference: the caller named a record
   // that is not theirs, or not there.
   entry_project_same_owner: 'VALIDATION_FAILED',

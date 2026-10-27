@@ -46,7 +46,7 @@ const invoice = (o: Partial<InvoiceRow> = {}): InvoiceRow => ({
   due_date: '2026-03-01',
   total: '250.00',
   currency: 'USD',
-  issue_date: '2026-02-01',
+  period_end: '2026-01-31',
   ...o,
 });
 
@@ -239,11 +239,12 @@ test('overdue invoices lead with the most overdue', () => {
   assert.equal(rows[0]?.clientName, 'Acme');
 });
 
-test('a sent invoice is never a stale draft', () => {
+test('a draft is stale by its period end; a sent invoice never is', () => {
   const rows = buildStaleDrafts(
     [
-      invoice({ id: 'a', status: 'draft', issue_date: '2026-02-01' }),
-      invoice({ id: 'b', status: 'sent', issue_date: '2026-01-01' }),
+      invoice({ id: 'a', status: 'draft', period_end: '2026-02-01' }),
+      invoice({ id: 'b', status: 'sent', period_end: '2026-01-01' }),
+      invoice({ id: 'c', status: 'draft', period_end: '2026-03-15' }),
     ],
     names,
     'USD',

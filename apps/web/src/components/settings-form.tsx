@@ -257,23 +257,6 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
             />
           </Field>
         </div>
-
-        <Field
-          label="Payment notice"
-          htmlFor="notice"
-          hint="A standing line under the payment block. Details that never change make a change worth challenging."
-        >
-          <textarea
-            id="notice"
-            rows={2}
-            value={form.paymentNotice ?? ''}
-            onChange={(e) =>
-              setNumbering('paymentNotice', e.target.value || null)
-            }
-            placeholder="We will never email you to change these bank details."
-            className={textareaClass}
-          />
-        </Field>
       </Section>
     </>
   );
