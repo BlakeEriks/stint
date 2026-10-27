@@ -17,6 +17,39 @@ running clock and Stop, a home screen widget, a Quick Settings tile, and
 long-press shortcuts on the app icon. Every surface follows the timer
 whichever client changed it, driven by the push #463 built.
 
+## Clarifications
+
+### Session 2026-10-27
+
+- Q: What does Start start? → A: The most recently tracked task on its
+  project, the first of the app's Recent list; with none, an unnamed timer
+  on no project. (decided autonomously: it is one press with no picker, and
+  the most recent task is the likeliest to resume; the API names an unnamed
+  timer later.)
+- Q: What is the oldest Android supported? → A: Android 7.0, the app's own
+  minimum. Shortcuts need 7.1 and are absent on 7.0. (decided
+  autonomously: no surface needs more, and raising it would drop phones
+  the app runs on.)
+- Q: Does the notification use Android 16's Live Updates? → A: Yes, it asks
+  to be promoted, so Android 16 shows the clock in the status bar. Where
+  promotion is absent or refused, it is an ordinary ongoing notification.
+  (decided autonomously: the clock in the status bar is the issue's point,
+  and asking costs one flag.)
+- Q: How does a widget show a rejected press? → A: It shows what the server
+  holds, with the reason on the line under the task, until the next press
+  or update. (decided autonomously: Principle VI's rule, said on the
+  surface that pressed, since the app's notice isn't open.)
+- Q: When is notification permission asked? → A: On Android 13 and later,
+  the first time the app shows a running timer, once. Refused, nothing is
+  pinned and the rest works. (decided autonomously: it asks when the
+  answer has a visible use, and push itself needs no permission.)
+- Q: Do presses from the lock screen need unlocking? → A: Yes, the tile and
+  the notification's Stop ask to unlock first. (decided autonomously: they
+  write billable time, which a found phone shouldn't change.)
+- Q: Do the shortcuts press in the background? → A: No. Android opens the
+  app for a shortcut, and the press is made there, as if tapped in the app.
+  (decided autonomously)
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - A running timer is pinned to the notification shade (Priority: P1)
