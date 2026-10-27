@@ -194,14 +194,15 @@ export const DraftChangedPastDue: Story = {
   },
 };
 
-/** Where it stands is one line under the title, and an issued invoice is
-    the invoice, not a preview of it. */
+/** No line under the title: the card already shows the due date. An
+    issued invoice is the invoice, not a preview of it. */
 export const Sent: Story = {
   ...desktop,
   args: { id: invoice(14) },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    await expect(await page.findByText(/^Due /)).toBeVisible();
+    await expect(await page.findByText('Bill to')).toBeVisible();
+    await expect(page.queryByText(/^Due \w/)).toBeNull();
     await expect(page.queryByRole('heading', { name: 'Status' })).toBeNull();
     await expect(page.queryByRole('heading', { name: 'Preview' })).toBeNull();
   },

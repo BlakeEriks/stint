@@ -111,10 +111,11 @@ export function InvoicePreviewCard({
   heading?: boolean;
   /** No business name or email yet: a draft marks where they will print. */
   noSender?: boolean;
+  /** Under the card, after `children`. */
   footnote?: string;
   /** Beside the entry count: an action on the entries it counts. */
   entryAction?: React.ReactNode;
-  /** Warnings and errors, above the last line. */
+  /** Warnings and errors, under the card. */
   children?: React.ReactNode;
 }) {
   const terms =
@@ -187,15 +188,14 @@ export function InvoicePreviewCard({
               Choose a client to see what this invoice will say.
             </p>
           )}
-
-          {children}
-
-          {footnote ? (
-            <p className="border-t border-edge-subtle pt-3 type-support text-subtle">
-              {footnote}
-            </p>
-          ) : null}
         </div>
+      </div>
+
+      <div className="flex flex-col gap-1 px-1 pt-2.5 empty:hidden">
+        {children}
+        {footnote ? (
+          <p className="type-support text-subtle">{footnote}</p>
+        ) : null}
       </div>
     </section>
   );

@@ -278,11 +278,6 @@ function Loaded({
         updating={!invoice.lineItems}
         paymentTerms={invoice.paymentTerms}
         notes={invoice.notes}
-        footnote={
-          isDraft
-            ? 'A draft follows its period’s work and current rates until you mark it sent.'
-            : undefined
-        }
       />
 
       <MarkPaidDialog {...markPaid.dialog} />
@@ -292,14 +287,12 @@ function Loaded({
 
 function statusHint(
   status: InvoiceStatus,
-  due: string | null,
   period: { periodStart: string; periodEnd: string },
 ): string | null {
   if (status === 'draft')
     return `It keeps collecting ${shortDate(period.periodStart)} – ${shortDate(period.periodEnd)} until you mark it sent. Download it, send it from your own address, then mark it sent.`;
-  if (status === 'sent') return due ? `Due ${shortDate(due)}.` : null;
-  if (status === 'paid') return null;
-  return 'Voided. Its entries can be billed again.';
+  if (status === 'void') return 'Voided. Its entries can be billed again.';
+  return null;
 }
 
 /** Where the invoice stands, and what holds it, under the title. */
@@ -316,7 +309,7 @@ function Notices({
 }) {
   const hint = changed
     ? 'Download the new PDF, send it from your own address, then mark it sent.'
-    : statusHint(invoice.status, invoice.dueDate, invoice);
+    : statusHint(invoice.status, invoice);
   return (
     <div className="flex flex-col gap-1 pt-1 pb-6">
       {hint ? <p className="type-support text-muted">{hint}</p> : null}

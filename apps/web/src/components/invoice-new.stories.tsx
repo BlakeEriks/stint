@@ -77,6 +77,10 @@ const chooseMeridian = async (canvasElement: HTMLElement) => {
 const card = (page: Page) =>
   within(page.getByRole('region', { name: 'Preview' }));
 
+/** The bordered sheet itself, which holds only what prints. */
+const sheet = (page: Page) =>
+  card(page).getByText('Bill to').closest('.rounded-lg') as HTMLElement;
+
 // ── states ─────────────────────────────────────────────────────────
 
 /** No client yet: Generate waits and the card says what it needs. */
@@ -260,8 +264,9 @@ export const OverlapsDraft: Story = {
 };
 
 /** A client chosen: the card is the invoice as the PDF prints it, and
-    follows the form without a Preview button (US3 scenario 1). Northwind
-    has an address and email, so the Client field offers no Edit client. */
+    follows the form without a Preview button (US3 scenario 1). What
+    generating does reads under the card, not on it. Northwind has an address
+    and email, so the Client field offers no Edit client. */
 export const ClientChosen: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -269,6 +274,9 @@ export const ClientChosen: Story = {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
     await expect(card(page).getByText('Service period')).toBeVisible();
+    const footnote = card(page).getByText(/^Generating assigns a number/);
+    await expect(footnote).toBeVisible();
+    await expect(sheet(page).contains(footnote)).toBe(false);
     await expect(page.queryByRole('button', { name: 'Preview' })).toBeNull();
     await expect(
       page.queryByRole('button', { name: 'Edit client' }),
@@ -385,8 +393,8 @@ export const Unrated: Story = {
   },
 };
 
-/** Work that overlaps other time is named before it bills, but the
-    invoice can still be generated: the user decides. */
+/** Work that overlaps other time is named under the card before it bills,
+    but the invoice can still be generated: the user decides. */
 export const Overlapping: Story = {
   ...desktop,
   parameters: {
@@ -419,9 +427,9 @@ export const Overlapping: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
-    await expect(
-      await page.findByText(/entries overlap other time/),
-    ).toBeVisible();
+    const warning = await page.findByText(/entries overlap other time/);
+    await expect(warning).toBeVisible();
+    await expect(sheet(page).contains(warning)).toBe(false);
   },
 };
 

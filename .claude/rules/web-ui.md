@@ -280,3 +280,8 @@ verified to fail when the invalidation is removed.
 
 **Any entry with an `invoiceId` is locked**: a draft claims its work only
 when it is sent, so only an issued invoice sets one.
+
+**An invoice card holds only what prints on the invoice.** Wherever
+`InvoicePreviewCard` shows an invoice, a warning, an error or a hint about
+what generating does goes under the card (`children`, `footnote`), never in
+it, so the card reads as the PDF will.
