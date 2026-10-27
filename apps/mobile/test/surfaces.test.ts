@@ -1,12 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ApiError, type Summary, type TimeEntry } from '@stint/client';
+import { ApiError, keys, type Summary, type TimeEntry } from '@stint/client';
 import { QueryClient } from '@tanstack/react-query';
 import {
   createSurfaces,
   pressedState,
   type SurfaceState,
 } from '../src/surfaces.ts';
+import { RECENT_FETCHED } from '../src/screen-state.ts';
 
 const TZ = 'UTC';
 const project = {
@@ -46,8 +47,12 @@ function server(running: TimeEntry | null) {
   let fail: Error | null = null;
   const api = {
     summary: async () => summary(running),
-    taskNames: async () => ({
-      taskNames: [{ taskName: 'Filter panel', projectId: 'p1' }],
+    /** As many as asked for, the most recent first. */
+    taskNames: async (limit: number) => ({
+      taskNames: Array.from({ length: limit }, (_, i) => ({
+        taskName: i === 0 ? 'Filter panel' : `Older task ${i}`,
+        projectId: 'p1',
+      })),
     }),
     projects: async () => ({ projects: [project] }),
     clients: async () => ({ clients: [client] }),
@@ -310,4 +315,11 @@ test('a shortcut press starts the task the surfaces offer', async () => {
   const { surfaces, calls } = setup(null);
   await surfaces.pressLink('start');
   assert.deepEqual(calls, ['start Filter panel']);
+});
+
+test('a refresh leaves the screen its whole Recent list', async () => {
+  const { surfaces, queryClient } = setup(null);
+  await surfaces.refresh();
+  const names = queryClient.getQueryData(keys.taskNames({})) as unknown[];
+  assert.equal(names.length, RECENT_FETCHED);
 });

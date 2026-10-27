@@ -3,6 +3,7 @@ import {
   invalidateEntryData,
   keys,
   pressOnce,
+  summaryQuery,
   type Include,
   type IncludedName,
   type Summary,
@@ -11,6 +12,7 @@ import {
 import { uuidv7 } from '@stint/core';
 import type { QueryClient } from '@tanstack/react-query';
 import type { Api } from './api.ts';
+import { screenReads } from './reads.ts';
 import { projectLookup, recentTasks } from './screen-state.ts';
 
 /**
@@ -62,6 +64,7 @@ interface Options {
   api: Pick<
     Api,
     | 'summary'
+    | 'stats'
     | 'taskNames'
     | 'projects'
     | 'clients'
@@ -101,23 +104,10 @@ export function createSurfaces({
     draw(state);
   };
 
+  /** The screen's own reads (`reads.ts`), so both keep one shape in the cache. */
   const reads = () => ({
-    summary: {
-      queryKey: keys.summary(timeZone()),
-      queryFn: () => api.summary(timeZone()),
-    },
-    taskNames: {
-      queryKey: keys.taskNames({}),
-      queryFn: () => api.taskNames(1).then((r) => r.taskNames),
-    },
-    projects: {
-      queryKey: keys.projects({ archived: true }),
-      queryFn: () => api.projects().then((r) => r.projects),
-    },
-    clients: {
-      queryKey: keys.clients({ archived: true }),
-      queryFn: () => api.clients().then((r) => r.clients),
-    },
+    summary: summaryQuery(api, timeZone()),
+    ...screenReads(api, timeZone()),
   });
 
   /** What the cache holds, drawn; nothing until the timer has been read. */
@@ -133,9 +123,7 @@ export function createSurfaces({
       queryClient.getQueryData(r.clients.queryKey) ?? [],
     );
     const names = queryClient.getQueryData(r.taskNames.queryKey) ?? [];
-    show(
-      stateOf(data, at, recentTasks(names as never, null, lookup)[0], lookup),
-    );
+    show(stateOf(data, at, recentTasks(names, null, lookup)[0], lookup));
     return true;
   }
 
