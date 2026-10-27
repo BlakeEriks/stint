@@ -390,3 +390,20 @@ test("a surface Stop finishes the running row in Today's list", async () => {
   s.answer();
   await press;
 });
+
+test('a refetch whose clock reading moved by milliseconds draws nothing new', async () => {
+  const s = setup(entry());
+  let jitter = 0;
+  const api = s.api as { summary: () => Promise<Summary> };
+  api.summary = async () => {
+    jitter += 7;
+    return {
+      ...summary(entry()),
+      serverTime: new Date(Date.now() + jitter).toISOString(),
+    };
+  };
+  await s.surfaces.refresh();
+  const n = s.drawn.length;
+  await s.surfaces.refresh();
+  assert.equal(s.drawn.length, n);
+});

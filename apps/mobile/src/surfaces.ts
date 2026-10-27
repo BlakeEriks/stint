@@ -93,11 +93,14 @@ export function createSurfaces({
 }: Options) {
   let why: string | null = null;
   let drawn = '';
+  let shown: SurfaceState | null = null;
 
-  const show = (state: SurfaceState) => {
+  const show = (next: SurfaceState) => {
+    const state = steady(shown, next);
     const json = JSON.stringify(state);
     if (json === drawn) return;
     drawn = json;
+    shown = state;
     draw(state);
   };
 
@@ -251,6 +254,18 @@ export function createSurfaces({
       render();
     },
   };
+}
+
+/**
+ * The start keeps its last reading when a refetch moves it by under a second:
+ * each read measures the clock's skew again, a few milliseconds apart, and a
+ * chronometer counts whole seconds.
+ */
+function steady(before: SurfaceState | null, next: SurfaceState): SurfaceState {
+  if (before?.kind !== 'running' || next.kind !== 'running') return next;
+  return Math.abs(next.startedAt - before.startedAt) < 1000
+    ? { ...next, startedAt: before.startedAt }
+    : next;
 }
 
 /**
