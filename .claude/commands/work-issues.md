@@ -127,8 +127,7 @@ is `reviewed`.
      `migration-handoff.yml` merges `main` into the oldest open, non-draft,
      not `needs-input` one and labels it. When none has the label, as after
      a handoff that conflicted, the oldest first gets a round in which the
-     builder merges `main` in, then the label once `main` is merged in,
-     without waiting for CI.
+     builder merges `main` in, then adds the label without waiting for CI.
   7. **CI still running:** leave it for the next pass.
 - **Each open Dependabot PR** (`gh pr list --author app/dependabot`), the
   same steps, except:
