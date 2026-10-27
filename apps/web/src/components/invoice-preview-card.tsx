@@ -89,6 +89,7 @@ export function InvoicePreviewCard({
   heading = true,
   noSender = false,
   footnote,
+  entryAction,
   children,
 }: {
   preview: CardFigures | undefined;
@@ -114,6 +115,8 @@ export function InvoicePreviewCard({
   /** No business name or email yet: a draft marks where they will print. */
   noSender?: boolean;
   footnote?: string;
+  /** Beside the entry count: an action on the entries it counts. */
+  entryAction?: React.ReactNode;
   /** Warnings and errors, above the last line. */
   children?: React.ReactNode;
 }) {
@@ -140,8 +143,9 @@ export function InvoicePreviewCard({
           {heading ? 'Preview' : 'Invoice'}
         </h2>
         {client ? (
-          <span className="ml-auto">
+          <span className="ml-auto flex items-center gap-2">
             <Caption updating={updating} entries={preview?.entryCount} />
+            {entryAction}
           </span>
         ) : null}
       </div>

@@ -13,6 +13,7 @@ import {
 import { askedToInclude, entryWith, readIncluded } from '@/lib/include';
 import { pushTimerChanged } from '@/lib/push';
 import { UpdateTimeEntry } from '@stint/schema';
+import { markable, refuseUnmarkable } from '@/lib/invoiced-elsewhere';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,10 +54,9 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
 
   await checkOrder(db, id, update);
 
-  const { data, error } = await db
-    .from('time_entries')
-    .update(update)
-    .eq('id', id)
+  const marking = patch.invoicedElsewhere === true;
+  const q = db.from('time_entries').update(update).eq('id', id);
+  const { data, error } = await (marking ? markable(q) : q)
     .select(ENTRY_COLUMNS)
     .maybeSingle();
 
@@ -75,6 +75,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
     }
     throw error;
   }
+  if (!data && marking) await refuseUnmarkable(db, id);
   if (!data) throw new ApiError('ENTRY_NOT_FOUND', 'Entry not found');
   // Running now, or this edit stopped or reopened it.
   if ((data as EntryRow).ended_at === null || 'ended_at' in update) {

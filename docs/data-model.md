@@ -162,9 +162,10 @@ sending keeps; it is the one column a read writes. Mark sent refuses with
 `DRAFT_CHANGED` while the draft differs from it. **Mark sent is
 `send_draft()`**: it writes the lines and totals the route computed, claims
 the entries and one-off expenses, sets `issue_date`, `due_date` and the
-`payment_terms` they make (the last PDF's, else the send date's), and sends, in one transaction. An entry or
-expense another invoice took meanwhile raises `ENTRY_ALREADY_INVOICED` or
-`EXPENSE_ALREADY_INVOICED` and rolls it all back.
+`payment_terms` they make (the last PDF's, else the send date's), and sends, in one transaction. An entry another
+invoice took, or one marked billed elsewhere, meanwhile raises
+`ENTRY_ALREADY_INVOICED`, an expense another invoice took
+`EXPENSE_ALREADY_INVOICED`, and either rolls it all back.
 
 `payment_details` (JSONB) freezes the rendered bank details at generation, for
 the same reason rates freeze: editing a profile must never alter an invoice
@@ -307,11 +308,14 @@ invoice can release its entries.
 exception. An edit to unbilled work shows on the next read of any draft.
 
 ### Work invoiced elsewhere
-`time_entries.invoiced_elsewhere` marks work already billed from another tool,
-usually history an import brought in. It counts as **earned** and is never
-**unbilled**: `unbilled_by_client`, invoice generation and the inbox's
-uninvoiced rows all skip it. It is a flag, not an invoice, so it takes no
-number and appears in no invoice list, and the entry stays editable.
+`time_entries.invoiced_elsewhere` marks work already billed from another tool:
+history an import brought in, or entries the user marks on New invoice or in
+the entry dialog. It counts as **earned** and is never **unbilled**:
+`unbilled_by_client`, invoice generation and the inbox's uninvoiced rows all
+skip it. It is a flag, not an invoice, so it takes no number and appears in
+no invoice list, and the entry stays editable. `entry_billed_once` refuses
+it on an entry on an invoice, whichever is written first, and the API marks
+only a finished entry.
 
 ### Gapless invoice numbering
 `allocate_invoice_number(user_id)` increments `next_invoice_number` under a row
