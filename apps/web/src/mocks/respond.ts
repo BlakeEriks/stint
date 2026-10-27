@@ -26,37 +26,17 @@ export function ok<S extends z.ZodType>(s: S, body: z.input<S>) {
   return HttpResponse.json(parsed.data as never);
 }
 
-type Code = z.infer<typeof schema.ErrorCode> | 'INTERNAL';
-
-/* `src/lib/errors.ts`'s statuses: the code decides the status, as it does
-   there. `UNAUTHORIZED` is left out because `api.ts` answers a 401 by
+/* The API's own statuses, and `INTERNAL`, which only `handle()` answers
+   with. `UNAUTHORIZED` is left out because `api.ts` answers a 401 by
    navigating away, which would take the story with it. */
-const STATUS: Record<Exclude<Code, 'UNAUTHORIZED'>, number> = {
-  TIMER_ALREADY_RUNNING: 409,
-  NO_TIMER_RUNNING: 409,
-  ENTRY_LOCKED: 409,
-  EXPENSE_LOCKED: 409,
-  EXPENSE_ALREADY_INVOICED: 409,
-  ENTRY_ALREADY_INVOICED: 409,
-  INVOICE_STATUS_CHANGED: 409,
-  DRAFT_CHANGED: 409,
-  DRAFT_OVERLAPS: 409,
-  ENTRY_NOT_FOUND: 404,
-  NO_RATE_CONFIGURED: 400,
-  INVALID_PERIOD: 400,
-  IMPORT_FILE_UNRECOGNIZED: 422,
-  VALIDATION_FAILED: 422,
-  ALREADY_SUBSCRIBED: 409,
-  NOT_SUBSCRIBED: 409,
-  CHECKOUT_NOT_FOUND: 404,
-  BILLING_UNAVAILABLE: 503,
-  PAYMENT_REQUIRED: 402,
-  INTERNAL: 500,
-};
+type Code =
+  | Exclude<keyof typeof schema.ERROR_STATUS, 'UNAUTHORIZED'>
+  | 'INTERNAL';
+const STATUS = { ...schema.ERROR_STATUS, INTERNAL: 500 };
 
 /** An error in the API's own shape, code and status. */
 export function fail(
-  code: keyof typeof STATUS,
+  code: Code,
   message = code === 'INTERNAL' ? 'Internal server error' : code,
   details?: unknown,
 ) {

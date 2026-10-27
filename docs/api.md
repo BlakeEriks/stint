@@ -414,6 +414,7 @@ preference — `.claude/rules/invoicing.md` has the reason.
 | `NO_TIMER_RUNNING` | 409 | Nothing to stop. |
 | `ENTRY_LOCKED` | 409 | Billed on a non-draft invoice. |
 | `EXPENSE_LOCKED` | 409 | An expense billed on a non-draft invoice. |
+| `EXPENSE_ALREADY_INVOICED` | 409 | The database's refusal when another invoice took an expense. Marking a draft sent answers it as `ENTRY_ALREADY_INVOICED`. |
 | `ENTRY_ALREADY_INVOICED` | 409 | Marking a draft sent: another invoice billed an entry or expense in its period, or an entry was marked billed elsewhere, at the same moment. Open the draft again. Or a mark named an entry already on an invoice. |
 | `INVOICE_STATUS_CHANGED` | 409 | Another request changed the invoice's status first. Read it again. |
 | `DRAFT_CHANGED` | 409 | The draft moved since its PDF was rendered. Download it again, then mark it sent. |
