@@ -14,7 +14,7 @@ then stop. `/next-feature 48` takes that issue; `/next-feature` picks one.
 `gh issue list --state open --label feature --json number,title,labels,milestone,createdAt`,
 then skip every issue that:
 
-- is labeled `needs-input` or `blocked`
+- is labeled `needs-input`, `blocked` or `building`
 - is already pulled down: a branch matching `f<n>-*` exists
   (`git branch --list 'f<n>-*'`), or an open PR closes it
 - is a purchase or a setting, not code (buying the domain, upgrading a plan):
