@@ -1,0 +1,897 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings: invoice template</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;700&family=Outfit:wght@300;400;500;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* GENERATED from tokens.json — do not edit by hand. Run `pnpm tokens`. */
+/* The palette for docs/design mockups. Token names are the RAW ones
+   (--bg-primary, --text-muted, --border-subtle), not the Tailwind-stripped
+   utilities the app uses — a mockup writes plain CSS, so there is no prefix
+   collision to work around. */
+
+:root {
+    --bg-recessed: #0A0B0E;
+    --bg-base: #111316;
+    --bg-primary: #181B1F;
+    --bg-elevated: #202328;
+    --bg-hover: #272A30;
+    --bg-active: #2F333A;
+    --text-strong: #F9FAFD;
+    --text-primary: #CACED7;
+    --text-muted: #A0A7B4;
+    --text-subtle: #8F96A4;
+    --text-on-accent: #111316;
+    --text-on-danger: #111316;
+    --overlay: #05060899;
+    --border-grid: #272A30;
+    --border-subtle: #2F333A;
+    --border-default: #393E48;
+    --border-control: #666D79;
+    --border-focus: #ABB1BD;
+    --accent-default: #52FC43;
+    --accent-hover: #8EFD83;
+    --accent-active: #3FE231;
+    --accent-subtle: #0E4B09;
+    --accent-muted: #1B3518;
+    --timer-running: #52FC43;
+    --timer-idle: #666D79;
+    --timer-warning: #5CABF2;
+    --success: #36C52A;
+    --warning: #5CABF2;
+    --warning-muted: #162B40;
+    --danger: #F64B66;
+    --danger-muted: #471F23;
+    --info: #6D7FAE;
+
+    --shadow-card: 0 1px 2px rgba(0,0,0,0.40), 0 2px 10px rgba(0,0,0,0.34);
+    --shadow-float: 0 2px 4px rgba(0,0,0,0.44), 0 8px 24px rgba(0,0,0,0.40);
+    --shadow-halo-running: 0 0 0 3px color-mix(in oklab, var(--timer-running) 18%, transparent);
+
+    --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    --motion-instant: 90ms;
+    --motion-quick: 160ms;
+    --motion-count: 900ms;
+    --motion-rise: 3px;
+    --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+    --ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+    --ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+
+    --mark-bound-width: 0.09em;
+    --mark-bound-height: 1.05em;
+    --mark-bound-gap: 0.18em;
+    --mark-bound-radius: 999px;
+
+    --proj-1: #DA8188;
+    --proj-2: #D38B59;
+    --proj-3: #B49D46;
+    --proj-4: #42B59A;
+    --proj-5: #35AFC9;
+    --proj-6: #6EA1E2;
+    --proj-7: #A390DC;
+    --proj-8: #C984BA;
+
+    --cat-1: #64A3E3;
+    --cat-2: #F6964E;
+
+    --print-ground: #FFFFFF;
+    --print-ink: #1A1C21;
+    --print-muted: #626875;
+    --print-faint: #707784;
+    --print-rule: #D1D5DD;
+    --print-hairline: #E4E6EC;
+    --print-band: #F2F3F6;
+    --print-void: #E9504D;
+}
+
+[data-theme="light"] {
+    --bg-recessed: #E8E2D8;
+    --bg-base: #EEE9E0;
+    --bg-primary: #F4F0E8;
+    --bg-elevated: #FAF6EF;
+    --bg-hover: #DED8CD;
+    --bg-active: #D1CABE;
+    --text-strong: #0B0A09;
+    --text-primary: #2D2A25;
+    --text-muted: #565149;
+    --text-subtle: #635E56;
+    --text-on-accent: #FFFFFF;
+    --text-on-danger: #FFFFFF;
+    --overlay: #1B1E2799;
+    --border-grid: #DED8CD;
+    --border-subtle: #D1CABE;
+    --border-default: #C1BDB5;
+    --border-control: #938E86;
+    --border-focus: #4C4841;
+    --accent-default: #315424;
+    --accent-hover: #2A491E;
+    --accent-active: #233F19;
+    --accent-subtle: #4A783A;
+    --accent-muted: #E0EFDB;
+    --timer-running: #3A632C;
+    --timer-idle: #938E86;
+    --timer-warning: #1C6DAD;
+    --success: #457036;
+    --warning: #1C6DAD;
+    --warning-muted: #E3EEF8;
+    --danger: #C21F43;
+    --danger-muted: #FFEBEB;
+    --info: #4A5A85;
+
+    --shadow-card: 0 1px 2px rgba(16,18,26,0.06), 0 2px 8px rgba(16,18,26,0.07);
+    --shadow-float: 0 2px 4px rgba(16,18,26,0.08), 0 8px 24px rgba(16,18,26,0.10);
+    --shadow-halo-running: 0 0 0 3px color-mix(in oklab, var(--timer-running) 22%, transparent);
+}
+
+/* ── The type scale ────────────────────────────────────────────────
+   One class per role, same as the app's @utility set. A mockup names a
+   role (type-amount) and never assembles one, so a doc cannot invent a
+   size the product does not have. */
+.type-timer {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    @media (width >= 40rem) { font-size: 30px; }
+    font-variant-numeric: tabular-nums;
+}
+
+.type-title {
+    font-family: var(--font-sans);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+}
+
+.type-hero {
+    font-family: var(--font-sans);
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    @media (width >= 40rem) { font-size: 44px; }
+}
+
+.type-figure {
+    font-family: var(--font-mono);
+    font-size: 30px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-figure-hero {
+    font-family: var(--font-mono);
+    font-size: 40px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-lede {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 400;
+    @media (width >= 40rem) { font-size: 17px; }
+}
+
+.type-display {
+    font-family: var(--font-sans);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    @media (width >= 40rem) { font-size: 28px; }
+}
+
+.type-section {
+    font-family: var(--font-sans);
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.type-heading {
+    font-family: var(--font-sans);
+    font-size: 16.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.type-body {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 400;
+}
+
+.type-control {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.type-support {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 400;
+}
+
+.type-amount {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-amount-hero {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-duration {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-meta {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-meta-strong {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-wordmark {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+}
+
+.type-wordmark-small {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+}
+
+.type-nav {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.type-region-head {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+}
+
+.type-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.type-badge {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* ── The mark ──────────────────────────────────────────────────────
+   `|Stint|` — one color, bounds included, inherited via currentColor.
+   Set a font-size on .mark and everything scales from it. */
+.mark {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+.mark::before,
+.mark::after {
+    content: '';
+    display: inline-block;
+    flex: none;
+    width: var(--mark-bound-width);
+    height: var(--mark-bound-height);
+    margin: 0 var(--mark-bound-gap);
+    border-radius: var(--mark-bound-radius);
+    background: currentColor;
+}
+
+* { box-sizing: border-box; margin: 0; }
+body { background: var(--bg-recessed); color: var(--text-primary); font-family: var(--font-sans); padding: 20px 16px 60px; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+.bar { max-width: 1100px; margin: 0 auto 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.bar .spacer { flex: 1; }
+.chip { padding: 6px 10px; border-radius: 6px; color: var(--text-subtle); }
+.chip[aria-pressed="true"] { background: var(--bg-elevated); color: var(--text-strong); }
+.note { max-width: 1100px; margin: 0 auto 16px; }
+.frame { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 180px 1fr; gap: 16px; background: var(--bg-base); border-radius: 12px; padding: 16px; }
+.frame.phone { max-width: 390px; grid-template-columns: 1fr; }
+.frame.phone .rail { display: none; }
+.rail { display: flex; flex-direction: column; gap: 4px; padding-top: 8px; }
+.rail a { padding: 8px 10px; border-radius: 6px; color: var(--text-muted); text-decoration: none; }
+.rail a.on { background: var(--bg-elevated); color: var(--text-strong); }
+.page { background: var(--bg-primary); border-radius: 10px; padding: 18px; box-shadow: var(--shadow-card); min-width: 0; overflow: hidden; }
+.head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-bottom: 14px; flex-wrap: wrap; }
+.primary { color: var(--text-primary); } .muted { color: var(--text-muted); } .subtle { color: var(--text-subtle); } .strong { color: var(--text-strong); }
+.danger { color: var(--danger); }
+
+/* Settings section, as `Section` in field.tsx draws it */
+.section { padding: 18px 0; border-top: 1px solid var(--border-subtle); }
+.section:first-child { border-top: 0; padding-top: 4px; }
+.section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+.stub { opacity: .45; }
+
+/* The picker: a radio group of four cards */
+.picker { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.frame.phone .picker { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pick { text-align: left; display: flex; flex-direction: column; gap: 8px; padding: 8px 8px 10px; border-radius: 8px; border: 1px solid var(--border-default); background: var(--bg-elevated); position: relative; }
+.pick:hover { background: var(--bg-hover); }
+.pick[aria-checked="true"] { border-color: var(--accent-default); box-shadow: 0 0 0 1px var(--accent-default); }
+.pick .badge { position: absolute; top: 14px; right: 14px; width: 20px; height: 20px; border-radius: 999px; background: var(--accent-default); color: var(--text-on-accent); display: none; align-items: center; justify-content: center; }
+.pick[aria-checked="true"] .badge { display: flex; }
+.thumb { aspect-ratio: 612 / 792; border-radius: 4px; overflow: hidden; position: relative; box-shadow: var(--shadow-card); }
+.thumb .paper { position: absolute; top: 0; left: 0; transform-origin: 0 0; pointer-events: none; }
+.hint { margin-top: 12px; }
+
+/* Full-size paper view */
+.sheet-wrap { overflow: hidden; }
+.sheet-wrap .paper { transform-origin: 0 0; box-shadow: var(--shadow-float); }
+
+/* ── The printed page. The PDF's own fonts (Helvetica, Times, Courier),
+   ink on white, with the light theme's accent, as invoice-pdf.tsx prints. ── */
+.paper { width: 612px; height: 792px; background: var(--print-ground); color: var(--print-ink); padding: 40px 44px 48px; position: relative; font: 9.5px/14.25px Helvetica, Arial, sans-serif; }
+.paper .mono { font-family: Courier, "Courier New", monospace; }
+.paper .b { font-weight: 700; }
+.paper .m { color: var(--print-muted); }
+.paper .lab { font-size: 7.5px; letter-spacing: 1.1px; color: var(--print-faint); font-weight: 700; text-transform: uppercase; }
+.paper .r { text-align: right; }
+.paper .flex { display: flex; justify-content: space-between; gap: 16px; }
+.paper table { width: 100%; border-collapse: collapse; }
+.paper td, .paper th { padding: 5.5px 0; text-align: left; vertical-align: top; font-weight: 400; }
+.paper th { font-size: 7.5px; letter-spacing: 1.1px; color: var(--print-faint); font-weight: 700; }
+.paper .num { text-align: right; font-family: Courier, "Courier New", monospace; white-space: nowrap; }
+.paper .w-q { width: 62px; } .paper .w-r { width: 74px; } .paper .w-a { width: 86px; }
+.paper .totals { margin-left: auto; width: 250px; margin-top: 12px; }
+.paper .totals .flex { padding: 3px 0; }
+.paper .pay { margin-top: 16px; padding: 11px; }
+.paper .pay-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px 10px; margin-top: 7px; }
+.paper .pay-grid .lab { font-size: 7px; color: var(--print-muted); }
+.paper .pay-grid .mono { font-size: 9px; line-height: 1.3; }
+.paper .notice { margin-top: 10px; font-size: 7.5px; color: var(--print-muted); line-height: 1.4; }
+.paper .notes { margin-top: 12px; color: var(--print-muted); }
+.paper .foot { position: absolute; bottom: 24px; left: 44px; right: 44px; display: flex; justify-content: space-between; font-size: 8px; color: var(--print-faint); }
+.paper .grp td { padding-top: 12px; }
+
+/* Standard: today's PDF */
+.t-standard .letter { margin-bottom: 24px; }
+.t-standard .biz { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+.t-standard .title { font-size: 22px; font-weight: 700; letter-spacing: -.4px; line-height: 1.15; text-align: right; }
+.t-standard .no { font-size: 11px; color: var(--print-muted); text-align: right; margin-top: 5px; }
+.t-standard .meta { margin-bottom: 20px; }
+.t-standard thead th { border-bottom: 1px solid var(--print-ink); padding-bottom: 6px; }
+.t-standard tbody td { border-bottom: .5px solid var(--print-rule); }
+.t-standard .grand { margin-top: 7px; padding-top: 9px; border-top: 1px solid var(--print-ink); align-items: baseline; }
+.t-standard .grand .k { font-size: 11px; font-weight: 700; }
+.t-standard .grand .v { font-size: 13px; font-weight: 700; color: var(--accent-default); }
+.t-standard .pay { background: var(--print-band); border-left: 2px solid var(--print-ink); }
+
+/* Modern: Outfit, the word "Invoice" as the headline, every row spanning the
+   full width, and the accent restrained to one rule and the amount due. */
+.t-modern { font-family: "Outfit", sans-serif; font-size: 9.5px; line-height: 14.5px; padding: 46px 52px 52px; font-variant-numeric: tabular-nums; }
+.t-modern .num, .t-modern .mono { font-family: inherit; }
+.t-modern .lab, .t-modern th { font-size: 7.5px; letter-spacing: 1.2px; text-transform: uppercase; font-weight: 500; color: var(--print-faint); }
+.t-modern .top { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 16px; }
+.t-modern .word { font-size: 34px; line-height: 36px; font-weight: 300; letter-spacing: -.5px; }
+.t-modern .no { color: var(--print-muted); margin-top: 4px; font-size: 10px; }
+.t-modern .from { text-align: right; }
+.t-modern .biz { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+.t-modern .rule { height: 1px; background: var(--print-rule); position: relative; margin-bottom: 20px; }
+.t-modern .rule::before { content: ""; position: absolute; left: 0; top: -1px; width: 56px; height: 3px; background: var(--accent-default); }
+.t-modern .info { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1.3fr; gap: 20px; }
+.t-modern .info .lab { margin-bottom: 4px; }
+.t-modern .info .due { text-align: right; }
+.t-modern .info .amt { font-size: 22px; line-height: 26px; font-weight: 500; color: var(--accent-default); letter-spacing: -.3px; }
+.t-modern .info2 { display: grid; grid-template-columns: 1.6fr 2.3fr; gap: 20px; margin: 14px 0 22px; padding-top: 12px; border-top: .5px solid var(--print-hairline); }
+.t-modern .info2 .lab { display: inline; margin-right: 8px; }
+.t-modern th { padding: 0 0 7px; border-bottom: .5px solid var(--print-rule); }
+.t-modern td { padding: 8px 0; border-bottom: .5px solid var(--print-hairline); }
+.t-modern .grp th { padding-top: 16px; }
+.t-modern .end { display: grid; grid-template-columns: 1fr 230px; gap: 36px; margin-top: 18px; align-items: start; }
+.t-modern .end .totals { width: auto; margin: 0; }
+.t-modern .totals .flex { padding: 3px 0; }
+.t-modern .grand { margin-top: 6px; padding-top: 9px; border-top: .5px solid var(--print-ink); font-size: 11px; font-weight: 600; }
+.t-modern .grand .v { color: var(--accent-default); }
+.t-modern .pay { margin: 0; padding: 0; }
+.t-modern .pay .b { font-weight: 600; }
+.t-modern .pay-grid { grid-template-columns: repeat(2, 1fr); gap: 5px 16px; margin-top: 8px; }
+.t-modern .pay-grid .lab { font-size: 7px; }
+.t-modern .pay-grid .mono { font-size: 9.5px; }
+.t-modern .thanks { margin-top: 26px; padding-top: 14px; border-top: .5px solid var(--print-hairline); color: var(--print-muted); }
+.t-modern .foot { left: 52px; right: 52px; }
+
+/* Classic: Standard's bones in EB Garamond. Small capitals, italics, and
+   lines set like a table of contents; no frame, no ornament, single rules. */
+.t-classic { font-family: "EB Garamond", Garamond, serif; font-size: 10.5px; line-height: 15px; padding: 44px 52px 52px; font-variant-numeric: oldstyle-nums proportional-nums; }
+.t-classic .num, .t-classic .mono { font-family: inherit; }
+.t-classic .lab { font-size: 10px; letter-spacing: 1.4px; font-variant: small-caps; text-transform: lowercase; font-weight: 400; color: var(--print-muted); }
+.t-classic .unused-top { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 14px; border-bottom: .5px solid var(--print-ink); margin-bottom: 18px; }
+.t-classic .biz { font-size: 17px; font-variant: small-caps; letter-spacing: 2.4px; }
+.t-classic .lh { text-align: center; margin-bottom: 20px; }
+.t-classic .addr { color: var(--print-muted); margin-top: 2px; }
+.t-classic .acc { width: 160px; height: 1.25px; background: var(--accent-default); margin: 14px auto 14px; }
+.t-classic .title { font-size: 26px; line-height: 30px; font-style: italic; text-align: center; }
+.t-classic .no { text-align: center; font-variant: small-caps; letter-spacing: 1.4px; color: var(--print-muted); }
+.t-classic .meta { display: flex; justify-content: space-between; margin-bottom: 18px; padding-top: 14px; border-top: .5px solid var(--print-rule); }
+.t-classic .kv { display: grid; grid-template-columns: auto auto; gap: 1px 12px; text-align: right; align-content: start; }
+.t-classic .kv .lab { line-height: 15px; }
+.t-classic .toc .part { margin: 10px 0 2px; color: var(--accent-default); }
+.t-classic .toc .row { display: flex; align-items: baseline; gap: 6px; padding: 3.5px 0; }
+.t-classic .toc .row .d, .t-classic .toc .row .a { white-space: nowrap; }
+.t-classic .toc .row .q { color: var(--print-muted); white-space: nowrap; }
+.t-classic .toc .row .dots { flex: 1; border-bottom: 1px dotted var(--print-rule); transform: translateY(-3px); }
+.t-classic .totals { width: 240px; margin-top: 12px; }
+.t-classic .grand { margin-top: 6px; padding-top: 8px; border-top: .5px solid var(--print-ink); font-size: 13px; }
+.t-classic .grand .k { font-variant: small-caps; letter-spacing: 1.4px; }
+.t-classic .grand .v { color: var(--accent-default); }
+.t-classic .pay { margin-top: 20px; padding: 12px 0 0; border-top: .5px solid var(--print-rule); }
+.t-classic .pay .b { font-weight: 400; font-variant: small-caps; letter-spacing: 1.4px; font-size: 11.5px; }
+.t-classic .pay-grid { gap: 4px 18px; margin-top: 6px; }
+.t-classic .pay-grid .mono { font-size: 10.5px; }
+.t-classic .foot { font-size: 9px; }
+
+/* Creative: Space Grotesk with IBM Plex Mono figures, a composition of
+   shapes, the amount in a ring, and lines grouped by kind, each kind marked
+   by one of the shapes in the accent. */
+.t-creative { font-family: "Space Grotesk", sans-serif; font-size: 9.5px; line-height: 14px; padding: 48px 52px 52px 76px; overflow: hidden; }
+.t-creative .num, .t-creative .mono, .t-creative .fig { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; }
+.t-creative .lab { font-size: 7.5px; letter-spacing: 1.4px; font-weight: 700; color: var(--print-faint); }
+.t-creative .spine { position: absolute; left: 28px; top: 48px; transform-origin: 0 0; transform: rotate(90deg) translateY(-100%); white-space: nowrap; font-size: 8px; letter-spacing: 4px; font-weight: 700; color: var(--print-faint); }
+.t-creative .shapes { position: absolute; top: -62px; right: -40px; width: 230px; height: 204px; pointer-events: none; }
+.t-creative .biz { font-size: 26px; line-height: 28px; font-weight: 700; letter-spacing: -1px; max-width: 280px; }
+.t-creative .sub { color: var(--print-muted); margin-top: 6px; }
+.t-creative .hero { display: flex; align-items: center; gap: 28px; margin: 20px 0 12px; }
+.t-creative .ring { width: 134px; height: 134px; border-radius: 999px; border: 2px solid var(--print-ink); display: flex; flex-direction: column; align-items: center; justify-content: center; flex: none; position: relative; }
+.t-creative .ring::after { content: ""; position: absolute; width: 14px; height: 14px; background: var(--accent-default); border-radius: 999px; top: 8px; right: 14px; }
+.t-creative .ring .amt { font-size: 18px; line-height: 22px; font-weight: 600; letter-spacing: -.5px; }
+.t-creative .tiles { display: grid; grid-template-columns: repeat(2, 1fr); flex: 1; border-top: 2px solid var(--print-ink); }
+.t-creative .tiles > div { padding: 7px 12px 7px 0; border-bottom: .5px solid var(--print-rule); }
+.t-creative .tiles .wide { grid-column: 1 / -1; }
+.t-creative .kind { display: flex; align-items: center; gap: 8px; margin: 9px 0 1px; }
+.t-creative .kind svg { flex: none; }
+.t-creative .kind .sum { margin-left: auto; color: var(--print-muted); }
+.t-creative .it { display: grid; grid-template-columns: 30px 1fr 100px; gap: 10px; align-items: baseline; padding: 4px 0; border-bottom: .5px solid var(--print-hairline); }
+.t-creative .it .n { font-size: 13px; font-weight: 700; color: var(--print-rule); }
+.t-creative .it .a { text-align: right; font-weight: 600; }
+.t-creative .totals { width: 230px; margin-top: 12px; }
+.t-creative .grand { margin-top: 6px; padding-top: 8px; border-top: 2px solid var(--print-ink); font-weight: 700; font-size: 11px; }
+.t-creative .pay { margin-top: 16px; padding: 12px 18px 12px 26px; border: 1.5px dashed var(--print-ink); border-radius: 10px; position: relative; }
+.t-creative .pay::before, .t-creative .pay::after { content: ""; position: absolute; left: -9px; width: 16px; height: 16px; border-radius: 999px; background: var(--print-ground); border: 1.5px dashed var(--print-ink); clip-path: inset(0 0 0 50%); }
+.t-creative .pay::before { top: 16px; } .t-creative .pay::after { bottom: 16px; }
+.t-creative .foot { left: 76px; right: 52px; }
+
+/* ── Supporting detail: page 2 onward, in each template's own type ── */
+.dpage .run { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 8px; margin-bottom: 18px; border-bottom: .5px solid var(--print-rule); }
+.dpage .run .rt { font-weight: 700; }
+.dpage .run .rm { color: var(--print-muted); font-size: 8.5px; }
+.dpage .sched { margin-bottom: 18px; }
+.dpage .st { font-size: 11px; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.dpage th { border-bottom: 1px solid var(--print-ink); padding: 0 0 5px; }
+.dpage td { padding: 3.5px 0; border-bottom: .5px solid var(--print-rule); }
+.dpage tfoot td { border-top: 1px solid var(--print-ink); border-bottom: 0; font-weight: 700; padding-top: 5px; }
+.dpage .w-h { width: 62px; text-align: right; }
+.dpage td:first-child { width: auto; }
+.t-standard.dpage td:nth-child(2):not(.w-h) { width: 44px; }
+
+.t-modern.dpage .run { border: 0; padding: 0; margin-bottom: 14px; }
+.t-modern.dpage .run .rt { font-size: 24px; line-height: 28px; font-weight: 300; }
+.t-modern.dpage .rule { margin-bottom: 22px; }
+.t-modern.dpage .st { font-size: 7.5px; letter-spacing: 1.2px; text-transform: uppercase; font-weight: 500; color: var(--print-faint); }
+.t-modern.dpage th { border-bottom: .5px solid var(--print-rule); }
+.t-modern.dpage td { padding: 5px 0; border-bottom: .5px solid var(--print-hairline); }
+.t-modern.dpage tfoot td { border-top: .5px solid var(--print-ink); font-weight: 600; }
+.t-modern.dpage tfoot .num { color: var(--accent-default); }
+
+.t-classic.dpage .run { border-bottom: .5px solid var(--print-ink); }
+.t-classic.dpage .run .rt { font-weight: 400; font-variant: small-caps; letter-spacing: 1.6px; font-size: 13px; }
+.t-classic.dpage .st { font-weight: 400; font-variant: small-caps; letter-spacing: 1.4px; font-size: 12px; color: var(--accent-default); }
+.t-classic.dpage th { font-variant: small-caps; text-transform: lowercase; letter-spacing: 1.4px; font-size: 10px; color: var(--print-muted); border-bottom: .5px solid var(--print-ink); }
+.t-classic.dpage td { padding: 3px 0; }
+.t-classic.dpage tfoot td { border-top: .5px solid var(--print-ink); font-weight: 400; font-variant: small-caps; letter-spacing: 1.2px; }
+
+.t-creative.dpage .run { border: 0; border-bottom: 2px solid var(--print-ink); }
+.t-creative.dpage .run .rt { font-size: 22px; line-height: 26px; letter-spacing: -.6px; }
+.t-creative.dpage .st span { font-size: 7.5px; letter-spacing: 1.4px; color: var(--print-faint); }
+.t-creative.dpage th { font-size: 7.5px; border-bottom: .5px solid var(--print-rule); }
+.t-creative.dpage td { border-bottom: .5px solid var(--print-hairline); }
+.t-creative.dpage tfoot td { border-top: 2px solid var(--print-ink); }
+
+/* ── New invoice: the form beside its preview ── */
+.frame.wide { max-width: 1240px; }
+.nf { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 32px; }
+.frame.phone .nf { grid-template-columns: 1fr; }
+.nf-band { display: flex; flex-direction: column; gap: 14px; padding: 18px 0; border-top: 1px solid var(--border-subtle); }
+.nf-band:first-child { border-top: 0; padding-top: 4px; }
+.nf-f { display: flex; flex-direction: column; gap: 6px; }
+.nf-row { display: flex; gap: 12px; } .nf-row > * { flex: 1; min-width: 0; }
+.nf-in { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 36px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-control); background: var(--bg-elevated); color: var(--text-strong); white-space: nowrap; overflow: hidden; }
+.nf-tick { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.nf-cb { width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--border-control); display: flex; align-items: center; justify-content: center; flex: none; }
+.nf-cb.on { background: var(--text-muted); border-color: transparent; color: var(--bg-primary); }
+.mini { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.mpick { display: flex; flex-direction: column; gap: 5px; align-items: center; padding: 4px; border-radius: 6px; border: 1px solid transparent; }
+.mpick:hover { background: var(--bg-hover); }
+.mpick[aria-checked="true"] { border-color: var(--accent-default); box-shadow: 0 0 0 1px var(--accent-default); }
+.mpick .thumb { width: 100%; }
+.nf-prev { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.dpage .cont { font-style: italic; font-weight: 400; color: var(--print-muted); }
+.sheet-wrap + .sheet-wrap { margin-top: 14px; }
+</style>
+</head>
+<body>
+
+<div class="bar" id="views"></div>
+<div class="bar">
+  <span class="type-label subtle">View</span>
+  <button class="chip type-label" data-w="desktop" aria-pressed="true">Desktop</button>
+  <button class="chip type-label" data-w="phone" aria-pressed="false">Phone</button>
+  <span class="type-label subtle" style="margin-left:16px">Supporting detail</span>
+  <button class="chip type-label" data-d="off" aria-pressed="true">Off</button>
+  <button class="chip type-label" data-d="on" aria-pressed="false">On</button>
+  <span class="spacer"></span>
+  <span class="type-label subtle">Theme</span>
+  <button class="chip type-label" data-t="dark" aria-pressed="true">Dark</button>
+  <button class="chip type-label" data-t="light" aria-pressed="false">Light</button>
+</div>
+<p class="note type-support muted" id="note"></p>
+
+<div class="frame" id="frame">
+  <nav class="rail type-nav">
+    <a>Home</a><a>Calendar</a><a>Clients</a><a id="nav-inv">Invoices</a><a id="nav-set">Settings</a>
+  </nav>
+  <main class="page">
+    <header class="head"><h1 class="type-title strong" id="title"></h1></header>
+    <div id="view"></div>
+  </main>
+</div>
+
+<script>
+/* The seeded account (apps/web/src/mocks/fixtures.ts): Sam Rivera bills
+   Northwind Trading for September on the Business checking profile. */
+const inv = {
+  number: 'STINT-0015', reference: 'ICA dated Aug 5, 2026 · Exhibit A SOW', issued: 'Oct 1, 2026', due: 'Oct 31, 2026', period: 'Sep 1, 2026 – Sep 30, 2026',
+  biz: { name: 'Sam Rivera', address: ['1200 Pine St, Suite 4', 'Seattle, WA 98101'], email: 'billing@samrivera.test' },
+  client: { name: 'Northwind Trading', address: ['400 Market St', 'San Francisco, CA 94105'], email: 'ap@northwind.test' },
+  services: [
+    { d: 'Warehouse dashboard', q: '32.50 h', r: '$150.00', a: '$4,875.00' },
+    { d: 'Rush: peak season fixes', q: '12.00 h', r: '$195.00', a: '$2,340.00' },
+    { d: 'Monthly retainer', q: '1', r: '$500.00', a: '$500.00', fixed: true },
+  ],
+  summary: [
+    { d: 'Consulting services, September', q: '32.50 h', r: '$150.00', a: '$4,875.00' },
+    { d: 'Consulting services, September', q: '12.00 h', r: '$195.00', a: '$2,340.00' },
+    { d: 'Monthly retainer', q: '1', r: '$500.00', a: '$500.00', fixed: true },
+  ],
+  schedules: {
+    project: [['Warehouse dashboard', '32.50'], ['Rush: peak season fixes', '12.00']],
+    week: [['Sep 1, 2026 – Sep 6, 2026', '9.00'], ['Sep 7, 2026 – Sep 13, 2026', '11.50'], ['Sep 14, 2026 – Sep 20, 2026', '10.25'], ['Sep 21, 2026 – Sep 27, 2026', '9.25'], ['Sep 28, 2026 – Sep 30, 2026', '4.50']],
+    date: [['Sep 1, 2026', 'Tue', 'Warehouse dashboard', '3.00'], ['Sep 2, 2026', 'Wed', 'Warehouse dashboard', '3.50'], ['Sep 3, 2026', 'Thu', 'Rush: peak season fixes', '2.50'],
+      ['Sep 8, 2026', 'Tue', 'Warehouse dashboard', '4.00'], ['Sep 9, 2026', 'Wed', 'Warehouse dashboard', '3.50'], ['Sep 10, 2026', 'Thu', 'Rush: peak season fixes', '4.00'],
+      ['Sep 14, 2026', 'Mon', 'Warehouse dashboard', '3.25'], ['Sep 15, 2026', 'Tue', 'Warehouse dashboard', '3.50'], ['Sep 17, 2026', 'Thu', 'Rush: peak season fixes', '3.50'],
+      ['Sep 21, 2026', 'Mon', 'Warehouse dashboard', '3.00'], ['Sep 23, 2026', 'Wed', 'Warehouse dashboard', '4.25'], ['Sep 24, 2026', 'Thu', 'Rush: peak season fixes', '2.00'],
+      ['Sep 28, 2026', 'Mon', 'Warehouse dashboard', '2.50'], ['Sep 29, 2026', 'Tue', 'Warehouse dashboard', '2.00']],
+  },
+  expenses: [{ d: 'Hosting, September', on: 'Sep 12, 2026', a: '$84.00' }, { d: 'Mileage, site visit', on: 'Sep 18, 2026', a: '$42.50' }],
+  subtotal: '$7,715.00', expenses_total: '$126.50', total: '$7,841.50',
+  pay: [['Bank', 'First Federal Bank'], ['Account holder', 'Sam Rivera'], ['Account type', 'Checking'], ['Routing number', '011000015'], ['Account number', '000123456789']],
+  notes: 'Thank you for the work this month.',
+};
+/* With supporting detail, time is one summary line per rate (Show time as:
+   One summary line) and the detail prints from page 2. */
+let withDetail = false;
+const svc = () => (withDetail ? inv.summary : inv.services);
+const lines = (a) => a.map((l) => `<div>${l}</div>`).join('');
+const svcRows = () => svc().map((s) => `<tr><td>${s.d}</td><td class="num w-q">${s.q}</td><td class="num w-r">${s.r}</td><td class="num w-a">${s.a}</td></tr>`).join('');
+const expRows = () => inv.expenses.map((e) => `<tr><td>${e.d}</td><td class="num" colspan="2">${e.on}</td><td class="num w-a">${e.a}</td></tr>`).join('');
+const table = () => `<table>
+  <thead><tr><th>DESCRIPTION</th><th class="r w-q">QTY</th><th class="r w-r">RATE</th><th class="r w-a">AMOUNT</th></tr></thead>
+  <tbody>${svcRows()}</tbody>
+  <thead class="grp"><tr><th>EXPENSES</th><th class="r" colspan="2">DATE</th><th class="r w-a">AMOUNT</th></tr></thead>
+  <tbody>${expRows()}</tbody>
+</table>`;
+const totals = (grandLabel = 'Amount due') => `<div class="totals">
+  <div class="flex"><span class="m">Services</span><span class="mono">${inv.subtotal}</span></div>
+  <div class="flex"><span class="m">Reimbursed expenses</span><span class="mono">${inv.expenses_total}</span></div>
+  <div class="flex grand"><span class="k">${grandLabel}</span><span class="v mono">${inv.total}</span></div>
+</div>`;
+const pay = (title = 'Pay by ACH · Business checking', withNotes = true) => `<div class="pay">
+  <div class="b">${title}</div>
+  <div class="pay-grid">${inv.pay.map(([k, v]) => `<div><div class="lab">${k}</div><div class="mono">${v}</div></div>`).join('')}</div>
+</div>
+${withNotes ? `<div class="notes">${inv.notes}</div>` : ''}`;
+const foot = (n = 1) => `<div class="foot"><span>${inv.number}</span><span>${withDetail ? `Page ${n} of 3` : ''}</span></div>`;
+const billTo = () => `<div><div class="lab">Bill to</div><div class="b">${inv.client.name}</div><div class="m">${lines(inv.client.address)}${inv.client.email}</div></div>`;
+
+const papers = {
+  standard: () => `<div class="paper t-standard">
+    <div class="flex letter">
+      <div><div class="biz">${inv.biz.name}</div><div class="m">${lines(inv.biz.address)}${inv.biz.email}</div></div>
+      <div><div class="title">INVOICE</div><div class="no mono">${inv.number}</div></div>
+    </div>
+    <div class="flex meta">
+      ${billTo()}
+      <div>
+        <div class="flex" style="gap:28px"><div class="r"><div class="lab">Issued</div>${inv.issued}</div><div class="r"><div class="lab">Due</div><span class="b">${inv.due}</span></div></div>
+        <div class="r" style="margin-top:12px"><div class="lab">Service period</div><span class="m">${inv.period}</span></div>
+        <div class="r" style="margin-top:10px"><div class="lab">Reference</div><span class="m">${inv.reference}</span></div>
+      </div>
+    </div>
+    ${table()}${totals()}${pay()}${foot()}
+  </div>`,
+  modern: () => `<div class="paper t-modern">
+    <div class="top">
+      <div><div class="word">Invoice</div><div class="no">${inv.number}</div></div>
+      <div class="from"><div class="biz">${inv.biz.name}</div><div class="m">${lines(inv.biz.address)}${inv.biz.email}</div></div>
+    </div>
+    <div class="rule"></div>
+    <div class="info">
+      <div><div class="lab">Billed to</div><div class="b">${inv.client.name}</div><div class="m">${lines(inv.client.address)}${inv.client.email}</div></div>
+      <div><div class="lab">Issued</div>${inv.issued}</div>
+      <div><div class="lab">Due</div>${inv.due}</div>
+      <div class="due"><div class="lab">Amount due</div><div class="amt">${inv.total}</div></div>
+    </div>
+    <div class="info2">
+      <div><span class="lab">Period</span>Sep 1 – Sep 30, 2026</div>
+      <div><span class="lab">Reference</span>${inv.reference}</div>
+    </div>
+    ${table()}
+    <div class="end">
+      ${pay('Pay by ACH', false)}
+      ${totals('Amount due')}
+    </div>
+    <div class="thanks">${inv.notes}</div>
+    ${foot()}
+  </div>`,
+  classic: () => `<div class="paper t-classic">
+    <div class="title">Invoice</div>
+    <div class="no">No. ${inv.number}</div>
+    <div class="acc"></div>
+    <div class="lh"><div class="biz">${inv.biz.name}</div><div class="addr">${inv.biz.address.join(' · ')} · ${inv.biz.email}</div></div>
+    <div class="meta">
+      <div><div class="lab">Billed to</div><div>${inv.client.name}</div><div class="m">${lines(inv.client.address)}${inv.client.email}</div></div>
+      <div class="kv">
+        <span class="lab">Issued</span><span>${inv.issued}</span>
+        <span class="lab">Due</span><span>${inv.due}</span>
+        <span class="lab">Period</span><span class="m">Sep 1 – Sep 30, 2026</span>
+        <span class="lab">Reference</span><span class="m">${inv.reference}</span>
+      </div>
+    </div>
+    <div class="toc">
+      <div class="part lab">Services</div>
+      ${svc().map((s) => `<div class="row"><span class="d">${s.d}</span><span class="q">${s.fixed ? 'fixed fee' : `${s.q} at ${s.r}`}</span><span class="dots"></span><span class="a">${s.a}</span></div>`).join('')}
+      <div class="part lab">Expenses</div>
+      ${inv.expenses.map((e) => `<div class="row"><span class="d">${e.d}</span><span class="q">${e.on}</span><span class="dots"></span><span class="a">${e.a}</span></div>`).join('')}
+    </div>
+    ${totals('Balance due')}
+    ${pay('Pay by ACH')}
+    ${foot()}
+  </div>`,
+  creative: () => {
+    const mark = {
+      circle: '<svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="var(--accent-default)"/></svg>',
+      square: '<svg width="10" height="10" viewBox="0 0 10 10"><rect width="9" height="9" x=".5" y=".5" fill="var(--accent-default)" transform="rotate(12 5 5)"/></svg>',
+      triangle: '<svg width="11" height="10" viewBox="0 0 11 10"><path d="M5.5 0 11 10H0Z" fill="var(--accent-default)"/></svg>',
+    };
+    let n = 0;
+    const kinds = [
+      { title: 'TIME', mark: mark.circle, sum: '$7,215.00', rows: svc().filter((s) => !s.fixed).map((s) => ({ d: s.d, sub: `${s.q} × ${s.r}`, a: s.a })) },
+      { title: 'FIXED FEES', mark: mark.square, sum: '$500.00', rows: svc().filter((s) => s.fixed).map((s) => ({ d: s.d, sub: 'Fixed', a: s.a })) },
+      { title: 'EXPENSES', mark: mark.triangle, sum: inv.expenses_total, rows: inv.expenses.map((e) => ({ d: e.d, sub: e.on, a: e.a })) },
+    ].filter((k) => k.rows.length);
+    return `<div class="paper t-creative">
+    <div class="spine">INVOICE — ${inv.number}</div>
+    <svg class="shapes" viewBox="0 0 260 230" aria-hidden="true">
+      <circle cx="170" cy="90" r="88" fill="none" stroke="var(--print-ink)" stroke-width="1.5"/>
+      <rect x="86" y="118" width="70" height="70" fill="var(--print-ink)" transform="rotate(12 121 153)"/>
+      <circle cx="210" cy="176" r="22" fill="var(--accent-default)"/>
+      <path d="M40 200 L74 140 L108 200 Z" fill="none" stroke="var(--print-ink)" stroke-width="1.5"/>
+    </svg>
+    <div class="biz">${inv.biz.name}</div>
+    <div class="sub">${inv.biz.address.join(', ')}<br>${inv.biz.email}</div>
+    <div class="hero">
+      <div class="ring"><div class="lab">AMOUNT DUE</div><div class="amt fig">${inv.total}</div><div class="m">by ${inv.due}</div></div>
+      <div class="tiles">
+        <div><div class="lab">BILLED TO</div><b>${inv.client.name}</b><div class="m">${inv.client.address.join(', ')}</div></div>
+        <div><div class="lab">ISSUED</div>${inv.issued}</div>
+        <div><div class="lab">PERIOD</div>Sep 1 – Sep 30, 2026</div>
+        <div><div class="lab">DUE</div><b>${inv.due}</b></div>
+        <div class="wide"><div class="lab">REFERENCE</div>${inv.reference}</div>
+      </div>
+    </div>
+    ${kinds.map((k) => `<div class="kind">${k.mark}<span class="lab">${k.title}</span><span class="sum fig">${k.sum}</span></div>
+      ${k.rows.map((x) => `<div class="it"><span class="n fig">${String(++n).padStart(2, '0')}</span><div><b>${x.d}</b> <span class="m">${x.sub}</span></div><span class="a fig">${x.a}</span></div>`).join('')}`).join('')}
+    ${totals('Total')}${pay('Pay by ACH')}${foot()}
+  </div>`;
+  }
+};
+
+const shape = {
+  circle: '<svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="var(--accent-default)"/></svg>',
+  square: '<svg width="10" height="10" viewBox="0 0 10 10"><rect width="9" height="9" x=".5" y=".5" fill="var(--accent-default)" transform="rotate(12 5 5)"/></svg>',
+  triangle: '<svg width="11" height="10" viewBox="0 0 11 10"><path d="M5.5 0 11 10H0Z" fill="var(--accent-default)"/></svg>',
+};
+const detail = (id) => {
+  const S = inv.schedules;
+  const sched = (title, mark, head, rows, part = 'all') => `<div class="sched">
+    <div class="st">${id === 'creative' ? mark : ''}<span>${title}${part === 'rest' ? ' <em class="cont">(continued)</em>' : ''}</span></div>
+    <table><thead><tr>${head.map((h, i) => `<th class="${i === head.length - 1 ? 'r w-h' : ''}">${h}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map((r) => `<tr>${r.map((c, i) => `<td class="${i === r.length - 1 ? 'num w-h' : ''}">${c}</td>`).join('')}</tr>`).join('')}</tbody>
+    ${part === 'first' ? '' : `<tfoot><tr><td colspan="${head.length - 1}">Total</td><td class="num w-h">44.50</td></tr></tfoot>`}</table>
+  </div>`;
+  const dateHead = id === 'classic' ? ['Date', 'Day', 'Project', 'Hours'] : ['DATE', 'DAY', 'PROJECT', 'HOURS'];
+  const page = (n, body) => `<div class="paper t-${id} dpage">
+    ${id === 'creative' ? `<div class="spine">INVOICE — ${inv.number}</div>` : ''}
+    <div class="run"><span class="rt">Supporting detail</span><span class="rm">${inv.number} · ${inv.client.name} · Sep 1, 2026 – Sep 30, 2026</span></div>
+    ${id === 'modern' ? '<div class="rule"></div>' : ''}
+    ${body}
+    ${foot(n)}
+  </div>`;
+  /* A table that runs past the page continues on the next, under its title
+     marked (continued), as paginateSchedules breaks it. */
+  return [page(2, sched('Hours by project', shape.circle, id === 'classic' ? ['Project', 'Hours'] : ['PROJECT', 'HOURS'], S.project)
+      + sched('Hours by week', shape.square, id === 'classic' ? ['Week', 'Hours'] : ['WEEK', 'HOURS'], S.week)
+      + sched('Hours by date', shape.triangle, dateHead, S.date.slice(0, 6), 'first')),
+    page(3, sched('Hours by date', shape.triangle, dateHead, S.date.slice(6), 'rest'))];
+};
+
+const T = [
+  { id: 'standard', name: 'Standard', line: 'Clean and balanced. The default.' },
+  { id: 'modern', name: 'Modern', line: 'Outfit, clean lines, a touch of green.' },
+  { id: 'classic', name: 'Classic', line: 'Garamond, like a book’s foreword.' },
+  { id: 'creative', name: 'Creative', line: 'Shapes, bars and a ticket stub.' },
+];
+const check = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>';
+let chosen = 'standard';
+
+/* The paper always prints light, whatever the app's theme. */
+const light = (html) => `<div data-theme="light">${html}</div>`;
+
+const settings = (state) => {
+  const sel = state === 'rejected' ? 'standard' : chosen;
+  return `
+  <div class="section stub"><div class="section-head"><div><h2 class="type-section strong">Business identity</h2><p class="type-support muted">Appears in the invoice header.</p></div></div></div>
+  <div class="section">
+    <div class="section-head">
+      <div><h2 class="type-section strong">Invoice template</h2><p class="type-support muted">How your invoices look. Every template prints the same details.</p></div>
+      <span class="type-meta subtle">${state === 'rejected' ? '' : 'Saved'}</span>
+    </div>
+    <div class="picker" role="radiogroup" aria-label="Invoice template">
+      ${T.map((t) => `<button class="pick" role="radio" aria-checked="${t.id === sel}" data-pick="${t.id}">
+        <div class="thumb">${light(papers[t.id]())}</div>
+        <span class="badge">${check}</span>
+        <span class="type-control strong">${t.name}</span>
+        <span class="type-meta subtle">${t.line}</span>
+      </button>`).join('')}
+    </div>
+    ${state === 'rejected'
+      ? `<p class="hint type-support danger">Modern wasn't saved: the server couldn't be reached. Standard is still your template.</p>`
+      : `<p class="hint type-support subtle">Drafts use it right away. A sent invoice keeps the template it was sent with.</p>`}
+  </div>
+  <div class="section stub"><div class="section-head"><div><h2 class="type-section strong">Invoice numbering</h2></div></div></div>`;
+};
+
+const field = (label, control, extra = '') => `<div class="nf-f"><span class="type-label subtle">${label}</span>${control}${extra}</div>`;
+const box = (text, chev) => `<span class="nf-in type-control">${text}${chev ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.6"><path d="m6 9 6 6 6-6"/></svg>' : ''}</span>`;
+const tick = (on, text, amt) => `<label class="nf-tick type-control primary"><span class="nf-cb ${on ? 'on' : ''}">${on ? check : ''}</span><span class="grow">${text}</span>${amt ? `<span class="type-duration muted">${amt}</span>` : ''}</label>`;
+const newInvoice = () => {
+  const was = withDetail; withDetail = true;
+  const html = `<div class="nf">
+    <div class="nf-form">
+      <div class="nf-band">
+        ${field('Client', box('Northwind Trading', true))}
+        <div class="nf-row">${field('From', box('09/01/2026'))}${field('To', box('09/30/2026'))}${field('Due', box('10/31/2026'))}</div>
+        ${field('Reference', box(inv.reference))}
+        <p class="type-support subtle">Will be STINT-0015</p>
+      </div>
+      <div class="nf-band">${field('Show time as', box('One summary line', true))}${field('Summary line', box('Consulting services, September'))}</div>
+      <div class="nf-band">${field('Expenses', tick(true, 'Hosting, September', '$84.00') + tick(true, 'Mileage, site visit', '$42.50'))}</div>
+      <div class="nf-band">${field('Charges', tick(true, 'Monthly retainer', '$500.00'))}</div>
+      <div class="nf-band">${field('Payment details', box('Business checking', true))}</div>
+      <div class="nf-band">${field('Attach', tick(true, 'Hours by project') + tick(true, 'Hours by week') + tick(true, 'Hours by date'))}</div>
+      <div class="nf-band">
+        ${field('Template', `<div class="mini" role="radiogroup" aria-label="Template">${T.map((t) => `<button class="mpick" role="radio" aria-checked="${t.id === chosen}" data-pick="${t.id}"><div class="thumb">${light(papers[t.id]())}</div><span class="type-meta ${t.id === chosen ? 'strong' : 'muted'}">${t.name}</span></button>`).join('')}</div>`,
+          '<p class="type-support subtle">Changes your template for every draft, here and in Settings.</p>')}
+      </div>
+    </div>
+    <div class="nf-prev">
+      <div class="row-cap type-label subtle">Preview · ${T.find((t) => t.id === chosen).name}</div>
+      <div class="sheet-wrap">${light(papers[chosen]())}</div>
+      ${detail(chosen).map((d) => `<div class="sheet-wrap">${light(d)}</div>`).join('')}
+    </div>
+  </div>`;
+  withDetail = was;
+  return html;
+};
+
+const views = {
+  picker: { title: 'Settings · picker', page: 'Settings', note: '<b>Settings, between Business identity and Invoice numbering.</b> Four cards, each a thumbnail of the real PDF drawn from your seeded data. A press selects at once and autosaves, like every other Settings section. Click a card to try it.', render: () => settings() },
+  rejected: { title: 'Settings · save failed', page: 'Settings', note: '<b>The save was refused:</b> the selection goes back to the saved template and the line under the cards says why, in the section that stays open (Constitution VI).', render: () => settings('rejected') },
+  newinv: { title: 'New invoice', page: 'New invoice', note: '<b>New invoice gets the same picker, last in the form</b> as four small thumbnails. Picking one is the account\'s template: it saves at once, Settings shows the same choice, and every draft follows it. The preview beside the form draws the invoice in the chosen template, supporting detail included. Click a thumbnail to try it.', render: () => newInvoice() },
+  standard: { title: 'Standard', page: 'STINT-0015', note: '<b>Standard is today\'s PDF, without the payment notice.</b> Best at: nothing to learn, and every invoice sent so far already looks like this. Accent once, on the amount due.', render: () => sheet('standard') },
+  modern: { title: 'Modern', page: 'STINT-0015', note: '<b>Modern, in Outfit.</b> The light-weight word "Invoice" heads the page with the business across from it, so the header fills the width. Every row after spans the page: billed to, dates and the amount due; period and reference; the lines; then payment beside the totals. Green marks the rule under the header and the amount due. Best at: a sleek page that still reads at a glance. Cost: no headline color, by design.', render: () => sheet('modern') },
+  classic: { title: 'Classic', page: 'STINT-0015', note: '<b>Classic, in EB Garamond.</b> An italic "Invoice" heads the page, the one italic on it, over its number; a green rule; then the name centered in small capitals over its address. Lines read like a table of contents with dotted leaders. Green marks the rule, the section labels and the balance due. Best at: a formal, literary page that still sits beside the others. Cost: quantity and rate read as a phrase, not a column.', render: () => sheet('classic') },
+  creative: { title: 'Creative', page: 'STINT-0015', note: '<b>Creative groups the lines by kind:</b> time, fixed fees and expenses, each headed by one of the page\'s shapes in green with its subtotal, numbered straight through. A kind with no lines is left out. Figures are IBM Plex Mono, the app\'s own. Best at: designers and studios. Cost: the busiest page, and the shapes take room from the first page.', render: () => sheet('creative') },
+};
+
+/* This screen's states. */
+for (const k of Object.keys(views)) if (!['picker', 'rejected'].includes(k)) delete views[k];
+let phone = false, current = 'picker';
+function sheet(id) {
+  return `<div class="sheet-wrap">${light(papers[id]())}</div>${withDetail ? detail(id).map((d) => `<div class="sheet-wrap">${light(d)}</div>`).join('') : ''}`;
+}
+/* Thumbnails and the full sheet scale the 612pt page to their width. */
+function fitThumbs() {
+  document.querySelectorAll('.thumb').forEach((t) => {
+    const p = t.querySelector('.paper');
+    if (p) p.style.transform = `scale(${t.clientWidth / 612})`;
+  });
+  document.querySelectorAll('.sheet-wrap').forEach((w) => {
+    const s = Math.min(1.3, w.clientWidth / 612);
+    w.querySelector('.paper').style.transform = `scale(${s})`;
+    w.style.height = `${Math.round(792 * s)}px`;
+  });
+}
+function draw() {
+  const v = views[current];
+  document.getElementById('note').innerHTML = v.note;
+  document.getElementById('title').textContent = v.page;
+  document.getElementById('view').innerHTML = v.render();
+  document.getElementById('frame').classList.toggle('phone', phone);
+  document.getElementById('nav-set').className = v.page === 'Settings' ? 'on' : '';
+  document.getElementById('frame').classList.toggle('wide', current === 'newinv');
+  document.getElementById('nav-inv').className = v.page === 'Settings' ? '' : 'on';
+  document.querySelectorAll('[data-v]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.v === current));
+  fitThumbs();
+}
+document.getElementById('views').innerHTML = Object.entries(views)
+  .map(([k, v]) => `<button class="chip type-control" data-v="${k}">${v.title}</button>`).join('');
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.v) { current = b.dataset.v; draw(); }
+  if (b.dataset.pick && (current === 'picker' || current === 'newinv')) { chosen = b.dataset.pick; draw(); }
+  if (b.dataset.d) { withDetail = b.dataset.d === 'on'; document.querySelectorAll('[data-d]').forEach((x) => x.setAttribute('aria-pressed', x === b)); draw(); }
+  if (b.dataset.w) { phone = b.dataset.w === 'phone'; document.querySelectorAll('[data-w]').forEach((x) => x.setAttribute('aria-pressed', x === b)); draw(); }
+  if (b.dataset.t) { document.documentElement.dataset.theme = b.dataset.t; document.querySelectorAll('[data-t]').forEach((x) => x.setAttribute('aria-pressed', x === b)); }
+});
+addEventListener('resize', fitThumbs);
+draw();
+</script>
+</body>
+</html>
