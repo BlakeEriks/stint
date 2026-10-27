@@ -1,6 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAll } from '@/lib/select-all';
 import { loadBilledSpans } from '@/lib/billed-spans';
+import { deriveDraft, draftRefusals } from '@/lib/invoicing';
+import {
+  INVOICE_COLUMNS,
+  type InvoiceRow as StoredInvoiceRow,
+} from '@/lib/rows';
 import {
   addDays,
   buildAwaitingPayment,
@@ -149,12 +154,7 @@ export async function readStats(
       )
       .maybeSingle(),
 
-    db
-      .from('invoices')
-      .select(
-        'id, invoice_number, client_id, status, due_date, total, currency, issue_date',
-      )
-      .in('status', ['sent', 'draft']),
+    db.from('invoices').select(INVOICE_COLUMNS).in('status', ['sent', 'draft']),
 
     /* Unbilled work with no project cannot resolve a rate beyond the user
        default. Oldest first: the inbox opens the oldest, which is the closest
@@ -189,16 +189,20 @@ export async function readStats(
 
     /* Candidates for the overlap row: the same uninvoiced, stopped set,
        whatever its length. */
-    selectAll<Omit<SpanRow, 'invoice_number'> & { project_id: string | null }>(
-      () =>
-        db
-          .from('time_entries')
-          .select(
-            'id, task_name, started_at, ended_at, is_billable, project_id',
-          )
-          .is('invoice_id', null)
-          .eq('invoiced_elsewhere', false)
-          .not('ended_at', 'is', null),
+    selectAll<
+      Omit<SpanRow, 'invoice_number'> & {
+        project_id: string | null;
+        duration_seconds: number;
+      }
+    >(() =>
+      db
+        .from('time_entries')
+        .select(
+          'id, task_name, started_at, ended_at, duration_seconds, is_billable, project_id',
+        )
+        .is('invoice_id', null)
+        .eq('invoiced_elsewhere', false)
+        .not('ended_at', 'is', null),
     ),
 
     /* Project and client names for whichever of those rows survives the
@@ -283,7 +287,18 @@ export async function readStats(
   ];
 
   const unbilledRows = (unbilled.data ?? []) as UnbilledRow[];
-  const invoiceRows = (invoices.data ?? []) as InvoiceRow[];
+  // A draft's total is its period's work now.
+  const invoiceRows: InvoiceRow[] = await Promise.all(
+    ((invoices.data ?? []) as StoredInvoiceRow[]).map(async (stored) => {
+      const draft = await deriveDraft(db, stored, tz);
+      const r = draft?.row ?? stored;
+      return {
+        ...r,
+        total: r.total ?? 0,
+        refuses: draft ? draftRefusals(draft) : undefined,
+      };
+    }),
+  );
   const clientNames = clientNamesFrom(unbilledRows);
 
   const todayKey = localDateKey(now, tz);
@@ -380,9 +395,7 @@ export async function readStats(
           id: r.id,
           taskName: r.task_name,
           startedAt: new Date(r.started_at).toISOString(),
-          durationSeconds:
-            (Date.parse(r.ended_at as string) - Date.parse(r.started_at)) /
-            1000,
+          durationSeconds: r.duration_seconds,
           isBillable: r.is_billable,
           clientId: r.project_id ? (clientOf.get(r.project_id) ?? null) : null,
         })),
