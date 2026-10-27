@@ -64,8 +64,6 @@ export const SAMPLE = {
     link: null,
     notes: 'Please email remittance advice to sam@example.dev.',
   },
-  paymentNotice:
-    'Our payment details never change. If you receive any message stating otherwise, call to verify before paying.',
   paymentTerms: 'Net 30',
   business: {
     name: 'Sam Rivera',

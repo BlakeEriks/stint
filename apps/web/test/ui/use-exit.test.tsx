@@ -191,7 +191,13 @@ describe('an inbox row leaving', () => {
   function stats(attention: Partial<Stats['attention']> = {}): Stats {
     return {
       currency: 'USD',
-      unbilled: { total: 0, seconds: 0, byClient: [], moreClients: 0 },
+      unbilled: {
+        total: 0,
+        mixed: false,
+        seconds: 0,
+        byClient: [],
+        moreClients: 0,
+      },
       week: [],
       month: {
         earned: 0,

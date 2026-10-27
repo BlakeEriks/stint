@@ -51,13 +51,13 @@ export function Wordmark({ large = false }: { large?: boolean }) {
 
 export interface NoticeProps {
   message: string;
-  /** `offline` when Stint can't be reached; `error` for a refused press. */
-  tone: 'error' | 'offline';
+  tone: 'error' | 'warning';
   onDismiss?: () => void;
+  action?: { label: string; onPress: () => void };
 }
 
 /** Why something didn't take, under the header (Constitution VI). */
-export function Notice({ message, tone, onDismiss }: NoticeProps) {
+export function Notice({ message, tone, onDismiss, action }: NoticeProps) {
   const c = useColors();
   const error = tone === 'error';
   return (
@@ -74,6 +74,17 @@ export function Notice({ message, tone, onDismiss }: NoticeProps) {
       <Text style={[text('support'), styles.grow, { color: c['text-strong'] }]}>
         {message}
       </Text>
+      {action && (
+        <Pressable
+          onPress={action.onPress}
+          accessibilityRole="button"
+          hitSlop={12}
+        >
+          <Text style={[text('control'), { color: c['text-strong'] }]}>
+            {action.label}
+          </Text>
+        </Pressable>
+      )}
       {onDismiss && (
         <Pressable
           onPress={onDismiss}

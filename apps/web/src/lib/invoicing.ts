@@ -187,7 +187,6 @@ export interface InvoiceSettings {
   currency: string;
   paymentTermsDays: number;
   invoiceNumberPrefix: string;
-  paymentNotice: string | null;
   businessName: string | null;
   businessEmail: string | null;
 }
@@ -212,7 +211,7 @@ export async function loadSettings(
   const { data, error } = await db
     .from('user_settings')
     .select(
-      'default_hourly_rate, currency, payment_terms_days, invoice_number_prefix, payment_notice, business_name, business_email',
+      'default_hourly_rate, currency, payment_terms_days, invoice_number_prefix, business_name, business_email',
     )
     .maybeSingle();
 
@@ -224,7 +223,6 @@ export async function loadSettings(
     currency: (data.currency as string) ?? 'USD',
     paymentTermsDays: data.payment_terms_days as number,
     invoiceNumberPrefix: (data.invoice_number_prefix as string) ?? 'INV-',
-    paymentNotice: data.payment_notice ?? null,
     businessName: data.business_name ?? null,
     businessEmail: data.business_email ?? null,
   };
@@ -290,8 +288,7 @@ export async function loadPdfData(
   if (!stored) throw new ApiError('ENTRY_NOT_FOUND', 'Invoice not found');
   const row = stored as InvoiceRow;
 
-  const [settings, billing, draft] = await Promise.all([
-    loadSettings(db),
+  const [billing, draft] = await Promise.all([
     entitlement(db),
     deriveDraft(db, row, requestTz),
   ]);
@@ -351,7 +348,6 @@ export async function loadPdfData(
       client: invoice.billTo,
       lineItems,
       payment: invoice.paymentDetails ?? null,
-      paymentNotice: settings.paymentNotice,
       supportingDetail: invoice.supportingDetail,
     },
   };
@@ -688,7 +684,7 @@ export async function sendDraft(
   if (code === 'EXPENSE_ALREADY_INVOICED' || code === 'ENTRY_ALREADY_INVOICED')
     throw new ApiError(
       'ENTRY_ALREADY_INVOICED',
-      'Work in this period was billed on another invoice at the same moment. Open the draft again.',
+      'Work in this period was billed on another invoice or marked billed elsewhere at the same moment. Open the draft again.',
     );
   throw error;
 }

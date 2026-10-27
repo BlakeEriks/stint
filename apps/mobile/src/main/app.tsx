@@ -1,4 +1,4 @@
-import { ApiError } from '@stint/client';
+import { ApiError, currentTimeZone } from '@stint/client';
 import { startSession } from '../launch.ts';
 import {
   focusManager,
@@ -12,6 +12,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { createApi } from '../api.ts';
 import { createBypass } from '../bypass.ts';
 import { createPushDevice, onTimerPush } from '../push.ts';
+import { createSurfaces } from '../surfaces.ts';
+import { canDraw, drawSurfaces } from '../surfaces-native';
 import { canPush, expoTokens, listenForTimerPushes } from '../push-native';
 import { origin, target } from '../config.ts';
 import { usePlex } from '../fonts.ts';
@@ -63,9 +65,41 @@ focusManager.setEventListener((setFocused) => {
   return () => sub.remove();
 });
 
+/* The notification, widgets, tile and shortcut (`surfaces.ts`): drawn on
+   every change to the cached timer, and pressed through the same client, also
+   with no screen (the `StintPress` task in `index.ts`). */
+export const surfaces = createSurfaces({
+  queryClient,
+  api,
+  timeZone: currentTimeZone,
+  signedIn: canRequest,
+  draw: drawSurfaces,
+});
+if (canDraw) surfaces.follow();
+
+/**
+ * Whether a request can be made with no screen: a session and, on a preview,
+ * its bypass, which only the screen loads otherwise. Without it, a protected
+ * preview's refusal would forget the stored bypass.
+ */
+async function canRequest() {
+  if (
+    target.name === 'preview' &&
+    bypass.current() === null &&
+    (await bypass.load()) === null
+  )
+    return false;
+  return (await auth.load()) !== null;
+}
+
 /* A timer changed on another client: refetch it now, not on the next
-   foreground (`push.ts`). */
-listenForTimerPushes(() => void onTimerPush(queryClient));
+   foreground (`push.ts`), and redraw the surfaces with the app closed. */
+listenForTimerPushes(() => {
+  void onTimerPush(queryClient);
+  if (canDraw) void surfaces.refresh();
+});
+
+const redrawSurfaces = () => surfaces.redraw();
 const pushDevice = createPushDevice({
   tokens: expoTokens,
   register: api.registerPushDevice,
@@ -99,6 +133,7 @@ async function signOut() {
     if (session) pushDevice.leave(unregisterAs(session.accessToken));
   } finally {
     await auth.signOut();
+    surfaces.signOut();
   }
 }
 
@@ -116,9 +151,15 @@ function useSession(): Session | null | undefined {
     [],
   );
   const signedIn = Boolean(session);
+  const loaded = session !== undefined;
   useEffect(() => {
     if (signedIn && canPush) void pushDevice.join();
   }, [signedIn]);
+  useEffect(() => {
+    if (!loaded || !canDraw) return;
+    if (signedIn) void surfaces.refresh();
+    else surfaces.signOut();
+  }, [loaded, signedIn]);
   return session;
 }
 
@@ -182,6 +223,7 @@ export function App() {
             api={api}
             email={session.email}
             onSignOut={() => void signOut()}
+            onNotificationsOn={redrawSurfaces}
           />
         ) : (
           <SignInContainer auth={auth} />

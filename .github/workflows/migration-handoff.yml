@@ -1,0 +1,78 @@
+name: migration-handoff
+
+# Hands the preview database to the next migration PR when its holder merges.
+# The holder is the open PR labeled `ready-for-qa` whose diff touches
+# supabase/migrations (`preview-db.yml`); its merge is a push here. The
+# oldest open, non-draft, not `needs-input` migration PR gets `main` merged
+# in and the label at once: the owner wants it as soon as `preview-db` makes
+# its preview testable, not once every check is green. One that conflicts with `main` is
+# left to `/work-issues`, which merges `main` in and labels it.
+#
+# Runs as the `stint-bot` GitHub App (`docs/deploying.md` §3d): a push or
+# label made with GITHUB_TOKEN starts no other workflow, so CI, the Vercel
+# preview and `preview-db`'s `labeled` run would never fire.
+on:
+  push:
+    branches: [main]
+    paths: ['supabase/migrations/**']
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: migration-handoff
+  cancel-in-progress: false
+
+jobs:
+  handoff:
+    runs-on: ubuntu-latest
+    steps:
+      # Pinned: this step mints a write token.
+      - id: token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ vars.STINT_BOT_APP_ID }}
+          private-key: ${{ secrets.STINT_BOT_APP_KEY }}
+
+      - name: Hand ready-for-qa to the next migration PR
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          prs=$(gh pr list --state open --limit 200 \
+            --json number,isDraft,labels,files)
+          migrating='[.[] | select(any(.files[]; .path | startswith("supabase/migrations/")))]'
+
+          # A second holder would split the schema between two PRs.
+          holder=$(jq -r "$migrating"' | map(select(any(.labels[]; .name == "ready-for-qa"))) | .[0].number // empty' <<< "$prs")
+          if [ -n "$holder" ]; then
+            echo "::notice::#$holder already holds the preview database."
+            exit 0
+          fi
+
+          next=$(jq -r "$migrating"' | map(select(.isDraft | not)) | map(select(all(.labels[]; .name != "needs-input"))) | sort_by(.number) | .[0].number // empty' <<< "$prs")
+          if [ -z "$next" ]; then
+            echo "::notice::No open migration PR waits for the preview database."
+            exit 0
+          fi
+
+          # GitHub computes mergeability lazily after a push: UNKNOWN until then.
+          for _ in $(seq 12); do
+            state=$(gh pr view "$next" --json mergeable -q .mergeable)
+            [ "$state" != UNKNOWN ] && break
+            sleep 5
+          done
+          case "$state" in
+            CONFLICTING)
+              echo "::notice::#$next conflicts with main; /work-issues merges main in and labels it."
+              exit 0 ;;
+            MERGEABLE) ;;
+            *) echo "::error::#$next mergeability is $state."; exit 1 ;;
+          esac
+
+          gh pr update-branch "$next"
+          gh pr edit "$next" --add-label ready-for-qa
+          echo "::notice::#$next now holds the preview database."

@@ -173,9 +173,27 @@ export const Refused: Story = {
 export const Offline: Story = {
   args: {
     notice: {
-      tone: 'offline',
+      tone: 'warning',
       message: 'Can’t reach Stint. Check your internet connection.',
     },
+  },
+};
+
+/** Notifications off: the pinned timer can't show, and the screen says so. */
+export const NotificationsOff: Story = {
+  args: {
+    running,
+    notice: {
+      tone: 'warning',
+      message: 'Notifications are off, so a running timer isn’t pinned.',
+      action: { label: 'Turn on', onPress: fn() },
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const screen = within(canvasElement);
+    await expect(screen.getByRole('alert')).toHaveTextContent(/isn’t pinned/);
+    await userEvent.click(screen.getByRole('button', { name: 'Turn on' }));
+    await expect(args.notice?.action?.onPress).toHaveBeenCalled();
   },
 };
 

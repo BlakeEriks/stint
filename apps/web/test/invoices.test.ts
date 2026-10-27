@@ -2514,6 +2514,21 @@ test('an entry another invoice took rolls the send back', async () => {
   await untouched(draft);
 });
 
+test('an entry marked billed elsewhere since it was computed rolls the send back', async () => {
+  await seedEntry({ id: E(1), hours: 2 });
+  const draft = await makeDraft();
+  await pool.query(
+    'update time_entries set invoiced_elsewhere = true where id = $1',
+    [E(1)],
+  );
+
+  const { error } = await sendDraftRpc(draft, { entries: [E(1)] });
+
+  const { dbCode } = await import('../src/lib/errors.ts');
+  assert.equal(dbCode(error), 'ENTRY_ALREADY_INVOICED');
+  await untouched(draft);
+});
+
 test('an entry deleted since it was computed rolls the send back too', async () => {
   await seedEntry({ id: E(1), hours: 2 });
   const draft = await makeDraft();

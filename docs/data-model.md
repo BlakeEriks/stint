@@ -1,7 +1,7 @@
-# Data Model
+# Data model
 
-Hierarchy: **Client → Project → Time Entry**, and **Client → Expense** for
-costs the client reimburses.
+A **client** has **projects**, a project has **time entries**, and a client
+has **expenses** for costs it reimburses.
 
 Schema lives in `supabase/migrations/`. Every rule below is enforced by the
 database, not by convention.
@@ -17,52 +17,23 @@ entry.rate_override
 
 Implemented **twice**, once per language:
 
-- `resolveRate()` in `packages/core/src/rates.ts` — **this is what actually
-  bills.** `POST /invoices` builds line items in memory and writes
-  `resolved_rate` from the value TypeScript computed. The preview and the
-  issued invoice therefore come from identical code, which is the property
-  that matters most. `ProjectRate` prints the same figure on `/clients`.
+- `resolveRate()` in `packages/core/src/rates.ts` is **what bills.**
+  `POST /invoices` builds line items in memory and writes `resolved_rate`
+  from the value TypeScript computed, so the preview and the issued invoice
+  come from identical code. `ProjectRate` prints the same figure on
+  `/clients`.
 - `resolve_rate(numeric, numeric, numeric, numeric)` in SQL
-  (`00000000000010_one_rate_chain.sql`) — the chain over the four columns,
-  called by `resolve_entry_rate(uuid)` for a single entry and once per row in
-  the joins of every rollup that reports money from work: `unbilled_by_client`,
-  `month_revenue`, `revenue_by_day`, `revenue_by_client` and
-  `revenue_by_project`. It is `immutable` and carries no `search_path`, so
-  Postgres inlines it and the rollups plan as the plain `COALESCE` they used
-  to spell out. `collected_by_month` is the one rollup that does not call it —
-  a payment is a fact about an issued document, so it sums the invoice's own
-  `total`, grouped by month **and by currency**, because money is not addable
-  across them and one `sum` over a mixed month reports a number of nothing.
-  Picking which currency the screen shows is the caller's, as it is for
-  `revenue_by_client` and `revenue_by_project`.
-
-  **`unbilled_by_client`, `revenue_by_day` and `revenue_by_client` count a
-  running entry** up to a trailing `p_now` (default `now()`), measured by
-  `entry_seconds()` (`00000000000031_live_running_entry.sql`), so Home and the
-  menu bar move with a timer. The route passes the instant it cuts its windows
-  at. `month_revenue` and `revenue_by_project` still skip a running entry; no
-  screen reads them.
-
-  **Each rollup owns its window, and `/stats` reports them rather than
-  choosing them.** `unbilled_by_client` groups by (client, rate) and reports a
-  client-less row as "No client". `revenue_by_client` and
-  `revenue_by_project` run the trailing **three whole months**, splitting
-  gross work done into `invoiced` and `unbilled`, which sum to the total;
-  because that window opens on the 1st three months back, their unbilled
-  figure parts from `unbilled_by_client` only when work has gone unbilled past
-  that boundary. `revenue_by_project` is the one rollup counting **unbillable
-  work** in its seconds — the hours reading answers where the time went, while
-  the money columns stay billable-only. `collected_by_month` runs twelve whole
-  months. A per-month average is divided **on the server**; no client divides
-  money.
+  (`00000000000010_one_rate_chain.sql`) is the chain over the four columns.
+  `resolve_entry_rate(uuid)` calls it for one entry, and every rollup that
+  reports money from work calls it once per row. It is `immutable` with no
+  `search_path`, so Postgres inlines it.
 
 **`apps/web/test/rates.test.ts` is what keeps them in step.** It builds every
 combination of the four levels being unset, `0`, or a distinct rate, and
 asserts that SQL and TypeScript resolve each entry identically and that both
 rollups' totals equal what `buildLineItems` produces. Neither side is
-authoritative on its own; the test is. Without it a change to one language is
-invisible to the other, and the home screen disagreeing with an invoice
-preview about the same work is what that produces.
+authoritative on its own; the test is. Without the test, Home can disagree
+with an invoice preview about the same work.
 
 **`0` is a real rate, not an absent one.** A project deliberately set to 0 (pro
 bono) does not fall through to the client's rate. Both implementations use
@@ -72,13 +43,36 @@ null-coalescing, never truthiness.
 current rates until then; changing a client's rate next year must never
 retroactively alter an invoice already sent.
 
+### Rollups
+
+`/stats` passes each rollup its window and the instant `p_now` it cuts them
+at. A running entry counts up to `p_now`, measured by `entry_seconds()`
+(`00000000000031_live_running_entry.sql`), so Home and the menu bar move with
+a timer.
+
+| Rollup | Window | Running entry | Unbillable work | Groups by |
+| --- | --- | --- | --- | --- |
+| `unbilled_by_client` | all unbilled work | counted | skipped | client and rate; no client is "No client" |
+| `revenue_by_day` | the month, and the week | counted | skipped | day |
+| `revenue_by_client` | the month | counted | skipped | client, split into `invoiced` and `unbilled` |
+| `revenue_by_project` | caller's; no screen reads it | skipped | in seconds, never in money | project |
+| `month_revenue` | caller's; no screen reads it | skipped | skipped | none |
+| `collected_by_month` | twelve whole months | not work | not work | month and currency |
+
+`collected_by_month` sums each paid invoice's own `total` rather than
+resolving rates: a payment is a fact about an issued document. **Money is not
+addable across currencies**, so it groups by currency, and the caller picks
+which one the screen shows, as it does for the per-client and per-project
+rollups. A per-month average is divided **on the server**; no client divides
+money.
+
 ## Tables
 
 ### `user_settings`
 One row per user, auto-created by a trigger on `auth.users` insert. Holds the
 global rate fallback, display preferences, the invoice
 identity block (business name, address, logo), `payment_terms_days`
-(0–365, default 30), the invoice number sequence, `payment_notice`, and the entry-length thresholds
+(0–365, default 30), the invoice number sequence, and the entry-length thresholds
 (`min_entry_seconds`, `max_entry_hours`).
 
 **`legacy_payment_terms` is free text the move to days couldn't read**,
@@ -107,7 +101,7 @@ it. **Any future definer function needs the same treatment.**
 
 ### `clients`
 Billing entity. `hourly_rate`, `tax_rate` and `currency` are all nullable —
-null means "fall back". `color` is here because color identifies a client.
+null means fall back. `color` is here because color identifies a client.
 `billing_period` is how often its contract bills it, null for no schedule;
 weekly and biweekly count from `period_anchor`, which the
 `billing_period_anchor` check requires for them and refuses for the others.
@@ -125,7 +119,7 @@ A project has no color; it takes its client's.
 - `duration_seconds` is a **generated column** — never stored independently, so
   it cannot drift from `started_at`/`ended_at`.
 - `invoice_id` set means the entry is billed.
-- `duration_ok` is the user's **answer** to "is this length correct?", and the
+- `duration_ok` is the user's **answer** to whether this length is correct, and the
   one piece of stored judgment on an entry — `duration_seconds` beside it is
   derived. A trigger clears it whenever `started_at`/`ended_at` change, so the
   answer cannot outlive the length it was given about.
@@ -162,9 +156,10 @@ sending keeps; it is the one column a read writes. Mark sent refuses with
 `DRAFT_CHANGED` while the draft differs from it. **Mark sent is
 `send_draft()`**: it writes the lines and totals the route computed, claims
 the entries and one-off expenses, sets `issue_date`, `due_date` and the
-`payment_terms` they make (the last PDF's, else the send date's), and sends, in one transaction. An entry or
-expense another invoice took meanwhile raises `ENTRY_ALREADY_INVOICED` or
-`EXPENSE_ALREADY_INVOICED` and rolls it all back.
+`payment_terms` they make (the last PDF's, else the send date's), and sends, in one transaction. An entry another
+invoice took, or one marked billed elsewhere, meanwhile raises
+`ENTRY_ALREADY_INVOICED`, an expense another invoice took
+`EXPENSE_ALREADY_INVOICED`, and either rolls it all back.
 
 `payment_details` (JSONB) freezes the rendered bank details at generation, for
 the same reason rates freeze: editing a profile must never alter an invoice
@@ -174,7 +169,7 @@ sending freezes them, so a renamed project or a void never changes them. The `bu
 block) and the `client_*` columns (Bill to) are copied from `user_settings`
 and the client by a trigger on insert, so editing either never reprints an
 invoice. `summary_text` is the line text of a `summary`
-invoice and is set exactly then; `reference` is the PO, contract or SOW the
+invoice and is set exactly then; `reference` is the PO, contract, or SOW the
 header prints. `issued_subscription_status` is the user's `subscriptions.status`
 when the invoice was inserted, copied by a trigger whatever the insert says
 and never changed after, so an invoice generated while paying keeps its PDF
@@ -307,11 +302,14 @@ invoice can release its entries.
 exception. An edit to unbilled work shows on the next read of any draft.
 
 ### Work invoiced elsewhere
-`time_entries.invoiced_elsewhere` marks work already billed from another tool,
-usually history an import brought in. It counts as **earned** and is never
-**unbilled**: `unbilled_by_client`, invoice generation and the inbox's
-uninvoiced rows all skip it. It is a flag, not an invoice, so it takes no
-number and appears in no invoice list, and the entry stays editable.
+`time_entries.invoiced_elsewhere` marks work already billed from another tool:
+history an import brought in, or entries the user marks on New invoice or in
+the entry dialog. It counts as **earned** and is never **unbilled**:
+`unbilled_by_client`, invoice generation and the inbox's uninvoiced rows all
+skip it. It is a flag, not an invoice, so it takes no number and appears in
+no invoice list, and the entry stays editable. `entry_billed_once` refuses
+it on an entry on an invoice, whichever is written first, and the API marks
+only a finished entry.
 
 ### Gapless invoice numbering
 `allocate_invoice_number(user_id)` increments `next_invoice_number` under a row
@@ -353,13 +351,13 @@ before Stint, and never back (`PATCH /settings`).
   an existing index already covers. Entries by user and start time is a plain
   index — every entry is a candidate there.
 - RLS on every table: `user_id = auth.uid()`; line items inherit from invoice.
-  The route tests disable RLS (their subject is route logic);
+  The route tests turn off RLS (their subject is route logic);
   `apps/web/test/rls.test.ts` covers it against live policies.
 
-### GRANT and RLS are two layers, and both are load-bearing
+### Grants and RLS are two layers, and both are load-bearing
 
 `00000000000004_api_grants.sql` grants table privileges to `authenticated` and
-nothing to `anon`. **GRANT decides whether the role may touch the table at
+nothing to `anon`. **A grant decides whether the role may use the table at
 all; RLS decides which rows it sees once it may.** Enabling RLS on a new table
 without granting it produces a `42501` that looks nothing like a policy
 problem.
@@ -384,7 +382,7 @@ migration creates it**, so it is invisible from a checkout and absent from
 local and CI databases.
 
 It is a backstop, not a mechanism to build on. It cannot write policies, and
-by the paragraph above a table with RLS and no policy denies everything — so
+by the preceding section a table with RLS and no policy denies everything — so
 a table it "rescues" is still broken, just differently. Every table declares
 its own `enable row level security` and at least one policy in its migration,
 and `verify:schema` is what actually enforces that.
@@ -426,7 +424,7 @@ hold; this list is the record of *what* must.
 - A send that loses a race for an expense writes nothing.
 - Two concurrent Generates over one client's dates make one draft.
 
-### RLS, verified against live policies
+### Row-level security against live policies
 
 `apps/web/test/rls.test.ts` connects as a non-superuser `authenticated` role
 with `request.jwt.claim.sub` set per transaction, exactly as PostgREST does,

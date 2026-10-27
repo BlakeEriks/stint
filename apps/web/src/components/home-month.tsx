@@ -103,6 +103,11 @@ export function Month({
               currency={currency}
               className="type-amount-hero text-strong"
             />
+            {unbilled.mixed ? (
+              <span className="type-meta text-subtle">
+                Other currencies not included
+              </span>
+            ) : null}
           </FigGroup>
 
           {/* Awaiting counts rather than describes, and is rendered only when

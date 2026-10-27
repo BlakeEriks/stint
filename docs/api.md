@@ -55,8 +55,9 @@ written.
 | `GET` | `/entries` | `?from&to&projectId&clientId&limit` (1–500, default 200), newest first. **`projectId=none`** returns entries with no project at all — an absent parameter already means "every entry", so there was otherwise no way to ask for the ones the inbox surfaces. A running entry's `durationSeconds` is its length at the response, not null; `endedAt: null` is what marks it running. |
 | `GET` | `/entries/:id` | |
 | `POST` | `/entries` | Manual entry. `id` is client-supplied (UUIDv7) so a retry is idempotent. Always complete — `endedAt` required, and `422 VALIDATION_FAILED` if it is at or before `startedAt`. **`isBillable` omitted takes the project's billable default**, and is billable with no project. |
-| `PATCH` | `/entries/:id` | **`409 ENTRY_LOCKED`** if billed on a non-draft invoice. Returns `409 TIMER_ALREADY_RUNNING` if clearing `endedAt` would reopen this entry while another timer runs, and `422 VALIDATION_FAILED` if the patch would leave `endedAt` at or before `startedAt`. `?include` returns `{ entry, included }` instead of the entry ([Including what a write changed](#including-what-a-write-changed)). |
+| `PATCH` | `/entries/:id` | **`409 ENTRY_LOCKED`** if billed on a non-draft invoice, and **`409 ENTRY_ALREADY_INVOICED`** for `invoicedElsewhere: true` on an entry on an invoice (`409 TIMER_ALREADY_RUNNING` on a running one). Returns `409 TIMER_ALREADY_RUNNING` if clearing `endedAt` would reopen this entry while another timer runs, and `422 VALIDATION_FAILED` if the patch would leave `endedAt` at or before `startedAt`. `?include` returns `{ entry, included }` instead of the entry ([Including what a write changed](#including-what-a-write-changed)). |
 | `DELETE` | `/entries/:id` | Same lock applies. |
+| `POST` | `/entries/invoiced-elsewhere` | `{ ids, invoicedElsewhere }`, 1–1000 ids. Sets or clears billed elsewhere ([Work invoiced elsewhere](data-model.md#work-invoiced-elsewhere)) on the user's entries among `ids`; a mark skips a running entry and one on an invoice. Returns `{ ids }`, the entries it changed, which a clear can send back to undo the mark. |
 
 ## Import
 
@@ -105,9 +106,11 @@ invoiced — here or, for an entry marked `invoiced_elsewhere`, anywhere — `aw
 money that arrived. `openInvoiceCount` is how many invoices make up the
 second.
 
-**Only invoices in the response's `currency` count**, since the screen prints
-one currency beside the figure and a euro added in would be reported as a
-dollar. `collected.daysSincePaid` is whole calendar days in `tz` from the
+**Only invoices in the response's `currency` count, and only its work counts
+toward `unbilled.total`**, since the screen prints one currency beside the
+figure and a euro added in would be reported as a dollar. `unbilled.mixed` is
+true when work in another currency was left out of `unbilled.total`.
+`collected.daysSincePaid` is whole calendar days in `tz` from the
 latest `paid_at` in that same currency, and **null** when nothing in it has
 ever been paid or that `paid_at` is in the future.
 
@@ -122,7 +125,7 @@ moves no figure. It still never reaches an invoice (see Invoices).
 
 **Rows are capped and the remainder is reported, never dropped.** `unbilled`
 carries 5 rows plus a `moreClients` count. The total still covers every
-client.
+client in `currency`.
 
 **`month` is the screen's subject and needs no target.** `month.earned` is
 the month so far; `month.projected` carries its trailing rate to the last
@@ -272,7 +275,7 @@ rate. `0` is a real rate, distinct from `null`, which means "fall back".
 | `POST` | `/invoices` | Creates a draft, in one transaction: allocates the number, stores what the user chose and its charges, and freezes **payment details** and the From and Bill to blocks (`business`, `billTo`) from settings and the client as they are now. It claims no entry or expense: its lines are derived on every read until it is sent. Keeps the client's `paymentTermsDays`, else the user's, as its terms. Also accepts `dueDate` (absent, the terms from the day it is sent; before today, `422 VALIDATION_FAILED` with `{ field: 'dueDate' }`), `notes`, `tz`, `reference` (the PO, contract or SOW, at most 200 characters; blank is none), and `schedules` (`project | week | date`, with `summary` only), which freezes those tables as `supportingDetail`. `paymentProfileId` picks the payment details to freeze; absent, the client's profile, else the default. Returns the `Invoice` plus `lineItems` and `entryCount`. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate; `400 INVALID_PERIOD` if there is nothing to bill: no time, no expense and no charge; `422 VALIDATION_FAILED` for `summary` with an empty `summaryText`, `schedules` with another grouping, or a `paymentProfileId` archived or not found; `409 DRAFT_OVERLAPS` with `{ invoiceId, invoiceNumber, periodStart, periodEnd }` when an open draft for the client covers any of the period, even one another Generate made at the same moment; it writes nothing and uses no number; `422 VALIDATION_FAILED` on an invalid `tz`, or while settings have no business name or email, before anything is written. |
 | `GET` | `/invoices/:id` | Invoice, with its frozen `business` and `billTo`, + its line items, and `canDownload`: whether the caller's plan opens the PDF below. A draft is derived from its period's work, dated as if sent today, with the terms its dates make (`Net N`, or `Due on receipt`), and writes nothing; `unratedEntries` (`{ id, taskName, startedAt }`) names the billable entries no rate prices, which it leaves out. `dueBeforeIssue` (`{ download, send }`) says whether its typed due date is before the issue date a new PDF would print, today, and the one Mark sent would, its last PDF's; one changed since that PDF needs a new one, so it refuses both. `refuses` (`{ download, send }`) is what the PDF and Mark sent refuse now, for either reason. `changedSinceDownload` (`{ hours, total }`, each `{ from, to }`) is null unless a draft moved since its last PDF, and each line's `isNew` is true only for a line that PDF lacked. Returned **flat**, like every other detail route. These `lineItems` carry no `rateSource` or `entryIds`, which a preview or a generation returns. |
 | `DELETE` | `/invoices/:id` | **Drafts only** — `422 VALIDATION_FAILED` otherwise. An issued invoice must be voided, so numbering stays gapless. A draft holds no work, so there is nothing to release. |
-| `GET` | `/invoices/:id/pdf` | A draft is derived first and its render recorded for Mark sent to compare; one with an unrated entry is `400 NO_RATE_CONFIGURED`, and one whose typed due date is before its issue date `422 VALIDATION_FAILED`. Streams `application/pdf` from the line items, `business`, `billTo` and payment details, then the frozen `supportingDetail` from page 2, in hours. The payment notice is the one detail read live from settings. `?download=1` for `attachment` rather than an inline preview. Both are the paid tier: `402 PAYMENT_REQUIRED` unless billing is not set up, the caller pays, or the invoice was generated while they paid. Previewing and generating stay free. |
+| `GET` | `/invoices/:id/pdf` | A draft is derived first and its render recorded for Mark sent to compare; one with an unrated entry is `400 NO_RATE_CONFIGURED`, and one whose typed due date is before its issue date `422 VALIDATION_FAILED`. Streams `application/pdf` from the line items, `business`, `billTo` and payment details, then the frozen `supportingDetail` from page 2, in hours. `?download=1` for `attachment` rather than an inline preview. Both are the paid tier: `402 PAYMENT_REQUIRED` unless billing is not set up, the caller pays, or the invoice was generated while they paid. Previewing and generating stay free. |
 | `PATCH` | `/invoices/:id/status` | `{ status, sentAt?, paidAt? }`. Also how an invoice is marked sent: `send_draft` writes a draft's lines and totals as they stand, claims its entries and one-off expenses, dates it as its last PDF printed, else `issueDate` the send date in its zone and `dueDate` by its terms unless one was typed, and sends it, in one transaction — `400 NO_RATE_CONFIGURED` if an entry has no rate, `422 VALIDATION_FAILED` if it has no lines, no zone (its own or `?tz`), or a typed due date before its issue date (`{ field: 'dueDate' }`), `409 DRAFT_CHANGED` with `{ hours, total }` if it moved since its PDF was last rendered (one never rendered sends), `409 ENTRY_ALREADY_INVOICED` if another invoice took one of its entries or expenses at the same moment. `422 VALIDATION_FAILED` on a transition the table below forbids, or if `paidAt` is later than now or earlier than the invoice's `sentAt`; `409 INVOICE_STATUS_CHANGED` if another request changed the status since this one read it. |
 
 A draft is derived in the zone stored when it was generated. `?tz` matters
@@ -393,10 +396,6 @@ preference — `.claude/rules/invoicing.md` has the reason.
   is `422 VALIDATION_FAILED` (`validateRoutingNumber()` in `@stint/core`).
 - Deleting is archival, because clients and invoices reference profiles.
 
-`user_settings.payment_notice` is a standing anti-fraud line printed under the
-payment block, defaulted to a warning that details never change and should be
-verified by phone.
-
 ## Health
 
 | Method | Path | Notes |
@@ -415,7 +414,7 @@ verified by phone.
 | `NO_TIMER_RUNNING` | 409 | Nothing to stop. |
 | `ENTRY_LOCKED` | 409 | Billed on a non-draft invoice. |
 | `EXPENSE_LOCKED` | 409 | An expense billed on a non-draft invoice. |
-| `ENTRY_ALREADY_INVOICED` | 409 | Marking a draft sent: another invoice billed an entry or expense in its period at the same moment. Open the draft again. |
+| `ENTRY_ALREADY_INVOICED` | 409 | Marking a draft sent: another invoice billed an entry or expense in its period, or an entry was marked billed elsewhere, at the same moment. Open the draft again. Or a mark named an entry already on an invoice. |
 | `INVOICE_STATUS_CHANGED` | 409 | Another request changed the invoice's status first. Read it again. |
 | `DRAFT_CHANGED` | 409 | The draft moved since its PDF was rendered. Download it again, then mark it sent. |
 | `DRAFT_OVERLAPS` | 409 | An open draft for the client already covers some of these dates. |

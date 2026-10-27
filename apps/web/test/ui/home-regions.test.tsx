@@ -80,6 +80,7 @@ function stats(over: Partial<Stats> = {}): Stats {
     currency: 'USD',
     unbilled: {
       total: 6840,
+      mixed: false,
       seconds: 307_800,
       byClient: [
         {

@@ -504,6 +504,211 @@ test('editing an entry billed on a sent invoice returns 409 ENTRY_LOCKED', async
   assert.equal(removed.body.code, 'ENTRY_LOCKED');
 });
 
+// ── billed elsewhere ───────────────────────────────────────────────
+const BE = (n: number) =>
+  `018f0000-0000-7000-8000-0000000be${String(n).padStart(3, '0')}`;
+const BE_INVOICE = 'ff000000-0000-4000-8000-0000000be001';
+
+/** Four of the user's entries on one project — two unbilled, one running,
+ *  one on an invoice in `status` — and one of another user's. */
+async function seedBilledElsewhere(status = 'sent') {
+  const { clientId, projectId } = await seedClientAndProject();
+  await pool.query(
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status)
+     values ($1,$2,$3,'INV-0001',1,$4)`,
+    [BE_INVOICE, USER, clientId, status],
+  );
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at,invoice_id)
+     values ($1,$6,$7,'One','2026-09-01T14:00:00Z','2026-09-01T15:00:00Z',null),
+            ($2,$6,$7,'Two','2026-09-02T14:00:00Z','2026-09-02T16:00:00Z',null),
+            ($3,$6,$7,'Running','2026-09-03T14:00:00Z',null,null),
+            ($4,$6,$7,'Sent','2026-09-04T14:00:00Z','2026-09-04T15:00:00Z',$8),
+            ($5,$9,null,'Theirs','2026-09-05T14:00:00Z','2026-09-05T15:00:00Z',null)`,
+    [BE(1), BE(2), BE(3), BE(4), BE(5), USER, projectId, BE_INVOICE, OTHER],
+  );
+  return { clientId };
+}
+
+const flagged = async () =>
+  (
+    await pool.query(
+      'select id from time_entries where invoiced_elsewhere order by id',
+    )
+  ).rows.map((r) => r.id);
+
+test('billed elsewhere marks only the user’s finished, uninvoiced entries, and says which', async () => {
+  const { POST } = await import(
+    '../src/app/api/v1/entries/invoiced-elsewhere/route.ts'
+  );
+  await seedBilledElsewhere();
+
+  const res = await json(
+    await POST(
+      req('/entries/invoiced-elsewhere', {
+        ids: [BE(1), BE(2), BE(3), BE(4), BE(5)],
+        invoicedElsewhere: true,
+      }),
+    ),
+  );
+  assert.equal(res.status, 200);
+  assert.deepEqual([...res.body.ids].sort(), [BE(1), BE(2)]);
+  assert.deepEqual(await flagged(), [BE(1), BE(2)]);
+});
+
+test('work marked billed elsewhere leaves Unbilled and the next invoice', async () => {
+  const { POST } = await import(
+    '../src/app/api/v1/entries/invoiced-elsewhere/route.ts'
+  );
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  const { clientId } = await seedBilledElsewhere();
+  // Unbilled counts a running timer live, so it would move under the test.
+  await pool.query('delete from time_entries where id = $1', [BE(3)]);
+  const period = {
+    clientId,
+    periodStart: '2026-09-01',
+    periodEnd: '2026-09-30',
+    tz: 'America/New_York',
+  };
+  const unbilled = async () =>
+    (
+      await pool.query(
+        'select coalesce(sum(seconds),0)::int s from unbilled_by_client($1)',
+        [USER],
+      )
+    ).rows[0].s;
+
+  const before = await json(await preview(req('/invoices/preview', period)));
+  assert.equal(before.body.entryCount, 2);
+  assert.equal(await unbilled(), 3 * 3600);
+
+  await POST(
+    req('/entries/invoiced-elsewhere', {
+      ids: [BE(1), BE(2)],
+      invoicedElsewhere: true,
+    }),
+  );
+  const after = await json(await preview(req('/invoices/preview', period)));
+  assert.equal(after.body.entryCount, 0);
+  assert.equal(await unbilled(), 0);
+});
+
+test('clearing billed elsewhere puts exactly those entries back', async () => {
+  const { POST } = await import(
+    '../src/app/api/v1/entries/invoiced-elsewhere/route.ts'
+  );
+  await seedBilledElsewhere();
+  await pool.query(
+    'update time_entries set invoiced_elsewhere = true where id = any($1)',
+    [[BE(1), BE(2), BE(5)]],
+  );
+
+  const res = await json(
+    await POST(
+      req('/entries/invoiced-elsewhere', {
+        ids: [BE(1), BE(5)],
+        invoicedElsewhere: false,
+      }),
+    ),
+  );
+  assert.deepEqual(res.body.ids, [BE(1)]);
+  assert.deepEqual(
+    await flagged(),
+    [BE(2), BE(5)],
+    'another user’s entry is not cleared',
+  );
+});
+
+test('billed elsewhere refuses an empty list', async () => {
+  const { POST } = await import(
+    '../src/app/api/v1/entries/invoiced-elsewhere/route.ts'
+  );
+  const res = await json(
+    await POST(
+      req('/entries/invoiced-elsewhere', { ids: [], invoicedElsewhere: true }),
+    ),
+  );
+  assert.equal(res.status, 422);
+});
+
+test('an entry is marked or cleared billed elsewhere by its PATCH', async () => {
+  const { PATCH } = await import('../src/app/api/v1/entries/[id]/route.ts');
+  await seedBilledElsewhere();
+
+  const marked = await json(
+    await PATCH(
+      req(`/entries/${BE(1)}`, { invoicedElsewhere: true }, 'PATCH'),
+      ctx(BE(1)),
+    ),
+  );
+  assert.equal(marked.status, 200);
+  assert.equal(marked.body.invoicedElsewhere, true);
+
+  const cleared = await json(
+    await PATCH(
+      req(`/entries/${BE(1)}`, { invoicedElsewhere: false }, 'PATCH'),
+      ctx(BE(1)),
+    ),
+  );
+  assert.equal(cleared.body.invoicedElsewhere, false);
+});
+
+test('marking a running timer billed elsewhere is refused by its PATCH: TIMER_ALREADY_RUNNING', async () => {
+  const { PATCH } = await import('../src/app/api/v1/entries/[id]/route.ts');
+  await seedBilledElsewhere();
+
+  const res = await json(
+    await PATCH(
+      req(`/entries/${BE(3)}`, { invoicedElsewhere: true }, 'PATCH'),
+      ctx(BE(3)),
+    ),
+  );
+  assert.equal(res.status, 409);
+  assert.equal(res.body.code, 'TIMER_ALREADY_RUNNING');
+  assert.deepEqual(await flagged(), []);
+});
+
+/* Both orders of a mark racing an invoice: the routes filter out an entry
+   already attached, and the database refuses to attach one already marked,
+   which an invoice's read-then-attach would otherwise do. */
+test('an entry billed elsewhere can’t be attached to an invoice: ENTRY_ALREADY_INVOICED', async () => {
+  const { dbCode } = await import('../src/lib/errors.ts');
+  await seedBilledElsewhere();
+  await pool.query(
+    'update time_entries set invoiced_elsewhere = true where id = $1',
+    [BE(1)],
+  );
+
+  const refused = await pool
+    .query('update time_entries set invoice_id = $1 where id = $2', [
+      BE_INVOICE,
+      BE(1),
+    ])
+    .then(
+      () => null,
+      (e: Error) => e,
+    );
+  assert.ok(refused, 'the attach is refused');
+  assert.equal(dbCode(refused), 'ENTRY_ALREADY_INVOICED');
+});
+
+test('marking an entry on a sent invoice billed elsewhere is ENTRY_ALREADY_INVOICED', async () => {
+  const { PATCH } = await import('../src/app/api/v1/entries/[id]/route.ts');
+  await seedBilledElsewhere();
+
+  const res = await json(
+    await PATCH(
+      req(`/entries/${BE(4)}`, { invoicedElsewhere: true }, 'PATCH'),
+      ctx(BE(4)),
+    ),
+  );
+  assert.equal(res.status, 409);
+  assert.equal(res.body.code, 'ENTRY_ALREADY_INVOICED');
+  assert.deepEqual(await flagged(), []);
+});
+
 test('reopening an entry while a timer runs is TIMER_ALREADY_RUNNING', async () => {
   const { PATCH: patch } = await import(
     '../src/app/api/v1/entries/[id]/route.ts'
@@ -1328,7 +1533,6 @@ test('every settable field round-trips, rather than being silently dropped', asy
     minEntrySeconds: 60,
     maxEntryHours: 10,
     businessAddress: '1 Main St\nAustin, TX 78701',
-    paymentNotice: 'Details never change. Verify by phone.',
     invoiceNumberPrefix: 'STINT-',
   };
 
