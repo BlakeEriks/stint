@@ -55,8 +55,9 @@ written.
 | `GET` | `/entries` | `?from&to&projectId&clientId&limit` (1–500, default 200), newest first. **`projectId=none`** returns entries with no project at all — an absent parameter already means "every entry", so there was otherwise no way to ask for the ones the inbox surfaces. A running entry's `durationSeconds` is its length at the response, not null; `endedAt: null` is what marks it running. |
 | `GET` | `/entries/:id` | |
 | `POST` | `/entries` | Manual entry. `id` is client-supplied (UUIDv7) so a retry is idempotent. Always complete — `endedAt` required, and `422 VALIDATION_FAILED` if it is at or before `startedAt`. **`isBillable` omitted takes the project's billable default**, and is billable with no project. |
-| `PATCH` | `/entries/:id` | **`409 ENTRY_LOCKED`** if billed on a non-draft invoice. Returns `409 TIMER_ALREADY_RUNNING` if clearing `endedAt` would reopen this entry while another timer runs, and `422 VALIDATION_FAILED` if the patch would leave `endedAt` at or before `startedAt`. `?include` returns `{ entry, included }` instead of the entry ([Including what a write changed](#including-what-a-write-changed)). |
+| `PATCH` | `/entries/:id` | **`409 ENTRY_LOCKED`** if billed on a non-draft invoice, and **`409 ENTRY_ALREADY_INVOICED`** for `invoicedElsewhere: true` on an entry on an invoice (`409 TIMER_ALREADY_RUNNING` on a running one). Returns `409 TIMER_ALREADY_RUNNING` if clearing `endedAt` would reopen this entry while another timer runs, and `422 VALIDATION_FAILED` if the patch would leave `endedAt` at or before `startedAt`. `?include` returns `{ entry, included }` instead of the entry ([Including what a write changed](#including-what-a-write-changed)). |
 | `DELETE` | `/entries/:id` | Same lock applies. |
+| `POST` | `/entries/invoiced-elsewhere` | `{ ids, invoicedElsewhere }`, 1–1000 ids. Sets or clears billed elsewhere ([Work invoiced elsewhere](data-model.md#work-invoiced-elsewhere)) on the user's entries among `ids`; a mark skips a running entry and one on an invoice. Returns `{ ids }`, the entries it changed, which a clear can send back to undo the mark. |
 
 ## Import
 
@@ -415,7 +416,7 @@ verified by phone.
 | `NO_TIMER_RUNNING` | 409 | Nothing to stop. |
 | `ENTRY_LOCKED` | 409 | Billed on a non-draft invoice. |
 | `EXPENSE_LOCKED` | 409 | An expense billed on a non-draft invoice. |
-| `ENTRY_ALREADY_INVOICED` | 409 | Marking a draft sent: another invoice billed an entry or expense in its period at the same moment. Open the draft again. |
+| `ENTRY_ALREADY_INVOICED` | 409 | Marking a draft sent: another invoice billed an entry or expense in its period, or an entry was marked billed elsewhere, at the same moment. Open the draft again. Or a mark named an entry already on an invoice. |
 | `INVOICE_STATUS_CHANGED` | 409 | Another request changed the invoice's status first. Read it again. |
 | `DRAFT_CHANGED` | 409 | The draft moved since its PDF was rendered. Download it again, then mark it sent. |
 | `DRAFT_OVERLAPS` | 409 | An open draft for the client already covers some of these dates. |

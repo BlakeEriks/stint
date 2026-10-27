@@ -688,7 +688,7 @@ export async function sendDraft(
   if (code === 'EXPENSE_ALREADY_INVOICED' || code === 'ENTRY_ALREADY_INVOICED')
     throw new ApiError(
       'ENTRY_ALREADY_INVOICED',
-      'Work in this period was billed on another invoice at the same moment. Open the draft again.',
+      'Work in this period was billed on another invoice or marked billed elsewhere at the same moment. Open the draft again.',
     );
   throw error;
 }

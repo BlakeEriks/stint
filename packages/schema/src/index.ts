@@ -150,6 +150,8 @@ export const TimeEntry = z.object({
    * given about.
    */
   durationOk: z.boolean().default(false),
+  /** Billed from another tool: earned, and never unbilled or invoiced here. */
+  invoicedElsewhere: z.boolean().default(false),
 });
 
 /** Manual entry creation. The id is client-supplied so replay is safe. */
@@ -179,6 +181,14 @@ export const UpdateTimeEntry = z.object({
   rateOverride: money.nullable().optional(),
   /** How the inbox's "It's correct" answers the strange-duration row. */
   durationOk: z.boolean().optional(),
+  /** `true` is refused on an entry on an invoice. */
+  invoicedElsewhere: z.boolean().optional(),
+});
+
+/** `POST /entries/invoiced-elsewhere`: the entries a press names, by id. */
+export const MarkInvoicedElsewhere = z.object({
+  ids: z.array(uuid).min(1).max(1000),
+  invoicedElsewhere: z.boolean(),
 });
 
 export const ListEntriesQuery = z.object({
