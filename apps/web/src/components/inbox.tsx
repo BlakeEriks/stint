@@ -405,9 +405,12 @@ function itemFor(r: ItemRow, h: Handlers): ItemProps {
       });
     case 'draft':
       return invoiceItem(r.row, h, {
-        detail: `Draft, ${r.row.ageDays}d old`,
+        detail: r.row.refuses.send
+          ? `Draft, ${r.row.ageDays}d old, can’t be sent yet`
+          : `Draft, ${r.row.ageDays}d old`,
         tone: 'neutral',
         status: 'sent',
+        refuses: r.row.refuses,
       });
     case 'unprojected':
       return unprojectedItem(r.row, h);
@@ -434,7 +437,11 @@ function invoiceItem(
     detail,
     tone,
     status,
-  }: Pick<ItemProps, 'detail' | 'tone'> & { status: keyof typeof MARK },
+    refuses = { download: false, send: false },
+  }: Pick<ItemProps, 'detail' | 'tone'> & {
+    status: keyof typeof MARK;
+    refuses?: { download: boolean; send: boolean };
+  },
 ): ItemProps {
   return {
     href: `/invoices/${i.invoiceId}`,
@@ -444,13 +451,15 @@ function invoiceItem(
     tone,
     actions: (
       <>
-        <Action
-          label={MARK[status].label}
-          ariaLabel={`Mark ${i.invoiceNumber} ${status}`}
-          icon={MARK[status].icon}
-          onClick={() => h.onStatus({ id: i.invoiceId, status })}
-        />
-        {h.downloads ? (
+        {refuses.send ? null : (
+          <Action
+            label={MARK[status].label}
+            ariaLabel={`Mark ${i.invoiceNumber} ${status}`}
+            icon={MARK[status].icon}
+            onClick={() => h.onStatus({ id: i.invoiceId, status })}
+          />
+        )}
+        {h.downloads && !refuses.download ? (
           <Action
             label="Download"
             ariaLabel={`Download ${i.invoiceNumber}`}

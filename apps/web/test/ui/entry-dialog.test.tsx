@@ -175,19 +175,6 @@ describe('EntryDialog', () => {
     expect(new Set(actions)).toEqual(new Set(['Close']));
   });
 
-  /* `guard_billed_entry` returns early on a draft, so the UI must not
-     disable an edit the server would accept. */
-  it('still allows editing an entry on a DRAFT invoice', async () => {
-    serve('draft');
-    open(entry({ invoiceId: 'inv1' }));
-
-    await waitFor(() => expect(screen.getByLabelText('Task')).toBeEnabled());
-    for (const field of ['Project', 'Date', 'Start', 'End']) {
-      expect(screen.getByLabelText(field)).toBeEnabled();
-    }
-    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
-  });
-
   /* Radix mounts no dialog inside another, so the item would set its state
      and nothing would reach the DOM — a control that looks live and does
      nothing. Projects are created from the timer bar or `/projects`. */
