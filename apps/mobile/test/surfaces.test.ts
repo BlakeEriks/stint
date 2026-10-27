@@ -323,3 +323,65 @@ test('a refresh leaves the screen its whole Recent list', async () => {
   const names = queryClient.getQueryData(keys.taskNames({})) as unknown[];
   assert.equal(names.length, RECENT_FETCHED);
 });
+
+/** The app's cache as an open screen holds it: fetched `agoS` seconds ago. */
+function openScreen(s: ReturnType<typeof setup>, { agoS = 0, skewS = 0 } = {}) {
+  const fetchedAt = Date.now() - agoS * 1000;
+  const serverTime = new Date(fetchedAt + skewS * 1000);
+  const running = entry({
+    startedAt: new Date(serverTime.getTime() - 3_600_000).toISOString(),
+  });
+  s.queryClient.setQueryData(
+    keys.summary(TZ),
+    {
+      running,
+      todaySeconds: 3600,
+      weekSeconds: 3600,
+      serverTime: serverTime.toISOString(),
+    },
+    { updatedAt: fetchedAt },
+  );
+  return running;
+}
+const tick = () => new Promise((r) => setTimeout(r, 0));
+
+test('a surface Stop with the app open keeps Today where it stood', async () => {
+  const s = setup(entry());
+  openScreen(s, { agoS: 60 });
+  s.holdPresses();
+  const press = s.surfaces.press({ action: 'stop' });
+  await tick();
+  const predicted = s.queryClient.getQueryData<Summary>(keys.summary(TZ));
+  assert.equal(predicted?.running, null);
+  // The hour fetched, plus the minute counted since.
+  assert.ok(Math.abs((predicted?.todaySeconds ?? 0) - 3660) <= 2);
+  s.answer();
+  await press;
+});
+
+test("a surface press predicts in the server's clock", async () => {
+  const s = setup(entry());
+  openScreen(s, { skewS: 300 });
+  s.holdPresses();
+  const press = s.surfaces.press({ action: 'stop' });
+  await tick();
+  const predicted = s.queryClient.getQueryData<Summary>(keys.summary(TZ));
+  const ahead = Date.parse(predicted?.serverTime ?? '') - Date.now();
+  assert.ok(Math.abs(ahead - 300_000) < 2000);
+  s.answer();
+  await press;
+});
+
+test("a surface Stop finishes the running row in Today's list", async () => {
+  const s = setup(entry());
+  const running = openScreen(s);
+  const list = keys.entries({ from: '2000-01-01T00:00:00.000Z' });
+  s.queryClient.setQueryData(list, { entries: [running] });
+  s.holdPresses();
+  const press = s.surfaces.press({ action: 'stop' });
+  await tick();
+  const rows = s.queryClient.getQueryData<{ entries: TimeEntry[] }>(list);
+  assert.notEqual(rows?.entries[0]?.endedAt, null);
+  s.answer();
+  await press;
+});

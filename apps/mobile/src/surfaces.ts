@@ -1,13 +1,11 @@
 import {
   ApiError,
-  invalidateEntryData,
   keys,
   pressOnce,
+  readTimer,
   summaryQuery,
-  type Include,
-  type IncludedName,
+  timerPresses,
   type Summary,
-  type TimeEntry,
 } from '@stint/client';
 import { uuidv7 } from '@stint/core';
 import type { QueryClient } from '@tanstack/react-query';
@@ -70,6 +68,7 @@ interface Options {
     | 'clients'
     | 'startTimer'
     | 'stopTimer'
+    | 'updateRunning'
   >;
   timeZone: () => string;
   signedIn: () => Promise<boolean>;
@@ -204,49 +203,29 @@ export function createSurfaces({
     render();
   }
 
-  /** A press from a surface. Its prediction is already drawn natively. */
+  /**
+   * A press from a surface, through the app's own options (`timerPresses`),
+   * read from the cache as it stands now. Its prediction is already drawn
+   * natively.
+   */
   async function press(p: Press) {
     why = null;
     const tz = timeZone();
-    const include: Include = { names: ['summary', 'stats'], tz };
-    const lane = {
-      queryKey: () => keys.summary(tz),
-      include,
-      serial: 'timer',
-      movesHome: true,
-      invalidate: (
-        qc: QueryClient,
-        _vars: unknown,
-        settled: readonly IncludedName[],
-      ) => invalidateEntryData(qc, settled),
-    };
+    const key = keys.summary(tz);
+    const reading = readTimer(
+      queryClient.getQueryData<Summary>(key),
+      queryClient.getQueryState(key)?.dataUpdatedAt ?? Date.now(),
+    );
+    const presses = timerPresses(api, tz, queryClient, reading);
     try {
       if (p.action === 'stop') {
-        await pressOnce(
-          queryClient,
-          {
-            ...lane,
-            mutationFn: () => api.stopTimer(include),
-            predict: (current: Summary | undefined) => showing(current, null),
-          },
-          undefined,
-        );
+        await pressOnce(queryClient, presses.stop, undefined);
       } else {
-        const body = {
+        await pressOnce(queryClient, presses.start, {
           id: uuidv7(),
           taskName: p.taskName ?? '',
           projectId: p.projectId ?? null,
-        };
-        await pressOnce(
-          queryClient,
-          {
-            ...lane,
-            mutationFn: () => api.startTimer(body, include),
-            predict: (current: Summary | undefined) =>
-              showing(current, started(body)),
-          },
-          body,
-        );
+        });
       }
     } catch (err) {
       why = `${p.action === 'stop' ? 'Not stopped' : 'Not started'}: ${reason(err)}`;
@@ -317,28 +296,6 @@ export function pressedState(s: SurfaceState): SurfaceState | null {
     why: null,
     tile: title,
     shortcut: 'Stop',
-  };
-}
-
-/** A prediction: the timer as pressed; the answer brings Today's total. */
-function showing(current: Summary | undefined, running: TimeEntry | null) {
-  return (
-    current && { ...current, running, serverTime: new Date().toISOString() }
-  );
-}
-
-function started(body: Next & { id: string }): TimeEntry {
-  return {
-    id: body.id,
-    taskName: body.taskName,
-    projectId: body.projectId,
-    startedAt: new Date().toISOString(),
-    endedAt: null,
-    isBillable: true,
-    durationSeconds: null,
-    durationOk: false,
-    rateOverride: null,
-    invoiceId: null,
   };
 }
 
