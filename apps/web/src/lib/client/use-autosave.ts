@@ -12,11 +12,13 @@ export type SaveState = 'idle' | 'pending' | 'saved' | 'error';
  * field that looks saved. It stays pending through the debounce AND the
  * request, and only becomes `saved` once the server has acknowledged.
  *
+ * Each edit is a patch, merged into the edits not yet sent.
+ *
  * Saves are coalesced: edits during an in-flight request queue one more save
  * after it, rather than racing it. Without that, a fast typist can land an
  * older payload after a newer one.
  */
-export function useAutosave<T>(
+export function useAutosave<T extends object>(
   save: (value: T) => Promise<unknown>,
   { delay = 700 }: { delay?: number } = {},
 ) {
@@ -25,7 +27,10 @@ export function useAutosave<T>(
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlight = useRef(false);
-  const queued = useRef<T | null>(null);
+  // Every patch scheduled since the last request went out.
+  const unsent = useRef<T | null>(null);
+  // The pause ended while a request was open: send `unsent` when it returns.
+  const queued = useRef(false);
   const alive = useRef(true);
   // `save` is typically an inline closure; keeping it in a ref means a new
   // identity each render does not restart the debounce.
@@ -44,37 +49,45 @@ export function useAutosave<T>(
     };
   }, []);
 
-  const flush = useCallback(async (value: T) => {
+  const flush = useCallback(async () => {
     if (inFlight.current) {
-      queued.current = value;
+      queued.current = true;
       return;
     }
+    const value = unsent.current;
+    if (value === null) return;
+    unsent.current = null;
     inFlight.current = true;
     try {
       await saveRef.current(value);
       if (!alive.current) return;
       setError(null);
-      // A queued edit means this is not settled yet — stay pending.
-      if (queued.current === null) setState('saved');
+      // An unsent edit means this is not settled yet — stay pending.
+      if (unsent.current === null) setState('saved');
     } catch (e) {
       if (!alive.current) return;
       setError(e as Error);
       setState('error');
-      queued.current = null;
+      // Put the failed value back under newer edits, so the next save retries
+      // it. The cast: TS keeps the ref narrowed to null across the await.
+      unsent.current = { ...value, ...(unsent.current as T | null) };
+      queued.current = false;
     } finally {
       inFlight.current = false;
-      const next = queued.current;
-      queued.current = null;
-      if (next !== null && alive.current) void flush(next);
+      if (queued.current && alive.current) {
+        queued.current = false;
+        void flush();
+      }
     }
   }, []);
 
-  /** Call on every edit. Marks pending immediately, persists after `delay`. */
+  /** Call on every edit with the fields it changed. Marks pending immediately, persists after `delay`. */
   const schedule = useCallback(
-    (value: T) => {
+    (patch: T) => {
       setState('pending');
+      unsent.current = { ...unsent.current, ...patch } as T;
       if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => void flush(value), delay);
+      timer.current = setTimeout(() => void flush(), delay);
     },
     [delay, flush],
   );
