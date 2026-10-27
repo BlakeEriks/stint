@@ -20,7 +20,7 @@ import { projectLookup, recentTasks } from './screen-state.ts';
  * the same `QueryClient`, lane and 10s bound as a Stop in the app.
  */
 
-export interface Next {
+interface Next {
   taskName: string;
   projectId: string | null;
 }
