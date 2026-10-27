@@ -4,7 +4,7 @@ Every client (web and the macOS app) uses these endpoints, and an endpoint
 not built yet is marked `(not implemented)`. Auth is a Supabase JWT as
 `Authorization: Bearer <token>`, on every endpoint except `/health` and the
 Stripe webhook, which Stripe's signature authenticates instead. Request/response shapes are defined in
-`packages/schema/src/index.ts` — that file is the source of truth, and every
+`packages/schema/src/`, one file per resource — that is the source of truth, and every
 route parses its request against it; this document is the map.
 
 Handlers are covered by integration tests that run the real route code against

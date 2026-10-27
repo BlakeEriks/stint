@@ -83,7 +83,8 @@ It annotates the lines a PR adds, and `/copyedit <path>` fixes a doc. An
 alert is a candidate; it never decides.
 
 `scripts/doc-refs.mjs` fails `verify:static` when a foundational doc names a
-path, a `pnpm` script or a story title that does not exist.
+path, a `pnpm` script or a story title that does not exist, or when
+`docs/api.md`'s error table disagrees with `ERROR_STATUS` in the schema.
 
 **Verify the rendered page, not only the numbers.** Geometry checks here have
 passed while the page read as broken.

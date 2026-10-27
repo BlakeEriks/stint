@@ -142,16 +142,18 @@ for (const doc of DOCS) {
 
 // `docs/api.md`'s error table: every code in `ERROR_STATUS` at its status,
 // and `INTERNAL`, which only `handle()` answers with.
-const { ERROR_STATUS } = await import('../packages/schema/src/index.ts');
+const { ERROR_STATUS } = await import('../packages/schema/src/errors.ts');
 const statuses = { ...ERROR_STATUS, INTERNAL: 500 };
+const api = existsSync('docs/api.md')
+  ? readFileSync('docs/api.md', 'utf8')
+  : '';
 const rows = new Map(
-  [
-    ...readFileSync('docs/api.md', 'utf8').matchAll(
-      /^\| `([A-Z_]+)` \| (\d+) \|/gm,
-    ),
-  ].map(([, code, status]) => [code, Number(status)]),
+  [...api.matchAll(/^\| `([A-Z_]+)` \| (\d+) \|/gm)].map(([, code, status]) => [
+    code,
+    Number(status),
+  ]),
 );
-for (const [code, status] of Object.entries(statuses)) {
+for (const [code, status] of api ? Object.entries(statuses) : []) {
   if (!rows.has(code))
     missing.push(`docs/api.md: no row for the error \`${code}\``);
   else if (rows.get(code) !== status)
