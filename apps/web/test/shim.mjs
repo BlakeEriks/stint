@@ -32,7 +32,13 @@ export function makeDb(pool, userId) {
     } catch (e) {
       return {
         rows: [],
-        error: { code: e.code, message: e.message, hint: e.hint },
+        error: {
+          code: e.code,
+          message: e.message,
+          hint: e.hint,
+          // PostgREST's name for Postgres's DETAIL.
+          details: e.detail ?? null,
+        },
       };
     }
   };

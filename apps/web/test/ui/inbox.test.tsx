@@ -139,6 +139,7 @@ describe('Inbox', () => {
               amount: 780,
               currency: 'USD',
               ageDays: 13,
+              refuses: { download: false, send: false },
             },
           ],
           unprojected: [unprojectedEntry],

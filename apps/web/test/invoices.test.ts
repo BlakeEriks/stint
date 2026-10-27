@@ -78,6 +78,20 @@ const json = async (r: Response) => ({
   body: r.status === 204 ? null : await r.json(),
 });
 
+/** Marks an invoice sent, which is when a draft claims its work. */
+async function send(id: string) {
+  const { PATCH } = await import(
+    '../src/app/api/v1/invoices/[id]/status/route.ts'
+  );
+  const res = await json(
+    await PATCH(req('/s?tz=UTC', { status: 'sent' }, 'PATCH'), {
+      params: Promise.resolve({ id }),
+    }),
+  );
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  return res.body;
+}
+
 /** Seeds a completed, billable entry. */
 async function seedEntry(opts: {
   id: string;
@@ -457,12 +471,16 @@ test('a charge is billed alongside time, after it', async () => {
   );
   assert.equal(res.body.total, 349, '2h at 150 plus the charge');
 
-  // The time entry is still locked; the charge has no entry to lock.
+  const sent = await send(res.body.id);
+  assert.equal(sent.total, 349);
   const { rows } = await pool.query(
-    'select invoice_id from time_entries where id=$1',
-    [E(1)],
+    'select description from invoice_line_items where invoice_id=$1 order by sort_order',
+    [res.body.id],
   );
-  assert.equal(rows[0].invoice_id, res.body.id);
+  assert.deepEqual(
+    rows.map((r) => r.description),
+    ['Design', 'Stock photos'],
+  );
 });
 
 test('a charge cannot be blank or negative', async () => {
@@ -488,14 +506,23 @@ test('a charge cannot be blank or negative', async () => {
 });
 
 // ── payment terms ──────────────────────────────────────────────────
+// A draft is dated as if sent now, so each of these fixes the clock.
+const OCTOBER = { periodStart: '2026-10-01', periodEnd: '2026-10-31' };
+async function on<T>(day: string, f: () => Promise<T>): Promise<T> {
+  mock.timers.enable({ apis: ['Date'], now: new Date(`${day}T12:00:00Z`) });
+  try {
+    return await f();
+  } finally {
+    mock.timers.reset();
+  }
+}
+
 test('the due date is the issue date plus the client days, else the user days', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   await seedEntry({ id: E(1) });
   await seedEntry({ id: E(2), start: '2026-10-10T09:00:00Z' });
-  const issueDate = '2026-10-01';
-
-  const user = await json(
-    await create(req('/invoices', { clientId: CLIENT, ...PERIOD, issueDate })),
+  const user = await on('2026-10-01', async () =>
+    json(await create(req('/invoices', { clientId: CLIENT, ...PERIOD }))),
   );
   assert.equal(user.status, 201);
   assert.equal(user.body.dueDate, '2026-10-31');
@@ -504,15 +531,8 @@ test('the due date is the issue date plus the client days, else the user days', 
   await pool.query('update clients set payment_terms_days=15 where id=$1', [
     CLIENT,
   ]);
-  const own = await json(
-    await create(
-      req('/invoices', {
-        clientId: CLIENT,
-        periodStart: '2026-10-01',
-        periodEnd: '2026-10-31',
-        issueDate: '2026-11-01',
-      }),
-    ),
+  const own = await on('2026-11-01', async () =>
+    json(await create(req('/invoices', { clientId: CLIENT, ...OCTOBER }))),
   );
   assert.equal(own.status, 201);
   assert.equal(own.body.dueDate, '2026-11-16');
@@ -524,28 +544,22 @@ test('a due date picked by hand prints its own days, and 0 is due on receipt', a
   await seedEntry({ id: E(1) });
   await seedEntry({ id: E(2), start: '2026-10-10T09:00:00Z' });
 
-  const picked = await json(
-    await create(
-      req('/invoices', {
-        clientId: CLIENT,
-        ...PERIOD,
-        issueDate: '2026-10-01',
-        dueDate: '2026-10-21',
-      }),
+  const picked = await on('2026-10-01', async () =>
+    json(
+      await create(
+        req('/invoices', {
+          clientId: CLIENT,
+          ...PERIOD,
+          dueDate: '2026-10-21',
+        }),
+      ),
     ),
   );
   assert.equal(picked.body.paymentTerms, 'Net 20');
 
   await pool.query('update user_settings set payment_terms_days=0');
-  const receipt = await json(
-    await create(
-      req('/invoices', {
-        clientId: CLIENT,
-        periodStart: '2026-10-01',
-        periodEnd: '2026-10-31',
-        issueDate: '2026-11-01',
-      }),
-    ),
+  const receipt = await on('2026-11-01', async () =>
+    json(await create(req('/invoices', { clientId: CLIENT, ...OCTOBER }))),
   );
   assert.equal(receipt.body.dueDate, '2026-11-01');
   assert.equal(receipt.body.paymentTerms, 'Due on receipt');
@@ -555,14 +569,15 @@ test('a due date before the issue date is refused', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   await seedEntry({ id: E(1) });
 
-  const res = await json(
-    await create(
-      req('/invoices', {
-        clientId: CLIENT,
-        ...PERIOD,
-        issueDate: '2026-10-01',
-        dueDate: '2026-09-30',
-      }),
+  const res = await on('2026-10-01', async () =>
+    json(
+      await create(
+        req('/invoices', {
+          clientId: CLIENT,
+          ...PERIOD,
+          dueDate: '2026-09-30',
+        }),
+      ),
     ),
   );
   assert.equal(res.status, 422);
@@ -579,19 +594,15 @@ test('a draft keeps its terms when the user days change', async () => {
   );
   await seedEntry({ id: E(1) });
   const made = await json(
-    await create(
-      req('/invoices', {
-        clientId: CLIENT,
-        ...PERIOD,
-        issueDate: '2026-10-01',
-      }),
-    ),
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
   );
   await pool.query('update user_settings set payment_terms_days=45');
-  const again = await json(
-    await read(req(`/invoices/${made.body.id}`), {
-      params: Promise.resolve({ id: made.body.id }),
-    }),
+  const again = await on('2026-10-01', async () =>
+    json(
+      await read(req(`/invoices/${made.body.id}`), {
+        params: Promise.resolve({ id: made.body.id }),
+      }),
+    ),
   );
   assert.equal(again.body.dueDate, '2026-10-31');
   assert.equal(again.body.paymentTerms, 'Net 30');
@@ -625,7 +636,7 @@ test('old free-text terms read as days by the rule they always had', async () =>
   }
 });
 
-test('generating allocates a number, freezes line items and locks entries', async () => {
+test('generating allocates a number and claims nothing; sending freezes the lines and claims the entries', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   await seedEntry({ id: E(1), task: 'Design', hours: 2 });
 
@@ -638,22 +649,30 @@ test('generating allocates a number, freezes line items and locks entries', asyn
   assert.equal(res.body.total, 300);
   assert.equal(res.body.paymentTerms, 'Net 30', 'inherited from settings');
 
-  const { rows: items } = await pool.query(
-    'select description, unit, quantity, unit_price, amount from invoice_line_items where invoice_id=$1',
-    [res.body.id],
-  );
-  assert.equal(items.length, 1);
+  const items = async () =>
+    (
+      await pool.query(
+        'select description, unit, quantity, unit_price, amount from invoice_line_items where invoice_id=$1',
+        [res.body.id],
+      )
+    ).rows;
+  const claimed = async () =>
+    (
+      await pool.query('select invoice_id from time_entries where id=$1', [
+        E(1),
+      ])
+    ).rows[0].invoice_id;
+  assert.deepEqual(await items(), [], 'a draft stores no time line');
+  assert.equal(await claimed(), null, 'a draft claims no entry');
+
+  await send(res.body.id);
+  const [line] = await items();
   assert.equal(
-    Number(items[0].unit_price),
+    Number(line.unit_price),
     150,
     'the rate is frozen onto the line',
   );
-
-  const { rows: entries } = await pool.query(
-    'select invoice_id from time_entries where id=$1',
-    [E(1)],
-  );
-  assert.equal(entries[0].invoice_id, res.body.id, 'the entry is attached');
+  assert.equal(await claimed(), res.body.id, 'sending claims the entry');
 });
 
 test('a generated invoice is immune to a later client rate change', async () => {
@@ -664,6 +683,7 @@ test('a generated invoice is immune to a later client rate change', async () => 
     await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
   );
   assert.equal(res.body.total, 300);
+  await send(res.body.id);
 
   await pool.query('update clients set hourly_rate=500 where id=$1', [CLIENT]);
 
@@ -1293,7 +1313,7 @@ test('of two overlapping status changes, the later is refused as stale', async (
 });
 
 // ── deletion ───────────────────────────────────────────────────────
-test('a draft can be deleted and releases its entries', async () => {
+test('a draft can be deleted, and its work stays unbilled', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   const { DELETE: del } = await import(
     '../src/app/api/v1/invoices/[id]/route.ts'
@@ -2378,7 +2398,7 @@ test('the preview takes every unbilled expense up to the period end, less the ex
   assert.equal(res.body.total, 549);
 });
 
-test('generation freezes expense lines, attaches only what it billed, and needs no time', async () => {
+test('sending freezes expense lines, claims only what it billed, and needs no time', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   const { GET: getInvoice } = await import(
     '../src/app/api/v1/invoices/[id]/route.ts'
@@ -2408,6 +2428,7 @@ test('generation freezes expense lines, attaches only what it billed, and needs 
   assert.equal(made.body.expensesSubtotal, 200);
   assert.equal(made.body.subtotal, 0);
   assert.equal(made.body.total, 200);
+  await send(made.body.id);
 
   const { rows: lines } = await pool.query(
     `select unit, quantity::float q, amount::float a, spent_on
@@ -2433,82 +2454,33 @@ test('generation freezes expense lines, attaches only what it billed, and needs 
   assert.equal(read.body.lineItems[0].spentOn, '2026-09-05');
 });
 
-test('an expense another invoice took rolls generation back, number included', async () => {
-  await seedExpense({ id: X(1) });
-  await pool.query(
-    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no)
-     values ('ff000000-0000-4000-8000-000000000009',$1,$2,'INV-0900',900)`,
-    [USER, CLIENT],
+/** A draft for PERIOD, through the route. */
+async function makeDraft() {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const made = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
   );
-  // The race, frozen at its worst moment: loaded as unbilled, claimed since.
-  await pool.query(
-    `update expenses set invoice_id='ff000000-0000-4000-8000-000000000009'`,
-  );
+  assert.equal(made.status, 201, JSON.stringify(made.body));
+  return made.body.id as string;
+}
 
+/** `send_draft` as Mark sent calls it, billing `entries` and `expenses`. */
+function sendDraftRpc(
+  id: string,
+  ids: { entries?: string[]; expenses?: string[] },
+) {
   const db = (globalThis as any).__TEST_DB__;
-  const { error } = await db.rpc('create_invoice', {
-    p_user_id: USER,
+  return db.rpc('send_draft', {
+    p_invoice_id: id,
     p_invoice: {
-      client_id: CLIENT,
-      issue_date: '2026-09-30',
-      subtotal: 0,
-      tax_rate: 0,
-      tax_amount: 0,
-      expenses_subtotal: 199,
-      total: 199,
-      currency: 'USD',
-      grouping_mode: 'entry',
-      payment_details: null,
-      lines: [
-        {
-          description: 'JetBrains license',
-          unit: 'expense',
-          quantity: 1,
-          unit_price: 199,
-          amount: 199,
-          spent_on: '2026-09-12',
-        },
-      ],
-    },
-    p_entry_ids: [],
-    p_expense_ids: [X(1)],
-  });
-
-  const { dbCode } = await import('../src/lib/errors.ts');
-  assert.equal(
-    dbCode(error),
-    'EXPENSE_ALREADY_INVOICED',
-    'the route maps this to 409',
-  );
-  const { rows: seq } = await pool.query(
-    'select next_invoice_number n from user_settings where user_id=$1',
-    [USER],
-  );
-  assert.equal(seq[0].n, 1, 'no number was used, so the sequence has no gap');
-  const { rows } = await pool.query(
-    `select count(*)::int n from invoices where invoice_number <> 'INV-0900'`,
-  );
-  assert.equal(rows[0].n, 0, 'nothing from the losing call remains');
-});
-
-/** `create_invoice` as a POST calls it, billing two hours of E(1). */
-function billTwoHours() {
-  const db = (globalThis as any).__TEST_DB__;
-  return db.rpc('create_invoice', {
-    p_user_id: USER,
-    p_invoice: {
-      client_id: CLIENT,
-      issue_date: '2026-09-30',
-      period_start: PERIOD.periodStart,
-      period_end: PERIOD.periodEnd,
       subtotal: 200,
       tax_rate: 0,
       tax_amount: 0,
       expenses_subtotal: 0,
       total: 200,
-      currency: 'USD',
-      grouping_mode: 'entry',
-      payment_details: null,
+      issue_date: '2026-10-01',
+      due_date: '2026-10-31',
+      tz: 'UTC',
       lines: [
         {
           description: 'Work',
@@ -2519,74 +2491,84 @@ function billTwoHours() {
         },
       ],
     },
-    p_entry_ids: [E(1)],
-    p_expense_ids: [],
+    p_entry_ids: ids.entries ?? [],
+    p_expense_ids: ids.expenses ?? [],
+    p_sent_at: '2026-10-01T12:00:00Z',
   });
 }
 
-test('an entry another invoice took rolls generation back, number included (#193)', async () => {
-  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
-  await seedEntry({ id: E(1), hours: 2 });
-  const first = await json(
-    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+/** Moves a row onto another invoice, already sent. */
+async function claimElsewhere(table: 'time_entries' | 'expenses', id: string) {
+  const other = 'ff000000-0000-4000-8000-000000000009';
+  await pool.query(
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status,period_start,period_end)
+     values ($1,$2,$3,'INV-0900',900,'sent','2026-01-01','2026-01-31')
+     on conflict do nothing`,
+    [other, USER, CLIENT],
   );
-  assert.equal(first.status, 201);
+  await pool.query(`update ${table} set invoice_id = $1 where id = $2`, [
+    other,
+    id,
+  ]);
+}
 
-  // What a second, concurrent POST sends after loading the same unbilled
-  // entry a moment before the first one attached it.
-  const { error } = await billTwoHours();
+/** The draft is as it was: unsent, with no line written. */
+async function untouched(id: string) {
+  const { rows } = await pool.query(
+    `select status, (select count(*)::int from invoice_line_items where invoice_id = $1) n
+       from invoices where id = $1`,
+    [id],
+  );
+  assert.deepEqual(rows, [{ status: 'draft', n: 0 }]);
+}
+
+test('an expense another invoice took rolls the send back', async () => {
+  await seedExpense({ id: X(1) });
+  const draft = await makeDraft();
+  // The race, frozen at its worst moment: computed as unbilled, claimed since.
+  await claimElsewhere('expenses', X(1));
+
+  const { error } = await sendDraftRpc(draft, { expenses: [X(1)] });
 
   const { dbCode } = await import('../src/lib/errors.ts');
-  assert.equal(
-    dbCode(error),
-    'ENTRY_ALREADY_INVOICED',
-    'the route maps this to 409',
-  );
-  const { rows: seq } = await pool.query(
-    'select next_invoice_number n from user_settings where user_id=$1',
-    [USER],
-  );
-  assert.equal(seq[0].n, 2, 'the losing call used no number');
-  const { rows } = await pool.query('select count(*)::int n from invoices');
-  assert.equal(rows[0].n, 1, 'only one invoice holds this work');
+  assert.equal(dbCode(error), 'EXPENSE_ALREADY_INVOICED');
+  await untouched(draft);
 });
 
-test('an entry deleted since it was loaded rolls generation back too', async () => {
+test('an entry another invoice took rolls the send back', async () => {
   await seedEntry({ id: E(1), hours: 2 });
-  await pool.query('delete from time_entries where id=$1', [E(1)]);
+  const draft = await makeDraft();
+  await claimElsewhere('time_entries', E(1));
 
-  const { error } = await billTwoHours();
+  const { error } = await sendDraftRpc(draft, { entries: [E(1)] });
 
   const { dbCode } = await import('../src/lib/errors.ts');
-  assert.equal(
-    dbCode(error),
-    'ENTRY_ALREADY_INVOICED',
-    'the route maps this to 409',
-  );
-  const { rows } = await pool.query('select count(*)::int n from invoices');
-  assert.equal(rows[0].n, 0, 'no invoice bills hours no entry holds');
+  assert.equal(dbCode(error), 'ENTRY_ALREADY_INVOICED');
+  await untouched(draft);
+});
+
+test('an entry deleted since it was computed rolls the send back too', async () => {
+  await seedEntry({ id: E(1), hours: 2 });
+  const draft = await makeDraft();
+  await pool.query('delete from time_entries where id=$1', [E(1)]);
+
+  const { error } = await sendDraftRpc(draft, { entries: [E(1)] });
+
+  const { dbCode } = await import('../src/lib/errors.ts');
+  assert.equal(dbCode(error), 'ENTRY_ALREADY_INVOICED');
+  await untouched(draft);
 });
 
 // ── refusals the database names ──────────────────────────────────
 
-test('refreshing a draft that was sent meanwhile is INVOICE_STATUS_CHANGED', async () => {
-  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+test('sending a draft that was sent meanwhile is INVOICE_STATUS_CHANGED', async () => {
   await seedEntry({ id: E(1) });
-  const inv = await json(
-    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
-  );
+  const draft = await makeDraft();
   await pool.query(`update invoices set status = 'sent' where id = $1`, [
-    inv.body.id,
+    draft,
   ]);
 
-  const db = (globalThis as any).__TEST_DB__;
-  const { error } = await db.rpc('refresh_draft', {
-    p_invoice_id: inv.body.id,
-    p_invoice: { lines: [] },
-    p_entry_ids: [],
-    p_expense_ids: [],
-    p_sent_at: null,
-  });
+  const { error } = await sendDraftRpc(draft, {});
   const { dbCode } = await import('../src/lib/errors.ts');
   assert.equal(dbCode(error), 'INVOICE_STATUS_CHANGED');
 });
@@ -2643,20 +2625,20 @@ test('an expense on an issued invoice is locked; on a draft it is not', async ()
     await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
   );
 
-  // A draft: the expense stays editable, and the draft keeps its frozen line.
+  // A draft: the expense stays editable, and the draft shows the edit.
   const draftEdit = await json(
     await PATCH(req('/e', { amount: 210 }, 'PATCH'), expenseCtx(X(1))),
   );
   assert.equal(draftEdit.status, 200);
-  const { rows: draftLine } = await pool.query(
-    'select amount::float a from invoice_line_items where invoice_id=$1',
-    [inv.body.id],
+  const { GET: detail } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
   );
-  assert.equal(
-    draftLine[0].a,
-    199,
-    'the draft shows what it was generated with',
+  const shown = await json(
+    await detail(req('/invoices/x?tz=UTC'), {
+      params: Promise.resolve({ id: inv.body.id }),
+    }),
   );
+  assert.equal(shown.body.expensesSubtotal, 210);
 
   await setStatus(req('/s', { status: 'sent' }, 'PATCH'), {
     params: Promise.resolve({ id: inv.body.id }),
@@ -2714,7 +2696,7 @@ test('voiding releases expenses and keeps the voided lines as sent', async () =>
   assert.equal(rows[0].a, 199, 'the voided record keeps what was sent');
 });
 
-test('deleting a draft releases its expenses', async () => {
+test('deleting a draft leaves its expenses unbilled', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   const { DELETE: remove } = await import(
     '../src/app/api/v1/invoices/[id]/route.ts'
@@ -3150,9 +3132,10 @@ test('an invoice generated while free locks again when the paid plan ends', asyn
 });
 
 // ── live drafts ───────────────────────────────────────────────────
-/* A draft keeps collecting its period's work until it is marked sent; every
-   read refreshes it. What freezes is what the PDF last showed, and work
-   dated in a period already sent is surfaced, never billed silently. */
+/* A draft is the user's choices; its lines are derived on every read, which
+   writes nothing, and it claims its work only when sent. What it sends is
+   what the PDF last showed, and work dated in a period already sent is
+   surfaced, never billed silently. */
 
 const live = async () => ({
   create: (await import('../src/app/api/v1/invoices/route.ts')).POST,
@@ -3165,6 +3148,18 @@ const live = async () => ({
 const at = (id: string) => ({ params: Promise.resolve({ id }) });
 const D = (n: number) =>
   `018f0000-0000-7000-8000-0000000d${String(n).padStart(4, '0')}`;
+
+/** Every row a draft could write, and when each last changed. */
+async function footprint() {
+  const { rows } = await pool.query(
+    `select
+       (select json_agg(json_build_object('id', id, 'invoice', invoice_id, 'at', updated_at) order by id) from time_entries) entries,
+       (select json_agg(json_build_object('id', id, 'invoice', invoice_id, 'at', updated_at) order by id) from expenses) expenses,
+       (select json_agg(json_build_object('id', id, 'at', updated_at, 'total', total) order by id) from invoices) invoices,
+       (select count(*)::int from invoice_line_items) lines`,
+  );
+  return rows[0];
+}
 
 test('a draft picks up work logged in its period after it was made', async () => {
   const r = await live();
@@ -3181,19 +3176,46 @@ test('a draft picks up work logged in its period after it was made', async () =>
     await r.detail(req(`/invoices/x?tz=UTC`), at(inv.body.id)),
   );
   assert.equal(got.status, 200);
-  assert.equal(got.body.total, 450);
+  assert.equal(got.body.total, 450, 'the entry after the period is not its');
   assert.equal(got.body.changedSinceDownload, null, 'never rendered');
   const listed = await json(await r.list(req('/invoices?tz=UTC')));
   assert.equal(listed.body.invoices[0].total, 450);
+});
 
-  const { rows } = await pool.query(
-    'select id, invoice_id from time_entries order by id',
+test('reading a draft writes nothing', async () => {
+  const r = await live();
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const { GET: exported } = await import(
+    '../src/app/api/v1/exports/invoices/route.ts'
   );
-  assert.deepEqual(
-    rows.map((x) => x.invoice_id),
-    [inv.body.id, inv.body.id, null],
-    'the entry after the period stays unbilled',
+  await seedEntry({ id: D(1), hours: 2 });
+  await seedExpense({ id: D(10), amount: 40 });
+  const inv = await json(
+    await r.create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...PERIOD,
+        manualLines: [{ description: 'Setup', amount: 200 }],
+      }),
+    ),
   );
+  await seedEntry({ id: D(2), start: '2026-09-12T09:00:00Z', hours: 1 });
+  const before = await footprint();
+  assert.equal(before.lines, 1, 'a draft stores only its charges');
+  assert.ok(
+    before.entries.every((e: { invoice: string | null }) => !e.invoice) &&
+      before.expenses.every((e: { invoice: string | null }) => !e.invoice),
+    'and claims nothing',
+  );
+
+  for (const res of [
+    await r.list(req('/invoices?tz=UTC')),
+    await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
+    await stats(req('/stats?tz=UTC')),
+    await exported(req('/exports/invoices?tz=UTC')),
+  ])
+    assert.equal(res.status, 200);
+  assert.deepEqual(await footprint(), before);
 });
 
 test("a draft follows its entries' edits, deletes and billable changes", async () => {
@@ -3220,11 +3242,6 @@ test("a draft follows its entries' edits, deletes and billable changes", async (
     await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
   );
   assert.equal(got.body.total, 450);
-  const { rows } = await pool.query(
-    'select invoice_id from time_entries where id = $1',
-    [D(2)],
-  );
-  assert.equal(rows[0].invoice_id, null, 'a non-billable entry is released');
 });
 
 test('a draft takes expenses added later, never one left off', async () => {
@@ -3255,7 +3272,7 @@ test('a draft takes expenses added later, never one left off', async () => {
   assert.equal(got.body.total, 175);
 });
 
-test('choices made on New invoice survive every refresh', async () => {
+test('choices made on New invoice hold on every read', async () => {
   const r = await live();
   await seedEntry({ id: D(1), hours: 2 });
   const inv = await json(
@@ -3296,14 +3313,19 @@ test('choices made on New invoice survive every refresh', async () => {
   assert.equal(got.body.total, 650);
 });
 
-test('marking a draft sent freezes what it holds then', async () => {
+test('marking a draft sent claims exactly what its last read showed, and freezes it', async () => {
   const r = await live();
   await seedEntry({ id: D(1), hours: 2 });
+  await seedEntry({ id: D(3), start: '2026-10-02T09:00:00Z', hours: 1 });
+  await seedExpense({ id: D(10), amount: 40 });
   const inv = await json(
     await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
   );
   await seedEntry({ id: D(2), start: '2026-09-12T09:00:00Z', hours: 1 });
 
+  const read = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
+  );
   const sent = await json(
     await r.setStatus(
       req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
@@ -3312,18 +3334,227 @@ test('marking a draft sent freezes what it holds then', async () => {
   );
   assert.equal(sent.status, 200, JSON.stringify(sent.body));
   assert.equal(sent.body.status, 'sent');
-  assert.equal(sent.body.total, 450, 'sent with the work logged before it');
+  assert.equal(sent.body.total, read.body.total);
 
-  await seedEntry({ id: D(3), start: '2026-09-13T09:00:00Z', hours: 1 });
-  const got = await json(
+  const { rows: claimed } = await pool.query(
+    `select id from time_entries where invoice_id = $1
+     union all select id from expenses where invoice_id = $1 order by id`,
+    [inv.body.id],
+  );
+  assert.deepEqual(
+    claimed.map((x) => x.id),
+    [D(1), D(2), D(10)].sort(),
+    'the period’s entries and its expense, not the entry after it',
+  );
+
+  await seedEntry({ id: D(4), start: '2026-09-13T09:00:00Z', hours: 1 });
+  const frozen = await json(
     await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
   );
-  assert.equal(got.body.total, 450);
-  const { rows } = await pool.query(
-    'select invoice_id from time_entries where id = $1',
-    [D(3)],
+  assert.deepEqual(
+    frozen.body.lineItems.map(({ isNew: _, ...l }: { isNew: boolean }) => l),
+    read.body.lineItems.map(({ isNew: _, ...l }: { isNew: boolean }) => l),
   );
-  assert.equal(rows[0].invoice_id, null);
+  assert.equal(frozen.body.total, read.body.total);
+});
+
+test('sending dates the invoice: issued that day where it was sent, due by its terms', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const termed = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  const sent = await json(
+    await r.setStatus(
+      req('/s', { status: 'sent', sentAt: '2026-11-01T02:00:00Z' }, 'PATCH'),
+      at(termed.body.id),
+    ),
+  );
+  assert.equal(sent.status, 200, JSON.stringify(sent.body));
+  assert.equal(sent.body.issueDate, '2026-11-01');
+  assert.equal(sent.body.dueDate, '2026-12-01', 'Net 30 from the send');
+
+  await seedEntry({ id: D(2), start: '2026-10-10T09:00:00Z', hours: 1 });
+  const typed = await json(
+    await r.create(
+      req('/invoices', {
+        clientId: CLIENT,
+        periodStart: '2026-10-01',
+        periodEnd: '2026-10-31',
+        tz: 'America/Los_Angeles',
+        dueDate: '2026-11-15',
+      }),
+    ),
+  );
+  const late = await json(
+    await r.setStatus(
+      req('/s', { status: 'sent', sentAt: '2026-11-01T02:00:00Z' }, 'PATCH'),
+      at(typed.body.id),
+    ),
+  );
+  assert.equal(late.body.issueDate, '2026-10-31', 'the evening before, in LA');
+  assert.equal(late.body.dueDate, '2026-11-15', 'the date the user typed');
+});
+
+test('a typed due date the issue date has passed is refused, not printed', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await on('2026-10-01', async () =>
+    json(
+      await r.create(
+        req('/invoices', {
+          clientId: CLIENT,
+          ...PERIOD,
+          dueDate: '2026-10-05',
+        }),
+      ),
+    ),
+  );
+  assert.equal(inv.status, 201, JSON.stringify(inv.body));
+
+  const shown = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
+  );
+  assert.deepEqual(
+    shown.body.dueBeforeIssue,
+    { download: true, send: true },
+    'the client is told first',
+  );
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const [stale] = (await json(await stats(req('/stats?tz=UTC')))).body.attention
+    .staleDrafts;
+  assert.deepEqual(
+    stale.refuses,
+    { download: true, send: true },
+    'its Inbox row offers neither',
+  );
+
+  const pdf = await json(
+    await r.pdf(req('/pdf?tz=UTC&download=1'), at(inv.body.id)),
+  );
+  assert.equal(pdf.status, 422);
+  assert.equal(pdf.body.details.field, 'dueDate');
+
+  const sent = await json(
+    await r.setStatus(
+      req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
+      at(inv.body.id),
+    ),
+  );
+  assert.equal(sent.status, 422);
+  assert.equal(sent.body.details.field, 'dueDate');
+  const { rows } = await pool.query('select status from invoices');
+  assert.equal(rows[0].status, 'draft');
+});
+
+test('a PDF downloaded before its typed due date still sends after it', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await on('2026-10-01', async () =>
+    json(
+      await r.create(
+        req('/invoices', {
+          clientId: CLIENT,
+          ...PERIOD,
+          dueDate: '2026-10-05',
+        }),
+      ),
+    ),
+  );
+  const pdf = await on('2026-10-02', () =>
+    r.pdf(req('/pdf?tz=UTC&download=1'), at(inv.body.id)),
+  );
+  assert.equal(pdf.status, 200);
+
+  const shown = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
+  );
+  assert.deepEqual(
+    shown.body.dueBeforeIssue,
+    { download: true, send: false },
+    'the client holds a PDF due after it was issued',
+  );
+  assert.deepEqual(shown.body.refuses, { download: true, send: false });
+  const sent = await json(
+    await r.setStatus(
+      req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
+      at(inv.body.id),
+    ),
+  );
+  assert.equal(sent.status, 200, JSON.stringify(sent.body));
+  assert.equal(sent.body.issueDate, '2026-10-02');
+  assert.equal(sent.body.dueDate, '2026-10-05');
+});
+
+test('a PDF downloaded before its typed due date that has since changed is refused both', async () => {
+  const r = await live();
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await on('2026-10-01', async () =>
+    json(
+      await r.create(
+        req('/invoices', {
+          clientId: CLIENT,
+          ...PERIOD,
+          dueDate: '2026-10-05',
+        }),
+      ),
+    ),
+  );
+  await on('2026-10-02', () =>
+    r.pdf(req('/pdf?tz=UTC&download=1'), at(inv.body.id)),
+  );
+  await seedEntry({ id: D(2), start: '2026-09-12T09:00:00Z', hours: 1 });
+
+  const shown = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
+  );
+  assert.deepEqual(shown.body.refuses, { download: true, send: true });
+  const [stale] = (await json(await stats(req('/stats?tz=UTC')))).body.attention
+    .staleDrafts;
+  assert.deepEqual(stale.refuses, { download: true, send: true });
+});
+
+test('sending keeps the dates the downloaded PDF printed', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  const shown = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
+  );
+  await r.pdf(req('/pdf?tz=UTC&download=1'), at(inv.body.id));
+
+  const later = new Date(Date.now() + 3 * 86_400_000).toISOString();
+  const sent = await json(
+    await r.setStatus(
+      req('/s', { status: 'sent', sentAt: later }, 'PATCH'),
+      at(inv.body.id),
+    ),
+  );
+  assert.equal(sent.status, 200, JSON.stringify(sent.body));
+  assert.equal(sent.body.issueDate, shown.body.issueDate, 'as the PDF says');
+  assert.equal(sent.body.dueDate, shown.body.dueDate);
+});
+
+test('Mark sent refuses a draft with nothing on it', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await pool.query('delete from time_entries');
+
+  const refused = await json(
+    await r.setStatus(
+      req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
+      at(inv.body.id),
+    ),
+  );
+  assert.equal(refused.status, 422);
+  assert.equal(refused.body.code, 'VALIDATION_FAILED');
+  await untouched(inv.body.id);
 });
 
 test('a draft changed since its PDF was rendered refuses to be marked sent', async () => {
@@ -3404,6 +3635,38 @@ test('a second draft over an open draft’s dates is refused; a sent one’s is 
   assert.equal(made.status, 201, JSON.stringify(made.body));
 });
 
+test('of two concurrent Generates over the same dates, one makes a draft', async () => {
+  const db = (globalThis as any).__TEST_DB__;
+  const generate = () =>
+    db.rpc('create_invoice', {
+      p_user_id: USER,
+      p_invoice: {
+        client_id: CLIENT,
+        period_start: PERIOD.periodStart,
+        period_end: PERIOD.periodEnd,
+        currency: 'USD',
+        grouping_mode: 'entry',
+        tz: 'UTC',
+        manual_lines: [],
+      },
+    });
+  const results = await Promise.all([generate(), generate()]);
+
+  const { dbCode } = await import('../src/lib/errors.ts');
+  assert.deepEqual(
+    results
+      .map((x: { error: unknown }) =>
+        x.error ? dbCode(x.error as never) : 'made',
+      )
+      .sort(),
+    ['DRAFT_OVERLAPS', 'made'],
+  );
+  const { rows } = await pool.query(
+    'select count(*)::int n, max(sequence_no) s from invoices',
+  );
+  assert.deepEqual(rows[0], { n: 1, s: 1 }, 'the losing call used no number');
+});
+
 test('unbilled work dated in a sent period is late; billed, unbillable or voided is not', async () => {
   const r = await live();
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
@@ -3449,7 +3712,28 @@ test('unbilled work dated in a sent period is late; billed, unbillable or voided
   assert.deepEqual(await late(), []);
 });
 
-test('an unrated entry leaves a draft as last refreshed, and refuses Mark sent', async () => {
+test('a draft is stale by its period end, at the total its work comes to now', async () => {
+  const r = await live();
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await seedEntry({ id: D(2), start: '2026-09-12T09:00:00Z', hours: 1 });
+  // Generated today, for a period that ended long ago.
+  const stale = (await json(await stats(req('/stats?tz=UTC')))).body.attention
+    .staleDrafts;
+  assert.deepEqual(
+    stale.map((d: { invoiceId: string; amount: number }) => [
+      d.invoiceId,
+      d.amount,
+    ]),
+    [[inv.body.id, 450]],
+  );
+  assert.deepEqual(stale[0].refuses, { download: false, send: false });
+});
+
+test('an unrated entry shows on the draft by name; its PDF and Mark sent refuse', async () => {
   const r = await live();
   await seedEntry({ id: D(1), hours: 2 });
   const inv = await json(
@@ -3457,49 +3741,71 @@ test('an unrated entry leaves a draft as last refreshed, and refuses Mark sent',
   );
   await pool.query('update clients set hourly_rate = null');
   await pool.query('update user_settings set default_hourly_rate = null');
-  await seedEntry({ id: D(2), start: '2026-09-12T09:00:00Z', hours: 1 });
 
   const got = await json(
     await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
   );
   assert.equal(got.status, 200);
-  assert.equal(got.body.total, 300, 'as last refreshed');
+  assert.deepEqual(
+    got.body.unratedEntries.map(
+      (e: { id: string; taskName: string; startedAt: string }) => [
+        e.id,
+        e.taskName,
+        Date.parse(e.startedAt),
+      ],
+    ),
+    [[D(1), 'Work', Date.parse('2026-09-10T09:00:00Z')]],
+  );
+  assert.equal(got.body.total, 0, 'never the total it was generated with');
 
-  const refused = await json(
+  for (const res of [
+    await r.pdf(req('/pdf?tz=UTC'), at(inv.body.id)),
     await r.setStatus(
       req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
       at(inv.body.id),
     ),
-  );
-  assert.equal(refused.status, 400);
-  assert.equal(refused.body.code, 'NO_RATE_CONFIGURED');
+  ]) {
+    const body = await json(res);
+    assert.equal(body.status, 400);
+    assert.equal(body.body.code, 'NO_RATE_CONFIGURED');
+  }
+  await untouched(inv.body.id);
   const { rows } = await pool.query(
-    'select status from invoices where id = $1',
+    'select downloaded_snapshot from invoices where id = $1',
     [inv.body.id],
   );
-  assert.equal(rows[0].status, 'draft');
+  assert.equal(rows[0].downloaded_snapshot, null, 'no render was recorded');
 });
 
-test('a draft with no zone is sent as it stands', async () => {
+test('a draft with no zone is sent only with one, and keeps it', async () => {
   const r = await live();
   await seedEntry({ id: D(1), hours: 2 });
   const inv = await json(
     await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
   );
   await pool.query('update invoices set tz = null');
-  await seedEntry({ id: D(2), start: '2026-09-12T09:00:00Z', hours: 1 });
 
-  const sent = await json(
+  const refused = await json(
     await r.setStatus(req('/s', { status: 'sent' }, 'PATCH'), at(inv.body.id)),
   );
+  assert.equal(refused.status, 422);
+  assert.equal(refused.body.code, 'VALIDATION_FAILED');
+  await untouched(inv.body.id);
+
+  const sent = await json(
+    await r.setStatus(
+      req('/s?tz=America/New_York', { status: 'sent' }, 'PATCH'),
+      at(inv.body.id),
+    ),
+  );
   assert.equal(sent.status, 200, JSON.stringify(sent.body));
-  assert.equal(sent.body.status, 'sent');
-  assert.equal(sent.body.total, 300);
+  const { rows } = await pool.query('select tz from invoices');
+  assert.deepEqual(rows, [{ tz: 'America/New_York' }]);
 });
 
-/* A draft with no zone keeps the first one a read gives it, so a typo
-   coerced to UTC would bill the wrong work from then on. */
-test('an invalid timezone is rejected on every route that refreshes a draft', async () => {
+/* The zone decides which entries a draft bills, so a typo coerced to UTC
+   would show and send the wrong work. */
+test('an invalid timezone is rejected on every route that derives a draft', async () => {
   const r = await live();
   await seedEntry({ id: D(1), hours: 2 });
   const inv = await json(
@@ -3525,7 +3831,7 @@ test('an invalid timezone is rejected on every route that refreshes a draft', as
   assert.deepEqual(rows, [{ tz: null, status: 'draft' }]);
 });
 
-test("a client's one-off expense goes to its earliest open draft", async () => {
+test("a client's one-off expense shows on its earliest open draft only", async () => {
   const r = await live();
   await seedEntry({ id: D(1), start: '2026-08-10T09:00:00Z', hours: 1 });
   await seedEntry({ id: D(2), hours: 1 });
@@ -3549,11 +3855,6 @@ test("a client's one-off expense goes to its earliest open draft", async () => {
     listed.body.invoices.find((i: { id: string }) => i.id === id).total;
   assert.equal(total(august.body.id), 190);
   assert.equal(total(september.body.id), 150);
-  const { rows } = await pool.query(
-    'select invoice_id from expenses where id = $1',
-    [D(10)],
-  );
-  assert.equal(rows[0].invoice_id, august.body.id);
 });
 
 test('a draft generated beside an earlier open one keeps its total on its first read', async () => {

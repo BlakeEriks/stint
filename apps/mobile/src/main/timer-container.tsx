@@ -37,7 +37,7 @@ export function TimerContainer({
     queryKey: keys.stats(timeZone),
     queryFn: () => api.stats(timeZone),
     refetchOnWindowFocus: 'always',
-    // Earned moves with a running timer, on the summary's minute.
+    // Earned moves with a running timer, once a minute.
     refetchInterval: running ? 60_000 : false,
   });
   const projects = useQuery({

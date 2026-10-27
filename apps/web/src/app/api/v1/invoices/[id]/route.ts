@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { handle, ApiError, isCheckViolation } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
-import { loadPdfData } from '@/lib/invoicing';
+import { draftRefusals, loadPdfData } from '@/lib/invoicing';
 import { parseQuery } from '@/lib/validate';
 import { InvoiceReadQuery } from '@stint/schema';
 
@@ -12,8 +13,9 @@ type Ctx = { params: Promise<{ id: string }> };
 /**
  * GET /api/v1/invoices/:id — the invoice with its line items, how many
  * entries it bills, and whether its PDF opens for the caller, so the screen
- * knows before a press. A draft is refreshed first, and says how it moved
- * since its PDF was last rendered.
+ * knows before a press. A draft is its period's work now: it names the
+ * entries it can't price, and says how it moved since its PDF was last
+ * rendered.
  */
 export const GET = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
@@ -21,35 +23,48 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
 
   const { tz } = parseQuery(req, InvoiceReadQuery);
 
-  const { invoice, pdfData, canDownload, draft } = await loadPdfData(db, id, {
+  const { invoice, pdfData, canDownload, draft } = await loadPdfData(
+    db,
+    id,
     tz,
-  });
-  // After the refresh, which may have taken in more of the period's work.
-  const { count, error } = await db
-    .from('time_entries')
-    .select('id', { count: 'exact', head: true })
-    .eq('invoice_id', id);
-  if (error) throw error;
+  );
+  const entryCount = draft
+    ? draft.computed.totals.entryCount
+    : await countClaimed(db, id);
 
   return NextResponse.json({
     ...invoice,
-    entryCount: count ?? 0,
+    entryCount,
     canDownload,
-    changedSinceDownload: draft.change,
+    changedSinceDownload: draft?.change ?? null,
+    unratedEntries: draft?.unratedEntries ?? [],
+    dueBeforeIssue: draft?.dueBeforeIssue ?? { download: false, send: false },
+    refuses: draft ? draftRefusals(draft) : { download: false, send: false },
     lineItems: pdfData.lineItems.map((l, i) => ({
       ...l,
-      isNew: draft.isNew?.[i] ?? false,
+      isNew: draft?.isNew[i] ?? false,
     })),
   });
 });
+
+/** The entries an issued invoice claimed when sent; none on a void, which
+    released them. A draft claims none, so its count is its derivation's. */
+async function countClaimed(db: SupabaseClient, invoiceId: string) {
+  const { count, error } = await db
+    .from('time_entries')
+    .select('id', { count: 'exact', head: true })
+    .eq('invoice_id', invoiceId);
+  if (error) throw error;
+  return count ?? 0;
+}
 
 /**
  * DELETE /api/v1/invoices/:id
  *
  * Only a draft can be deleted: `guard_issued_invoice_delete` refuses the
  * rest, which must be voided instead, so the numbering stays gapless and the
- * record of what was sent survives. Deleting releases the entries and
- * expenses it held, by their `on delete set null`, in the same statement.
+ * record of what was sent survives. A draft claims no work, so deleting one
+ * releases nothing.
  */
 export const DELETE = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);

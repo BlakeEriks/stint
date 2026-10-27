@@ -127,7 +127,7 @@ const INTERNAL = 'Admin and invoicing';
  * |---------------------|----------------------------------------------|
  * | Unusual length      | ended, past `max_entry_hours` (12)           |
  * | Overdue invoice     | `sent`, `due_date` more than 7 days past     |
- * | Stale draft         | `draft`, issued more than 7 days ago         |
+ * | Stale draft         | `draft`, period ended more than 7 days ago   |
  * | Unprojected entries | ended, billable, unbilled, no project        |
  *
  * The inbox is the one surface that is genuinely hard to exercise by hand:
@@ -168,12 +168,10 @@ const INVOICES = [
   },
   {
     /* Stale draft: generated and then forgotten, which is the case the row
-       exists to catch. A draft holds no number with a client yet. */
+       exists to catch. A draft holds no number with a client yet, and no
+       line: it shows its period's work as it stands. */
     status: 'draft',
     issuedDaysAgo: STALE_DRAFT_DAYS,
-    dueDaysAgo: STALE_DRAFT_DAYS - 30,
-    hours: 5.2,
-    description: 'Data pipeline audit — partial',
   },
   {
     /* Paid, so the invoice list has all three states and the home cards are
@@ -577,9 +575,9 @@ try {
     );
   }
 
-  /* Invoices: overdue, awaiting payment, stale draft, and paid. Each carries
-     one line item, because an invoice with no lines renders a total of zero
-     and reads as broken rather than as seeded. */
+  /* Invoices: overdue, awaiting payment, stale draft, and paid. Each issued
+     one carries one line item, because an invoice with no lines renders a
+     total of zero and reads as broken rather than as seeded. */
   const firstClientId = clientIds[0];
   let invoiceNo = 0;
   const { rows: settingsRows } = await db.query(
@@ -621,7 +619,7 @@ try {
        worth at the resolved rate, which is the direction the app computes in
        and the only one that leaves `unit_price` truthful. */
     const seconds = Math.round(inv.hours * 3600);
-    const total = lineAmount(seconds);
+    const total = inv.status === 'draft' ? 0 : lineAmount(seconds);
     const issued = new Date();
     issued.setDate(issued.getDate() - inv.issuedDaysAgo);
     const due = new Date();
@@ -654,7 +652,8 @@ try {
         `${prefix}${String(seq).padStart(4, '0')}`,
         seq,
         issued.toISOString().slice(0, 10),
-        due.toISOString().slice(0, 10),
+        // A draft's follows its terms from the day it is sent.
+        inv.status === 'draft' ? null : due.toISOString().slice(0, 10),
         periodStart.toISOString().slice(0, 10),
         periodEnd.toISOString().slice(0, 10),
         total,
@@ -662,18 +661,19 @@ try {
         inv.status === 'paid' ? due.toISOString() : null,
       ],
     );
-    await db.query(
-      `insert into invoice_line_items
+    if (inv.status !== 'draft')
+      await db.query(
+        `insert into invoice_line_items
          (invoice_id, description, unit, quantity, unit_price, amount, sort_order)
        values ($1, $2, 'hour', $3, $4, $5, 0)`,
-      [
-        invoiceId,
-        inv.description,
-        Math.round((seconds / 3600) * 100) / 100,
-        resolvedRate,
-        total,
-      ],
-    );
+        [
+          invoiceId,
+          inv.description,
+          Math.round((seconds / 3600) * 100) / 100,
+          resolvedRate,
+          total,
+        ],
+      );
     /* Issued once its line is written: `guard_issued_line_item` refuses a
        line on a sent invoice, and paid is reached through sent. */
     for (const status of { draft: [], sent: ['sent'], paid: ['sent', 'paid'] }[

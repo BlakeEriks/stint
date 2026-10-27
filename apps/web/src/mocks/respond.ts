@@ -85,10 +85,13 @@ export const envelopes = {
 };
 
 export const invoiceDetail = schema.Invoice.extend({
-  lineItems: z.array(schema.StoredLineItem.extend({ isNew: z.boolean() })),
+  lineItems: z.array(schema.InvoiceLineItem.extend({ isNew: z.boolean() })),
   entryCount: z.number().int().nonnegative(),
   canDownload: z.boolean(),
   changedSinceDownload: schema.DraftChange.nullable(),
+  unratedEntries: z.array(schema.UnratedEntry),
+  dueBeforeIssue: schema.DraftActions,
+  refuses: schema.DraftActions,
 });
 
 export const createdInvoice = schema.Invoice.extend({
