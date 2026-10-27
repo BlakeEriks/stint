@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
-import { notificationAccess } from '../screen-state.ts';
+import { notificationStep } from '../screen-state.ts';
 import { notifications } from '../surfaces-native';
 
 /** Asked at most once a launch; Android itself stops after a second refusal. */
@@ -15,18 +15,19 @@ let asked = false;
 export function useNotificationsOff(onTurnedOn: () => void): boolean {
   const [off, setOff] = useState(false);
   useEffect(() => {
-    let was: 'on' | 'ask' | 'off' | null = null;
+    let was: 'on' | 'off' | null = null;
     const check = async () => {
       let p = await notifications.read();
       if (!p) return;
-      if (notificationAccess(p) === 'ask' && !asked) {
+      let step = notificationStep(was, p, asked);
+      if (step.ask) {
         asked = true;
         p = await notifications.ask();
+        step = notificationStep(was, p, asked);
       }
-      const now = p.granted ? 'on' : 'off';
-      if (now === 'on' && was !== 'on') onTurnedOn();
-      was = now;
-      setOff(now === 'off');
+      if (step.redraw) onTurnedOn();
+      was = step.next;
+      setOff(step.next === 'off');
     };
     void check();
     const sub = AppState.addEventListener('change', (state) => {

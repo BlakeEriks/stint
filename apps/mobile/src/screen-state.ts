@@ -109,3 +109,22 @@ export function wholeMinutes(seconds: number): string {
   const whole = Math.floor(seconds / 60) * 60;
   return whole === 0 ? '0m' : formatCompact(whole);
 }
+
+/**
+ * One read of the permission: whether to prompt now (once a launch), what
+ * the screen shows, and whether the notification must be drawn because
+ * notifications just came on or were read for the first time.
+ */
+export function notificationStep(
+  was: 'on' | 'off' | null,
+  p: { granted: boolean; canAskAgain: boolean },
+  asked: boolean,
+): { ask: boolean; next: 'on' | 'off'; redraw: boolean } {
+  const access = notificationAccess(p);
+  const next = access === 'on' ? 'on' : 'off';
+  return {
+    ask: access === 'ask' && !asked,
+    next,
+    redraw: next === 'on' && was !== 'on',
+  };
+}

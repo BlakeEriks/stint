@@ -4,6 +4,7 @@ import { ApiError } from '@stint/client';
 import {
   chooseNotice,
   notificationAccess,
+  notificationStep,
   projectLookup,
   recentTasks,
   wholeMinutes,
@@ -135,4 +136,35 @@ test('a refused press or a failed read comes before notifications off', () => {
     'error',
   );
   assert.equal(chooseNotice(null, new TypeError('x'), open)?.tone, 'offline');
+});
+
+const granted = { granted: true, canAskAgain: false };
+const askable = { granted: false, canAskAgain: true };
+const refused = { granted: false, canAskAgain: false };
+
+test('a launch asks once while Android still will', () => {
+  assert.equal(notificationStep(null, askable, false).ask, true);
+  assert.deepEqual(notificationStep(null, askable, true), {
+    ask: false,
+    next: 'off',
+    redraw: false,
+  });
+});
+
+test('notifications coming on redraw; staying on does not', () => {
+  assert.deepEqual(notificationStep(null, granted, false), {
+    ask: false,
+    next: 'on',
+    redraw: true,
+  });
+  assert.equal(notificationStep('off', granted, true).redraw, true);
+  assert.equal(notificationStep('on', granted, true).redraw, false);
+});
+
+test('refused for good is off, with no prompt', () => {
+  assert.deepEqual(notificationStep('on', refused, false), {
+    ask: false,
+    next: 'off',
+    redraw: false,
+  });
 });
