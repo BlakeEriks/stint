@@ -44,13 +44,13 @@ export function drawSurfaces(state: SurfaceState) {
   );
 }
 
-/**
- * Asks once to show the running timer's notification (Android 13 and later),
- * when there is first one to show. Returns whether it was just granted.
- */
-export async function askToNotify(): Promise<boolean> {
-  if (!native) return false;
-  const now = await Notifications.getPermissionsAsync();
-  if (now.status !== 'undetermined' || !now.canAskAgain) return false;
-  return (await Notifications.requestPermissionsAsync()).granted;
-}
+/** The notification permission, and asking for it; `null` with no surfaces. */
+export const notifications = {
+  async read() {
+    if (!native) return null;
+    return Notifications.getPermissionsAsync();
+  },
+  async ask() {
+    return Notifications.requestPermissionsAsync();
+  },
+};

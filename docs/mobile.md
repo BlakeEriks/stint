@@ -120,8 +120,10 @@ reason. The shortcut opens a screen that isn't exported, so no other app or
 link can press the timer; it presses as a widget does, then opens the app.
 
 Start begins the most recent task on its project. A press from the lock
-screen asks to unlock first. The notification asks Android 13's permission
-the first time the app shows a running timer; refused, nothing is pinned.
+screen asks to unlock first. The app asks Android 13's notification
+permission as soon as it opens signed in, since a timer started on the web
+is pinned with the app closed. While notifications are off, the timer
+screen says so, with a button to Settings.
 Android 16 promotes it, and shows its clock in the status bar.
 
 A local build has no push, so its surfaces follow only the app's own reads

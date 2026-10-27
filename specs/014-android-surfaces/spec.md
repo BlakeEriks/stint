@@ -40,9 +40,11 @@ whichever client changed it, driven by the push #463 built.
   or update. (decided autonomously: Principle VI's rule, said on the
   surface that pressed, since the app's notice isn't open.)
 - Q: When is notification permission asked? → A: On Android 13 and later,
-  the first time the app shows a running timer, once. Refused, nothing is
-  pinned and the rest works. (decided autonomously: it asks when the
-  answer has a visible use, and push itself needs no permission.)
+  as soon as the app opens signed in, since a timer started on the web is
+  pinned with the app closed; Android stops asking after a second refusal.
+  While notifications are off, the timer screen says so, with a button to
+  Settings. (the owner's feedback on #523: asking only when the app showed a
+  running timer never asked, so the notification silently never appeared)
 - Q: Do presses from the lock screen need unlocking? → A: Yes, the tile and
   the notification's Stop ask to unlock first. (decided autonomously: they
   write billable time, which a found phone shouldn't change.)
@@ -108,8 +110,9 @@ web show the entry stopped.
    client, **Then** the notification goes within 5 seconds.
 5. **Given** the running task is renamed elsewhere, **Then** the
    notification shows the new name.
-6. **Given** the user has refused notifications, **Then** nothing is pinned
-   and every other surface still works.
+6. **Given** the user has refused notifications, **Then** nothing is pinned,
+   the app's timer screen says notifications are off with a way to turn
+   them on, and every other surface still works.
 
 ---
 

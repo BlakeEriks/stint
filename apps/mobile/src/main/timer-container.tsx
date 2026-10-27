@@ -1,7 +1,8 @@
 import { useFailedPress, useTimer } from '@stint/client';
 import { formatClock, formatCurrency, uuidv7 } from '@stint/core';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { Linking } from 'react-native';
 import type { Api } from '../api.ts';
 import { target } from '../config.ts';
 import { screenReads } from '../reads.ts';
@@ -14,6 +15,7 @@ import {
 import { SettingsSheet } from '../screens/settings-sheet.tsx';
 import type { PickerProject } from '../screens/timer-screen.tsx';
 import { TimerScreen } from '../screens/timer-screen.tsx';
+import { useNotificationsOff } from './use-notifications.ts';
 import { useTimeZone } from './use-time-zone.ts';
 
 /** The timer screen on the shared timer (`@stint/client`) and the phone's reads. */
@@ -21,24 +23,25 @@ export function TimerContainer({
   api,
   email,
   onSignOut,
-  onTimerShown,
+  onNotificationsOn,
 }: {
   api: Api;
   email: string;
   onSignOut: () => void;
-  /** A running timer is on screen: the notification's permission is asked. */
-  onTimerShown?: () => void;
+  /** The notification was just allowed: draw it. */
+  onNotificationsOn: () => void;
 }) {
   const timeZone = useTimeZone();
   const timer = useTimer(api, timeZone);
   const running = timer.running;
   const [settings, setSettings] = useState(false);
   const failed = useFailedPress();
-  const notice = chooseNotice(failed, timer.error);
-  const runs = Boolean(running);
-  useEffect(() => {
-    if (runs) onTimerShown?.();
-  }, [runs, onTimerShown]);
+  const notificationsOff = useNotificationsOff(onNotificationsOn);
+  const notice = chooseNotice(
+    failed,
+    timer.error,
+    notificationsOff ? () => void Linking.openSettings() : null,
+  );
 
   const reads = screenReads(api, timeZone);
   const stats = useQuery({

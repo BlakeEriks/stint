@@ -13,7 +13,7 @@ import { createApi } from '../api.ts';
 import { createBypass } from '../bypass.ts';
 import { createPushDevice, onTimerPush } from '../push.ts';
 import { createSurfaces } from '../surfaces.ts';
-import { askToNotify, canDraw, drawSurfaces } from '../surfaces-native';
+import { canDraw, drawSurfaces } from '../surfaces-native';
 import { canPush, expoTokens, listenForTimerPushes } from '../push-native';
 import { origin, target } from '../config.ts';
 import { usePlex } from '../fonts.ts';
@@ -99,12 +99,8 @@ listenForTimerPushes(() => {
   if (canDraw) void surfaces.refresh();
 });
 
-/** The running timer's notification needs Android 13's permission, asked once. */
-function askForNotification() {
-  void askToNotify().then((granted) => {
-    if (granted) surfaces.redraw();
-  });
-}
+/** Notifications were just allowed: the running timer's is drawn now. */
+const redrawSurfaces = () => surfaces.redraw();
 const pushDevice = createPushDevice({
   tokens: expoTokens,
   register: api.registerPushDevice,
@@ -228,7 +224,7 @@ export function App() {
             api={api}
             email={session.email}
             onSignOut={() => void signOut()}
-            onTimerShown={askForNotification}
+            onNotificationsOn={redrawSurfaces}
           />
         ) : (
           <SignInContainer auth={auth} />

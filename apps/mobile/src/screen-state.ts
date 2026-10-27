@@ -68,6 +68,8 @@ export function recentTasks(
 export function chooseNotice(
   failed: { message: string; dismiss: () => void } | null,
   readError: Error | null,
+  /** Notifications are off: opens the phone's settings for Stint. */
+  turnOnNotifications?: (() => void) | null,
 ): NoticeProps | null {
   if (failed)
     return {
@@ -80,7 +82,26 @@ export function chooseNotice(
       message: 'Can’t reach Stint. Check your internet connection.',
       tone: 'offline',
     };
+  if (turnOnNotifications)
+    return {
+      tone: 'warning',
+      message: 'Notifications are off, so a running timer isn’t pinned.',
+      action: { label: 'Turn on', onPress: turnOnNotifications },
+    };
   return null;
+}
+
+/**
+ * Whether the running timer's notification can show: `ask` while Android
+ * will still prompt, `off` once it won't (refused twice, or turned off in
+ * Settings), which the screen then says (Principle I).
+ */
+export function notificationAccess(p: {
+  granted: boolean;
+  canAskAgain: boolean;
+}): 'on' | 'ask' | 'off' {
+  if (p.granted) return 'on';
+  return p.canAskAgain ? 'ask' : 'off';
 }
 
 /** `0m` until the first minute is up, as the menu bar reads. */

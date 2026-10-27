@@ -179,6 +179,24 @@ export const Offline: Story = {
   },
 };
 
+/** Notifications off: the pinned timer can't show, and the screen says so. */
+export const NotificationsOff: Story = {
+  args: {
+    running,
+    notice: {
+      tone: 'warning',
+      message: 'Notifications are off, so a running timer isn’t pinned.',
+      action: { label: 'Turn on', onPress: fn() },
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const screen = within(canvasElement);
+    await expect(screen.getByRole('alert')).toHaveTextContent(/isn’t pinned/);
+    await userEvent.click(screen.getByRole('button', { name: 'Turn on' }));
+    await expect(args.notice?.action?.onPress).toHaveBeenCalled();
+  },
+};
+
 /** US3: the first day, nothing tracked yet. */
 export const FirstDay: Story = {
   args: { today: '0m', earned: '$0.00', recent: [], defaultProjectId: null },
