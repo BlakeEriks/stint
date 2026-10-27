@@ -49,6 +49,33 @@ whichever client changed it, driven by the push #463 built.
 - Q: Do the shortcuts press in the background? → A: No. Android opens the
   app for a shortcut, and the press is made there, as if tapped in the app.
   (decided autonomously)
+- Q: Which widget layout? → A: Both: the 4×1 row and the 2×2 square, picked
+  when the widget is added. (the owner's answer, on #465)
+
+## Design
+
+[`design/surfaces.html`](design/surfaces.html), in the app's tokens, dark
+and light.
+
+- **The widget, 4×1 row**: the phone's dock in one line. Running: the live
+  dot, the clock counting in the running color, the task, then the project's
+  dot, project and client; a round Stop at the right. Stopped: the clock at
+  zero in the idle color, the task Start would begin and its project, and
+  the round Start in the accent.
+- **The widget, 2×2 square**: the wordmark at the top left and the round
+  Start or Stop at the top right, the clock in the middle, the task in two
+  lines at most and the project under it.
+- **Both sizes, first day**: "Start a timer", with "Name it in the app
+  later" under it. **A failed press**: what the server holds, with the
+  reason in the danger color in place of the project line. **Signed out**:
+  "Sign in to Stint" and "Tap to open the app", no button.
+- **The notification** (Android draws it): the clock counting, the task as
+  its title, project and client as its text, or the failed press's reason,
+  and one action, Stop. On Android 16 its clock is the status bar's chip.
+- **The tile**: named Stint, on while a timer runs; its second line is the
+  running task, "Start: <task>" when stopped, or "Sign in".
+- **The shortcut**: one, "Stop" while a timer runs, otherwise
+  "Start: <task>".
 
 ## User Scenarios & Testing *(mandatory)*
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Stint on Android, outside the app: round 1</title>
+<title>Stint on Android, outside the app</title>
 <style>
 /* GENERATED from tokens.json — do not edit by hand. Run `pnpm tokens`. */
 /* The palette for docs/design mockups. Token names are the RAW ones
@@ -436,22 +436,22 @@
   <div class="type-wordmark-small strong">STINT</div>
   <h1 class="type-title strong" style="margin:6px 0 4px">The timer outside the Android app</h1>
   <p class="type-body muted" style="margin:0;max-width:72ch">
-    The widget is Stint's to draw, so it is the one choice here: <b class="strong">A</b> is the phone dock in a 4×1 row,
-    <b class="strong">B</b> a 2×2 square. The status bar chip, notification, tile and shortcut are drawn by Android in its own
+    The widget comes in two sizes, picked when it is added: a 4×1 row holding the phone's dock, and a 2×2 square.
+    The status bar chip, notification, tile and shortcut are drawn by Android in its own
     colors; Stint picks their words. Data is the seeded account's (<code>apps/web/src/mocks/fixtures.ts</code>).
   </p>
   <div class="bar"><span class="type-meta subtle">State</span><div class="seg" id="state"></div></div>
-  <div class="bar"><span class="type-meta subtle">Widget</span><div class="seg" id="variant"></div>
+  <div class="bar"><span class="type-meta subtle">Size</span><div class="seg" id="variant"></div>
     <span class="type-meta subtle">Theme</span><div class="seg" id="theme"></div></div>
   <p class="note type-support" id="vnote"></p>
   <div class="stage" id="stage"></div>
 </div>
 <script>
 const STATES = { running: 'Running', stopped: 'Stopped', empty: 'First day', refused: 'Stop failed', signedout: 'Signed out' };
-const VARIANTS = { A: 'A · 4×1 row', B: 'B · 2×2 square' };
+const VARIANTS = { A: '4×1 row', B: '2×2 square' };
 const VNOTE = {
-  A: 'A: the dock as you know it, one row wide, readable at a glance; costs a full row of the home screen.',
-  B: 'B: fits beside four icons and gives the clock the most room; the task gets two lines at most.',
+  A: 'The row: the dock in one line, the clock above the task.',
+  B: 'The square: beside four icons, the button at its top right, the task in two lines at most.',
 };
 let s = 'running', v = 'A', theme = 'dark';
 
