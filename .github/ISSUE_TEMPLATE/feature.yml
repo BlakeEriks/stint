@@ -44,3 +44,18 @@ body:
     attributes:
       label: Details
       description: The hard parts already thought through, what the spec must decide, and the assessment's decision.md if one exists.
+  - type: dropdown
+    id: platforms
+    attributes:
+      label: Platforms
+      description: >-
+        Each it touches, applied as labels. web is the Next.js app, macos the
+        menu bar app, android and ios the phone app, api /api/v1, the database
+        and anything shared. None for tooling, docs or CI.
+      multiple: true
+      options:
+        - web
+        - macos
+        - android
+        - ios
+        - api

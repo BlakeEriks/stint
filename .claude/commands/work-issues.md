@@ -42,13 +42,16 @@ comment step 0 reads.
 **Labels are the loop's memory**, so nothing is worked out twice:
 
 - `ready-for-qa` (PR): ready to test and merge now — no conflict with
-  `main`, CI green, no question open, no feedback unanswered. Off the
+  `main`, CI green (or, for the next migration PR to hold the preview
+  database, just `main` merged in: step 6), no question open, no feedback
+  unanswered. Off the
   moment any of that stops being true.
 - `needs-input` (issue or PR): a question only the reviewer can answer, asked in a
   marked comment.
 - `blocked` (issue): waits on another PR; the marked comment names it and why.
 - `migration` (issue and its PR): the fix needs a database migration.
 - `urgent` (issue): jumps the queue.
+- `building` (issue): a builder or session has it; no one else picks it.
 
 ## A round
 
@@ -59,7 +62,7 @@ Every build and every fix goes the same way:
    branch on a first build — unless the round is small: under about 20 lines
    and no logic change in auth, the API or data access. Start it on Opus with
    the brief in `.claude/skills/standards-review/SKILL.md`, the one Spec Kit
-   work gets too, for the commit range in `../stint-issues`.
+   work gets too, for the commit range in the issue's worktree.
 3. Findings that hold up go back to the same builder (SendMessage); its fix
    is reviewed again only if it is not small — judged from
    `git diff --stat` of the fix once it is committed, never in advance.
@@ -85,10 +88,14 @@ is `reviewed`.
 
 ## 0. Catch up
 
-- **Merged:** in `../stint-issues`, `git fetch --prune`,
-  `git switch --detach origin/main`, then `git branch -D` every local branch
-  whose PR has merged (`gh pr list --state merged --head <branch>`). PRs
-  squash-merge, so `git branch --merged` never lists them.
+- **Merged:** `git fetch --prune`, then for every local branch whose PR has
+  merged (`gh pr list --state merged --head <branch>`):
+  `git worktree remove ../stint-<branch>` if it exists (one with
+  uncommitted changes is someone's work: ask), `git branch -D <branch>`, and
+  for its issue (`gh pr list --state merged --head <branch> --json closingIssuesReferences`)
+  `PGPASSWORD=postgres psql -h localhost -p 54322 -U postgres -c "drop database if exists tt_<issue> with (force)"`,
+  then the same for `tt_<issue>_rls`.
+  PRs squash-merge, so `git branch --merged` never lists them.
 - **Each open PR of yours**, in order:
   1. **`needs-input`:** if feedback has arrived since the marked question,
      remove the label and treat the reply as feedback. Otherwise skip the PR.
@@ -115,15 +122,19 @@ is `reviewed`.
      merely behind `main` is fine: `main` does not require branches to be up
      to date.
   6. **CI green and none of the above**, all checked in this pass: add
-     `ready-for-qa`, once. Only this step adds it — never a look at CI
-     alone, which cannot see feedback.
+     `ready-for-qa`, once. Only this step and `migration-handoff.yml` add
+     it — never a look at CI alone, which cannot see feedback.
      **A migration PR holds the preview database while it is
      `ready-for-qa`** (`preview-db.yml`), so at most one has the label. A
      migration PR is one whose diff adds a migration
      (`gh pr diff <n> --name-only | grep '^supabase/migrations/'`), whatever
-     its labels; the rest wait with green CI. The next to hold it first gets a round in
-     which the builder merges `main` in, then the label.
-  7. **CI still running:** leave it for the next pass.
+     its labels; the rest wait with green CI. When a holder merges,
+     `migration-handoff.yml` merges `main` into the oldest open, non-draft,
+     not `needs-input` one and labels it. When none has the label, as after
+     a handoff that conflicted, the oldest first gets a round in which the
+     builder merges `main` in, then adds the label without waiting for CI.
+  7. **CI still running:** leave it for the next pass, except the migration
+     PR that step 6 just merged `main` into to take the label.
 - **Each open Dependabot PR** (`gh pr list --author app/dependabot`), the
   same steps, except:
   - 3: first `gh pr merge --disable-auto <n>`, so the fix is reviewed
@@ -153,6 +164,7 @@ issue that:
 
 - is labeled `needs-input`
 - is labeled `blocked`
+- is labeled `building`: another session has it
 - is labeled `feature` and is not code yet: it still "owes the gate its
   answers", is a purchase or a setting (buying the domain, upgrading a
   plan), or waits on an account only the repo owner can make
@@ -167,7 +179,9 @@ none); oldest first within a label. None left → step 2.
 builder branches off that PR's branch and opens its PR against it, saying
 which merges first.
 
-Hand it to a builder for triage and build, as a round. A shared file is no
+Label it `building`, then hand it to a builder for triage and build, as a
+round. Remove the label once the builder ships or reports anything but a
+commit. A shared file is no
 reason to wait: step 0's conflict check merges `main` into whichever PR conflicts. An issue a
 builder already triaged — its `agentId` is in the log — goes back to that
 builder by SendMessage, which still holds the reading — unless

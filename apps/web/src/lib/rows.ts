@@ -78,10 +78,11 @@ export interface EntryRow {
   invoice_id: string | null;
   duration_seconds: number | null;
   duration_ok: boolean;
+  invoiced_elsewhere: boolean;
 }
 
 export const ENTRY_COLUMNS = columns<EntryRow>()(
-  'id, project_id, task_name, started_at, ended_at, is_billable, rate_override, invoice_id, duration_seconds, duration_ok',
+  'id, project_id, task_name, started_at, ended_at, is_billable, rate_override, invoice_id, duration_seconds, duration_ok, invoiced_elsewhere',
 );
 
 export function toEntry(r: EntryRow) {
@@ -96,6 +97,7 @@ export function toEntry(r: EntryRow) {
     invoiceId: r.invoice_id,
     durationSeconds: r.duration_seconds,
     durationOk: r.duration_ok,
+    invoicedElsewhere: r.invoiced_elsewhere,
   };
 }
 
@@ -474,6 +476,7 @@ export const ENTRY_FIELDS = {
   isBillable: 'is_billable',
   rateOverride: 'rate_override',
   durationOk: 'duration_ok',
+  invoicedElsewhere: 'invoiced_elsewhere',
 } as const;
 
 export const CLIENT_FIELDS = {

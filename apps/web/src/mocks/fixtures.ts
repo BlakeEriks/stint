@@ -172,6 +172,7 @@ export function entry(
     invoiceId: null,
     durationSeconds: Math.round(minutes * 60),
     durationOk: false,
+    invoicedElsewhere: false,
     ...over,
   };
 }
