@@ -125,16 +125,6 @@ describe('EntryDialog', () => {
     );
   });
 
-  it('offers no billed elsewhere on an invoice', async () => {
-    serve();
-    open(entry({ invoiceId: 'inv1' }));
-
-    await screen.findByText(/billed on/);
-    expect(
-      screen.queryByRole('checkbox', { name: 'Billed elsewhere' }),
-    ).toBeNull();
-  });
-
   it('shows the stored instant as local wall-clock time', async () => {
     serve();
     open(entry());

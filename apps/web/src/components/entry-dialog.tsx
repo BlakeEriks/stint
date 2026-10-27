@@ -190,8 +190,7 @@ export function EntryDialog({
       return existing
         ? api.updateEntry(existing.id, {
             ...body,
-            // The server refuses a mark on an invoiced entry, whose box isn't shown.
-            ...(unbilled && { invoicedElsewhere: draft.invoicedElsewhere }),
+            invoicedElsewhere: draft.invoicedElsewhere,
           })
         : api.createEntry({ id: uuidv7(), ...body });
     },

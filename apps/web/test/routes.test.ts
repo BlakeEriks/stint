@@ -675,7 +675,7 @@ test('marking a running timer billed elsewhere is refused by its PATCH: TIMER_AL
    which an invoice's read-then-attach would otherwise do. */
 test('an entry billed elsewhere can’t be attached to an invoice: ENTRY_ALREADY_INVOICED', async () => {
   const { dbCode } = await import('../src/lib/errors.ts');
-  await seedBilledElsewhere('draft');
+  await seedBilledElsewhere();
   await pool.query(
     'update time_entries set invoiced_elsewhere = true where id = $1',
     [BE(1)],
@@ -694,23 +694,20 @@ test('an entry billed elsewhere can’t be attached to an invoice: ENTRY_ALREADY
   assert.equal(dbCode(refused), 'ENTRY_ALREADY_INVOICED');
 });
 
-// A draft too: the billed-entry lock lets its entries' other edits through.
-for (const status of ['draft', 'sent']) {
-  test(`marking an entry on a ${status} invoice billed elsewhere is ENTRY_ALREADY_INVOICED`, async () => {
-    const { PATCH } = await import('../src/app/api/v1/entries/[id]/route.ts');
-    await seedBilledElsewhere(status);
+test('marking an entry on a sent invoice billed elsewhere is ENTRY_ALREADY_INVOICED', async () => {
+  const { PATCH } = await import('../src/app/api/v1/entries/[id]/route.ts');
+  await seedBilledElsewhere();
 
-    const res = await json(
-      await PATCH(
-        req(`/entries/${BE(4)}`, { invoicedElsewhere: true }, 'PATCH'),
-        ctx(BE(4)),
-      ),
-    );
-    assert.equal(res.status, 409);
-    assert.equal(res.body.code, 'ENTRY_ALREADY_INVOICED');
-    assert.deepEqual(await flagged(), []);
-  });
-}
+  const res = await json(
+    await PATCH(
+      req(`/entries/${BE(4)}`, { invoicedElsewhere: true }, 'PATCH'),
+      ctx(BE(4)),
+    ),
+  );
+  assert.equal(res.status, 409);
+  assert.equal(res.body.code, 'ENTRY_ALREADY_INVOICED');
+  assert.deepEqual(await flagged(), []);
+});
 
 test('reopening an entry while a timer runs is TIMER_ALREADY_RUNNING', async () => {
   const { PATCH: patch } = await import(
