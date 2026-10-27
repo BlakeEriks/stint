@@ -7,7 +7,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { type Segment, SegmentedControl } from './segmented-control';
-import { Field, inputClass, Section, textareaClass } from './field';
+import { Field, Section, textareaClass } from './field';
 import { RateInput, parseRate } from './rate-input';
 import { SaveIndicator } from './save-indicator';
 import { useAutosave } from '@/lib/client/use-autosave';
@@ -254,23 +254,6 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
             />
           </Field>
         </div>
-
-        <Field
-          label="Payment notice"
-          htmlFor="notice"
-          hint="A standing line under the payment block. Details that never change make a change worth challenging."
-        >
-          <textarea
-            id="notice"
-            rows={2}
-            value={form.paymentNotice ?? ''}
-            onChange={(e) =>
-              setNumbering('paymentNotice', e.target.value || null)
-            }
-            placeholder="We will never email you to change these bank details."
-            className={textareaClass}
-          />
-        </Field>
       </Section>
     </>
   );

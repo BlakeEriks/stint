@@ -6,6 +6,8 @@ import {
   formatInvoiceNumber,
   parseTermsDays,
   paymentTermsText,
+  termsDays,
+  termsForDays,
   type BillableEntry,
 } from '../src/invoice.ts';
 
@@ -593,5 +595,17 @@ test('payment terms text is the days between issue and due', () => {
   ];
   for (const [issue, due, text] of cases) {
     assert.equal(paymentTermsText(issue, due), text, `${issue}→${due}`);
+  }
+});
+
+test('a draft keeps its terms as text and reads back the days', () => {
+  for (const days of [0, 1, 30, 365]) {
+    assert.equal(termsDays(termsForDays(days)), days);
+  }
+  assert.equal(termsForDays(0), 'Due on receipt');
+  assert.equal(termsForDays(15), 'Net 15');
+  // Old free text was never written by termsForDays.
+  for (const text of ['2/10 Net 45', 'net 30', 'End of month', '', null]) {
+    assert.equal(termsDays(text), null, String(text));
   }
 });

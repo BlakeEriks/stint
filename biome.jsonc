@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.13/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.2/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -51,6 +51,10 @@
       "arrowParentheses": "always"
     }
   },
+  // Biome 2.6 formats Markdown and YAML. Vale owns the docs' prose, and the
+  // workflows keep their hand layout.
+  "markdown": { "formatter": { "enabled": false } },
+  "yaml": { "formatter": { "enabled": false } },
   "plugins": ["./biome/no-server-actions.grit"],
   "overrides": [
     {
@@ -106,15 +110,27 @@
         // only re-renders them. Re-enable if a row ever holds state.
         "noArrayIndexKey": "off"
       },
+      "correctness": {
+        // Reads any capitalized function as a component: the dock's
+        // `ArrowUp:` key map, the test shim's `P` placeholder and
+        // describe-scoped test harnesses, none of them inside a component.
+        "noComponentHookFactories": "off",
+        // Reads any call named `describe` as Playwright's, such as the week
+        // chart's aria-label helper.
+        "usePlaywrightValidDescribeCallback": "off"
+      },
       "style": {
         "noNonNullAssertion": "off",
         "useTemplate": "off"
       },
       "complexity": {
-        "noExcessiveCognitiveComplexity": "off"
+        "noExcessiveCognitiveComplexity": "off",
+        // Dates here are ISO strings, compared as text; Math.min and
+        // Math.max would return NaN.
+        "useMathMinMax": "off"
       },
       "nursery": {
-        "useSortedClasses": "off"
+        "useTailwindSortedClasses": "off"
       }
     }
   },
