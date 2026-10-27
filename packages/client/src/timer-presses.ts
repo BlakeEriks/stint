@@ -138,6 +138,7 @@ export function timerPresses(
     isBillable: body.isBillable ?? true,
     durationSeconds: null,
     durationOk: false,
+    invoicedElsewhere: false,
     rateOverride: null,
     invoiceId: null,
   });

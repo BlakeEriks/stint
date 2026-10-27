@@ -27,6 +27,7 @@ const entry = (over: Partial<TimeEntry> = {}): TimeEntry => ({
   isBillable: true,
   durationSeconds: null,
   durationOk: false,
+  invoicedElsewhere: false,
   rateOverride: null,
   invoiceId: null,
   ...over,
