@@ -78,7 +78,7 @@ retroactively alter an invoice already sent.
 One row per user, auto-created by a trigger on `auth.users` insert. Holds the
 global rate fallback, display preferences, the invoice
 identity block (business name, address, logo), `payment_terms_days`
-(0–365, default 30), the invoice number sequence, `payment_notice`, and the entry-length thresholds
+(0–365, default 30), the invoice number sequence, and the entry-length thresholds
 (`min_entry_seconds`, `max_entry_hours`).
 
 **`legacy_payment_terms` is free text the move to days couldn't read**,
@@ -149,23 +149,28 @@ reference falls back rather than rendering nothing.
 Line items are **denormalized on purpose**. An issued invoice is an immutable
 financial record, not a live view over time entries.
 
-**A draft refreshes on every read** (#433). `refresh_draft()` releases what it
-holds, writes the lines `buildLineItems` computes from its client and period
-now, and attaches what they bill, in one transaction; Mark sent passes
-`p_sent_at` and sends in the same call. What the user chose on New invoice is
-read, never rewritten: grouping, summary text, reference, notes, terms, due
-date, payment details, the supporting-detail kinds, its `fixed` lines, and
-two columns kept for the refresh — `tz`, the zone its period's dates are read
-in, and `excluded_expense_ids`, the expenses left off. `downloaded_snapshot`
-is what its PDF last showed; Mark sent refuses with `DRAFT_CHANGED` while
-the draft differs from it. One open draft per client and date: `POST
-/invoices` refuses an overlap with `DRAFT_OVERLAPS`, since two drafts would
-each claim the same new work.
+**A draft is the user's choices; its lines are derived on read** (#452). It
+stores grouping, summary text, reference, notes, a typed due date,
+payment details, the supporting-detail kinds, its `fixed` lines, `tz` (the
+zone its period's dates are read in) and `excluded_expense_ids` (the expenses
+left off). `payment_terms` keeps its terms (`Net N`, or `Due on receipt`) from
+the client's days, else the user's, as Generate found them. Its time and
+expense lines, totals, issue date and, unless typed, due date are computed on
+every read and written by nothing; no entry or expense points at a draft.
+`downloaded_snapshot` is what its PDF last showed, dates included, which
+sending keeps; it is the one column a read writes. Mark sent refuses with
+`DRAFT_CHANGED` while the draft differs from it. **Mark sent is
+`send_draft()`**: it writes the lines and totals the route computed, claims
+the entries and one-off expenses, sets `issue_date`, `due_date` and the
+`payment_terms` they make (the last PDF's, else the send date's), and sends, in one transaction. An entry another
+invoice took, or one marked billed elsewhere, meanwhile raises
+`ENTRY_ALREADY_INVOICED`, an expense another invoice took
+`EXPENSE_ALREADY_INVOICED`, and either rolls it all back.
 
 `payment_details` (JSONB) freezes the rendered bank details at generation, for
 the same reason rates freeze: editing a profile must never alter an invoice
 already sent. `supporting_detail` (JSONB) holds the hours-by-project, -week
-and -date tables printed from page 2. A draft's are rebuilt with its lines;
+and -date tables printed from page 2. A draft's are derived with its lines;
 sending freezes them, so a renamed project or a void never changes them. The `business_*` and `logo_url` columns (the From
 block) and the `client_*` columns (Bill to) are copied from `user_settings`
 and the client by a trigger on insert, so editing either never reprints an
@@ -189,14 +194,13 @@ subtotal — time and fees — and the base tax is charged on; the reimbursement
 sit in `expenses_subtotal`, never taxed, and `total = subtotal + tax_amount +
 expenses_subtotal`.
 
-**Generation is one transaction.** `create_invoice()` allocates the number,
-writes the invoice and its lines, and attaches the entries and expenses it
-bills. The call succeeds or fails as a whole. It writes what `buildLineItems` computed and computes
-nothing itself, except the payment reference it appends to the frozen
-payment block once the number exists. An expense another invoice already took
-raises `EXPENSE_ALREADY_INVOICED`; an entry billed on another invoice or
-deleted since the route loaded it raises `ENTRY_ALREADY_INVOICED`. Either
-rolls the whole call back, so a race never uses up a number.
+**Generation is one transaction.** `create_invoice()` allocates the number
+and writes the draft and its charges; it computes nothing itself, except the
+payment reference it appends to the frozen payment block once the number
+exists. One open draft per client and date: after the number's allocation
+has taken the user's counter row lock, it raises `DRAFT_OVERLAPS` for a draft
+over any of the period, so of two concurrent Generates the second fails and
+rolls back, never using up a number.
 
 ### `expenses`
 A cost the contractor paid that a client reimburses. It has an amount and no
@@ -207,9 +211,10 @@ there is no currency column, because an expense is never converted.
 
 - `client_id` is required, and references its row **with `user_id`**, as
   `time_entries.project_id` does.
-- `invoice_id` set means billed. An invoice takes every unbilled expense for
-  its client dated on or before the period's end, so one missed invoice does
-  not strand a reimbursement.
+- `invoice_id` set means billed, by a sent invoice. A one-off shows on one
+  open draft for its client: the one whose period ends first on or after its
+  date (`assignExpenses`), so one missed invoice does not strand a
+  reimbursement.
 - `recurring` bills it on **every** invoice for the client instead of once: a
   subscription the client reimburses. It has no `spent_on`
   (`expense_dated`), is never attached (`recurring_never_billed`), and so is
@@ -226,6 +231,15 @@ written once: `authenticated` is granted only `select` and `insert`, so a
 sent message can't be changed or deleted, even by its sender. It goes with the
 account (`on delete cascade`). The checks match `CreateFeedback`: `message`
 1–2,000 characters, `screen` 1–200, `app_version` 1–64.
+
+### `push_devices`
+The phones a user's timer changes are pushed to (`apps/web/src/lib/push.ts`):
+`user_id`, the provider's `token`, the `platform` (`android`) and
+`created_at`, keyed on `(user_id, token)`. `authenticated` may select,
+insert and delete its own rows; a new token is a new row, so there is no
+update grant. A token can sit under two accounts when a sign-out didn't
+reach the server, which leaks nothing: the push carries no data. It goes
+with the account (`on delete cascade`).
 
 ### `subscriptions`
 A mirror of the user's Stripe subscription, one row per user, keyed on
@@ -285,23 +299,23 @@ name becomes the invoice line description, so editing it after issue changes
 what the client was told they were billed for, even when the money is
 unchanged.
 
-Two deliberate exceptions:
-
-- Entries on a **draft** invoice remain editable.
-- **Detaching** an entry (`invoice_id → null`) stays allowed, so a voided
-  invoice can release its entries.
+No entry or expense points at a draft, so only sent work is locked.
+**Detaching** an entry (`invoice_id → null`) stays allowed, so a voided
+invoice can release its entries.
 
 `guard_billed_expense` holds the same lock on an expense, over `spent_on`,
-`description`, `amount`, `client_id` and `recurring`, with the same two
-exceptions. An edit to an entry or expense on a draft reaches it on its next
-read.
+`description`, `amount`, `client_id` and `recurring`, with the same
+exception. An edit to unbilled work shows on the next read of any draft.
 
 ### Work invoiced elsewhere
-`time_entries.invoiced_elsewhere` marks work already billed from another tool,
-usually history an import brought in. It counts as **earned** and is never
-**unbilled**: `unbilled_by_client`, invoice generation and the inbox's
-uninvoiced rows all skip it. It is a flag, not an invoice, so it takes no
-number and appears in no invoice list, and the entry stays editable.
+`time_entries.invoiced_elsewhere` marks work already billed from another tool:
+history an import brought in, or entries the user marks on New invoice or in
+the entry dialog. It counts as **earned** and is never **unbilled**:
+`unbilled_by_client`, invoice generation and the inbox's uninvoiced rows all
+skip it. It is a flag, not an invoice, so it takes no number and appears in
+no invoice list, and the entry stays editable. `entry_billed_once` refuses
+it on an entry on an invoice, whichever is written first, and the API marks
+only a finished entry.
 
 ### Gapless invoice numbering
 `allocate_invoice_number(user_id)` increments `next_invoice_number` under a row
@@ -332,9 +346,9 @@ before Stint, and never back (`PATCH /settings`).
   is derived from `paid_at`, so a paid row without one drops a real payment
   out of the figure that says what arrived.
 - `updated_at` is maintained by a `touch_updated_at` trigger on every table
-  **except `invoice_line_items` and `feedback`**, which have no such column:
-  each is written once and never edited, so a "last modified" timestamp would
-  be a field that can only ever lie.
+  **except `invoice_line_items`, `feedback` and `push_devices`**, which have
+  no such column: each is written once and never edited, so a "last
+  modified" timestamp would be a field that can only ever lie.
   `subscriptions` has the column but no trigger: its one writer, the Stripe
   sync's upsert in `apps/web/src/lib/billing.ts`, sets it.
 - Partial indexes back the hot paths: active clients, projects and profiles,
@@ -402,8 +416,6 @@ hold; this list is the record of *what* must.
 - Editing or deleting an entry billed to a **non-draft** invoice is rejected,
   including its `task_name` — that becomes the invoice line description, so
   changing it after issue rewrites what the client was told.
-- Entries on a **draft** invoice stay editable; a draft holds no number and
-  has been sent to nobody.
 - Changing a **non-draft** invoice or its lines is rejected, and its status
   moves only along the transition table, whichever client writes it.
 - Detaching an entry from a voided invoice is allowed — that is the release
@@ -411,12 +423,12 @@ hold; this list is the record of *what* must.
 - Voiding releases what the invoice billed in the same statement.
 - Rates are frozen onto line items when an invoice is sent: changing a
   client's rate later leaves an issued invoice at its original total.
-- `refresh_draft` runs as the caller and refuses anything but the caller's
-  own draft.
+- `send_draft` runs as the caller and refuses anything but the caller's own
+  draft.
 - Editing or deleting an expense billed to a **non-draft** invoice is
-  rejected, and voiding or deleting a draft releases it.
-- A generation that loses a race for an expense writes nothing and leaves
-  `next_invoice_number` where it was.
+  rejected, and voiding releases it.
+- A send that loses a race for an expense writes nothing.
+- Two concurrent Generates over one client's dates make one draft.
 
 ### RLS, verified against live policies
 
@@ -429,7 +441,7 @@ alone must still contain the query.
 | Check | Result |
 |---|---|
 | An unfiltered `select` returns only the caller's rows | isolated |
-| All nine user-scoped tables isolate | isolated |
+| All ten user-scoped tables isolate | isolated |
 | A known-good id belonging to another user returns nothing | no leak |
 | Line items inherit isolation through their invoice | isolated |
 | Insert with a forged `user_id` | rejected by `WITH CHECK` |
@@ -437,6 +449,7 @@ alone must still contain the query.
 | Reassigning a row to another user | rejected by `WITH CHECK` |
 | Changing or deleting sent feedback, even your own | refused by the grant |
 | Writing any subscription, your own included | refused by the grant |
+| Registering a phone to another user, or changing a registered one | rejected by `WITH CHECK`, refused by the grant |
 | Claiming or changing the plan an invoice was generated on | overwritten at insert, refused on update |
 | An expense filed under another user's client | rejected by `expense_client_same_owner` |
 | An invoice billed to another user's client | rejected by `invoice_client_same_owner` |

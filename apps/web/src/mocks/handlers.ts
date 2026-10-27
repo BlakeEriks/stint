@@ -21,12 +21,16 @@ import type {
   Expense,
   PaymentProfile,
   Project,
-  Settings,
   TimeEntry,
 } from '@/lib/client/api';
 import { csvResponse } from '@/lib/exports';
 import { getDb } from './db';
-import { type Db, parties } from './fixtures';
+import {
+  type Db,
+  dueBeforeIssue,
+  mockDraftRefusals,
+  parties,
+} from './fixtures';
 import {
   calendar,
   expenseView,
@@ -86,7 +90,7 @@ type Preview = NonNullable<ReturnType<typeof invoicePreview>>;
 function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
   const seq = db.settings.nextInvoiceNumber;
   db.settings.nextInvoiceNumber += 1;
-  const issueDate = input.issueDate ?? localDateKey(db.now, input.tz);
+  const issueDate = localDateKey(db.now, input.tz);
   const days =
     db.clients.find((c) => c.id === preview.clientId)?.paymentTermsDays ??
     db.settings.paymentTermsDays;
@@ -130,6 +134,22 @@ function claimBilled(db: Db, invoiceId: string, preview: Preview) {
   const billed = new Set(preview.lineItems.map((l) => l.expenseId));
   for (const e of db.expenses)
     if (billed.has(e.id) && !e.recurring) e.invoiceId = invoiceId;
+}
+
+/** A draft claims its work when sent, as the period stands then. */
+function claimDraft(db: Db, invoice: Db['invoices'][number]) {
+  const preview = invoicePreview(
+    db,
+    {
+      clientId: invoice.clientId,
+      periodStart: invoice.periodStart,
+      periodEnd: invoice.periodEnd,
+      groupingMode: invoice.groupingMode,
+      summaryText: invoice.summaryText ?? undefined,
+    },
+    ZONE,
+  );
+  if (preview) claimBilled(db, invoice.id, preview);
 }
 
 function stopEntry(entry: TimeEntry, now: Date): TimeEntry {
@@ -238,6 +258,7 @@ export const handlers = {
       invoiceId: null,
       durationSeconds: null,
       durationOk: false,
+      invoicedElsewhere: false,
     };
     db.entries.push(entry);
     return ok(schema.TimeEntry, entry);
@@ -321,6 +342,7 @@ export const handlers = {
       invoiceId: null,
       durationSeconds: null,
       durationOk: false,
+      invoicedElsewhere: false,
     });
     db.entries.push(entry);
     return ok(schema.TimeEntry, entry);
@@ -332,14 +354,35 @@ export const handlers = {
     const entry = db.entries[i];
     if (!entry) return fail('ENTRY_NOT_FOUND');
     const invoice = byId(db.invoices, entry.invoiceId);
+    const patch = await body<Partial<TimeEntry>>(request);
+    if (patch.invoicedElsewhere && entry.invoiceId)
+      return fail('ENTRY_ALREADY_INVOICED', 'This entry is on an invoice');
     if (invoice && invoice.status !== 'draft')
       return fail('ENTRY_LOCKED', 'This entry is billed on an issued invoice');
-    db.entries[i] = withDuration({
-      ...entry,
-      ...(await body<Partial<TimeEntry>>(request)),
-    });
+    db.entries[i] = withDuration({ ...entry, ...patch });
     return ok(schema.TimeEntry, db.entries[i]);
   }),
+
+  markInvoicedElsewhere: http.post(
+    `${API}/entries/invoiced-elsewhere`,
+    async ({ request }) => {
+      const db = getDb();
+      const { ids, invoicedElsewhere } = await body<{
+        ids: string[];
+        invoicedElsewhere: boolean;
+      }>(request);
+      const changed = db.entries.filter(
+        (e) =>
+          ids.includes(e.id) &&
+          e.invoicedElsewhere !== invoicedElsewhere &&
+          (!invoicedElsewhere || (e.invoiceId === null && e.endedAt !== null)),
+      );
+      for (const e of changed) e.invoicedElsewhere = invoicedElsewhere;
+      return ok(envelopes.invoicedElsewhere, {
+        ids: changed.map((e) => e.id),
+      });
+    },
+  ),
 
   deleteEntry: http.delete(`${API}/entries/:id`, ({ params }) => {
     const db = getDb();
@@ -468,7 +511,15 @@ export const handlers = {
     const invoices = getDb()
       .invoices.filter((i) => !clientId || i.clientId === clientId)
       .filter((i) => !status || i.status === status)
-      .map(({ lineItems: _, changedSinceDownload: __, ...invoice }) => invoice)
+      .map(
+        ({
+          lineItems: _,
+          changedSinceDownload: __,
+          unratedEntries: ___,
+          dueBeforeIssue: ____,
+          ...invoice
+        }) => invoice,
+      )
       .sort((a, b) => b.sequenceNo - a.sequenceNo);
     return ok(envelopes.invoices, { invoices });
   }),
@@ -479,12 +530,21 @@ export const handlers = {
     if (!invoice) return fail('ENTRY_NOT_FOUND');
     // The fake keeps no plan per invoice: the account's plan decides.
     const { available, plan } = db.billing;
-    const { changedSinceDownload, lineItems, ...rest } = invoice;
+    const {
+      changedSinceDownload,
+      lineItems,
+      unratedEntries,
+      dueBeforeIssue: due,
+      ...rest
+    } = invoice;
     return ok(invoiceDetail, {
       ...rest,
       lineItems: lineItems.map((l) => ({ ...l, isNew: l.isNew ?? false })),
       canDownload: documentOpens(available, plan, null),
       changedSinceDownload: changedSinceDownload ?? null,
+      unratedEntries: unratedEntries ?? [],
+      dueBeforeIssue: due ?? dueBeforeIssue(invoice),
+      refuses: mockDraftRefusals(invoice),
     });
   }),
 
@@ -530,15 +590,12 @@ export const handlers = {
     if (preview.unratedEntryIds.length > 0)
       return fail('NO_RATE_CONFIGURED', 'Some billable entries have no rate');
     const invoice = invoiceRow(db, input, preview);
-    claimBilled(db, invoice.id, preview);
     db.invoices.push({
       ...invoice,
       lineItems: preview.lineItems.map(
-        ({ rateSource: _, entryIds: __, expenseId: ___, ...l }, i) => ({
+        ({ rateSource: _, entryIds: __, expenseId: ___, ...l }) => ({
           ...l,
           spentOn: l.spentOn ?? null,
-          id: uuidv7(db.now.getTime()),
-          sortOrder: i,
         }),
       ),
     });
@@ -566,6 +623,8 @@ export const handlers = {
           'This draft changed since you downloaded it. Download the new PDF, send that one, then mark it sent.',
           invoice.changedSinceDownload,
         );
+      if (input.status === 'sent' && invoice.status === 'draft')
+        claimDraft(db, invoice);
       invoice.status = input.status;
       if (input.status === 'sent')
         invoice.sentAt = input.sentAt ?? db.now.toISOString();
@@ -574,7 +633,13 @@ export const handlers = {
       if (input.status === 'void')
         for (const e of [...db.entries, ...db.expenses])
           if (e.invoiceId === invoice.id) e.invoiceId = null;
-      const { lineItems: _, changedSinceDownload: __, ...rest } = invoice;
+      const {
+        lineItems: _,
+        changedSinceDownload: __,
+        unratedEntries: ___,
+        dueBeforeIssue: ____,
+        ...rest
+      } = invoice;
       return ok(schema.Invoice, rest);
     },
   ),
@@ -588,8 +653,6 @@ export const handlers = {
         'VALIDATION_FAILED',
         'An issued invoice is voided, not deleted',
       );
-    for (const e of [...db.entries, ...db.expenses])
-      if (e.invoiceId === invoice.id) e.invoiceId = null;
     db.invoices = db.invoices.filter((i) => i !== invoice);
     return noContent();
   }),
@@ -847,8 +910,7 @@ export const handlers = {
   }),
 
   /* `imports/confirm/route.ts`: writes what the preview showed and reports
-     it. Rows billed elsewhere are left out, because the fake has no
-     `invoiced_elsewhere` flag to keep them out of Unbilled. */
+     it. */
   importConfirm: http.post(`${API}/imports/confirm`, async ({ request }) => {
     const preview = await importPreview(request);
     if (preview instanceof Response) return preview;
@@ -878,7 +940,7 @@ export const handlers = {
     const rows = preview.rows.filter((r) => r.willWrite);
     let written = 0;
     for (const r of rows) {
-      if (r.invoicedElsewhere || byId(db.entries, r.id)) continue;
+      if (byId(db.entries, r.id)) continue;
       db.entries.push(
         withDuration({
           id: r.id,
@@ -891,6 +953,7 @@ export const handlers = {
           invoiceId: null,
           durationSeconds: null,
           durationOk: false,
+          invoicedElsewhere: r.invoicedElsewhere,
         }),
       );
       written += 1;

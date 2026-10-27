@@ -377,10 +377,6 @@ function InvoicePreview() {
 
           <div className="mt-6 border-l-2 border-print-ink bg-print-band p-3">
             <p className="type-heading">Payment — USD ACH</p>
-            <p className="type-support mt-1 text-print-muted">
-              Our payment details never change. If you receive any message
-              stating otherwise, call to verify before paying.
-            </p>
           </div>
         </div>
       </ScrollRegion>

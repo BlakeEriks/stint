@@ -4,18 +4,13 @@ import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import {
   computeInvoice,
+  deriveDraft,
   loadPaymentProfile,
-  refreshDraft,
   requireSender,
   unratedError,
 } from '@/lib/invoicing';
 import { INVOICE_COLUMNS, toInvoice, type InvoiceRow } from '@/lib/rows';
-import {
-  addDays,
-  buildPaymentDetails,
-  localDateKey,
-  paymentTermsText,
-} from '@stint/core';
+import { buildPaymentDetails, localDateKey, termsForDays } from '@stint/core';
 import { CreateInvoice, ListInvoicesQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -36,29 +31,30 @@ export const GET = handle(async (req: Request) => {
   const { data, error } = await query;
   if (error) throw error;
 
-  // A draft's total is its period's work now. One at a time: a user holds
-  // only a few, and each refresh sees what the one before it took.
-  const rows: InvoiceRow[] = [];
-  for (const r of data ?? [])
-    rows.push((await refreshDraft(db, r as InvoiceRow, q.tz)).row);
-  return NextResponse.json({ invoices: rows.map(toInvoice) });
+  // A draft's total is its period's work now.
+  const invoices = await Promise.all(
+    ((data ?? []) as InvoiceRow[]).map(async (r) =>
+      toInvoice((await deriveDraft(db, r, q.tz))?.row ?? r),
+    ),
+  );
+  return NextResponse.json({ invoices });
 });
 
 /**
  * POST /api/v1/invoices
  *
- * The irreversible step. In order:
+ * Allocates the number and creates the draft. In order:
  *   1. Recompute line items from database-resolved rates and the stored
  *      expenses (never trusting a preview the client may have cached).
  *   2. Refuse if any billable entry has no resolvable rate.
- *   3. Write it all through `create_invoice`, in one transaction: the gapless
- *      number, the draft and its lines, and the entries and expenses it
- *      bills. Sending it locks them via the immutability triggers.
+ *   3. Write the draft's choices and its charges through `create_invoice`,
+ *      in one transaction with the gapless number. A draft claims its work
+ *      only when sent.
  *
  * One transaction is the point of step 3. Allocating a number is not
  * undoable, so a failure after a separate allocation left a gap in a
- * sequence promised to have none — and an entry or expense another invoice
- * took in the meantime is exactly such a failure.
+ * sequence promised to have none — and a draft another Generate made over
+ * the same dates meanwhile is exactly such a failure.
  */
 export const POST = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
@@ -86,41 +82,16 @@ export const POST = handle(async (req: Request) => {
 
   requireSender(settings);
 
-  const issueDate = body.issueDate ?? localDateKey(new Date(), body.tz);
-  const dueDate =
-    body.dueDate ??
-    addDays(issueDate, client.payment_terms_days ?? settings.paymentTermsDays);
-  if (dueDate < issueDate) {
+  /* The issue date is the send date, so a typed due date is held to today:
+     it can only move further behind. */
+  const today = localDateKey(new Date(), body.tz);
+  if (body.dueDate && body.dueDate < today) {
     throw new ApiError(
       'VALIDATION_FAILED',
       "The due date can't be before the issue date.",
       { field: 'dueDate' },
     );
   }
-
-  /* One open draft per client and date: two would each claim the same new
-     work on their next refresh. */
-  const { data: open, error: openError } = await db
-    .from('invoices')
-    .select('id, invoice_number, period_start, period_end')
-    .eq('client_id', body.clientId)
-    .eq('status', 'draft')
-    .lte('period_start', body.periodEnd)
-    .gte('period_end', body.periodStart)
-    .limit(1)
-    .maybeSingle();
-  if (openError) throw openError;
-  if (open)
-    throw new ApiError(
-      'DRAFT_OVERLAPS',
-      `${open.invoice_number} is a draft for these dates already. Open it, or start after it.`,
-      {
-        invoiceId: open.id,
-        invoiceNumber: open.invoice_number,
-        periodStart: open.period_start,
-        periodEnd: open.period_end,
-      },
-    );
 
   if (totals.unratedEntryIds.length > 0)
     throw unratedError(totals.unratedEntryIds);
@@ -150,18 +121,16 @@ export const POST = handle(async (req: Request) => {
     p_user_id: userId,
     p_invoice: {
       client_id: body.clientId,
-      issue_date: issueDate,
-      due_date: dueDate,
+      due_date: body.dueDate ?? null,
       period_start: body.periodStart,
       period_end: body.periodEnd,
-      subtotal: totals.subtotal,
-      tax_rate: totals.taxRate,
-      tax_amount: totals.taxAmount,
-      expenses_subtotal: totals.expensesSubtotal,
-      total: totals.total,
       currency: client.currency ?? settings.currency,
       notes: body.notes ?? null,
-      payment_terms: paymentTermsText(issueDate, dueDate),
+      /* The terms the draft keeps: its due date follows them from the day it
+         is sent, unless one was typed. */
+      payment_terms: termsForDays(
+        client.payment_terms_days ?? settings.paymentTermsDays,
+      ),
       grouping_mode: body.groupingMode,
       summary_text: body.groupingMode === 'summary' ? body.summaryText : null,
       supporting_detail: computed.supportingDetail,
@@ -169,35 +138,30 @@ export const POST = handle(async (req: Request) => {
       payment_details: paymentDetails,
       tz: body.tz,
       excluded_expense_ids: body.excludedExpenseIds,
-      lines: computed.lines,
+      manual_lines: body.manualLines,
     },
-    p_entry_ids: computed.entryIds,
-    p_expense_ids: computed.expenseIds,
   });
 
-  if (error) {
-    if (dbCode(error) === 'EXPENSE_ALREADY_INVOICED') {
-      throw new ApiError(
-        'EXPENSE_ALREADY_INVOICED',
-        'An expense on this invoice was billed on another one first. Preview again.',
-      );
-    }
-    if (dbCode(error) === 'ENTRY_ALREADY_INVOICED') {
-      throw new ApiError(
-        'ENTRY_ALREADY_INVOICED',
-        'Time on this invoice changed since the preview. Preview again.',
-      );
-    }
-    throw error;
+  /* One open draft per client and date, which `create_invoice` holds: two
+     would both show the same work. */
+  if (dbCode(error) === 'DRAFT_OVERLAPS') {
+    const open = JSON.parse(error!.details) as { invoiceNumber: string };
+    throw new ApiError(
+      'DRAFT_OVERLAPS',
+      `${open.invoiceNumber} is a draft for these dates already. Open it, or start after it.`,
+      open,
+    );
   }
+  if (error) throw error;
 
-  const invoice = Array.isArray(data) ? data[0] : data;
+  const row = (Array.isArray(data) ? data[0] : data) as InvoiceRow;
+  const draft = (await deriveDraft(db, row, body.tz))!;
 
   return NextResponse.json(
     {
-      ...toInvoice(invoice as InvoiceRow),
-      lineItems: totals.lineItems,
-      entryCount: totals.entryCount,
+      ...toInvoice(draft.row),
+      lineItems: draft.lines,
+      entryCount: draft.computed.totals.entryCount,
     },
     { status: 201 },
   );

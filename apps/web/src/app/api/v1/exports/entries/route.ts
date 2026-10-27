@@ -29,10 +29,7 @@ export const GET = handle(async (req: Request) => {
 
   const [entries, projects, clients, invoices, settings] = await Promise.all([
     selectAll(() =>
-      db
-        .from('time_entries')
-        .select(`${ENTRY_COLUMNS}, invoiced_elsewhere`)
-        .not('ended_at', 'is', null),
+      db.from('time_entries').select(ENTRY_COLUMNS).not('ended_at', 'is', null),
     ),
     selectAll(() => db.from('projects').select(PROJECT_COLUMNS)),
     selectAll(() => db.from('clients').select(CLIENT_COLUMNS)),
@@ -46,9 +43,7 @@ export const GET = handle(async (req: Request) => {
 
   const csv = entriesCsv(
     {
-      entries: (entries as (EntryRow & { invoiced_elsewhere: boolean })[]).map(
-        (r) => ({ ...toEntry(r), invoicedElsewhere: r.invoiced_elsewhere }),
-      ),
+      entries: (entries as EntryRow[]).map(toEntry),
       projects: (projects as ProjectRow[]).map(toProject),
       clients: (clients as ClientRow[]).map(toClient),
       invoices: (invoices as { id: string; invoice_number: string }[]).map(
