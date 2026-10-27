@@ -134,7 +134,7 @@ describe('opening an entry from the calendar', () => {
     render(<Calendar />, { wrapper });
 
     const button = await screen.findByRole('button', { name: /Standup/ });
-    expect(button).toHaveAccessibleName(/Standup, \d+:\d+\s?(AM|PM)/i);
+    expect(button).toHaveAccessibleName(/^Standup .*\d+:\d+\s?(AM|PM)/i);
   });
 
   it('marks a billed entry as billed in its accessible name', async () => {

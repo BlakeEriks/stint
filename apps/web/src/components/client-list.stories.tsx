@@ -169,7 +169,7 @@ export const ArchivedProjectLast: Story = {
       'button',
       { name: /^Edit / },
     );
-    await expect(rows.at(-1)).toHaveAccessibleName('Edit Warehouse dashboard');
+    await expect(rows.at(-1)).toHaveAccessibleName(/^Edit Warehouse dashboard/);
     await expect(
       northwind.getByRole('button', { name: 'Restore Warehouse dashboard' }),
     ).toBeVisible();
@@ -269,7 +269,7 @@ export const EditProject: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.click(
-      await page.findByRole('button', { name: 'Edit Warehouse dashboard' }),
+      await page.findByRole('button', { name: /^Edit Warehouse dashboard/ }),
     );
     await expectOpen(canvasElement, 'dialog');
   },
@@ -393,8 +393,13 @@ export const ClientPaymentTerms: Story = {
     await userEvent.clear(field());
     await userEvent.type(field(), '15');
     await saveDialog(page, dialog);
-    dialog = await editNorthwind(page);
-    await expect(field()).toHaveValue('15');
+    /* The row doesn't show terms, so nothing on the page says the refetch
+       has landed; a dialog opened before it holds the old client. */
+    await waitFor(async () => {
+      if (page.queryByRole('dialog')) await userEvent.keyboard('{Escape}');
+      dialog = await editNorthwind(page);
+      await expect(field()).toHaveValue('15');
+    });
   },
 };
 
@@ -436,7 +441,7 @@ export const EditArchivedProject: Story = {
     const page = within(canvasElement.ownerDocument.body);
     await openArchived(canvasElement);
     await userEvent.click(
-      await page.findByRole('button', { name: 'Edit Legacy retainer' }),
+      await page.findByRole('button', { name: /^Edit Legacy retainer/ }),
     );
     await expectOpen(canvasElement, 'dialog');
     await expect(page.queryByRole('button', { name: 'Archive' })).toBeNull();
@@ -509,7 +514,7 @@ export const RestoreProjectFromDialog: Story = {
     const northwind = await card(canvasElement, 'Northwind Trading');
     await expect(await northwind.findByText('Archived')).toBeVisible();
     await userEvent.click(
-      page.getByRole('button', { name: 'Edit Warehouse dashboard' }),
+      page.getByRole('button', { name: /^Edit Warehouse dashboard/ }),
     );
     await userEvent.click(await page.findByRole('button', { name: 'Restore' }));
     await waitFor(() => expect(northwind.queryByText('Archived')).toBeNull());
@@ -563,7 +568,7 @@ export const EditExpense: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.click(
-      await page.findByRole('button', { name: 'Edit Figma license, annual' }),
+      await page.findByRole('button', { name: /^Edit Figma license, annual/ }),
     );
     await expectOpen(canvasElement, 'dialog', 'Edit expense');
     const amount = page.getByLabelText(/Amount/);
@@ -581,7 +586,7 @@ export const DeleteExpense: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.click(
-      await page.findByRole('button', { name: 'Edit Figma license, annual' }),
+      await page.findByRole('button', { name: /^Edit Figma license, annual/ }),
     );
     await userEvent.click(
       await page.findByRole('button', { name: 'Delete expense' }),
@@ -606,7 +611,7 @@ export const DeletingExpense: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.click(
-      await page.findByRole('button', { name: 'Edit Figma license, annual' }),
+      await page.findByRole('button', { name: /^Edit Figma license, annual/ }),
     );
     await userEvent.click(
       await page.findByRole('button', { name: 'Delete expense' }),
@@ -627,7 +632,7 @@ export const DeletingExpense: Story = {
     // Behind the modal, so out of the accessibility tree but still listed.
     await expect(
       page.getByRole('button', {
-        name: 'Edit Figma license, annual',
+        name: /^Edit Figma license, annual/,
         hidden: true,
       }),
     ).toBeInTheDocument();
@@ -642,7 +647,7 @@ export const DeleteExpenseRefused: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.click(
-      await page.findByRole('button', { name: 'Edit Figma license, annual' }),
+      await page.findByRole('button', { name: /^Edit Figma license, annual/ }),
     );
     await userEvent.click(
       await page.findByRole('button', { name: 'Delete expense' }),
@@ -658,7 +663,9 @@ export const DeleteExpenseRefused: Story = {
     await waitFor(() => expect(cancel).toBeEnabled());
     await userEvent.click(cancel);
     await userEvent.click(
-      await page.findByRole('button', { name: 'Edit Claude Max subscription' }),
+      await page.findByRole('button', {
+        name: /^Edit Claude Max subscription/,
+      }),
     );
     await expectOpen(canvasElement, 'dialog', 'Edit expense');
     await expect(page.queryByRole('alert')).toBeNull();
@@ -685,7 +692,9 @@ export const RecurringExpense: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.click(
-      await page.findByRole('button', { name: 'Edit Claude Max subscription' }),
+      await page.findByRole('button', {
+        name: /^Edit Claude Max subscription/,
+      }),
     );
     await expectOpen(canvasElement, 'dialog', 'Edit expense');
     await expect(
@@ -695,14 +704,29 @@ export const RecurringExpense: Story = {
   },
 };
 
+/** Byrne's draft, sent or paid, with the stock photography it billed. */
+const billPhotos = (status: 'sent' | 'paid') =>
+  account((db) => {
+    const invoice = db.invoices.find((i) => i.sequenceNo === 15)!;
+    invoice.status = status;
+    invoice.sentAt = '2026-09-10T15:00:00.000Z';
+    if (status === 'paid') invoice.paidAt = '2026-09-16T15:00:00.000Z';
+    Object.assign(db.expenses.find((e) => e.id === ids.stockPhotos)!, {
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      invoiceStatus: status,
+    });
+  });
+
 /** On an unpaid invoice (US3 scenario 1): muted, labeled with the invoice,
     and it opens the invoice rather than a dialog, since it is locked. */
 export const BilledExpense: Story = {
   ...desktop,
+  parameters: billPhotos('sent'),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     const row = await page.findByRole('link', { name: /Stock photography/ });
-    await expect(row).toHaveAccessibleName(/on STINT-0015/);
+    await expect(row).toHaveAccessibleName(/STINT-0015/);
     await expect(row.getAttribute('href')).toMatch(/^\/invoices\//);
   },
 };
@@ -710,11 +734,7 @@ export const BilledExpense: Story = {
 /** Once its invoice is paid, a billed expense leaves the card. */
 export const PaidExpenseGone: Story = {
   ...desktop,
-  parameters: account((db) => {
-    const draft = db.invoices.find((i) => i.sequenceNo === 15)!;
-    draft.status = 'paid';
-    draft.paidAt = '2026-09-16T15:00:00.000Z';
-  }),
+  parameters: billPhotos('paid'),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     await page.findByText('Figma license, annual');

@@ -10,7 +10,7 @@ import { PlanSection } from './plan-section';
 import { ExportSection } from './export-section';
 import { useQuery } from '@tanstack/react-query';
 import { api, type Settings } from '@/lib/client/api';
-import { keys } from '@/lib/client/query-keys';
+import { keys } from '@stint/client';
 import { Listing, Page } from './page';
 
 /**

@@ -119,7 +119,7 @@ unmarshal string into Go struct field OtpParams.create_user of type bool".
 `supabase-swift` is not a dependency; two POSTs do not need an SDK.
 
 The hosted project's copy of that template is pasted into the dashboard,
-which needs custom SMTP. `docs/setup.md` §4a.
+which needs custom SMTP. `docs/setup.md` §5.
 
 **The session lives in the Keychain**, not `UserDefaults` — a refresh token is
 a long-lived credential and a plist in the container is readable by anything

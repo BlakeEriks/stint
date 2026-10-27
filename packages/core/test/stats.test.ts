@@ -46,7 +46,7 @@ const invoice = (o: Partial<InvoiceRow> = {}): InvoiceRow => ({
   due_date: '2026-03-01',
   total: '250.00',
   currency: 'USD',
-  issue_date: '2026-02-01',
+  period_end: '2026-01-31',
   ...o,
 });
 
@@ -61,6 +61,22 @@ test('the unbilled total rounds once, so a sum of rounded lines is money', () =>
   const { total } = buildUnbilled(rows, 'USD', now);
   assert.equal(total, 100);
   assert.equal(Math.round(total * 100) % 1, 0);
+});
+
+test('unbilled totals only the account currency and says when others are left out', () => {
+  const u = buildUnbilled(
+    [
+      unbilledRow({ amount: '100.00' }),
+      unbilledRow({ client_id: 'c2', currency: 'EUR', amount: '500.00' }),
+      unbilledRow({ client_id: null, currency: null, amount: '20.00' }),
+    ],
+    'USD',
+    now,
+  );
+  assert.equal(u.total, 120);
+  assert.equal(u.mixed, true);
+  assert.equal(u.seconds, 3 * 3600, 'hours carry no currency');
+  assert.equal(buildUnbilled([unbilledRow()], 'USD', now).mixed, false);
 });
 
 test('unbilled caps byClient at five and counts the rest', () => {
@@ -223,11 +239,12 @@ test('overdue invoices lead with the most overdue', () => {
   assert.equal(rows[0]?.clientName, 'Acme');
 });
 
-test('a sent invoice is never a stale draft', () => {
+test('a draft is stale by its period end; a sent invoice never is', () => {
   const rows = buildStaleDrafts(
     [
-      invoice({ id: 'a', status: 'draft', issue_date: '2026-02-01' }),
-      invoice({ id: 'b', status: 'sent', issue_date: '2026-01-01' }),
+      invoice({ id: 'a', status: 'draft', period_end: '2026-02-01' }),
+      invoice({ id: 'b', status: 'sent', period_end: '2026-01-01' }),
+      invoice({ id: 'c', status: 'draft', period_end: '2026-03-15' }),
     ],
     names,
     'USD',

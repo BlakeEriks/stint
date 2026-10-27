@@ -1,9 +1,39 @@
 'use client';
 
-import { forgetCache } from './query-cache';
+import {
+  type ApiError,
+  readBody,
+  readFailure,
+  withInclude,
+  type Include,
+  type Res,
+  type StartTimer,
+  type Stats,
+  type StoppedTimer,
+  type Summary,
+  type TaskNameSuggestion,
+  type TimeEntry,
+  type WrittenEntry,
+  type Client,
+  type Project,
+} from '@stint/client';
 import type { z } from 'zod';
 import type * as schema from '@stint/schema';
 import type { ImportPreview, ImportResult } from '@stint/core';
+import { forgetCache } from './query-cache';
+
+export {
+  ApiError,
+  type Client,
+  type Include,
+  type Project,
+  type Stats,
+  type StoppedTimer,
+  type Summary,
+  type TaskNameSuggestion,
+  type TimeEntry,
+  type WrittenEntry,
+} from '@stint/client';
 
 /**
  * Browser-side API access.
@@ -12,41 +42,6 @@ import type { ImportPreview, ImportResult } from '@stint/core';
  * `requireSession` handles both paths. Errors become `ApiError` so callers
  * can branch on a code (a 409 from the timer is a normal flow, not a crash).
  */
-
-/**
- * Deliberately NOT `z.infer<typeof schema.ApiError>`: that types `code` as the
- * `ErrorCode` enum, and a client should not fail to parse an error just
- * because a newer server introduced a code it has not heard of. Widening to
- * `string` is what lets the unknown case fall through to generic handling.
- */
-export interface ApiErrorBody {
-  code: string;
-  message: string;
-  details?: unknown;
-}
-
-export class ApiError extends Error {
-  readonly status: number;
-  readonly code: string;
-  readonly details?: unknown;
-
-  constructor(status: number, body: ApiErrorBody) {
-    super(body.message);
-    this.name = 'ApiError';
-    this.status = status;
-    this.code = body.code;
-    this.details = body.details;
-  }
-
-  /** A timer is already running; `details.running` carries it. */
-  get isTimerConflict() {
-    return this.code === 'TIMER_ALREADY_RUNNING';
-  }
-
-  get isUnauthorized() {
-    return this.code === 'UNAUTHORIZED';
-  }
-}
 
 async function request<T>(
   method: string,
@@ -61,26 +56,12 @@ async function request<T>(
   });
 
   if (!res.ok) throw await failure(res);
-  if (res.status === 204) return undefined as T;
-
-  const text = await res.text();
-  return (text ? JSON.parse(text) : undefined) as T;
+  return readBody<T>(res);
 }
 
 /** A failed response as an `ApiError`, which also sends a 401 to sign in. */
 async function failure(res: globalThis.Response): Promise<ApiError> {
-  const text = await res.text();
-  let body: ApiErrorBody | undefined;
-  try {
-    body = text ? JSON.parse(text) : undefined;
-  } catch (parse) {
-    // A platform error page — Vercel's 504 is plain text — not one of ours.
-    if (!(parse instanceof SyntaxError)) throw parse;
-  }
-  const error = new ApiError(
-    res.status,
-    body ?? { code: 'UNKNOWN', message: res.statusText },
-  );
+  const error = await readFailure(res);
 
   /*
    * An expired or cleared session sends the user to sign in, from wherever
@@ -105,72 +86,30 @@ async function failure(res: globalThis.Response): Promise<ApiError> {
 }
 
 // ── shapes the UI consumes ─────────────────────────────────────────
-/*
- * These DERIVE from `@stint/schema` rather than copying it, so a field added
- * or removed there is a compile error here.
- *
- * `Response<T>` is why a plain `z.infer` is not enough. A schema marks a field
- * `.optional()` to say a REQUEST may omit it, so `z.infer` yields
- * `field?: T | undefined`. Every converter in `rows.ts` sets every field
- * unconditionally — absent values arrive as `null`, never missing — so a
- * response has no optional fields, and typing them as optional would push a
- * pointless `?? null` through the whole UI.
- */
-type Response<T> = { [K in keyof T]-?: Exclude<T[K], undefined> };
-
-export type TimeEntry = Response<schema.TimeEntry>;
-export type Project = Response<schema.Project>;
-export type Client = Response<schema.Client>;
-export type ClientWithScale = Response<schema.ClientWithScale>;
-export type Settings = Response<schema.Settings>;
-export type Account = Response<schema.Account>;
-export type Billing = Response<schema.Billing>;
-export type PaymentProfile = Response<schema.PaymentProfile>;
-export type InvoicePreview = Response<schema.InvoicePreview>;
-export type Invoice = Response<schema.Invoice>;
-export type Expense = Response<schema.Expense>;
+export type ClientWithScale = Res<schema.ClientWithScale>;
+export type Settings = Res<schema.Settings>;
+export type Account = Res<schema.Account>;
+export type Billing = Res<schema.Billing>;
+export type PaymentProfile = Res<schema.PaymentProfile>;
+export type InvoicePreview = Res<schema.InvoicePreview>;
+export type Invoice = Res<schema.Invoice>;
+export type Expense = Res<schema.Expense>;
 export type ManualLine = schema.ManualLine;
-export type TaskNameSuggestion = Response<schema.TaskNameSuggestion>;
 
-/* Nested objects keep their own optionality, so `Response` is applied only at
-   the top level here — every nested field is already required. */
-export type Stats = Response<schema.Stats>;
-
-export type CalendarDay = Response<Omit<schema.CalendarDay, 'entries'>> & {
+export type CalendarDay = Res<Omit<schema.CalendarDay, 'entries'>> & {
   entries: TimeEntry[];
 };
-
-export type Summary = Response<Omit<schema.Summary, 'running'>> & {
-  running: TimeEntry | null;
-};
-
-export type IncludedName = schema.IncludedName;
-/** What a write returns beside its record when asked (`docs/api.md`). */
-export type Included = { summary?: Summary; stats?: Stats };
-/** A write's `?include=`: the reads to return, and the zone they're in. */
-export type Include = { names: readonly IncludedName[]; tz: string };
 
 const zone = () =>
   `tz=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')}`;
 
-export type StoppedTimer = { entry: TimeEntry; included?: Included } & Pick<
-  Stats,
-  'currency' | 'unbilled'
->;
-/** A start or entry `PATCH` that asked to `include`. */
-export type WrittenEntry = { entry: TimeEntry; included: Included };
-
-const withInclude = (path: string, include?: Include) =>
-  include?.names.length
-    ? `${path}?include=${include.names.join(',')}&tz=${encodeURIComponent(include.tz)}`
-    : path;
-
 export type GroupingMode = z.infer<typeof schema.GroupingMode>;
 export type ScheduleKind = z.infer<typeof schema.ScheduleKind>;
 export type InvoiceStatus = z.infer<typeof schema.InvoiceStatus>;
-export type ComputedLineItem = Response<schema.ComputedLineItem>;
-export type StoredLineItem = Response<schema.StoredLineItem>;
-export type DraftChange = Response<schema.DraftChange>;
+export type ComputedLineItem = Res<schema.ComputedLineItem>;
+export type InvoiceLineItem = Res<schema.InvoiceLineItem>;
+export type UnratedEntry = Res<schema.UnratedEntry>;
+export type DraftChange = Res<schema.DraftChange>;
 
 /** Everything a project is created or edited with. */
 export type ProjectInput = Partial<Omit<Project, 'id' | 'archivedAt'>> &
@@ -227,15 +166,7 @@ export const api = {
     );
   },
 
-  startTimer: (
-    body: {
-      id?: string;
-      taskName: string;
-      projectId?: string | null;
-      isBillable?: boolean;
-    },
-    include: Include,
-  ) =>
+  startTimer: (body: StartTimer, include: Include) =>
     request<WrittenEntry>('POST', withInclude('/timer/start', include), body),
 
   stopTimer: (include?: Include) =>
@@ -272,9 +203,17 @@ export const api = {
         | 'endedAt'
         | 'isBillable'
         | 'durationOk'
+        | 'invoicedElsewhere'
       >
     >,
   ) => request<TimeEntry>('PATCH', `/entries/${id}`, body),
+
+  /** Sets or clears billed elsewhere on `ids`; answers with the ones it
+   *  changed, which is what an Undo sends back. */
+  markInvoicedElsewhere: (body: {
+    ids: string[];
+    invoicedElsewhere: boolean;
+  }) => request<{ ids: string[] }>('POST', '/entries/invoiced-elsewhere', body),
 
   deleteEntry: (id: string) => request<void>('DELETE', `/entries/${id}`),
 
@@ -371,9 +310,12 @@ export const api = {
     request<
       Invoice & {
         /** `isNew`: on a draft, a line its last PDF didn't have. */
-        lineItems: (StoredLineItem & { isNew: boolean })[];
+        lineItems: (InvoiceLineItem & { isNew: boolean })[];
         canDownload: boolean;
         changedSinceDownload: DraftChange | null;
+        unratedEntries: UnratedEntry[];
+        dueBeforeIssue: { download: boolean; send: boolean };
+        refuses: { download: boolean; send: boolean };
       }
     >('GET', `/invoices/${id}?${zone()}`),
 
@@ -403,7 +345,6 @@ export const api = {
     schedules?: ScheduleKind[];
     reference?: string;
     paymentProfileId?: string;
-    issueDate?: string;
     dueDate?: string;
     notes?: string;
   }) =>
@@ -419,7 +360,7 @@ export const api = {
   ) =>
     request<Invoice>(
       'PATCH',
-      // Sending refreshes a draft first, in its period's zone.
+      // A draft is sent as its period's work stands, read in its zone.
       `/invoices/${id}/status${body.status === 'sent' ? `?${zone()}` : ''}`,
       body,
     ),

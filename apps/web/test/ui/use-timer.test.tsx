@@ -3,7 +3,7 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { timeZone, useTimer } from '@/lib/client/use-timer';
-import { keys } from '@/lib/client/query-keys';
+import { keys } from '@stint/client';
 import type { Stats, Summary, TimeEntry } from '@/lib/client/api';
 import { localDateKey } from '@stint/core';
 
@@ -456,11 +456,50 @@ describe('useTimer — Home settles with the answer', () => {
     expect(client.getQueryData(keys.stats(timeZone))).toEqual({
       settled: true,
     });
-    expect(client.getQueryData<Summary>(keys.summary())?.todaySeconds).toBe(
-      3600,
-    );
+    expect(
+      client.getQueryData<Summary>(keys.summary(timeZone))?.todaySeconds,
+    ).toBe(3600);
     expect(invalidated).not.toContain('summary');
     expect(invalidated).not.toContain('stats');
     expect(invalidated).toContain('entries');
+  });
+});
+
+/**
+ * A timer stopped on the phone or the Mac reaches a visible tab within
+ * one poll. React Query skips the interval while the tab is hidden.
+ */
+describe('useTimer polling', () => {
+  const calls = () =>
+    (fetch as unknown as { mock: { calls: unknown[] } }).mock.calls.length;
+  const hide = (hidden: boolean) =>
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => (hidden ? 'hidden' : 'visible'),
+    });
+  afterEach(() => hide(false));
+
+  async function pollsIn10s(data: Summary) {
+    serve(data);
+    const { result } = renderHook(() => useTimer(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    const before = calls();
+    await act(async () => {
+      vi.advanceTimersByTime(10_000);
+    });
+    return calls() - before;
+  }
+
+  it('refetches every 10s while a timer runs and the tab is visible', async () => {
+    expect(await pollsIn10s(summary({ running: entry() }))).toBe(1);
+  });
+
+  it('does not poll a hidden tab', async () => {
+    hide(true);
+    expect(await pollsIn10s(summary({ running: entry() }))).toBe(0);
+  });
+
+  it('does not poll while no timer runs', async () => {
+    expect(await pollsIn10s(summary())).toBe(0);
   });
 });

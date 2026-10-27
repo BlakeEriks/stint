@@ -277,6 +277,39 @@ export const ClientChosen: Story = {
 };
 export const ClientChosenPhone: Story = { ...ClientChosen, ...phone };
 
+/** Work already billed from another tool: "Already billed this?", beside the
+    preview's entry count, marks the time the card shows, the card keeps only the expenses, and the toast offers
+    Undo (US1 scenarios 1–2). */
+export const BilledElsewhere: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    await userEvent.click(
+      page.getByRole('button', { name: 'Already billed this?' }),
+    );
+    await expect(
+      await page.findByText(/entries marked billed elsewhere/),
+    ).toBeVisible();
+    await expect(await page.findByText('0 entries')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Already billed this?' }),
+    ).toBeDisabled();
+  },
+};
+
+/** Undo puts exactly that work back on the card (US1 scenario 3). */
+export const BilledElsewhereUndone: Story = {
+  ...desktop,
+  play: async (ctx) => {
+    await BilledElsewhere.play?.(ctx);
+    const page = within(ctx.canvasElement.ownerDocument.body);
+    await userEvent.click(page.getByRole('button', { name: 'Undo' }));
+    await expect(await page.findByText('15 entries')).toBeVisible();
+    await expect(page.queryByText(/marked billed elsewhere/)).toBeNull();
+  },
+};
+
 /** The screen is a workspace: the dock folds to a strip, so at 2xl the
     preview is 700px beside the form (it was ~430px beside the dock). */
 export const Workspace: Story = {
@@ -411,7 +444,7 @@ export const WithCharge: Story = {
     await userEvent.click(dialog.getByRole('button', { name: 'Save' }));
     await expect(
       await page.findByRole('button', {
-        name: 'Edit charge Hosting, September',
+        name: /^Edit charge Hosting, September/,
       }),
     ).toBeVisible();
     const row = (
@@ -727,7 +760,7 @@ export const EditingExpense: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await userEvent.click(
-      await page.findByRole('button', { name: 'Edit Figma license, annual' }),
+      await page.findByRole('button', { name: /^Edit Figma license, annual/ }),
     );
     const dialog = await page.findByRole('dialog', { name: 'Edit expense' });
     // It fades in.

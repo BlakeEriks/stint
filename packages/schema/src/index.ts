@@ -28,7 +28,7 @@ const hexColor = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
  *
  * `catch` rather than a hard failure on the read endpoints: a view that
  * renders in UTC beats a view that does not render. The write endpoints, and
- * the reads that refresh a draft, reject one instead, because a zone that
+ * the reads that derive a draft, reject one instead, because a zone that
  * silently becomes UTC decides which entries land on an invoice.
  */
 export const timeZone = z.string().refine(isValidTimeZone).catch('UTC');
@@ -150,6 +150,8 @@ export const TimeEntry = z.object({
    * given about.
    */
   durationOk: z.boolean().default(false),
+  /** Billed from another tool: earned, and never unbilled or invoiced here. */
+  invoicedElsewhere: z.boolean().default(false),
 });
 
 /** Manual entry creation. The id is client-supplied so replay is safe. */
@@ -179,6 +181,14 @@ export const UpdateTimeEntry = z.object({
   rateOverride: money.nullable().optional(),
   /** How the inbox's "It's correct" answers the strange-duration row. */
   durationOk: z.boolean().optional(),
+  /** `true` is refused on an entry on an invoice. */
+  invoicedElsewhere: z.boolean().optional(),
+});
+
+/** `POST /entries/invoiced-elsewhere`: the entries a press names, by id. */
+export const MarkInvoicedElsewhere = z.object({
+  ids: z.array(uuid).min(1).max(1000),
+  invoicedElsewhere: z.boolean(),
 });
 
 export const ListEntriesQuery = z.object({
@@ -193,12 +203,14 @@ export const ListEntriesQuery = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(200),
 });
 
+export const TASK_NAMES_MAX = 1000;
+
 export const TaskNamesQuery = z.object({
   /* A preference, not a filter: names used with this project rank first and
      every other name still follows. Omitting it ranks by recency alone, which
      is also what the picker's "No project" state wants. */
   projectId: uuid.optional(),
-  limit: z.coerce.number().int().min(1).max(20).default(8),
+  limit: z.coerce.number().int().min(1).max(TASK_NAMES_MAX).default(8),
 });
 
 /** One row of `recent_task_names`; ranked by the server and never re-sorted. */
@@ -228,6 +240,17 @@ export const UpdateRunningTimer = z.object({
   taskName: z.string().max(500).optional(),
   projectId: uuid.nullable().optional(),
 });
+
+// ── push devices (the phones told when the timer changes) ─────────
+export const PushPlatform = z.enum(['android']);
+const pushToken = z.string().min(1).max(4096);
+
+export const RegisterPushDevice = z.object({
+  token: pushToken,
+  platform: PushPlatform,
+});
+
+export const UnregisterPushDevice = z.object({ token: pushToken });
 
 // ── summary (the menu bar endpoint) ────────────────────────────────
 export const Summary = z.object({
@@ -292,8 +315,6 @@ export const Settings = z.object({
   paymentTermsDays: termsDays,
   invoiceNumberPrefix: z.string().max(20),
   nextInvoiceNumber: z.number().int().positive().max(NEXT_INVOICE_NUMBER_MAX),
-  /** Standing anti-fraud line printed under the invoice payment block. */
-  paymentNotice: z.string().max(500).nullable(),
   /** When the welcome dialog was finished or skipped; null shows it. */
   welcomedAt: iso.nullable(),
 });
@@ -436,21 +457,19 @@ export const ComputedLineItem = InvoiceLineItem.extend({
   expenseId: uuid.optional(),
 });
 
-/**
- * A line item frozen onto an issued invoice and read back — what
- * `GET /invoices/:id` returns. `sortOrder` is the stored order that keeps a
- * re-downloaded PDF identical to the one first issued.
- */
-export const StoredLineItem = InvoiceLineItem.extend({
-  id: uuid,
-  sortOrder: z.number().int().nonnegative(),
-});
-
 const Change = z.object({ from: z.number(), to: z.number() });
 
 /** How a draft moved since its PDF was last rendered: what Mark sent's
  *  `DRAFT_CHANGED` carries, and the detail's `changedSinceDownload`. */
 export const DraftChange = z.object({ hours: Change, total: Change });
+
+/** A billable entry on a draft that no rate prices: the draft shows without
+ *  it, and its PDF and Mark sent are refused until it has one. */
+export const UnratedEntry = z.object({
+  id: uuid,
+  taskName: z.string(),
+  startedAt: iso,
+});
 
 export const InvoicePreview = z.object({
   clientId: uuid,
@@ -484,8 +503,15 @@ export type ManualLine = z.infer<
   typeof InvoicePreviewRequest
 >['manualLines'][number];
 
+/** One flag each for a draft's PDF and its Mark sent. */
+export const DraftActions = z.object({
+  download: z.boolean(),
+  send: z.boolean(),
+});
+
 export const CreateInvoice = InvoicePreviewRequest.extend({
-  issueDate: z.iso.date().optional(),
+  /** Typed by the user. Absent, it follows the terms from the day the draft
+   *  is sent, which is also its issue date. */
   dueDate: z.iso.date().optional(),
   notes: z.string().max(2000).optional(),
   /** The PO, contract or SOW the client matches the invoice to. */
@@ -528,9 +554,10 @@ export const InvoiceStatus = z.enum(['draft', 'sent', 'paid', 'void']);
  * An issued invoice, as the API returns it.
  *
  * Line items are NOT part of this shape: they are fetched with the detail
- * view. A draft's are re-derived from its period's work on every read; once
- * sent they are frozen, and re-deriving them is the thing that must never
- * happen — re-downloading a year later has to produce the same document.
+ * view. A draft's, its totals and its dates are derived from its period's
+ * work on every read, as if sent today; once sent they are frozen, and
+ * re-deriving them is the thing that must never happen — re-downloading a
+ * year later has to produce the same document.
  */
 export const Invoice = z.object({
   id: uuid,
@@ -657,8 +684,8 @@ export const ListExpensesQuery = z.object({
   status: z.enum(['open', 'unbilled']).default('open'),
 });
 
-/** A draft is refreshed on every read, in the zone its period's dates are
- *  read in; a draft with no zone of its own takes the read's. */
+/** A draft is derived on every read, in the zone its period's dates are
+ *  read in; a draft with no zone of its own takes the read's, else UTC. */
 export const InvoiceReadQuery = z.object({ tz: ianaZone.optional() });
 
 export const ListInvoicesQuery = InvoiceReadQuery.extend({
@@ -795,6 +822,9 @@ export const Stats = z.object({
     /** Work done and not yet invoiced, a running timer's session so far
      *  included. Never "earned" and never "revenue". */
     total: money,
+    /** Rows in another currency are left out of `total`, which is only the
+     *  response's `currency`. */
+    mixed: z.boolean(),
     seconds: z.number().int().nonnegative(),
     byClient: z.array(UnbilledClient),
     moreClients: z.number().int().nonnegative(),
@@ -905,6 +935,8 @@ export const Stats = z.object({
         amount: money,
         currency,
         ageDays: z.number().int(),
+        /** Whether its PDF and Mark sent would refuse it now. */
+        refuses: DraftActions,
       }),
     ),
     /** Unbilled billable work dated inside a sent or paid invoice's period
@@ -1115,10 +1147,12 @@ export type Expense = z.infer<typeof Expense>;
 export type CalendarDay = z.infer<typeof CalendarDay>;
 export type InvoiceLineItem = z.infer<typeof InvoiceLineItem>;
 export type ComputedLineItem = z.infer<typeof ComputedLineItem>;
-export type StoredLineItem = z.infer<typeof StoredLineItem>;
 export type DraftChange = z.infer<typeof DraftChange>;
+export type UnratedEntry = z.infer<typeof UnratedEntry>;
 export type ApiError = z.infer<typeof ApiError>;
 export type CreateFeedback = z.infer<typeof CreateFeedback>;
+export type PushPlatform = z.infer<typeof PushPlatform>;
+export type RegisterPushDevice = z.infer<typeof RegisterPushDevice>;
 export type Billing = z.infer<typeof Billing>;
 export type BillingSync = z.infer<typeof BillingSync>;
 export type BillingRedirect = z.infer<typeof BillingRedirect>;

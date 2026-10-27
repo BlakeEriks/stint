@@ -17,6 +17,7 @@ adding to it, name the doc that owns the claim:
 | A visual or UI convention every screen keeps | `.claude/rules/web-ui.md` |
 | Why one screen or component is the way it is | a comment at the line it governs |
 | About the macOS app | `docs/macos.md`, `docs/design/menubar.html` |
+| About the phone app | `docs/mobile.md` |
 | Enforced by a check or a config | that script or config, in a comment at the line someone edits |
 | True only under one path | `.claude/rules/<topic>.md`, with `paths:` frontmatter |
 | A new capability, or a fault or improvement | a GitHub issue (`docs/sdlc.md`) |
@@ -51,9 +52,9 @@ release gate in `docs/deploying.md`.
 hand-made worktree cannot run the app or resolve `@stint/design-tokens` —
 and a change verified only against jsdom is a change nobody has seen. The
 script does those three; `--from <ref>` branches off something other than
-main. Two worktrees are long-lived and switch branches: `../stint-issues`, where
-`/work-issues` builds, and `../stint-review`, where `pnpm try-mac` checks out
-a PR.
+main. Each issue `/work-issues` builds gets its own. One worktree is
+long-lived and switches branches: `../stint-review`, where `pnpm try-mac`
+checks out a PR.
 
 **Merging a branch closes its worktree in the same step.** Once its PR has
 merged: `git worktree remove <path>`, then `git branch -D <branch>`. PRs

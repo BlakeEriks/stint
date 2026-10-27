@@ -45,7 +45,6 @@ export function ClientPicker({
   value,
   onChange,
   onAdd,
-  label = 'Client',
   placeholder = 'No client — internal work',
   id,
   disabled,
@@ -55,7 +54,6 @@ export function ClientPicker({
   onChange: (id: string | null) => void;
   /** Given, the menu grows a `+ Add a client…` item below a separator. */
   onAdd?: () => void;
-  label?: string;
   /** What the trigger reads when nothing is chosen. */
   placeholder?: string;
   id?: string;
@@ -67,7 +65,6 @@ export function ClientPicker({
     <DropdownMenu>
       <DropdownMenuTrigger
         id={id}
-        aria-label={label}
         disabled={disabled}
         /* `focus:` as well as `focus-visible:`. A control focused
            PROGRAMMATICALLY is never `:focus-visible`, which the browser

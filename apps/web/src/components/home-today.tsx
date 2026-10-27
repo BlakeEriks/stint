@@ -14,12 +14,13 @@ import {
   type Stats,
   type TimeEntry,
 } from '@/lib/client/api';
-import { keys } from '@/lib/client/query-keys';
+import { keys } from '@stint/client';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import {
   useAllProjects,
   useProjectColors,
 } from '@/lib/client/use-project-colors';
+import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import { Money } from './money';
 import { FigGroup, FigLabel, PairLine, RegionHead, Pip } from './home-shell';
 
@@ -69,7 +70,11 @@ export function Today({ stats }: { stats: Stats }) {
       {/* A fixed ceiling rather than the panel's height: the page is a column
           sized by its content, so there is no bounded height to measure
           against. Just under five rows, so the cut-off row says it scrolls. */}
-      <div className="mt-6 flex max-h-48 flex-col overflow-y-auto">
+      <section
+        aria-label="Today's tasks"
+        tabIndex={useScrollerFocus('all')}
+        className="mt-6 flex max-h-48 flex-col overflow-y-auto"
+      >
         {entries.length === 0
           ? /* An empty day keeps its rows rather than collapsing, the same way
                an unworked day in the week's chart keeps its caption: the
@@ -118,7 +123,7 @@ export function Today({ stats }: { stats: Stats }) {
                 </span>
               </div>
             ))}
-      </div>
+      </section>
     </div>
   );
 }

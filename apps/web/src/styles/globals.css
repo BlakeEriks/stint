@@ -46,10 +46,6 @@
        this declaration — and for System they stamp whichever the OS
        prefers. */
     color-scheme: dark;
-    /* next/font supplies the loaded families; the token file declares the
-       fallback stacks, so bind them here rather than duplicating either. */
-    --font-sans: var(--font-plex-sans), system-ui, -apple-system, sans-serif;
-    --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
   }
 
   /* The ground the cards float on, so it is the RECESSED surface — cards
@@ -154,6 +150,7 @@
        Radix removes a closed menu or dialog at once instead of waiting on
        an `animationend`. */
     [data-state] {
+      /* biome-ignore lint/complexity/noImportantStyles: the reduced-motion override must beat tw-animate's classes */
       animation: none !important;
     }
   }

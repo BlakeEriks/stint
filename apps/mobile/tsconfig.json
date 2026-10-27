@@ -1,0 +1,18 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "types": ["node"],
+    "paths": {
+      "@stint/client": ["../../packages/client/src/index.ts"],
+      "@stint/core": ["../../packages/core/src/index.ts"],
+      "@stint/schema": ["../../packages/schema/src/index.ts"],
+      "@stint/design-tokens": ["../../packages/design-tokens/dist/tokens.ts"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
+}

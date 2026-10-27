@@ -1,19 +1,21 @@
 {
   "entry": {
-    "id": "01a15408-6a00-743a-9ee3-5b4830021f53",
-    "projectId": "01a15408-6a00-7f59-96a5-ca40d41f0f35",
+    "id": "01a15408-6a00-7516-a1b0-543e5e2f65d6",
+    "projectId": "01a15408-6a00-7d81-b5fe-8e259db3b934",
     "taskName": "Write copy",
     "startedAt": "2026-10-19T11:00:00+00:00",
     "endedAt": "2026-10-19T12:00:00+00:00",
     "isBillable": true,
     "rateOverride": 200,
-    "invoiceId": "157f1ebc-e596-4f17-8f12-eade7e85d883",
+    "invoiceId": "143c503b-0263-4d10-a095-1705e9b9d988",
     "durationSeconds": 3600,
-    "durationOk": false
+    "durationOk": false,
+    "invoicedElsewhere": false
   },
   "currency": "USD",
   "unbilled": {
     "total": 0,
+    "mixed": false,
     "seconds": 0,
     "byClient": [],
     "moreClients": 0

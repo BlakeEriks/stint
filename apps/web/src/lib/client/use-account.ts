@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useOptimisticMutation } from './mutations';
+import { useOptimisticMutation, keys } from '@stint/client';
 import { forgetCache } from './query-cache';
-import { keys } from './query-keys';
 import { browserClient } from './supabase';
 
 /** Who is signed in, and how to leave. */

@@ -10,7 +10,8 @@ name: preview-db
 # The previews share one schema, so it belongs to the holder: the open PR
 # labeled `ready-for-qa` whose diff touches supabase/migrations
 # (`/work-issues` gives that label to one such PR at a time, by the same
-# diff, whatever its other labels). Any other PR
+# diff, whatever its other labels, and `migration-handoff.yml` passes it on
+# when the holder merges). Any other PR
 # whose diff touches supabase/migrations is neither reset nor seeded, since
 # its tables are not there.
 #
@@ -150,14 +151,10 @@ jobs:
           fi
           echo "reset=$reset" >> "$GITHUB_OUTPUT"
 
-          # Vercel's branch alias: lowercased, anything else a hyphen. Past 63
-          # characters Vercel truncates and hashes it, so a long branch gets
-          # no link rather than a wrong one.
+          # A long branch gets no link rather than a wrong one.
           if [ -n "$PR" ] && [ "$CLOSED" != true ]; then
-            slug=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g')
-            host="stint-git-${slug}-blakeeriks-projects"
-            if [ ${#host} -le 63 ]; then
-              echo "url=https://${host}.vercel.app" >> "$GITHUB_OUTPUT"
+            if url=$(node scripts/preview-url.mjs "$BRANCH"); then
+              echo "url=$url" >> "$GITHUB_OUTPUT"
             else
               echo "::warning::Branch name too long for Vercel's alias; Try it needs the deployment URL."
             fi

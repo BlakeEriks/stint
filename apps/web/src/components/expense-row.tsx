@@ -15,9 +15,9 @@ function monthDay(date: string) {
   }).format(new Date(y, m - 1, d));
 }
 
-/** Billed and past editing: on an invoice that is no longer a draft. */
+/** Billed and past editing: a draft claims an expense only when sent. */
 export function isLocked(expense: Expense) {
-  return expense.invoiceStatus !== null && expense.invoiceStatus !== 'draft';
+  return expense.invoiceStatus !== null;
 }
 
 const rowClass = `${rowButton} ${rowBleed} flex items-center gap-3 py-2`;
@@ -64,7 +64,7 @@ export function ExpenseRow({
             <span className="max-sm:sr-only">Recurring</span>
           </span>
         ) : expense.invoiceNumber ? (
-          <span className="flex-none type-badge text-subtle max-sm:hidden">
+          <span className="flex-none type-badge text-subtle max-sm:sr-only">
             {expense.invoiceNumber}
           </span>
         ) : null}
@@ -87,9 +87,9 @@ export function ExpenseRow({
         <button
           type="button"
           onClick={onOpen}
-          aria-label={`Edit ${expense.description}`}
           className={`${rowButton} flex min-w-0 flex-1 items-center gap-3 py-2`}
         >
+          <span className="sr-only">Edit</span>{' '}
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="truncate type-control text-strong">
               {expense.description}
@@ -123,7 +123,6 @@ export function ExpenseRow({
       <Link
         href={`/invoices/${expense.invoiceId}`}
         prefetch
-        aria-label={`${expense.description}, on ${expense.invoiceNumber}`}
         className={rowClass}
       >
         {cells}
@@ -137,13 +136,8 @@ export function ExpenseRow({
   }
 
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      aria-label={`Edit ${expense.description}`}
-      className={rowClass}
-    >
-      {cells}
+    <button type="button" onClick={onOpen} className={rowClass}>
+      <span className="sr-only">Edit</span> {cells}
       <Pencil
         aria-hidden
         strokeWidth={1.75}

@@ -175,7 +175,8 @@ second line or an `Add…` item is a `DropdownMenu`. Put a component in
 - **Every action carries a visible label.** Three exceptions, each with an
   `aria-label`: a destructive first step, a dense repeating row, and the
   folded dock's strip, which is 44px by design. A glyph is always
-  `aria-hidden`.
+  `aria-hidden`. An `aria-label` holds the visible text, in order, so saying
+  what is on screen presses it (WCAG 2.5.3): `Mark paid, STINT-0001`.
 - **A destructive action is quiet until it is the confirm**: a ghost in
   `text-danger`, then `destructive` spelling the consequence out, in place.
   Destructive means it removes something saved; dropping a line from a form
@@ -188,7 +189,7 @@ second line or an `Add…` item is a `DropdownMenu`. Put a component in
   (Archive, Delete) pushed to the far left with `mr-auto`.
 - **A row that opens an editor is itself the button**: the whole row
   highlights on hover, and a faint pencil at its end says so where there is
-  no hover. Its `aria-label` is `Edit <name>`.
+  no hover. An `sr-only` `Edit` before its text names it.
 - **A pressable row highlights with room around its text**, whatever the
   press does: a rounded, padded highlight that bleeds past the column so the
   text stays in line with the rest of it (`rowButton` and `rowBleed` in
@@ -244,7 +245,7 @@ the target instant.
 
 ### Queries
 
-**Cache keys come from `lib/client/query-keys.ts`, never written inline**, so
+**Cache keys come from `packages/client/src/query-keys.ts`, never written inline**, so
 one shape per query is what an invalidation can match. Anything that changes a
 time entry calls `invalidateEntryData()` — summary, entries, stats and
 calendar all read those rows, and refreshing a subset makes two screens
@@ -278,5 +279,5 @@ into. Absent, the list is simply not offered and the field still works. Do not
 clears the approved preview and hides Generate. Tested, and the test was
 verified to fail when the invalidation is removed.
 
-**An issued invoice locks an entry; a draft does not** — `guard_billed_entry`
-returns early on a draft.
+**Any entry with an `invoiceId` is locked**: a draft claims its work only
+when it is sent, so only an issued invoice sets one.

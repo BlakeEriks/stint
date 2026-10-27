@@ -1,7 +1,7 @@
-# Data Model
+# Data model
 
-Hierarchy: **Client → Project → Time Entry**, and **Client → Expense** for
-costs the client reimburses.
+A **client** has **projects**, a project has **time entries**, and a client
+has **expenses** for costs it reimburses.
 
 Schema lives in `supabase/migrations/`. Every rule below is enforced by the
 database, not by convention.
@@ -17,52 +17,23 @@ entry.rate_override
 
 Implemented **twice**, once per language:
 
-- `resolveRate()` in `packages/core/src/rates.ts` — **this is what actually
-  bills.** `POST /invoices` builds line items in memory and writes
-  `resolved_rate` from the value TypeScript computed. The preview and the
-  issued invoice therefore come from identical code, which is the property
-  that matters most. `ProjectRate` prints the same figure on `/clients`.
+- `resolveRate()` in `packages/core/src/rates.ts` is **what bills.**
+  `POST /invoices` builds line items in memory and writes `resolved_rate`
+  from the value TypeScript computed, so the preview and the issued invoice
+  come from identical code. `ProjectRate` prints the same figure on
+  `/clients`.
 - `resolve_rate(numeric, numeric, numeric, numeric)` in SQL
-  (`00000000000010_one_rate_chain.sql`) — the chain over the four columns,
-  called by `resolve_entry_rate(uuid)` for a single entry and once per row in
-  the joins of every rollup that reports money from work: `unbilled_by_client`,
-  `month_revenue`, `revenue_by_day`, `revenue_by_client` and
-  `revenue_by_project`. It is `immutable` and carries no `search_path`, so
-  Postgres inlines it and the rollups plan as the plain `COALESCE` they used
-  to spell out. `collected_by_month` is the one rollup that does not call it —
-  a payment is a fact about an issued document, so it sums the invoice's own
-  `total`, grouped by month **and by currency**, because money is not addable
-  across them and one `sum` over a mixed month reports a number of nothing.
-  Picking which currency the screen shows is the caller's, as it is for
-  `revenue_by_client` and `revenue_by_project`.
-
-  **`unbilled_by_client`, `revenue_by_day` and `revenue_by_client` count a
-  running entry** up to a trailing `p_now` (default `now()`), measured by
-  `entry_seconds()` (`00000000000031_live_running_entry.sql`), so Home and the
-  menu bar move with a timer. The route passes the instant it cuts its windows
-  at. `month_revenue` and `revenue_by_project` still skip a running entry; no
-  screen reads them.
-
-  **Each rollup owns its window, and `/stats` reports them rather than
-  choosing them.** `unbilled_by_client` groups by (client, rate) and reports a
-  client-less row as "No client". `revenue_by_client` and
-  `revenue_by_project` run the trailing **three whole months**, splitting
-  gross work done into `invoiced` and `unbilled`, which sum to the total;
-  because that window opens on the 1st three months back, their unbilled
-  figure parts from `unbilled_by_client` only when work has gone unbilled past
-  that boundary. `revenue_by_project` is the one rollup counting **unbillable
-  work** in its seconds — the hours reading answers where the time went, while
-  the money columns stay billable-only. `collected_by_month` runs twelve whole
-  months. A per-month average is divided **on the server**; no client divides
-  money.
+  (`00000000000010_one_rate_chain.sql`) is the chain over the four columns.
+  `resolve_entry_rate(uuid)` calls it for one entry, and every rollup that
+  reports money from work calls it once per row. It is `immutable` with no
+  `search_path`, so Postgres inlines it.
 
 **`apps/web/test/rates.test.ts` is what keeps them in step.** It builds every
 combination of the four levels being unset, `0`, or a distinct rate, and
 asserts that SQL and TypeScript resolve each entry identically and that both
 rollups' totals equal what `buildLineItems` produces. Neither side is
-authoritative on its own; the test is. Without it a change to one language is
-invisible to the other, and the home screen disagreeing with an invoice
-preview about the same work is what that produces.
+authoritative on its own; the test is. Without the test, Home can disagree
+with an invoice preview about the same work.
 
 **`0` is a real rate, not an absent one.** A project deliberately set to 0 (pro
 bono) does not fall through to the client's rate. Both implementations use
@@ -72,13 +43,36 @@ null-coalescing, never truthiness.
 current rates until then; changing a client's rate next year must never
 retroactively alter an invoice already sent.
 
+### Rollups
+
+`/stats` passes each rollup its window and the instant `p_now` it cuts them
+at. A running entry counts up to `p_now`, measured by `entry_seconds()`
+(`00000000000031_live_running_entry.sql`), so Home and the menu bar move with
+a timer.
+
+| Rollup | Window | Running entry | Unbillable work | Groups by |
+| --- | --- | --- | --- | --- |
+| `unbilled_by_client` | all unbilled work | counted | skipped | client and rate; no client is "No client" |
+| `revenue_by_day` | the month, and the week | counted | skipped | day |
+| `revenue_by_client` | the month | counted | skipped | client, split into `invoiced` and `unbilled` |
+| `revenue_by_project` | caller's; no screen reads it | skipped | in seconds, never in money | project |
+| `month_revenue` | caller's; no screen reads it | skipped | skipped | none |
+| `collected_by_month` | twelve whole months | not work | not work | month and currency |
+
+`collected_by_month` sums each paid invoice's own `total` rather than
+resolving rates: a payment is a fact about an issued document. **Money is not
+addable across currencies**, so it groups by currency, and the caller picks
+which one the screen shows, as it does for the per-client and per-project
+rollups. A per-month average is divided **on the server**; no client divides
+money.
+
 ## Tables
 
 ### `user_settings`
 One row per user, auto-created by a trigger on `auth.users` insert. Holds the
 global rate fallback, display preferences, the invoice
 identity block (business name, address, logo), `payment_terms_days`
-(0–365, default 30), the invoice number sequence, `payment_notice`, and the entry-length thresholds
+(0–365, default 30), the invoice number sequence, and the entry-length thresholds
 (`min_entry_seconds`, `max_entry_hours`).
 
 **`legacy_payment_terms` is free text the move to days couldn't read**,
@@ -107,7 +101,7 @@ it. **Any future definer function needs the same treatment.**
 
 ### `clients`
 Billing entity. `hourly_rate`, `tax_rate` and `currency` are all nullable —
-null means "fall back". `color` is here because color identifies a client.
+null means fall back. `color` is here because color identifies a client.
 `billing_period` is how often its contract bills it, null for no schedule;
 weekly and biweekly count from `period_anchor`, which the
 `billing_period_anchor` check requires for them and refuses for the others.
@@ -125,7 +119,7 @@ A project has no color; it takes its client's.
 - `duration_seconds` is a **generated column** — never stored independently, so
   it cannot drift from `started_at`/`ended_at`.
 - `invoice_id` set means the entry is billed.
-- `duration_ok` is the user's **answer** to "is this length correct?", and the
+- `duration_ok` is the user's **answer** to whether this length is correct, and the
   one piece of stored judgment on an entry — `duration_seconds` beside it is
   derived. A trigger clears it whenever `started_at`/`ended_at` change, so the
   answer cannot outlive the length it was given about.
@@ -149,28 +143,33 @@ reference falls back rather than rendering nothing.
 Line items are **denormalized on purpose**. An issued invoice is an immutable
 financial record, not a live view over time entries.
 
-**A draft refreshes on every read** (#433). `refresh_draft()` releases what it
-holds, writes the lines `buildLineItems` computes from its client and period
-now, and attaches what they bill, in one transaction; Mark sent passes
-`p_sent_at` and sends in the same call. What the user chose on New invoice is
-read, never rewritten: grouping, summary text, reference, notes, terms, due
-date, payment details, the supporting-detail kinds, its `fixed` lines, and
-two columns kept for the refresh — `tz`, the zone its period's dates are read
-in, and `excluded_expense_ids`, the expenses left off. `downloaded_snapshot`
-is what its PDF last showed; Mark sent refuses with `DRAFT_CHANGED` while
-the draft differs from it. One open draft per client and date: `POST
-/invoices` refuses an overlap with `DRAFT_OVERLAPS`, since two drafts would
-each claim the same new work.
+**A draft is the user's choices; its lines are derived on read** (#452). It
+stores grouping, summary text, reference, notes, a typed due date,
+payment details, the supporting-detail kinds, its `fixed` lines, `tz` (the
+zone its period's dates are read in) and `excluded_expense_ids` (the expenses
+left off). `payment_terms` keeps its terms (`Net N`, or `Due on receipt`) from
+the client's days, else the user's, as Generate found them. Its time and
+expense lines, totals, issue date and, unless typed, due date are computed on
+every read and written by nothing; no entry or expense points at a draft.
+`downloaded_snapshot` is what its PDF last showed, dates included, which
+sending keeps; it is the one column a read writes. Mark sent refuses with
+`DRAFT_CHANGED` while the draft differs from it. **Mark sent is
+`send_draft()`**: it writes the lines and totals the route computed, claims
+the entries and one-off expenses, sets `issue_date`, `due_date` and the
+`payment_terms` they make (the last PDF's, else the send date's), and sends, in one transaction. An entry another
+invoice took, or one marked billed elsewhere, meanwhile raises
+`ENTRY_ALREADY_INVOICED`, an expense another invoice took
+`EXPENSE_ALREADY_INVOICED`, and either rolls it all back.
 
 `payment_details` (JSONB) freezes the rendered bank details at generation, for
 the same reason rates freeze: editing a profile must never alter an invoice
 already sent. `supporting_detail` (JSONB) holds the hours-by-project, -week
-and -date tables printed from page 2. A draft's are rebuilt with its lines;
+and -date tables printed from page 2. A draft's are derived with its lines;
 sending freezes them, so a renamed project or a void never changes them. The `business_*` and `logo_url` columns (the From
 block) and the `client_*` columns (Bill to) are copied from `user_settings`
 and the client by a trigger on insert, so editing either never reprints an
 invoice. `summary_text` is the line text of a `summary`
-invoice and is set exactly then; `reference` is the PO, contract or SOW the
+invoice and is set exactly then; `reference` is the PO, contract, or SOW the
 header prints. `issued_subscription_status` is the user's `subscriptions.status`
 when the invoice was inserted, copied by a trigger whatever the insert says
 and never changed after, so an invoice generated while paying keeps its PDF
@@ -189,14 +188,13 @@ subtotal — time and fees — and the base tax is charged on; the reimbursement
 sit in `expenses_subtotal`, never taxed, and `total = subtotal + tax_amount +
 expenses_subtotal`.
 
-**Generation is one transaction.** `create_invoice()` allocates the number,
-writes the invoice and its lines, and attaches the entries and expenses it
-bills. The call succeeds or fails as a whole. It writes what `buildLineItems` computed and computes
-nothing itself, except the payment reference it appends to the frozen
-payment block once the number exists. An expense another invoice already took
-raises `EXPENSE_ALREADY_INVOICED`; an entry billed on another invoice or
-deleted since the route loaded it raises `ENTRY_ALREADY_INVOICED`. Either
-rolls the whole call back, so a race never uses up a number.
+**Generation is one transaction.** `create_invoice()` allocates the number
+and writes the draft and its charges; it computes nothing itself, except the
+payment reference it appends to the frozen payment block once the number
+exists. One open draft per client and date: after the number's allocation
+has taken the user's counter row lock, it raises `DRAFT_OVERLAPS` for a draft
+over any of the period, so of two concurrent Generates the second fails and
+rolls back, never using up a number.
 
 ### `expenses`
 A cost the contractor paid that a client reimburses. It has an amount and no
@@ -207,9 +205,10 @@ there is no currency column, because an expense is never converted.
 
 - `client_id` is required, and references its row **with `user_id`**, as
   `time_entries.project_id` does.
-- `invoice_id` set means billed. An invoice takes every unbilled expense for
-  its client dated on or before the period's end, so one missed invoice does
-  not strand a reimbursement.
+- `invoice_id` set means billed, by a sent invoice. A one-off shows on one
+  open draft for its client: the one whose period ends first on or after its
+  date (`assignExpenses`), so one missed invoice does not strand a
+  reimbursement.
 - `recurring` bills it on **every** invoice for the client instead of once: a
   subscription the client reimburses. It has no `spent_on`
   (`expense_dated`), is never attached (`recurring_never_billed`), and so is
@@ -226,6 +225,15 @@ written once: `authenticated` is granted only `select` and `insert`, so a
 sent message can't be changed or deleted, even by its sender. It goes with the
 account (`on delete cascade`). The checks match `CreateFeedback`: `message`
 1–2,000 characters, `screen` 1–200, `app_version` 1–64.
+
+### `push_devices`
+The phones a user's timer changes are pushed to (`apps/web/src/lib/push.ts`):
+`user_id`, the provider's `token`, the `platform` (`android`) and
+`created_at`, keyed on `(user_id, token)`. `authenticated` may select,
+insert and delete its own rows; a new token is a new row, so there is no
+update grant. A token can sit under two accounts when a sign-out didn't
+reach the server, which leaks nothing: the push carries no data. It goes
+with the account (`on delete cascade`).
 
 ### `subscriptions`
 A mirror of the user's Stripe subscription, one row per user, keyed on
@@ -285,23 +293,23 @@ name becomes the invoice line description, so editing it after issue changes
 what the client was told they were billed for, even when the money is
 unchanged.
 
-Two deliberate exceptions:
-
-- Entries on a **draft** invoice remain editable.
-- **Detaching** an entry (`invoice_id → null`) stays allowed, so a voided
-  invoice can release its entries.
+No entry or expense points at a draft, so only sent work is locked.
+**Detaching** an entry (`invoice_id → null`) stays allowed, so a voided
+invoice can release its entries.
 
 `guard_billed_expense` holds the same lock on an expense, over `spent_on`,
-`description`, `amount`, `client_id` and `recurring`, with the same two
-exceptions. An edit to an entry or expense on a draft reaches it on its next
-read.
+`description`, `amount`, `client_id` and `recurring`, with the same
+exception. An edit to unbilled work shows on the next read of any draft.
 
 ### Work invoiced elsewhere
-`time_entries.invoiced_elsewhere` marks work already billed from another tool,
-usually history an import brought in. It counts as **earned** and is never
-**unbilled**: `unbilled_by_client`, invoice generation and the inbox's
-uninvoiced rows all skip it. It is a flag, not an invoice, so it takes no
-number and appears in no invoice list, and the entry stays editable.
+`time_entries.invoiced_elsewhere` marks work already billed from another tool:
+history an import brought in, or entries the user marks on New invoice or in
+the entry dialog. It counts as **earned** and is never **unbilled**:
+`unbilled_by_client`, invoice generation and the inbox's uninvoiced rows all
+skip it. It is a flag, not an invoice, so it takes no number and appears in
+no invoice list, and the entry stays editable. `entry_billed_once` refuses
+it on an entry on an invoice, whichever is written first, and the API marks
+only a finished entry.
 
 ### Gapless invoice numbering
 `allocate_invoice_number(user_id)` increments `next_invoice_number` under a row
@@ -332,9 +340,9 @@ before Stint, and never back (`PATCH /settings`).
   is derived from `paid_at`, so a paid row without one drops a real payment
   out of the figure that says what arrived.
 - `updated_at` is maintained by a `touch_updated_at` trigger on every table
-  **except `invoice_line_items` and `feedback`**, which have no such column:
-  each is written once and never edited, so a "last modified" timestamp would
-  be a field that can only ever lie.
+  **except `invoice_line_items`, `feedback` and `push_devices`**, which have
+  no such column: each is written once and never edited, so a "last
+  modified" timestamp would be a field that can only ever lie.
   `subscriptions` has the column but no trigger: its one writer, the Stripe
   sync's upsert in `apps/web/src/lib/billing.ts`, sets it.
 - Partial indexes back the hot paths: active clients, projects and profiles,
@@ -343,13 +351,13 @@ before Stint, and never back (`PATCH /settings`).
   an existing index already covers. Entries by user and start time is a plain
   index — every entry is a candidate there.
 - RLS on every table: `user_id = auth.uid()`; line items inherit from invoice.
-  The route tests disable RLS (their subject is route logic);
+  The route tests turn off RLS (their subject is route logic);
   `apps/web/test/rls.test.ts` covers it against live policies.
 
-### GRANT and RLS are two layers, and both are load-bearing
+### Grants and RLS are two layers, and both are load-bearing
 
 `00000000000004_api_grants.sql` grants table privileges to `authenticated` and
-nothing to `anon`. **GRANT decides whether the role may touch the table at
+nothing to `anon`. **A grant decides whether the role may use the table at
 all; RLS decides which rows it sees once it may.** Enabling RLS on a new table
 without granting it produces a `42501` that looks nothing like a policy
 problem.
@@ -374,7 +382,7 @@ migration creates it**, so it is invisible from a checkout and absent from
 local and CI databases.
 
 It is a backstop, not a mechanism to build on. It cannot write policies, and
-by the paragraph above a table with RLS and no policy denies everything — so
+by the preceding section a table with RLS and no policy denies everything — so
 a table it "rescues" is still broken, just differently. Every table declares
 its own `enable row level security` and at least one policy in its migration,
 and `verify:schema` is what actually enforces that.
@@ -402,8 +410,6 @@ hold; this list is the record of *what* must.
 - Editing or deleting an entry billed to a **non-draft** invoice is rejected,
   including its `task_name` — that becomes the invoice line description, so
   changing it after issue rewrites what the client was told.
-- Entries on a **draft** invoice stay editable; a draft holds no number and
-  has been sent to nobody.
 - Changing a **non-draft** invoice or its lines is rejected, and its status
   moves only along the transition table, whichever client writes it.
 - Detaching an entry from a voided invoice is allowed — that is the release
@@ -411,14 +417,14 @@ hold; this list is the record of *what* must.
 - Voiding releases what the invoice billed in the same statement.
 - Rates are frozen onto line items when an invoice is sent: changing a
   client's rate later leaves an issued invoice at its original total.
-- `refresh_draft` runs as the caller and refuses anything but the caller's
-  own draft.
+- `send_draft` runs as the caller and refuses anything but the caller's own
+  draft.
 - Editing or deleting an expense billed to a **non-draft** invoice is
-  rejected, and voiding or deleting a draft releases it.
-- A generation that loses a race for an expense writes nothing and leaves
-  `next_invoice_number` where it was.
+  rejected, and voiding releases it.
+- A send that loses a race for an expense writes nothing.
+- Two concurrent Generates over one client's dates make one draft.
 
-### RLS, verified against live policies
+### Row-level security against live policies
 
 `apps/web/test/rls.test.ts` connects as a non-superuser `authenticated` role
 with `request.jwt.claim.sub` set per transaction, exactly as PostgREST does,
@@ -429,7 +435,7 @@ alone must still contain the query.
 | Check | Result |
 |---|---|
 | An unfiltered `select` returns only the caller's rows | isolated |
-| All nine user-scoped tables isolate | isolated |
+| All ten user-scoped tables isolate | isolated |
 | A known-good id belonging to another user returns nothing | no leak |
 | Line items inherit isolation through their invoice | isolated |
 | Insert with a forged `user_id` | rejected by `WITH CHECK` |
@@ -437,6 +443,7 @@ alone must still contain the query.
 | Reassigning a row to another user | rejected by `WITH CHECK` |
 | Changing or deleting sent feedback, even your own | refused by the grant |
 | Writing any subscription, your own included | refused by the grant |
+| Registering a phone to another user, or changing a registered one | rejected by `WITH CHECK`, refused by the grant |
 | Claiming or changing the plan an invoice was generated on | overwritten at insert, refused on update |
 | An expense filed under another user's client | rejected by `expense_client_same_owner` |
 | An invoice billed to another user's client | rejected by `invoice_client_same_owner` |

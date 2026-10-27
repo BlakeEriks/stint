@@ -185,6 +185,65 @@ export const NoRate: Story = {
   },
 };
 
+const blockedDraft = account((db) => {
+  const draft = db.invoices.find((i) => i.status === 'draft');
+  if (!draft) return;
+  draft.periodEnd = '2026-01-31';
+  draft.unratedEntries = [
+    { id: 'unrated-1', taskName: 'Kickoff', startedAt: '2026-01-05T15:00:00Z' },
+  ];
+});
+
+/** A stale draft that can't be sent as it stands says so and offers no
+ *  Mark sent or Download, which would only be refused; its page says why. */
+export const StaleDraftBlocked: Story = {
+  ...desktop,
+  parameters: blockedDraft,
+  play: async ({ canvasElement }) => {
+    const inbox = within(
+      await within(canvasElement).findByRole('region', { name: 'Inbox' }),
+    );
+    const row = (await inbox.findByText(/can’t be sent yet/)).closest('li');
+    await expect(row?.querySelector('a[href^="/invoices/"]')).not.toBeNull();
+    await expect(
+      within(row as HTMLElement).queryByRole('button', {
+        name: /^Mark sent, /,
+      }),
+    ).toBeNull();
+    await expect(
+      within(row as HTMLElement).queryByRole('link', { name: /^Download, / }),
+    ).toBeNull();
+  },
+};
+
+const downloadedDraft = account((db) => {
+  const draft = db.invoices.find((i) => i.status === 'draft');
+  if (!draft) return;
+  draft.periodEnd = '2026-01-31';
+  draft.dueBeforeIssue = { download: true, send: false };
+});
+
+/** A stale draft downloaded before its typed due date still offers Mark
+ *  sent, for the PDF the client holds, but no new Download. */
+export const StaleDraftDownloaded: Story = {
+  ...desktop,
+  parameters: downloadedDraft,
+  play: async ({ canvasElement }) => {
+    const inbox = within(
+      await within(canvasElement).findByRole('region', { name: 'Inbox' }),
+    );
+    const row = (await inbox.findByText(/^Draft, \d+d old$/)).closest('li');
+    await expect(
+      within(row as HTMLElement).getByRole('button', {
+        name: /^Mark sent, /,
+      }),
+    ).toBeVisible();
+    await expect(
+      within(row as HTMLElement).queryByRole('link', { name: /^Download, / }),
+    ).toBeNull();
+  },
+};
+
 const oldTerms = account((db) => {
   db.legacyPaymentTerms = 'Payment by check, thanks';
 });
@@ -334,6 +393,34 @@ export const InternalToday: Story = {
   },
 };
 
+/** Six tasks today: the list scrolls, and the keyboard can reach it. */
+export const TodayScrolls: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    const today = localDateKey(db.now, ZONE);
+    for (const [i, task] of [
+      'Standup',
+      'Code review',
+      'Release notes',
+      'Client call',
+      'Bug triage',
+      'Planning',
+    ].entries())
+      db.entries.push(
+        entry(9100 + i, today, `0${i}:00`, 30, ids.warehouse, task),
+      );
+  }),
+  play: async ({ canvasElement }) => {
+    const list = await within(canvasElement).findByRole('region', {
+      name: "Today's tasks",
+    });
+    await waitFor(() =>
+      expect(list.scrollHeight).toBeGreaterThan(list.clientHeight),
+    );
+    await expect(list).toHaveAttribute('tabindex', '0');
+  },
+};
+
 /** The figures failed to load: the panel says so, never blank. */
 export const Failed: Story = {
   ...desktop,
@@ -389,6 +476,20 @@ export const MonthStart: Story = {
     await expect(
       within(axis.parentElement as HTMLElement).getByText('Sep 1'),
     ).not.toBeVisible();
+  },
+};
+
+/** A client billed in euros: Unbilled totals the dollars alone and says
+ *  other currencies are left out, rather than adding euros to dollars. */
+export const OtherCurrency: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    for (const c of db.clients.slice(1)) c.currency = 'EUR';
+  }),
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByText('Other currencies not included'),
+    ).toBeVisible();
   },
 };
 

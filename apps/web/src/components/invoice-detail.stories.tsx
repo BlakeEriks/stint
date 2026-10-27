@@ -1,7 +1,8 @@
 import type { Decorator, Meta, StoryObj } from '@storybook/nextjs-vite';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client/api';
-import { keys } from '@/lib/client/query-keys';
+import { addDays } from '@stint/core';
+import { keys } from '@stint/client';
 import { expect, userEvent, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import { type Db, id } from '@/mocks/fixtures';
@@ -32,7 +33,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Lines and total as last refreshed; no supporting detail named. The
+/** Lines and total; no supporting detail named. The
     actions share the title's row, whatever the length of the status line. */
 export const Draft: Story = {
   ...desktop,
@@ -89,6 +90,110 @@ export const DraftChanged: Story = {
   },
 };
 export const DraftChangedPhone: Story = { ...phone, parameters: changed };
+
+/* The draft as the server sends it with work no rate prices. */
+const unrated = paying((db) => {
+  const draft = db.invoices.find((i) => i.id === invoice(15));
+  if (!draft) return;
+  draft.unratedEntries = [
+    {
+      id: id(9001),
+      taskName: 'Onboarding call',
+      startedAt: '2026-09-08T15:00:00.000Z',
+    },
+  ];
+});
+
+/** Work with no rate shows on the draft by name, and neither the PDF nor
+    Mark sent is offered until it has one. */
+export const DraftUnrated: Story = {
+  ...desktop,
+  parameters: unrated,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(await page.findByText('1 entry has no rate')).toBeVisible();
+    await expect(page.getByText(/Onboarding call · Sep 8/)).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Mark sent' }),
+    ).toBeDisabled();
+    await expect(page.queryByRole('link', { name: 'Download PDF' })).toBeNull();
+  },
+};
+
+const dueBefore = paying((db) => {
+  const draft = db.invoices.find((i) => i.id === invoice(15));
+  if (!draft) return;
+  draft.dueDate = addDays(draft.issueDate, -3);
+});
+
+/** A typed due date the issue date has passed says why and how to fix it,
+    and neither the PDF nor Mark sent is offered. */
+export const DraftDueBeforeIssue: Story = {
+  ...desktop,
+  parameters: dueBefore,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(await page.findByText('Due before it’s issued')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Mark sent' }),
+    ).toBeDisabled();
+    await expect(page.queryByRole('link', { name: 'Download PDF' })).toBeNull();
+  },
+};
+
+const dueSinceDownload = paying((db) => {
+  const draft = db.invoices.find((i) => i.id === invoice(15));
+  if (!draft) return;
+  draft.dueDate = addDays(draft.issueDate, -3);
+  draft.dueBeforeIssue = { download: true, send: false };
+});
+
+/** Downloaded before its typed due date: that PDF still sends, and only a
+    new one is refused. */
+export const DraftDueSinceDownload: Story = {
+  ...desktop,
+  parameters: dueSinceDownload,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByText(/Send the PDF you downloaded/),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Mark sent' })).toBeEnabled();
+    await expect(page.queryByRole('link', { name: 'Download PDF' })).toBeNull();
+  },
+};
+
+const changedPastDue = paying((db) => {
+  const draft = db.invoices.find((i) => i.id === invoice(15));
+  if (!draft) return;
+  draft.dueDate = addDays(draft.issueDate, -3);
+  draft.changedSinceDownload = {
+    hours: { from: 18.4, to: 20.9 },
+    total: { from: 2512.6, to: 2787.6 },
+  };
+  draft.dueBeforeIssue = { download: true, send: true };
+});
+
+/** Changed since a PDF downloaded before its typed due date: the new PDF it
+    needs is refused, so it asks for a new draft, not a download. */
+export const DraftChangedPastDue: Story = {
+  ...desktop,
+  parameters: changedPastDue,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByText(/Delete this draft and generate it again/),
+    ).toBeVisible();
+    await expect(
+      page.queryByText('Changed since you downloaded it'),
+    ).toBeNull();
+    await expect(page.queryByText(/Download the new PDF/)).toBeNull();
+    await expect(
+      page.getByRole('button', { name: 'Mark sent' }),
+    ).toBeDisabled();
+  },
+};
+
 /** Where it stands is one line under the title, and an issued invoice is
     the invoice, not a preview of it. */
 export const Sent: Story = {
@@ -218,8 +323,6 @@ export const WithCharge: Story = {
     const draft = db.invoices.find((i) => i.id === invoice(15));
     if (!draft) return;
     draft.lineItems.push({
-      id: id(5999),
-      sortOrder: draft.lineItems.length,
       description: 'Hosting, August',
       unit: 'fixed',
       quantity: 1,
@@ -282,8 +385,8 @@ export const WithSupportingDetail: Story = {
   },
 };
 
-/** Every line the PDF prints: the terms, the whole payment block with its
-    notice, and the notes. */
+/** Every line the PDF prints: the terms, the whole payment block, and the
+    notes. */
 export const AsPrinted: Story = {
   ...desktop,
   args: { id: invoice(14) },
@@ -309,7 +412,6 @@ export const AsPrinted: Story = {
       'Payment — USD wire',
       'Pay online: https://pay.example.test/sam',
       'Include the invoice number in the memo.',
-      /bank details never change by email/,
       'Thank you for the work this month.',
     ]) {
       await expect(await page.findByText(text)).toBeVisible();

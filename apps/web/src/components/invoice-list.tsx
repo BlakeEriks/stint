@@ -11,7 +11,7 @@ import { MarkPaidDialog } from './mark-paid-dialog';
 import { api, type Invoice, type InvoiceStatus } from '@/lib/client/api';
 import { FilterTabs, Listing, Page, Panel, useLoaded } from './page';
 import { DollarSign, Plus } from 'lucide-react';
-import { keys } from '@/lib/client/query-keys';
+import { keys } from '@stint/client';
 
 /**
  * Open means "money still owed": issued and not yet collected. A draft is
@@ -46,12 +46,6 @@ export function InvoiceList() {
     queryFn: () => api.clients({ includeArchived: true }),
   });
   const clientData = clientQuery.data;
-  /* Not drawn here: fetched with the list so an invoice opened from it has
-     its payment notice at once. */
-  useQuery({
-    queryKey: keys.settings(),
-    queryFn: () => api.settings(),
-  });
 
   const all = query.data ?? [];
   const names = new Map((clientData?.clients ?? []).map((c) => [c.id, c.name]));

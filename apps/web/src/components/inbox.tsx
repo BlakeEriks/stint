@@ -4,7 +4,11 @@ import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useOptimisticMutation } from '@/lib/client/mutations';
+import {
+  useOptimisticMutation,
+  keys,
+  invalidateEntryData,
+} from '@stint/client';
 import {
   documentOpens,
   formatCompact,
@@ -33,7 +37,6 @@ import { EntryDialog } from './entry-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RateInput, isValidRate, parseRate } from './rate-input';
-import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 type Attention = Stats['attention'];
 
@@ -402,9 +405,12 @@ function itemFor(r: ItemRow, h: Handlers): ItemProps {
       });
     case 'draft':
       return invoiceItem(r.row, h, {
-        detail: `Draft, ${r.row.ageDays}d old`,
+        detail: r.row.refuses.send
+          ? `Draft, ${r.row.ageDays}d old, can’t be sent yet`
+          : `Draft, ${r.row.ageDays}d old`,
         tone: 'neutral',
         status: 'sent',
+        refuses: r.row.refuses,
       });
     case 'unprojected':
       return unprojectedItem(r.row, h);
@@ -431,7 +437,11 @@ function invoiceItem(
     detail,
     tone,
     status,
-  }: Pick<ItemProps, 'detail' | 'tone'> & { status: keyof typeof MARK },
+    refuses = { download: false, send: false },
+  }: Pick<ItemProps, 'detail' | 'tone'> & {
+    status: keyof typeof MARK;
+    refuses?: { download: boolean; send: boolean };
+  },
 ): ItemProps {
   return {
     href: `/invoices/${i.invoiceId}`,
@@ -441,16 +451,18 @@ function invoiceItem(
     tone,
     actions: (
       <>
-        <Action
-          label={MARK[status].label}
-          ariaLabel={`Mark ${i.invoiceNumber} ${status}`}
-          icon={MARK[status].icon}
-          onClick={() => h.onStatus({ id: i.invoiceId, status })}
-        />
-        {h.downloads ? (
+        {refuses.send ? null : (
+          <Action
+            label={MARK[status].label}
+            context={i.invoiceNumber}
+            icon={MARK[status].icon}
+            onClick={() => h.onStatus({ id: i.invoiceId, status })}
+          />
+        )}
+        {h.downloads && !refuses.download ? (
           <Action
             label="Download"
-            ariaLabel={`Download ${i.invoiceNumber}`}
+            context={i.invoiceNumber}
             icon={<Download aria-hidden />}
             href={api.invoicePdfUrl(i.invoiceId)}
           />
@@ -471,7 +483,7 @@ function entryItem(
     more,
   }: Pick<ItemProps, 'detail' | 'tone'> & {
     focus: 'task' | 'project';
-    action: { label: string; ariaLabel: string; icon: React.ReactNode };
+    action: { label: string; context: string; icon: React.ReactNode };
     more?: React.ReactNode;
   },
 ): ItemProps {
@@ -502,7 +514,7 @@ function unprojectedItem(u: Attention['unprojected'][number], h: Handlers) {
     tone: 'neutral',
     action: {
       label: 'Assign project',
-      ariaLabel: `Assign a project to ${u.taskName || 'this entry'}`,
+      context: u.taskName || 'Untitled entry',
       icon: <FolderInput aria-hidden />,
     },
   });
@@ -510,7 +522,7 @@ function unprojectedItem(u: Attention['unprojected'][number], h: Handlers) {
 
 const editEntry = (taskName: string) => ({
   label: 'Edit entry',
-  ariaLabel: `Edit ${taskName || 'this entry'}`,
+  context: taskName || 'Untitled entry',
   icon: <Pencil aria-hidden />,
 });
 
@@ -565,7 +577,7 @@ function strangeItem(e: Attention['strangeDurations'][number], h: Handlers) {
     more: (
       <Action
         label="It's correct"
-        ariaLabel={`Keep ${e.taskName || 'this entry'} as it is`}
+        context={e.taskName || 'Untitled entry'}
         icon={<Check aria-hidden />}
         onClick={() => h.onConfirm(e.entryId)}
       />
@@ -726,36 +738,33 @@ function ActionSlot({ children }: { children: React.ReactNode }) {
  * An inline action: a label, and an icon no other action uses — the check mark
  * belongs to "It's correct".
  *
- * `aria-label` names the invoice where the visible text is generic, so a column
- * of `Download`s stays distinguishable to a screen reader.
+ * `context` names the record after the visible text, so a column of
+ * `Download`s stays distinguishable to a screen reader while the name still
+ * holds the words on screen.
  */
 function Action({
   label,
-  ariaLabel,
+  context,
   icon,
   onClick,
   href,
 }: {
   label: string;
-  ariaLabel?: string;
+  context: string;
   icon: React.ReactNode;
   onClick?: () => void;
   href?: string;
 }) {
+  const ariaLabel = `${label}, ${context}`;
   return href ? (
     <Button asChild size="xs">
-      <a href={href} aria-label={ariaLabel ?? label} download>
+      <a href={href} aria-label={ariaLabel} download>
         {icon}
         {label}
       </a>
     </Button>
   ) : (
-    <Button
-      type="button"
-      size="xs"
-      aria-label={ariaLabel ?? label}
-      onClick={onClick}
-    >
+    <Button type="button" size="xs" aria-label={ariaLabel} onClick={onClick}>
       {icon}
       {label}
     </Button>

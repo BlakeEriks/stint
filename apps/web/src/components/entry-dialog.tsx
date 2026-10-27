@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useOptimisticMutation } from '@/lib/client/mutations';
+import {
+  useOptimisticMutation,
+  keys,
+  invalidateEntryData,
+} from '@stint/client';
 import {
   uuidv7,
   addDays,
@@ -29,7 +33,6 @@ import { ProjectPicker } from '@/components/project-picker';
 import { EntryScrubber } from '@/components/entry-scrubber';
 import { useProjectColors } from '@/lib/client/use-project-colors';
 import { api, ApiError, type Project, type TimeEntry } from '@/lib/client/api';
-import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 import { timeZone } from '@/lib/client/use-timer';
 
 const LABEL = 'type-label text-subtle';
@@ -44,6 +47,7 @@ interface Draft {
   billable: boolean;
   /** Set once the user changes Billable, after which a project leaves it be. */
   billableTouched: boolean;
+  invoicedElsewhere: boolean;
 }
 
 const EMPTY: Draft = {
@@ -54,6 +58,7 @@ const EMPTY: Draft = {
   end: '',
   billable: true,
   billableTouched: false,
+  invoicedElsewhere: false,
 };
 
 /**
@@ -121,6 +126,7 @@ export function EntryDialog({
       end: opened?.endedAt ? localTime(new Date(opened.endedAt), tz) : '',
       billable: existing?.isBillable ?? true,
       billableTouched: false,
+      invoicedElsewhere: existing?.invoicedElsewhere ?? false,
     });
   }, [open, existing, seed, tz]);
 
@@ -178,7 +184,12 @@ export function EntryDialog({
       };
 
       return existing
-        ? api.updateEntry(existing.id, body)
+        ? api.updateEntry(existing.id, {
+            ...body,
+            ...(draft.invoicedElsewhere !== existing.invoicedElsewhere && {
+              invoicedElsewhere: draft.invoicedElsewhere,
+            }),
+          })
         : api.createEntry({ id: uuidv7(), ...body });
     },
     onError: failWith('Could not save this entry.'),
@@ -190,28 +201,17 @@ export function EntryDialog({
     onError: failWith('Could not delete this entry.'),
   });
 
-  /* An entry billed on an ISSUED invoice is frozen by a database trigger, so
-     showing it read-only is honest and offering an edit that will 409 is not.
-     A DRAFT is different and the trigger says so — `guard_billed_entry`
-     returns early when the invoice status is `draft` — because a draft holds
-     no number and has not been sent, so nothing has been told to a client
-     yet. Disabling those fields would refuse an edit the server accepts,
-     which is the more expensive direction: the fix for a wrong
-     draft is to correct the entry and preview again.
-
-     The status is not on the entry, so it is fetched — only when there is an
-     invoice to ask about, which is the rare case. */
+  /* An entry on an invoice is billed on an issued one — a draft claims its
+     work only when sent — and a database trigger freezes it, so showing it
+     read-only is honest and offering an edit that will 409 is not. The
+     invoice's number is not on the entry, so it is fetched for the message,
+     only when there is an invoice to name. */
   const billedOn = useQuery({
     queryKey: keys.invoice(existing?.invoiceId),
     queryFn: () => api.invoice(existing!.invoiceId!),
     enabled: open && existing?.invoiceId != null,
   });
-
-  /* Locked until proven otherwise: while the status is in flight the safe
-     assumption is the restrictive one, since the alternative is briefly
-     offering fields that are about to disable under the user's cursor. */
-  const locked =
-    existing?.invoiceId != null && billedOn.data?.status !== 'draft';
+  const locked = existing?.invoiceId != null;
   const busy = save.isPending || remove.isPending;
 
   /* EDITING ONLY. Adjusting is a correction to times that already exist: the
@@ -232,11 +232,7 @@ export function EntryDialog({
         <DialogHeader>
           <DialogTitle>{existing ? 'Edit entry' : 'Add entry'}</DialogTitle>
           <DialogDescription>
-            {description(
-              locked,
-              existing?.invoiceId != null,
-              billedOn.data?.invoiceNumber,
-            )}
+            {description(locked, billedOn.data?.invoiceNumber)}
           </DialogDescription>
         </DialogHeader>
 
@@ -354,6 +350,18 @@ export function EntryDialog({
             Billable
           </label>
 
+          {existing && !locked ? (
+            <label className="flex items-center gap-2.5 type-control text-primary">
+              <input
+                type="checkbox"
+                checked={draft.invoicedElsewhere}
+                onChange={(e) => set('invoicedElsewhere', e.target.checked)}
+                className="size-4 accent-[var(--text-muted)]"
+              />
+              Billed elsewhere
+            </label>
+          ) : null}
+
           {error ? (
             <p role="alert" className="type-support text-danger">
               {error}
@@ -419,15 +427,9 @@ function strip(draft: Draft, tz: string) {
   return { startedAt, endedAt, dayStart, dayEnd };
 }
 
-function description(
-  locked: boolean,
-  onInvoice: boolean,
-  invoiceNumber: string | undefined,
-) {
+function description(locked: boolean, invoiceNumber: string | undefined) {
   if (locked)
     return `This entry is billed on ${invoiceNumber ?? 'an issued invoice'}, so it can no longer be changed. Void the invoice to release it.`;
-  if (onInvoice)
-    return `This entry is on draft ${invoiceNumber}. Editing it changes what that draft would bill, so preview it again before issuing.`;
   return 'Times are in your local timezone. An end before the start counts as overnight.';
 }
 
