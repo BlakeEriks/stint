@@ -3,9 +3,9 @@ name: migration-handoff
 # Hands the preview database to the next migration PR when its holder merges.
 # The holder is the open PR labeled `ready-for-qa` whose diff touches
 # supabase/migrations (`preview-db.yml`); its merge is a push here. The
-# oldest open, non-draft migration PR gets `main` merged in and the label at
-# once: the owner wants it as soon as `preview-db` makes its preview
-# testable, not once every check is green. One that conflicts with `main` is
+# oldest open, non-draft, not `needs-input` migration PR gets `main` merged
+# in and the label at once: the owner wants it as soon as `preview-db` makes
+# its preview testable, not once every check is green. One that conflicts with `main` is
 # left to `/work-issues`, which merges `main` in and labels it.
 #
 # Requires a GitHub App (`docs/deploying.md` §3d): a push or label made with
@@ -53,7 +53,7 @@ jobs:
             exit 0
           fi
 
-          next=$(jq -r "$migrating"' | map(select(.isDraft | not)) | sort_by(.number) | .[0].number // empty' <<< "$prs")
+          next=$(jq -r "$migrating"' | map(select(.isDraft | not)) | map(select(all(.labels[]; .name != "needs-input"))) | sort_by(.number) | .[0].number // empty' <<< "$prs")
           if [ -z "$next" ]; then
             echo "::notice::No open migration PR waits for the preview database."
             exit 0

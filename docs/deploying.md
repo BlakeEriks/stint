@@ -396,8 +396,8 @@ PR labeled `ready-for-qa` whose diff touches `supabase/migrations`**: the
 holder. Other such PRs build and pass CI on their own throwaway Postgres,
 but their previews get no account until they hold it. When the holder
 merges, `.github/workflows/migration-handoff.yml` merges `main` into the
-oldest open, non-draft migration PR and labels it `ready-for-qa`, without
-waiting for CI; one that conflicts with `main` waits for `/work-issues`.
+oldest open, non-draft, not `needs-input` migration PR and labels it
+`ready-for-qa`, without waiting for CI; one that conflicts with `main` waits for `/work-issues`.
 
 `.github/workflows/preview-db.yml` keeps the project in step: it seeds a PR's
 account from that branch's `scripts/seed-account.mjs` on every push, except
