@@ -1,13 +1,13 @@
-import { keys, useFailedPress, useTimer } from '@stint/client';
+import { useFailedPress, useTimer } from '@stint/client';
 import { formatClock, formatCurrency, uuidv7 } from '@stint/core';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import type { Api } from '../api.ts';
 import { target } from '../config.ts';
+import { screenReads } from '../reads.ts';
 import {
   chooseNotice,
   projectLookup,
-  RECENT_FETCHED,
   recentTasks,
   wholeMinutes,
 } from '../screen-state.ts';
@@ -40,25 +40,16 @@ export function TimerContainer({
     if (runs) onTimerShown?.();
   }, [runs, onTimerShown]);
 
+  const reads = screenReads(api, timeZone);
   const stats = useQuery({
-    queryKey: keys.stats(timeZone),
-    queryFn: () => api.stats(timeZone),
+    ...reads.stats,
     refetchOnWindowFocus: 'always',
     // Earned moves with a running timer, once a minute.
     refetchInterval: running ? 60_000 : false,
   });
-  const projects = useQuery({
-    queryKey: keys.projects({ archived: true }),
-    queryFn: () => api.projects().then((r) => r.projects),
-  });
-  const clients = useQuery({
-    queryKey: keys.clients({ archived: true }),
-    queryFn: () => api.clients().then((r) => r.clients),
-  });
-  const names = useQuery({
-    queryKey: keys.taskNames({}),
-    queryFn: () => api.taskNames(RECENT_FETCHED).then((r) => r.taskNames),
-  });
+  const projects = useQuery(reads.projects);
+  const clients = useQuery(reads.clients);
+  const names = useQuery(reads.taskNames);
 
   const lookup = projectLookup(projects.data ?? [], clients.data ?? []);
   const recent = recentTasks(names.data ?? [], running, lookup);
