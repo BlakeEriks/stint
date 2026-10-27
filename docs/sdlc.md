@@ -6,9 +6,10 @@ with the command that moves it at each step.
 1. **Capture**, by the rules in the next section. `pnpm hygiene` and
    Dependabot also file work weekly, and each Sentry alert is triaged into a
    `bug` + `urgent` issue for `/work-issues` (`docs/deploying.md` §3c).
-2. **Build.** A feature: `/next-feature`, then `/speckit-clarify` →
-   `/design-review` → `/speckit-plan` → `/speckit-tasks` →
-   `/speckit-analyze`, then `/speckit-implement` in a `pnpm worktree`.
+2. **Build.** A feature built by hand: a linked session from `/conduct`, in
+   its own `pnpm worktree`, runs `/speckit-specify` from the issue, then
+   `/speckit-clarify` → `/design-review` → `/speckit-plan` →
+   `/speckit-tasks` → `/speckit-analyze` → `/speckit-implement`.
    `/design-review` is offered to every feature that adds or changes UI,
    never assumed. The reviewer settles the look from a draft of each screen
    before anything is built, or skips it when the change has no visible UI
