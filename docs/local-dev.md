@@ -87,7 +87,8 @@ file.
 It copies **only** `.env.development.local`. `.env.local` reaches the hosted
 project, and a worktree is where you try things.
 
-Two worktrees cannot both have `:3100`. Run the second one somewhere else.
+Two worktrees cannot both have `:3100`. Run the second one somewhere else; a
+`/work-issues` builder uses `3200 + <issue> % 100`.
 `dev` lives in `apps/web`, so the port goes through `PORT` — a `--port` flag
 passed at the root has no script to reach:
 
@@ -415,9 +416,9 @@ pnpm verify:db   # route and RLS suites, then verify:schema
 never touch it: `tt` with RLS off, for the route tests, and `tt_rls` with RLS
 on, reached as `authenticated`, for the RLS tests. Run it before every
 `verify:db` — it takes seconds, and a database left from another branch tests
-the wrong schema. Every checkout on the stack shares the two, so **one run at a time**:
-a `db:setup` ends any other checkout's run mid-suite. A checkout running beside
-others sets `TT` on both commands for its own pair: `TT=tt_42` builds `tt_42`
-and `tt_42_rls`. **Never point a suite at `postgres`
+the wrong schema. Without `TT`, every checkout on the stack shares the two, so
+**one run at a time**: a `db:setup` ends any other checkout's run mid-suite. A
+checkout running beside others sets `TT` on both commands for its own pair:
+`TT=tt_42` builds `tt_42` and `tt_42_rls`. **Never point a suite at `postgres`
 itself**: the route tests truncate every table in `beforeEach`, and the seed
 goes with them.

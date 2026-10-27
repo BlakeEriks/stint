@@ -88,9 +88,11 @@ is `reviewed`.
 
 - **Merged:** `git fetch --prune`, then for every local branch whose PR has
   merged (`gh pr list --state merged --head <branch>`):
-  `git worktree remove ../stint-<branch>`, `git branch -D <branch>`, and
-  `drop database if exists tt_<issue> with (force)`, the same for
-  `tt_<issue>_rls`, on the local stack (`psql -h localhost -p 54322 -U postgres`).
+  `git worktree remove ../stint-<branch>` if it exists (one with
+  uncommitted changes is someone's work: ask), `git branch -D <branch>`, and
+  for its issue (`gh pr list --state merged --head <branch> --json closingIssuesReferences`)
+  `PGPASSWORD=postgres psql -h localhost -p 54322 -U postgres -c "drop database if exists tt_<issue> with (force)"`,
+  then the same for `tt_<issue>_rls`.
   PRs squash-merge, so `git branch --merged` never lists them.
 - **Each open PR of yours**, in order:
   1. **`needs-input`:** if feedback has arrived since the marked question,

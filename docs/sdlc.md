@@ -13,6 +13,9 @@ with the command that moves it at each step.
    never assumed. The reviewer settles the look from a draft of each screen
    before anything is built, or skips it when the change has no visible UI
    or a trivial one. Planning waits for the spec to record either.
+   `/conduct` makes one session the only one the owner talks to: it runs
+   `/work-issues` and hands hands-on work to linked sessions, each labeling
+   its issue `building` so no one else picks it.
    `/work-issues` builds issues in a worktree each, and features too, by
    running that same chain unattended. Its builder decides each question itself,
    listing the decisions in the PR, and starts a design review only when a

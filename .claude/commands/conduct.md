@@ -13,11 +13,12 @@ work out, keep track of who has it, and tell the owner only what needs them.
 
 - **An issue to build or fix** goes to `/work-issues`, which you run here:
   `/work-issues <n>` while the owner is around, `/loop /work-issues` when
-  they leave. You are the only session that runs it, so two loops never
-  pick the same issue.
+  they leave. Run it nowhere else, so one loop catches up every PR.
 - **Work the owner wants to steer** (a design pass, a hands-on fix) goes to
-  a linked session with `mcp__ccd_session__start_session`, in its own
-  `pnpm worktree`, titled `#<issue> <short title>`. Label its issue
+  a linked session with `mcp__ccd_session__start_session`, titled
+  `#<issue> <short title>`. Its brief gives it the builder's isolation
+  (`.claude/agents/issue-builder.md`): its own `pnpm worktree`, `PORT` and
+  `TT`. Label its issue
   `building` before it starts, so `/work-issues` skips it, and remove the
   label when its PR opens or the work stops.
 - **Anything without an issue** gets one first (`docs/sdlc.md`), unless a
@@ -31,7 +32,8 @@ a new one.
 "What's going on?" is answered from three places, never from memory:
 `mcp__ccd_session_mgmt__list_sessions` `{"linked": true}`, the labels
 (`gh issue list` and `gh pr list` with `building`, `needs-input`,
-`ready-for-qa`), and the last rows of `.claude/work-issues/runs.jsonl`. One
+`ready-for-qa`), and the last rows of `.claude/work-issues/runs.jsonl` in the
+main checkout. One
 line per piece of work: the issue, who has it, its state, and what it waits
 on. Give whatever needs the owner first.
 

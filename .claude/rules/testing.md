@@ -16,14 +16,15 @@ paths:
     pnpm verify:db         # route tests, RLS tests, verify:schema
     pnpm test:auth         # the bearer path; needs `pnpm dev:up`
 
-They take no arguments. `test:auth` is separate from `verify:db` because it
+They take no arguments; `TT=tt_<n>` on both picks a private pair. `test:auth` is separate from `verify:db` because it
 is the one suite needing a real **Auth server** rather than a Postgres
 instance — `verify:all` runs it alongside the browser suite, which has the
 same requirement. **Run `db:setup` before every `verify:db`** — it rebuilds
 both test databases from this checkout's migrations in seconds, and one left
 from another branch or an older migration tests a schema that is not this
-one. Every checkout shares them, so one run at a time: `db:setup` ends
-another checkout's run mid-suite.
+one. Every checkout shares them unless it sets `TT=tt_<n>` on both commands
+for its own pair, so one run at a time: `db:setup` ends another checkout's
+run mid-suite.
 
 Invoking a suite directly means supplying its connection variables yourself,
 and the RLS suite reads two: without `DATABASE_URL` its admin pool falls back
