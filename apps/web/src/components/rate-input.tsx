@@ -53,7 +53,7 @@ export function UnitInput({
       ) : null}
       <Input
         className={`type-amount text-strong placeholder:text-subtle ${
-          large ? 'h-12 pr-16' : 'pr-11'
+          large ? 'h-12 pr-16' : 'pr-14'
         } ${prefix ? (large ? 'pl-8' : 'pl-6') : ''}`}
         {...props}
       />

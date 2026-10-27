@@ -83,8 +83,19 @@ const sheet = (page: Page) =>
 
 // ── states ─────────────────────────────────────────────────────────
 
-/** No client yet: Generate waits and the card says what it needs. */
-export const Blank: Story = { ...desktop };
+/** No client yet: Generate waits, and in place of a card a line says what
+    it needs. */
+export const Blank: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const region = within(
+      await within(canvasElement).findByRole('region', { name: 'Preview' }),
+    );
+    const prompt = region.getByText(/^Choose a client to see/);
+    await expect(prompt).toBeVisible();
+    await expect(prompt.closest('.rounded-lg')).toBeNull();
+  },
+};
 export const Phone: Story = { ...phone };
 
 /** On September 17 the period is September, the month ending nearest, and
@@ -884,7 +895,7 @@ const noSender = account((db: Db) => {
 });
 
 /** No business name or email: the notice says so, Generate waits, and the
- *  preview marks where the sender prints. */
+ *  preview marks where the sender prints, saying so under the card. */
 export const DetailsMissing: Story = {
   ...desktop,
   parameters: noSender,
@@ -893,9 +904,9 @@ export const DetailsMissing: Story = {
     await expect(
       await page.findByText('Your business details are missing'),
     ).toBeVisible();
-    await expect(
-      page.getByText('Your business name and email go here'),
-    ).toBeVisible();
+    const marker = await page.findByText(/^Your business name and email/);
+    await expect(marker).toBeVisible();
+    await expect(sheet(page).contains(marker)).toBe(false);
     await expect(
       page.getByRole('button', { name: 'Generate invoice' }),
     ).toBeDisabled();
