@@ -133,7 +133,8 @@ is `reviewed`.
      not `needs-input` one and labels it. When none has the label, as after
      a handoff that conflicted, the oldest first gets a round in which the
      builder merges `main` in, then adds the label without waiting for CI.
-  7. **CI still running:** leave it for the next pass.
+  7. **CI still running:** leave it for the next pass, except the migration
+     PR that step 6 just merged `main` into to take the label.
 - **Each open Dependabot PR** (`gh pr list --author app/dependabot`), the
   same steps, except:
   - 3: first `gh pr merge --disable-auto <n>`, so the fix is reviewed
