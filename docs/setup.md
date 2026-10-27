@@ -1,65 +1,57 @@
-# Setting up Supabase
+# Set up the Supabase project
 
-Everything below was verified by applying the migrations to a clean Postgres
-and confirming a new user gets default settings.
+The hosted project, from creation to the first invite. Every step was
+verified by applying the migrations to a clean Postgres and confirming a new
+user gets default settings.
 
 ## 1. Create the project
 
 At [supabase.com/dashboard](https://supabase.com/dashboard) → **New project**.
 
-- **Region:** pick one near you, not near your clients — you are the only one
-  hitting it interactively.
-- **Database password:** generate and store it. You will not need it for the
-  app (the app authenticates as a user, not as Postgres), but you need it for
-  the SQL editor's connection string and for `psql`.
-- The free tier is fine. Note it **pauses after 7 days of inactivity**; the
-  first request after that wakes it with a delay.
+- **Region:** near you, not near your clients — you are the only one hitting
+  it interactively.
+- **Database password:** generate and store it. The app authenticates as a
+  user, not as Postgres, so only the connection string and `psql` need it.
+- **Tier:** free. It **pauses after 7 days of inactivity**, and the first
+  request after that wakes it with a delay.
 
 **Anything you switch on in the dashboard gets recorded here**, because it is
-invisible from a checkout and nothing in CI will ever reproduce it. Known so
-far:
+invisible from a checkout and CI can't reproduce it. A setting missing from
+this list breaks tooling that reads the schema: `verify:schema` failed a
+release on the RLS event trigger before it was listed.
 
 - **"Automatically expose new tables" — OFF.** `00000000000004_api_grants.sql`
-  grants tables explicitly for this reason; a table holding bank details must
-  not become world-reachable the moment it is created.
+  grants tables explicitly, so a table holding bank details isn't reachable
+  the moment it's created.
 - **Auto-enable RLS on new tables — ON.** This installs an `rls_auto_enable`
-  event trigger in `public`. It is a backstop only: every table still declares
-  its own RLS and policy in its migration (`docs/data-model.md`).
+  event trigger in `public`, a backstop only: every table still declares its
+  own RLS and policy in its migration (`docs/data-model.md`).
 - **Authentication → Sign In / Providers → Allow new users to sign up — OFF.**
-  Stint is invite-only (section 4b).
-
-A setting left out of this list is one the next person cannot know about. It
-also breaks tooling that reads the schema — `verify:schema` failed a release
-on the event trigger above, because nothing said it was there.
+  Stint is invite-only (section 6).
 
 ## 2. Apply the migrations
 
-Supabase already provides the `auth` schema, `auth.users`, and `auth.uid()` —
-the migrations assume all three, so nothing needs stubbing.
+Supabase provides the `auth` schema, `auth.users`, and `auth.uid()`, which the
+migrations assume.
 
-Get the connection string: **Project Settings → Database → Connection string
-→ Session pooler**, and swap in your database password:
+The connection string is under **Project Settings → Database → Connection
+string → Session pooler**, with your database password swapped in:
 
 ```
 postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
 ```
 
-The **pooler**, not the direct connection. `db.<ref>.supabase.co:5432` is
-IPv6-only, and GitHub runners have no IPv6 — the release gate fails there
-with `ENETUNREACH`. It may work locally if your ISP has IPv6, which makes
-this easy to miss until CI hits it.
+| Connection | Port | Migrations |
+| --- | --- | --- |
+| Session pooler, `pooler.supabase.com`, user `postgres.<ref>` | 5432 | Run, since Session mode supports DDL |
+| Transaction pooler | 6543 | Fail, since Transaction mode has no DDL |
+| Direct, `db.<ref>.supabase.co` | 5432 | Fail in CI with `ENETUNREACH`: it's IPv6-only and GitHub runners aren't, though it may work locally |
 
-Two pooler ports, and only one is right: **5432 is Session mode**, which
-supports DDL; 6543 is Transaction mode, which does not, so migrations fail.
-The host to look for is `pooler.supabase.com` with `postgres.<ref>` as the
-username.
+This string is a **secret**: full database access, bypassing RLS. It lives in
+one place, the release gate's `PRODUCTION_DB_URL` (`docs/deploying.md`), and
+reaches the two scripts below only as a shell variable, never a file.
 
-This is a **secret** — full database access, bypassing RLS. It lives in one
-place, the release gate's `PRODUCTION_DB_URL` (`docs/deploying.md`), and is
-passed by hand to the two scripts below; the app never uses it. Never save it
-to a file.
-
-Then, with it in `DB` for this shell only:
+With it in `DB` for this shell only:
 
 ```bash
 pnpm migrate --url "$DB" --dry-run   # show what would run
@@ -67,27 +59,23 @@ pnpm migrate --url "$DB" --rehearse  # run it, then roll it back
 pnpm migrate --url "$DB"             # apply it
 ```
 
-Each file runs in its own transaction, so a failure rolls back whole rather
-than leaving the database half-migrated. Applied versions are recorded in
-`schema_migrations`, so re-running is a no-op and adding a migration later
-applies only the new one.
+Each file runs in its own transaction, so a failure rolls back whole.
+`schema_migrations` records applied versions, so re-running is a no-op and a
+later migration applies alone.
 
-## 2a. Verify it
+## 3. Verify the schema
 
 ```bash
 pnpm verify:schema --url "$DB"
 ```
 
-This asserts the things nothing else would catch: all eleven tables exist with
-**RLS on**, each has at least one policy (RLS with no policies denies
-everything), the partial unique index enforcing one running timer is present
-and actually partial, and new users get a settings row.
+It checks what nothing else would: every expected table exists with **RLS
+on** and at least one policy, the one-running-timer index is partial, and a
+new user gets a settings row. Use the database only once it exits zero: the
+publishable key is public, so RLS is the only thing between one user's rows
+and everyone else's.
 
-It exits non-zero on any failure. Do not use a database it rejects — the publishable
-key is public, so RLS is the only thing between one user's rows and everyone
-else's.
-
-## 3. Point the app at it
+## 4. Point the app at it
 
 Dashboard → **Project Settings** → **API**. Copy the **Project URL** and the
 **publishable** key (`sb_publishable_…`) into the Vercel project's
@@ -98,58 +86,20 @@ NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
 
-The publishable key is **meant to be public** — it ships in the browser
-bundle, and RLS is what protects the data. A **secret** key
-(`sb_secret_…`) is not: it bypasses RLS entirely. The app server holds
-one only for billing, as the sensitive Vercel variable `SUPABASE_SECRET_KEY`
-(`docs/deploying.md` §2). Never put one in a committed file or anything
-`NEXT_PUBLIC_`.
+The publishable key is **meant to be public**: it ships in the browser
+bundle, and RLS protects the data. A **secret** key (`sb_secret_…`) bypasses
+RLS, so it lives only in the sensitive Vercel variable `SUPABASE_SECRET_KEY`
+(`docs/deploying.md` §2).
 
-If the dashboard still shows legacy `anon` / `service_role` JWTs, those are
-the old key pair and are **deprecated at the end of 2026**. Publishable and
-secret keys work alongside them, so there is no reason to start on the old
-names. Two things the new keys fix: a secret key sent from a browser is
-rejected with a 401 (the `service_role` JWT leaked silently), and secret keys
-can be minted and revoked individually rather than requiring a JWT-secret
-rotation that invalidates every session.
+`signin-form.tsx` sends each magic link back to the origin it was requested
+from, so that origin must be on the project's allowlist, or the link is
+rejected on return without saying why. `docs/deploying.md` §4 sets it.
 
-## 4. Let magic links come back
-
-Dashboard → **Authentication** → **URL Configuration**.
-
-There is **one Site URL but many Redirect URLs**, and they do different jobs:
-
-- **Site URL** — a single fallback, used when a link carries no explicit
-  redirect, and in email templates. Set it to production.
-- **Redirect URLs** — an allowlist. Add as many origins as you need.
-
-`signin/page.tsx` passes `emailRedirectTo` built from
-`window.location.origin`, so a link always returns to wherever you signed in
-from. Local and production work at the same time; each origin just has to be
-on the allowlist.
-
-```
-Site URL:       https://<your-app>.vercel.app
-
-Redirect URLs:  http://localhost:3100/**
-                https://<your-app>.vercel.app/**
-```
-
-Without the matching entry the link is rejected on return, and the error does
-not say why.
-
-Vercel also gives each branch a preview URL. Add
-`https://<project>-*-<scope>.vercel.app/**` if you want sign-in on previews —
-though on a private project those URLs sit behind Vercel SSO anyway.
-
-Sign-in and invite mail goes through Resend — **the app
-never emails invoices**, by design.
-
-## 4a. Sign-in email
+## 5. Sign-in email
 
 Supabase's default sender is capped at a few messages an hour and its
-template can't be edited, so production sends through Resend's free tier
-(100 a day) as `Stint <signin@runstint.com>`.
+template can't be edited, so production sends sign-in and invite mail through
+Resend's free tier (100 a day) as `Stint <signin@runstint.com>`.
 
 1. **Resend → Domains**: add `runstint.com` in `us-east-1`, put its DKIM,
    `send` MX and `send` SPF records in Cloudflare DNS, and verify. `_dmarc`
@@ -164,67 +114,26 @@ template can't be edited, so production sends through Resend's free tier
    A hosted project can default to 8, and the template and the panel show
    and take six digits, so a longer code is truncated and always rejected.
 
-`config.toml` points GoTrue at that template by **local file path**, which a
-hosted project can't read, so the dashboard holds its own copy. That copy
-doesn't track the file: an edit to the file changes local only, until it's
-pasted again. Keep `{{ .ConfirmationURL }}` and both `{{ slice .Token }}`
-calls — GoTrue mints a code for every magic link whether a template shows it
-or not, and those calls put it in front of the user, so the menu bar app's
+The dashboard holds its own copy of the template, because `config.toml`
+points GoTrue at a local path a hosted project can't read. An edit to the
+file changes local only, until it's pasted again. Keep
+`{{ .ConfirmationURL }}` and both `{{ slice .Token }}` calls, because GoTrue mints a
+code for every magic link, and those calls show it, so the menu bar app's
 panel has a code to take.
 
-## 4b. Invite people
+## 6. Invite people
 
-Sign-up is off, so an account exists only once it is invited: **Authentication
-→ Users → Add user → Send invitation**.
+Sign-up is off, so an account exists only once it's invited from
+**Authentication → Users → Add user → Send invitation**. Each invitee gets
+their own account.
 
 **Authentication → Emails → Invite user**: subject `You're invited to Stint`,
 body `supabase/templates/invite.html`. Like the magic-link template, the
-dashboard holds its own copy that doesn't track the file.
+dashboard's copy doesn't track the file.
 
-The invite button signs the invitee in. It carries `{{ .TokenHash }}` to
-`/auth/confirm`, which verifies it on the server. The default template
+The invite button carries `{{ .TokenHash }}` to `/auth/confirm`, which
+verifies it on the server and signs the invitee in. The default template
 links to `supabase.co` instead, which returns the session in a URL fragment
 the app ignores, and which spam filters flag in mail from `runstint.com`.
 The link works once: if a mail scanner opens it first, the invitee lands on
 `/signin` and signs in with their email.
-
-Each invitee gets their own account; nothing is shared.
-
-## 5. Sign in
-
-```bash
-pnpm --filter @stint/web dev
-```
-
-Make your account, then empty it:
-
-```bash
-pnpm seed you@example.com           # creates it, with sample data
-pnpm seed you@example.com --clear   # empties it
-```
-
-The new `auth.users` row fires a trigger that creates your `user_settings`
-with USD, a 12-hour long-entry threshold, and `INV-1` — verified. `--clear`
-returns them to those defaults. Open `http://localhost:3100`, enter your
-email, click the link.
-
-Then the welcome dialog on Home asks for your default rate, then a first
-client. Business identity is asked for on your first invoice. Add a project
-from the timer's picker.
-
-## Adding Apple and Google later
-
-Both are Supabase providers, enabled per-provider under **Authentication →
-Providers**, and both need their redirect pointed at the same
-`/auth/callback`. Accounts sharing a verified email link to one user
-automatically, so magic link keeps working alongside them — no migration, and
-no orphaned second account.
-
-## Deploying
-
-Vercel: import the repo and set those two env vars plus
-`NEXT_PUBLIC_APP_ORIGIN`, `NEXT_PUBLIC_INVITE_FORM_URL` for Production, and,
-to turn billing on, the four in `docs/deploying.md` §2. Add the deployed
-origin to **Site URL** and **Redirect URLs**. The build needs no database access — route
-handlers are all `force-dynamic`.
-`docs/deploying.md` covers the hostname split the origin belongs to.
