@@ -16,6 +16,10 @@ export interface DraftSnapshot {
   total: number;
   hours: number;
   lines: { description: string; quantity: number; amount: number }[];
+  /** The dates the PDF printed, which sending keeps; absent on a snapshot
+   *  only compared. */
+  issueDate?: string;
+  dueDate?: string | null;
 }
 
 export function draftSnapshot(lines: Line[], total: number): DraftSnapshot {
@@ -126,4 +130,33 @@ export function lateEntries(
         : [];
     })
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+}
+
+export interface OpenDraft {
+  id: string;
+  periodEnd: string;
+  excludedExpenseIds: string[];
+}
+
+/**
+ * The open draft each unbilled one-off expense shows on: of the client's
+ * drafts that haven't left it off, the one with the earliest period end on
+ * or after its date. One dated after every period waits for a later invoice.
+ * Every read assigns from the same set, so two drafts never show one expense.
+ */
+export function assignExpenses(
+  expenses: { id: string; spentOn: string }[],
+  drafts: OpenDraft[],
+): Map<string, string> {
+  const byEnd = [...drafts].sort((a, b) =>
+    a.periodEnd.localeCompare(b.periodEnd),
+  );
+  const assigned = new Map<string, string>();
+  for (const e of expenses) {
+    const draft = byEnd.find(
+      (d) => d.periodEnd >= e.spentOn && !d.excludedExpenseIds.includes(e.id),
+    );
+    if (draft) assigned.set(e.id, draft.id);
+  }
+  return assigned;
 }

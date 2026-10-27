@@ -42,7 +42,7 @@ import {
   splitByLocalDay,
 } from '@stint/core';
 import type { Expense, TimeEntry } from '@/lib/client/api';
-import { billable, type Db } from './fixtures';
+import { billable, type Db, mockDraftRefusals } from './fixtures';
 
 /**
  * What the routes compute, computed from the fake account. The SQL rollups
@@ -140,7 +140,9 @@ function groupBy<T>(items: T[], key: (item: T) => string) {
 }
 
 const unbilled = (db: Db) =>
-  db.entries.filter((e) => e.invoiceId === null && e.isBillable);
+  db.entries.filter(
+    (e) => e.invoiceId === null && !e.invoicedElsewhere && e.isBillable,
+  );
 
 /** `unbilled_by_client`. */
 function unbilledRows(db: Db): UnbilledRow[] {
@@ -277,7 +279,8 @@ export function stats(db: Db, tz: string) {
       due_date: i.dueDate,
       total: i.total,
       currency: i.currency,
-      issue_date: i.issueDate,
+      period_end: i.periodEnd,
+      refuses: mockDraftRefusals(i),
     }));
 
   const candidates = db.entries
@@ -518,6 +521,7 @@ export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
       (e) =>
         clientOf(db, e.projectId) === client.id &&
         e.invoiceId === null &&
+        !e.invoicedElsewhere &&
         stopped(e) &&
         at(e.startedAt) >= from &&
         at(e.startedAt) < to,

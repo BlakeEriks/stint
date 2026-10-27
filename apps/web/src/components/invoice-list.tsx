@@ -46,12 +46,6 @@ export function InvoiceList() {
     queryFn: () => api.clients({ includeArchived: true }),
   });
   const clientData = clientQuery.data;
-  /* Not drawn here: fetched with the list so an invoice opened from it has
-     its payment notice at once. */
-  useQuery({
-    queryKey: keys.settings(),
-    queryFn: () => api.settings(),
-  });
 
   const all = query.data ?? [];
   const names = new Map((clientData?.clients ?? []).map((c) => [c.id, c.name]));

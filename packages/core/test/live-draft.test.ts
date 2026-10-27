@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  assignExpenses,
   draftSnapshot,
   lateEntries,
   newLines,
@@ -141,5 +142,48 @@ test('late work is listed oldest first', () => {
   assert.deepEqual(
     rows.map((r) => r.entryId),
     ['a', 'b'],
+  );
+});
+
+const draft = (id: string, periodEnd: string, excluded: string[] = []) => ({
+  id,
+  periodEnd,
+  excludedExpenseIds: excluded,
+});
+
+test('an expense goes to the open draft whose period ends first on or after it', () => {
+  const got = assignExpenses(
+    [
+      { id: 'jul', spentOn: '2026-07-15' },
+      { id: 'aug', spentOn: '2026-08-20' },
+      { id: 'sep30', spentOn: '2026-09-30' },
+      { id: 'oct', spentOn: '2026-10-02' },
+    ],
+    [draft('S', '2026-09-30'), draft('A', '2026-08-31')],
+  );
+  assert.deepEqual(Object.fromEntries(got), {
+    jul: 'A',
+    aug: 'A',
+    sep30: 'S',
+  });
+});
+
+test('an expense an earlier draft left off goes down the chain', () => {
+  const got = assignExpenses(
+    [{ id: 'x', spentOn: '2026-08-20' }],
+    [
+      draft('A', '2026-08-31', ['x']),
+      draft('S', '2026-09-30', ['x']),
+      draft('O', '2026-10-31'),
+    ],
+  );
+  assert.deepEqual(Object.fromEntries(got), { x: 'O' });
+  assert.equal(
+    assignExpenses(
+      [{ id: 'x', spentOn: '2026-08-20' }],
+      [draft('A', '2026-08-31', ['x'])],
+    ).size,
+    0,
+    'left off every draft, it shows on none',
   );
 });

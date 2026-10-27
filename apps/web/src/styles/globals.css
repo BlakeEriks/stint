@@ -150,6 +150,7 @@
        Radix removes a closed menu or dialog at once instead of waiting on
        an `animationend`. */
     [data-state] {
+      /* biome-ignore lint/complexity/noImportantStyles: the reduced-motion override must beat tw-animate's classes */
       animation: none !important;
     }
   }

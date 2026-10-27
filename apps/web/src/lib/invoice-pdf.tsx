@@ -225,10 +225,6 @@ const styles = StyleSheet.create({
     color: accent,
     fontFamily: 'Helvetica-Bold',
   },
-  // Deliberately quiet: a warning that shouts gets tuned out, and this one
-  // needs to still read as normal on the hundredth invoice.
-  notice: { marginTop: 10, fontSize: 7.5, color: print.muted, lineHeight: 1.4 },
-
   footer: {
     position: 'absolute',
     bottom: PAGE.footerInset,
@@ -335,8 +331,6 @@ export interface InvoicePdfData {
     link: { label: string; url: string } | null;
     notes: string | null;
   } | null;
-  /** Standing anti-fraud line, printed under the payment block. */
-  paymentNotice?: string | null;
   /** The frozen supporting detail, printed from page 2; null when none. */
   supportingDetail?: Schedules | null;
 }
@@ -398,9 +392,7 @@ function InvoiceDocument({ data }: { data: Data }) {
           hasServices={services.length > 0}
           hasExpenses={expenses.length > 0}
         />
-        {data.payment ? (
-          <PaymentBlock payment={data.payment} notice={data.paymentNotice} />
-        ) : null}
+        {data.payment ? <PaymentBlock payment={data.payment} /> : null}
         <Notes notes={data.notes} afterPay={Boolean(data.payment)} />
         <Footer number={data.invoiceNumber} />
       </Page>
@@ -609,13 +601,7 @@ function TotalRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PaymentBlock({
-  payment,
-  notice,
-}: {
-  payment: Payment;
-  notice: string | null | undefined;
-}) {
+function PaymentBlock({ payment }: { payment: Payment }) {
   return (
     <View style={styles.pay} wrap={false}>
       <Text style={styles.payTitle}>
@@ -631,7 +617,6 @@ function PaymentBlock({
         </Text>
       ) : null}
       <Lines text={payment.notes} style={styles.payNotes} />
-      {notice ? <Text style={styles.notice}>{notice}</Text> : null}
     </View>
   );
 }

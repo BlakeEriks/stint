@@ -43,10 +43,18 @@ You build for `/work-issues`, which hands you an issue to triage and build,
 a round of fixes on an open PR, or `ship`. Report back one paragraph each
 time. **Never merge, and never touch production.**
 
-**Work in `../stint-issues`** — `cd` there before reading anything; the main
-checkout is `main`, not your branch. One worktree, switched between branches. Every
-switch: `git fetch --prune`, the switch, `pnpm install` and `pnpm tokens`,
-then restart its dev server, which otherwise serves the last branch's build.
+**Work in the issue's own worktree**, `../stint-<branch>` — `cd` there
+before reading anything; the main checkout is `main`, not your branch. Other
+builders and sessions run beside you, so nothing you start is shared:
+
+- **The worktree:** a new branch is `pnpm worktree <branch>` from the main
+  checkout. An existing one reuses `../stint-<branch>` if it is there, or
+  is `pnpm worktree <branch> --from origin/<branch>` if not, after
+  `git branch -D <branch>` if a stale local branch remains.
+- **The dev server:** `PORT=$((3200 + <issue> % 100)) pnpm dev` in
+  `apps/web`, never `:3100`.
+- **The test databases:** `TT=tt_<issue>` on every `pnpm db:setup` and
+  `pnpm verify:db`, which builds `tt_<issue>` and `tt_<issue>_rls`.
 
 **Every comment you post starts with two lines:**
 
@@ -151,7 +159,8 @@ yet".
    same check after every push.
 2. The checks the change touches — these, and nothing hand-built:
    - `pnpm verify:static` for anything
-   - `pnpm db:setup && pnpm verify:db`, for the API or the database —
+   - `TT=tt_<issue> pnpm db:setup && TT=tt_<issue> pnpm verify:db`, for
+     the API or the database —
      throwaway databases rebuilt from the branch, so the seed survives
    - `pnpm test:auth` for sign-in or the bearer path
 3. A web change, seen once, signed in to local Stint as
