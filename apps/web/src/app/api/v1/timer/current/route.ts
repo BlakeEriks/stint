@@ -3,6 +3,7 @@ import { handle, ApiError, dbCode } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import { findRunning } from '@/lib/timer';
+import { pushTimerChanged } from '@/lib/push';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
 import { UpdateRunningTimer } from '@stint/schema';
 
@@ -27,7 +28,7 @@ export const GET = handle(async (req: Request) => {
 
 /** PATCH /api/v1/timer/current — retitle or reassign a running timer. */
 export const PATCH = handle(async (req: Request) => {
-  const { db } = await requireSession(req);
+  const { userId, db } = await requireSession(req);
   const patch = await parseBody(req, UpdateRunningTimer);
 
   const update: Record<string, unknown> = {};
@@ -57,6 +58,7 @@ export const PATCH = handle(async (req: Request) => {
     throw error;
   }
   if (!data) throw new ApiError('NO_TIMER_RUNNING', 'No timer is running');
+  pushTimerChanged(db, userId);
 
   return NextResponse.json(toEntry(data as EntryRow));
 });
