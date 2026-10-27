@@ -154,7 +154,7 @@ export function ImportPage() {
       <div>
         <Section
           title="From Toggl"
-          description="Export a detailed report from Toggl Track as CSV and choose the file. Nothing is written until you confirm, and importing the same file again adds nothing."
+          description="Export a detailed report from Toggl Track as CSV. You'll review it before anything is imported."
         >
           <input
             type="file"
@@ -312,7 +312,7 @@ function Review({
       {preview.clients.length ? (
         <Section
           title="Clients in this file"
-          description="Work up to a client's date was billed from Toggl or elsewhere: still earned, never unbilled. Leave it empty if none was. A new client's empty rate uses your default."
+          description="Already invoiced elsewhere? Enter the last date billed and earlier entries are marked billed. Leave empty if not."
         >
           <div>
             <div className="grid grid-cols-[minmax(0,1fr)_8rem_10rem] gap-4 pb-1">
@@ -535,7 +535,7 @@ function Overlaps({
   return (
     <Section
       title={`${plural(overlaps.length, 'entry overlaps', 'entries overlap')} other work`}
-      description="Longest first. Exclude one and it stays out of the import; what it overlaps stands."
+      description="Exclude any you don't want imported."
       aside={
         open.length > 1 ? (
           <Button
@@ -668,7 +668,7 @@ function Result({
       {result.unrated ? (
         <p className="type-support text-danger">
           {result.unrated} {result.unrated === 1 ? 'entry has' : 'entries have'}{' '}
-          no rate yet — invoicing will refuse them until one is set.
+          no rate yet — set a rate before invoicing.
         </p>
       ) : null}
       <div className="flex flex-wrap gap-2">

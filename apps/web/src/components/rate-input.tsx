@@ -10,31 +10,51 @@ import { Input } from '@/components/ui/input';
  */
 export function RateInput({
   unit = '/ hr',
-  large = false,
-  className = '',
   ...props
 }: Omit<React.ComponentProps<'input'>, 'type'> & {
   unit?: string;
   large?: boolean;
 }) {
   return (
+    <UnitInput
+      prefix="$"
+      unit={unit}
+      type="number"
+      min="0"
+      step="0.01"
+      inputMode="decimal"
+      {...props}
+    />
+  );
+}
+
+/** A number with its unit printed inside the field, after it. */
+export function UnitInput({
+  unit,
+  prefix,
+  large = false,
+  className = '',
+  ...props
+}: React.ComponentProps<'input'> & {
+  unit: string;
+  prefix?: string;
+  large?: boolean;
+}) {
+  const inset = large ? 'left-3.5' : 'left-2.5';
+  return (
     <div className={`relative ${className}`}>
-      <span
-        aria-hidden
-        className={`pointer-events-none absolute top-1/2 -translate-y-1/2 type-amount text-subtle ${
-          large ? 'left-3.5' : 'left-2.5'
-        }`}
-      >
-        $
-      </span>
+      {prefix ? (
+        <span
+          aria-hidden
+          className={`pointer-events-none absolute top-1/2 -translate-y-1/2 type-amount text-subtle ${inset}`}
+        >
+          {prefix}
+        </span>
+      ) : null}
       <Input
-        type="number"
-        min="0"
-        step="0.01"
-        inputMode="decimal"
         className={`type-amount text-strong placeholder:text-subtle ${
-          large ? 'h-12 pr-16 pl-8' : 'pr-11 pl-6'
-        }`}
+          large ? 'h-12 pr-16' : 'pr-14'
+        } ${prefix ? (large ? 'pl-8' : 'pl-6') : ''}`}
         {...props}
       />
       <span
