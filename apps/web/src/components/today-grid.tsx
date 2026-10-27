@@ -189,15 +189,15 @@ function Block({
   return (
     <button
       type="button"
-      /* The visible text is a truncated name and a duration, so the times go
-         in the accessible name or a screen reader cannot tell two apart. */
-      aria-label={`Edit ${name}, ${range}${entry.invoiceId ? ', billed' : ''}`}
       title={`${name} · ${range}`}
       onClick={() => onEdit(entry)}
       className={`${shape} hover:bg-surface-active focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none`}
       style={style}
     >
-      {body}
+      <span className="sr-only">Edit</span> {body}
+      {/* The visible text is a truncated name and a duration, so the times go
+          in the accessible name or a screen reader cannot tell two apart. */}
+      <span className="sr-only">{`${range}${entry.invoiceId ? ', billed' : ''}`}</span>
     </button>
   );
 }

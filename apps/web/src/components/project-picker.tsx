@@ -108,7 +108,7 @@ export function ProjectPicker({
             is what actually buys both of them room. */}
         {trigger === 'tag' ? (
           <DropdownMenuTrigger
-            aria-label="Project"
+            aria-label={selected ? `Project, ${selected.name}` : 'Project'}
             className={`flex min-w-0 max-w-[11rem] shrink items-center gap-1.5 rounded-full border
                       px-2.5 py-1 type-meta outline-none transition-colors
                       hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus
@@ -142,7 +142,6 @@ export function ProjectPicker({
         ) : (
           <DropdownMenuTrigger
             id={id}
-            aria-label="Project"
             disabled={disabled}
             /* Autofocus is right here: this is a modal the user just opened,
                where something must take focus — and when the row they clicked

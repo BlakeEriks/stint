@@ -15,11 +15,12 @@ import { useAccount } from '@/lib/client/use-account';
  */
 export function AccountMenu() {
   const { email, signOut, signingOut } = useAccount();
+  const shown = signingOut ? 'Signing out…' : (email ?? 'Account');
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label="Account"
+        aria-label={email || signingOut ? `Account, ${shown}` : shown}
         /* The menu item unmounts as the menu closes, so the trigger is what
            shows a sign-out waiting on the server. */
         aria-busy={signingOut}
@@ -33,9 +34,7 @@ export function AccountMenu() {
         <User aria-hidden className="size-4 flex-none" strokeWidth={1.75} />
         {/* Truncates rather than wraps: a long address must not push the rail
             wider or the menu taller. */}
-        <span className="min-w-0 truncate">
-          {signingOut ? 'Signing out…' : (email ?? 'Account')}
-        </span>
+        <span className="min-w-0 truncate">{shown}</span>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="start" className="min-w-48">

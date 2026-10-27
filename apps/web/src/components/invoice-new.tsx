@@ -1104,9 +1104,9 @@ function ChargeRows({
               <button
                 type="button"
                 onClick={() => onOpen(c.key)}
-                aria-label={`Edit charge ${c.description}`}
                 className={`${rowButton} flex w-full items-center gap-3 py-2.5`}
               >
+                <span className="sr-only">Edit charge</span>{' '}
                 <span className="min-w-0 flex-1 truncate type-control text-strong">
                   {c.description}
                 </span>
@@ -1147,7 +1147,6 @@ function PaymentPicker({
     <DropdownMenu>
       <DropdownMenuTrigger
         id="inv-payment"
-        aria-label="Payment details"
         className={`${inputClass} flex items-center justify-between gap-2 text-left
                     focus:border-edge-focus focus:ring-[3px] focus:ring-edge-focus`}
       >
@@ -1218,7 +1217,6 @@ function GroupingPicker({
     <DropdownMenu>
       <DropdownMenuTrigger
         id="inv-group"
-        aria-label="Show time as"
         className={`${inputClass} flex items-center justify-between gap-2 text-left
                     focus:border-edge-focus focus:ring-[3px] focus:ring-edge-focus`}
       >

@@ -207,11 +207,11 @@ export const StaleDraftBlocked: Story = {
     await expect(row?.querySelector('a[href^="/invoices/"]')).not.toBeNull();
     await expect(
       within(row as HTMLElement).queryByRole('button', {
-        name: /^Mark .* sent$/,
+        name: /^Mark sent, /,
       }),
     ).toBeNull();
     await expect(
-      within(row as HTMLElement).queryByRole('link', { name: /^Download / }),
+      within(row as HTMLElement).queryByRole('link', { name: /^Download, / }),
     ).toBeNull();
   },
 };
@@ -235,11 +235,11 @@ export const StaleDraftDownloaded: Story = {
     const row = (await inbox.findByText(/^Draft, \d+d old$/)).closest('li');
     await expect(
       within(row as HTMLElement).getByRole('button', {
-        name: /^Mark .* sent$/,
+        name: /^Mark sent, /,
       }),
     ).toBeVisible();
     await expect(
-      within(row as HTMLElement).queryByRole('link', { name: /^Download / }),
+      within(row as HTMLElement).queryByRole('link', { name: /^Download, / }),
     ).toBeNull();
   },
 };

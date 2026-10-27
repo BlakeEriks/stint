@@ -100,11 +100,11 @@ describe('Inbox', () => {
        twice above. A screen reader meets the buttons without that context, so
        the accessible name still carries it: a column of identical "Mark paid"
        and "Download" buttons would be unusable. */
-    const paid = screen.getByRole('button', { name: 'Mark STINT-0001 paid' });
+    const paid = screen.getByRole('button', { name: 'Mark paid, STINT-0001' });
     expect(paid).toHaveTextContent('Mark paid');
     expect(paid).not.toHaveTextContent('STINT-0001');
 
-    const pdf = screen.getByRole('link', { name: 'Download STINT-0001' });
+    const pdf = screen.getByRole('link', { name: 'Download, STINT-0001' });
     expect(pdf).toHaveTextContent('Download');
     expect(pdf).not.toHaveTextContent('STINT-0001');
   });
@@ -327,7 +327,7 @@ describe('entries of unusual length', () => {
       wrapper,
     });
 
-    await user.click(screen.getByRole('button', { name: /as it is/ }));
+    await user.click(screen.getByRole('button', { name: /^It's correct, / }));
 
     /* "It's correct" is an answer about the length, not an edit to it — a
        write touching the times would be the app editing billable work. */
@@ -359,7 +359,7 @@ describe('entries of unusual length', () => {
       wrapper,
     });
 
-    await user.click(screen.getByRole('button', { name: /as it is/ }));
+    await user.click(screen.getByRole('button', { name: /^It's correct, / }));
 
     expect(
       screen.getByText('Migration').closest('[data-exiting]'),
@@ -391,7 +391,7 @@ describe('entries of unusual length', () => {
       { wrapper },
     );
 
-    await user.click(screen.getByRole('button', { name: /as it is/ }));
+    await user.click(screen.getByRole('button', { name: /^It's correct, / }));
 
     expect(
       await screen.findByText('That entry is billed.'),
@@ -438,8 +438,12 @@ describe('overlap row', () => {
   it('is resolved by editing, and offers no "it\'s correct"', async () => {
     const user = userEvent.setup();
     render(<Inbox stats={stats({ overlaps: [overlap] })} />, { wrapper });
-    expect(screen.queryByRole('button', { name: /as it is/ })).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Edit Standup' }));
+    expect(
+      screen.queryByRole('button', { name: /^It's correct, / }),
+    ).toBeNull();
+    await user.click(
+      screen.getByRole('button', { name: 'Edit entry, Standup' }),
+    );
     await waitFor(() =>
       expect(vi.mocked(fetch)).toHaveBeenCalledWith(
         `/api/v1/entries/${overlap.entryId}`,

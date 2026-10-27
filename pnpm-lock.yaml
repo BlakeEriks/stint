@@ -4,9 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  axe-core: 4.13.0
-
 patchedDependencies:
   '@storybook/nextjs-vite@10.6.1':
     hash: v7eglvnakmmlmg3eylhm3teioi
