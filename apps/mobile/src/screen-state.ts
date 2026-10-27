@@ -92,9 +92,7 @@ export function chooseNotice(
 }
 
 /**
- * Whether the running timer's notification can show: `ask` while Android
- * will still prompt, `off` once it won't (refused twice, or turned off in
- * Settings), which the screen then says (Principle I).
+ * `off` is both a second refusal and notifications turned off in Settings.
  */
 export function notificationAccess(p: {
   granted: boolean;

@@ -28,7 +28,6 @@ export function TimerContainer({
   api: Api;
   email: string;
   onSignOut: () => void;
-  /** The notification was just allowed: draw it. */
   onNotificationsOn: () => void;
 }) {
   const timeZone = useTimeZone();

@@ -99,7 +99,6 @@ listenForTimerPushes(() => {
   if (canDraw) void surfaces.refresh();
 });
 
-/** Notifications were just allowed: the running timer's is drawn now. */
 const redrawSurfaces = () => surfaces.redraw();
 const pushDevice = createPushDevice({
   tokens: expoTokens,
