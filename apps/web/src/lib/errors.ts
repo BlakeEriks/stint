@@ -105,7 +105,7 @@ export function handle<T extends unknown[]>(
    so it goes up as an Error with the original beside it. That Error's stack
    is this function's whichever route failed, so the message joins the
    fingerprint: without it every database failure groups as one issue. */
-function report(err: unknown) {
+export function report(err: unknown) {
   if (err instanceof Error) {
     captureException(err);
     return;

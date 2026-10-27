@@ -42,7 +42,7 @@ import {
   splitByLocalDay,
 } from '@stint/core';
 import type { Expense, TimeEntry } from '@/lib/client/api';
-import { billable, type Db } from './fixtures';
+import { billable, type Db, mockDraftRefusals } from './fixtures';
 
 /**
  * What the routes compute, computed from the fake account. The SQL rollups
@@ -279,7 +279,8 @@ export function stats(db: Db, tz: string) {
       due_date: i.dueDate,
       total: i.total,
       currency: i.currency,
-      issue_date: i.issueDate,
+      period_end: i.periodEnd,
+      refuses: mockDraftRefusals(i),
     }));
 
   const candidates = db.entries

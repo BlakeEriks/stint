@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { handle, ApiError, isCheckViolation } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
-import { loadPdfData } from '@/lib/invoicing';
+import { draftRefusals, loadPdfData } from '@/lib/invoicing';
 import { parseQuery } from '@/lib/validate';
 import { InvoiceReadQuery } from '@stint/schema';
 
@@ -12,7 +12,8 @@ type Ctx = { params: Promise<{ id: string }> };
 /**
  * GET /api/v1/invoices/:id — the invoice with its line items, and whether its
  * PDF opens for the caller, so the screen knows before a press. A draft is
- * refreshed first, and says how it moved since its PDF was last rendered.
+ * its period's work now: it names the entries it can't price, and says how
+ * it moved since its PDF was last rendered.
  */
 export const GET = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
@@ -20,17 +21,22 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
 
   const { tz } = parseQuery(req, InvoiceReadQuery);
 
-  const { invoice, pdfData, canDownload, draft } = await loadPdfData(db, id, {
+  const { invoice, pdfData, canDownload, draft } = await loadPdfData(
+    db,
+    id,
     tz,
-  });
+  );
 
   return NextResponse.json({
     ...invoice,
     canDownload,
-    changedSinceDownload: draft.change,
+    changedSinceDownload: draft?.change ?? null,
+    unratedEntries: draft?.unratedEntries ?? [],
+    dueBeforeIssue: draft?.dueBeforeIssue ?? { download: false, send: false },
+    refuses: draft ? draftRefusals(draft) : { download: false, send: false },
     lineItems: pdfData.lineItems.map((l, i) => ({
       ...l,
-      isNew: draft.isNew?.[i] ?? false,
+      isNew: draft?.isNew[i] ?? false,
     })),
   });
 });
@@ -40,8 +46,8 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
  *
  * Only a draft can be deleted: `guard_issued_invoice_delete` refuses the
  * rest, which must be voided instead, so the numbering stays gapless and the
- * record of what was sent survives. Deleting releases the entries and
- * expenses it held, by their `on delete set null`, in the same statement.
+ * record of what was sent survives. A draft claims no work, so deleting one
+ * releases nothing.
  */
 export const DELETE = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);

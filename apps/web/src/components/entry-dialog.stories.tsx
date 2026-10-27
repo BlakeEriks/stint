@@ -58,24 +58,13 @@ export const AddFromCalendar: Story = {
 };
 
 /** On an issued invoice: read-only, the handles gone, and the invoice to
-    void named. */
+    void named. It's on an invoice, so it can't be billed elsewhere too. */
 export const Locked: Story = {
   ...desktop,
   args: { existing: on(13) },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await expect(await page.findByText(/billed on STINT-0013/)).toBeVisible();
-  },
-};
-
-/** On a draft: still editable, with a warning naming the draft that changes.
-    It's on an invoice, so it can't be billed elsewhere too. */
-export const OnDraft: Story = {
-  ...desktop,
-  args: { existing: on(15) },
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement.ownerDocument.body);
-    await expect(await page.findByText(/on draft STINT-0015/)).toBeVisible();
     await expect(
       page.queryByRole('checkbox', { name: 'Billed elsewhere' }),
     ).toBeNull();

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { handle, ApiError, dbCode } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
@@ -10,6 +11,7 @@ import {
   type EntryRow,
 } from '@/lib/rows';
 import { askedToInclude, entryWith, readIncluded } from '@/lib/include';
+import { pushTimerChanged } from '@/lib/push';
 import { UpdateTimeEntry } from '@stint/schema';
 import { markable, refuseUnmarkable } from '@/lib/invoiced-elsewhere';
 
@@ -50,31 +52,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
     throw new ApiError('VALIDATION_FAILED', 'No fields to update');
   }
 
-  // Setting ended_at to null would resurrect this as a running timer, which
-  // the unique index rejects if another is live. Check the ordering here so
-  // the error explains itself.
-  if (update.started_at || update.ended_at !== undefined) {
-    const { data: current } = await db
-      .from('time_entries')
-      .select('started_at, ended_at')
-      .eq('id', id)
-      .maybeSingle();
-    if (!current) throw new ApiError('ENTRY_NOT_FOUND', 'Entry not found');
-
-    const started = (update.started_at as string) ?? current.started_at;
-    const ended =
-      update.ended_at !== undefined ? update.ended_at : current.ended_at;
-    if (ended != null && new Date(ended as string) <= new Date(started)) {
-      throw new ApiError(
-        'VALIDATION_FAILED',
-        'endedAt must be after startedAt',
-        {
-          startedAt: started,
-          endedAt: ended,
-        },
-      );
-    }
-  }
+  await checkOrder(db, id, update);
 
   const marking = patch.invoicedElsewhere === true;
   const q = db.from('time_entries').update(update).eq('id', id);
@@ -99,20 +77,53 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   }
   if (!data && marking) await refuseUnmarkable(db, id);
   if (!data) throw new ApiError('ENTRY_NOT_FOUND', 'Entry not found');
+  // Running now, or this edit stopped or reopened it.
+  if ((data as EntryRow).ended_at === null || 'ended_at' in update) {
+    pushTimerChanged(db, userId);
+  }
 
   const included = await readIncluded(asked, db, userId);
   return NextResponse.json(entryWith(toEntry(data as EntryRow), included));
 });
 
+/**
+ * Setting ended_at to null would resurrect an entry as a running timer, which
+ * the unique index rejects if another is live. The ordering is checked here
+ * so the error explains itself.
+ */
+async function checkOrder(
+  db: SupabaseClient,
+  id: string,
+  update: Record<string, unknown>,
+) {
+  if (!update.started_at && update.ended_at === undefined) return;
+  const { data: current } = await db
+    .from('time_entries')
+    .select('started_at, ended_at')
+    .eq('id', id)
+    .maybeSingle();
+  if (!current) throw new ApiError('ENTRY_NOT_FOUND', 'Entry not found');
+
+  const started = (update.started_at as string) ?? current.started_at;
+  const ended =
+    update.ended_at !== undefined ? update.ended_at : current.ended_at;
+  if (ended != null && new Date(ended as string) <= new Date(started)) {
+    throw new ApiError('VALIDATION_FAILED', 'endedAt must be after startedAt', {
+      startedAt: started,
+      endedAt: ended,
+    });
+  }
+}
+
 export const DELETE = handle(async (req: Request, ctx: Ctx) => {
-  const { db } = await requireSession(req);
+  const { userId, db } = await requireSession(req);
   const { id } = await ctx.params;
 
   const { data, error } = await db
     .from('time_entries')
     .delete()
     .eq('id', id)
-    .select('id')
+    .select('id, ended_at')
     .maybeSingle();
 
   if (error) {
@@ -125,6 +136,7 @@ export const DELETE = handle(async (req: Request, ctx: Ctx) => {
     throw error;
   }
   if (!data) throw new ApiError('ENTRY_NOT_FOUND', 'Entry not found');
+  if (data.ended_at === null) pushTimerChanged(db, userId);
 
   return new NextResponse(null, { status: 204 });
 });
