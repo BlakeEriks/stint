@@ -1,0 +1,33 @@
+name: Issue platforms
+
+# An issue form's `labels:` are fixed, so the platforms a filer picks reach
+# the issue only as text under "### Platforms". This adds each as a label.
+# The options in .github/ISSUE_TEMPLATE are the label names; keep them equal.
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      ISSUE: ${{ github.event.issue.number }}
+    steps:
+      # The body is read from the event file, never interpolated into the
+      # script: anyone can file an issue.
+      - run: |
+          picked=$(jq -r '.issue.body // ""' "$GITHUB_EVENT_PATH" | tr -d '\r' |
+            awk '/^### Platforms/ { found = 1; next } found && NF { print; exit }')
+          args=()
+          for p in web macos android ios api; do
+            if [[ ", $picked," == *", $p,"* ]]; then args+=(--add-label "$p"); fi
+          done
+          if [ ${#args[@]} -gt 0 ]; then gh issue edit "$ISSUE" "${args[@]}"; fi

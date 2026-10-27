@@ -5,6 +5,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { TaskSuggest } from '@/components/task-suggest';
+import { TASK_NAMES_MAX } from '@stint/schema';
 
 const NAMES = [
   { taskName: 'Invoice reconciliation', projectId: 'p1', lastUsedAt: '1' },
@@ -14,20 +15,26 @@ const NAMES = [
   { taskName: 'Standup', projectId: 'p1', lastUsedAt: '5' },
 ];
 
-/** The component reads task names, projects and clients. */
-function stubFetch() {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (url: string) => {
-      const path = String(url);
-      const body = path.includes('task-names')
-        ? { taskNames: NAMES }
-        : path.includes('/projects')
-          ? { projects: [{ id: 'p1', name: 'Ledger', clientId: 'c1' }] }
-          : { clients: [{ id: 'c1', name: 'Northwind', color: '#8ab4f8' }] };
-      return new Response(JSON.stringify(body), { status: 200 });
-    }),
-  );
+/**
+ * The component reads task names, projects and clients. Task names honor
+ * `limit` as the server does, default 8, so a name past the eighth arrives
+ * only when the request asks for it.
+ */
+function stubFetch(names = NAMES) {
+  const fetch = vi.fn(async (url: string) => {
+    const path = String(url);
+    const limit = Number(
+      new URL(path, 'http://localhost').searchParams.get('limit') ?? 8,
+    );
+    const body = path.includes('task-names')
+      ? { taskNames: names.slice(0, limit) }
+      : path.includes('/projects')
+        ? { projects: [{ id: 'p1', name: 'Ledger', clientId: 'c1' }] }
+        : { clients: [{ id: 'c1', name: 'Northwind', color: '#8ab4f8' }] };
+    return new Response(JSON.stringify(body), { status: 200 });
+  });
+  vi.stubGlobal('fetch', fetch);
+  return fetch;
 }
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -98,6 +105,27 @@ describe('TaskSuggest', () => {
     const names = screen.getAllByRole('option').map((o) => o.textContent ?? '');
     expect(names).toHaveLength(1);
     expect(names[0]).toContain('Billing review');
+  });
+
+  it('finds a name older than the eight most recent', async () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({
+      taskName: `Task ${i}`,
+      projectId: 'p1',
+      lastUsedAt: String(i),
+    }));
+    many.push({ taskName: 'Weekly sync', projectId: 'p1', lastUsedAt: '99' });
+    const fetch = stubFetch(many);
+    render(<Host />, { wrapper });
+    const user = await focusField();
+
+    await user.keyboard('Weekly');
+    expect(
+      screen.getByRole('option', { name: /Weekly sync/ }),
+    ).toBeInTheDocument();
+    const url = fetch.mock.calls
+      .map(([u]) => String(u))
+      .find((u) => u.includes('task-names'));
+    expect(url).toContain(`limit=${TASK_NAMES_MAX}`);
   });
 
   /**

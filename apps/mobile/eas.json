@@ -7,11 +7,13 @@
       "developmentClient": true,
       "distribution": "internal",
       "android": { "buildType": "apk" },
+      "environment": "preview",
       "env": { "STINT_TARGET": "preview" }
     },
     "production": {
       "extends": "base",
       "autoIncrement": true,
+      "environment": "production",
       "env": { "STINT_TARGET": "prod" }
     }
   },

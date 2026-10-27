@@ -69,9 +69,9 @@ export function useTimer(api: TimerApi, timeZone: string) {
   const summary = useQuery({
     queryKey: keys.summary(timeZone),
     queryFn: () => api.summary(timeZone),
-    // A running timer is reconciled every 60s; the local tick covers the
-    // seconds in between.
-    refetchInterval: (q) => (q.state.data?.running ? 60_000 : false),
+    // A running timer is reconciled every 10s, so a stop on another device
+    // shows soon. React Query skips the interval while the tab is hidden.
+    refetchInterval: (q) => (q.state.data?.running ? 10_000 : false),
     /* `true` would still be gated on staleness, and the default `staleTime`
        is 10s — so starting a timer in the menu bar and tabbing straight back
        showed a stopped bar, while returning slowly worked. Whether the tab
@@ -164,6 +164,7 @@ export function useTimer(api: TimerApi, timeZone: string) {
     isBillable: body.isBillable ?? true,
     durationSeconds: null,
     durationOk: false,
+    invoicedElsewhere: false,
     rateOverride: null,
     invoiceId: null,
   });
