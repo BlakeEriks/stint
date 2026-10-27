@@ -186,7 +186,9 @@ export function EntryDialog({
       return existing
         ? api.updateEntry(existing.id, {
             ...body,
-            invoicedElsewhere: draft.invoicedElsewhere,
+            ...(draft.invoicedElsewhere !== existing.invoicedElsewhere && {
+              invoicedElsewhere: draft.invoicedElsewhere,
+            }),
           })
         : api.createEntry({ id: uuidv7(), ...body });
     },

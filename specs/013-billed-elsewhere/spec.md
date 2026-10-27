@@ -24,7 +24,7 @@ already in Stint.
 - Q: Which model: an external invoice record, or a flag on the entry? → A: The flag that exists, `invoiced_elsewhere`. Every query that means "unbilled" already skips it and month revenue already counts it as earned, so nothing double-counts or drops. An external invoice record would add a table, a number nobody prints, and a list to keep it out of. (decided autonomously)
 - Q: Is an entry billed elsewhere locked, as one on an issued invoice is? → A: No. Stint never told a client what that entry says, so nothing it printed can disagree with an edit. It stays editable, as imported history already is. (decided autonomously)
 - Q: How is a mistaken mark undone? → A: Right after marking a range, the confirmation offers Undo, which clears exactly the entries it marked. Later, any one entry is cleared from its edit dialog. (decided autonomously)
-- Q: Where does the range selection live? → A: On New invoice, where the client and dates are already picked and the card shows the work. A second action marks that work billed elsewhere instead of generating. (decided autonomously)
+- Q: Where does the range selection live? → A: On New invoice, where the client and dates are already picked and the card shows the work. A quiet "Already billed this?" beside the card's entry count marks that work billed elsewhere instead of generating, so Generate stays the page's one main action. (reviewer)
 - Q: Which entries does a range mark? → A: Exactly the entries the card shows, by id, so nothing logged after she looked is marked. The server marks only those still finished and on no invoice. (decided autonomously)
 - Q: Is there a confirm step? → A: No. The mark removes nothing and comes back with Undo, and the app's rules keep a confirm for what removes something saved. The button shows it's pending, then a toast says how many it marked, with Undo. (decided autonomously)
 - Q: Expenses? → A: Out of scope. The issue is about tracked time, and expenses have no such flag. (decided autonomously)
@@ -56,7 +56,7 @@ refuse with nothing to bill.
 **Acceptance Scenarios**:
 
 1. **Given** the card shows 3 entries for the chosen client and dates,
-   **When** she presses Billed elsewhere, **Then** the button shows it's
+   **When** she presses "Already billed this?", **Then** the button shows it's
    pending until the server answers.
 2. **Given** the server answers, **Then** those 3 entries are billed
    elsewhere, Unbilled drops by their amount, Earned is unchanged, the card

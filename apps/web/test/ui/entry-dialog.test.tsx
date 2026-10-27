@@ -24,6 +24,7 @@ function entry(over: Partial<TimeEntry> = {}): TimeEntry {
     endedAt: '2026-09-11T14:30:00.000Z',
     isBillable: true,
     invoiceId: null,
+    invoicedElsewhere: false,
     durationSeconds: 5400,
     ...over,
   } as TimeEntry;
@@ -122,6 +123,22 @@ describe('EntryDialog', () => {
       expect(calls.find((c) => c.method === 'PATCH')?.body).toMatchObject({
         invoicedElsewhere: false,
       }),
+    );
+  });
+
+  it('leaves billed elsewhere out of an edit that never touched it', async () => {
+    const calls = serve();
+    const user = userEvent.setup();
+    open(entry());
+
+    await screen.findByRole('checkbox', { name: 'Billed elsewhere' });
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PATCH')?.body).toBeDefined(),
+    );
+    expect(calls.find((c) => c.method === 'PATCH')?.body).not.toHaveProperty(
+      'invoicedElsewhere',
     );
   });
 

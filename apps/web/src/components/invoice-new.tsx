@@ -536,29 +536,14 @@ function Form() {
           <h1 className="type-title whitespace-nowrap text-strong">
             New invoice
           </h1>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              onClick={() => markElsewhere.mutate()}
-              disabled={
-                shownIds.length === 0 ||
-                updating ||
-                preview.isError ||
-                markElsewhere.isPending ||
-                generate.isPending
-              }
-            >
-              {markElsewhere.isPending ? 'Marking…' : 'Billed elsewhere'}
-            </Button>
-            <Button
-              type="button"
-              variant="accent"
-              onClick={() => generate.mutate()}
-              disabled={!canGenerate || markElsewhere.isPending}
-            >
-              {generate.isPending ? 'Generating…' : 'Generate invoice'}
-            </Button>
-          </div>
+          <Button
+            type="button"
+            variant="accent"
+            onClick={() => generate.mutate()}
+            disabled={!canGenerate || markElsewhere.isPending}
+          >
+            {generate.isPending ? 'Generating…' : 'Generate invoice'}
+          </Button>
         </div>
         {marked ? (
           <MarkedToast
@@ -749,6 +734,25 @@ function Form() {
               payment={payment}
               schedules={schedules}
               updating={updating}
+              entryAction={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => markElsewhere.mutate()}
+                  disabled={
+                    shownIds.length === 0 ||
+                    updating ||
+                    preview.isError ||
+                    markElsewhere.isPending ||
+                    generate.isPending
+                  }
+                >
+                  {markElsewhere.isPending
+                    ? 'Marking…'
+                    : 'Already billed this?'}
+                </Button>
+              }
             >
               <PreviewNotices
                 preview={current}

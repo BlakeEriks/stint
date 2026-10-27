@@ -277,8 +277,8 @@ export const ClientChosen: Story = {
 };
 export const ClientChosenPhone: Story = { ...ClientChosen, ...phone };
 
-/** Work already billed from another tool: Billed elsewhere marks the time
-    the card shows, the card keeps only the expenses, and the toast offers
+/** Work already billed from another tool: "Already billed this?", beside the
+    preview's entry count, marks the time the card shows, the card keeps only the expenses, and the toast offers
     Undo (US1 scenarios 1–2). */
 export const BilledElsewhere: Story = {
   ...desktop,
@@ -286,14 +286,14 @@ export const BilledElsewhere: Story = {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
     await userEvent.click(
-      page.getByRole('button', { name: 'Billed elsewhere' }),
+      page.getByRole('button', { name: 'Already billed this?' }),
     );
     await expect(
       await page.findByText(/entries marked billed elsewhere/),
     ).toBeVisible();
     await expect(await page.findByText('0 entries')).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Billed elsewhere' }),
+      page.getByRole('button', { name: 'Already billed this?' }),
     ).toBeDisabled();
   },
 };

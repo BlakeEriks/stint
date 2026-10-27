@@ -12,7 +12,7 @@ this adds only ways to set it. `POST /entries/invoiced-elsewhere` takes
 are finished and on no invoice, returning the ids it changed. The entry gains
 `invoicedElsewhere` in its shape and in `PATCH /entries/:id`, which refuses
 to mark an entry on an invoice with `409 ENTRY_ALREADY_INVOICED`. New invoice
-gains a Billed elsewhere button that sends the card's entry ids (its time
+gains an "Already billed this?" button beside the card's entry count that sends the card's entry ids (its time
 lines' `entryIds`) and answers with an Undo toast; the edit-entry dialog
 gains a checkbox for an entry on no invoice. One migration adds the check
 constraint `entry_billed_once`, so an entry is never both.
@@ -66,7 +66,7 @@ apps/web/src/lib/rows.ts                           ENTRY_COLUMNS, toEntry, ENTRY
 apps/web/src/app/api/v1/entries/invoiced-elsewhere/route.ts   POST
 apps/web/src/app/api/v1/entries/[id]/route.ts      the 409 on a mark of an invoiced entry
 apps/web/src/lib/client/api.ts                     markInvoicedElsewhere()
-apps/web/src/components/invoice-new.tsx            Billed elsewhere button and Undo toast
+apps/web/src/components/invoice-new.tsx            "Already billed this?" button and Undo toast
 apps/web/src/components/entry-dialog.tsx           Billed elsewhere checkbox
 apps/web/src/mocks/                                fixtures and handler
 docs/api.md, docs/data-model.md
