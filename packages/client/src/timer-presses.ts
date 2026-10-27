@@ -37,7 +37,6 @@ export function readTimer(
   atServerTime = false,
 ): TimerReading {
   const running = data?.running ?? null;
-  // Applied to every elapsed calculation.
   const skewMs = data ? new Date(data.serverTime).getTime() - dataUpdatedAt : 0;
   const now =
     !atServerTime || !data

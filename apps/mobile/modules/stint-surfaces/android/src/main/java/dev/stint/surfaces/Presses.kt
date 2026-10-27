@@ -39,9 +39,8 @@ class PressReceiver : BroadcastReceiver() {
 }
 
 /**
- * The app icon's shortcut, which only the launcher can open: it is not
- * exported, so no other app or web link can press the timer. It presses as
- * a widget does, then opens the app to show it.
+ * The app icon's shortcut. Not exported, so no other app can press the
+ * timer; it presses as a widget does, then opens the app.
  */
 class PressActivity : Activity() {
   override fun onCreate(savedInstanceState: Bundle?) {

@@ -104,7 +104,6 @@ export function createSurfaces({
     draw(state);
   };
 
-  /** The screen's own reads (`reads.ts`), so both keep one shape in the cache. */
   const reads = () => ({
     summary: summaryQuery(api, timeZone()),
     ...screenReads(api, timeZone()),
@@ -191,7 +190,7 @@ export function createSurfaces({
     const r = reads();
     try {
       await Promise.all([
-        queryClient.fetchQuery({ ...r.summary, staleTime: 0 }),
+        queryClient.fetchQuery(r.summary),
         queryClient.fetchQuery({ ...r.taskNames, staleTime: 0 }),
         queryClient.ensureQueryData(r.projects),
         queryClient.ensureQueryData(r.clients),
@@ -205,9 +204,7 @@ export function createSurfaces({
   }
 
   /**
-   * A press from a surface, through the app's own options (`timerPresses`),
-   * read from the cache as it stands now. Its prediction is already drawn
-   * natively.
+   * A press from a surface. Its prediction is already drawn natively.
    */
   async function press(p: Press) {
     why = null;

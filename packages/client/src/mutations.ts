@@ -19,8 +19,8 @@ import {
 import { keys } from './query-keys.ts';
 
 /**
- * The one way the web and phone apps write (Constitution VI). Every press answers in
- * the same frame:
+ * The one way the web and phone apps write (Constitution VI). Every press
+ * answers in the same frame:
  *
  * - **Predicted** (`predict` given): the cache entry at `queryKey` shows the
  *   result at once. A rejection puts the snapshot back.

@@ -58,9 +58,6 @@ export function useTimer(api: TimerApi, timeZone: string) {
   const running = summary.data?.running ?? null;
   const hydrated = useTick(Boolean(running));
 
-  // Before hydration, count from the server's own timestamp so the server
-  // and client first renders produce identical text. After that, the live
-  // clock takes over.
   const reading = readTimer(summary.data, summary.dataUpdatedAt, !hydrated);
   const { liveSeconds, todaySeconds } = reading;
   const presses = timerPresses(api, timeZone, queryClient, reading);
