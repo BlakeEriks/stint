@@ -8,9 +8,9 @@ name: migration-handoff
 # its preview testable, not once every check is green. One that conflicts with `main` is
 # left to `/work-issues`, which merges `main` in and labels it.
 #
-# Requires a GitHub App (`docs/deploying.md` §3d): a push or label made with
-# GITHUB_TOKEN starts no other workflow, so CI, the Vercel preview and
-# `preview-db`'s `labeled` run would never fire.
+# Runs as the `stint-bot` GitHub App (`docs/deploying.md` §3d): a push or
+# label made with GITHUB_TOKEN starts no other workflow, so CI, the Vercel
+# preview and `preview-db`'s `labeled` run would never fire.
 on:
   push:
     branches: [main]
@@ -34,8 +34,8 @@ jobs:
       - id: token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
-          app-id: ${{ vars.HANDOFF_APP_ID }}
-          private-key: ${{ secrets.HANDOFF_APP_KEY }}
+          app-id: ${{ vars.STINT_BOT_APP_ID }}
+          private-key: ${{ secrets.STINT_BOT_APP_KEY }}
 
       - name: Hand ready-for-qa to the next migration PR
         env:

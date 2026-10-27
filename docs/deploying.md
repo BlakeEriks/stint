@@ -423,12 +423,14 @@ can ask for it too.
   `stint-test`'s session pooler string. The direct connection is IPv6-only,
   which Actions runners cannot reach.
 - **GitHub** → Settings → Developer settings → GitHub Apps → **New GitHub
-  App** `stint-handoff`, webhook off. Give it read and write access to
-  the repository's Contents, Pull requests, and Workflows, and install it on
-  `BlakeEriks/stint` only. Its App ID is the repo variable `HANDOFF_APP_ID`
-  and its private key the repo secret `HANDOFF_APP_KEY`. The handoff runs
-  as the App because a push or label made with `GITHUB_TOKEN` starts no
-  other workflow. Workflows lets it merge a `main` that changed a workflow.
+  App** `stint-bot`, webhook off: the one App every workflow acts as when
+  `GITHUB_TOKEN` cannot, because a push or label made with it starts no other
+  workflow. Give it read and write access to the repository's Contents, Pull
+  requests, and Workflows, and install it on `BlakeEriks/stint` only; a
+  workflow that needs more adds a permission here. Its App ID is the repo
+  variable `STINT_BOT_APP_ID` and its private key the repo secret
+  `STINT_BOT_APP_KEY`. The migration handoff is its first use; Workflows lets
+  it merge a `main` that changed a workflow.
 - **Vercel** → Deployment Protection → **Protection Bypass for Automation**:
   the secret `pnpm try-mac` sends so the menu bar app reaches a preview
   (`docs/macos.md`).
