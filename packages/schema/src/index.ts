@@ -315,8 +315,6 @@ export const Settings = z.object({
   paymentTermsDays: termsDays,
   invoiceNumberPrefix: z.string().max(20),
   nextInvoiceNumber: z.number().int().positive().max(NEXT_INVOICE_NUMBER_MAX),
-  /** Standing anti-fraud line printed under the invoice payment block. */
-  paymentNotice: z.string().max(500).nullable(),
   /** When the welcome dialog was finished or skipped; null shows it. */
   welcomedAt: iso.nullable(),
 });

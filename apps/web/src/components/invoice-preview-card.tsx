@@ -76,7 +76,6 @@ export function InvoicePreviewCard({
   preview,
   client,
   business,
-  settings,
   number,
   issued,
   due,
@@ -96,8 +95,6 @@ export function InvoicePreviewCard({
   client: Pick<Client, 'name' | 'address' | 'email'> | undefined;
   /** Undefined while it loads. */
   business: Business | undefined;
-  /** The payment notice. */
-  settings: Settings | undefined;
   /** A prediction: generation allocates the number. */
   number: string;
   issued: string;
@@ -177,9 +174,7 @@ export function InvoicePreviewCard({
                 />
               ) : null}
 
-              {payment ? (
-                <Payment payment={payment} notice={settings?.paymentNotice} />
-              ) : null}
+              {payment ? <Payment payment={payment} /> : null}
 
               {notes ? <Notes notes={notes} /> : null}
 
@@ -350,13 +345,7 @@ const TD = 'type-duration py-2.5 pl-3 text-right align-top whitespace-nowrap';
    checkable from the amount, and the description keeps its room. */
 const RATE = '@max-[360px]/card:hidden';
 
-function Payment({
-  payment,
-  notice,
-}: {
-  payment: PaymentDetails;
-  notice: string | null | undefined;
-}) {
+function Payment({ payment }: { payment: PaymentDetails }) {
   return (
     <div className="flex flex-col gap-3 border-t border-edge-subtle pt-4 type-support">
       <span className={LABEL}>
@@ -374,7 +363,6 @@ function Payment({
       {payment.notes ? (
         <p className="whitespace-pre-line text-muted">{payment.notes}</p>
       ) : null}
-      {notice ? <p className="text-subtle">{notice}</p> : null}
     </div>
   );
 }
