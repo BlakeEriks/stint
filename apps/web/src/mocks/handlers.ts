@@ -523,7 +523,6 @@ export const handlers = {
     return ok(invoiceDetail, {
       ...rest,
       lineItems: lineItems.map((l) => ({ ...l, isNew: l.isNew ?? false })),
-      // A draft claims nothing until sent, so its count is its derivation's.
       entryCount:
         invoice.status === 'draft'
           ? (draftPreview(db, invoice)?.entryCount ?? 0)

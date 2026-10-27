@@ -47,8 +47,6 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
   });
 });
 
-/** The entries an issued invoice claimed when sent; none on a void, which
-    released them. A draft claims none, so its count is its derivation's. */
 async function countClaimed(db: SupabaseClient, invoiceId: string) {
   const { count, error } = await db
     .from('time_entries')
