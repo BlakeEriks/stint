@@ -42,7 +42,9 @@ comment step 0 reads.
 **Labels are the loop's memory**, so nothing is worked out twice:
 
 - `ready-for-qa` (PR): ready to test and merge now — no conflict with
-  `main`, CI green, no question open, no feedback unanswered. Off the
+  `main`, CI green (or, for the next migration PR to hold the preview
+  database, just `main` merged in: step 6), no question open, no feedback
+  unanswered. Off the
   moment any of that stops being true.
 - `needs-input` (issue or PR): a question only the reviewer can answer, asked in a
   marked comment.
@@ -115,14 +117,18 @@ is `reviewed`.
      merely behind `main` is fine: `main` does not require branches to be up
      to date.
   6. **CI green and none of the above**, all checked in this pass: add
-     `ready-for-qa`, once. Only this step adds it — never a look at CI
-     alone, which cannot see feedback.
+     `ready-for-qa`, once. Only this step and `migration-handoff.yml` add
+     it — never a look at CI alone, which cannot see feedback.
      **A migration PR holds the preview database while it is
      `ready-for-qa`** (`preview-db.yml`), so at most one has the label. A
      migration PR is one whose diff adds a migration
      (`gh pr diff <n> --name-only | grep '^supabase/migrations/'`), whatever
-     its labels; the rest wait with green CI. The next to hold it first gets a round in
-     which the builder merges `main` in, then the label.
+     its labels; the rest wait with green CI. When a holder merges,
+     `migration-handoff.yml` merges `main` into the oldest open, non-draft
+     one and labels it. When none has the label, as after a handoff that
+     conflicted, the oldest first gets a round in which the builder merges
+     `main` in, then the label once `preview-db` has passed on that push,
+     without waiting for the rest of CI.
   7. **CI still running:** leave it for the next pass.
 - **Each open Dependabot PR** (`gh pr list --author app/dependabot`), the
   same steps, except:

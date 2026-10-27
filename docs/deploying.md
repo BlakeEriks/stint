@@ -394,7 +394,10 @@ route is a 404 anywhere `VERCEL_ENV` is not `preview`.
 The previews share one schema, so **the preview database belongs to the one
 PR labeled `ready-for-qa` whose diff touches `supabase/migrations`**: the
 holder. Other such PRs build and pass CI on their own throwaway Postgres,
-but their previews get no account until they hold it.
+but their previews get no account until they hold it. When the holder
+merges, `.github/workflows/migration-handoff.yml` merges `main` into the
+oldest open, non-draft migration PR and labels it `ready-for-qa`, without
+waiting for CI; one that conflicts with `main` waits for `/work-issues`.
 
 `.github/workflows/preview-db.yml` keeps the project in step: it seeds a PR's
 account from that branch's `scripts/seed-account.mjs` on every push, except
@@ -414,6 +417,13 @@ can ask for it too.
 - **GitHub** → Environments → **Preview** → secret `PREVIEW_DB_URL`:
   `stint-test`'s session pooler string. The direct connection is IPv6-only,
   which Actions runners cannot reach.
+- **GitHub** → Settings → Developer settings → GitHub Apps → **New GitHub
+  App** `stint-handoff`, webhook off. Give it read and write access to
+  the repository's Contents, Pull requests, and Workflows, and install it on
+  `BlakeEriks/stint` only. Its App ID is the repo variable `HANDOFF_APP_ID`
+  and its private key the repo secret `HANDOFF_APP_KEY`. The handoff runs
+  as the App because a push or label made with `GITHUB_TOKEN` starts no
+  other workflow. Workflows lets it merge a `main` that changed a workflow.
 - **Vercel** → Deployment Protection → **Protection Bypass for Automation**:
   the secret `pnpm try-mac` sends so the menu bar app reaches a preview
   (`docs/macos.md`).
