@@ -63,6 +63,7 @@ Then, with it in `DB` for this shell only:
 
 ```bash
 pnpm migrate --url "$DB" --dry-run   # show what would run
+pnpm migrate --url "$DB" --rehearse  # run it, then roll it back
 pnpm migrate --url "$DB"             # apply it
 ```
 

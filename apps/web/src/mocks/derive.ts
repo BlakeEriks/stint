@@ -140,7 +140,9 @@ function groupBy<T>(items: T[], key: (item: T) => string) {
 }
 
 const unbilled = (db: Db) =>
-  db.entries.filter((e) => e.invoiceId === null && e.isBillable);
+  db.entries.filter(
+    (e) => e.invoiceId === null && !e.invoicedElsewhere && e.isBillable,
+  );
 
 /** `unbilled_by_client`. */
 function unbilledRows(db: Db): UnbilledRow[] {
@@ -519,6 +521,7 @@ export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
       (e) =>
         clientOf(db, e.projectId) === client.id &&
         e.invoiceId === null &&
+        !e.invoicedElsewhere &&
         stopped(e) &&
         at(e.startedAt) >= from &&
         at(e.startedAt) < to,

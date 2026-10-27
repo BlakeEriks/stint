@@ -109,6 +109,26 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # Whether production's data accepts the migrations, before you are
+      # asked: a constraint an existing row breaks fails here, not after the
+      # backup. It always rolls back, and prints no row data (migrate.mjs).
+      - name: Rehearse
+        if: steps.plan.outputs.migrations == 'true'
+        env:
+          SUPABASE_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
+        run: |
+          set +e
+          pnpm --silent migrate --rehearse > rehearsal.txt 2>&1
+          code=$?
+          set -e
+          {
+            echo "### Rehearsal against production"
+            echo '```'
+            grep -E '^  [✓✗]|^    ' rehearsal.txt || echo "No result: see this step's exit code."
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $code
+
       # The approval is the one step that waits on you, and a release left
       # waiting holds every later one behind it. The run page is where you
       # approve.

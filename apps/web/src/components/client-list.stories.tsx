@@ -393,8 +393,13 @@ export const ClientPaymentTerms: Story = {
     await userEvent.clear(field());
     await userEvent.type(field(), '15');
     await saveDialog(page, dialog);
-    dialog = await editNorthwind(page);
-    await expect(field()).toHaveValue('15');
+    /* The row doesn't show terms, so nothing on the page says the refetch
+       has landed; a dialog opened before it holds the old client. */
+    await waitFor(async () => {
+      if (page.queryByRole('dialog')) await userEvent.keyboard('{Escape}');
+      dialog = await editNorthwind(page);
+      await expect(field()).toHaveValue('15');
+    });
   },
 };
 
