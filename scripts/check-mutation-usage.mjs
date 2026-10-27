@@ -7,10 +7,9 @@
  *
  * Constitution VI, no opt-out: a file in the web or phone app that imports
  * `useMutation` or `MutationObserver` from `@tanstack/react-query` directly
- * bypasses the
- * predicted/pending, rollback, timeout and supersession machinery
- * `packages/client/src/mutations.ts` gives both for free. Only that module
- * itself may import it.
+ * bypasses the predicted/pending, rollback, timeout and supersession
+ * machinery `packages/client/src/mutations.ts` gives both for free. Only
+ * that module itself may import them.
  *
  * Same shape as check-type-roles.mjs: regex-scan rather than parse, so it
  * has no dependency beyond Node.

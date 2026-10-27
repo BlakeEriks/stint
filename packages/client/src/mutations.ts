@@ -19,7 +19,7 @@ import {
 import { keys } from './query-keys.ts';
 
 /**
- * The one way the web app writes (Constitution VI). Every press answers in
+ * The one way the web and phone apps write (Constitution VI). Every press answers in
  * the same frame:
  *
  * - **Predicted** (`predict` given): the cache entry at `queryKey` shows the
@@ -50,8 +50,9 @@ import { keys } from './query-keys.ts';
  * reason for every failed mutation in the cache, so it still shows after the
  * component that pressed has unmounted.
  *
+ * `pressOnce` runs the same rules with no component.
  * `scripts/check-mutation-usage.mjs` fails any other file that imports
- * `useMutation`.
+ * `useMutation` or `MutationObserver`.
  */
 export type OptimisticOptions<TVars, TData, TCache> = BaseOptions<
   TVars,

@@ -295,7 +295,6 @@ function reason(err: unknown): string {
   throw err;
 }
 
-/** The read after a press failing offline: what was drawn stays. */
 function offline(err: unknown) {
   if (err instanceof ApiError || err instanceof TypeError) return;
   throw err;
