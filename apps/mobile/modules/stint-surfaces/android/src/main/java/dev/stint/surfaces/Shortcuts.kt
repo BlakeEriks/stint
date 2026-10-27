@@ -5,13 +5,9 @@ import android.content.Intent
 import android.content.pm.ShortcutInfo
 import android.content.pm.ShortcutManager
 import android.graphics.drawable.Icon
-import android.net.Uri
 import android.os.Build
 
-/**
- * The app icon's long-press shortcut: Stop, or Start with its task. It opens
- * the app at `stint://press/<action>`, which presses there (`app.tsx`).
- */
+/** The app icon's long-press shortcut: Stop, or Start with its task (`PressActivity`). */
 object Shortcuts {
   private const val PREFS = "stint_shortcuts"
 
@@ -27,8 +23,9 @@ object Shortcuts {
     } else {
       val action = if (shown.running) "stop" else "start"
       val intent =
-        Intent(Intent.ACTION_VIEW, Uri.parse("stint://press/$action"))
-          .setPackage(context.packageName)
+        Intent(context, PressActivity::class.java)
+          .setAction(Intent.ACTION_VIEW)
+          .putExtra(PressActivity.EXTRA_ACTION, action)
       val info =
         ShortcutInfo.Builder(context, "press")
           .setShortLabel(if (shown.running) "Stop" else "Start")

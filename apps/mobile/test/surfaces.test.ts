@@ -311,12 +311,6 @@ test('signed out, nothing can be pressed', () => {
   );
 });
 
-test('a shortcut press starts the task the surfaces offer', async () => {
-  const { surfaces, calls } = setup(null);
-  await surfaces.pressLink('start');
-  assert.deepEqual(calls, ['start Filter panel']);
-});
-
 test('a refresh leaves the screen its whole Recent list', async () => {
   const { surfaces, queryClient } = setup(null);
   await surfaces.refresh();

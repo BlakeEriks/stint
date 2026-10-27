@@ -1,8 +1,10 @@
 package dev.stint.surfaces
 
+import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
 import androidx.work.Data
 import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkManager
@@ -12,9 +14,11 @@ import androidx.work.WorkManager
  * JS (`press()` in `src/surfaces.ts`), whose answer replaces it.
  */
 object Presses {
-  fun press(context: Context) {
+  /** `only`: a shortcut's press, which does nothing if the timer moved since. */
+  fun press(context: Context, only: String? = null) {
     val before = Store.shown(context) ?: return
     if (before.signedOut) return
+    if (only != null && only != if (before.running) "stop" else "start") return
     Store.press(context)
     Surfaces.draw(context)
     val data =
@@ -31,5 +35,23 @@ object Presses {
 class PressReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     Presses.press(context)
+  }
+}
+
+/**
+ * The app icon's shortcut, which only the launcher can open: it is not
+ * exported, so no other app or web link can press the timer. It presses as
+ * a widget does, then opens the app to show it.
+ */
+class PressActivity : Activity() {
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    Presses.press(this, intent.getStringExtra(EXTRA_ACTION))
+    packageManager.getLaunchIntentForPackage(packageName)?.let { startActivity(it) }
+    finish()
+  }
+
+  companion object {
+    const val EXTRA_ACTION = "dev.stint.surfaces.ACTION"
   }
 }

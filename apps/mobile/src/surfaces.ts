@@ -93,13 +93,11 @@ export function createSurfaces({
 }: Options) {
   let why: string | null = null;
   let drawn = '';
-  let last: SurfaceState | null = null;
 
   const show = (state: SurfaceState) => {
     const json = JSON.stringify(state);
     if (json === drawn) return;
     drawn = json;
-    last = state;
     draw(state);
   };
 
@@ -236,18 +234,9 @@ export function createSurfaces({
     if (!render() && why) show({ kind: 'kept', why });
   }
 
-  /** A shortcut's press, opened in the app: Start begins what it named. */
-  async function pressLink(action: Press['action']) {
-    if (!last || last.kind === 'kept') await refresh();
-    const shown = last;
-    if (!shown || shown.kind === 'signedOut' || shown.kind === 'kept') return;
-    await press(action === 'stop' ? { action } : { action, ...shown.next });
-  }
-
   return {
     refresh,
     press,
-    pressLink,
     /** Draws every change to the cached timer, as the app reads it. */
     follow() {
       return queryClient.getQueryCache().subscribe(() => void render());

@@ -20,7 +20,7 @@ Tests come first in each phase (Constitution V).
 ## Phase 3: User Story 3 and 4 — tile and shortcuts (P3)
 
 - [x] T008 [US3] The tile service: on and off, its subtitle, unlock first, sign-in opens the app
-- [x] T009 [US4] Dynamic shortcuts from `draw`; `stint://press/*` handled in apps/mobile/src/main/app.tsx
+- [x] T009 [US4] Dynamic shortcuts from `draw`; a non-exported `PressActivity` presses as a widget does, then opens the app
 
 ## Phase 4: Polish
 

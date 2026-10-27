@@ -13,5 +13,6 @@ Kotlin to JS, the headless task `StintPress`, run by WorkManager:
 | `action` | `start` or `stop` |
 | `taskName`, `projectId` | `start` only: what the surface showed Start would begin |
 
-Deep links from a shortcut, opened in the app: `stint://press/start` and
-`stint://press/stop`.
+A shortcut opens `PressActivity`, which is not exported, with
+`dev.stint.surfaces.ACTION` set to `start` or `stop`; it presses as a widget
+does and opens the app. No public link presses the timer.

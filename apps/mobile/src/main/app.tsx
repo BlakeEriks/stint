@@ -7,12 +7,12 @@ import {
 } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { AppState, Linking, View } from 'react-native';
+import { AppState, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { createApi } from '../api.ts';
 import { createBypass } from '../bypass.ts';
 import { createPushDevice, onTimerPush } from '../push.ts';
-import { createSurfaces, type Press } from '../surfaces.ts';
+import { createSurfaces } from '../surfaces.ts';
 import { askToNotify, canDraw, drawSurfaces } from '../surfaces-native';
 import { canPush, expoTokens, listenForTimerPushes } from '../push-native';
 import { origin, target } from '../config.ts';
@@ -98,12 +98,6 @@ listenForTimerPushes(() => {
   void onTimerPush(queryClient);
   if (canDraw) void surfaces.refresh();
 });
-
-/** A shortcut opens the app at `stint://press/<action>` (`Shortcuts.kt`). */
-function onLink(url: string | null | undefined) {
-  const action = url?.match(/^stint:\/\/press\/(start|stop)$/)?.[1];
-  if (action) void surfaces.pressLink(action as Press['action']);
-}
 
 /** The running timer's notification needs Android 13's permission, asked once. */
 function askForNotification() {
@@ -213,17 +207,7 @@ function useBypass() {
   return { known, error, save };
 }
 
-function useShortcuts() {
-  useEffect(() => {
-    if (!canDraw) return;
-    void Linking.getInitialURL().then(onLink);
-    const sub = Linking.addEventListener('url', (e) => onLink(e.url));
-    return () => sub.remove();
-  }, []);
-}
-
 export function App() {
-  useShortcuts();
   const [fonts] = usePlex();
   const session = useSession();
   const pass = useBypass();

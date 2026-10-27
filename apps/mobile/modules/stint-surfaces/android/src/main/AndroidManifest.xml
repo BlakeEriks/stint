@@ -20,6 +20,10 @@
                 android:resource="@xml/stint_widget_square" />
         </receiver>
         <receiver android:name="dev.stint.surfaces.PressReceiver" android:exported="false" />
+        <!-- Not exported: only the launcher's shortcut opens it (Presses.kt). -->
+        <activity android:name="dev.stint.surfaces.PressActivity" android:exported="false"
+            android:excludeFromRecents="true" android:noHistory="true"
+            android:taskAffinity="" android:theme="@android:style/Theme.NoDisplay" />
         <service android:name="dev.stint.surfaces.TimerTileService" android:exported="true"
             android:icon="@drawable/stint_glyph" android:label="@string/stint_tile"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">

@@ -46,8 +46,9 @@ whichever client changed it, driven by the push #463 built.
 - Q: Do presses from the lock screen need unlocking? → A: Yes, the tile and
   the notification's Stop ask to unlock first. (decided autonomously: they
   write billable time, which a found phone shouldn't change.)
-- Q: Do the shortcuts press in the background? → A: No. Android opens the
-  app for a shortcut, and the press is made there, as if tapped in the app.
+- Q: How does a shortcut press? → A: As a widget does, then the app opens
+  to show it. The shortcut opens a screen no other app or link can reach,
+  so nothing but the user's press writes time.
   (decided autonomously)
 - Q: Which widget layout? → A: Both: the 4×1 row and the 2×2 square, picked
   when the widget is added. (the owner's answer, on #465)
@@ -163,8 +164,8 @@ stops a running timer or starts the task Start would begin.
 ### User Story 4 - The app icon's shortcuts start and stop (Priority: P3)
 
 Long-pressing the app icon lists the one press that applies: Stop while a
-timer runs, otherwise Start with the task it would begin. Choosing it opens
-the app and makes the press there.
+timer runs, otherwise Start with the task it would begin. Choosing it
+presses as a widget does and opens the app to show it.
 
 **Acceptance Scenarios**:
 
