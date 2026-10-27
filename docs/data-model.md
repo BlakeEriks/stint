@@ -163,7 +163,7 @@ sending keeps; it is the one column a read writes. Mark sent refuses with
 `send_draft()`**: it writes the lines and totals the route computed, claims
 the entries and one-off expenses, sets `issue_date`, `due_date` and the
 `payment_terms` they make (the last PDF's, else the send date's), and sends, in one transaction. An entry another
-invoice took or marked billed elsewhere meanwhile raises
+invoice took, or one marked billed elsewhere, meanwhile raises
 `ENTRY_ALREADY_INVOICED`, an expense another invoice took
 `EXPENSE_ALREADY_INVOICED`, and either rolls it all back.
 

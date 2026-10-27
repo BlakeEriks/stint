@@ -171,10 +171,6 @@ export function EntryDialog({
     onSuccess: settle,
   };
 
-  /* On no invoice, so it can be billed elsewhere instead. A new entry is
-     work being logged, not work already billed. */
-  const unbilled = existing !== undefined && existing.invoiceId == null;
-
   const save = useOptimisticMutation({
     ...formPress,
     mutationFn: async () => {
@@ -352,7 +348,7 @@ export function EntryDialog({
             Billable
           </label>
 
-          {unbilled ? (
+          {existing && !locked ? (
             <label className="flex items-center gap-2.5 type-control text-primary">
               <input
                 type="checkbox"

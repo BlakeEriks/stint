@@ -91,7 +91,7 @@ and see Unbilled drop; open it again, untick, save, and see it return.
    dialog shows a Billed elsewhere checkbox, ticked if it is.
 2. **Given** she changes it and saves, **Then** the entry is marked or
    cleared, and Unbilled moves to match.
-3. **Given** an entry on a draft or issued invoice, **Then** the checkbox
+3. **Given** an entry on an issued invoice, **Then** the checkbox
    isn't shown.
 4. **Given** the entry was put on an invoice since the dialog opened,
    **When** she saves a mark, **Then** the server refuses, the dialog stays
@@ -116,8 +116,8 @@ and see Unbilled drop; open it again, untick, save, and see it return.
 - **FR-002**: The API MUST clear billed elsewhere on a given list of the
   user's entry ids, and return the ids it changed.
 - **FR-003**: The API MUST never set billed elsewhere on an entry that is on
-  an invoice, whether draft or issued; one entry asked for by id is refused
-  with a conflict naming why.
+  an invoice; one entry asked for by id is refused with a conflict naming
+  why.
 - **FR-004**: An entry MUST carry whether it is billed elsewhere, and its
   update MUST accept it.
 - **FR-005**: Nothing MUST be marked but the entries the user pressed on (Principle I).
