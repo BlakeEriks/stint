@@ -393,6 +393,34 @@ export const InternalToday: Story = {
   },
 };
 
+/** Six tasks today: the list scrolls, and the keyboard can reach it. */
+export const TodayScrolls: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    const today = localDateKey(db.now, ZONE);
+    for (const [i, task] of [
+      'Standup',
+      'Code review',
+      'Release notes',
+      'Client call',
+      'Bug triage',
+      'Planning',
+    ].entries())
+      db.entries.push(
+        entry(9100 + i, today, `0${i}:00`, 30, ids.warehouse, task),
+      );
+  }),
+  play: async ({ canvasElement }) => {
+    const list = await within(canvasElement).findByRole('region', {
+      name: "Today's tasks",
+    });
+    await waitFor(() =>
+      expect(list.scrollHeight).toBeGreaterThan(list.clientHeight),
+    );
+    await expect(list).toHaveAttribute('tabindex', '0');
+  },
+};
+
 /** The figures failed to load: the panel says so, never blank. */
 export const Failed: Story = {
   ...desktop,
