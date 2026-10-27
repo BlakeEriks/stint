@@ -39,14 +39,14 @@
     "*.{js,mjs,ts,tsx,json,jsonc,css}": "biome check --write --no-errors-on-unmatched"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.15",
+    "@biomejs/biome": "^2.6.2",
     "@types/node": "^24.19.2",
     "husky": "^9.1.7",
-    "jscpd": "^5.4.1",
-    "knip": "^6.41.0",
+    "jscpd": "^5.4.2",
+    "knip": "^6.42.1",
     "lint-staged": "^17.6.0",
     "pg": "^8.23.1",
-    "supabase": "2.121.0",
+    "supabase": "2.122.0",
     "typescript": "^6.0.3"
   },
   "pnpm": {
