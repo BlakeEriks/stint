@@ -245,7 +245,7 @@ test('presses reach the server in press order', async () => {
 });
 
 test('a push refetches and draws, unless a press is in flight', async () => {
-  const { surfaces, drawn, holdPresses, answer } = setup(entry());
+  const { surfaces, drawn, holdPresses, answer, api, last } = setup(entry());
   await surfaces.refresh();
   holdPresses();
   const press = surfaces.press({ action: 'stop' });
@@ -254,6 +254,17 @@ test('a push refetches and draws, unless a press is in flight', async () => {
   assert.equal(drawn.length, before);
   answer();
   await press;
+  assert.equal(last()?.kind, 'stopped');
+
+  // Another client starts a timer; its push draws it here.
+  await (api as { startTimer: (b: object) => Promise<unknown> }).startTimer({
+    id: 'e2',
+    taskName: 'Started on the web',
+  });
+  await surfaces.refresh();
+  const now = last();
+  assert.ok(now?.kind === 'running');
+  assert.equal(now.title, 'Started on the web');
 });
 
 test('an unchanged state is not drawn twice', async () => {
