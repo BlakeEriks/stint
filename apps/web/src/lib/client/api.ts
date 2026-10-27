@@ -203,9 +203,17 @@ export const api = {
         | 'endedAt'
         | 'isBillable'
         | 'durationOk'
+        | 'invoicedElsewhere'
       >
     >,
   ) => request<TimeEntry>('PATCH', `/entries/${id}`, body),
+
+  /** Sets or clears billed elsewhere on `ids`; answers with the ones it
+   *  changed, which is what an Undo sends back. */
+  markInvoicedElsewhere: (body: {
+    ids: string[];
+    invoicedElsewhere: boolean;
+  }) => request<{ ids: string[] }>('POST', '/entries/invoiced-elsewhere', body),
 
   deleteEntry: (id: string) => request<void>('DELETE', `/entries/${id}`),
 

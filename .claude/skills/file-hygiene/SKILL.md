@@ -18,7 +18,10 @@ body to `issue-body.md`, then:
     gh issue create --label enhancement --label hygiene --title "<title>" --body-file issue-body.md
 
 A file, not `--body`, because the body is full of backticks the shell would
-run.
+run. Add a `--label` for the file's platform (`docs/sdlc.md` § Capture):
+`web` under `apps/web` save its `api` routes, `macos` under `apps/macos`,
+`android` and `ios` under `apps/mobile`, `api` for those routes,
+`packages` and `supabase`. A doc or a script gets none.
 
 **Title:** `Redesign <path>` for a file with a `fixes` finding, `Reduce
 <path>` for other code, `Copyedit <path>` for a doc.

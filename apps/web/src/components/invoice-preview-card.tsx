@@ -76,7 +76,6 @@ export function InvoicePreviewCard({
   preview,
   client,
   business,
-  settings,
   number,
   issued,
   due,
@@ -89,14 +88,13 @@ export function InvoicePreviewCard({
   heading = true,
   noSender = false,
   footnote = 'Generating assigns a number and locks these entries. Voiding later keeps the number on record.',
+  entryAction,
   children,
 }: {
   preview: CardFigures | undefined;
   client: Pick<Client, 'name' | 'address' | 'email'> | undefined;
   /** Undefined while it loads. */
   business: Business | undefined;
-  /** The payment notice. */
-  settings: Settings | undefined;
   /** A prediction: generation allocates the number. */
   number: string;
   issued: string;
@@ -114,6 +112,8 @@ export function InvoicePreviewCard({
   /** No business name or email yet: a draft marks where they will print. */
   noSender?: boolean;
   footnote?: string;
+  /** Beside the entry count: an action on the entries it counts. */
+  entryAction?: React.ReactNode;
   /** Warnings and errors, above the last line. */
   children?: React.ReactNode;
 }) {
@@ -140,8 +140,9 @@ export function InvoicePreviewCard({
           {heading ? 'Preview' : 'Invoice'}
         </h2>
         {client ? (
-          <span className="ml-auto">
+          <span className="ml-auto flex items-center gap-2">
             <Caption updating={updating} entries={preview?.entryCount} />
+            {entryAction}
           </span>
         ) : null}
       </div>
@@ -173,9 +174,7 @@ export function InvoicePreviewCard({
                 />
               ) : null}
 
-              {payment ? (
-                <Payment payment={payment} notice={settings?.paymentNotice} />
-              ) : null}
+              {payment ? <Payment payment={payment} /> : null}
 
               {notes ? <Notes notes={notes} /> : null}
 
@@ -346,13 +345,7 @@ const TD = 'type-duration py-2.5 pl-3 text-right align-top whitespace-nowrap';
    checkable from the amount, and the description keeps its room. */
 const RATE = '@max-[360px]/card:hidden';
 
-function Payment({
-  payment,
-  notice,
-}: {
-  payment: PaymentDetails;
-  notice: string | null | undefined;
-}) {
+function Payment({ payment }: { payment: PaymentDetails }) {
   return (
     <div className="flex flex-col gap-3 border-t border-edge-subtle pt-4 type-support">
       <span className={LABEL}>
@@ -370,7 +363,6 @@ function Payment({
       {payment.notes ? (
         <p className="whitespace-pre-line text-muted">{payment.notes}</p>
       ) : null}
-      {notice ? <p className="text-subtle">{notice}</p> : null}
     </div>
   );
 }

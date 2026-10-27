@@ -390,8 +390,8 @@ export const WithSupportingDetail: Story = {
   },
 };
 
-/** Every line the PDF prints: the terms, the whole payment block with its
-    notice, and the notes. */
+/** Every line the PDF prints: the terms, the whole payment block, and the
+    notes. */
 export const AsPrinted: Story = {
   ...desktop,
   args: { id: invoice(14) },
@@ -417,7 +417,6 @@ export const AsPrinted: Story = {
       'Payment — USD wire',
       'Pay online: https://pay.example.test/sam',
       'Include the invoice number in the memo.',
-      /bank details never change by email/,
       'Thank you for the work this month.',
     ]) {
       await expect(await page.findByText(text)).toBeVisible();
