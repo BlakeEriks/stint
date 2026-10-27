@@ -68,6 +68,7 @@ after(async () => {
 });
 
 beforeEach(async () => {
+  await admin.query('delete from push_devices');
   await admin.query('delete from feedback');
   await admin.query('delete from subscriptions');
   await admin.query('update expenses set invoice_id = null');
@@ -161,6 +162,15 @@ async function seedSubscriptions() {
   );
 }
 
+/** One phone each. */
+async function seedPushDevices() {
+  await admin.query(
+    `insert into push_devices (user_id,token,platform) values
+       ($1,'alice-phone','android'), ($2,'bob-phone','android')`,
+    [ALICE, BOB],
+  );
+}
+
 // ── reads ──────────────────────────────────────────────────────────
 test('an unfiltered select returns only the caller’s rows', async () => {
   await seedBoth();
@@ -203,6 +213,7 @@ test('every user-scoped table is isolated', async () => {
   await seedExpenses();
   await seedFeedback();
   await seedSubscriptions();
+  await seedPushDevices();
 
   for (const table of [
     'clients',
@@ -214,6 +225,7 @@ test('every user-scoped table is isolated', async () => {
     'expenses',
     'feedback',
     'subscriptions',
+    'push_devices',
   ]) {
     const seen = await asUser(ALICE, `select count(*)::int n from ${table}`);
     const total = await admin.query(`select count(*)::int n from ${table}`);
@@ -346,6 +358,30 @@ test('feedback cannot be sent on another user’s behalf', async () => {
         [ALICE_FEEDBACK, BOB],
       ),
     /row-level security/i,
+  );
+});
+
+test('a phone cannot be registered to, changed on or removed from another user', async () => {
+  await seedPushDevices();
+  await assert.rejects(
+    () =>
+      asUser(
+        ALICE,
+        `insert into push_devices (user_id,token,platform) values ($1,'forged','android')`,
+        [BOB],
+      ),
+    /row-level security/i,
+  );
+  await assert.rejects(
+    () => asUser(ALICE, `update push_devices set token = 'moved'`),
+    /permission denied/i,
+  );
+  await asUser(ALICE, 'delete from push_devices');
+  const { rows } = await admin.query('select token from push_devices');
+  assert.deepEqual(
+    rows.map((r) => r.token),
+    ['bob-phone'],
+    'an unfiltered delete takes only the caller’s phone',
   );
 });
 
@@ -871,29 +907,27 @@ test('a project cannot reference another user’s client', async () => {
   );
 });
 
-/* `refresh_draft` runs as the caller: another user's draft is out of
-   its reach, and a sent invoice can't be rewritten through it. */
-test('refresh_draft reaches only the caller’s own drafts', async () => {
-  const refresh = `select refresh_draft($1, '{"lines": [], "subtotal": 0, "tax_rate": 0, "tax_amount": 0, "expenses_subtotal": 0, "total": 0}'::jsonb, '{}', '{}', null)`;
+/* `send_draft` runs as the caller: another user's draft is out of its
+   reach, and an invoice already sent can't be sent again through it. */
+test('send_draft reaches only the caller’s own drafts', async () => {
+  const send = `select send_draft($1, '{"lines": [], "subtotal": 0, "tax_rate": 0, "tax_amount": 0, "expenses_subtotal": 0, "total": 0, "issue_date": "2026-10-01", "tz": "UTC"}'::jsonb, '{}', '{}', now())`;
 
   await issueAliceInvoice('draft');
-  await assert.rejects(
-    () => asUser(BOB, refresh, [ALICE_INVOICE]),
-    /not found/,
-  );
-  await asAlice(refresh);
-  const [draft] = (
-    await admin.query(`select total::float from invoices where id = $1`, [
+  await assert.rejects(() => asUser(BOB, send, [ALICE_INVOICE]), /not found/);
+  const [still] = (
+    await admin.query(`select status from invoices where id = $1`, [
       ALICE_INVOICE,
     ])
   ).rows;
-  assert.equal(draft.total, 0, 'the owner refreshes it');
+  assert.equal(still.status, 'draft', 'another user cannot send it');
 
-  await admin.query(`update invoices set status = 'sent' where id = $1`, [
-    ALICE_INVOICE,
-  ]);
-  await assert.rejects(
-    () => asAlice(refresh),
-    /is sent and cannot be refreshed/,
-  );
+  await asAlice(send);
+  const [sent] = (
+    await admin.query(`select status from invoices where id = $1`, [
+      ALICE_INVOICE,
+    ])
+  ).rows;
+  assert.equal(sent.status, 'sent', 'the owner sends it');
+
+  await assert.rejects(() => asAlice(send), /is sent and cannot be sent/);
 });

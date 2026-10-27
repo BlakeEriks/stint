@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveTarget } from '../src/target.ts';
+import { resolveIdentity, resolveTarget } from '../src/target.ts';
 
 test('local is the default and points at the local stack', () => {
   const t = resolveTarget({});
@@ -61,4 +61,14 @@ test('a preview missing its PR or origin is refused', () => {
 
 test('an unknown target is refused', () => {
   assert.throws(() => resolveTarget({ STINT_TARGET: 'staging' }), /staging/);
+});
+
+test('preview and production builds have Firebase; a local build has none', () => {
+  assert.equal(resolveIdentity({ STINT_TARGET: 'preview' }).push, true);
+  assert.equal(resolveIdentity({ STINT_TARGET: 'prod' }).push, true);
+  assert.equal(resolveIdentity({}).push, false);
+  assert.throws(
+    () => resolveIdentity({ STINT_TARGET: '' }),
+    /Unknown STINT_TARGET/,
+  );
 });
