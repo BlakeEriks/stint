@@ -21,7 +21,6 @@ import type {
   Expense,
   PaymentProfile,
   Project,
-  Settings,
   TimeEntry,
 } from '@/lib/client/api';
 import { csvResponse } from '@/lib/exports';

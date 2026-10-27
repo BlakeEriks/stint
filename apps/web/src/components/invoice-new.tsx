@@ -726,7 +726,6 @@ function Form() {
               preview={current}
               client={client}
               business={businessOf(settings)}
-              settings={settings}
               number={number}
               issued={issued}
               due={due}
