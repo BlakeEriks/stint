@@ -5,9 +5,6 @@ stack this app actually uses — Postgres, Auth, PostgREST — on this machine,
 and `pnpm dev` talks to it. The hosted project is for deploys; see
 `docs/setup.md`.
 
-Verified end to end: seeded, signed in through the real magic-link flow, and
-`pnpm verify:schema` passes against the local database.
-
 ## Once
 
 Install a container runtime. Docker Desktop works; so do OrbStack, colima,
@@ -28,7 +25,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgx
 SUPABASE_DB_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres
 ```
 
-Those are the CLI's fixed development credentials — identical on every
+Those are Supabase's fixed local development credentials — identical on every
 machine, published in Supabase's own docs, stable across resets. Nothing here
 is a secret.
 
@@ -36,7 +33,7 @@ Billing stays hidden locally until Stripe **test-mode** keys are added here
 too: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` and `STRIPE_WEBHOOK_SECRET` (from
 `stripe listen --forward-to localhost:3100/api/v1/billing/webhook`), plus
 `SUPABASE_SECRET_KEY` from `supabase status`, which the webhook writes
-with. Never a live key. With the three Stripe keys set, the invoice gate is on
+with. With the three Stripe keys set, the invoice gate is on
 too: a free account's invoice PDF answers `402 PAYMENT_REQUIRED`, and the
 invoice screen offers Subscribe in place of Download PDF.
 
@@ -114,14 +111,12 @@ code verifier in localStorage under **one key per origin**, so two tabs on
 session — or a half-finished sign-in — overwrites the verifier, and the code
 exchange at `/auth/callback` then fails against the wrong one.
 
-**The failure looks like a broken link, which is why it is worth knowing.**
-`/verify` succeeds and returns its `303`; the exchange fails a step later, so
-the address bar sits on the Auth endpoint and re-clicking reports `Bad
-request` because the first attempt already consumed the token. Nothing about
-the symptom points at the real cause. `/signin` now redirects home when a
-session exists, and requesting a link clears local auth state first, so this
-should not recur — and the page reports the reason instead of leaving the
-user to guess.
+**The failure looks like a broken link.** `/verify` succeeds and returns its
+`303`; the exchange fails a step later, so the address bar sits on the Auth
+endpoint and re-clicking reports `Bad request` because the first attempt
+already consumed the token. `/signin` redirects home when a session exists,
+and requesting a link clears local auth state first, so this takes a
+deliberate second tab.
 
 Diagnosing a failed click: a `303` from `/verify` means verification itself
 worked, so look for the **`/token` call that should follow it**. Its absence
@@ -154,9 +149,7 @@ host the app is not served from — the click appears to work and the app stays
 signed out. `auth.external_url` in `config.toml` is what puts the right host
 into the emailed link; it is set for this reason and should stay set.
 
-Note that `[studio].api_url` is a different setting and does *not* affect the
-link — it only changes Studio's own API calls. Changing it looks like it should
-work and does nothing.
+`[studio].api_url` changes only Studio's own API calls, not the link.
 
 ## What the seed contains
 
@@ -179,29 +172,17 @@ Dates are relative to `now()`, so the current week is always populated.
 ## One email, two clients
 
 `supabase/templates/magic_link.html` is the sign-in email, and GoTrue allows
-**one** magic-link template — so it has to read correctly whichever client you
-started from. The web app opens the link; the macOS panel and the phone app
-take the six-digit code, because a link cannot cross from a browser into
-another application.
-
-**Neither is the footnote.** It was written for the desktop case first: the
-code was a 32px hero and the link a small "Signing in on the web instead?"
-line under a divider, with a subject reading *"Your Stint sign-in code"*. Most
-sign-ins are on the web, so that buried the common path under the rare one —
-and the subject is the whole of what you see in an inbox list. The button
-leads now, the code sits below a rule as a labeled alternative, and the
-subject is *"Sign in to Stint"*, which names neither.
-
-The wordmark is **one flat `#F9FAFD`**, matching `wordmark.tsx`. It had a
-green `S` and gray pipes, which is the macOS lockup rather than the app's —
-green means the running timer, and the only green in this email is the button.
+**one** magic-link template, so it carries both: the web app opens the link,
+and the macOS panel and the phone app take the six-digit code, because a link
+cannot cross from a browser into another app. The template's own comments say
+why it is laid out as it is.
 
 Both parts must survive in the **plaintext** body as well: `magicLink()` in
 `e2e/mailpit.ts` reads the text part, not the HTML.
 
 **GoTrue reads the template at startup.** Editing it changes nothing until
 `pnpm dev:down && pnpm dev:up` — the file on disk and the email you are
-looking at will disagree until then, which reads as the edit not having
+looking at disagree until then, which reads as the edit not having
 worked.
 
 ## Seeding your own account
@@ -238,8 +219,8 @@ expenses waiting on Northwind's next invoice, one recurring.
 
 **It creates the inbox rows that cannot be produced by using the app for ten
 minutes**: an overdue invoice needs 37 days to elapse, a stale draft 7. The
-script backdates them instead. The table above `OVERDUE_DAYS` in
-`scripts/seed-account.mjs` lists the four conditions and the thresholds each
+script backdates them instead. The table in the comment on
+`OVERDUE_DAYS` in `scripts/seed-account.mjs` lists the four conditions and the thresholds each
 is checked against — and it overshoots each one, so the seed never sits on a
 boundary a timezone could round the wrong way. The default-rate row is the
 one it leaves out, since the seed sets a rate: `--scenario first-signin`
@@ -259,7 +240,7 @@ next invoice collide.
 
 ## Traps found setting this up
 
-**The CLI skips a migration named `init`.** `supabase start` prints one line
+**`supabase start` skips a migration named `init`.** It prints one line
 about skipping it, applies the rest, and the stack comes up with no tables,
 failing confusingly on the second file.
 
@@ -298,9 +279,8 @@ SUPABASE_DB_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres pnpm ver
 
 and an invite from Studio (`pnpm dev:up:studio`, then **Authentication →
 Users → Add user → Send invitation**), which exercises
-`create_default_settings` — a trigger that runs inside Supabase's own signup
-transaction and once broke production with a missing `search_path`. Local
-reproduces that code path faithfully.
+`create_default_settings`, a trigger that runs inside Supabase's own signup
+transaction, where only a real signup reaches it.
 
 `major_version = 17` in `config.toml` matches the hosted project (17.6). If
 you upgrade one, upgrade the other.
@@ -322,13 +302,7 @@ const c = new pg.Client({ connectionString: url, ssl: sslFor(url) });
 `connectionString()` takes the string from `--url` or `SUPABASE_DB_URL`:
 copy it from the dashboard for that one command and never save it to a file.
 `short()` is what makes the output safe to paste back. It must run from the
-repo root, where `pg` resolves.
-
-This is how a destructive plan gets checked before it runs: the reset that
-M1's schema change seemed to need turned out to be unnecessary, because
-production held **zero** rows in the table being altered and thirteen real
-time entries beside it. A migration replaced the reset. **Read-only until the
-counts say otherwise.**
+repo root, where `pg` resolves. **Read-only until the counts say otherwise.**
 
 ## Running the bearer-token test
 
@@ -342,25 +316,20 @@ the file that otherwise holds them is gitignored and absent in CI.
 
 It is separate from `verify:db` because it is the one suite that needs a real
 **Auth server** rather than a Postgres instance. The route suites inject
-`__TEST_DB__` and never reach `requireSession`'s bearer branch, so the path
-Expo and macOS depend on went untested and shipped broken. Asserting the fix
-in isolation would restate it; only a genuinely signed token proves it. In CI
-it runs in the e2e job, right after `supabase start`.
+`__TEST_DB__` and never reach `requireSession`'s bearer branch, the path the
+phone and macOS apps depend on; only a genuinely signed token proves it. In
+CI it runs in the e2e job, right after `supabase start`.
 
 ## Running the browser tests
 
 `pnpm test:e2e` needs the local stack and the app already running — `pnpm
-dev:up` plus `pnpm dev`. CI starts the stack with `-x studio,postgres-meta`,
-2.25GB of the 4.4GB of images, for a dashboard the suite never drives. The
-images are pulled rather than cached; `ci.yml` carries the measurements and
-the warning against reintroducing a cache, at the step where someone would
-add one.
+dev:up` plus `pnpm dev`; `ci.yml` says how CI starts its stack.
 
 They sign in for real, through Mailpit. `magicLink()` reads the **text** part
-of the email for the reason above — the HTML `href` escapes its separators as
-`&amp;`. `inviteLink()` reads the HTML `href` and decodes `&amp;` itself.
+of the email, because the HTML `href` escapes its separators as `&amp;`.
+`inviteLink()` reads the HTML `href` and decodes `&amp;` itself.
 
-Three things that will bite again:
+Three things that bite:
 
 - **`auth.email.max_frequency` is `1s` and is already its minimum**, so two
   sign-ins inside the same second collide with "you can only request this
@@ -374,9 +343,7 @@ Three things that will bite again:
   `supabase db reset` in `beforeAll`. Ordering within a file matters: the
   mutating test goes last.
 
-`pnpm test:ui` needs no stack: Vitest in jsdom. jsdom lacks the APIs Radix's
-popper needs, so `test/ui/setup.ts` shims `ResizeObserver`, `DOMRect` and the
-pointer-capture methods — without them every DropdownMenu test throws on open.
+`pnpm test:ui` needs no stack, since it runs Vitest in jsdom.
 `userEvent.setup()` returns the instance synchronously; it is not a promise.
 
 ## Storybook
@@ -413,12 +380,12 @@ pnpm verify:db   # route and RLS suites, then verify:schema
 ```
 
 `db:setup` rebuilds two throwaway databases beside the seed, so the suites
-never touch it: `tt` with RLS off, for the route tests, and `tt_rls` with RLS
+leave it alone: `tt` with RLS off, for the route tests, and `tt_rls` with RLS
 on, reached as `authenticated`, for the RLS tests. Run it before every
 `verify:db` — it takes seconds, and a database left from another branch tests
 the wrong schema. Without `TT`, every checkout on the stack shares the two, so
 **one run at a time**: a `db:setup` ends any other checkout's run mid-suite. A
 checkout running beside others sets `TT` on both commands for its own pair:
-`TT=tt_42` builds `tt_42` and `tt_42_rls`. **Never point a suite at `postgres`
-itself**: the route tests truncate every table in `beforeEach`, and the seed
-goes with them.
+`TT=tt_42` builds `tt_42` and `tt_42_rls`. **A suite runs only against a
+throwaway pair**: the route tests truncate every table in `beforeEach`, so
+pointed at `postgres` they take the seed with them.
