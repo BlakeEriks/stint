@@ -106,9 +106,11 @@ invoiced — here or, for an entry marked `invoiced_elsewhere`, anywhere — `aw
 money that arrived. `openInvoiceCount` is how many invoices make up the
 second.
 
-**Only invoices in the response's `currency` count**, since the screen prints
-one currency beside the figure and a euro added in would be reported as a
-dollar. `collected.daysSincePaid` is whole calendar days in `tz` from the
+**Only invoices in the response's `currency` count, and only its work counts
+toward `unbilled.total`**, since the screen prints one currency beside the
+figure and a euro added in would be reported as a dollar. `unbilled.mixed` is
+true when work in another currency was left out of `unbilled.total`.
+`collected.daysSincePaid` is whole calendar days in `tz` from the
 latest `paid_at` in that same currency, and **null** when nothing in it has
 ever been paid or that `paid_at` is in the future.
 
@@ -123,7 +125,7 @@ moves no figure. It still never reaches an invoice (see Invoices).
 
 **Rows are capped and the remainder is reported, never dropped.** `unbilled`
 carries 5 rows plus a `moreClients` count. The total still covers every
-client.
+client in `currency`.
 
 **`month` is the screen's subject and needs no target.** `month.earned` is
 the month so far; `month.projected` carries its trailing rate to the last

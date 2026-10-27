@@ -63,6 +63,22 @@ test('the unbilled total rounds once, so a sum of rounded lines is money', () =>
   assert.equal(Math.round(total * 100) % 1, 0);
 });
 
+test('unbilled totals only the account currency and says when others are left out', () => {
+  const u = buildUnbilled(
+    [
+      unbilledRow({ amount: '100.00' }),
+      unbilledRow({ client_id: 'c2', currency: 'EUR', amount: '500.00' }),
+      unbilledRow({ client_id: null, currency: null, amount: '20.00' }),
+    ],
+    'USD',
+    now,
+  );
+  assert.equal(u.total, 120);
+  assert.equal(u.mixed, true);
+  assert.equal(u.seconds, 3 * 3600, 'hours carry no currency');
+  assert.equal(buildUnbilled([unbilledRow()], 'USD', now).mixed, false);
+});
+
 test('unbilled caps byClient at five and counts the rest', () => {
   const rows = Array.from({ length: 8 }, () => unbilledRow());
   const u = buildUnbilled(rows, 'USD', now);

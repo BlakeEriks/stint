@@ -822,6 +822,9 @@ export const Stats = z.object({
     /** Work done and not yet invoiced, a running timer's session so far
      *  included. Never "earned" and never "revenue". */
     total: money,
+    /** Rows in another currency are left out of `total`, which is only the
+     *  response's `currency`. */
+    mixed: z.boolean(),
     seconds: z.number().int().nonnegative(),
     byClient: z.array(UnbilledClient),
     moreClients: z.number().int().nonnegative(),

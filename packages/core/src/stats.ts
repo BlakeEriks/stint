@@ -228,8 +228,14 @@ export function daysSincePaid(
  * Unbilled work, per client and in total.
  *
  * The rollup groups by (client, rate) — one client can have work at several
- * rates, and collapsing them to one misstates the money. The totals sum every
- * row; `byClient` shows the first few.
+ * rates, and collapsing them to one misstates the money. `byClient` shows the
+ * first few.
+ *
+ * `total` sums only rows in `currency`, as `buildCollected` does: the screen
+ * prints that one currency beside it, so a client's euros added in would be
+ * euros reported as dollars. `mixed` says rows were left out, so the figure
+ * is never read as everything owed. `seconds` carries no currency and counts
+ * every row.
  *
  * Each row's amount is already rounded, so the sum rounds once more: adding
  * rounded lines lands fractions of a cent below the last place and the
@@ -237,18 +243,20 @@ export function daysSincePaid(
  */
 export function buildUnbilled(
   rows: UnbilledRow[],
-  fallbackCurrency: string,
+  currency: string,
   now: Date,
 ) {
+  const inCurrency = rows.filter((r) => (r.currency ?? currency) === currency);
   return {
     /** Never "earned" or "revenue": work done and not yet invoiced. */
-    total: roundMoney(rows.reduce((a, r) => a + Number(r.amount), 0)),
+    total: roundMoney(inCurrency.reduce((a, r) => a + Number(r.amount), 0)),
+    mixed: inCurrency.length < rows.length,
     seconds: rows.reduce((a, r) => a + Number(r.seconds), 0),
     byClient: rows.slice(0, MAX_UNBILLED_ROWS).map((r) => ({
       clientId: r.client_id,
       // Work with no client is internal; the UI must not render a blank name.
       clientName: r.client_name ?? 'No client',
-      currency: r.currency ?? fallbackCurrency,
+      currency: r.currency ?? currency,
       seconds: Number(r.seconds),
       amount: Number(r.amount),
       unratedCount: Number(r.unrated_count),

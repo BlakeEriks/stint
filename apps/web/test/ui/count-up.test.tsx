@@ -10,7 +10,13 @@ vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
 function stats(over: Partial<Stats> = {}): Stats {
   return {
     currency: 'USD',
-    unbilled: { total: 0, seconds: 0, byClient: [], moreClients: 0 },
+    unbilled: {
+      total: 0,
+      mixed: false,
+      seconds: 0,
+      byClient: [],
+      moreClients: 0,
+    },
     week: WEEK,
     month: MONTH,
     awaitingPayment: 0,
@@ -38,6 +44,7 @@ function stats(over: Partial<Stats> = {}): Stats {
 function unbilled(total: number, seconds = 3600) {
   return {
     total,
+    mixed: false,
     seconds,
     byClient: [
       {

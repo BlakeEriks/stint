@@ -15,6 +15,7 @@
   "currency": "USD",
   "unbilled": {
     "total": 0,
+    "mixed": false,
     "seconds": 0,
     "byClient": [],
     "moreClients": 0
