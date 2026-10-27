@@ -101,6 +101,33 @@ once:
    the whole JSON into Vercel as `FCM_SERVICE_ACCOUNT`, then delete the
    file.
 
+## Outside the app
+
+**On Android, the timer is seen and pressed without opening the app**: an
+ongoing notification with a counting clock and Stop, a home screen widget
+in a 4×1 row and a 2×2 square, a Quick Settings tile, and the icon's
+long-press shortcut. `specs/014-android-surfaces/design/surfaces.html` is
+their look; the widget has no story, since Android draws it from XML.
+
+**JavaScript decides and Kotlin draws.** `src/surfaces.ts` turns the
+cached timer into one state on every change and hands it to the local
+module `modules/stint-surfaces`, which draws every surface from it and
+keeps nothing of its own. A press there draws its result at once, then
+WorkManager runs the `StintPress` task (`index.ts`): the app's own press,
+`timerPresses` through `pressOnce` in `@stint/client`, in the same lane as
+the app's Start and Stop. A refusal draws what the server holds, with the
+reason. The shortcut opens a screen that isn't exported, so no other app or
+link can press the timer; it presses as a widget does, then opens the app.
+
+Start begins the most recent task on its project. A press from the lock
+screen asks to unlock first. The notification asks Android 13's permission
+the first time the app shows a running timer; refused, nothing is pinned.
+Android 16 promotes it, and shows its clock in the status bar.
+
+A local build has no push, so its surfaces follow only the app's own reads
+and presses. The module is native code: a change to it needs a new build,
+not an update.
+
 ## Preview builds
 
 A PR's phone preview is an EAS Update, opened in one shared development
