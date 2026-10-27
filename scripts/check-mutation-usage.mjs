@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 /**
- * Every mutation goes through `useOptimisticMutation`. Nowhere else.
+ * Every mutation goes through `useOptimisticMutation`, or its `pressOnce`
+ * where no component holds the press. Nowhere else.
  *
  *   node scripts/check-mutation-usage.mjs
  *
  * Constitution VI, no opt-out: a file in the web or phone app that imports
- * `useMutation` from `@tanstack/react-query` directly bypasses the
+ * `useMutation` or `MutationObserver` from `@tanstack/react-query` directly
+ * bypasses the
  * predicted/pending, rollback, timeout and supersession machinery
  * `packages/client/src/mutations.ts` gives both for free. Only that module
  * itself may import it.
@@ -27,7 +29,7 @@ const PATTERNS = [
 ];
 
 const IMPORT_RE =
-  /import\s+(?:type\s+)?\{[^}]*\buseMutation\b[^}]*\}\s+from\s+['"]@tanstack\/react-query['"]/g;
+  /import\s+(?:type\s+)?\{[^}]*\b(?:useMutation|MutationObserver)\b[^}]*\}\s+from\s+['"]@tanstack\/react-query['"]/g;
 
 const files = PATTERNS.flatMap((p) => globSync(p, { cwd: root })).map((f) =>
   join(root, f),
@@ -46,7 +48,7 @@ for (const file of [...new Set(files)]) {
   for (const m of scrubbed.matchAll(IMPORT_RE)) {
     const upTo = scrubbed.slice(0, m.index).split('\n').length;
     console.error(
-      `${rel}:${upTo}  imports \`useMutation\` directly — use ` +
+      `${rel}:${upTo}  imports a mutation directly — use ` +
         `useOptimisticMutation from @stint/client instead`,
     );
     bad += 1;
@@ -55,7 +57,7 @@ for (const file of [...new Set(files)]) {
 
 if (bad > 0) {
   console.error(
-    `\n${bad} direct useMutation import(s). Route through ` +
+    `\n${bad} direct mutation import(s). Route through ` +
       `useOptimisticMutation (${ALLOWED}) instead — no opt-out (Constitution VI).\n`,
   );
   process.exit(1);
