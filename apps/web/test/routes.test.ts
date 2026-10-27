@@ -3392,10 +3392,15 @@ test('task names honor limit', async () => {
   assert.deepEqual(names(res.body), ['Task 0', 'Task 1']);
 });
 
-test('task names reject a limit outside the range', async () => {
+test('task names accept a limit up to 1000 and reject one past it', async () => {
   const { GET: taskNames } = await import(TASK_NAMES);
 
-  const res = await json(await taskNames(req('/entries/task-names?limit=99')));
+  const ok = await json(await taskNames(req('/entries/task-names?limit=1000')));
+  assert.equal(ok.status, 200);
+
+  const res = await json(
+    await taskNames(req('/entries/task-names?limit=1001')),
+  );
   assert.equal(res.status, 422);
   assert.equal(res.body.code, 'VALIDATION_FAILED');
 });
