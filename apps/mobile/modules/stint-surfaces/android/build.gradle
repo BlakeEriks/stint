@@ -1,0 +1,18 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'dev.stint'
+version = '0.1.0'
+
+android {
+  namespace "dev.stint.surfaces"
+}
+
+dependencies {
+  // The headless press task (PressWorker); the version is the app's own.
+  implementation "com.facebook.react:react-android"
+  implementation "androidx.work:work-runtime:2.10.1"
+  implementation "androidx.concurrent:concurrent-futures:1.2.0"
+}

@@ -2,7 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ApiError, type Summary, type TimeEntry } from '@stint/client';
 import { QueryClient } from '@tanstack/react-query';
-import { createSurfaces, type SurfaceState } from '../src/surfaces.ts';
+import {
+  createSurfaces,
+  pressedState,
+  type SurfaceState,
+} from '../src/surfaces.ts';
 
 const TZ = 'UTC';
 const project = {
@@ -105,6 +109,7 @@ test('a running timer draws its task, project and client, and its start', async 
     title: 'Checkout timeout fix',
     detail: 'Warehouse dashboard · Northwind Trading',
     color: '#5B8DEF',
+    next: { taskName: 'Checkout timeout fix', projectId: 'p1' },
     why: null,
     tile: 'Checkout timeout fix',
     shortcut: 'Stop',
@@ -252,4 +257,57 @@ test('an unchanged state is not drawn twice', async () => {
   const n = drawn.length;
   await surfaces.refresh();
   assert.equal(drawn.length, n);
+});
+
+test('pressed, a running timer shows stopped, offering its own task again', async () => {
+  const { surfaces, last } = setup(entry());
+  await surfaces.refresh();
+  assert.deepEqual(pressedState(last() as SurfaceState), {
+    kind: 'stopped',
+    title: 'Checkout timeout fix',
+    detail: 'Warehouse dashboard · Northwind Trading',
+    color: '#5B8DEF',
+    next: { taskName: 'Checkout timeout fix', projectId: 'p1' },
+    why: null,
+    tile: 'Start: Checkout timeout fix',
+    shortcut: 'Start: Checkout timeout fix',
+  });
+});
+
+test('pressed, Start shows its task running; an unnamed one is Untitled', async () => {
+  const { surfaces, last, api } = setup(null);
+  await surfaces.refresh();
+  const named = pressedState(last() as SurfaceState);
+  assert.equal(named?.kind, 'running');
+  assert.equal(named?.title, 'Filter panel');
+  assert.equal(
+    named?.kind === 'running' && named.detail,
+    'Warehouse dashboard',
+  );
+
+  (api as { taskNames: unknown }).taskNames = async () => ({ taskNames: [] });
+  await surfaces.refresh();
+  const unnamed = pressedState(last() as SurfaceState);
+  assert.equal(unnamed?.kind === 'running' && unnamed.title, 'Untitled');
+  assert.equal(unnamed?.kind === 'running' && unnamed.detail, null);
+});
+
+test('signed out, nothing can be pressed', () => {
+  assert.equal(
+    pressedState({
+      kind: 'signedOut',
+      title: '',
+      detail: null,
+      why: null,
+      tile: '',
+      shortcut: null,
+    }),
+    null,
+  );
+});
+
+test('a shortcut press starts the task the surfaces offer', async () => {
+  const { surfaces, calls } = setup(null);
+  await surfaces.pressLink('start');
+  assert.deepEqual(calls, ['start Filter panel']);
 });

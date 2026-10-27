@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The 4x1 widget: the phone's dock in one row (specs/014-android-surfaces/design/surfaces.html). -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <ImageView android:id="@+id/panel" android:layout_width="match_parent"
+        android:layout_height="match_parent" android:scaleType="fitXY"
+        android:src="@drawable/stint_panel" android:importantForAccessibility="no" />
+    <ImageView android:id="@+id/panel_edge" android:layout_width="match_parent"
+        android:layout_height="match_parent" android:scaleType="fitXY"
+        android:src="@drawable/stint_panel_edge" android:importantForAccessibility="no" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+        android:gravity="center_vertical" android:orientation="horizontal"
+        android:paddingStart="16dp" android:paddingEnd="12dp"
+        android:paddingTop="10dp" android:paddingBottom="10dp">
+        <ImageView android:id="@+id/live" android:visibility="gone" android:layout_width="10dp"
+            android:layout_height="10dp" android:layout_marginEnd="12dp"
+            android:src="@drawable/stint_disc" android:importantForAccessibility="no" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:orientation="vertical">
+            <Chronometer android:id="@+id/clock" android:visibility="gone" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:fontFamily="@font/ibm_plex_mono_500"
+                android:fontFeatureSettings="tnum" android:letterSpacing="-0.02"
+                android:textSize="24sp" />
+            <TextView android:id="@+id/idle_clock" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:fontFamily="@font/ibm_plex_mono_500"
+                android:fontFeatureSettings="tnum" android:letterSpacing="-0.02"
+                android:text="0:00:00" android:textColor="#666D79" android:textSize="24sp" />
+            <TextView android:id="@+id/title" android:textColor="#F9FAFD" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:ellipsize="end"
+                android:fontFamily="@font/ibm_plex_sans_400" android:maxLines="1"
+                android:textSize="14sp" />
+            <include layout="@layout/stint_detail" />
+        </LinearLayout>
+        <include layout="@layout/stint_button" />
+    </LinearLayout>
+</FrameLayout>

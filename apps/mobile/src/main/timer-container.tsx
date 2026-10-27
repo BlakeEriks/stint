@@ -1,7 +1,7 @@
 import { keys, useFailedPress, useTimer } from '@stint/client';
 import { formatClock, formatCurrency, uuidv7 } from '@stint/core';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Api } from '../api.ts';
 import { target } from '../config.ts';
 import {
@@ -21,10 +21,13 @@ export function TimerContainer({
   api,
   email,
   onSignOut,
+  onTimerShown,
 }: {
   api: Api;
   email: string;
   onSignOut: () => void;
+  /** A running timer is on screen: the notification's permission is asked. */
+  onTimerShown?: () => void;
 }) {
   const timeZone = useTimeZone();
   const timer = useTimer(api, timeZone);
@@ -32,6 +35,10 @@ export function TimerContainer({
   const [settings, setSettings] = useState(false);
   const failed = useFailedPress();
   const notice = chooseNotice(failed, timer.error);
+  const runs = Boolean(running);
+  useEffect(() => {
+    if (runs) onTimerShown?.();
+  }, [runs, onTimerShown]);
 
   const stats = useQuery({
     queryKey: keys.stats(timeZone),

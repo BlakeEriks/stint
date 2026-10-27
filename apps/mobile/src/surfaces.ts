@@ -42,6 +42,8 @@ export type SurfaceState =
       color: string | null;
       /** When it started, in the phone's clock (ms). */
       startedAt: number;
+      /** What Start begins once it stops: this task again. */
+      next: Next;
     })
   | (Lines & { kind: 'stopped'; color: string | null; next: Next })
   | (Lines & { kind: 'signedOut' })
@@ -89,11 +91,13 @@ export function createSurfaces({
 }: Options) {
   let why: string | null = null;
   let drawn = '';
+  let last: SurfaceState | null = null;
 
   const show = (state: SurfaceState) => {
     const json = JSON.stringify(state);
     if (json === drawn) return;
     drawn = json;
+    last = state;
     draw(state);
   };
 
@@ -154,6 +158,7 @@ export function createSurfaces({
           : null,
         color: shown?.color ?? null,
         startedAt: Date.parse(running.startedAt) - skew,
+        next: { taskName: running.taskName, projectId: running.projectId },
         why,
         tile: title,
         shortcut: 'Stop',
@@ -196,12 +201,18 @@ export function createSurfaces({
     }
     if (queryClient.isMutating() > 0) return;
     const r = reads();
-    await Promise.all([
-      queryClient.fetchQuery({ ...r.summary, staleTime: 0 }),
-      queryClient.fetchQuery({ ...r.taskNames, staleTime: 0 }),
-      queryClient.ensureQueryData(r.projects),
-      queryClient.ensureQueryData(r.clients),
-    ]);
+    try {
+      await Promise.all([
+        queryClient.fetchQuery({ ...r.summary, staleTime: 0 }),
+        queryClient.fetchQuery({ ...r.taskNames, staleTime: 0 }),
+        queryClient.ensureQueryData(r.projects),
+        queryClient.ensureQueryData(r.clients),
+      ]);
+    } catch (err) {
+      // Offline or refused: what is drawn stays until the next push or press.
+      offline(err);
+      return;
+    }
     render();
   }
 
@@ -252,13 +263,24 @@ export function createSurfaces({
     } catch (err) {
       why = `${p.action === 'stop' ? 'Not stopped' : 'Not started'}: ${reason(err)}`;
     }
-    await refresh().catch(offline);
+    // Native drops its prediction only on a draw, so this one always lands.
+    drawn = '';
+    await refresh();
     if (!render() && why) show({ kind: 'kept', why });
+  }
+
+  /** A shortcut's press, opened in the app: Start begins what it named. */
+  async function pressLink(action: Press['action']) {
+    if (!last || last.kind === 'kept') await refresh();
+    const shown = last;
+    if (!shown || shown.kind === 'signedOut' || shown.kind === 'kept') return;
+    await press(action === 'stop' ? { action } : { action, ...shown.next });
   }
 
   return {
     refresh,
     press,
+    pressLink,
     /** Draws every change to the cached timer, as the app reads it. */
     follow() {
       return queryClient.getQueryCache().subscribe(() => void render());
@@ -267,6 +289,46 @@ export function createSurfaces({
       why = null;
       show(SIGNED_OUT);
     },
+    /** Draws again though nothing changed: a permission was just granted. */
+    redraw() {
+      drawn = '';
+      render();
+    },
+  };
+}
+
+/**
+ * What a surface shows the moment it is pressed, before JS runs: Kotlin swaps
+ * it in (`Store.kt`), and the next draw replaces it. A predicted start counts
+ * from the press.
+ */
+export function pressedState(s: SurfaceState): SurfaceState | null {
+  if (s.kind === 'running') {
+    const tile = `Start: ${s.title}`;
+    return {
+      kind: 'stopped',
+      title: s.title,
+      detail: s.detail,
+      color: s.color,
+      next: s.next,
+      why: null,
+      tile,
+      shortcut: tile,
+    };
+  }
+  if (s.kind !== 'stopped') return null;
+  const title = s.next.taskName || 'Untitled';
+  const onProject = s.next.projectId !== null;
+  return {
+    kind: 'running',
+    title,
+    detail: onProject ? s.detail : null,
+    color: onProject ? s.color : null,
+    startedAt: 0,
+    next: s.next,
+    why: null,
+    tile: title,
+    shortcut: 'Stop',
   };
 }
 

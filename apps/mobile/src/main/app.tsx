@@ -1,4 +1,4 @@
-import { ApiError } from '@stint/client';
+import { ApiError, currentTimeZone } from '@stint/client';
 import { startSession } from '../launch.ts';
 import {
   focusManager,
@@ -7,11 +7,13 @@ import {
 } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { AppState, View } from 'react-native';
+import { AppState, Linking, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { createApi } from '../api.ts';
 import { createBypass } from '../bypass.ts';
 import { createPushDevice, onTimerPush } from '../push.ts';
+import { createSurfaces, type Press } from '../surfaces.ts';
+import { askToNotify, canDraw, drawSurfaces } from '../surfaces-native';
 import { canPush, expoTokens, listenForTimerPushes } from '../push-native';
 import { origin, target } from '../config.ts';
 import { usePlex } from '../fonts.ts';
@@ -63,9 +65,52 @@ focusManager.setEventListener((setFocused) => {
   return () => sub.remove();
 });
 
+/* The notification, widgets, tile and shortcut (`surfaces.ts`): drawn on
+   every change to the cached timer, and pressed through the same client, also
+   with no screen (the `StintPress` task in `index.ts`). */
+export const surfaces = createSurfaces({
+  queryClient,
+  api,
+  timeZone: currentTimeZone,
+  signedIn: canRequest,
+  draw: drawSurfaces,
+});
+if (canDraw) surfaces.follow();
+
+/**
+ * Whether a request can be made with no screen: a session and, on a preview,
+ * its bypass, which only the screen loads otherwise. Without it, a protected
+ * preview's refusal would forget the stored bypass.
+ */
+async function canRequest() {
+  if (
+    target.name === 'preview' &&
+    bypass.current() === null &&
+    (await bypass.load()) === null
+  )
+    return false;
+  return (await auth.load()) !== null;
+}
+
 /* A timer changed on another client: refetch it now, not on the next
-   foreground (`push.ts`). */
-listenForTimerPushes(() => void onTimerPush(queryClient));
+   foreground (`push.ts`), and redraw the surfaces with the app closed. */
+listenForTimerPushes(() => {
+  void onTimerPush(queryClient);
+  if (canDraw) void surfaces.refresh();
+});
+
+/** A shortcut opens the app at `stint://press/<action>` (`Shortcuts.kt`). */
+function onLink(url: string | null | undefined) {
+  const action = url?.match(/^stint:\/\/press\/(start|stop)$/)?.[1];
+  if (action) void surfaces.pressLink(action as Press['action']);
+}
+
+/** The running timer's notification needs Android 13's permission, asked once. */
+function askForNotification() {
+  void askToNotify().then((granted) => {
+    if (granted) surfaces.redraw();
+  });
+}
 const pushDevice = createPushDevice({
   tokens: expoTokens,
   register: api.registerPushDevice,
@@ -99,6 +144,7 @@ async function signOut() {
     if (session) pushDevice.leave(unregisterAs(session.accessToken));
   } finally {
     await auth.signOut();
+    surfaces.signOut();
   }
 }
 
@@ -116,9 +162,15 @@ function useSession(): Session | null | undefined {
     [],
   );
   const signedIn = Boolean(session);
+  const loaded = session !== undefined;
   useEffect(() => {
     if (signedIn && canPush) void pushDevice.join();
   }, [signedIn]);
+  useEffect(() => {
+    if (!loaded || !canDraw) return;
+    if (signedIn) void surfaces.refresh();
+    else surfaces.signOut();
+  }, [loaded, signedIn]);
   return session;
 }
 
@@ -161,7 +213,17 @@ function useBypass() {
   return { known, error, save };
 }
 
+function useShortcuts() {
+  useEffect(() => {
+    if (!canDraw) return;
+    void Linking.getInitialURL().then(onLink);
+    const sub = Linking.addEventListener('url', (e) => onLink(e.url));
+    return () => sub.remove();
+  }, []);
+}
+
 export function App() {
+  useShortcuts();
   const [fonts] = usePlex();
   const session = useSession();
   const pass = useBypass();
@@ -182,6 +244,7 @@ export function App() {
             api={api}
             email={session.email}
             onSignOut={() => void signOut()}
+            onTimerShown={askForNotification}
           />
         ) : (
           <SignInContainer auth={auth} />
