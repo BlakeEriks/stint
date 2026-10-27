@@ -192,9 +192,7 @@ export const Failed: Story = {
   ...desktop,
   parameters: failing('clients', 'projects'),
   play: async ({ canvasElement }) => {
-    // The screen only: the shell's own panels load beside it. A second
-    // reader of a failed query refetches it, so the list passes through the
-    // loader again before it settles on the error.
+    // The screen only: the shell's own panels load beside it.
     const main = within(within(canvasElement).getByRole('main'));
     await waitFor(() => {
       expect(main.getByText(/could not load/i)).toBeVisible();

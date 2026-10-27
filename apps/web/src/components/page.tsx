@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import { Loader } from './loader';
 import { useHydrated } from '@/lib/client/use-hydrated';
 import { ApiError } from '@/lib/client/api';
@@ -206,16 +207,34 @@ export function Listing<
   const waiting = [...queries, ...also].some(
     (q) => q.isLoading || (q.data === undefined && q.error == null),
   );
-  if (!hydrated || waiting || leaving) return <Loader tight={tight} />;
   /* Data the user can still read beats an error message in its place: a failed
      REFETCH would otherwise replace a form mid-edit and take the unsent text
      with it. */
-  const failed = queries.find((q) => q.data === undefined);
-  if (failed) {
+  const failedAt = queries.findIndex((q) => q.data === undefined);
+  const failed = queries[failedAt];
+
+  /* React Query puts a failed query with no data back to pending while it
+     refetches, as it does when a second reader mounts, so the last error
+     stands until that query answers. */
+  const [standing, setStanding] = useState<{ at: number; error: unknown }>();
+  if (!waiting && !leaving && failed?.error !== standing?.error) {
+    setStanding(failed && { at: failedAt, error: failed.error });
+  }
+  const refetching = standing && queries[standing.at];
+  const error = !waiting
+    ? failed?.error
+    : refetching?.data === undefined
+      ? (refetching?.error ?? standing?.error)
+      : null;
+
+  if (!hydrated || leaving || (waiting && error == null)) {
+    return <Loader tight={tight} />;
+  }
+  if (error != null) {
     const gone =
       missing !== undefined &&
-      failed.error instanceof ApiError &&
-      failed.error.status === 404;
+      error instanceof ApiError &&
+      error.status === 404;
     return (
       <Empty tight={tight}>
         {gone ? missing : 'Could not load this. Try again.'}

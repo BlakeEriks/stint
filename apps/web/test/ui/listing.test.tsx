@@ -15,6 +15,8 @@ const query = <T,>(
   ...over,
 });
 
+type Query<T> = ReturnType<typeof query<T>>;
+
 const loader = () => screen.queryByRole('status');
 
 describe('Listing', () => {
@@ -36,6 +38,19 @@ describe('Listing', () => {
     );
     expect(screen.getByText('1 rows')).toBeInTheDocument();
     expect(screen.queryByText(/could not load/i)).toBeNull();
+  });
+
+  it('keeps its error up while a failed query refetches', () => {
+    const list = (q: ReturnType<typeof query<string[]>>) => (
+      <Listing query={q}>{(rows) => <p>{rows.length} rows</p>}</Listing>
+    );
+    const { rerender } = render(list(query({ error: error(500, 'UNKNOWN') })));
+    rerender(list(query({ isLoading: true })));
+    expect(screen.getByText(/could not load/i)).toBeInTheDocument();
+    expect(loader()).toBeNull();
+
+    rerender(list(query({ data: ['a'] })));
+    expect(screen.getByText('1 rows')).toBeInTheDocument();
   });
 
   /* While the kept cache is restored, a query is pending without fetching:
@@ -141,6 +156,18 @@ describe('Listing', () => {
       );
       expect(screen.getByText(/could not load/i)).toBeInTheDocument();
       expect(screen.queryByText('region')).toBeNull();
+    });
+
+    it('drops a recovered query’s error while another still loads', () => {
+      const list = (qs: [Query<string[]>, Query<number>]) => (
+        <Listing query={qs}>{() => <p>region</p>}</Listing>
+      );
+      const { rerender } = render(
+        list([query({ error: error(500, 'UNKNOWN') }), query({ data: 1 })]),
+      );
+      rerender(list([query({ data: ['a'] }), query({ isLoading: true })]));
+      expect(loader()).toHaveTextContent('Loading');
+      expect(screen.queryByText(/could not load/i)).toBeNull();
     });
 
     it('keeps the loader when any query is a 401', () => {
