@@ -19,9 +19,8 @@ reason: the preview and the PDF render one number one way.
 **An invalid `tz` is rejected rather than swallowed here.** The period is local
 dates, so the zone decides which entries are billed. Preview, generation,
 `GET /invoices`, `GET /invoices/:id`, `/pdf` and `/status` return 422 for
-one, the reads included, since each refreshes a draft and a draft keeps the
-first zone it is read in. An omitted one defaults to UTC on
-preview and generation, and leaves a zone-less draft as it stands elsewhere.
+one, the reads included, since each derives a draft. An omitted one defaults
+to UTC, except that sending a draft with no zone of its own refuses.
 
 ### Rules that must not regress
 
@@ -34,14 +33,16 @@ preview and generation, and leaves a zone-less draft as it stands elsewhere.
   three: the arithmetic a client checks on the page is the arithmetic that
   produced it, and the total never moves with the grouping. Every rollup
   prices the same per-entry hours (`00000000000028_bill_printed_hours.sql`).
-- **A draft collects its period's work until it is sent; sending freezes
-  it.** Every read of a draft refreshes it through `refreshDraft()`, keeping
-  the choices made on New invoice. An issued invoice's lines are never
+- **A draft is the user's choices; its lines are derived on read, and it
+  claims its work only when sent.** Every read goes through `deriveDraft()`
+  and writes nothing; only `sendDraft()` (`send_draft`) writes its lines,
+  claims its entries and dates it. An issued invoice's lines are never
   recomputed: re-downloading a year later must produce the same document.
 - **Only drafts can be marked sent or deleted.** The user sends the PDF;
   `PATCH /invoices/:id/status` records it.
 - **Voiding releases entries and expenses; it does not remove the number.**
-  Numbering stays gapless. Deleting a draft releases them too.
+  Numbering stays gapless. A draft holds none, so deleting it releases
+  nothing.
 - Running timers, non-billable entries, and already-invoiced entries never
   reach an invoice.
 
@@ -62,7 +63,7 @@ payers to challenge.
 order and the resolution chain.
 
 - **Invoices freeze the rendered snapshot** into `payment_details` (JSONB) at
-  generation; a draft keeps that choice across refreshes. Editing a profile
+  generation, and sending keeps that choice. Editing a profile
   never alters an issued invoice.
 - `buildPaymentDetails` in `packages/core/src/payment.ts` drops unset fields
   entirely — never render an empty label, and never an empty section header.

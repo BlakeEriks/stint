@@ -10,7 +10,8 @@ name: preview-db
 # The previews share one schema, so it belongs to the holder: the open PR
 # labeled `ready-for-qa` whose diff touches supabase/migrations
 # (`/work-issues` gives that label to one such PR at a time, by the same
-# diff, whatever its other labels). Any other PR
+# diff, whatever its other labels, and `migration-handoff.yml` passes it on
+# when the holder merges). Any other PR
 # whose diff touches supabase/migrations is neither reset nor seeded, since
 # its tables are not there.
 #

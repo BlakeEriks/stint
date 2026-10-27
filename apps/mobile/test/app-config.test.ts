@@ -48,3 +48,14 @@ test('production and local builds take no updates', async () => {
     assert.equal(config.runtimeVersion, undefined);
   }
 });
+
+test('preview and production builds read Firebase from one fixed path; local has none', async () => {
+  for (const STINT_TARGET of ['preview', 'prod']) {
+    const config = await load({ ...project, STINT_TARGET });
+    assert.equal(config.android.googleServicesFile, './google-services.json');
+    assert.equal(config.extra.push, true);
+  }
+  const local = await load({ ...project, STINT_TARGET: 'local' });
+  assert.equal(local.android.googleServicesFile, undefined);
+  assert.equal(local.extra.push, false);
+});

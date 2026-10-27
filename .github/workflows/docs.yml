@@ -66,30 +66,33 @@ jobs:
           # Turn-by-turn report in the job summary: where a slow run spent its turns.
           display_report: true
           prompt: /doc-drift ${{ github.event.pull_request.number }} ${{ github.event.pull_request.base.ref }} ${{ github.event.pull_request.head.sha }}
-          # Write is for the comment body, passed to gh as a file.
+          # Write is for the comment body, which the next step posts.
           # Opus at default effort: the job is judgment. `--effort low` ran 3x
           # faster but missed planted drift in 2 of 3 runs, one posting nothing.
           claude_args: >-
             --max-turns 40
             --model opus
-            --allowedTools "Read,Grep,Glob,Write,Bash(git diff:*),Bash(git log:*),Bash(gh pr comment:*)"
+            --allowedTools "Read,Grep,Glob,Write,Bash(git diff:*),Bash(git log:*)"
 
-      # Findings fail the check, and so does a run that posted nothing for this
+      - if: steps.skill.outputs.present == 'true' && hashFiles('drift-comment.md') != ''
+        name: Post the comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: scripts/pr-comment.sh "$PR" "<!-- doc-drift:" drift-comment.md
+
+      # Findings fail the check, and so does a run that wrote nothing for this
       # commit: a missing comment would otherwise read as no drift.
       - if: steps.skill.outputs.present == 'true'
         name: No drift at this commit
         env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
           SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          body=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json comments \
-            -q "[.comments[].body | select(startswith(\"<!-- doc-drift:$SHA -->\"))] | last // \"\"")
-          if [ -z "$body" ]; then
-            echo "::error::/doc-drift posted no comment for $SHA"
+          if [ "$(head -n 1 drift-comment.md 2>/dev/null)" != "<!-- doc-drift:$SHA -->" ]; then
+            echo "::error::/doc-drift wrote no comment for $SHA"
             exit 1
           fi
-          if ! grep -q '^None found\.' <<<"$body"; then
+          if ! grep -q '^None found\.' drift-comment.md; then
             echo "::error::Doc drift: see the PR comment"
             exit 1
           fi

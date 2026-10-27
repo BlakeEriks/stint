@@ -15,3 +15,18 @@ body:
       label: What should change?
     validations:
       required: true
+  - type: dropdown
+    id: platforms
+    attributes:
+      label: Platforms
+      description: >-
+        Each it touches, applied as labels. web is the Next.js app, macos the
+        menu bar app, android and ios the phone app, api /api/v1, the database
+        and anything shared. None for tooling, docs or CI.
+      multiple: true
+      options:
+        - web
+        - macos
+        - android
+        - ios
+        - api
