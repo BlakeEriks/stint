@@ -16,7 +16,8 @@ paths:
     pnpm verify:db         # route tests, RLS tests, verify:schema
     pnpm test:auth         # the bearer path; needs `pnpm dev:up`
 
-They take no arguments; `TT=tt_<n>` on both picks a private pair. `test:auth` is separate from `verify:db` because it
+They take no arguments; `TT=tt_<n>` set on both picks a private pair.
+`test:auth` is separate from `verify:db` because it
 is the one suite needing a real **Auth server** rather than a Postgres
 instance — `verify:all` runs it alongside the browser suite, which has the
 same requirement. **Run `db:setup` before every `verify:db`** — it rebuilds

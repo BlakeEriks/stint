@@ -49,7 +49,8 @@ builders and sessions run beside you, so nothing you start is shared:
 
 - **The worktree:** a new branch is `pnpm worktree <branch>` from the main
   checkout. An existing one reuses `../stint-<branch>` if it is there, or
-  is `pnpm worktree <branch> --from origin/<branch>` if not.
+  is `pnpm worktree <branch> --from origin/<branch>` if not, after
+  `git branch -D <branch>` if a stale local branch remains.
 - **The dev server:** `PORT=$((3200 + <issue> % 100)) pnpm dev` in
   `apps/web`, never `:3100`.
 - **The test databases:** `TT=tt_<issue>` on every `pnpm db:setup` and
