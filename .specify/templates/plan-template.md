@@ -48,8 +48,6 @@
 | IV. `packages/core` does no I/O | | |
 | V. Tests first where a regression is silent, in one suite per kind of code | | |
 | VI. Every press answers in the same frame | | |
-| VII. A feature names what it removes | | |
-| VI. Every press answers in the same frame | | |
 | VII. A feature names what it removes | | The states, settings and code paths this removes, or why none |
 
 Also check the design against the constitution's Additional Constraints. A

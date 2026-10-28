@@ -6,9 +6,8 @@ allowed-tools: Read, Grep, Glob, Write, Bash(gh issue create:*), Bash(gh pr view
 # A skill per code.claude.com/docs/en/skills, run in CI by
 # anthropics/claude-code-action.
 # "Could be cut" follows Ousterhout (A Philosophy of Software Design,
-# ch. 2: complexity is incremental), Software Engineering at Google
-# (ch. 15: code is a liability, its owner retires it) and Shape Up
-# (ch. 14: scope hammering).
+# ch. 2: complexity is incremental) and Software Engineering at Google
+# (ch. 15: code is a liability, its owner retires it).
 ---
 
 `$ARGUMENTS` is a `pnpm hygiene --json` report: files ranked worst first,
