@@ -53,8 +53,11 @@ export function EntryList({
 
   const colors = useProjectColors();
 
-  /* `undefined` adds an entry; an entry, edits it. */
-  const editing = useDialog<TimeEntry | undefined>();
+  /* An entry edits it; otherwise it adds one, at the times drawn if any. */
+  const editing = useDialog<{
+    existing?: TimeEntry;
+    seed?: { startedAt: string; endedAt: string };
+  }>();
 
   return (
     <section
@@ -96,7 +99,7 @@ export function EntryList({
           variant="ghost"
           size="xs"
           className={earnedToday === undefined ? 'ml-auto' : undefined}
-          onClick={() => editing.show(undefined)}
+          onClick={() => editing.show({})}
         >
           <Plus aria-hidden />
           Add
@@ -116,7 +119,15 @@ export function EntryList({
             <TodayGrid
               entries={entries}
               colors={colors}
-              onEdit={editing.show}
+              onEdit={(existing) => editing.show({ existing })}
+              onCreate={(startedAt, endedAt) =>
+                editing.show({
+                  seed: {
+                    startedAt: startedAt.toISOString(),
+                    endedAt: endedAt.toISOString(),
+                  },
+                })
+              }
             />
           )}
         </Listing>
@@ -142,7 +153,8 @@ export function EntryList({
       <EntryDialog
         open={editing.open}
         onOpenChange={editing.onOpenChange}
-        existing={editing.subject}
+        existing={editing.subject?.existing}
+        seed={editing.subject?.seed}
         projects={projects}
       />
     </section>

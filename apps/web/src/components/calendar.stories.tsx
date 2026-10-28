@@ -5,7 +5,7 @@ import { account } from '@/mocks/db';
 import { handlers } from '@/mocks/handlers';
 import { envelopes, ok } from '@/mocks/respond';
 import { ZONE } from '@/mocks/time.mts';
-import { expect, userEvent, within } from 'storybook/test';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import {
   desktop,
   failing,
@@ -16,6 +16,7 @@ import {
   wide,
   expectOpen,
 } from '@/mocks/screen';
+import { ZOOM_KEY } from '@/lib/client/use-zoom';
 import { Calendar } from './calendar';
 
 const meta = {
@@ -153,7 +154,7 @@ export const Overnight: Story = {
   play: async ({ canvasElement }) => {
     const page = await calendar(canvasElement);
     const blocks = await page.findAllByRole('button', {
-      name: /^Overnight deploy/,
+      name: /^Edit Overnight deploy/,
     });
     await expect(blocks).toHaveLength(2);
     // An hour each side of midnight: the second block ends at 01:00.
@@ -211,5 +212,136 @@ export const EditEntry: Story = {
     });
     await userEvent.click(block as HTMLElement);
     await expectOpen(canvasElement, 'dialog', 'Edit entry');
+  },
+};
+
+/** The first column of the week, and the height `at` of the way down it. */
+async function column(canvasElement: HTMLElement) {
+  const page = await calendar(canvasElement);
+  await page.findAllByRole('button', { name: /^Edit / });
+  const [first] =
+    canvasElement.ownerDocument.querySelectorAll<HTMLElement>('main .border-l');
+  const el = first as HTMLElement;
+  const box = el.getBoundingClientRect();
+  return { el, x: box.left + 10, y: (at: number) => box.top + at * box.height };
+}
+
+/** Pressing on empty grid and dragging draws the entry's range, snapped;
+    nothing is written until the editor saves. Held mid-drag. */
+export const Drawing: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    // 02:00 to 04:00, hours the seed leaves empty.
+    const { el, x, y } = await column(canvasElement);
+    await userEvent.pointer([
+      {
+        target: el,
+        coords: { clientX: x, clientY: y(2 / 24) },
+        keys: '[MouseLeft>]',
+      },
+      { target: el, coords: { clientX: x, clientY: y(4 / 24) } },
+    ]);
+    const ghost = el.querySelector('.border-dashed');
+    await expect(ghost).not.toBeNull();
+    await expect(ghost).toHaveTextContent(/2:00 AM–4:00 AM/);
+  },
+};
+
+/** Released, the drawn range opens the editor on those times. */
+export const DrawnOpensEditor: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const { el, x, y } = await column(canvasElement);
+    await userEvent.pointer([
+      {
+        target: el,
+        coords: { clientX: x, clientY: y(2 / 24) },
+        keys: '[MouseLeft>]',
+      },
+      { target: el, coords: { clientX: x, clientY: y(4 / 24) } },
+      { target: el, keys: '[/MouseLeft]' },
+    ]);
+    await expectOpen(canvasElement, 'dialog', 'Add entry');
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(page.getByLabelText('Start')).toHaveValue('02:00');
+    await expect(page.getByLabelText('End')).toHaveValue('04:00');
+  },
+};
+
+/** A 15-minute block: each end's target reaches past the edge rather than
+    into the block, so the two never meet and the middle still moves it. */
+export const ShortBlock: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    const [first] = db.entries;
+    if (!first) return;
+    const today = localDateKey(db.now, ZONE);
+    db.entries.push({
+      ...first,
+      id: '018f0000-0000-7000-8000-0000000000ef',
+      taskName: 'Quick call',
+      startedAt: localDateTimeToInstant(today, '06:00', ZONE).toISOString(),
+      endedAt: localDateTimeToInstant(today, '06:15', ZONE).toISOString(),
+      durationSeconds: 900,
+      invoiceId: null,
+    });
+  }),
+  play: async ({ canvasElement }) => {
+    const page = await calendar(canvasElement);
+    const block = await page.findByRole('button', { name: /^Edit Quick call/ });
+    await userEvent.hover(block);
+    const [start, end] = [...block.querySelectorAll('.cursor-ns-resize')].map(
+      (h) => h.getBoundingClientRect(),
+    );
+    const box = block.getBoundingClientRect();
+    await expect(start?.top).toBeLessThan(box.top);
+    await expect(end?.bottom).toBeGreaterThan(box.bottom);
+    // Room left between the two ends for the move.
+    await expect((end?.top ?? 0) - (start?.bottom ?? 0)).toBeGreaterThan(0);
+  },
+};
+
+/** Zoomed all the way in: an hour is 176px, and every hour is labeled. */
+export const ZoomedIn: Story = {
+  ...desktop,
+  beforeEach: () => localStorage.setItem(ZOOM_KEY, '176'),
+  play: async ({ canvasElement }) => {
+    const page = await calendar(canvasElement);
+    await expect(
+      (await page.findAllByText('01', { exact: true }))[0],
+    ).toBeInTheDocument();
+  },
+};
+
+/** Zoomed all the way out: an hour is 22px, labeled every six. */
+export const ZoomedOut: Story = {
+  ...desktop,
+  beforeEach: () => localStorage.setItem(ZOOM_KEY, '22'),
+  play: async ({ canvasElement }) => {
+    const page = await calendar(canvasElement);
+    await page.findAllByText('06', { exact: true });
+    await expect(page.queryByText('03', { exact: true })).toBeNull();
+  },
+};
+
+/** A pinch over the grid zooms it, and the browser's page zoom is refused. */
+export const Pinch: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const { el, x, y } = await column(canvasElement);
+    const before = el.getBoundingClientRect().height;
+    const pinch = new WheelEvent('wheel', {
+      deltaY: -100,
+      ctrlKey: true,
+      clientX: x,
+      clientY: y(0.5),
+      bubbles: true,
+      cancelable: true,
+    });
+    el.dispatchEvent(pinch);
+    await expect(pinch.defaultPrevented).toBe(true);
+    await waitFor(() =>
+      expect(el.getBoundingClientRect().height).toBeGreaterThan(before),
+    );
   },
 };

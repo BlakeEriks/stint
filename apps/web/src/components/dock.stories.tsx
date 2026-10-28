@@ -290,3 +290,31 @@ export const Loading: Story = {
     );
   },
 };
+
+/** Today takes the calendar's gestures: a block's ends resize it, and empty
+    grid opens a new entry where it is pressed. */
+export const TodayEditable: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const today = within(
+      await within(canvasElement).findByRole('region', {
+        name: "Today's entries",
+      }),
+    );
+    const [block] = await today.findAllByRole('button', { name: /^Edit / });
+    await expect(
+      (block as HTMLElement).querySelectorAll('.cursor-ns-resize'),
+    ).toHaveLength(2);
+
+    const column = canvasElement.querySelector<HTMLElement>(
+      'section .border-l',
+    ) as HTMLElement;
+    const box = column.getBoundingClientRect();
+    await userEvent.pointer({
+      target: column,
+      coords: { clientX: box.left + 10, clientY: box.bottom - 4 },
+      keys: '[MouseLeft]',
+    });
+    await expectOpen(canvasElement, 'dialog', 'Add entry');
+  },
+};

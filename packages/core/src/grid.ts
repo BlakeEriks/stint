@@ -96,6 +96,60 @@ export function resized(
 }
 
 /**
+ * The entry a press-and-drag on empty grid draws, from where the pointer went
+ * down to where it is now, each end snapped like any drag.
+ *
+ * Dragging upward draws the same range as dragging down, and a drag shorter
+ * than `MIN_ENTRY_MINUTES` still draws that much, pushed back inside the
+ * column when it would run past the end.
+ */
+export function drawnRange(
+  from: number,
+  to: number,
+  dayStart: Date,
+  dayEnd: Date,
+): { startedAt: Date; endedAt: Date } {
+  const a = instantAt(Math.min(from, to), dayStart, dayEnd).getTime();
+  const b = instantAt(Math.max(from, to), dayStart, dayEnd).getTime();
+  const floor = MIN_ENTRY_MINUTES * 60_000;
+  const end = Math.min(Math.max(b, a + floor), dayEnd.getTime());
+  return {
+    startedAt: new Date(Math.min(a, end - floor)),
+    endedAt: new Date(end),
+  };
+}
+
+/**
+ * Pixels per hour on a day column: the default, and the range zoom moves in.
+ * At 44px a 30-minute entry is the touch target; at 176px a 15-minute one is
+ * 44px, tall enough to grab either end of.
+ */
+export const PX_PER_HOUR = 44;
+export const MIN_PX_PER_HOUR = 22;
+export const MAX_PX_PER_HOUR = 176;
+
+/**
+ * The scale after one wheel event, as a pinch or a modified scroll sends it.
+ *
+ * Exponential, so a pinch feels the same at every level, and capped per event,
+ * because a mouse wheel's notch is a hundred times a trackpad's delta.
+ */
+export function zoomed(pxPerHour: number, deltaY: number): number {
+  const delta = Math.max(-100, Math.min(100, deltaY));
+  const next = pxPerHour * Math.exp(-delta * 0.005);
+  return Math.max(MIN_PX_PER_HOUR, Math.min(MAX_PX_PER_HOUR, next));
+}
+
+/**
+ * Hours between labeled gridlines: the smallest step that keeps labels at
+ * least `minGapPx` apart at this scale, on hours a day divides into evenly.
+ */
+export function hourStep(pxPerHour: number, minGapPx: number): number {
+  const steps = [1, 2, 3, 4, 6, 12];
+  return steps.find((h) => h * pxPerHour >= minGapPx) ?? 12;
+}
+
+/**
  * The strip in the entry dialog crops to the entry rather than drawing the
  * whole day: two hours either side, or the entry's own length when that is
  * longer, so a twelve-hour entry keeps some ground around it.

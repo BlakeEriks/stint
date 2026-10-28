@@ -2,45 +2,51 @@
 
 import { useEffect, useState } from 'react';
 import {
-  formatCompact,
-  formatLocalTime,
+  hourStep,
+  PX_PER_HOUR,
   startOfLocalDay,
   startOfLocalDayOffset,
 } from '@stint/core';
 import type { TimeEntry } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
-import { PX_PER_HOUR, position, workedWindow } from '@/lib/client/use-calendar';
+import { position, workedWindow } from '@/lib/client/use-calendar';
+import { useEntryDrag } from '@/lib/client/use-entry-drag';
+import { useZoom } from '@/lib/client/use-zoom';
+import { DayColumn } from './day-column';
 
-/** Gridlines every hour; the dock is too narrow for the calendar's 3-hour step. */
-const HOUR_STEP = 1;
+/** The least room between labeled hours: every hour at the default scale,
+    since the dock is too narrow for the calendar's 3-hour step. */
+const LABEL_GAP_PX = PX_PER_HOUR;
 
 /**
  * Today's entries as a day column, in the dock.
  *
  * The list answers "what have I booked"; this answers "where did the day go",
- * which is the question that catches an hour nobody tracked. It is the same
- * column `/calendar` draws — same window, same positions, same 44px hour —
- * with the gestures off: at this width a 15-minute entry is 11px tall, fine
- * to click and far too small to grab an edge of.
- *
- * Read-only by construction. A block opens the editor and empty grid does
- * nothing, because the gap between two blocks here is a few pixels of
- * ambiguity and the timer bar already owns starting work.
+ * which is the question that catches an hour nobody tracked. It is the
+ * column `/calendar` draws — same window, same positions, same hour, same
+ * gestures. At the default 44px a 15-minute entry is 11px tall; zooming in is
+ * what makes one tall enough to grab an end of.
  */
 export function TodayGrid({
   entries,
   colors,
   onEdit,
+  onCreate,
 }: {
   /** Today's entries INCLUDING the running one, unlike the list. */
   entries: TimeEntry[];
   colors: Map<string, string | null>;
   onEdit: (entry: TimeEntry) => void;
+  onCreate: (startedAt: Date, endedAt: Date) => void;
 }) {
   /* The real next midnight, not +24h: a DST day is 23 or 25 hours and every
      position here is a fraction of the column's own span. */
   const dayStart = startOfLocalDay(new Date(), tz);
   const dayEnd = startOfLocalDayOffset(dayStart, tz, -1);
+
+  const drag = useEntryDrag();
+  const { pxPerHour, ref } = useZoom();
+  const step = hourStep(pxPerHour, LABEL_GAP_PX);
 
   /* A running block grows and the now-line moves, so both need a clock. A
      minute is the resolution the line is read at — a second's tick would
@@ -64,7 +70,8 @@ export function TodayGrid({
   const placed = position(entries, from, to);
 
   const hours = (to.getTime() - from.getTime()) / 3_600_000;
-  const height = hours * PX_PER_HOUR;
+  const height = hours * pxPerHour;
+  const labels = marks(from, to, step);
 
   /* Where now falls in the drawn window. The window covers it by
      construction, but the guard stays: it is the one value read off a clock
@@ -77,44 +84,30 @@ export function TodayGrid({
      and a second one on the column reads as a nested region with the same
      name. */
   return (
-    <div className="flex">
+    <div className="flex" ref={ref}>
       <div className="flex-none pr-1.5" style={{ width: 30 }}>
-        {marks(from, to).map((m) => (
+        {labels.map((m) => (
           <div
             key={m.at.toISOString()}
             className="-translate-y-[5px] text-right type-meta text-subtle"
-            style={{ height: PX_PER_HOUR * HOUR_STEP }}
+            style={{ height: pxPerHour * step }}
           >
             {m.label}
           </div>
         ))}
       </div>
 
-      <div className="relative min-w-0 flex-1" style={{ height }}>
-        {marks(from, to).map((m, i) =>
-          i === 0 ? null : (
-            <div
-              key={m.at.toISOString()}
-              aria-hidden
-              className="absolute inset-x-0 border-t border-edge-grid"
-              style={{ top: `${fractionOf(m.at, from, to) * 100}%` }}
-            />
-          ),
-        )}
-
-        {placed.map((item) => (
-          <Block
-            key={item.entry.id}
-            item={item}
-            color={
-              item.entry.projectId
-                ? colors.get(item.entry.projectId)
-                : undefined
-            }
-            onEdit={onEdit}
-          />
-        ))}
-
+      <DayColumn
+        positioned={placed}
+        colors={colors}
+        dayStart={from}
+        dayEnd={to}
+        gridlines={labels.slice(1).map((m) => fractionOf(m.at, from, to) * 100)}
+        height={height}
+        drag={drag}
+        onEdit={onEdit}
+        onCreate={onCreate}
+      >
         {nowAt !== null ? (
           <div
             aria-hidden
@@ -124,81 +117,8 @@ export function TodayGrid({
             <span className="absolute -top-[3px] -left-[3px] size-1.5 rounded-full bg-accent-default" />
           </div>
         ) : null}
-      </div>
+      </DayColumn>
     </div>
-  );
-}
-
-function Block({
-  item,
-  color,
-  onEdit,
-}: {
-  item: ReturnType<typeof position>[number];
-  color?: string | null;
-  onEdit: (entry: TimeEntry) => void;
-}) {
-  const { entry, top, height, lane, lanes } = item;
-  const running = entry.endedAt === null;
-
-  const name = entry.taskName || 'Untitled';
-  const range = `${clock(entry.startedAt)}${
-    entry.endedAt ? `–${clock(entry.endedAt)}` : ' (running)'
-  }`;
-
-  const style = {
-    top: `${top * 100}%`,
-    height: `${height * 100}%`,
-    left: `${(lane / lanes) * 100}%`,
-    width: `${(1 / lanes) * 100}%`,
-    borderLeft: color ? `2.5px solid ${color}` : undefined,
-  };
-
-  const shape = `absolute overflow-hidden rounded-[5px] border px-1.5 py-0.5 text-left ${
-    running
-      ? 'border-timer-running bg-accent-muted'
-      : 'border-edge-subtle bg-surface-hover'
-  }`;
-
-  const body = (
-    <>
-      <p className="truncate type-support leading-tight text-primary">{name}</p>
-      {height > 0.045 ? (
-        <p className="truncate type-meta text-subtle">
-          {formatCompact(entry.durationSeconds ?? 0)}
-        </p>
-      ) : null}
-    </>
-  );
-
-  /* A running entry is not a button. `EntryDialog` refuses one by design —
-     its end does not exist yet — and the timer bar owns retitling mid-run, so
-     a click here would open a dialog that declines to edit what was clicked. */
-  if (running) {
-    return (
-      <div className={shape} style={style}>
-        {/* The times as text rather than an `aria-label`: a plain div takes
-            no accessible name, and the roles that would carry one here
-            (`group`, `img`) both describe something this is not. */}
-        <span className="sr-only">{`${name}, ${range}`}</span>
-        <div aria-hidden>{body}</div>
-      </div>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      title={`${name} · ${range}`}
-      onClick={() => onEdit(entry)}
-      className={`${shape} hover:bg-surface-active focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none`}
-      style={style}
-    >
-      <span className="sr-only">Edit</span> {body}
-      {/* The visible text is a truncated name and a duration, so the times go
-          in the accessible name or a screen reader cannot tell two apart. */}
-      <span className="sr-only">{`${range}${entry.invoiceId ? ', billed' : ''}`}</span>
-    </button>
   );
 }
 
@@ -270,9 +190,9 @@ function withNow(
 const fractionOf = (at: Date, from: Date, to: Date) =>
   (at.getTime() - from.getTime()) / (to.getTime() - from.getTime());
 
-function marks(from: Date, to: Date) {
+function marks(from: Date, to: Date, hours: number) {
   const out: { at: Date; label: string }[] = [];
-  const step = HOUR_STEP * 3_600_000;
+  const step = hours * 3_600_000;
   for (let t = from.getTime(); t < to.getTime(); t += step) {
     const at = new Date(t);
     out.push({
@@ -286,5 +206,3 @@ function marks(from: Date, to: Date) {
   }
   return out;
 }
-
-const clock = (iso: string) => formatLocalTime(iso, tz);

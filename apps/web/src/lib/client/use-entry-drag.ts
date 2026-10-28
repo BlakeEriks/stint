@@ -1,7 +1,13 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { instantAt, movedTo, resized, DRAG_THRESHOLD_PX } from '@stint/core';
+import {
+  drawnRange,
+  instantAt,
+  movedTo,
+  resized,
+  DRAG_THRESHOLD_PX,
+} from '@stint/core';
 import { api, type TimeEntry } from './api';
 import {
   invalidateEntryData,
@@ -18,15 +24,20 @@ export type DragMode = 'move' | 'start' | 'end';
 
 /** A drag in progress, for the block to paint itself from. */
 export interface Drag {
-  entryId: string;
+  /** Null while drawing a new entry on empty grid. */
+  entryId: string | null;
+  /** The column: pixels resolve against it, and only it paints a draw. */
+  column: HTMLElement;
   startedAt: Date;
   endedAt: Date;
 }
 
+type Drawn = (startedAt: Date, endedAt: Date) => void;
+
 interface Active extends Drag {
-  mode: DragMode;
-  /** The column, so pixels resolve to a fraction of the day it spans. */
-  column: HTMLElement;
+  mode: DragMode | 'draw';
+  /** What a draw hands its range to. Nothing is written until it saves. */
+  onDrawn?: Drawn;
   dayStart: Date;
   dayEnd: Date;
   originY: number;
@@ -37,7 +48,8 @@ interface Active extends Drag {
 }
 
 /**
- * Adjusting an entry by dragging its block.
+ * Adjusting an entry by dragging its block, and drawing a new one on empty
+ * grid (`draw`), which hands its range to the editor rather than writing.
  *
  * The gesture only commits on release, and only if the pointer actually
  * traveled — `DRAG_THRESHOLD_PX`. That matters more here than in most drag
@@ -112,6 +124,38 @@ export function useEntryDrag() {
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
   }
 
+  /**
+   * Press on empty grid: a drag draws a new entry's range, and a press that
+   * never travels is a click, which takes the hour from where it landed.
+   * Either way the range goes to `onDrawn`, which opens the editor on it.
+   */
+  function draw(
+    event: React.PointerEvent,
+    column: HTMLElement,
+    dayStart: Date,
+    dayEnd: Date,
+    onDrawn: Drawn,
+  ) {
+    if (event.button !== 0 || event.target !== event.currentTarget) return;
+    event.preventDefault();
+    const at = new Date(0);
+    active.current = {
+      entryId: null,
+      mode: 'draw',
+      onDrawn,
+      column,
+      dayStart,
+      dayEnd,
+      originY: event.clientY,
+      fromStart: at,
+      fromEnd: at,
+      moved: false,
+      startedAt: at,
+      endedAt: at,
+    };
+    column.setPointerCapture(event.pointerId);
+  }
+
   function move(event: React.PointerEvent) {
     const a = active.current;
     if (!a) return;
@@ -125,7 +169,7 @@ export function useEntryDrag() {
     const next = resolve(a, event.clientY, box);
     a.startedAt = next.startedAt;
     a.endedAt = next.endedAt;
-    setPreview({ entryId: a.entryId, ...next });
+    setPreview({ entryId: a.entryId, column: a.column, ...next });
   }
 
   function end() {
@@ -133,6 +177,12 @@ export function useEntryDrag() {
     active.current = null;
     if (!a) return;
     justDragged.current = a.moved;
+
+    if (a.entryId === null) {
+      setPreview(null);
+      a.onDrawn?.(...drawn(a));
+      return;
+    }
 
     // A click, not a drag. The block's own onClick opens the editor.
     if (!a.moved) {
@@ -165,6 +215,7 @@ export function useEntryDrag() {
     /** True while a write is in flight, so the block can show it is settling. */
     saving: save.isPending,
     begin,
+    draw,
     move,
     end,
     cancel,
@@ -182,14 +233,39 @@ export function useEntryDrag() {
   };
 }
 
+/**
+ * What a finished draw hands the editor. A click draws an hour from where it
+ * landed: the most common block, and the dialog on top of it makes the
+ * length one edit away.
+ */
+function drawn(a: Active): [Date, Date] {
+  if (a.moved) return [a.startedAt, a.endedAt];
+  const box = a.column.getBoundingClientRect();
+  const start = instantAt(
+    (a.originY - box.top) / box.height,
+    a.dayStart,
+    a.dayEnd,
+  );
+  return [start, new Date(start.getTime() + 3_600_000)];
+}
+
 /** Where the pointer puts the entry, given what the gesture is adjusting. */
 function resolve(
   a: Active,
   clientY: number,
   box: DOMRect,
 ): { startedAt: Date; endedAt: Date } {
-  const at = (y: number) =>
-    instantAt((y - box.top) / box.height, a.dayStart, a.dayEnd);
+  const fraction = (y: number) => (y - box.top) / box.height;
+  const at = (y: number) => instantAt(fraction(y), a.dayStart, a.dayEnd);
+
+  if (a.mode === 'draw') {
+    return drawnRange(
+      fraction(a.originY),
+      fraction(clientY),
+      a.dayStart,
+      a.dayEnd,
+    );
+  }
 
   if (a.mode === 'move') {
     // The grab offset is preserved by moving the START by the snapped delta,

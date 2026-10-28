@@ -134,7 +134,7 @@ describe('opening an entry from the calendar', () => {
     render(<Calendar />, { wrapper });
 
     const button = await screen.findByRole('button', { name: /Standup/ });
-    expect(button).toHaveAccessibleName(/^Standup .*\d+:\d+\s?(AM|PM)/i);
+    expect(button).toHaveAccessibleName(/^Edit Standup .*\d+:\d+\s?(AM|PM)/i);
   });
 
   it('marks a billed entry as billed in its accessible name', async () => {
@@ -194,6 +194,36 @@ describe('creating an entry by clicking a time', () => {
     expect(
       await screen.findByRole('heading', { name: 'Add entry' }),
     ).toBeInTheDocument();
+    expect(srv.writes()).toEqual([]);
+  });
+
+  it('seeds a dragged range into the form, writing nothing', async () => {
+    const srv = serve([]);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<Calendar />, { wrapper });
+
+    await screen.findByText('Mon');
+    layOut();
+
+    // 510px to 600px down a 720px column is 17:00 to 20:00.
+    const column = document.querySelectorAll<HTMLElement>('.border-l')[0]!;
+    await user.pointer([
+      { target: column, coords: { x: 10, y: 510 }, keys: '[MouseLeft>]' },
+      { target: column, coords: { x: 10, y: 600 } },
+      { target: column, keys: '[/MouseLeft]' },
+    ]);
+
+    await screen.findByRole('heading', { name: 'Add entry' });
+    const minutes = (label: string) => {
+      const [h = 0, m = 0] = (
+        screen.getByLabelText(label) as HTMLInputElement
+      ).value
+        .split(':')
+        .map(Number);
+      return h * 60 + m;
+    };
+    // The zone is the machine's, so the length is asserted, not the clock.
+    expect((minutes('End') - minutes('Start') + 1440) % 1440).toBe(180);
     expect(srv.writes()).toEqual([]);
   });
 
@@ -344,10 +374,13 @@ describe('adjusting an entry by dragging', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     render(<Calendar />, { wrapper });
 
-    await screen.findByRole('button', { name: /Running/ });
+    /* Not a button at all: the editor refuses a running entry. */
+    const target = await screen.findByText(/^Running, /);
+    expect(
+      screen.queryByRole('button', { name: /Running/ }),
+    ).not.toBeInTheDocument();
     layOut();
 
-    const target = block(/Running/);
     await user.pointer([
       { target, coords: { x: 10, y: 300 }, keys: '[MouseLeft>]' },
       { target, coords: { x: 10, y: 400 } },
