@@ -49,7 +49,7 @@ beforeEach(async () => {
     `update user_settings set default_hourly_rate=100, currency='USD',
      invoice_number_prefix='INV-', next_invoice_number=1,
      payment_terms_days=30, legacy_payment_terms=null, business_name='Sam Rivera',
-     business_email='sam@test'
+     business_email='sam@test', invoice_template='standard'
      where user_id=$1`,
     [USER],
   );
@@ -1107,60 +1107,65 @@ test('supporting detail prints from page 2', async () => {
   assert.equal(await pages(['project', 'week', 'date']), 2);
 });
 
-test('every page is US Letter, and no detail page overflows', async () => {
-  const { renderInvoicePdf, DETAIL_ROWS_PER_PAGE } = await import(
-    '../src/lib/invoice-pdf.tsx'
-  );
-  const { paginateSchedules } = await import('@stint/core');
-  // All three tables on one page is the tallest a detail page gets: each
-  // table's margin is room the row count does not charge for.
-  const supportingDetail = {
-    project: [
-      { project: 'Design', hours: 2 },
-      { project: 'Build', hours: 1 },
-    ],
-    week: [{ start: '2026-09-07', end: '2026-09-13', hours: 3 }],
-    date: Array.from({ length: 2 * DETAIL_ROWS_PER_PAGE }, () => ({
-      date: '2026-09-30',
-      project: 'Design',
-      hours: 1,
-    })),
-    totalHours: 3,
-  };
-  const pdf = await renderInvoicePdf({
-    invoiceNumber: 'INV-0042',
-    status: 'issued',
-    issueDate: '2026-10-01',
-    dueDate: null,
-    periodStart: '2026-09-01',
-    periodEnd: '2026-09-30',
-    currency: 'USD',
-    subtotal: 300,
-    taxRate: 0,
-    taxAmount: 0,
-    expensesSubtotal: 0,
-    total: 300,
-    notes: null,
-    paymentTerms: null,
-    business: {
-      name: 'Sam Rivera',
-      address: null,
-      email: null,
-      logoUrl: null,
-    },
-    client: { name: 'Northwind', email: null, address: null },
-    lineItems: [],
-    supportingDetail,
-  });
-  const text = Buffer.from(pdf).toString('latin1');
-  const boxes = text.match(/\/MediaBox \[[^\]]*\]/g) ?? [];
+const TEMPLATES = ['standard', 'modern', 'classic', 'creative'] as const;
 
-  // A page the renderer adds for an overflowing row is one more than planned.
-  const planned =
-    1 + paginateSchedules(supportingDetail, DETAIL_ROWS_PER_PAGE).length;
-  assert.equal(boxes.length, planned);
-  for (const box of boxes) assert.equal(box, '/MediaBox [0 0 612 792]');
-});
+for (const template of TEMPLATES)
+  test(`${template}: every page is US Letter, and no detail page overflows`, async () => {
+    const { renderInvoicePdf, detailRowsPerPage } = await import(
+      '../src/lib/invoice-pdf.tsx'
+    );
+    const DETAIL_ROWS_PER_PAGE = detailRowsPerPage(template);
+    const { paginateSchedules } = await import('@stint/core');
+    // All three tables on one page is the tallest a detail page gets: each
+    // table's margin is room the row count does not charge for.
+    const supportingDetail = {
+      project: [
+        { project: 'Design', hours: 2 },
+        { project: 'Build', hours: 1 },
+      ],
+      week: [{ start: '2026-09-07', end: '2026-09-13', hours: 3 }],
+      date: Array.from({ length: 2 * DETAIL_ROWS_PER_PAGE }, () => ({
+        date: '2026-09-30',
+        project: 'Design',
+        hours: 1,
+      })),
+      totalHours: 3,
+    };
+    const pdf = await renderInvoicePdf({
+      invoiceNumber: 'INV-0042',
+      status: 'issued',
+      issueDate: '2026-10-01',
+      dueDate: null,
+      periodStart: '2026-09-01',
+      periodEnd: '2026-09-30',
+      currency: 'USD',
+      subtotal: 300,
+      taxRate: 0,
+      taxAmount: 0,
+      expensesSubtotal: 0,
+      total: 300,
+      notes: null,
+      paymentTerms: null,
+      business: {
+        name: 'Sam Rivera',
+        address: null,
+        email: null,
+        logoUrl: null,
+      },
+      client: { name: 'Northwind', email: null, address: null },
+      lineItems: [],
+      supportingDetail,
+      template,
+    });
+    const text = Buffer.from(pdf).toString('latin1');
+    const boxes = text.match(/\/MediaBox \[[^\]]*\]/g) ?? [];
+
+    // A page the renderer adds for an overflowing row is one more than planned.
+    const planned =
+      1 + paginateSchedules(supportingDetail, DETAIL_ROWS_PER_PAGE).length;
+    assert.equal(boxes.length, planned);
+    for (const box of boxes) assert.equal(box, '/MediaBox [0 0 612 792]');
+  });
 
 // ── reference ──────────────────────────────────────────────────────
 test('a reference is trimmed and stored, and a blank one is none', async () => {
@@ -1444,6 +1449,8 @@ test('the PDF renders from the frozen line items', async () => {
   );
 });
 
+/* Standard only: the other templates embed their faces, which draw glyph
+   ids `pdfText` cannot read. The shell draws the footer for every template. */
 test('every page of a long invoice shows its footer at the bottom', async () => {
   const { renderInvoicePdf } = await import('../src/lib/invoice-pdf.tsx');
   const pdf = await renderInvoicePdf({
@@ -3518,6 +3525,83 @@ test('sending keeps the dates the downloaded PDF printed', async () => {
   assert.equal(sent.status, 200, JSON.stringify(sent.body));
   assert.equal(sent.body.issueDate, shown.body.issueDate, 'as the PDF says');
   assert.equal(sent.body.dueDate, shown.body.dueDate);
+});
+
+// ── templates ──────────────────────────────────────────────────────
+/** The template a PDF was drawn in, from the faces it embeds. */
+function drawnIn(pdf: ArrayBuffer | Uint8Array) {
+  const text = Buffer.from(pdf as ArrayBuffer).toString('latin1');
+  if (text.includes('Outfit')) return 'modern';
+  if (text.includes('EBGaramond')) return 'classic';
+  if (text.includes('SpaceGrotesk')) return 'creative';
+  return 'standard';
+}
+const chooseTemplate = (t: string) =>
+  pool.query('update user_settings set invoice_template=$2 where user_id=$1', [
+    USER,
+    t,
+  ]);
+
+test('a draft renders in the chosen template, and follows a change', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(inv.body.template, null, 'a draft has none of its own');
+  const pdf = async () =>
+    drawnIn(
+      await (await r.pdf(req('/pdf?tz=UTC'), at(inv.body.id))).arrayBuffer(),
+    );
+
+  assert.equal(await pdf(), 'standard');
+  for (const t of ['modern', 'classic', 'creative']) {
+    await chooseTemplate(t);
+    assert.equal(await pdf(), t);
+  }
+});
+
+test('Mark sent freezes the template the downloaded PDF was drawn in', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await chooseTemplate('classic');
+  await r.pdf(req('/pdf?tz=UTC&download=1'), at(inv.body.id));
+  // Switched after the client was given the Classic copy.
+  await chooseTemplate('modern');
+
+  const sent = await send(inv.body.id);
+  assert.equal(sent.template, 'classic', 'as the PDF the client has');
+
+  await chooseTemplate('creative');
+  const again = await r.pdf(req('/pdf?tz=UTC'), at(inv.body.id));
+  assert.equal(drawnIn(await again.arrayBuffer()), 'classic');
+});
+
+test('Mark sent without a download freezes the chosen template', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await chooseTemplate('creative');
+  assert.equal((await send(inv.body.id)).template, 'creative');
+});
+
+test('a sent invoice cannot be given another template', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await send(inv.body.id);
+  await assert.rejects(
+    pool.query("update invoices set template='modern' where id=$1", [
+      inv.body.id,
+    ]),
+  );
 });
 
 test('Mark sent refuses a draft with nothing on it', async () => {

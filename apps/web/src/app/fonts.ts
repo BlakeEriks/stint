@@ -25,11 +25,55 @@ const mono = localFont({
   src: [
     { path: '../fonts/ibm-plex-mono-latin-400-normal.woff2', weight: '400' },
     { path: '../fonts/ibm-plex-mono-latin-500-normal.woff2', weight: '500' },
+    // Creative's invoice figures only.
+    { path: '../fonts/ibm-plex-mono-latin-600-normal.woff2', weight: '600' },
   ],
   declarations: [{ prop: 'font-family', value: "'IBM Plex Mono'" }],
   variable: '--font-plex-mono',
   display: 'swap',
 });
 
-/** The class that defines both font variables, for `<html>`. */
-export const fontVariables = `${sans.variable} ${mono.variable}`;
+/* The invoice templates' faces, for the preview and its thumbnails. Not
+   preloaded: a face downloads only on a screen that draws a template in it.
+   The PDF embeds the same faces from `fonts/pdf/`. */
+const outfit = localFont({
+  src: [
+    { path: '../fonts/outfit-latin-300-normal.woff2', weight: '300' },
+    { path: '../fonts/outfit-latin-400-normal.woff2', weight: '400' },
+    { path: '../fonts/outfit-latin-500-normal.woff2', weight: '500' },
+    { path: '../fonts/outfit-latin-600-normal.woff2', weight: '600' },
+  ],
+  variable: '--font-outfit',
+  display: 'swap',
+  preload: false,
+});
+
+const garamond = localFont({
+  src: [
+    { path: '../fonts/eb-garamond-latin-400-normal.woff2', weight: '400' },
+    {
+      path: '../fonts/eb-garamond-latin-400-italic.woff2',
+      weight: '400',
+      style: 'italic',
+    },
+  ],
+  variable: '--font-garamond',
+  display: 'swap',
+  preload: false,
+});
+
+const grotesk = localFont({
+  src: [
+    { path: '../fonts/space-grotesk-latin-400-normal.woff2', weight: '400' },
+    { path: '../fonts/space-grotesk-latin-500-normal.woff2', weight: '500' },
+    { path: '../fonts/space-grotesk-latin-700-normal.woff2', weight: '700' },
+  ],
+  variable: '--font-grotesk',
+  display: 'swap',
+  preload: false,
+});
+
+/** The class that defines every font variable, for `<html>`. */
+export const fontVariables = [sans, mono, outfit, garamond, grotesk]
+  .map((f) => f.variable)
+  .join(' ');

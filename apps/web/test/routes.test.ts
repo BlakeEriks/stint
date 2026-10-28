@@ -63,7 +63,8 @@ beforeEach(async () => {
                     payment_terms_days=30, legacy_payment_terms=null,
                     -- Off, so a long fixture elsewhere does not also raise the
                     -- strange-duration row; its own tests set a threshold.
-                    min_entry_seconds=null, max_entry_hours=null
+                    min_entry_seconds=null, max_entry_hours=null,
+                    invoice_template='standard'
      where user_id=$1`,
     [USER],
   );
@@ -1462,6 +1463,35 @@ test('settings update', async () => {
   assert.equal(after.status, 200);
   assert.equal(after.body.maxEntryHours, 10);
   assert.equal(after.body.defaultHourlyRate, 125);
+});
+
+test('the invoice template is Standard until chosen, and one of the four', async () => {
+  const { GET: get, PATCH: patch } = await import(
+    '../src/app/api/v1/settings/route.ts'
+  );
+  const set = (invoiceTemplate: string) =>
+    patch(req('/settings', { invoiceTemplate }, 'PATCH')).then(json);
+
+  assert.equal(
+    (await json(await get(req('/settings')))).body.invoiceTemplate,
+    'standard',
+  );
+  const chosen = await set('classic');
+  assert.equal(chosen.status, 200);
+  assert.equal(chosen.body.invoiceTemplate, 'classic');
+  assert.equal(
+    (await json(await get(req('/settings')))).body.invoiceTemplate,
+    'classic',
+  );
+
+  const refused = await set('compact');
+  assert.equal(refused.status, 422);
+  assert.equal(refused.body.code, 'VALIDATION_FAILED');
+  assert.equal(
+    (await json(await get(req('/settings')))).body.invoiceTemplate,
+    'classic',
+    'a refused template changes nothing',
+  );
 });
 
 /* A contractor who already sent invoices outside Stint starts past them.

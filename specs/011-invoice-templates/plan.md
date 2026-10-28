@@ -79,7 +79,7 @@ specs/011-invoice-templates/
 ```text
 supabase/migrations/<ts>_invoice_templates.sql     # columns, check, backfill, send_draft
 packages/schema/src/index.ts                       # InvoiceTemplate enum; Settings, Invoice
-apps/web/src/lib/invoice-pdf/                      # replaces invoice-pdf.tsx
+apps/web/src/lib/invoice-templates/                    # replaces invoice-pdf.tsx
   document.tsx                                     # shell: pages, VOID, detail pagination, footer
   fonts.ts                                         # Font.register, once, from bundled TTFs
   standard.tsx  modern.tsx  classic.tsx  creative.tsx

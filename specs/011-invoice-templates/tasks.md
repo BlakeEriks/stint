@@ -22,10 +22,10 @@ Tests come first where a regression is silent (Constitution V).
 **Independent test**: pick Classic on New invoice; Settings shows Classic; a draft's PDF is in Classic.
 
 - [ ] T007 [US1] Route tests in `apps/web/test/routes.test.ts`: settings default to `standard`; PATCH `invoiceTemplate: 'classic'` round-trips; an unknown value is `400 VALIDATION_FAILED`
-- [ ] T008 [US1] Split `apps/web/src/lib/invoice-pdf.tsx` into `apps/web/src/lib/invoice-pdf/` — `document.tsx` (Document, VOID, detail pages paginated with the template's rows per page, footer), `fonts.ts`, `shared.ts`, and `standard.tsx` holding today's layout unchanged; `renderInvoicePdf(data)` reads `data.template`
-- [ ] T009 [P] [US1] `apps/web/src/lib/invoice-pdf/modern.tsx` per design/invoice.html
-- [ ] T010 [P] [US1] `apps/web/src/lib/invoice-pdf/classic.tsx` per design/invoice.html (synthetic small capitals: uppercase at 80% size)
-- [ ] T011 [P] [US1] `apps/web/src/lib/invoice-pdf/creative.tsx` per design/invoice.html (lines grouped time / fixed fees / expenses; empty kinds omitted)
+- [ ] T008 [US1] Split `apps/web/src/lib/invoice-pdf.tsx` into `apps/web/src/lib/invoice-templates/` — `document.tsx` (Document, VOID, detail pages paginated with the template's rows per page, footer), `fonts.ts`, `shared.ts`, and `standard.tsx` holding today's layout unchanged; `renderInvoicePdf(data)` reads `data.template`
+- [ ] T009 [P] [US1] `apps/web/src/lib/invoice-templates/modern.tsx` per design/invoice.html
+- [ ] T010 [P] [US1] `apps/web/src/lib/invoice-templates/classic.tsx` per design/invoice.html (synthetic small capitals: uppercase at 80% size)
+- [ ] T011 [P] [US1] `apps/web/src/lib/invoice-templates/creative.tsx` per design/invoice.html (lines grouped time / fixed fees / expenses; empty kinds omitted)
 - [ ] T012 [US1] `loadPdfData` in `apps/web/src/lib/invoicing.ts` resolves `template = invoice.template ?? settings.invoiceTemplate`; `recordDownload` stores it in `downloaded_snapshot`
 - [ ] T013 [US1] `apps/web/src/components/invoice-preview-card.tsx` takes `template` and draws each template in HTML per the design; stories per template in `invoice-preview-card.stories.tsx`
 - [ ] T014 [US1] ui test `apps/web/test/ui/template-picker.test.tsx`: a press selects at once; a rejection restores the saved template and shows why

@@ -292,6 +292,15 @@ export const CalendarQuery = z.object({
     `allocate_invoice_number()` adds one. */
 export const NEXT_INVOICE_NUMBER_MAX = 999_999;
 
+/** How an invoice looks; what it says is the same in each. */
+export const InvoiceTemplate = z.enum([
+  'standard',
+  'modern',
+  'classic',
+  'creative',
+]);
+export type InvoiceTemplate = z.infer<typeof InvoiceTemplate>;
+
 export const Settings = z.object({
   defaultHourlyRate: money.nullable(),
   currency,
@@ -314,6 +323,8 @@ export const Settings = z.object({
   logoUrl: z.url().nullable(),
   paymentTermsDays: termsDays,
   invoiceNumberPrefix: z.string().max(20),
+  /** The template drafts render in; a sent invoice keeps its own. */
+  invoiceTemplate: InvoiceTemplate,
   nextInvoiceNumber: z.number().int().positive().max(NEXT_INVOICE_NUMBER_MAX),
   /** When the welcome dialog was finished or skipped; null shows it. */
   welcomedAt: iso.nullable(),
@@ -582,6 +593,8 @@ export const Invoice = z.object({
   summaryText: z.string().nullable(),
   /** The PO, contract or SOW, printed under the service period. */
   reference: z.string().nullable(),
+  /** Frozen when sent; null while a draft, which follows the setting. */
+  template: InvoiceTemplate.nullable(),
   /** The ticked schedules, frozen when sent like the lines. */
   supportingDetail: Schedules.nullable(),
   /** The payment block as rendered at generation. Editing a profile later

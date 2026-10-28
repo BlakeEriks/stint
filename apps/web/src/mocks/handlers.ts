@@ -116,6 +116,7 @@ function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
     groupingMode: preview.groupingMode,
     summaryText: preview.groupingMode === 'summary' ? input.summaryText : null,
     reference: input.reference ?? null,
+    template: null,
     supportingDetail: preview.schedules
       ? pickSchedules(preview.schedules, input.schedules)
       : null,
@@ -626,8 +627,10 @@ export const handlers = {
       if (input.status === 'sent' && invoice.status === 'draft')
         claimDraft(db, invoice);
       invoice.status = input.status;
-      if (input.status === 'sent')
+      if (input.status === 'sent') {
         invoice.sentAt = input.sentAt ?? db.now.toISOString();
+        invoice.template ??= db.settings.invoiceTemplate;
+      }
       if (input.status === 'paid')
         invoice.paidAt = input.paidAt ?? db.now.toISOString();
       if (input.status === 'void')

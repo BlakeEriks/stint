@@ -1,6 +1,5 @@
 /**
- * Renders a sample invoice from the real template to
- * `docs/design/samples/`.
+ * Renders a sample invoice in each template to `docs/design/samples/`.
  *
  * The sample is committed so the current look can be reviewed without running
  * anything, and regenerated from this script so it can never drift from the
@@ -44,10 +43,11 @@ export const SAMPLE = {
   periodStart: '2026-09-01',
   periodEnd: '2026-09-30',
   currency: 'USD',
-  subtotal: 6262.5,
+  subtotal: 6762.5,
   taxRate: 8.25,
-  taxAmount: 516.66,
-  total: 6779.16,
+  taxAmount: 557.91,
+  expensesSubtotal: 84,
+  total: 7404.41,
   notes: 'Thanks for a great quarter.',
   // Bank details belong on the invoice document, never in the email body.
   payment: {
@@ -114,14 +114,52 @@ export const SAMPLE = {
       unitPrice: 160,
       amount: 1184.0,
     },
+    // Each kind of line, so every template shows how it sets them apart.
+    {
+      description: 'Monthly retainer',
+      unit: 'fixed',
+      quantity: 1,
+      unitPrice: 500,
+      amount: 500,
+    },
+    {
+      description: 'Hosting, September',
+      unit: 'expense',
+      quantity: 1,
+      unitPrice: 84,
+      amount: 84,
+      spentOn: '2026-09-12',
+    },
   ],
+  reference: 'ICA dated Aug 5, 2026 · Exhibit A SOW',
+  // Long enough that the date table continues onto a third page.
+  supportingDetail: {
+    project: [
+      { project: 'Checkout', hours: 21.6 },
+      { project: 'Onboarding', hours: 14 },
+    ],
+    week: [
+      { start: '2026-09-01', end: '2026-09-06', hours: 9 },
+      { start: '2026-09-07', end: '2026-09-13', hours: 11.5 },
+      { start: '2026-09-14', end: '2026-09-20', hours: 6.85 },
+      { start: '2026-09-21', end: '2026-09-27', hours: 6.25 },
+      { start: '2026-09-28', end: '2026-09-30', hours: 2 },
+    ],
+    date: Array.from({ length: 30 }, (_, i) => ({
+      date: `2026-09-${String(i + 1).padStart(2, '0')}`,
+      project: i % 3 ? 'Checkout' : 'Onboarding',
+      hours: 1.19,
+    })),
+    totalHours: 35.6,
+  },
 };
 
 const outDir = resolve(repoRoot, 'docs/design/samples');
 mkdirSync(outDir, { recursive: true });
 
-const bytes = await renderInvoicePdf(SAMPLE);
-const outFile = resolve(outDir, 'invoice-default.pdf');
-writeFileSync(outFile, bytes);
-
-console.log(`wrote ${outFile} (${bytes.length} bytes)`);
+for (const template of ['standard', 'modern', 'classic', 'creative']) {
+  const bytes = await renderInvoicePdf({ ...SAMPLE, template });
+  const outFile = resolve(outDir, `invoice-${template}.pdf`);
+  writeFileSync(outFile, bytes);
+  console.log(`wrote ${outFile} (${bytes.length} bytes)`);
+}

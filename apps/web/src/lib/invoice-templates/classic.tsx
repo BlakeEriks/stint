@@ -1,0 +1,384 @@
+import { Image, StyleSheet, Text, View } from '@react-pdf/renderer';
+import { formatQuantity, type DetailBlock } from '@stint/core';
+import { print } from '@stint/design-tokens';
+import {
+  accent,
+  date,
+  Lines,
+  money,
+  PaymentView,
+  period,
+  rowsPerPage,
+  runMeta,
+  ScheduleView,
+  split,
+  totalRows,
+  type Data,
+  type LineItem,
+  type Template,
+} from './shared';
+
+/*
+ * Classic (specs/011-invoice-templates/design/invoice.html): EB Garamond, an
+ * italic "Invoice" over its number, a thin accent rule, the business centered
+ * beneath, and lines set like a table of contents. The accent marks the rule,
+ * the section labels and the balance due.
+ *
+ * The renderer has no small capitals, so they are set as capitals at a
+ * smaller size, tracked out.
+ */
+
+const LINE = 15;
+const M = { top: 44, x: 52, bottom: 52 };
+const ROW = { padY: 3, rule: 0.5 };
+const RUN = LINE + 8 + 0.5 + 18;
+const GAP = 18;
+
+const caps = {
+  textTransform: 'uppercase',
+  fontSize: 8,
+  letterSpacing: 1.4,
+  color: print.muted,
+} as const;
+
+const s = StyleSheet.create({
+  // Line height is set on each section, never on the page: see standard.tsx.
+  page: {
+    paddingTop: M.top,
+    paddingHorizontal: M.x,
+    paddingBottom: M.bottom,
+    fontFamily: 'EB Garamond',
+    fontSize: 10.5,
+    color: print.ink,
+  },
+  head: { alignItems: 'center', lineHeight: `${LINE}pt` },
+  title: { fontSize: 26, fontStyle: 'italic', lineHeight: 1.15 },
+  number: { ...caps },
+  rule: {
+    width: 160,
+    height: 1.25,
+    backgroundColor: accent,
+    marginVertical: 14,
+  },
+  logo: { width: 108, height: 36, objectFit: 'contain', marginBottom: 8 },
+  biz: { fontSize: 13, letterSpacing: 2.4, textTransform: 'uppercase' },
+  addr: { color: print.muted, marginTop: 2, textAlign: 'center' },
+  caps,
+  muted: { color: print.muted },
+  meta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 24,
+    marginTop: 20,
+    marginBottom: 18,
+    paddingTop: 14,
+    borderTopWidth: 0.5,
+    borderTopColor: print.rule,
+    lineHeight: `${LINE}pt`,
+  },
+  billTo: { maxWidth: '45%' },
+  kv: { alignItems: 'flex-end', maxWidth: '55%' },
+  kvRow: { flexDirection: 'row', gap: 12, alignItems: 'baseline' },
+  kvLabel: { ...caps, width: 70, textAlign: 'right' },
+  kvValue: { textAlign: 'right' },
+  part: { ...caps, color: accent, marginTop: 10, marginBottom: 2 },
+  lines: { lineHeight: `${LINE}pt` },
+  row: { flexDirection: 'row', alignItems: 'flex-end', paddingVertical: 3.5 },
+  desc: { flexShrink: 1 },
+  aside: { color: print.muted, marginLeft: 6, flexShrink: 0 },
+  leader: {
+    flexGrow: 1,
+    minWidth: 12,
+    marginHorizontal: 6,
+    marginBottom: 4,
+    borderBottomWidth: 0.75,
+    borderBottomStyle: 'dotted',
+    borderBottomColor: print.rule,
+  },
+  amount: { flexShrink: 0 },
+  totals: {
+    width: 240,
+    marginLeft: 'auto',
+    marginTop: 12,
+    lineHeight: `${LINE}pt`,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  grand: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginTop: 6,
+    paddingTop: 8,
+    borderTopWidth: 0.5,
+    borderTopColor: print.ink,
+  },
+  grandLabel: {
+    textTransform: 'uppercase',
+    fontSize: 10,
+    letterSpacing: 1.4,
+  },
+  grandValue: { fontSize: 13, color: accent },
+  terms: { color: print.muted, marginTop: 4, fontSize: 9.5 },
+  pay: {
+    marginTop: 20,
+    paddingTop: 12,
+    borderTopWidth: 0.5,
+    borderTopColor: print.rule,
+    lineHeight: `${LINE}pt`,
+  },
+  payTitle: {
+    textTransform: 'uppercase',
+    fontSize: 9.5,
+    letterSpacing: 1.4,
+  },
+  payGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 6 },
+  payCell: { width: '33.33%', paddingRight: 18, marginBottom: 4 },
+  payLabel: { ...caps, fontSize: 7 },
+  payValue: {},
+  paySub: {
+    marginTop: 4,
+    paddingTop: 8,
+    borderTopWidth: 0.5,
+    borderTopColor: print.hairline,
+  },
+  payLink: { marginTop: 8, color: accent },
+  payNotes: { marginTop: 8, color: print.muted },
+  notes: { marginTop: 14, lineHeight: `${LINE}pt` },
+  footer: {
+    position: 'absolute',
+    bottom: 24,
+    left: M.x,
+    right: M.x,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    fontSize: 9,
+    color: print.muted,
+  },
+  voidMark: {
+    position: 'absolute',
+    top: 300,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontSize: 76,
+    color: print.void,
+    opacity: 0.12,
+    letterSpacing: 10,
+  },
+
+  run: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    paddingBottom: 8,
+    marginBottom: 18,
+    borderBottomWidth: 0.5,
+    borderBottomColor: print.ink,
+    lineHeight: `${LINE}pt`,
+  },
+  runTitle: { textTransform: 'uppercase', fontSize: 10, letterSpacing: 1.6 },
+  runMeta: { color: print.muted, fontSize: 9 },
+  table: { marginBottom: GAP, lineHeight: `${LINE}pt` },
+  tTitle: { ...caps, fontSize: 9, color: accent, marginBottom: 4 },
+  continued: { textTransform: 'none', letterSpacing: 0, color: print.muted },
+  tHead: {
+    flexDirection: 'row',
+    paddingBottom: 4,
+    borderBottomWidth: 0.5,
+    borderBottomColor: print.ink,
+  },
+  tHeadCell: { ...caps, fontSize: 7 },
+  tRow: {
+    flexDirection: 'row',
+    paddingVertical: ROW.padY,
+    borderBottomWidth: ROW.rule,
+    borderBottomColor: print.rule,
+  },
+  tSum: {
+    flexDirection: 'row',
+    paddingTop: 4,
+    borderTopWidth: 0.5,
+    borderTopColor: print.ink,
+  },
+  tText: { flex: 1, paddingRight: 12, maxLines: 1, textOverflow: 'ellipsis' },
+  tDay: { width: 44 },
+  tWhen: { width: 96 },
+  tHours: { width: 62, textAlign: 'right' },
+});
+
+/** Quantity and rate as a phrase, the date for an expense. */
+function aside(li: LineItem, currency: string) {
+  if (li.unit === 'expense') return date(li.spentOn ?? null);
+  if (li.unit === 'fixed')
+    return (li.quantity ?? 1) === 1
+      ? 'fixed fee'
+      : `${formatQuantity('fixed', li.quantity ?? 0)} at ${money(li.unitPrice, currency)}`;
+  return `${formatQuantity('hour', li.quantity ?? 0)} at ${money(li.unitPrice, currency)}`;
+}
+
+function Leaders({ items, currency }: { items: LineItem[]; currency: string }) {
+  return items.map((li, i) => (
+    <View key={i} style={s.row} wrap={false}>
+      <Text style={s.desc}>{li.description}</Text>
+      <Text style={s.aside}>{aside(li, currency)}</Text>
+      <View style={s.leader} />
+      <Text style={s.amount}>{money(li.amount, currency)}</Text>
+    </View>
+  ));
+}
+
+function First({ data }: { data: Data }) {
+  const { business } = data;
+  const { services, expenses } = split(data);
+  const cur = data.currency;
+  const when = period(data);
+  const contact = [
+    ...(business.address?.split('\n') ?? []),
+    business.email,
+  ].filter(Boolean);
+  const kv: [string, string][] = [
+    ['Issued', date(data.issueDate)],
+    ['Due', date(data.dueDate)],
+    ...(when ? [['Period', when] as [string, string]] : []),
+    ...(data.reference
+      ? [['Reference', data.reference] as [string, string]]
+      : []),
+  ];
+  return (
+    <>
+      <View style={s.head}>
+        <Text style={s.title}>Invoice</Text>
+        <Text style={s.number}>No. {data.invoiceNumber}</Text>
+        <View style={s.rule} />
+        {business.logoUrl ? (
+          <Image src={business.logoUrl} style={s.logo} />
+        ) : null}
+        <Text style={s.biz}>{business.name ?? ''}</Text>
+        {contact.length > 0 ? (
+          <Text style={s.addr}>{contact.join(' · ')}</Text>
+        ) : null}
+      </View>
+
+      <View style={s.meta}>
+        <View style={s.billTo}>
+          <Text style={s.caps}>Billed to</Text>
+          <Text>{data.client.name}</Text>
+          <Lines text={data.client.address} style={s.muted} />
+          {data.client.email ? (
+            <Text style={s.muted}>{data.client.email}</Text>
+          ) : null}
+        </View>
+        <View style={s.kv}>
+          {kv.map(([k, v]) => (
+            <View key={k} style={s.kvRow}>
+              <Text style={s.kvLabel}>{k}</Text>
+              <Text style={s.kvValue}>{v}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      <View style={s.lines}>
+        {services.length > 0 ? (
+          <>
+            <Text style={s.part}>Services</Text>
+            <Leaders items={services} currency={cur} />
+          </>
+        ) : null}
+        {expenses.length > 0 ? (
+          <>
+            <Text style={s.part}>Expenses</Text>
+            <Leaders items={expenses} currency={cur} />
+          </>
+        ) : null}
+      </View>
+
+      <View style={s.totals} wrap={false}>
+        {totalRows(data).map((r) => (
+          <View key={r.label} style={s.totalRow}>
+            <Text style={s.muted}>{r.label}</Text>
+            <Text>{r.value}</Text>
+          </View>
+        ))}
+        <View style={s.grand}>
+          <Text style={s.grandLabel}>Balance due</Text>
+          <Text style={s.grandValue}>{money(data.total, cur)}</Text>
+        </View>
+        {data.paymentTerms ? (
+          <Text style={s.terms}>{data.paymentTerms}</Text>
+        ) : null}
+      </View>
+
+      {data.payment ? (
+        <PaymentView
+          payment={data.payment}
+          s={{
+            box: s.pay,
+            title: s.payTitle,
+            grid: s.payGrid,
+            cell: s.payCell,
+            label: s.payLabel,
+            value: s.payValue,
+            sub: s.paySub,
+            link: s.payLink,
+            notes: s.payNotes,
+          }}
+        />
+      ) : null}
+      {data.notes ? (
+        <View style={s.notes}>
+          <Lines text={data.notes} />
+        </View>
+      ) : null}
+    </>
+  );
+}
+
+function Detail({ data, blocks }: { data: Data; blocks: DetailBlock[] }) {
+  return (
+    <>
+      <View style={s.run}>
+        <Text style={s.runTitle}>Supporting detail</Text>
+        <Text style={s.runMeta}>{runMeta(data)}</Text>
+      </View>
+      {blocks.map((block, i) => (
+        <ScheduleView
+          key={i}
+          block={block}
+          s={{
+            table: s.table,
+            title: s.tTitle,
+            continued: s.continued,
+            head: s.tHead,
+            headCell: s.tHeadCell,
+            row: s.tRow,
+            sum: s.tSum,
+            text: s.tText,
+            day: s.tDay,
+            when: s.tWhen,
+            hours: s.tHours,
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
+export const classic: Template = {
+  page: s.page,
+  voidMark: s.voidMark,
+  footer: s.footer,
+  rowsPerPage: rowsPerPage({
+    top: M.top,
+    bottom: M.bottom,
+    header: RUN,
+    tableGap: GAP,
+    row: 2 * ROW.padY + LINE + ROW.rule,
+  }),
+  First,
+  Detail,
+};
