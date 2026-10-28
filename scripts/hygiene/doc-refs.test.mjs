@@ -7,7 +7,7 @@ import { test } from 'node:test';
 
 const script = resolve('scripts/doc-refs.mjs');
 
-const run = (claude) => {
+const run = (claude, api) => {
   const dir = mkdtempSync(join(tmpdir(), 'doc-refs-'));
   mkdirSync(join(dir, 'scripts'));
   writeFileSync(join(dir, 'scripts/real.mjs'), '');
@@ -16,6 +16,10 @@ const run = (claude) => {
     JSON.stringify({ scripts: { lint: 'x' } }),
   );
   writeFileSync(join(dir, 'CLAUDE.md'), claude);
+  if (api) {
+    mkdirSync(join(dir, 'docs'));
+    writeFileSync(join(dir, 'docs/api.md'), api);
+  }
   spawnSync('git', ['init', '-q'], { cwd: dir });
   writeFileSync(join(dir, '.gitignore'), '*.local\n');
   return spawnSync('node', [script], { cwd: dir, encoding: 'utf8' });
@@ -45,4 +49,17 @@ test('skips a gitignored file, which CI never has', () => {
   );
   assert.doesNotMatch(r.stderr, /env\.development\.local/);
   assert.match(r.stderr, /`apps\/web\/gone\.ts` — not found/);
+});
+
+test("names an error the API's table gets wrong", () => {
+  const r = run(
+    '',
+    '| `NO_TIMER_RUNNING` | 410 | |\n| `NOT_A_CODE` | 400 | |\n',
+  );
+  assert.match(
+    r.stderr,
+    /`NO_TIMER_RUNNING` is 410 there, 409 in ERROR_STATUS/,
+  );
+  assert.match(r.stderr, /no row for the error `TIMER_ALREADY_RUNNING`/);
+  assert.match(r.stderr, /`NOT_A_CODE` is not in ERROR_STATUS/);
 });
