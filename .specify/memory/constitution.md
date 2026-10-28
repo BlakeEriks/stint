@@ -93,8 +93,8 @@ take a state back. Every plan lists the states, settings and code paths it
 makes unnecessary, and removes them in the same feature, or says why none.
 A new state, setting or mode justifies itself against what is already
 there: one an existing state covers is cut in the spec, not built.
-Retiring something a user sees is a scope decision, so the reviewer makes
-it.
+Nobody waits to retire something a user sees: the PR names the cut, and
+the reviewer decides at review.
 
 ## Additional Constraints
 
