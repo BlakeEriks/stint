@@ -123,9 +123,22 @@ struct TimerPanel: View {
                 .padding(.horizontal, 14)
                 .padding(.top, 10)
                 .padding(.bottom, 6)
-            ForEach(Array(model.recent.enumerated()), id: \.element.id) { index, name in
-                RecentRow(name: name) { Task { await model.resume(name) } }
-                    .accessibilityIdentifier("entry-\(index + 1)")
+            // Five rows tall, and the rest scroll: the hidden copy sizes the
+            // list before first paint, so the panel never grows with it.
+            VStack(spacing: 0) {
+                ForEach(model.recent.prefix(5)) { RecentRow(name: $0) {} }
+            }
+            .hidden()
+            .overlay {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(Array(model.recent.enumerated()), id: \.element.id) { index, name in
+                            RecentRow(name: name) { Task { await model.resume(name) } }
+                                .accessibilityIdentifier("entry-\(index + 1)")
+                        }
+                    }
+                }
+                .scrollBounceBehavior(.basedOnSize)
             }
         }
         .padding(.bottom, 6)
