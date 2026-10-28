@@ -7,8 +7,8 @@ allowed-tools: Read, Grep, Glob, Write, Bash(gh issue create:*), Bash(gh pr view
 # anthropics/claude-code-action.
 # The Cut section follows Ousterhout (A Philosophy of Software Design,
 # ch. 2: complexity is incremental) and Software Engineering at Google
-# (ch. 15: code is a liability, its owner retires it). Test findings follow
-# scripts/hygiene/tests.mjs, which cites its sources.
+# (ch. 15: code is a liability, its owner retires it). Orphaned tests follow
+# scripts/hygiene/tests.mjs, which cites its source.
 ---
 
 `$ARGUMENTS` is a `pnpm hygiene --json` report: files ranked worst first,
@@ -28,8 +28,8 @@ run. Add a `--label` for the file's platform (`docs/sdlc.md` § Capture):
 `packages` and `supabase`. A doc or a script gets none.
 
 **Title:** `Redesign <path>` for a file with a `fixes` finding, `Prune
-<path>` for a file with only test findings, `Reduce <path>` for other code,
-`Copyedit <path>` for a doc.
+<path>` for a test with an `orphan-test` finding, `Reduce <path>` for
+other code, `Copyedit <path>` for a doc.
 
 **Body:**
 
@@ -44,13 +44,8 @@ run. Add a `--label` for the file's platform (`docs/sdlc.md` § Capture):
    For a `fixes` finding, read those PRs (`gh pr view <n>`): what the fixes
    have in common, and the design that would have made each unnecessary.
    The reviewer picks the design before it is built.
-   For the test findings, read the test and what it names:
-   - `duplicate-coverage` is a candidate. Name each test that asserts what
-     the story already shows, or say none does. The cut keeps the test at
-     the lowest suite that can see the behavior (Constitution V's table).
-   - `orphan-test`: the test and the file it alone keeps alive.
-   - `slow-test`: what makes it slow, such as a wait or a real timer, and
-     whether a lower suite could check the same.
+   For an `orphan-test` finding, read the test and the file it names: the
+   cut is both, unless production should use that file again.
    When a state, setting, code path or test could go, a `## Cut` section
    names it and what a user loses without it. It is the issue's scope: the
    builder builds it, and the reviewer judges it on the PR.

@@ -20,14 +20,6 @@ concurrency:
 permissions:
   contents: read
 
-# Each suite also writes a JUnit report here, and a push to main uploads
-# them as `timings-<job>`: the hygiene scan names each suite's slowest tests
-# from the newest one. Node's own `junit` reporter leaves out each test's
-# file, so `node --test` suites use ours, from NODE_TIMINGS.
-env:
-  TIMINGS: ${{ github.workspace }}/timings
-  NODE_TIMINGS: --test-reporter=spec --test-reporter-destination=stdout --test-reporter=${{ github.workspace }}/scripts/hygiene/junit-reporter.mjs
-
 jobs:
   # Everything that needs no database, so an obvious slip reports in seconds
   # rather than behind a Postgres container.
@@ -113,19 +105,13 @@ jobs:
       # Component tests: jsdom, no database. The route/RLS suites run under
       # `node --test` against real Postgres in the `database` job.
       - name: UI component tests
-        run: |
-          mkdir -p "$TIMINGS"
-          pnpm --filter @stint/web test:ui --reporter=default --reporter=junit --outputFile.junit="$TIMINGS/ui.xml"
+        run: pnpm --filter @stint/web test:ui
 
       - name: Core logic tests
-        env:
-          NODE_OPTIONS: ${{ env.NODE_TIMINGS }} --test-reporter-destination=${{ env.TIMINGS }}/core.xml
         run: pnpm --filter @stint/core test
 
       # The phone app's session, requests and backends (Constitution V).
       - name: Phone app tests
-        env:
-          NODE_OPTIONS: ${{ env.NODE_TIMINGS }} --test-reporter-destination=${{ env.TIMINGS }}/mobile.xml
         run: pnpm --filter @stint/mobile test
 
       - name: Lint plugins catch what they name
@@ -150,10 +136,6 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
         run: pnpm --filter @stint/web build
-
-      - uses: actions/upload-artifact@v7
-        if: github.event_name == 'push'
-        with: { name: timings-static, path: timings/, retention-days: 30 }
 
   # Every Storybook story renders in Chromium, runs its play, and passes its
   # a11y check. The browser steps are the e2e job's, which explains them.
@@ -185,15 +167,11 @@ jobs:
       # every story is one file, so a hang printed nothing. Verbose prints
       # each story as it passes: the stalled one follows the last line.
       - name: Story tests
-        run: pnpm --filter @stint/web test:stories --reporter=verbose --reporter=junit --outputFile.junit="$TIMINGS/stories.xml"
+        run: pnpm --filter @stint/web test:stories --reporter=verbose
 
       # The phone's screens, on react-native-web in the same Chromium.
       - name: Phone story tests
-        run: pnpm --filter @stint/mobile test:stories --reporter=verbose --reporter=junit --outputFile.junit="$TIMINGS/phone-stories.xml"
-
-      - uses: actions/upload-artifact@v7
-        if: github.event_name == 'push'
-        with: { name: timings-stories, path: timings/, retention-days: 30 }
+        run: pnpm --filter @stint/mobile test:stories --reporter=verbose
 
   # Applies the real migrations, then runs the real route handlers against
   # them, so the timer index and immutability triggers are genuinely exercised.
@@ -238,10 +216,7 @@ jobs:
       - name: API route tests
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tt
-          NODE_OPTIONS: ${{ env.NODE_TIMINGS }} --test-reporter-destination=${{ env.TIMINGS }}/routes.xml
-        run: |
-          mkdir -p "$TIMINGS"
-          pnpm --filter @stint/web test
+        run: pnpm --filter @stint/web test
 
       # The seeder runs in no other job, so a rename in a migration breaks it
       # silently and the next developer to run `pnpm seed` finds it. Every
@@ -287,7 +262,6 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tt_rls
           RLS_DATABASE_URL: postgresql://authenticated:test@localhost:5432/tt_rls
-          NODE_OPTIONS: ${{ env.NODE_TIMINGS }} --test-reporter-destination=${{ env.TIMINGS }}/rls.xml
         run: pnpm --filter @stint/web test:rls
 
       # Run against the RLS database, the one where RLS is still ON. Catches a
@@ -295,10 +269,6 @@ jobs:
       # before it reaches a real project.
       - name: Schema is sound
         run: pnpm verify:schema --url postgresql://postgres:postgres@localhost:5432/tt_rls
-
-      - uses: actions/upload-artifact@v7
-        if: github.event_name == 'push'
-        with: { name: timings-database, path: timings/, retention-days: 30 }
 
   # The menu bar app, and the only check it has. Billed at 10x a Linux minute,
   # which buys a compile error surfacing here rather than in the terminal of
@@ -437,13 +407,7 @@ jobs:
           echo "The app did not come up:"; cat /tmp/dev.log; exit 1
 
       - name: End-to-end tests
-        env:
-          PLAYWRIGHT_JUNIT_OUTPUT_FILE: ${{ github.workspace }}/timings/e2e.xml
-        run: cd apps/web && pnpm test:e2e --reporter=github,junit
-
-      - uses: actions/upload-artifact@v7
-        if: github.event_name == 'push'
-        with: { name: timings-e2e, path: timings/, retention-days: 30 }
+        run: cd apps/web && pnpm test:e2e
 
       # The trace and screenshots are what make a CI-only failure diagnosable.
       - uses: actions/upload-artifact@v7
