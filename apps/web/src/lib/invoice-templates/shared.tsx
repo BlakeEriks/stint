@@ -12,15 +12,13 @@ import {
   type WeekRow,
 } from '@stint/core';
 import type { InvoiceTemplate } from '@stint/schema';
-import { theme } from '@stint/design-tokens';
+import { print } from '@stint/design-tokens';
 
 export type Style = Parameters<typeof StyleSheet.create>[0][string];
 
-/**
- * The accent is read from the light theme because it is the brand mark, not
- * a surface: each template spends it in the few places its design names.
- */
-export const accent = theme.light['accent-default'];
+/** The brand mark on paper: each template spends it in the few places its
+ *  design names. */
+export const accent = print.accent;
 
 export interface InvoicePdfData {
   invoiceNumber: string;

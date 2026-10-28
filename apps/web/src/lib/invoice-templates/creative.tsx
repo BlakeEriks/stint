@@ -149,7 +149,7 @@ const s = StyleSheet.create({
     fontFamily: FIGURES,
     fontSize: 13,
     fontWeight: 600,
-    color: print.rule,
+    color: print.faint,
   },
   desc: { flex: 1 },
   itemAmount: {

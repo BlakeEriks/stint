@@ -11,6 +11,7 @@ import { Field, Section, textareaClass } from './field';
 import { RateInput, parseRate } from './rate-input';
 import { SaveIndicator } from './save-indicator';
 import { useAutosave } from '@/lib/client/use-autosave';
+import { TemplatePicker, useTemplateChoice } from './template-picker';
 import {
   api,
   ApiError,
@@ -215,6 +216,8 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
         </Field>
       </Section>
 
+      <TemplateSection />
+
       {/* New invoice links here, so Next number comes first: it is the
           field that link focuses. */}
       <Section
@@ -274,4 +277,22 @@ function refusedNumber(error: unknown) {
 /** The server's reason it refused the number, for the field it names. */
 function numberRefusal(error: Error | null) {
   return refusedNumber(error) === undefined ? undefined : error?.message;
+}
+
+/** Saves on its own press, apart from the autosaved fields around it: a
+ *  choice from four needs no pause to finish typing. */
+function TemplateSection() {
+  const { template, choose } = useTemplateChoice();
+  return (
+    <Section
+      title="Invoice template"
+      description="How your invoices look. Every template prints the same details."
+    >
+      <TemplatePicker value={template} onChange={choose} size="card" />
+      <p className="type-support text-subtle">
+        Drafts use it right away. A sent invoice keeps the template it was sent
+        with.
+      </p>
+    </Section>
+  );
 }

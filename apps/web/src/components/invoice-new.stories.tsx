@@ -268,7 +268,7 @@ export const ClientChosen: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
-    await expect(card(page).getByText('Service period')).toBeVisible();
+    await expect(card(page).getByText('SERVICE PERIOD')).toBeVisible();
     await expect(page.queryByRole('button', { name: 'Preview' })).toBeNull();
     await expect(
       page.queryByRole('button', { name: 'Edit client' }),
@@ -585,7 +585,7 @@ export const NoSummaryLinePhone: Story = { ...NoSummaryLine, ...phone };
 
 // ── supporting detail ──────────────────────────────────────────────
 
-/** Ticked detail shows at once under "Page 2 · supporting detail"
+/** Ticked detail shows at once under "Supporting detail"
     (US2 scenario 2, US3 scenario 2). */
 export const AttachDetail: Story = {
   ...desktop,
@@ -601,9 +601,7 @@ export const AttachDetail: Story = {
     await userEvent.click(
       page.getByRole('checkbox', { name: 'Hours by project' }),
     );
-    await expect(
-      card(page).getByText('Page 2 · supporting detail'),
-    ).toBeVisible();
+    await expect(card(page).getByText('Supporting detail')).toBeVisible();
   },
 };
 

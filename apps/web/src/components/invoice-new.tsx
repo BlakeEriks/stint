@@ -67,6 +67,7 @@ import { missingBusiness, SenderNotice } from './business-dialog';
 import { ClientDialog } from './client-dialog';
 import { summarize } from './payment-profiles';
 import { businessOf, InvoicePreviewCard } from './invoice-preview-card';
+import { TemplatePicker, useTemplateChoice } from './template-picker';
 import { rowButton } from './row-button';
 import { PortalToast } from './toast';
 
@@ -353,6 +354,7 @@ function Form() {
     queryFn: () => api.settings(),
   });
   const noSender = missingBusiness(settings);
+  const { template, choose } = useTemplateChoice();
   const profiles =
     useQuery({
       queryKey: keys.paymentProfiles(),
@@ -716,12 +718,20 @@ function Form() {
                 onChange={(v) => set('schedules', v)}
               />
             ) : null}
+
+            <Field
+              label="Template"
+              hint="Changes your template for every draft, here and in Settings."
+            >
+              <TemplatePicker value={template} onChange={choose} size="mini" />
+            </Field>
           </div>
 
           {/* Beside the form on a wide panel, after it on a narrow one. From
               `xl` its caption stays put and the card scrolls under it. */}
           <div className="mt-6 min-w-0 @min-[800px]/new:mt-0 xl:flex xl:min-h-0 xl:flex-col">
             <InvoicePreviewCard
+              template={template}
               noSender={noSender}
               preview={current}
               client={client}

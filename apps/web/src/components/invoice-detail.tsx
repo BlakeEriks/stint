@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmAction } from './confirm-action';
 import { shortDate, StatusBadge } from './invoice-bits';
 import { InvoicePreviewCard } from './invoice-preview-card';
+import { useChosenTemplate } from './template-picker';
 import { MarkPaidDialog } from './mark-paid-dialog';
 import { PRICE } from './plan-section';
 import {
@@ -148,6 +149,8 @@ function Loaded({
 }) {
   const isDraft = invoice.status === 'draft';
   const isVoid = invoice.status === 'void';
+  // A sent invoice keeps its own; a draft follows the account's.
+  const draftTemplate = useChosenTemplate();
   /* A draft that moved since its PDF was rendered holds Mark sent until the
      client's copy is the one Stint keeps; pressing Download releases it here,
      and the server, which recorded the render, has the last word. */
@@ -261,6 +264,7 @@ function Loaded({
       />
 
       <InvoicePreviewCard
+        template={invoice.template ?? draftTemplate}
         heading={false}
         preview={{ ...invoice, schedules: invoice.supportingDetail }}
         client={invoice.billTo}

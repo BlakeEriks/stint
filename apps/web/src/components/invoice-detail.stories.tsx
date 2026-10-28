@@ -86,7 +86,7 @@ export const DraftChanged: Story = {
     ).toBeDisabled();
     await expect(
       page.getByText('Type scale for the brand site').closest('tr'),
-    ).toHaveClass(/bg-warning-muted/);
+    ).toHaveClass(/bg-print-added/);
   },
 };
 export const DraftChangedPhone: Story = { ...phone, parameters: changed };
@@ -377,9 +377,7 @@ export const WithSupportingDetail: Story = {
   }),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    await expect(
-      await page.findByText('Page 2 · supporting detail'),
-    ).toBeVisible();
+    await expect(await page.findByText('Supporting detail')).toBeVisible();
     await expect(page.getByText('Hours by project')).toBeVisible();
     await expect(page.getByText('Hours by week')).toBeVisible();
   },

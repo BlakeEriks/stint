@@ -78,6 +78,8 @@
     --print-hairline: #E4E6EC;
     --print-band: #F2F3F6;
     --print-void: #E9504D;
+    --print-accent: #315424;
+    --print-added: #E3EEF8;
 }
 
 [data-theme="light"] {
