@@ -1,11 +1,22 @@
 import {
+  buildPaymentDetails,
   buildPreview,
+  draftDates,
+  entryOrderRefusal,
+  invoiceRequestRefusal,
+  nothingToSend,
+  nextNumberRefusal,
+  paidAtRefusal,
+  pricedInvoiceRefusal,
+  refusals,
+  resolvePaymentProfile,
+  stopOrderRefusal,
+  unratedRefusal,
   documentOpens,
   entriesCsv,
   invoicesCsv,
   measured,
   formatInvoiceNumber,
-  addDays,
   localDateKey,
   paymentTermsText,
   pickSchedules,
@@ -19,6 +30,7 @@ import type { z } from 'zod';
 import type {
   Client,
   Expense,
+  Invoice,
   PaymentProfile,
   Project,
   TimeEntry,
@@ -30,6 +42,7 @@ import {
   dueBeforeIssue,
   mockDraftRefusals,
   parties,
+  typedDue,
 } from './fixtures';
 import {
   calendar,
@@ -47,8 +60,11 @@ import {
   envelopes,
   fail,
   invoiceDetail,
+  missing,
   noContent,
   ok,
+  parse,
+  refuse,
   schema,
 } from './respond';
 import { ZONE } from './time.mts';
@@ -81,9 +97,6 @@ function applyArchived<T>(
   } as T;
 }
 
-const activeProfile = (db: Db, id: string) =>
-  db.paymentProfiles.some((p) => p.id === id && !p.archivedAt);
-
 type CreateInvoice = z.infer<typeof schema.CreateInvoice>;
 type Preview = NonNullable<ReturnType<typeof invoicePreview>>;
 
@@ -94,7 +107,13 @@ function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
   const days =
     db.clients.find((c) => c.id === preview.clientId)?.paymentTermsDays ??
     db.settings.paymentTermsDays;
-  const dueDate = input.dueDate ?? addDays(issueDate, days);
+  const { dueDate } = draftDates({
+    issueDate,
+    dueDate: input.dueDate ?? null,
+    paymentTerms: null,
+    defaultTermsDays: days,
+    printed: null,
+  });
   return {
     id: uuidv7(db.now.getTime()),
     clientId: preview.clientId,
@@ -113,6 +132,7 @@ function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
     currency: preview.currency,
     notes: input.notes ?? null,
     paymentTerms: paymentTermsText(issueDate, dueDate),
+    typedDueDate: input.dueDate ?? null,
     groupingMode: preview.groupingMode,
     summaryText: preview.groupingMode === 'summary' ? input.summaryText : null,
     reference: input.reference ?? null,
@@ -136,8 +156,27 @@ function claimBilled(db: Db, invoiceId: string, preview: Preview) {
     if (billed.has(e.id) && !e.recurring) e.invoiceId = invoiceId;
 }
 
-/** A draft claims its work when sent, as the period stands then. */
-function claimDraft(db: Db, invoice: Db['invoices'][number]) {
+type StoredInvoice = Db['invoices'][number];
+
+/** An invoice as the list and status routes answer it. */
+const listed = ({
+  lineItems: _,
+  changedSinceDownload: __,
+  unratedEntries: ___,
+  dueBeforeIssue: ____,
+  typedDueDate: _____,
+  ...invoice
+}: StoredInvoice) => invoice;
+
+/** `lib/invoicing.ts`'s `sendDraft`: the draft as its period stands at
+ *  `sentAt`, priced, dated, claimed and sent. */
+function sendDraft(
+  db: Db,
+  invoice: StoredInvoice,
+  sentAt: string,
+  tz: string | null,
+) {
+  const zone = tz ?? ZONE;
   const preview = invoicePreview(
     db,
     {
@@ -147,16 +186,108 @@ function claimDraft(db: Db, invoice: Db['invoices'][number]) {
       groupingMode: invoice.groupingMode,
       summaryText: invoice.summaryText ?? undefined,
     },
-    ZONE,
+    zone,
   );
-  if (preview) claimBilled(db, invoice.id, preview);
+  if (!preview) return missing('Invoice');
+  if (preview.unratedEntryIds.length > 0)
+    return refuse(unratedRefusal(preview.unratedEntryIds));
+  if (preview.lineItems.length === 0) return refuse(nothingToSend);
+  if (invoice.changedSinceDownload)
+    return fail(
+      'DRAFT_CHANGED',
+      'This draft changed since you downloaded it. Download the new PDF, send that one, then mark it sent.',
+      invoice.changedSinceDownload,
+    );
+  const { sent } = draftDates({
+    issueDate: localDateKey(new Date(sentAt), zone),
+    dueDate: typedDue(invoice),
+    paymentTerms: invoice.paymentTerms,
+    defaultTermsDays: db.settings.paymentTermsDays,
+    printed: null,
+  });
+  claimBilled(db, invoice.id, preview);
+  Object.assign(invoice, {
+    status: 'sent',
+    sentAt,
+    issueDate: sent.issueDate,
+    dueDate: sent.dueDate,
+    paymentTerms: paymentTermsText(sent.issueDate, sent.dueDate),
+    subtotal: preview.subtotal,
+    taxRate: preview.taxRate,
+    taxAmount: preview.taxAmount,
+    expensesSubtotal: preview.expensesSubtotal,
+    total: preview.total,
+  });
+  return ok(schema.Invoice, listed(invoice));
 }
 
-function stopEntry(entry: TimeEntry, now: Date): TimeEntry {
+/** An issued invoice paid or voided. Voiding releases its work to bill
+ *  again, as `release_voided_invoice` does. */
+function moveIssued(
+  db: Db,
+  invoice: StoredInvoice,
+  status: Invoice['status'],
+  paidAt = db.now.toISOString(),
+) {
+  invoice.status = status;
+  if (status === 'paid') invoice.paidAt = paidAt;
+  if (status === 'void')
+    for (const e of [...db.entries, ...db.expenses])
+      if (e.invoiceId === invoice.id) e.invoiceId = null;
+}
+
+/** `toColumns(..., { nullMissing: true })`: every field the form left out. */
+const EMPTY_PROFILE: Omit<PaymentProfile, 'id' | 'name' | 'isDefault'> = {
+  accountHolderName: null,
+  accountHolderAddress: null,
+  bankName: null,
+  bankAddress: null,
+  accountNumber: null,
+  routingNumber: null,
+  accountType: null,
+  iban: null,
+  swiftBic: null,
+  localCodeLabel: null,
+  localCode: null,
+  intermediaryBankName: null,
+  intermediarySwiftBic: null,
+  intermediaryAccountNumber: null,
+  paymentLinkLabel: null,
+  paymentLinkUrl: null,
+  currency: null,
+  feeAllocation: null,
+  notes: null,
+  archivedAt: null,
+};
+
+function stopEntry(entry: TimeEntry, endedAt: string): TimeEntry {
   const seconds = Math.floor(
-    (now.getTime() - Date.parse(entry.startedAt)) / 1000,
+    (Date.parse(endedAt) - Date.parse(entry.startedAt)) / 1000,
   );
-  return { ...entry, endedAt: now.toISOString(), durationSeconds: seconds };
+  return { ...entry, endedAt, durationSeconds: seconds };
+}
+
+/** As `lib/projects.ts`: unset, an entry takes its project's default. */
+const billableDefault = (db: Db, projectId: string | null | undefined) =>
+  byId(db.projects, projectId)?.isBillableDefault ?? true;
+
+/** Moves `guard_issued_invoice` allows. */
+const TRANSITIONS: Record<Invoice['status'], Invoice['status'][]> = {
+  draft: ['sent', 'void'],
+  sent: ['paid', 'void'],
+  paid: ['void'],
+  void: [],
+};
+
+/** `loadPaymentProfile`'s: the one picked, else the client's, else the
+ *  default; null when the picked one is archived or gone. */
+function paymentProfile(db: Db, clientId: string, chosenId?: string) {
+  const live = db.paymentProfiles.filter((p) => !p.archivedAt);
+  if (chosenId) return live.find((p) => p.id === chosenId) ?? null;
+  return resolvePaymentProfile(live, {
+    clientProfileId: byId(db.clients, clientId)?.paymentProfileId,
+    defaultProfileId: live.find((p) => p.isDefault)?.id,
+  });
 }
 
 function withDuration(entry: TimeEntry): TimeEntry {
@@ -239,21 +370,21 @@ export const handlers = {
   startTimer: http.post(`${API}/timer/start`, async ({ request }) => {
     const db = getDb();
     const running = db.entries.find((e) => e.endedAt === null);
-    if (running)
-      return fail('TIMER_ALREADY_RUNNING', 'A timer is already running');
+    if (running) return refuse(refusals.timerRunning(running));
     const input = await body<{
+      id?: string;
       taskName: string;
       projectId?: string | null;
+      startedAt?: string;
       isBillable?: boolean;
     }>(request);
-    const project = byId(db.projects, input.projectId);
     const entry: TimeEntry = {
-      id: uuidv7(db.now.getTime()),
+      id: input.id ?? uuidv7(db.now.getTime()),
       projectId: input.projectId ?? null,
       taskName: input.taskName,
-      startedAt: db.now.toISOString(),
+      startedAt: input.startedAt ?? db.now.toISOString(),
       endedAt: null,
-      isBillable: input.isBillable ?? project?.isBillableDefault ?? true,
+      isBillable: input.isBillable ?? billableDefault(db, input.projectId),
       rateOverride: null,
       invoiceId: null,
       durationSeconds: null,
@@ -261,15 +392,20 @@ export const handlers = {
       invoicedElsewhere: false,
     };
     db.entries.push(entry);
-    return ok(schema.TimeEntry, entry);
+    return ok(schema.TimeEntry, entry, 201);
   }),
 
-  stopTimer: http.post(`${API}/timer/stop`, () => {
+  stopTimer: http.post(`${API}/timer/stop`, async ({ request }) => {
     const db = getDb();
     const i = db.entries.findIndex((e) => e.endedAt === null);
     const running = db.entries[i];
-    if (!running) return fail('NO_TIMER_RUNNING', 'No timer is running');
-    const stopped = stopEntry(running, db.now);
+    if (!running) return refuse(refusals.noTimer);
+    const { endedAt = db.now.toISOString() } = await body<{
+      endedAt?: string;
+    }>(request);
+    const backdated = stopOrderRefusal(running.startedAt, endedAt);
+    if (backdated) return refuse(backdated);
+    const stopped = stopEntry(running, endedAt);
     db.entries[i] = stopped;
     return ok(schema.StoppedTimer, {
       entry: stopped,
@@ -282,7 +418,7 @@ export const handlers = {
     const db = getDb();
     const i = db.entries.findIndex((e) => e.endedAt === null);
     const running = db.entries[i];
-    if (!running) return fail('NO_TIMER_RUNNING', 'No timer is running');
+    if (!running) return refuse(refusals.noTimer);
     db.entries[i] = {
       ...running,
       ...(await body<Partial<TimeEntry>>(request)),
@@ -336,7 +472,7 @@ export const handlers = {
     if (existing) return ok(schema.TimeEntry, existing);
     const entry = withDuration({
       projectId: null,
-      isBillable: true,
+      isBillable: billableDefault(db, input.projectId),
       ...input,
       rateOverride: null,
       invoiceId: null,
@@ -345,20 +481,27 @@ export const handlers = {
       invoicedElsewhere: false,
     });
     db.entries.push(entry);
-    return ok(schema.TimeEntry, entry);
+    return ok(schema.TimeEntry, entry, 201);
   }),
 
   updateEntry: http.patch(`${API}/entries/:id`, async ({ params, request }) => {
     const db = getDb();
     const i = db.entries.findIndex((e) => e.id === params.id);
     const entry = db.entries[i];
-    if (!entry) return fail('ENTRY_NOT_FOUND');
-    const invoice = byId(db.invoices, entry.invoiceId);
+    if (!entry) return missing('Entry');
     const patch = await body<Partial<TimeEntry>>(request);
+    const order = entryOrderRefusal(
+      patch.startedAt ?? entry.startedAt,
+      patch.endedAt !== undefined ? patch.endedAt : entry.endedAt,
+    );
+    if (order) return refuse(order);
+    // `markable`'s filter, then the lock trigger.
     if (patch.invoicedElsewhere && entry.invoiceId)
-      return fail('ENTRY_ALREADY_INVOICED', 'This entry is on an invoice');
-    if (invoice && invoice.status !== 'draft')
-      return fail('ENTRY_LOCKED', 'This entry is billed on an issued invoice');
+      return refuse(refusals.markInvoiced);
+    if (patch.invoicedElsewhere && !entry.endedAt)
+      return refuse(refusals.markRunning);
+    if (byId(db.invoices, entry.invoiceId)?.status.match(/sent|paid|void/))
+      return refuse(refusals.entryLocked('modified'));
     db.entries[i] = withDuration({ ...entry, ...patch });
     return ok(schema.TimeEntry, db.entries[i]);
   }),
@@ -386,7 +529,11 @@ export const handlers = {
 
   deleteEntry: http.delete(`${API}/entries/:id`, ({ params }) => {
     const db = getDb();
-    db.entries = db.entries.filter((e) => e.id !== params.id);
+    const entry = byId(db.entries, params.id);
+    if (!entry) return missing('Entry');
+    if (byId(db.invoices, entry.invoiceId)?.status.match(/sent|paid|void/))
+      return refuse(refusals.entryLocked('deleted'));
+    db.entries = db.entries.filter((e) => e !== entry);
     return noContent();
   }),
 
@@ -431,7 +578,7 @@ export const handlers = {
       const db = getDb();
       const i = db.projects.findIndex((p) => p.id === params.id);
       const project = db.projects[i];
-      if (!project) return fail('ENTRY_NOT_FOUND');
+      if (!project) return missing('Project');
       db.projects[i] = {
         ...project,
         ...applyArchived(db, await body<Partial<Project>>(request)),
@@ -443,7 +590,7 @@ export const handlers = {
   archiveProject: http.delete(`${API}/projects/:id`, ({ params }) => {
     const db = getDb();
     const project = byId(db.projects, params.id);
-    if (!project) return fail('ENTRY_NOT_FOUND');
+    if (!project) return missing('Project');
     project.archivedAt = db.now.toISOString();
     return noContent();
   }),
@@ -488,7 +635,7 @@ export const handlers = {
       const db = getDb();
       const i = db.clients.findIndex((c) => c.id === params.id);
       const client = db.clients[i];
-      if (!client) return fail('ENTRY_NOT_FOUND');
+      if (!client) return missing('Client');
       db.clients[i] = {
         ...client,
         ...applyArchived(db, await body<Partial<Client>>(request)),
@@ -500,7 +647,7 @@ export const handlers = {
   archiveClient: http.delete(`${API}/clients/:id`, ({ params }) => {
     const db = getDb();
     const client = byId(db.clients, params.id);
-    if (!client) return fail('ENTRY_NOT_FOUND');
+    if (!client) return missing('Client');
     client.archivedAt = db.now.toISOString();
     return noContent();
   }),
@@ -511,15 +658,7 @@ export const handlers = {
     const invoices = getDb()
       .invoices.filter((i) => !clientId || i.clientId === clientId)
       .filter((i) => !status || i.status === status)
-      .map(
-        ({
-          lineItems: _,
-          changedSinceDownload: __,
-          unratedEntries: ___,
-          dueBeforeIssue: ____,
-          ...invoice
-        }) => invoice,
-      )
+      .map(listed)
       .sort((a, b) => b.sequenceNo - a.sequenceNo);
     return ok(envelopes.invoices, { invoices });
   }),
@@ -535,6 +674,7 @@ export const handlers = {
       lineItems,
       unratedEntries,
       dueBeforeIssue: due,
+      typedDueDate: _,
       ...rest
     } = invoice;
     return ok(invoiceDetail, {
@@ -558,15 +698,21 @@ export const handlers = {
 
   createInvoice: http.post(`${API}/invoices`, async ({ request }) => {
     const db = getDb();
-    const parsed = schema.CreateInvoice.safeParse(await request.json());
-    if (!parsed.success)
-      return fail('VALIDATION_FAILED', 'Request body failed validation');
-    const input = parsed.data;
-    if (input.paymentProfileId && !activeProfile(db, input.paymentProfileId))
+    const input = await parse(request, schema.CreateInvoice);
+    if (input instanceof Response) return input;
+    const asked = invoiceRequestRefusal(input, localDateKey(db.now, input.tz));
+    if (asked) return refuse(asked);
+    const preview = invoicePreview(db, input, input.tz);
+    if (!preview) return missing('Client');
+    const priced = pricedInvoiceRefusal(preview, input);
+    if (priced) return refuse(priced);
+    const profile = paymentProfile(db, input.clientId, input.paymentProfileId);
+    if (input.paymentProfileId && !profile)
       return fail(
         'VALIDATION_FAILED',
         'Those payment details are archived or gone. Choose others.',
       );
+    // `create_invoice`'s: one open draft per client and date.
     const open = db.invoices.find(
       (i) =>
         i.clientId === input.clientId &&
@@ -585,11 +731,13 @@ export const handlers = {
           periodEnd: open.periodEnd,
         },
       );
-    const preview = invoicePreview(db, input, input.tz);
-    if (!preview) return fail('ENTRY_NOT_FOUND');
-    if (preview.unratedEntryIds.length > 0)
-      return fail('NO_RATE_CONFIGURED', 'Some billable entries have no rate');
-    const invoice = invoiceRow(db, input, preview);
+    const row = invoiceRow(db, input, preview);
+    const invoice = {
+      ...row,
+      paymentDetails: buildPaymentDetails(profile, {
+        invoiceNumber: row.invoiceNumber,
+      }),
+    };
     db.invoices.push({
       ...invoice,
       lineItems: preview.lineItems.map(
@@ -599,11 +747,15 @@ export const handlers = {
         }),
       ),
     });
-    return ok(createdInvoice, {
-      ...invoice,
-      lineItems: preview.lineItems,
-      entryCount: preview.entryCount,
-    });
+    return ok(
+      createdInvoice,
+      {
+        ...invoice,
+        lineItems: preview.lineItems,
+        entryCount: preview.entryCount,
+      },
+      201,
+    );
   }),
 
   updateInvoiceStatus: http.patch(
@@ -611,48 +763,36 @@ export const handlers = {
     async ({ params, request }) => {
       const db = getDb();
       const invoice = byId(db.invoices, params.id);
-      if (!invoice) return fail('ENTRY_NOT_FOUND');
+      if (!invoice) return missing('Invoice');
       const input = await body<{
         status: typeof invoice.status;
         sentAt?: string;
         paidAt?: string;
       }>(request);
-      if (input.status === 'sent' && invoice.changedSinceDownload)
-        return fail(
-          'DRAFT_CHANGED',
-          'This draft changed since you downloaded it. Download the new PDF, send that one, then mark it sent.',
-          invoice.changedSinceDownload,
-        );
       if (input.status === 'sent' && invoice.status === 'draft')
-        claimDraft(db, invoice);
-      invoice.status = input.status;
-      if (input.status === 'sent')
-        invoice.sentAt = input.sentAt ?? db.now.toISOString();
-      if (input.status === 'paid')
-        invoice.paidAt = input.paidAt ?? db.now.toISOString();
-      if (input.status === 'void')
-        for (const e of [...db.entries, ...db.expenses])
-          if (e.invoiceId === invoice.id) e.invoiceId = null;
-      const {
-        lineItems: _,
-        changedSinceDownload: __,
-        unratedEntries: ___,
-        dueBeforeIssue: ____,
-        ...rest
-      } = invoice;
-      return ok(schema.Invoice, rest);
+        return sendDraft(
+          db,
+          invoice,
+          input.sentAt ?? db.now.toISOString(),
+          query(request).get('tz'),
+        );
+      const paid =
+        input.status === 'paid' && input.paidAt
+          ? paidAtRefusal(input.paidAt, invoice.sentAt, db.now)
+          : null;
+      if (paid) return refuse(paid);
+      if (!TRANSITIONS[invoice.status].includes(input.status))
+        return refuse(refusals.transition(invoice.status, input.status));
+      moveIssued(db, invoice, input.status, input.paidAt);
+      return ok(schema.Invoice, listed(invoice));
     },
   ),
 
   deleteInvoice: http.delete(`${API}/invoices/:id`, ({ params }) => {
     const db = getDb();
     const invoice = byId(db.invoices, params.id);
-    if (!invoice) return fail('ENTRY_NOT_FOUND');
-    if (invoice.status !== 'draft')
-      return fail(
-        'VALIDATION_FAILED',
-        'An issued invoice is voided, not deleted',
-      );
+    if (!invoice) return missing('Invoice');
+    if (invoice.status !== 'draft') return refuse(refusals.issuedDelete);
     db.invoices = db.invoices.filter((i) => i !== invoice);
     return noContent();
   }),
@@ -682,31 +822,21 @@ export const handlers = {
 
   createExpense: http.post(`${API}/expenses`, async ({ request }) => {
     const db = getDb();
-    const input = await body<
-      Pick<Expense, 'id' | 'clientId' | 'description' | 'amount'> &
-        Partial<Pick<Expense, 'recurring' | 'spentOn' | 'note'>>
-    >(request);
+    const input = await parse(request, schema.CreateExpense);
+    if (input instanceof Response) return input;
     const existing = byId(db.expenses, input.id);
     if (existing) return ok(schema.Expense, expenseView(db, existing));
-    if (!byId(db.clients, input.clientId))
-      return fail('VALIDATION_FAILED', 'No such client');
-    const recurring = input.recurring ?? false;
-    if (recurring === (input.spentOn != null))
-      return fail(
-        'VALIDATION_FAILED',
-        'a one-off expense has a date and a recurring one has none',
-      );
+    if (!byId(db.clients, input.clientId)) return refuse(refusals.noSuchClient);
     const expense: Expense = {
       note: null,
       ...input,
-      recurring,
       spentOn: input.spentOn ?? null,
       invoiceId: null,
       invoiceNumber: null,
       invoiceStatus: null,
     };
     db.expenses.push(expense);
-    return ok(schema.Expense, expenseView(db, expense));
+    return ok(schema.Expense, expenseView(db, expense), 201);
   }),
 
   /* The real file from the account, through the real builders, so a story
@@ -744,25 +874,16 @@ export const handlers = {
     async ({ params, request }) => {
       const db = getDb();
       const expense = byId(db.expenses, params.id);
-      if (!expense) return fail('ENTRY_NOT_FOUND');
+      if (!expense) return missing('Expense');
       if (expenseView(db, expense).invoiceStatus?.match(/sent|paid|void/))
-        return fail(
-          'EXPENSE_LOCKED',
-          'This expense is billed on an issued invoice and cannot be modified',
-        );
+        return refuse(refusals.expenseLocked('modified'));
       const patch = await body<Partial<Expense>>(request);
       const next = { ...expense, ...patch };
       if (patch.recurring === true) next.spentOn = null;
       if (next.recurring && next.invoiceId)
-        return fail(
-          'VALIDATION_FAILED',
-          'An expense on an invoice cannot become recurring',
-        );
+        return refuse(refusals.billedRecurring);
       if (!next.recurring && next.spentOn == null)
-        return fail(
-          'VALIDATION_FAILED',
-          'A one-off expense needs the date it was paid',
-        );
+        return refuse(refusals.undatedOneOff);
       Object.assign(expense, next);
       return ok(schema.Expense, expenseView(db, expense));
     },
@@ -771,12 +892,9 @@ export const handlers = {
   deleteExpense: http.delete(`${API}/expenses/:id`, ({ params }) => {
     const db = getDb();
     const expense = byId(db.expenses, params.id);
-    if (!expense) return fail('ENTRY_NOT_FOUND');
+    if (!expense) return missing('Expense');
     if (expenseView(db, expense).invoiceStatus?.match(/sent|paid|void/))
-      return fail(
-        'EXPENSE_LOCKED',
-        'This expense is billed on an issued invoice and cannot be deleted',
-      );
+      return refuse(refusals.expenseLocked('deleted'));
     db.expenses = db.expenses.filter((e) => e !== expense);
     return noContent();
   }),
@@ -791,45 +909,51 @@ export const handlers = {
     if (!parsed.success)
       return fail('VALIDATION_FAILED', 'Request body failed validation');
     const input = parsed.data;
-    const current = db.settings.nextInvoiceNumber;
-    const next = input.nextInvoiceNumber;
-    const refused = (message: string) =>
-      fail('VALIDATION_FAILED', message, {
-        field: 'nextInvoiceNumber',
-        current,
-      });
-    if (next !== undefined && next > schema.NEXT_INVOICE_NUMBER_MAX)
-      return refused(
-        `The next number can't go above ${schema.NEXT_INVOICE_NUMBER_MAX}.`,
-      );
-    if (next !== undefined && next < current)
-      return refused(
-        `The next number can't go below ${current}, or an invoice could repeat a number already sent.`,
-      );
+    const refused =
+      input.nextInvoiceNumber === undefined
+        ? null
+        : nextNumberRefusal(
+            input.nextInvoiceNumber,
+            db.settings.nextInvoiceNumber,
+            schema.NEXT_INVOICE_NUMBER_MAX,
+          );
+    if (refused) return refuse(refused);
     db.settings = { ...db.settings, ...input };
     if (input.paymentTermsDays !== undefined) db.legacyPaymentTerms = null;
     return ok(schema.Settings, db.settings);
   }),
 
-  paymentProfiles: http.get(`${API}/payment-profiles`, () => {
-    const paymentProfiles = [...getDb().paymentProfiles].sort(
-      (a, b) => Number(b.isDefault) - Number(a.isDefault) || byName(a, b),
-    );
+  paymentProfiles: http.get(`${API}/payment-profiles`, ({ request }) => {
+    const all = query(request).get('includeArchived') === 'true';
+    const paymentProfiles = getDb()
+      .paymentProfiles.filter((p) => all || !p.archivedAt)
+      .sort(
+        (a, b) => Number(b.isDefault) - Number(a.isDefault) || byName(a, b),
+      );
     return ok(envelopes.paymentProfiles, { paymentProfiles });
   }),
 
+  /* The route's: the first live profile is the default whatever was asked,
+     and one default holds, as the partial unique index enforces. */
   createPaymentProfile: http.post(
     `${API}/payment-profiles`,
     async ({ request }) => {
       const db = getDb();
-      const profile = {
-        ...(await body<Omit<PaymentProfile, 'id' | 'isDefault'>>(request)),
-        id: uuidv7(db.now.getTime()),
-        isDefault: db.paymentProfiles.length === 0,
+      const input = await body<
+        Partial<PaymentProfile> & Pick<PaymentProfile, 'name'>
+      >(request);
+      const isDefault =
+        !!input.isDefault || !db.paymentProfiles.some((p) => !p.archivedAt);
+      if (isDefault) for (const p of db.paymentProfiles) p.isDefault = false;
+      const profile: PaymentProfile = {
+        ...EMPTY_PROFILE,
+        ...input,
+        id: input.id ?? uuidv7(db.now.getTime()),
+        isDefault,
         archivedAt: null,
       };
       db.paymentProfiles.push(profile);
-      return ok(schema.PaymentProfile, profile);
+      return ok(schema.PaymentProfile, profile, 201);
     },
   ),
 
@@ -839,23 +963,37 @@ export const handlers = {
       const db = getDb();
       const i = db.paymentProfiles.findIndex((p) => p.id === params.id);
       const profile = db.paymentProfiles[i];
-      if (!profile) return fail('ENTRY_NOT_FOUND');
+      if (!profile) return missing('Payment profile');
       const input = await body<Partial<PaymentProfile>>(request);
-      // One default, as the partial unique index enforces.
       if (input.isDefault)
         for (const p of db.paymentProfiles) p.isDefault = false;
+      // The only live profile stays the default.
+      const others = db.paymentProfiles.some(
+        (p) => p !== profile && !p.archivedAt,
+      );
+      if (input.isDefault === false && !others) delete input.isDefault;
       db.paymentProfiles[i] = { ...profile, ...input };
       return ok(schema.PaymentProfile, db.paymentProfiles[i]);
     },
   ),
 
+  /* The default passes to the first live profile by name, so invoices keep
+     their bank details. */
   archivePaymentProfile: http.delete(
     `${API}/payment-profiles/:id`,
     ({ params }) => {
       const db = getDb();
       const profile = byId(db.paymentProfiles, params.id);
-      if (!profile) return fail('ENTRY_NOT_FOUND');
-      profile.archivedAt = db.now.toISOString();
+      if (!profile) return missing('Payment profile');
+      const wasDefault = profile.isDefault;
+      Object.assign(profile, {
+        archivedAt: db.now.toISOString(),
+        isDefault: false,
+      });
+      const heir = db.paymentProfiles
+        .filter((p) => !p.archivedAt)
+        .sort(byName)[0];
+      if (wasDefault && heir) heir.isDefault = true;
       return noContent();
     },
   ),

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ApiError, dbCode } from './errors';
+import { refusals } from '@stint/core';
+import { dbCode, refused } from './errors';
 import { toExpense, type ExpenseRow, type InvoiceRow } from './rows';
 
 type InvoiceRef = Pick<InvoiceRow, 'id' | 'invoice_number' | 'status'>;
@@ -35,29 +36,17 @@ export function expenseWriteError(
   error: { code?: string; message?: string; hint?: string },
   verb: 'modified' | 'deleted',
 ): Error {
-  if (dbCode(error) === 'EXPENSE_LOCKED') {
-    return new ApiError(
-      'EXPENSE_LOCKED',
-      `This expense is billed on an issued invoice and cannot be ${verb}`,
-    );
-  }
+  if (dbCode(error) === 'EXPENSE_LOCKED')
+    return refused(refusals.expenseLocked(verb));
   // A client that is not the caller's fails the same-owner key.
-  if (dbCode(error) === 'VALIDATION_FAILED') {
-    return new ApiError('VALIDATION_FAILED', 'No such client', {
-      constraint: error.message,
+  if (dbCode(error) === 'VALIDATION_FAILED')
+    return refused({
+      ...refusals.noSuchClient,
+      details: { constraint: error.message },
     });
-  }
-  if (/expense_dated/.test(error.message ?? '')) {
-    return new ApiError(
-      'VALIDATION_FAILED',
-      'A one-off expense needs the date it was paid',
-    );
-  }
-  if (/recurring_never_billed/.test(error.message ?? '')) {
-    return new ApiError(
-      'VALIDATION_FAILED',
-      'An expense on an invoice cannot become recurring',
-    );
-  }
+  if (/expense_dated/.test(error.message ?? ''))
+    return refused(refusals.undatedOneOff);
+  if (/recurring_never_billed/.test(error.message ?? ''))
+    return refused(refusals.billedRecurring);
   return error as Error;
 }

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   assignExpenses,
+  draftDates,
   draftSnapshot,
   lateEntries,
   newLines,
@@ -186,4 +187,41 @@ test('an expense an earlier draft left off goes down the chain', () => {
     0,
     'left off every draft, it shows on none',
   );
+});
+
+test('draftDates: due on the typed date, else after the terms, else the default', () => {
+  const at = (dueDate: string | null, paymentTerms: string | null) =>
+    draftDates({
+      issueDate: '2026-09-17',
+      dueDate,
+      paymentTerms,
+      defaultTermsDays: 30,
+      printed: null,
+    }).dueDate;
+  assert.equal(at('2026-10-01', 'Net 15'), '2026-10-01');
+  assert.equal(at(null, 'Net 15'), '2026-10-02');
+  assert.equal(at(null, null), '2026-10-17');
+});
+
+test('draftDates: sending keeps the dates its last PDF printed', () => {
+  const dates = (printed: { issueDate?: string; dueDate?: string | null }) =>
+    draftDates({
+      issueDate: '2026-09-17',
+      dueDate: null,
+      paymentTerms: 'Net 30',
+      defaultTermsDays: 30,
+      printed: { total: 0, hours: 0, lines: [], ...printed },
+    }).sent;
+  assert.deepEqual(dates({}), {
+    issueDate: '2026-09-17',
+    dueDate: '2026-10-17',
+  });
+  assert.deepEqual(dates({ issueDate: '2026-09-10', dueDate: '2026-10-10' }), {
+    issueDate: '2026-09-10',
+    dueDate: '2026-10-10',
+  });
+  assert.deepEqual(dates({ issueDate: '2026-09-10', dueDate: null }), {
+    issueDate: '2026-09-10',
+    dueDate: '2026-10-17',
+  });
 });

@@ -5,8 +5,8 @@
  * sent is surfaced rather than billed on whichever invoice comes next.
  */
 
-import { localDateKey } from './calendar.ts';
-import { hundredths, type LineItem } from './invoice.ts';
+import { addDays, localDateKey } from './calendar.ts';
+import { hundredths, type LineItem, termsDays } from './invoice.ts';
 
 const cents = (n: number) => Math.round(n * 100) / 100;
 
@@ -159,4 +159,28 @@ export function assignExpenses(
     if (draft) assigned.set(e.id, draft.id);
   }
   return assigned;
+}
+
+/**
+ * The dates a draft shows when issued on `issueDate`: due on the date typed
+ * for it, else after its terms. `sent` is what Mark sent dates it, its last
+ * PDF's when it had one, since that is the copy the client holds.
+ */
+export function draftDates(d: {
+  issueDate: string;
+  dueDate: string | null;
+  paymentTerms: string | null;
+  defaultTermsDays: number;
+  printed: DraftSnapshot | null;
+}) {
+  const dueDate =
+    d.dueDate ??
+    addDays(d.issueDate, termsDays(d.paymentTerms) ?? d.defaultTermsDays);
+  const sent = d.printed?.issueDate
+    ? {
+        issueDate: d.printed.issueDate,
+        dueDate: d.printed.dueDate ?? dueDate,
+      }
+    : { issueDate: d.issueDate, dueDate };
+  return { issueDate: d.issueDate, dueDate, sent };
 }

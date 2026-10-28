@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { handle, ApiError, isCheckViolation } from '@/lib/errors';
+import { handle, ApiError, isCheckViolation, refused } from '@/lib/errors';
+import { refusals } from '@stint/core';
 import { requireSession } from '@/lib/auth';
 import { draftRefusals, loadPdfData } from '@/lib/invoicing';
 import { parseQuery } from '@/lib/validate';
@@ -66,11 +67,7 @@ export const DELETE = handle(async (req: Request, ctx: Ctx) => {
     .from('invoices')
     .delete()
     .eq('id', id);
-  if (isCheckViolation(deleteError))
-    throw new ApiError(
-      'VALIDATION_FAILED',
-      'An issued invoice cannot be deleted — void it instead, so the number stays on record',
-    );
+  if (isCheckViolation(deleteError)) throw refused(refusals.issuedDelete);
   if (deleteError) throw deleteError;
 
   return new NextResponse(null, { status: 204 });
