@@ -691,3 +691,64 @@ describe('saving a new entry again after the server went quiet', () => {
     expect(posts[1]!.id).toBe(posts[0]!.id);
   });
 });
+
+describe('saving a changed draft after the first save landed unseen', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('keeps the form open on what was typed, and says why', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let posts = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          posts += 1;
+          if (posts === 1) return new Promise<Response>(() => {});
+          return new Response(
+            JSON.stringify({
+              code: 'ENTRY_ALREADY_SAVED',
+              message:
+                'This entry was already saved with its earlier details. Close this and edit the entry to change them.',
+            }),
+            { status: 409 },
+          );
+        }
+        return new Response(
+          JSON.stringify(
+            String(url).includes('task-names') ? { taskNames: [] } : {},
+          ),
+          { status: 200 },
+        );
+      }),
+    );
+    const closed = vi.fn();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(
+      <EntryDialog
+        open
+        onOpenChange={closed}
+        seed={{
+          startedAt: '2026-09-11T13:00:00.000Z',
+          endedAt: '2026-09-11T14:00:00.000Z',
+        }}
+        projects={PROJECTS}
+        tz={TZ}
+      />,
+      { wrapper },
+    );
+
+    await user.type(screen.getByLabelText('Task'), 'First');
+    await user.click(screen.getByRole('button', { name: 'Add entry' }));
+    await vi.advanceTimersByTimeAsync(10_001);
+    await screen.findByText(/didn.t answer/);
+
+    await user.type(screen.getByLabelText('Task'), ', changed');
+    await user.click(screen.getByRole('button', { name: 'Add entry' }));
+
+    expect(
+      await screen.findByText(/already saved with its earlier details/),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Task')).toHaveValue('First, changed');
+    expect(closed).not.toHaveBeenCalledWith(false);
+  });
+});

@@ -17,7 +17,8 @@ export interface Refusal {
     | 'ENTRY_ALREADY_INVOICED'
     | 'EXPENSE_LOCKED'
     | 'TIMER_ALREADY_RUNNING'
-    | 'NO_TIMER_RUNNING';
+    | 'NO_TIMER_RUNNING'
+    | 'ENTRY_ALREADY_SAVED';
   message: string;
   details?: unknown;
 }
@@ -43,6 +44,40 @@ export function entryOrderRefusal(startedAt: string, endedAt: string | null) {
         endedAt,
       })
     : null;
+}
+
+/** What a create sends, and what a stored entry holds, to compare them. */
+interface CreateFields {
+  taskName?: string;
+  projectId?: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  isBillable?: boolean;
+  rateOverride?: number | null;
+}
+
+/**
+ * A create replayed onto an id already stored. The same details are a retry
+ * and answer with the stored entry; different ones were typed after the
+ * first save landed unseen, and answering with the stored row would drop
+ * them without a word (Constitution I). A field the replay omits takes the
+ * stored value, as the first save did.
+ */
+export function replayRefusal(sent: CreateFields, stored: CreateFields) {
+  const at = (iso: string | null) => (iso == null ? null : Date.parse(iso));
+  const same =
+    (sent.taskName ?? '') === stored.taskName &&
+    (sent.projectId ?? null) === stored.projectId &&
+    at(sent.startedAt) === at(stored.startedAt) &&
+    at(sent.endedAt) === at(stored.endedAt) &&
+    (sent.isBillable === undefined || sent.isBillable === stored.isBillable) &&
+    (sent.rateOverride ?? null) === (stored.rateOverride ?? null);
+  return same
+    ? null
+    : refusal(
+        'ENTRY_ALREADY_SAVED',
+        'This entry was already saved with its earlier details. Close this and edit the entry to change them.',
+      );
 }
 
 /** A stop backdated to or before the timer's start. */
