@@ -115,6 +115,8 @@ export function pricedInvoiceRefusal(
   return null;
 }
 
+/** Work no rate prices: the invoice can't be priced, so it isn't
+ *  generated, rendered or sent. */
 export function unratedRefusal(ids: string[]) {
   return refusal(
     'NO_RATE_CONFIGURED',
@@ -122,6 +124,12 @@ export function unratedRefusal(ids: string[]) {
     { unratedEntryIds: ids },
   );
 }
+
+/** A draft sent with no lines. */
+export const nothingToSend = refusal(
+  'VALIDATION_FAILED',
+  'Nothing to send: no unbilled, billable time in this period, no unbilled expenses, and no charges added',
+);
 
 /** A `nextInvoiceNumber` above `max` or behind `current`, naming the field
  *  and the number it stays at so the form can show it again. */

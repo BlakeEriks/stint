@@ -40,6 +40,10 @@ type StoredInvoice = Invoice & {
   lineItems: (InvoiceLineItem & { isNew?: boolean })[];
   changedSinceDownload?: DraftChange | null;
   unratedEntries?: UnratedEntry[];
+  /** The due date typed on New invoice, the row's `due_date`; absent, the
+   *  stored `dueDate` was typed. A draft without one is due by its terms
+   *  from the day it is sent. */
+  typedDueDate?: string | null;
   /** Set by a story whose draft was downloaded before its due date. */
   dueBeforeIssue?: { download: boolean; send: boolean };
 };
@@ -52,9 +56,12 @@ export const mockDraftRefusals = (i: StoredInvoice) => {
   return { download: unrated || due.download, send: unrated || due.send };
 };
 
-export const dueBeforeIssue = (i: Invoice) => {
-  const before =
-    i.status === 'draft' && i.dueDate != null && i.dueDate < i.issueDate;
+export const typedDue = (i: StoredInvoice) =>
+  i.typedDueDate === undefined ? i.dueDate : i.typedDueDate;
+
+export const dueBeforeIssue = (i: StoredInvoice) => {
+  const due = typedDue(i);
+  const before = i.status === 'draft' && due != null && due < i.issueDate;
   return { download: before, send: before };
 };
 

@@ -31,6 +31,7 @@ import {
   snapshotChanged,
   startOfLocalDate,
   draftDates,
+  nothingToSend,
   unratedRefusal,
 } from '@stint/core';
 import type {
@@ -354,8 +355,6 @@ export async function loadPdfData(
   };
 }
 
-/** What an unrated entry costs: the invoice can't be priced, so it isn't
- *  generated, rendered or sent. */
 /** Which of a draft's PDF and Mark sent refuse it as it stands. */
 export function draftRefusals(d: {
   unratedEntries: unknown[];
@@ -622,11 +621,7 @@ export async function sendDraft(
   // Unpriced work first: a draft of nothing but it isn't empty.
   if (totals.unratedEntryIds.length > 0)
     throw refused(unratedRefusal(totals.unratedEntryIds));
-  if (draft.lines.length === 0)
-    throw new ApiError(
-      'VALIDATION_FAILED',
-      'Nothing to send: no unbilled, billable time in this period, no unbilled expenses, and no charges added',
-    );
+  if (draft.lines.length === 0) throw refused(nothingToSend);
   if (draft.change)
     throw new ApiError(
       'DRAFT_CHANGED',

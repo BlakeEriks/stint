@@ -23,7 +23,7 @@ import {
   summary,
   taskNames,
 } from '../src/mocks/derive.ts';
-import { id, ids } from '../src/mocks/fixtures.ts';
+import { id, ids, typedDue } from '../src/mocks/fixtures.ts';
 import {
   billingScheduleColumns,
   CLIENT_FIELDS,
@@ -131,7 +131,7 @@ async function write(db: Db) {
       sequence_no: i.sequenceNo,
       status: 'draft',
       issue_date: i.issueDate,
-      due_date: i.dueDate,
+      due_date: typedDue(i),
       period_start: i.periodStart,
       period_end: i.periodEnd,
       subtotal: i.subtotal,
@@ -325,6 +325,8 @@ interface Write {
   body?: unknown;
   /** Response fields only the database decides, such as a new row's id. */
   omit?: string[];
+  /** A second write, `at` that instant, on what the first created. */
+  followUp?: { at: string; write: (id: string) => Write };
 }
 
 const invoice = (seq: number) => id(300 + seq);
@@ -575,6 +577,52 @@ const writes: Record<string, [Scenario, (db: Db) => Write]> = {
       omit: ['id', 'createdAt'],
     }),
   ],
+  'send a draft a day after generating it': [
+    'seeded',
+    () => ({
+      handler: 'createInvoice',
+      route: 'invoices',
+      method: 'POST',
+      url: '/api/v1/invoices',
+      body: {
+        clientId: ids.northwind,
+        periodStart: '2026-09-01',
+        periodEnd: '2026-09-15',
+        tz: ZONE,
+      },
+      omit: ['id', 'createdAt'],
+      followUp: {
+        at: '2026-09-18T15:00:00.000Z',
+        write: (invoiceId) => ({
+          handler: 'updateInvoiceStatus',
+          route: 'invoices/[id]/status',
+          method: 'PATCH',
+          url: `/api/v1/invoices/${invoiceId}/status?tz=${encodeURIComponent(ZONE)}`,
+          params: { id: invoiceId },
+          body: { status: 'sent' },
+          omit: ['id', 'createdAt'],
+        }),
+      },
+    }),
+  ],
+  'send an empty draft': [
+    (db) => {
+      const draft = db.invoices.find((i) => i.id === invoice(15))!;
+      Object.assign(draft, {
+        periodStart: '2026-07-01',
+        periodEnd: '2026-07-31',
+      });
+      db.expenses = db.expenses.filter((e) => e.id !== ids.stockPhotos);
+    },
+    () => ({
+      handler: 'updateInvoiceStatus',
+      route: 'invoices/[id]/status',
+      method: 'PATCH',
+      url: `/api/v1/invoices/${invoice(15)}/status?tz=${encodeURIComponent(ZONE)}`,
+      params: { id: invoice(15) },
+      body: { status: 'sent' },
+    }),
+  ],
   'send a draft': [
     'seeded',
     () => ({
@@ -794,13 +842,31 @@ const request = ({ method, url, body }: Write) =>
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 
-/** Status and body, without the fields the case says only the database
-    decides. */
-async function answer(res: Response, omit: string[] = []) {
+async function answer(res: Response) {
   const text = await res.text();
-  const body = text ? wire(JSON.parse(text)) : null;
-  for (const key of omit) delete body?.[key];
-  return { status: res.status, body };
+  return { status: res.status, body: text ? wire(JSON.parse(text)) : null };
+}
+
+/** The same write to the route and to the fake. */
+async function both(real: Write, faked: Write) {
+  const route = await import(`../src/app/api/v1/${real.route}/route.ts`);
+  const ctx = { params: Promise.resolve(real.params ?? {}) };
+  return {
+    real: await answer(await route[real.method](request(real), ctx)),
+    faked: await answer(
+      await (fake.handlers[faked.handler] as any).resolver({
+        request: request(faked),
+        params: faked.params ?? {},
+      }),
+    ),
+  };
+}
+
+/** Both answers agree, but for the fields only the database decides. */
+function agree(a: { real: any; faked: any }, omit: string[] = []) {
+  for (const side of [a.real, a.faked])
+    for (const key of omit) delete side.body?.[key];
+  assert.deepEqual(a.faked, a.real);
 }
 
 /** The account as the screens read it. */
@@ -828,22 +894,26 @@ async function account(db: Db) {
 }
 
 for (const [name, [scenario, make]] of Object.entries(writes))
-  test(`the fake API writes as the routes do: ${name}`, async () => {
+  test(`the fake API writes as the routes do: ${name}`, async (t) => {
     resetDb(new Date(NOW), scenario);
     const db = getDb();
     await write(db);
     const w = make(db);
-    const ctx = { params: Promise.resolve(w.params ?? {}) };
-    const route = await import(`../src/app/api/v1/${w.route}/route.ts`);
-    const real = await answer(await route[w.method](request(w), ctx), w.omit);
-    const faked = await answer(
-      await (fake.handlers[w.handler] as any).resolver({
-        request: request(w),
-        params: w.params ?? {},
-      }),
-      w.omit,
-    );
-    assert.deepEqual(faked, real);
+    const first = await both(w, w);
+    const ids = { real: first.real.body?.id, faked: first.faked.body?.id };
+    agree(first, w.omit);
+    if (w.followUp) {
+      t.after(() => mock.timers.setTime(Date.parse(NOW)));
+      mock.timers.setTime(Date.parse(w.followUp.at));
+      db.now = new Date(w.followUp.at);
+      const next = w.followUp.write(ids.real);
+      agree(await both(next, w.followUp.write(ids.faked)), next.omit);
+    }
     const after = await account(db);
-    assert.deepEqual(after.faked, after.real);
+    // A row each side created carries its own id.
+    const faked = JSON.stringify(after.faked);
+    assert.deepEqual(
+      JSON.parse(ids.faked ? faked.replaceAll(ids.faked, ids.real) : faked),
+      after.real,
+    );
   });

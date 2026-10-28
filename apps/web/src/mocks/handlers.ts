@@ -4,6 +4,7 @@ import {
   draftDates,
   entryOrderRefusal,
   invoiceRequestRefusal,
+  nothingToSend,
   nextNumberRefusal,
   paidAtRefusal,
   pricedInvoiceRefusal,
@@ -41,6 +42,7 @@ import {
   dueBeforeIssue,
   mockDraftRefusals,
   parties,
+  typedDue,
 } from './fixtures';
 import {
   calendar,
@@ -130,6 +132,7 @@ function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
     currency: preview.currency,
     notes: input.notes ?? null,
     paymentTerms: paymentTermsText(issueDate, dueDate),
+    typedDueDate: input.dueDate ?? null,
     groupingMode: preview.groupingMode,
     summaryText: preview.groupingMode === 'summary' ? input.summaryText : null,
     reference: input.reference ?? null,
@@ -161,6 +164,7 @@ const listed = ({
   changedSinceDownload: __,
   unratedEntries: ___,
   dueBeforeIssue: ____,
+  typedDueDate: _____,
   ...invoice
 }: StoredInvoice) => invoice;
 
@@ -187,6 +191,7 @@ function sendDraft(
   if (!preview) return missing('Invoice');
   if (preview.unratedEntryIds.length > 0)
     return refuse(unratedRefusal(preview.unratedEntryIds));
+  if (preview.lineItems.length === 0) return refuse(nothingToSend);
   if (invoice.changedSinceDownload)
     return fail(
       'DRAFT_CHANGED',
@@ -195,7 +200,7 @@ function sendDraft(
     );
   const { sent } = draftDates({
     issueDate: localDateKey(new Date(sentAt), zone),
-    dueDate: invoice.dueDate,
+    dueDate: typedDue(invoice),
     paymentTerms: invoice.paymentTerms,
     defaultTermsDays: db.settings.paymentTermsDays,
     printed: null,
@@ -669,6 +674,7 @@ export const handlers = {
       lineItems,
       unratedEntries,
       dueBeforeIssue: due,
+      typedDueDate: _,
       ...rest
     } = invoice;
     return ok(invoiceDetail, {
