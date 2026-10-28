@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@expo/cli>zod': ^4.6.7
+
 patchedDependencies:
   '@storybook/nextjs-vite@10.6.1':
     hash: v7eglvnakmmlmg3eylhm3teioi
@@ -5438,8 +5441,8 @@ packages:
       encoding:
         optional: true
 
-  node-forge@1.4.0:
-    resolution: {integrity: sha512-LarFH0+6VfriEhqMMcLX2F7SwSXeWwnEAJEsYm5QKWchiVYVvJyV9v7UDvUv+w5HO23ZpQTXDv/GxdDdMyOuoQ==}
+  node-forge@1.4.2:
+    resolution: {integrity: sha512-rRtAR5XLJ8gCKd9du4qrKAsgCG1ObGP4gLeNJMa4vYSeq4bmBMOJk5IHkrviBV0q7uoAJlVd8HEQYQSVUb4FGQ==}
     engines: {node: '>= 6.13.0'}
 
   node-int64@0.4.0:
@@ -6650,9 +6653,6 @@ packages:
   yoga-layout@3.2.1:
     resolution: {integrity: sha512-0LPOt3AxKqMdFBZA3HBAt/t/8vIKq7VaQYbuA8WxCgung+p9TVyKRYdpvCb80HcdTN2NkbIKbhNwKUfm3tQywQ==}
 
-  zod@3.25.76:
-    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
-
   zod@4.6.7:
     resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
 
@@ -7428,7 +7428,7 @@ snapshots:
       glob: 13.0.6
       lan-network: 0.2.1
       multitars: 1.0.2
-      node-forge: 1.4.0
+      node-forge: 1.4.2
       npm-package-arg: 11.0.3
       ora: 3.4.0
       picomatch: 4.0.7
@@ -7446,7 +7446,7 @@ snapshots:
       toqr: 0.1.1
       wrap-ansi: 7.0.0
       ws: 8.22.0
-      zod: 3.25.76
+      zod: 4.6.7
     optionalDependencies:
       react-native: 0.88.0(@babel/core@7.29.7)(@types/react@19.3.0)(react@19.3.1)
     transitivePeerDependencies:
@@ -7464,7 +7464,7 @@ snapshots:
 
   '@expo/code-signing-certificates@0.0.7':
     dependencies:
-      node-forge: 1.4.0
+      node-forge: 1.4.2
 
   '@expo/config-plugins@58.0.10(typescript@6.0.3)':
     dependencies:
@@ -11756,7 +11756,7 @@ snapshots:
     dependencies:
       whatwg-url: 5.0.0
 
-  node-forge@1.4.0: {}
+  node-forge@1.4.2: {}
 
   node-int64@0.4.0: {}
 
@@ -13087,7 +13087,5 @@ snapshots:
       yargs-parser: 21.1.1
 
   yoga-layout@3.2.1: {}
-
-  zod@3.25.76: {}
 
   zod@4.6.7: {}
