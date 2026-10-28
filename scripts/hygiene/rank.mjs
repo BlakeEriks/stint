@@ -13,6 +13,7 @@ const MINUTES = {
   'dead-code': () => 5,
   prose: () => 1,
   fixes: (f) => 15 * f.value,
+  'orphan-test': () => 5,
 };
 
 export const debtOf = (f) => MINUTES[f.kind](f);
