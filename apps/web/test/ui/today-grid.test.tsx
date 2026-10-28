@@ -278,6 +278,12 @@ describe('zooming a day column', () => {
 });
 
 describe('the day fills its scroll area', () => {
+  /** As the dock's column draws it, where the layout sets the height. */
+  const drawFilling = () =>
+    render(<EntryList projects={[]} todaySeconds={6300} fills />, {
+      wrapper,
+    });
+
   /** A scroll area of `px`, and the observer that reports its resizes. */
   function area() {
     const seen: Array<() => void> = [];
@@ -305,10 +311,27 @@ describe('the day fills its scroll area', () => {
     };
   }
 
-  it('zooms in as the area grows, and never zooms out past filling it', async () => {
+  /* The strip's popover and the band below `xl` size to the grid: their
+     height is the zoom's own, so a floor read from it would hold the zoom
+     where it is and zoom-out would never move. */
+  it('zooms out freely where the area sizes to the grid', async () => {
     const resize = area();
     serve([entry()]);
     draw();
+    await screen.findByRole('button', { name: /Edit API integration/ });
+    const before = columnHeight();
+    resize(before);
+
+    const column = document.querySelector<HTMLElement>('.border-l')!;
+    fireEvent.wheel(column, { deltaY: 100, ctrlKey: true });
+    resize(columnHeight());
+    expect(columnHeight()).toBeLessThan(before);
+  });
+
+  it('zooms in as the area grows, and never zooms out past filling it', async () => {
+    const resize = area();
+    serve([entry()]);
+    drawFilling();
     await screen.findByRole('button', { name: /Edit API integration/ });
     const at44 = columnHeight();
 
@@ -333,7 +356,7 @@ describe('the day fills its scroll area', () => {
     localStorage.setItem('stint.calendar.pxPerHour', '22');
     const resize = area();
     serve([entry()]);
-    draw();
+    drawFilling();
     await screen.findByRole('button', { name: /Edit API integration/ });
     const at22 = columnHeight();
 

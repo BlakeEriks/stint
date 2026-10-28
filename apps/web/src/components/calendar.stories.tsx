@@ -404,6 +404,16 @@ export const HoverSlot: Story = {
     const slot = el.querySelector('[data-hover-slot]');
     await expect(slot).toHaveTextContent('+ 2:00 AM');
 
+    // A scroll moves the grid under the pointer, so the slot goes with it.
+    el.parentElement?.parentElement?.dispatchEvent(new Event('scroll'));
+    await waitFor(() =>
+      expect(el.querySelector('[data-hover-slot]')).toBeNull(),
+    );
+    await userEvent.pointer({
+      target: el,
+      coords: { clientX: x, clientY: y((2 * 60 + 7) / 1440) },
+    });
+
     const page = within(canvasElement.ownerDocument.body);
     const [block] = await page.findAllByRole('button', { name: /^Edit / });
     const box = (block as HTMLElement).getBoundingClientRect();

@@ -62,16 +62,18 @@ const subscribe = (l: () => void) => {
  * grid there is read before, and the scroller moves after layout so the same
  * fraction is under the pointer again.
  *
- * Zooming out stops where the `hours` drawn still fill the grid's scroll
- * area, its parent when that scrolls, so the day never ends above the
- * area's bottom with empty space under it. A level stored below that is
+ * With `fill`, zooming out stops where the `hours` drawn still fill the
+ * grid's scroll area, its parent when that scrolls, so the day never ends
+ * above the area's bottom with empty space under it. Only for an area whose
+ * height the layout sets: one sized by the grid would hold the floor at the
+ * current zoom, and zoom-out would never move. A level stored below that is
  * drawn at it. The floor is measured, and follows the area's resizes.
  */
-export function useZoom(hours: number) {
+export function useZoom(hours: number, { fill }: { fill: boolean }) {
   /* The default on the server and on first paint, so hydration matches. */
   const stored = useSyncExternalStore(subscribe, read, () => PX_PER_HOUR);
   const [areaPx, setAreaPx] = useState(0);
-  const min = fillPxPerHour(areaPx, hours);
+  const min = fillPxPerHour(fill ? areaPx : 0, hours);
   const pxPerHour = Math.max(stored, min);
   /* The wheel listener is bound once, so it reads the floor from here. */
   const floor = useRef(min);

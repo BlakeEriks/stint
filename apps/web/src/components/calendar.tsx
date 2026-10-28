@@ -18,7 +18,7 @@ import {
   useProjectClients,
 } from '@/lib/client/use-project-colors';
 import { useMediaQuery } from '@/lib/client/use-media-query';
-import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
+import { useScrollerFocus, XL } from '@/lib/client/use-scroller-focus';
 import { useEntryDrag } from '@/lib/client/use-entry-drag';
 import { useZoom } from '@/lib/client/use-zoom';
 import { Plus } from 'lucide-react';
@@ -128,7 +128,10 @@ export function Calendar() {
      into it. The day view keeps its cap, where the PAGE scrolls and a long
      window would otherwise run past the end of a cropped day. */
   const windowHours = (to.getTime() - from.getTime()) / 3_600_000;
-  const zoom = useZoom(windowHours);
+  /* At `xl` the scroller is the card's remaining height; below it the page
+     scrolls and the grid sets its own height. */
+  const xl = useMediaQuery(XL);
+  const zoom = useZoom(windowHours, { fill: xl });
   const marks = hourMarks(from, to, hourStep(zoom.pxPerHour, LABEL_GAP_PX));
   const px = zoom.pxPerHour;
   const gridHeight = byDay

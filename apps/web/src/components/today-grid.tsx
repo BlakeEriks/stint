@@ -33,6 +33,7 @@ export function TodayGrid({
   onEdit,
   onCreate,
   drag,
+  fills = false,
 }: {
   /** Today's entries INCLUDING the running one, unlike the list. */
   entries: TimeEntry[];
@@ -41,6 +42,9 @@ export function TodayGrid({
   onCreate: (startedAt: Date, endedAt: Date) => void;
   /** Owned by the caller, which owns the editor a drawn block waits on. */
   drag: ReturnType<typeof useEntryDrag>;
+  /** Its scroll area's height is the dock column's, not its own: the day
+      fills it rather than zooming out past it (`useZoom`). */
+  fills?: boolean;
 }) {
   /* The real next midnight, not +24h: a DST day is 23 or 25 hours and every
      position here is a fraction of the column's own span. */
@@ -69,7 +73,7 @@ export function TodayGrid({
   const placed = position(entries, from, to);
 
   const hours = (to.getTime() - from.getTime()) / 3_600_000;
-  const { pxPerHour, ref } = useZoom(hours);
+  const { pxPerHour, ref } = useZoom(hours, { fill: fills });
   const step = hourStep(pxPerHour, LABEL_GAP_PX);
   const height = hours * pxPerHour;
   const labels = marks(from, to, step);

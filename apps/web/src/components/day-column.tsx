@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useMutationState } from '@tanstack/react-query';
 import { drawnRange, formatCompact, formatLocalTime } from '@stint/core';
 import { placement, type PositionedEntry } from '@/lib/client/use-calendar';
@@ -157,6 +157,16 @@ function useHoverSlot(dayStart: Date, dayEnd: Date) {
     null,
   );
   const clear = () => setSlot(null);
+  /* A scroll moves the grid under a still pointer, so the slot it showed
+     could now sit over an entry. Captured at the window: a scroll does not
+     bubble, and whichever scroller moved, the slot is stale. */
+  const showing = slot !== null;
+  useEffect(() => {
+    if (!showing) return;
+    const stale = () => setSlot(null);
+    window.addEventListener('scroll', stale, { capture: true, passive: true });
+    return () => window.removeEventListener('scroll', stale, { capture: true });
+  }, [showing]);
   const move = (event: React.PointerEvent<HTMLDivElement>) => {
     const empty =
       event.pointerType === 'mouse' &&

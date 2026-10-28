@@ -27,6 +27,7 @@ export function EntryList({
   earnedToday,
   currency = 'USD',
   flush = false,
+  fills = false,
 }: {
   projects: Project[];
   todaySeconds: number;
@@ -45,6 +46,8 @@ export function EntryList({
    * between the two regions. Two would read as a boxed region.
    */
   flush?: boolean;
+  /** The dock's fixed column at `xl`, which Today's day fills. */
+  fills?: boolean;
 }) {
   const query = useDayEntries();
 
@@ -122,6 +125,7 @@ export function EntryList({
               entries={entries}
               colors={colors}
               drag={drag}
+              fills={fills}
               onEdit={(existing) => editing.show({ existing })}
               onCreate={(startedAt, endedAt) =>
                 editing.show({
