@@ -830,9 +830,8 @@ const newInvoice = () => {
       </div>
     </div>
     <div class="nf-prev">
-      <div class="row-cap type-label subtle">Preview · ${T.find((t) => t.id === chosen).name}</div>
-      <div class="sheet-wrap">${light(papers[chosen]())}</div>
-      ${detail(chosen).map((d) => `<div class="sheet-wrap">${light(d)}</div>`).join('')}
+      <div class="row-cap type-label subtle">Preview</div>
+      <p class="type-support muted">The invoice preview, unchanged: what the invoice says, not its template. The chosen look shows only in the thumbnails and the PDF.</p>
     </div>
   </div>`;
   withDetail = was;
@@ -842,7 +841,7 @@ const newInvoice = () => {
 const views = {
   picker: { title: 'Settings · picker', page: 'Settings', note: '<b>Settings, between Business identity and Invoice numbering.</b> Four cards, each a thumbnail of the real PDF drawn from your seeded data. A press selects at once and autosaves, like every other Settings section. Click a card to try it.', render: () => settings() },
   rejected: { title: 'Settings · save failed', page: 'Settings', note: '<b>The save was refused:</b> the selection goes back to the saved template and the line under the cards says why, in the section that stays open (Constitution VI).', render: () => settings('rejected') },
-  newinv: { title: 'New invoice', page: 'New invoice', note: '<b>New invoice gets the same picker, last in the form</b> as four small thumbnails. Picking one is the account\'s template: it saves at once, Settings shows the same choice, and every draft follows it. The preview beside the form draws the invoice in the chosen template, supporting detail included. Click a thumbnail to try it.', render: () => newInvoice() },
+  newinv: { title: 'New invoice', page: 'New invoice', note: '<b>New invoice gets the same picker, last in the form</b> as four small thumbnails. Picking one is the account\'s template: it saves at once, Settings shows the same choice, and every draft follows it. The preview beside the form is unchanged: a user's own invoice in a template is the PDF. Click a thumbnail to try it.', render: () => newInvoice() },
   standard: { title: 'Standard', page: 'STINT-0015', note: '<b>Standard is today\'s PDF, without the payment notice.</b> Best at: nothing to learn, and every invoice sent so far already looks like this. Accent once, on the amount due.', render: () => sheet('standard') },
   modern: { title: 'Modern', page: 'STINT-0015', note: '<b>Modern, in Outfit.</b> The light-weight word "Invoice" heads the page with the business across from it, so the header fills the width. Every row after spans the page: billed to, dates and the amount due; period and reference; the lines; then payment beside the totals. Green marks the rule under the header and the amount due. Best at: a sleek page that still reads at a glance. Cost: no headline color, by design.', render: () => sheet('modern') },
   classic: { title: 'Classic', page: 'STINT-0015', note: '<b>Classic, in EB Garamond.</b> An italic "Invoice" heads the page, the one italic on it, over its number; a green rule; then the name centered in small capitals over its address. Lines read like a table of contents with dotted leaders. Green marks the rule, the section labels and the balance due. Best at: a formal, literary page that still sits beside the others. Cost: quantity and rate read as a phrase, not a column.', render: () => sheet('classic') },

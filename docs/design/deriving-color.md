@@ -257,9 +257,8 @@ ramp check exists to catch, the other way round.
   AA-large), then control borders, focus rings, text on accent, text on
   danger.
 - The `print` ink on white paper (`contract.text.print`): ink, muted, faint
-  and the accent on the ground. The payment band and the `added` tint, which
-  marks a draft's new line, take only ink and muted, because faint is too
-  light for them.
+  and the accent on the ground. The payment band takes only ink and muted,
+  because faint is too light for it.
 - Forbidden pairings that **must not** — white on the accent is 1.37:1, and
   the assertion exists so a well-meaning change cannot quietly make it legal.
 - Every generated ramp re-derived and diffed against `tokens.json`: both

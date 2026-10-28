@@ -1,24 +1,18 @@
 import type { CSSProperties, ReactNode } from 'react';
 import {
   formatCurrency,
-  formatHours,
   formatQuantity,
   linesByUnit,
   type PaymentDetails,
-  SCHEDULE_KINDS,
-  SCHEDULE_TITLES,
-  type ScheduleKind,
-  type Schedules,
 } from '@stint/core';
 import type { InvoiceTemplate } from '@stint/schema';
 import { shortDate } from './invoice-bits';
 
 /*
- * The invoice drawn on paper, in each template's look: the preview beside New
- * invoice and on an invoice's page, and every template thumbnail. It draws
- * what `lib/invoice-templates/` prints (specs/011-invoice-templates/design/
- * invoice.html), in HTML, because the PDF itself is the paid document and a
- * PDF in the browser can be saved.
+ * A sample invoice drawn in each template's look, for the template thumbnails.
+ * It draws what `lib/invoice-templates/` prints (specs/011-invoice-templates/
+ * design/invoice.html) in HTML, from sample data: a user's own invoice in a
+ * template is the PDF, the paid document.
  *
  * Geometry is in points of a 612pt Letter page, scaled to the paper's width:
  * `pt(n)` is n points at whatever size the paper is drawn.
@@ -32,8 +26,6 @@ type Line = {
   unitPrice: number | null;
   amount: number;
   spentOn?: string | null;
-  /** A draft's line its last PDF didn't have. */
-  isNew?: boolean;
 };
 
 export interface PaperInvoice {
@@ -42,15 +34,13 @@ export interface PaperInvoice {
   due: string | null;
   period: { start: string; end: string } | null;
   reference: string | null;
-  /** Undefined while it loads. */
-  business:
-    | { name: string | null; address: string | null; email: string | null }
-    | undefined;
-  /** No business name or email yet: marks where they will print. */
-  noSender?: boolean;
+  business: {
+    name: string | null;
+    address: string | null;
+    email: string | null;
+  };
   client: { name: string; address?: string | null; email?: string | null };
-  /** Undefined while an issued invoice loads them. */
-  lines: Line[] | undefined;
+  lines: Line[];
   subtotal: number;
   taxRate: number;
   taxAmount: number;
@@ -152,29 +142,6 @@ function totalRows(inv: PaperInvoice) {
 const paymentTitle = (p: PaymentDetails) =>
   p.title ? `Payment — ${p.title}` : 'Payment details';
 
-/** A draft's line its last PDF didn't have: the reason Mark sent waits. */
-const NEW = 'bg-print-added';
-
-/** Where the sender prints, marked as missing rather than left blank; the
- *  card says why under it. */
-function Sender({ inv }: { inv: PaperInvoice }) {
-  if (!inv.noSender) return null;
-  return (
-    <div
-      aria-hidden
-      className="rounded border border-dashed border-print-rule"
-      style={{ minHeight: pt(40), minWidth: pt(160) }}
-    />
-  );
-}
-
-const Empty = () => (
-  <p className="text-print-muted" style={{ marginTop: pt(16) }}>
-    Nothing to bill: no billable, un-invoiced time in this period, and no
-    expenses or charges.
-  </p>
-);
-
 /** Services, then expenses, as Standard and Modern set them in columns. */
 function LineTable({
   inv,
@@ -196,12 +163,10 @@ function LineTable({
   figures?: CSSProperties;
   style?: CSSProperties;
 }) {
-  if (inv.lines?.length === 0) return <Empty />;
-  if (!inv.lines) return null;
   const { services, expenses } = split(inv);
   const cur = inv.currency;
   const line = (l: Line, i: number, middle: ReactNode) => (
-    <tr key={i} className={`${row} ${l.isNew ? NEW : ''}`}>
+    <tr key={i} className={`${row}`}>
       <td className={cell}>{l.description}</td>
       {middle}
       <td className="text-right" style={figures}>
@@ -329,8 +294,7 @@ function Standard({ invoice: inv }: Props) {
         style={{ marginBottom: pt(24) }}
       >
         <div className="max-w-[55%] whitespace-pre-line">
-          <Sender inv={inv} />
-          {inv.noSender ? null : (
+          {
             <>
               <b className="block" style={{ fontSize: pt(13) }}>
                 {inv.business?.name ?? 'Invoice'}
@@ -339,7 +303,7 @@ function Standard({ invoice: inv }: Props) {
                 {lines(inv.business?.address, inv.business?.email)}
               </span>
             </>
-          )}
+          }
         </div>
         <div className="text-right">
           <div
@@ -532,8 +496,7 @@ function Modern({ invoice: inv }: Props) {
           </div>
         </div>
         <div className="max-w-[50%] whitespace-pre-line text-right">
-          <Sender inv={inv} />
-          {inv.noSender ? null : (
+          {
             <>
               <div className="font-semibold" style={{ fontSize: pt(12) }}>
                 {inv.business?.name}
@@ -542,7 +505,7 @@ function Modern({ invoice: inv }: Props) {
                 {lines(inv.business?.address, inv.business?.email)}
               </span>
             </>
-          )}
+          }
         </div>
       </div>
       <AccentRule style={{ marginBottom: pt(20) }} />
@@ -673,7 +636,7 @@ function Classic({ invoice: inv }: Props) {
     items.map((l, i) => (
       <div
         key={i}
-        className={`flex items-end ${l.isNew ? NEW : ''}`}
+        className={`flex items-end`}
         style={{ padding: `${pt(3.5)} 0` }}
       >
         <span>{l.description}</span>
@@ -713,8 +676,7 @@ function Classic({ invoice: inv }: Props) {
           className="bg-print-accent"
           style={{ width: pt(160), height: pt(1.25), margin: `${pt(14)} 0` }}
         />
-        <Sender inv={inv} />
-        {inv.noSender ? null : (
+        {
           <>
             <div
               className="uppercase tracking-[0.18em]"
@@ -731,7 +693,7 @@ function Classic({ invoice: inv }: Props) {
                 .join(' · ')}
             </div>
           </>
-        )}
+        }
       </div>
       <div
         className="flex justify-between border-t border-print-rule"
@@ -765,7 +727,6 @@ function Classic({ invoice: inv }: Props) {
           ))}
         </div>
       </div>
-      {inv.lines?.length === 0 ? <Empty /> : null}
       {services.length > 0 ? (
         <>
           <div
@@ -952,8 +913,7 @@ function Creative({ invoice: inv }: Props) {
         />
       </svg>
       <div className="relative" style={{ maxWidth: pt(300) }}>
-        <Sender inv={inv} />
-        {inv.noSender ? null : (
+        {
           <>
             <div
               className="font-bold"
@@ -975,7 +935,7 @@ function Creative({ invoice: inv }: Props) {
               )}
             </div>
           </>
-        )}
+        }
       </div>
       <div
         className="flex items-center"
@@ -1041,7 +1001,6 @@ function Creative({ invoice: inv }: Props) {
           ) : null}
         </div>
       </div>
-      {inv.lines?.length === 0 ? <Empty /> : null}
       {kinds.map((k) => (
         <div key={k.title}>
           <div
@@ -1066,7 +1025,7 @@ function Creative({ invoice: inv }: Props) {
           {k.rows.map(({ l, n }) => (
             <div
               key={n}
-              className={`flex items-baseline border-b border-print-hairline ${l.isNew ? NEW : ''}`}
+              className={`flex items-baseline border-b border-print-hairline`}
               style={{ gap: pt(10), padding: `${pt(4)} 0` }}
             >
               <span
@@ -1146,181 +1105,4 @@ export function InvoicePaper({
 }) {
   const Paper = PAPERS[template];
   return <Paper invoice={invoice} />;
-}
-
-// ── Supporting detail ────────────────────────────────────────────────
-
-const TABLE_MARK = {
-  project: MARK.circle,
-  week: MARK.square,
-  date: MARK.triangle,
-};
-
-function rows(detail: Schedules, kind: ScheduleKind): string[][] {
-  switch (kind) {
-    case 'project':
-      return (detail.project ?? []).map((r) => [
-        r.project,
-        formatHours(r.hours),
-      ]);
-    case 'week':
-      return (detail.week ?? []).map((r) => [
-        `${shortDate(r.start)} – ${shortDate(r.end)}`,
-        formatHours(r.hours),
-      ]);
-    case 'date':
-      return (detail.date ?? []).map((r) => [
-        shortDate(r.date),
-        r.project,
-        formatHours(r.hours),
-      ]);
-  }
-}
-
-/** Page 2 onward, drawn as one page: hours only, never money. */
-export function DetailPaper({
-  template,
-  detail,
-  chosen,
-  heading,
-}: {
-  template: InvoiceTemplate;
-  detail: Schedules;
-  chosen: ScheduleKind[];
-  /** The running header's number, client and period. */
-  heading: string;
-}) {
-  const kinds = SCHEDULE_KINDS.filter((k) => chosen.includes(k));
-  const look = {
-    standard: {
-      title: 'font-bold',
-      run: 'font-bold',
-      th: 'font-bold tracking-[0.12em] text-print-faint',
-      rule: 'border-print-ink',
-      sum: 'font-bold',
-    },
-    modern: {
-      title: 'font-medium tracking-[0.16em] uppercase text-print-faint',
-      run: 'font-light',
-      th: 'font-medium tracking-[0.16em] text-print-faint',
-      rule: 'border-print-rule',
-      sum: 'font-semibold',
-    },
-    classic: {
-      title: 'uppercase tracking-[0.17em] text-print-accent',
-      run: 'uppercase tracking-[0.17em]',
-      th: CAPS,
-      rule: 'border-print-ink',
-      sum: 'uppercase tracking-[0.14em]',
-    },
-    creative: {
-      title: 'font-bold uppercase tracking-[0.19em] text-print-faint',
-      run: 'font-bold',
-      th: 'font-bold tracking-[0.19em] text-print-faint',
-      rule: 'border-print-rule',
-      sum: 'font-bold',
-    },
-  }[template];
-  const runSize = { standard: 9.5, modern: 24, classic: 10, creative: 22 }[
-    template
-  ];
-  return (
-    <Sheet
-      template={template}
-      pad={template === 'creative' ? [48, 52, 52, 76] : [44, 52, 52, 52]}
-    >
-      {template === 'creative' ? (
-        <Spine number={heading.split(' · ')[0] ?? ''} />
-      ) : null}
-      <div
-        className={`flex items-end justify-between border-b ${template === 'creative' ? 'border-print-ink' : look.rule}`}
-        style={{
-          paddingBottom: pt(8),
-          marginBottom: pt(18),
-          borderBottomWidth: template === 'creative' ? pt(2) : undefined,
-        }}
-      >
-        <span
-          className={look.run}
-          style={{ fontSize: pt(runSize), lineHeight: 1.15 }}
-        >
-          Supporting detail
-        </span>
-        <span className="text-print-muted" style={{ fontSize: pt(8.5) }}>
-          {heading}
-        </span>
-      </div>
-      {kinds.map((kind) => (
-        <div key={kind} style={{ marginBottom: pt(18) }}>
-          <div
-            className={`flex items-center ${look.title}`}
-            style={{
-              gap: pt(8),
-              marginBottom: pt(6),
-              fontSize: pt(template === 'standard' ? 11 : 8),
-            }}
-          >
-            {template === 'creative' ? TABLE_MARK[kind] : null}
-            {SCHEDULE_TITLES[kind]}
-          </div>
-          <table className="w-full">
-            <thead>
-              <tr style={{ fontSize: pt(7.5) }}>
-                {(kind === 'date'
-                  ? ['DATE', 'PROJECT']
-                  : [kind === 'week' ? 'WEEK' : 'PROJECT']
-                ).map((h) => (
-                  <th
-                    key={h}
-                    className={`${look.th} border-b ${look.rule} pb-[0.5em] text-left`}
-                  >
-                    {h}
-                  </th>
-                ))}
-                <th
-                  className={`${look.th} border-b ${look.rule} pb-[0.5em] text-right`}
-                >
-                  HOURS
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows(detail, kind).map((cells, i) => (
-                <tr key={i} className="border-b border-print-hairline">
-                  {cells.map((c, j) => (
-                    <td
-                      key={j}
-                      className={
-                        j === cells.length - 1
-                          ? 'text-right'
-                          : 'py-[0.35em] pr-[1em]'
-                      }
-                      style={j === cells.length - 1 ? fig : undefined}
-                    >
-                      {c}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-              <tr className={look.sum}>
-                <td
-                  colSpan={kind === 'date' ? 2 : 1}
-                  className={`border-t ${look.rule}`}
-                  style={{ paddingTop: pt(5) }}
-                >
-                  Total
-                </td>
-                <td
-                  className={`border-t ${look.rule} text-right`}
-                  style={{ ...fig, paddingTop: pt(5) }}
-                >
-                  {formatHours(detail.totalHours)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      ))}
-    </Sheet>
-  );
 }

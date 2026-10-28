@@ -36,7 +36,11 @@ const TEMPLATES: Array<{
  * app-wide notice says why.
  */
 export function useTemplateChoice() {
-  const template = useChosenTemplate();
+  const { data: settings } = useQuery({
+    queryKey: keys.settings(),
+    queryFn: api.settings,
+  });
+  const template = settings?.invoiceTemplate ?? 'standard';
   const choose = useOptimisticMutation({
     queryKey: () => keys.settings(),
     mutationFn: (invoiceTemplate: InvoiceTemplate) =>
@@ -45,15 +49,6 @@ export function useTemplateChoice() {
       current && { ...current, invoiceTemplate },
   });
   return { template, choose: (t: InvoiceTemplate) => choose.mutate(t) };
-}
-
-/** The template a draft renders in. */
-export function useChosenTemplate(): InvoiceTemplate {
-  const { data: settings } = useQuery({
-    queryKey: keys.settings(),
-    queryFn: api.settings,
-  });
-  return settings?.invoiceTemplate ?? 'standard';
 }
 
 /** What every thumbnail draws: one invoice, so they compare like for like. */

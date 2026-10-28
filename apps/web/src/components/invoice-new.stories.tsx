@@ -79,7 +79,7 @@ const card = (page: Page) =>
 
 /** The bordered sheet itself, which holds only what prints. */
 const sheet = (page: Page) =>
-  card(page).getByText('BILL TO').closest('.rounded-lg') as HTMLElement;
+  card(page).getByText('Bill to').closest('.rounded-lg') as HTMLElement;
 
 // ── states ─────────────────────────────────────────────────────────
 
@@ -284,7 +284,7 @@ export const ClientChosen: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
-    await expect(card(page).getByText('SERVICE PERIOD')).toBeVisible();
+    await expect(card(page).getByText('Service period')).toBeVisible();
     const footnote = card(page).getByText(/^Generating assigns a number/);
     await expect(footnote).toBeVisible();
     await expect(sheet(page).contains(footnote)).toBe(false);
@@ -666,7 +666,7 @@ export const NoSummaryLinePhone: Story = { ...NoSummaryLine, ...phone };
 
 // ── supporting detail ──────────────────────────────────────────────
 
-/** Ticked detail shows at once under "Supporting detail"
+/** Ticked detail shows at once under "Page 2 · supporting detail"
     (US2 scenario 2, US3 scenario 2). */
 export const AttachDetail: Story = {
   ...desktop,
@@ -682,7 +682,9 @@ export const AttachDetail: Story = {
     await userEvent.click(
       page.getByRole('checkbox', { name: 'Hours by project' }),
     );
-    await expect(card(page).getByText('Supporting detail')).toBeVisible();
+    await expect(
+      card(page).getByText('Page 2 · supporting detail'),
+    ).toBeVisible();
   },
 };
 

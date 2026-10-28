@@ -324,7 +324,9 @@ describe('NewInvoice', () => {
       screen.getByRole('checkbox', { name: 'Hours by project' }),
     );
 
-    expect(within(card()).getByText('Supporting detail')).toBeInTheDocument();
+    expect(
+      within(card()).getByText('Page 2 · supporting detail'),
+    ).toBeInTheDocument();
     expect(within(card()).getByText('Portal')).toBeInTheDocument();
     expect(previews()).toHaveLength(sent);
     expect(generate()).toBeEnabled();

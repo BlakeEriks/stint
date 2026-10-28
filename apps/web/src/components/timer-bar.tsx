@@ -45,10 +45,8 @@ export function TimerBar({
       /* A quiet fill rather than a plane of its own: at `xl` the bar sits
          under the panel at the panel's width, and at full opacity it would
          read as a second panel competing with the one being read. No shadow
-         and no border for the same reason — the frame has one edge. Below
-         `xl` it floats over the page as it scrolls, where an invoice's white
-         paper under a quiet fill would wash out its text, so it is solid. */
-      className="flex flex-none flex-col rounded-xl bg-surface-primary xl:bg-surface-primary/55"
+         and no border for the same reason — the frame has one edge. */
+      className="flex flex-none flex-col rounded-xl bg-surface-primary/55"
       aria-label="Timer"
     >
       {/* Identity holds the left edge, the readout the right, so the clock

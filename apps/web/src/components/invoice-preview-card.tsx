@@ -1,11 +1,16 @@
 'use client';
 
 import {
+  formatCurrency,
+  formatHours,
+  formatQuantity,
   type PaymentDetails,
   paymentTermsText,
+  SCHEDULE_KINDS,
+  SCHEDULE_TITLES,
   type ScheduleKind,
+  type Schedules,
 } from '@stint/core';
-import type { InvoiceTemplate } from '@stint/schema';
 import type {
   Client,
   Invoice,
@@ -14,7 +19,6 @@ import type {
 } from '@/lib/client/api';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import { shortDate } from './invoice-bits';
-import { DetailPaper, InvoicePaper, type PaperInvoice } from './invoice-paper';
 
 type Business = Pick<Invoice['business'], 'name' | 'address' | 'email'>;
 
@@ -32,6 +36,8 @@ export function businessOf(settings: Settings | undefined) {
     logoUrl: settings.logoUrl,
   };
 }
+
+const LABEL = 'block type-label text-subtle';
 
 /** What the card prints from: a preview, or an issued invoice. Lines are
     absent while an issued one is still loading them. */
@@ -67,7 +73,6 @@ export type CardFigures = Pick<
  * so rather than showing a guess.
  */
 export function InvoicePreviewCard({
-  template,
   preview,
   client,
   business,
@@ -86,7 +91,6 @@ export function InvoicePreviewCard({
   entryAction,
   children,
 }: {
-  template: InvoiceTemplate;
   preview: CardFigures | undefined;
   client: Pick<Client, 'name' | 'address' | 'email'> | undefined;
   /** Undefined while it loads. */
@@ -150,30 +154,28 @@ export function InvoicePreviewCard({
               updating ? 'opacity-50' : ''
             }`}
           >
-            <InvoicePaper
-              template={template}
-              invoice={paperOf({
-                preview,
-                client,
-                business,
-                noSender,
-                number,
-                issued,
-                due,
-                reference,
-                payment,
-                terms,
-                notes,
-              })}
+            <From
+              business={business}
+              noSender={noSender}
+              number={number}
+              issued={issued}
+              due={due}
             />
+            <To client={client} preview={preview} reference={reference} />
+
+            {preview?.lineItems ? (
+              <Lines
+                preview={{ ...preview, lineItems: preview.lineItems }}
+                terms={terms}
+              />
+            ) : null}
+
+            {payment ? <Payment payment={payment} /> : null}
+
+            {notes ? <Notes notes={notes} /> : null}
 
             {preview?.schedules?.totalHours && schedules.length > 0 ? (
-              <DetailPaper
-                template={template}
-                detail={preview.schedules}
-                chosen={schedules}
-                heading={`${number} · ${client.name} · ${shortDate(preview.periodStart)} – ${shortDate(preview.periodEnd)}`}
-              />
+              <Detail detail={preview.schedules} chosen={schedules} />
             ) : null}
           </div>
         </div>
@@ -188,49 +190,6 @@ export function InvoicePreviewCard({
       </UnderCard>
     </section>
   );
-}
-
-/** The card's props as the paper prints them; blanks print as absent. */
-function paperOf(p: {
-  preview: CardFigures | undefined;
-  client: Pick<Client, 'name' | 'address' | 'email'>;
-  business: Business | undefined;
-  noSender: boolean;
-  number: string;
-  issued: string;
-  due: string;
-  reference: string;
-  payment: PaymentDetails | null;
-  terms: string | null | undefined;
-  notes: string | null | undefined;
-}): PaperInvoice {
-  const { preview } = p;
-  return {
-    number: p.number,
-    issued: p.issued,
-    due: p.due || null,
-    period: preview
-      ? { start: preview.periodStart, end: preview.periodEnd }
-      : null,
-    reference: p.reference || null,
-    business: p.business,
-    noSender: p.noSender,
-    client: p.client,
-    lines: preview?.lineItems?.map((li) => ({
-      ...li,
-      quantity: li.quantity ?? 0,
-      amount: li.amount ?? 0,
-    })),
-    subtotal: preview?.subtotal ?? 0,
-    taxRate: preview?.taxRate ?? 0,
-    taxAmount: preview?.taxAmount ?? 0,
-    expensesSubtotal: preview?.expensesSubtotal ?? 0,
-    total: preview?.total ?? 0,
-    currency: preview?.currency ?? 'USD',
-    terms: p.terms ?? null,
-    payment: p.payment,
-    notes: p.notes ?? null,
-  };
 }
 
 /** The terms generation will freeze, made from `issued` and `due`. */
@@ -280,3 +239,400 @@ function Caption({
 }
 
 /** The business, and the invoice's number and dates. */
+function From({
+  business,
+  noSender,
+  number,
+  issued,
+  due,
+}: {
+  business: Business | undefined;
+  noSender: boolean;
+  number: string;
+  issued: string;
+  due: string;
+}) {
+  return (
+    <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
+      {noSender ? (
+        /* Where the sender prints, marked as missing rather than left
+           blank; the line under the card says what goes in it. */
+        <div
+          aria-hidden
+          className="min-h-14 min-w-0 flex-[1_1_200px] self-start rounded-md border border-dashed border-edge-control"
+        />
+      ) : (
+        <Party
+          name={business ? (business.name ?? 'Invoice') : ''}
+          lines={[business?.address, business?.email]}
+        />
+      )}
+      <dl className="flex flex-col gap-1 type-support">
+        <Meta label="No." value={number} mono right />
+        <Meta label="Issued" value={shortDate(issued)} right />
+        <Meta label="Due" value={shortDate(due)} right />
+      </dl>
+    </div>
+  );
+}
+
+/** Who is billed, and for which engagement. */
+function To({
+  client,
+  preview,
+  reference,
+}: {
+  client: Pick<Client, 'name' | 'address' | 'email'>;
+  preview: CardFigures | undefined;
+  reference: string;
+}) {
+  return (
+    <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
+      <div className="min-w-0 flex-[1_1_200px]">
+        <span className={`${LABEL} mb-2`}>Bill to</span>
+        <Party name={client.name} lines={[client.address, client.email]} />
+      </div>
+      <div className="min-w-0 flex-[1_1_200px]">
+        <span className={`${LABEL} mb-2`}>Engagement</span>
+        <dl className="flex flex-col gap-1 type-support">
+          {/* The period prints here once, never under a line. */}
+          <Meta
+            label="Service period"
+            value={
+              preview
+                ? `${shortDate(preview.periodStart)} – ${shortDate(preview.periodEnd)}`
+                : '—'
+            }
+          />
+          {reference ? <Meta label="Reference" value={reference} /> : null}
+        </dl>
+      </div>
+    </div>
+  );
+}
+
+function Notes({ notes }: { notes: string }) {
+  return (
+    <div className="border-t border-edge-subtle pt-4">
+      <span className={`${LABEL} mb-2`}>Notes</span>
+      <p className="whitespace-pre-line type-support text-muted">{notes}</p>
+    </div>
+  );
+}
+
+function Party({
+  name,
+  lines,
+}: {
+  name: string;
+  lines: Array<string | null | undefined>;
+}) {
+  return (
+    <p className="min-w-0 flex-[1_1_200px] whitespace-pre-line type-support text-muted">
+      <b className="block type-control text-strong">{name}</b>
+      {lines.filter(Boolean).join('\n')}
+    </p>
+  );
+}
+
+function Meta({
+  label,
+  value,
+  mono,
+  right,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  right?: boolean;
+}) {
+  return (
+    <div className={`flex gap-3 ${right ? 'justify-end' : ''}`}>
+      <dt className={`flex-none text-subtle ${right ? '' : 'w-26'}`}>
+        {label}
+      </dt>
+      <dd
+        className={`text-primary ${right ? 'min-w-24 text-right' : ''} ${
+          mono ? 'type-duration' : ''
+        }`}
+      >
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+const TH = 'pb-2.5 type-label text-subtle';
+const TD = 'type-duration py-2.5 pl-3 text-right align-top whitespace-nowrap';
+/* The rate is the column a narrow card can spare: quantity × rate is still
+   checkable from the amount, and the description keeps its room. */
+const RATE = '@max-[360px]/card:hidden';
+
+function Payment({ payment }: { payment: PaymentDetails }) {
+  return (
+    <div className="flex flex-col gap-3 border-t border-edge-subtle pt-4 type-support">
+      <span className={LABEL}>
+        {payment.title ? `Payment — ${payment.title}` : 'Payment details'}
+      </span>
+      <PaymentFields fields={payment.fields} />
+      {payment.intermediary.length > 0 ? (
+        <PaymentFields fields={payment.intermediary} />
+      ) : null}
+      {payment.link ? (
+        <p className="break-all text-primary">
+          {payment.link.label}: {payment.link.url}
+        </p>
+      ) : null}
+      {payment.notes ? (
+        <p className="whitespace-pre-line text-muted">{payment.notes}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function PaymentFields({ fields }: { fields: PaymentDetails['fields'] }) {
+  return (
+    <dl className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-x-4 gap-y-3">
+      {fields.map((f) => (
+        <div key={f.label}>
+          <dt className="text-subtle">{f.label}</dt>
+          <dd className="text-primary">{f.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** A draft's line its last PDF didn't have: the reason Mark sent waits. */
+const NEW = 'bg-warning-muted';
+
+function Lines({
+  preview,
+  terms,
+}: {
+  preview: CardFigures & { lineItems: NonNullable<CardFigures['lineItems']> };
+  terms: string | null | undefined;
+}) {
+  const cur = preview.currency;
+  const services = preview.lineItems.filter((li) => li.unit !== 'expense');
+  const expenses = preview.lineItems.filter((li) => li.unit === 'expense');
+
+  if (preview.lineItems.length === 0) {
+    return (
+      <p className="type-support text-subtle">
+        Nothing to bill in this period.
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <table className="w-full type-support">
+        <thead>
+          <tr className="border-b border-edge-default text-left">
+            <th scope="col" className={TH}>
+              Description
+            </th>
+            <th scope="col" className={`${TH} text-right`}>
+              Qty
+            </th>
+            <th scope="col" className={`${TH} text-right ${RATE}`}>
+              Rate
+            </th>
+            <th scope="col" className={`${TH} text-right`}>
+              Amount
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {services.map((li, i) => (
+            <tr
+              key={i}
+              className={`border-b border-edge-subtle last:border-0 ${li.isNew ? NEW : ''}`}
+            >
+              <td className="py-2.5 text-primary">{li.description}</td>
+              <td className={`${TD} text-muted`}>
+                {formatQuantity(li.unit, li.quantity)}
+              </td>
+              <td className={`${TD} text-muted ${RATE}`}>
+                {formatCurrency(li.unitPrice, cur)}
+              </td>
+              <td className={`${TD} text-strong`}>
+                {formatCurrency(li.amount, cur)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+        {expenses.length > 0 ? (
+          <tbody>
+            <tr className="border-b border-edge-default text-left">
+              <th scope="colgroup" colSpan={4} className={`${TH} pt-6`}>
+                Expenses
+              </th>
+            </tr>
+            {expenses.map((li, i) => (
+              <tr
+                key={i}
+                className={`border-b border-edge-subtle last:border-0 ${li.isNew ? NEW : ''}`}
+              >
+                <td className="py-2.5 text-primary">{li.description}</td>
+                <td className={`${TD} text-muted`}>{shortDate(li.spentOn)}</td>
+                <td className={RATE} />
+                <td className={`${TD} text-strong`}>
+                  {formatCurrency(li.amount, cur)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        ) : null}
+      </table>
+
+      <dl className="ml-auto flex w-full max-w-64 flex-col gap-1.5 type-support">
+        {/* An invoice of expenses alone has no services to subtotal. */}
+        {services.length > 0 || expenses.length === 0 ? (
+          <Total
+            label={expenses.length > 0 ? 'Services' : 'Subtotal'}
+            value={formatCurrency(preview.subtotal, cur)}
+          />
+        ) : null}
+        {preview.taxRate > 0 ? (
+          <Total
+            label={`Tax (${preview.taxRate}%)`}
+            value={formatCurrency(preview.taxAmount, cur)}
+          />
+        ) : null}
+        {expenses.length > 0 ? (
+          <Total
+            label="Expenses"
+            value={formatCurrency(preview.expensesSubtotal, cur)}
+          />
+        ) : null}
+        <Total
+          label="Amount due"
+          value={formatCurrency(preview.total, cur)}
+          strong
+        />
+      </dl>
+      {terms ? (
+        <p className="-mt-3 ml-auto w-full max-w-64 type-support text-subtle">
+          {terms}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+function Total({
+  label,
+  value,
+  strong,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+}) {
+  return (
+    <div
+      className={`flex justify-between gap-4 ${
+        strong
+          ? 'mt-0.5 border-t border-edge-default pt-2 text-primary'
+          : 'text-muted'
+      }`}
+    >
+      <dt>{label}</dt>
+      <dd className={strong ? 'type-amount text-strong' : 'type-duration'}>
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+/** What page 2 onward will hold: hours only, never money. */
+function Detail({
+  detail,
+  chosen,
+}: {
+  detail: Schedules;
+  chosen: ScheduleKind[];
+}) {
+  const kinds = SCHEDULE_KINDS.filter((k) => chosen.includes(k));
+  return (
+    <div className="flex flex-col gap-5 border-t border-dashed border-edge-default pt-4">
+      <span className="type-label text-subtle">Page 2 · supporting detail</span>
+      {kinds.map((kind) => (
+        <div key={kind}>
+          <h3 className="mb-1 type-control text-strong">
+            {SCHEDULE_TITLES[kind]}
+          </h3>
+          <table className="w-full type-support">
+            <thead>
+              <tr className="border-b border-edge-default text-left">
+                {kind === 'date' ? (
+                  <th scope="col" className={TH}>
+                    Date
+                  </th>
+                ) : null}
+                <th scope="col" className={TH}>
+                  {kind === 'week' ? 'Week' : 'Project'}
+                </th>
+                <th scope="col" className={`${TH} text-right`}>
+                  Hours
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows(detail, kind).map((cells, i) => (
+                <tr key={i} className="border-b border-edge-subtle">
+                  {cells.map((cell, j) => (
+                    <td
+                      key={j}
+                      className={
+                        j === cells.length - 1
+                          ? `${TD} text-muted`
+                          : 'py-2.5 pr-3 text-primary'
+                      }
+                    >
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+              <tr>
+                <td
+                  colSpan={kind === 'date' ? 2 : 1}
+                  className="pt-2.5 type-control text-primary"
+                >
+                  Total
+                </td>
+                <td className={`${TD} text-strong`}>
+                  {formatHours(detail.totalHours)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function rows(detail: Schedules, kind: ScheduleKind): string[][] {
+  switch (kind) {
+    case 'project':
+      return (detail.project ?? []).map((r) => [
+        r.project,
+        formatHours(r.hours),
+      ]);
+    case 'week':
+      return (detail.week ?? []).map((r) => [
+        `${shortDate(r.start)} – ${shortDate(r.end)}`,
+        formatHours(r.hours),
+      ]);
+    case 'date':
+      return (detail.date ?? []).map((r) => [
+        shortDate(r.date),
+        r.project,
+        formatHours(r.hours),
+      ]);
+  }
+}

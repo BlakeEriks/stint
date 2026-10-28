@@ -743,7 +743,6 @@ function Form() {
               `xl` its caption stays put and the card scrolls under it. */}
           <div className="mt-6 min-w-0 @min-[800px]/new:mt-0 xl:flex xl:min-h-0 xl:flex-col">
             <InvoicePreviewCard
-              template={template}
               noSender={noSender}
               preview={current}
               client={client}

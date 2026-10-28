@@ -65,8 +65,9 @@ its title marked "(continued)".
 - **New invoice**: a Template field, last in the form: the same four
   templates as small thumbnails in a radio group, with a hint that it
   changes the template for every draft, here and in Settings. The preview
-  beside the form draws the invoice in the chosen template, supporting
-  detail included.
+  beside the form is unchanged: it shows what the invoice says, not its
+  look. A user's own invoice in a template is the PDF, the paid document;
+  the thumbnails draw a sample invoice.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -91,8 +92,7 @@ Classic is selected; download a draft invoice, and the PDF is in Classic.
    **Then** Modern shows as selected at once, and stays selected after a
    reload.
 3. **Given** Modern is selected, **When** they pick Creative on New invoice,
-   **Then** the preview draws the invoice in Creative, and Settings shows
-   Creative.
+   **Then** Creative shows as selected there and in Settings.
 4. **Given** Modern is selected and a draft invoice exists, **When** they
    download the draft's PDF, **Then** it is in Modern.
 5. **Given** the save fails, **When** they pick a template, **Then** the
@@ -180,8 +180,9 @@ appears, and no row is cut off or split across a page break.
 - **FR-006**: Users MUST be able to choose the template in Settings and on
   New invoice, from a thumbnail of each template. Both MUST read and write
   the one account setting.
-- **FR-007**: The preview on New invoice MUST draw the invoice in the chosen
-  template, supporting detail included.
+- **FR-007**: The invoice preview, on New invoice and an invoice's page,
+  MUST stay as it is: what the invoice says, not its template. Only the PDF
+  shows a user's own invoice in a template.
 - **FR-008**: A draft invoice MUST render in the template currently chosen.
 - **FR-009**: Marking an invoice sent MUST freeze its template; a later
   change to the setting MUST NOT change any sent or voided invoice.

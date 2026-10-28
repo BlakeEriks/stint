@@ -12,17 +12,18 @@
   copy); refuse Mark sent as `DRAFT_CHANGED` (a template is not a change in
   what is billed, and would force a pointless re-download).
 
-## How the on-screen preview shows a template
+## Where a template shows before the PDF
 
-- **Decision**: `InvoicePreviewCard` takes `template` and draws each template
-  in HTML and CSS, with the same faces loaded through `next/font/local`. The
-  same component, scaled, is every thumbnail.
+- **Decision**: only in the thumbnails, which draw a sample invoice in each
+  template in HTML, with the same faces loaded through `next/font/local`. The
+  invoice preview stays as it is: what the invoice says, not its look.
 - **Rationale**: the real PDF is the paid product; the PDF route refuses free
-  accounts, and a PDF shown in the browser can be saved. The card already
-  mirrors Standard in HTML, so this extends a pattern rather than adding one.
-- **Alternatives**: render the PDF in the browser with `@react-pdf/renderer`
-  (leaks the paid document, adds the renderer to the client bundle);
-  server-rendered page images (a new rasterizer and the same leak).
+  accounts. A user's own invoice drawn in a template on screen would give the
+  presentation away, and it would be a second full-size copy of each
+  template to keep in step with the PDF.
+- **Alternatives**: the preview drawn in the template (gives the look away,
+  and doubles the drawing at full size, supporting detail included); the PDF
+  rendered in the browser (leaks the paid document itself).
 
 ## Fonts in the PDF
 

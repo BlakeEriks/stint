@@ -13,8 +13,8 @@ template; each template supplies its fonts, page geometry and section
 components, and the shell keeps every shared rule (VOID, supporting-detail
 pagination, footer). A draft renders in the current setting; `send_draft`
 freezes `invoices.template` from the PDF the client was given, else the
-setting. The on-screen preview card takes a `template` prop and draws each
-template in HTML, which also gives the Settings and New invoice thumbnails.
+setting. The thumbnails in Settings and on New invoice draw a sample
+invoice in each template in HTML; the invoice preview is unchanged.
 
 ## Technical Context
 
@@ -42,14 +42,14 @@ render (FR-004); no new fixed cost; the real PDF stays behind the paid tier,
 so no screen shows it free
 
 **Scale/Scope**: 4 templates × (page 1 + detail pages); 3 screens touched
-(Settings, New invoice, the invoice screen's preview)
+(Settings, New invoice)
 
 ## Constitution Check
 
 | Principle (`.specify/memory/constitution.md`) | Applies | How the design meets it |
 | --- | --- | --- |
 | I. Never silently modifies user data | Yes | Choosing a template changes only the setting. A sent invoice's template is never rewritten; existing sent and void invoices are backfilled to `standard`, the look they already have. |
-| II. Logic written twice has a parity test | No | The template is resolved once, in TypeScript (`invoice.template ?? settings.invoiceTemplate`); SQL only stores it. The HTML preview duplicates presentation, not logic. |
+| II. Logic written twice has a parity test | No | The template is resolved once, in TypeScript (`invoice.template ?? settings.invoiceTemplate`); SQL only stores it. The HTML thumbnails duplicate presentation, not logic. |
 | III. Every client through `/api/v1` | Yes | The setting goes through `PATCH /api/v1/settings`; the freeze happens inside the existing Mark sent route. No Server Actions. |
 | IV. `packages/core` does no I/O | Yes | Nothing new in core. `paginateSchedules` already takes rows per page; each template passes its own. |
 | V. Tests first where a regression is silent | Yes | Route tests for the setting, the freeze and the backfill; a ui test for the picker's prediction and rollback; a story per template and per picker state. |
@@ -84,17 +84,15 @@ apps/web/src/lib/invoice-templates/
   shared.tsx  fonts.ts                             # helpers; Font.register, once, from bundled TTFs
   standard.tsx  modern.tsx  classic.tsx  creative.tsx
 apps/web/src/fonts/pdf/*.ttf + OFL.txt             # Outfit, EB Garamond, Space Grotesk, IBM Plex Mono
-apps/web/src/fonts/*.woff2                         # the same faces for the preview
+apps/web/src/fonts/*.woff2                         # the same faces for the thumbnails
 apps/web/src/app/fonts.ts                          # next/font/local, preload: false
 apps/web/next.config.ts                            # outputFileTracingIncludes for the PDF route
 apps/web/src/lib/invoicing.ts                      # template in pdfData, snapshot, sendDraft
 apps/web/src/app/api/v1/settings/route.ts          # invoice_template read and write
-apps/web/src/components/invoice-paper.tsx          # the invoice on paper, one look per template
-apps/web/src/components/invoice-preview-card.tsx   # template prop; draws the paper
+apps/web/src/components/invoice-paper.tsx          # a sample invoice on paper, one look per template
 apps/web/src/components/template-picker.tsx        # radio group of thumbnails, two sizes
 apps/web/src/components/settings-page.tsx          # Invoice template section
-apps/web/src/components/invoice-new.tsx            # Template field; preview in the template
-apps/web/src/components/invoice-detail.tsx         # preview in the effective template
+apps/web/src/components/invoice-new.tsx            # Template field
 apps/web/scripts/render-sample-invoice.mjs         # one sample PDF per template
 apps/web/test/routes.test.ts, invoices.test.ts, ui/template-picker.test.tsx
 ```
