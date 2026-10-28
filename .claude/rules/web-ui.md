@@ -92,6 +92,8 @@ separate: a role says how text is set, not what it means.
 Need something the scale lacks? Add a role, with a reason — `pnpm check:type`
 runs in CI and rejects anything off it. A typo'd role compiles to **no CSS, no
 warning, exit 0**, which is why it is a check rather than a convention.
+It skips vendored `components/ui/` and `invoice-paper.tsx`, which sets each
+invoice template's own printed type rather than a role.
 
 `Foundations/Type` in Storybook sets every role in itself.
 
