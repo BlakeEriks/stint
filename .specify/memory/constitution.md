@@ -86,6 +86,16 @@ outlives the screen that pressed — never silently (Principle I).
 A section switches without a server round trip: its route is static, and
 `(app)/loading.tsx` answers any route that isn't.
 
+### VII. A feature names what it removes
+
+Complexity arrives one reasonable state at a time, and a refactor cannot
+take a state back. Every plan lists the states, settings and code paths it
+makes unnecessary, and removes them in the same feature, or says why none.
+A new state, setting or mode justifies itself against what is already
+there: one an existing state covers is cut in the spec, not built.
+Nobody waits to retire something a user sees: the PR names the cut, and
+the reviewer decides at review.
+
 ## Additional Constraints
 
 Facts a design works around:
@@ -120,4 +130,4 @@ change, the plausible design that breaks it, and why no check catches that
 in time. The version follows semver: MAJOR removes or redefines a principle,
 MINOR adds one, PATCH rewords. The reasoning goes in the PR.
 
-**Version**: 8.0.5 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-10-27
+**Version**: 8.1.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-10-28
