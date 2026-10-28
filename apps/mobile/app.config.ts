@@ -40,11 +40,17 @@ const config: ExpoConfig = {
     // Copied here by an EAS build hook (scripts/google-services.mjs).
     ...(target.push ? { googleServicesFile: './google-services.json' } : {}),
   },
-  plugins: ['expo-secure-store', 'expo-font', 'expo-notifications'],
+  plugins: [
+    'expo-secure-store',
+    'expo-font',
+    'expo-notifications',
+    ...sentry(),
+  ],
   ...updates(),
   extra: {
     env,
     push: target.push,
+    sentryDsn: target.name === 'prod' ? process.env.SENTRY_DSN : undefined,
     appleTeamId: process.env.APPLE_TEAM_ID,
     ...(process.env.EAS_PROJECT_ID
       ? { eas: { projectId: process.env.EAS_PROJECT_ID } }
@@ -68,4 +74,23 @@ function updates(): Pick<ExpoConfig, 'updates' | 'runtimeVersion'> {
     updates: { url: `https://u.expo.dev/${projectId}` },
     runtimeVersion: { policy: 'fingerprint' },
   };
+}
+
+/**
+ * The build uploads source maps and debug symbols when EAS holds
+ * `SENTRY_AUTH_TOKEN`; without it the build still passes, and stacks stay
+ * minified.
+ */
+function sentry(): NonNullable<ExpoConfig['plugins']> {
+  if (target.name !== 'prod') return [];
+  return [
+    [
+      '@sentry/react-native',
+      {
+        organization: 'stint-i5',
+        project: 'stint-mobile',
+        disableAutoUpload: !process.env.SENTRY_AUTH_TOKEN,
+      },
+    ],
+  ];
 }

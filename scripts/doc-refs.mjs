@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Fails when a foundational doc names a path or a pnpm script that no longer
-// exists. /doc-drift judges prose on each PR; this is the deterministic half,
+// exists, or when `docs/api.md`'s error table disagrees with the schema's. /doc-drift judges prose on each PR; this is the deterministic half,
 // so a rename that forgets a doc fails `verify:static` instead of rotting.
 
 import { execSync, spawnSync } from 'node:child_process';
@@ -140,12 +140,35 @@ for (const doc of DOCS) {
   }
 }
 
+// `docs/api.md`'s error table: every code in `ERROR_STATUS` at its status,
+// and `INTERNAL`, which only `handle()` answers with.
+const { ERROR_STATUS } = await import('../packages/schema/src/errors.ts');
+const statuses = { ...ERROR_STATUS, INTERNAL: 500 };
+const api = existsSync('docs/api.md')
+  ? readFileSync('docs/api.md', 'utf8')
+  : '';
+const rows = new Map(
+  [...api.matchAll(/^\| `([A-Z_]+)` \| (\d+) \|/gm)].map(([, code, status]) => [
+    code,
+    Number(status),
+  ]),
+);
+for (const [code, status] of api ? Object.entries(statuses) : []) {
+  if (!rows.has(code))
+    missing.push(`docs/api.md: no row for the error \`${code}\``);
+  else if (rows.get(code) !== status)
+    missing.push(
+      `docs/api.md: \`${code}\` is ${rows.get(code)} there, ${status} in ERROR_STATUS`,
+    );
+}
+for (const code of rows.keys())
+  if (!(code in statuses))
+    missing.push(`docs/api.md: \`${code}\` is not in ERROR_STATUS`);
+
 if (missing.length) {
-  console.error(
-    `${missing.length} dead reference(s):\n  ${missing.join('\n  ')}`,
-  );
+  console.error(`${missing.length} finding(s):\n  ${missing.join('\n  ')}`);
   process.exit(1);
 }
 console.log(
-  `doc refs: ${DOCS.length} docs, every named path and script exists`,
+  `doc refs: ${DOCS.length} docs, every named path and script exists, and the error table matches`,
 );
