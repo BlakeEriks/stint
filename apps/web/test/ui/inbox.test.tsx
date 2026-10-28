@@ -100,52 +100,6 @@ const due = {
 };
 
 describe('A scheduled period that ended with no invoice', () => {
-  it('names a calendar month by its name, and links New invoice to it', () => {
-    render(<Inbox stats={stats({ periodsDue: [due] })} />, { wrapper });
-
-    expect(
-      screen.getByText('September ended with no invoice'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('15h')).toBeInTheDocument();
-    const href = '/invoices/new?client=c1&from=2026-09-01&to=2026-09-30';
-    expect(
-      screen.getByRole('link', { name: 'Create invoice, Northwind' }),
-    ).toHaveAttribute('href', href);
-    // Navigates, never downloads.
-    expect(
-      screen.getByRole('link', { name: 'Create invoice, Northwind' }),
-    ).not.toHaveAttribute('download');
-    expect(screen.getByRole('link', { name: 'Northwind' })).toHaveAttribute(
-      'href',
-      href,
-    );
-  });
-
-  it('names any other period by its dates', () => {
-    render(
-      <Inbox
-        stats={stats({
-          periodsDue: [
-            { ...due, periodStart: '2026-10-01', periodEnd: '2026-10-15' },
-            {
-              ...due,
-              clientId: 'c2',
-              periodStart: '2026-09-28',
-              periodEnd: '2026-10-04',
-            },
-          ],
-        })}
-      />,
-      { wrapper },
-    );
-    expect(
-      screen.getByText('Oct 1 – 15 ended with no invoice'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('Sep 28 – Oct 4 ended with no invoice'),
-    ).toBeInTheDocument();
-  });
-
   it('counts in the header', () => {
     expect(inboxCount(stats({ periodsDue: [due] }).attention)).toBe(1);
   });

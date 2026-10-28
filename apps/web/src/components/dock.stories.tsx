@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { localDateKey } from '@stint/core';
 import { account } from '@/mocks/db';
-import { ids, type Db } from '@/mocks/fixtures';
+import { entry, ids, type Db } from '@/mocks/fixtures';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { desktop, expectOpen, stalled, tablet } from '@/mocks/screen';
 import { ZONE } from '@/mocks/time.mts';
@@ -163,6 +163,49 @@ export const PeriodDue: Story = {
       'href',
       `/invoices/new?client=${ids.northwind}&from=2026-09-01&to=2026-09-15`,
     );
+    await expect(
+      page.getByRole('link', { name: 'Create invoice, Northwind Trading' }),
+    ).not.toHaveAttribute('download');
+  },
+};
+
+/** Billed monthly, a client's whole month is named, not its dates: with
+    Meridian's August invoices voided and work left in August, August is
+    due. */
+export const PeriodDueMonthly: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    for (const c of db.clients)
+      if (c.id === ids.meridian) c.billingSchedule = { period: 'monthly' };
+    for (const i of db.invoices)
+      if (i.clientId === ids.meridian && i.periodStart.startsWith('2026-08'))
+        i.status = 'void';
+    db.entries.push(
+      entry(990, '2026-08-20', '09:00', 120, ids.pipeline, 'August audit'),
+    );
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      await page.findByText('August ended with no invoice'),
+    ).toBeVisible();
+  },
+};
+
+/** A period across a month's end names both months: billed every two weeks
+    from August 27, the one that last ended is August 27 to September 9. */
+export const PeriodDueAcrossMonths: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    for (const c of db.clients)
+      if (c.id === ids.northwind)
+        c.billingSchedule = { period: 'biweekly', anchor: '2026-08-27' };
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      await page.findByText('Aug 27 – Sep 9 ended with no invoice'),
+    ).toBeVisible();
   },
 };
 
