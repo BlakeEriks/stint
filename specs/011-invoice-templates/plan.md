@@ -79,9 +79,9 @@ specs/011-invoice-templates/
 ```text
 supabase/migrations/<ts>_invoice_templates.sql     # columns, check, backfill, send_draft
 packages/schema/src/index.ts                       # InvoiceTemplate enum; Settings, Invoice
-apps/web/src/lib/invoice-templates/                    # replaces invoice-pdf.tsx
-  document.tsx                                     # shell: pages, VOID, detail pagination, footer
-  fonts.ts                                         # Font.register, once, from bundled TTFs
+apps/web/src/lib/invoice-pdf.tsx                   # shell: pages, VOID, detail pagination, footer
+apps/web/src/lib/invoice-templates/
+  shared.tsx  fonts.ts                             # helpers; Font.register, once, from bundled TTFs
   standard.tsx  modern.tsx  classic.tsx  creative.tsx
 apps/web/src/fonts/pdf/*.ttf + OFL.txt             # Outfit, EB Garamond, Space Grotesk, IBM Plex Mono
 apps/web/src/fonts/*.woff2                         # the same faces for the preview
@@ -89,7 +89,8 @@ apps/web/src/app/fonts.ts                          # next/font/local, preload: f
 apps/web/next.config.ts                            # outputFileTracingIncludes for the PDF route
 apps/web/src/lib/invoicing.ts                      # template in pdfData, snapshot, sendDraft
 apps/web/src/app/api/v1/settings/route.ts          # invoice_template read and write
-apps/web/src/components/invoice-preview-card.tsx   # template prop; one look per template
+apps/web/src/components/invoice-paper.tsx          # the invoice on paper, one look per template
+apps/web/src/components/invoice-preview-card.tsx   # template prop; draws the paper
 apps/web/src/components/template-picker.tsx        # radio group of thumbnails, two sizes
 apps/web/src/components/settings-page.tsx          # Invoice template section
 apps/web/src/components/invoice-new.tsx            # Template field; preview in the template
@@ -98,9 +99,11 @@ apps/web/scripts/render-sample-invoice.mjs         # one sample PDF per template
 apps/web/test/routes.test.ts, invoices.test.ts, ui/template-picker.test.tsx
 ```
 
-**Structure Decision**: the web app only. The PDF splits into a directory
-because four layouts in one 800-line file would bury the shared rules; the
-shell owns those rules so no template can drop one (FR-003).
+**Structure Decision**: the web app only. The PDF splits into a shell and
+one module per template because four layouts in one 800-line file would bury
+the shared rules; the shell owns those rules so no template can drop one
+(FR-003). The modules sit in `invoice-templates/`, not `invoice-pdf/`, so
+`@/lib/invoice-pdf` still resolves to the shell under the test loader.
 
 ## Complexity Tracking
 

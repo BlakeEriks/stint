@@ -89,7 +89,7 @@ begin
     due_date          = (p_invoice->>'due_date')::date,
     payment_terms     = p_invoice->>'payment_terms',
     tz                = p_invoice->>'tz',
-    template          = p_invoice->>'template',
+    template          = coalesce(p_invoice->>'template', template),
     status            = 'sent',
     sent_at           = p_sent_at
    where id = p_invoice_id

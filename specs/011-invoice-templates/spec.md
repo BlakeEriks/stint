@@ -60,8 +60,8 @@ its title marked "(continued)".
   Invoice numbering. Four cards in a radio group, each a thumbnail of the
   invoice in that template with its name and a line on what it is; the
   chosen card is edged in the accent with a check. A press selects at once
-  and autosaves, with the section's save indicator. A refused save returns
-  the selection to the saved template and says why under the cards.
+  and saves. A refused save returns the selection to the saved template,
+  and the app-wide notice says why.
 - **New invoice**: a Template field, last in the form: the same four
   templates as small thumbnails in a radio group, with a hint that it
   changes the template for every draft, here and in Settings. The preview
