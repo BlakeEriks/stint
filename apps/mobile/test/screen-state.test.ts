@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { ApiError } from '@stint/client';
 import {
   chooseNotice,
+  notificationAccess,
+  notificationStep,
   projectLookup,
   recentTasks,
   wholeMinutes,
@@ -84,11 +86,11 @@ test('a refused press is shown before a failed read', () => {
 });
 
 test("a failed read says Stint can't be reached", () => {
-  assert.equal(chooseNotice(null, new TypeError('x'))?.tone, 'offline');
+  assert.match(chooseNotice(null, new TypeError('x'))?.message ?? '', /reach/);
   assert.equal(
     chooseNotice(null, new ApiError(503, { code: 'UNKNOWN', message: '' }))
-      ?.tone,
-    'offline',
+      ?.message,
+    'Can’t reach Stint. Check your internet connection.',
   );
 });
 
@@ -103,4 +105,69 @@ test('Today reads 0m until the first minute is up', () => {
   assert.equal(wholeMinutes(59), '0m');
   assert.equal(wholeMinutes(61), '1m');
   assert.equal(wholeMinutes(3 * 3600 + 30 * 60 + 59), '3h 30m');
+});
+
+test('notifications: granted is on; refused for good is off; else ask', () => {
+  assert.equal(notificationAccess({ granted: true, canAskAgain: false }), 'on');
+  assert.equal(
+    notificationAccess({ granted: false, canAskAgain: true }),
+    'ask',
+  );
+  assert.equal(
+    notificationAccess({ granted: false, canAskAgain: false }),
+    'off',
+  );
+});
+
+test('notifications off say so, with a way to turn them on', () => {
+  const open = () => {};
+  assert.deepEqual(chooseNotice(null, null, open), {
+    tone: 'warning',
+    message: 'Notifications are off, so a running timer isn’t pinned.',
+    action: { label: 'Turn on', onPress: open },
+  });
+});
+
+test('a refused press or a failed read comes before notifications off', () => {
+  const open = () => {};
+  const dismiss = () => {};
+  assert.equal(
+    chooseNotice({ message: 'No.', dismiss }, null, open)?.tone,
+    'error',
+  );
+  assert.match(
+    chooseNotice(null, new TypeError('x'), open)?.message ?? '',
+    /reach/,
+  );
+});
+
+const granted = { granted: true, canAskAgain: false };
+const askable = { granted: false, canAskAgain: true };
+const refused = { granted: false, canAskAgain: false };
+
+test('a launch asks once while Android still will', () => {
+  assert.equal(notificationStep(null, askable, false).ask, true);
+  assert.deepEqual(notificationStep(null, askable, true), {
+    ask: false,
+    next: 'off',
+    redraw: false,
+  });
+});
+
+test('notifications coming on redraw; staying on does not', () => {
+  assert.deepEqual(notificationStep(null, granted, false), {
+    ask: false,
+    next: 'on',
+    redraw: true,
+  });
+  assert.equal(notificationStep('off', granted, true).redraw, true);
+  assert.equal(notificationStep('on', granted, true).redraw, false);
+});
+
+test('refused for good is off, with no prompt', () => {
+  assert.deepEqual(notificationStep('on', refused, false), {
+    ask: false,
+    next: 'off',
+    redraw: false,
+  });
 });

@@ -87,7 +87,7 @@ export function InvoicePreviewCard({
   notes,
   heading = true,
   noSender = false,
-  footnote = 'Generating assigns a number and locks these entries. Voiding later keeps the number on record.',
+  footnote,
   entryAction,
   children,
 }: {
@@ -111,18 +111,15 @@ export function InvoicePreviewCard({
   heading?: boolean;
   /** No business name or email yet: a draft marks where they will print. */
   noSender?: boolean;
+  /** Under the card, after `children`. */
   footnote?: string;
   /** Beside the entry count: an action on the entries it counts. */
   entryAction?: React.ReactNode;
-  /** Warnings and errors, above the last line. */
+  /** Warnings and errors, under the card. */
   children?: React.ReactNode;
 }) {
   const terms =
-    paymentTerms === undefined
-      ? due && due >= issued
-        ? paymentTermsText(issued, due)
-        : null
-      : paymentTerms;
+    paymentTerms === undefined ? termsFrom(issued, due) : paymentTerms;
   const scrollerFocus = useScrollerFocus();
 
   return (
@@ -147,55 +144,80 @@ export function InvoicePreviewCard({
         ) : null}
       </div>
 
-      {/* The scroller is around the card, not in it: the card moves as one
-          page, edges and all, while the caption above keeps "Updating…" in
-          view. */}
-      <div tabIndex={scrollerFocus} className="min-h-0 overflow-y-auto">
-        <div className="@container/card flex flex-col gap-5 rounded-lg border border-edge-subtle bg-surface-elevated p-6">
-          {client ? (
-            <div
-              className={`flex flex-col gap-5 transition-opacity duration-150 ${
-                updating ? 'opacity-50' : ''
-              }`}
-            >
-              <From
-                business={business}
-                noSender={noSender}
-                number={number}
-                issued={issued}
-                due={due}
+      {client ? (
+        /* The scroller is around the card, not in it: the card moves as one
+           page, edges and all, while the caption above keeps "Updating…" in
+           view. */
+        <div tabIndex={scrollerFocus} className="min-h-0 overflow-y-auto">
+          <div
+            className={`@container/card flex flex-col gap-5 rounded-lg border border-edge-subtle bg-surface-elevated p-6 transition-opacity duration-150 ${
+              updating ? 'opacity-50' : ''
+            }`}
+          >
+            <From
+              business={business}
+              noSender={noSender}
+              number={number}
+              issued={issued}
+              due={due}
+            />
+            <To client={client} preview={preview} reference={reference} />
+
+            {preview?.lineItems ? (
+              <Lines
+                preview={{ ...preview, lineItems: preview.lineItems }}
+                terms={terms}
               />
-              <To client={client} preview={preview} reference={reference} />
+            ) : null}
 
-              {preview?.lineItems ? (
-                <Lines
-                  preview={{ ...preview, lineItems: preview.lineItems }}
-                  terms={terms}
-                />
-              ) : null}
+            {payment ? <Payment payment={payment} /> : null}
 
-              {payment ? <Payment payment={payment} /> : null}
+            {notes ? <Notes notes={notes} /> : null}
 
-              {notes ? <Notes notes={notes} /> : null}
-
-              {preview?.schedules?.totalHours && schedules.length > 0 ? (
-                <Detail detail={preview.schedules} chosen={schedules} />
-              ) : null}
-            </div>
-          ) : (
-            <p className="type-support text-subtle">
-              Choose a client to see what this invoice will say.
-            </p>
-          )}
-
-          {children}
-
-          <p className="border-t border-edge-subtle pt-3 type-support text-subtle">
-            {footnote}
-          </p>
+            {preview?.schedules?.totalHours && schedules.length > 0 ? (
+              <Detail detail={preview.schedules} chosen={schedules} />
+            ) : null}
+          </div>
         </div>
-      </div>
+      ) : (
+        <p className="px-1 type-support text-subtle">
+          Choose a client to see what this invoice will say.
+        </p>
+      )}
+
+      <UnderCard noSender={Boolean(client) && noSender} footnote={footnote}>
+        {children}
+      </UnderCard>
     </section>
+  );
+}
+
+/** The terms generation will freeze, made from `issued` and `due`. */
+function termsFrom(issued: string, due: string): string | null {
+  return due && due >= issued ? paymentTermsText(issued, due) : null;
+}
+
+/** The card reads as the PDF will, so anything that won't print goes here,
+    below it. */
+function UnderCard({
+  noSender,
+  footnote,
+  children,
+}: {
+  noSender: boolean;
+  footnote: string | undefined;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1 px-1 pt-2.5 empty:hidden">
+      {noSender ? (
+        <p className="type-support text-subtle">
+          Your business name and email print in the dashed box.
+        </p>
+      ) : null}
+      {children}
+      {footnote ? <p className="type-support text-subtle">{footnote}</p> : null}
+    </div>
   );
 }
 
@@ -234,10 +256,11 @@ function From({
     <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
       {noSender ? (
         /* Where the sender prints, marked as missing rather than left
-           blank: New invoice's notice asks for it. */
-        <p className="min-w-0 flex-[1_1_200px] self-start rounded-md border border-dashed border-edge-control px-2.5 py-2 type-support text-subtle">
-          Your business name and email go here
-        </p>
+           blank; the line under the card says what goes in it. */
+        <div
+          aria-hidden
+          className="min-h-14 min-w-0 flex-[1_1_200px] self-start rounded-md border border-dashed border-edge-control"
+        />
       ) : (
         <Party
           name={business ? (business.name ?? 'Invoice') : ''}
@@ -397,9 +420,7 @@ function Lines({
   if (preview.lineItems.length === 0) {
     return (
       <p className="type-support text-subtle">
-        Nothing to bill: no billable, un-invoiced time in this period, and no
-        expenses or charges. Running timers and non-billable entries never reach
-        an invoice.
+        Nothing to bill in this period.
       </p>
     );
   }

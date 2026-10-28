@@ -27,9 +27,10 @@ Shared plumbing in `apps/web/src/lib/`:
   `{ data: null, error: null }` — no error, no claims, and every bearer
   request 401s. The route tests inject `__TEST_DB__` and never exercise this
   path, so only a real token against a real server catches it.
-- `errors.ts` — `handle()` wraps every route; `ApiError` maps to documented
-  status codes. `Code` is `z.infer<typeof ErrorCode>` from `@stint/schema`, so
-  `STATUS: Record<Code, number>` fails to compile when a code is missing.
+- `errors.ts` — `handle()` wraps every route; `ApiError` answers with its
+  code's status from `ERROR_STATUS` in `@stint/schema`, the one table of
+  codes. A new code goes there, and in `docs/api.md`'s table, which
+  `scripts/doc-refs.mjs` checks against it.
 - `rows.ts` — the only snake_case↔camelCase boundary, invoices and line
   items included. Rename a column here and nowhere else.
 

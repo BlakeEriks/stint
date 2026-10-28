@@ -18,7 +18,7 @@ function arrival(
 ): Stats {
   return {
     currency: 'USD',
-    unbilled: { total, seconds, byClient: [], moreClients: 0 },
+    unbilled: { total, mixed: false, seconds, byClient: [], moreClients: 0 },
     earnedToday: 0,
     week: [],
     month: {

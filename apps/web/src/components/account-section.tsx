@@ -25,7 +25,7 @@ import { useAccount } from '@/lib/client/use-account';
  * Typing the email back is the gate to deleting: it cannot be clicked through
  * by habit, and it names which account for someone signed in to more than
  * one. The dialog counts what goes before asking. Deletion is all or nothing,
- * which is what makes "nothing was removed" true when it fails. The fill is
+ * so a failure removed nothing and the user can simply try again. The fill is
  * red on the confirm only, there is no accent in the dialog, and success
  * lands on `/signin`.
  */
@@ -168,7 +168,7 @@ function DeleteAccountDialog({
 
           {remove.isError ? (
             <p role="alert" className="type-support text-danger">
-              Not deleted — nothing was removed. Try again.
+              Couldn't delete your account. Try again.
             </p>
           ) : null}
 

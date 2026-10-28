@@ -191,7 +191,13 @@ describe('an inbox row leaving', () => {
   function stats(attention: Partial<Stats['attention']> = {}): Stats {
     return {
       currency: 'USD',
-      unbilled: { total: 0, seconds: 0, byClient: [], moreClients: 0 },
+      unbilled: {
+        total: 0,
+        mixed: false,
+        seconds: 0,
+        byClient: [],
+        moreClients: 0,
+      },
       week: [],
       month: {
         earned: 0,
@@ -250,7 +256,7 @@ describe('an inbox row leaving', () => {
     await waitFor(() => expect(statsFetches()).toHaveLength(1));
 
     await user.click(
-      screen.getByRole('button', { name: 'Mark STINT-0001 paid' }),
+      screen.getByRole('button', { name: 'Mark paid, STINT-0001' }),
     );
 
     // The write went; the row is playing out and is still on screen.

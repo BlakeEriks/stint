@@ -4,7 +4,7 @@ Every client (web and the macOS app) uses these endpoints, and an endpoint
 not built yet is marked `(not implemented)`. Auth is a Supabase JWT as
 `Authorization: Bearer <token>`, on every endpoint except `/health` and the
 Stripe webhook, which Stripe's signature authenticates instead. Request/response shapes are defined in
-`packages/schema/src/index.ts` — that file is the source of truth, and every
+`packages/schema/src/`, one file per resource — that is the source of truth, and every
 route parses its request against it; this document is the map.
 
 Handlers are covered by integration tests that run the real route code against
@@ -106,9 +106,11 @@ invoiced — here or, for an entry marked `invoiced_elsewhere`, anywhere — `aw
 money that arrived. `openInvoiceCount` is how many invoices make up the
 second.
 
-**Only invoices in the response's `currency` count**, since the screen prints
-one currency beside the figure and a euro added in would be reported as a
-dollar. `collected.daysSincePaid` is whole calendar days in `tz` from the
+**Only invoices in the response's `currency` count, and only its work counts
+toward `unbilled.total`**, since the screen prints one currency beside the
+figure and a euro added in would be reported as a dollar. `unbilled.mixed` is
+true when work in another currency was left out of `unbilled.total`.
+`collected.daysSincePaid` is whole calendar days in `tz` from the
 latest `paid_at` in that same currency, and **null** when nothing in it has
 ever been paid or that `paid_at` is in the future.
 
@@ -123,7 +125,7 @@ moves no figure. It still never reaches an invoice (see Invoices).
 
 **Rows are capped and the remainder is reported, never dropped.** `unbilled`
 carries 5 rows plus a `moreClients` count. The total still covers every
-client.
+client in `currency`.
 
 **`month` is the screen's subject and needs no target.** `month.earned` is
 the month so far; `month.projected` carries its trailing rate to the last
@@ -413,6 +415,7 @@ preference — `.claude/rules/invoicing.md` has the reason.
 | `NO_TIMER_RUNNING` | 409 | Nothing to stop. |
 | `ENTRY_LOCKED` | 409 | Billed on a non-draft invoice. |
 | `EXPENSE_LOCKED` | 409 | An expense billed on a non-draft invoice. |
+| `EXPENSE_ALREADY_INVOICED` | 409 | The database's refusal when another invoice took an expense. Marking a draft sent answers it as `ENTRY_ALREADY_INVOICED`. |
 | `ENTRY_ALREADY_INVOICED` | 409 | Marking a draft sent: another invoice billed an entry or expense in its period, or an entry was marked billed elsewhere, at the same moment. Open the draft again. Or a mark named an entry already on an invoice. |
 | `INVOICE_STATUS_CHANGED` | 409 | Another request changed the invoice's status first. Read it again. |
 | `DRAFT_CHANGED` | 409 | The draft moved since its PDF was rendered. Download it again, then mark it sent. |

@@ -207,11 +207,11 @@ export const StaleDraftBlocked: Story = {
     await expect(row?.querySelector('a[href^="/invoices/"]')).not.toBeNull();
     await expect(
       within(row as HTMLElement).queryByRole('button', {
-        name: /^Mark .* sent$/,
+        name: /^Mark sent, /,
       }),
     ).toBeNull();
     await expect(
-      within(row as HTMLElement).queryByRole('link', { name: /^Download / }),
+      within(row as HTMLElement).queryByRole('link', { name: /^Download, / }),
     ).toBeNull();
   },
 };
@@ -235,11 +235,11 @@ export const StaleDraftDownloaded: Story = {
     const row = (await inbox.findByText(/^Draft, \d+d old$/)).closest('li');
     await expect(
       within(row as HTMLElement).getByRole('button', {
-        name: /^Mark .* sent$/,
+        name: /^Mark sent, /,
       }),
     ).toBeVisible();
     await expect(
-      within(row as HTMLElement).queryByRole('link', { name: /^Download / }),
+      within(row as HTMLElement).queryByRole('link', { name: /^Download, / }),
     ).toBeNull();
   },
 };
@@ -393,6 +393,34 @@ export const InternalToday: Story = {
   },
 };
 
+/** Six tasks today: the list scrolls, and the keyboard can reach it. */
+export const TodayScrolls: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    const today = localDateKey(db.now, ZONE);
+    for (const [i, task] of [
+      'Standup',
+      'Code review',
+      'Release notes',
+      'Client call',
+      'Bug triage',
+      'Planning',
+    ].entries())
+      db.entries.push(
+        entry(9100 + i, today, `0${i}:00`, 30, ids.warehouse, task),
+      );
+  }),
+  play: async ({ canvasElement }) => {
+    const list = await within(canvasElement).findByRole('region', {
+      name: "Today's tasks",
+    });
+    await waitFor(() =>
+      expect(list.scrollHeight).toBeGreaterThan(list.clientHeight),
+    );
+    await expect(list).toHaveAttribute('tabindex', '0');
+  },
+};
+
 /** The figures failed to load: the panel says so, never blank. */
 export const Failed: Story = {
   ...desktop,
@@ -448,6 +476,20 @@ export const MonthStart: Story = {
     await expect(
       within(axis.parentElement as HTMLElement).getByText('Sep 1'),
     ).not.toBeVisible();
+  },
+};
+
+/** A client billed in euros: Unbilled totals the dollars alone and says
+ *  other currencies are left out, rather than adding euros to dollars. */
+export const OtherCurrency: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    for (const c of db.clients.slice(1)) c.currency = 'EUR';
+  }),
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByText('Other currencies not included'),
+    ).toBeVisible();
   },
 };
 

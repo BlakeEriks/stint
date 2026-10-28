@@ -119,7 +119,7 @@ export const PickProject: Story = {
     await userEvent.click(screen.getByRole('button', { name: /^Project:/ }));
     const sheet = within(document.body);
     await userEvent.click(
-      await sheet.findByRole('button', { name: /Data pipeline audit/ }),
+      await sheet.findByRole('button', { name: /^Data pipeline audit/ }),
     );
     await userEvent.click(screen.getByRole('button', { name: 'Start timer' }));
     await expect(args.onStart).toHaveBeenCalledWith('', 'p-pipeline');
@@ -145,7 +145,7 @@ export const StartRecent: Story = {
   play: async ({ canvasElement, args }) => {
     const screen = within(canvasElement);
     await userEvent.click(
-      screen.getByRole('button', { name: 'Start Sprint planning' }),
+      screen.getByRole('button', { name: /^Start Sprint planning / }),
     );
     await expect(args.onRecent).toHaveBeenCalledWith(recent[3]);
   },
@@ -173,9 +173,27 @@ export const Refused: Story = {
 export const Offline: Story = {
   args: {
     notice: {
-      tone: 'offline',
+      tone: 'warning',
       message: 'Can’t reach Stint. Check your internet connection.',
     },
+  },
+};
+
+/** Notifications off: the pinned timer can't show, and the screen says so. */
+export const NotificationsOff: Story = {
+  args: {
+    running,
+    notice: {
+      tone: 'warning',
+      message: 'Notifications are off, so a running timer isn’t pinned.',
+      action: { label: 'Turn on', onPress: fn() },
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const screen = within(canvasElement);
+    await expect(screen.getByRole('alert')).toHaveTextContent(/isn’t pinned/);
+    await userEvent.click(screen.getByRole('button', { name: 'Turn on' }));
+    await expect(args.notice?.action?.onPress).toHaveBeenCalled();
   },
 };
 

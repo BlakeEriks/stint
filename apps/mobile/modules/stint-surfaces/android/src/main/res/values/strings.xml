@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="stint_widget_row">The running timer and Stop, or Start, in one row</string>
+    <string name="stint_widget_square">The running timer and Stop, or Start, in a square</string>
+    <string name="stint_tile">Stint</string>
+    <string name="stint_channel">Running timer</string>
+</resources>

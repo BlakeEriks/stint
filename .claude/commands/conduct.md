@@ -27,6 +27,11 @@ work out, keep track of who has it, and tell the owner only what needs them.
 Follow-ups go to the session or builder that already has the context, never
 a new one.
 
+**Feedback the owner gives here** goes to that PR's builder as a round, and
+onto the PR in the same step: a marked comment (`/work-issues`) quoting it
+word for word under "Owner feedback, given in Claude Code". The PR keeps the
+record; the marker keeps step 0 from treating it as new feedback.
+
 ## Status
 
 "What's going on?" is answered from three places, never from memory:
