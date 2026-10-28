@@ -351,7 +351,8 @@ export const Pinch: Story = {
 };
 
 /** Saved and not yet answered: the editor has closed, and the drawn entry
-    is on the grid at once, recessed and dimmed until the server answers. */
+    is on the grid at once, faded as a dropped drag is until the server
+    answers. */
 export const DrawnSaving: Story = {
   ...desktop,
   parameters: stalled('createEntry'),
@@ -368,5 +369,6 @@ export const DrawnSaving: Story = {
     await expect(block).not.toBeNull();
     await expect(el.contains(block)).toBe(true);
     await expect(page.queryByRole('dialog')).toBeNull();
+    await expect(getComputedStyle(block as Element).opacity).toBe('0.7');
   },
 };

@@ -162,7 +162,7 @@ function EntryBlock({
   column: React.RefObject<HTMLDivElement | null>;
   drag: DragApi;
   onEdit: (entry: TimeEntry) => void;
-  /** Created and not yet answered: shown, as not yet saved. */
+  /** Created and not yet answered: shown, faded like a dropped drag. */
   pending: boolean;
 }) {
   const { entry } = item;
@@ -310,17 +310,13 @@ function blockClassName({
     'group/block absolute rounded-[5px] border px-1.5 py-0.5 text-left',
     'focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none',
     running && 'border-timer-running bg-accent-muted',
-    /* Not saved yet: recessed and dimmed like a disabled control, and still,
-       so it reads as not quite there rather than as busy. */
-    !running &&
-      pending &&
-      'border-dashed border-edge-default bg-surface-recessed opacity-60',
-    !running &&
-      !pending &&
-      'border-edge-subtle bg-surface-hover hover:bg-surface-active',
+    !running && 'border-edge-subtle bg-surface-hover',
+    !running && !pending && 'hover:bg-surface-active',
     !running && !pending && (adjustable ? 'cursor-grab' : 'cursor-pointer'),
     live && 'z-10 shadow-card',
-    live && saving && 'opacity-70',
+    /* One look for any write the server hasn't answered: a dropped drag, or
+       a new entry. */
+    ((live && saving) || pending) && 'opacity-70',
   ]
     .filter(Boolean)
     .join(' ');
