@@ -123,7 +123,7 @@ export function PaymentProfileDialog({
             label="Label"
             htmlFor="pp-name"
             required
-            hint="For you, not the client — e.g. “Chase business”."
+            hint="Only you see this."
           >
             <Input
               id="pp-name"

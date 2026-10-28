@@ -89,8 +89,8 @@ Examples of foundational tasks (adjust based on your project):
 
 ### Implementation for User Story 1
 
-- [ ] T012 [P] [US1] Add [Entity1] to packages/schema/src/index.ts and a migration in supabase/migrations/
-- [ ] T013 [P] [US1] Add [Entity2] to packages/schema/src/index.ts and a migration in supabase/migrations/
+- [ ] T012 [P] [US1] Add [Entity1] to its resource's file in packages/schema/src/ and a migration in supabase/migrations/
+- [ ] T013 [P] [US1] Add [Entity2] to its resource's file in packages/schema/src/ and a migration in supabase/migrations/
 - [ ] T014 [US1] Implement [logic] in packages/core/src/[name].ts (depends on T012, T013)
 - [ ] T015 [US1] Implement [endpoint] in apps/web/src/app/api/v1/[path]/route.ts
 - [ ] T016 [US1] Add validation and error handling
@@ -114,7 +114,7 @@ Examples of foundational tasks (adjust based on your project):
 
 ### Implementation for User Story 2
 
-- [ ] T020 [P] [US2] Add [Entity] to packages/schema/src/index.ts and a migration in supabase/migrations/
+- [ ] T020 [P] [US2] Add [Entity] to its resource's file in packages/schema/src/ and a migration in supabase/migrations/
 - [ ] T021 [US2] Implement [logic] in packages/core/src/[name].ts
 - [ ] T022 [US2] Implement [endpoint] in apps/web/src/app/api/v1/[path]/route.ts
 - [ ] T023 [US2] Integrate with User Story 1 components (if needed)
@@ -137,7 +137,7 @@ Examples of foundational tasks (adjust based on your project):
 
 ### Implementation for User Story 3
 
-- [ ] T026 [P] [US3] Add [Entity] to packages/schema/src/index.ts and a migration in supabase/migrations/
+- [ ] T026 [P] [US3] Add [Entity] to its resource's file in packages/schema/src/ and a migration in supabase/migrations/
 - [ ] T027 [US3] Implement [logic] in packages/core/src/[name].ts
 - [ ] T028 [US3] Implement [endpoint] in apps/web/src/app/api/v1/[path]/route.ts
 
@@ -206,8 +206,8 @@ Task: "Route test for [endpoint] in apps/web/test/routes.test.ts"
 Task: "Core test for [rule] in packages/core/test/[name].test.ts"
 
 # Launch all models for User Story 1 together:
-Task: "Add [Entity1] to packages/schema/src/index.ts and a migration in supabase/migrations/"
-Task: "Add [Entity2] to packages/schema/src/index.ts and a migration in supabase/migrations/"
+Task: "Add [Entity1] to its resource's file in packages/schema/src/ and a migration in supabase/migrations/"
+Task: "Add [Entity2] to its resource's file in packages/schema/src/ and a migration in supabase/migrations/"
 ```
 
 ---

@@ -43,6 +43,30 @@ export const Desktop: Story = {
     ).toHaveLength(1);
   },
 };
+/** Each billing default carries its unit inside the field, the way the rate
+    does, and numbering explains itself under its heading. */
+export const BillingUnits: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    for (const [label, unit] of [
+      ['Default hourly rate', '/ hr'],
+      ['Flag entries over', 'hours'],
+      ['Payment terms', 'days'],
+    ] as const) {
+      const field = (await page.findByLabelText(label)).parentElement;
+      await expect(within(field as HTMLElement).getByText(unit)).toBeVisible();
+    }
+    await expect(page.queryByText(/Blank turns it off/)).toBeNull();
+    await expect(page.queryByText(/0 is due on receipt/)).toBeNull();
+    const numbering = page
+      .getByRole('heading', { name: 'Invoice numbering' })
+      .closest('section') as HTMLElement;
+    await expect(
+      within(numbering).getByText(/invoices you sent before Stint/),
+    ).toBeVisible();
+  },
+};
 /** On a phone the theme toggle drops under the Appearance heading, every
     word still showing, and the page never scrolls sideways. */
 export const Phone: Story = {
@@ -229,7 +253,7 @@ export const MakeDefaultRefused: Story = {
   },
 };
 
-/** All or nothing: a failed delete says nothing was removed. */
+/** All or nothing: a failed delete says to try again. */
 export const DeleteAccountFailed: Story = {
   ...desktop,
   parameters: failing('deleteAccount'),
@@ -245,7 +269,9 @@ export const DeleteAccountFailed: Story = {
     await userEvent.click(
       page.getByRole('button', { name: 'Delete account and data' }),
     );
-    await expect(await page.findByText(/nothing was removed/i)).toBeVisible();
+    await expect(
+      await page.findByText(/Couldn't delete your account/),
+    ).toBeVisible();
   },
 };
 

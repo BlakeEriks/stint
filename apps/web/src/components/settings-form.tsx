@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { type Segment, SegmentedControl } from './segmented-control';
 import { Field, Section, textareaClass } from './field';
-import { RateInput, parseRate } from './rate-input';
+import { parseRate, RateInput, UnitInput } from './rate-input';
 import { SaveIndicator } from './save-indicator';
 import { useAutosave } from '@/lib/client/use-autosave';
 import {
@@ -106,7 +106,7 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
 
       <Section
         title="Billing defaults"
-        description="What a client or project falls back to when it sets no rate of its own."
+        description="Used when a client or project has no rate."
         aside={<SaveIndicator state={billing.state} />}
       >
         <div className="flex flex-wrap gap-4">
@@ -128,10 +128,10 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
           <Field
             label="Flag entries over"
             htmlFor="max-hours"
-            hint="Hours. Blank turns it off."
             className="flex-1 basis-44"
           >
-            <Input
+            <UnitInput
+              unit="hours"
               id="max-hours"
               type="number"
               min="1"
@@ -150,7 +150,6 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
           <Field
             label="Payment terms"
             htmlFor="terms"
-            hint="Days to pay. 0 is due on receipt."
             error={
               terms !== '' && termsDays === null
                 ? 'Whole days, 0 to 365.'
@@ -158,7 +157,8 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
             }
             className="flex-1 basis-44"
           >
-            <Input
+            <UnitInput
+              unit="days"
               id="terms"
               inputMode="numeric"
               value={terms}
@@ -220,13 +220,13 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
       <Section
         id="numbering"
         title="Invoice numbering"
+        description="Continue the count from invoices you sent before Stint. Numbers only go up."
         aside={<SaveIndicator state={numbering.state} />}
       >
         <div className="flex flex-wrap gap-4">
           <Field
             label="Next number"
             htmlFor="next-number"
-            hint="Start past invoices sent before Stint. It only moves forward."
             error={nextError}
             className="flex-1 basis-40"
           >
