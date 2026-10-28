@@ -3,7 +3,8 @@ name: reduce
 description: Reduce a source file or directory back to a simple form (complexity, duplication, dead code, comments) without changing behavior. Use when a hygiene issue says "Fix with /reduce", or a file has grown hard to follow.
 argument-hint: "<path>"
 # Follows Fowler's Refactoring and Feathers' characterization tests, each
-# cited below; comments follow .claude/rules/comments.md.
+# cited below, and Beck's Tidy First? for keeping a behavior change apart;
+# comments follow .claude/rules/comments.md.
 ---
 
 Reduce `$ARGUMENTS` without changing what it does. If no path is given, ask
@@ -48,6 +49,12 @@ reasons stay apart.
 
 For dead code, **Remove Dead Code**. First grep for the name: Knip cannot
 see a dynamic import or a string-keyed lookup.
+
+A reduction that needs a behavior change, such as dropping a state, a
+setting or a code path a user can see, is not a refactor (Beck, *Tidy
+First?*). Don't skip it, and don't make it: ask the reviewer, naming the
+state, what a user loses, and the debt it removes. Under `/work-issues`
+that is `needs-input`.
 
 ## 4. Comments
 

@@ -5,6 +5,10 @@ argument-hint: "<report.json>"
 allowed-tools: Read, Grep, Glob, Write, Bash(gh issue create:*), Bash(gh pr view:*)
 # A skill per code.claude.com/docs/en/skills, run in CI by
 # anthropics/claude-code-action.
+# "Could be cut" follows Ousterhout (A Philosophy of Software Design,
+# ch. 2: complexity is incremental), Software Engineering at Google
+# (ch. 15: code is a liability, its owner retires it) and Shape Up
+# (ch. 14: scope hammering).
 ---
 
 `$ARGUMENTS` is a `pnpm hygiene --json` report: files ranked worst first,
@@ -39,6 +43,10 @@ run. Add a `--label` for the file's platform (`docs/sdlc.md` § Capture):
    For a `fixes` finding, read those PRs (`gh pr view <n>`): what the fixes
    have in common, and the design that would have made each unnecessary.
    The reviewer picks the design before it is built.
+   Then a `## Could be cut, your call` section: each state, setting or
+   code path behind the complexity that a user can see, with what a user
+   loses without it. A refactor must keep every one; only the reviewer can
+   retire one. Write "None" when every branch is one a user needs.
 4. `Score <score> · debt <debt> min · <commits> commits in 30 days`
 5. `Fix with /reduce <path>` or `Fix with /copyedit <path>`; nothing for
    a redesign.
