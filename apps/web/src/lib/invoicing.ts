@@ -46,7 +46,7 @@ import type {
 const num = (v: string | number | null | undefined): number | null =>
   v == null ? null : typeof v === 'number' ? v : Number(v);
 
-export async function loadClient(
+async function loadClient(
   db: SupabaseClient,
   clientId: string,
 ): Promise<ClientRow> {
@@ -76,7 +76,7 @@ export async function loadClient(
  *  - running entries (`ended_at IS NULL`) — you cannot bill time still accruing
  *  - entries already attached to an invoice
  */
-export async function loadBillableEntries(
+async function loadBillableEntries(
   db: SupabaseClient,
   opts: {
     clientId: string;
@@ -146,7 +146,7 @@ export async function loadBillableEntries(
  * last day: the date the invoice claims to cover. `recurring` tells the
  * caller not to claim it, since it bills again on the next invoice.
  */
-export async function loadBillableExpenses(
+async function loadBillableExpenses(
   db: SupabaseClient,
   opts: { clientId: string; draft: OpenDraft; openDrafts: OpenDraft[] },
 ): Promise<Array<ExpenseInput & { recurring: boolean }>> {
@@ -205,9 +205,7 @@ export function requireSender(s: InvoiceSettings) {
   }
 }
 
-export async function loadSettings(
-  db: SupabaseClient,
-): Promise<InvoiceSettings> {
+async function loadSettings(db: SupabaseClient): Promise<InvoiceSettings> {
   const { data, error } = await db
     .from('user_settings')
     .select(
@@ -494,6 +492,23 @@ export async function computeInvoice(
   };
 }
 
+/** The fixed-amount lines the user added on New invoice, as `deriveDraft`
+ *  passes them back to `computeInvoice`. */
+async function loadManualLines(db: SupabaseClient, invoiceId: string) {
+  const stored = await selectAll(() =>
+    db
+      .from('invoice_line_items')
+      .select(LINE_ITEM_COLUMNS)
+      .eq('invoice_id', invoiceId)
+      .eq('unit', 'fixed')
+      .order('sort_order', { ascending: true }),
+  );
+  return stored.map((r) => {
+    const l = toLineItem(r as LineItemRow);
+    return { description: l.description, amount: l.amount ?? 0 };
+  });
+}
+
 /**
  * A draft as its client and period stand now, keeping every choice the user
  * made on New invoice; null for an invoice that isn't a draft. Writes
@@ -510,14 +525,6 @@ export async function deriveDraft(
   if (row.status !== 'draft') return null;
   const tz = row.tz ?? requestTz ?? 'UTC';
 
-  const charges = await selectAll(() =>
-    db
-      .from('invoice_line_items')
-      .select(LINE_ITEM_COLUMNS)
-      .eq('invoice_id', row.id)
-      .eq('unit', 'fixed')
-      .order('sort_order', { ascending: true }),
-  );
   const computed = await computeInvoice(db, {
     clientId: row.client_id,
     periodStart: row.period_start,
@@ -525,10 +532,7 @@ export async function deriveDraft(
     tz,
     groupingMode: row.grouping_mode,
     summaryText: row.summary_text ?? undefined,
-    manualLines: charges.map((r) => {
-      const l = toLineItem(r as LineItemRow);
-      return { description: l.description, amount: l.amount ?? 0 };
-    }),
+    manualLines: await loadManualLines(db, row.id),
     excludedExpenseIds: row.excluded_expense_ids,
     schedules: attachedSchedules(row.supporting_detail),
     draftId: row.id,
