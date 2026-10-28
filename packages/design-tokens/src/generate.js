@@ -609,10 +609,19 @@ const phoneIcon = (
 </svg>
 `;
 
+/** Read in one call rather than check then read, which a file can race. */
+function readIfThere(path, encoding) {
+  try {
+    return readFileSync(path, encoding);
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
 async function writeIcon(svgPath, svg) {
   const pngPath = svgPath.replace(/\.svg$/, '.png');
-  const current = existsSync(svgPath) && readFileSync(svgPath, 'utf8');
-  if (current === svg && existsSync(pngPath)) return;
+  if (readIfThere(svgPath, 'utf8') === svg && readIfThere(pngPath)) return;
   const { default: sharp } = await import('sharp');
   writeFileSync(pngPath, await sharp(Buffer.from(svg)).png().toBuffer());
   writeFileSync(svgPath, svg);
