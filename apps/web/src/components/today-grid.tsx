@@ -47,9 +47,6 @@ export function TodayGrid({
   const dayStart = startOfLocalDay(new Date(), tz);
   const dayEnd = startOfLocalDayOffset(dayStart, tz, -1);
 
-  const { pxPerHour, ref } = useZoom();
-  const step = hourStep(pxPerHour, LABEL_GAP_PX);
-
   /* A running block grows and the now-line moves, so both need a clock. A
      minute is the resolution the line is read at — a second's tick would
      re-render the column 60 times for a line that moves 0.7px. */
@@ -72,6 +69,8 @@ export function TodayGrid({
   const placed = position(entries, from, to);
 
   const hours = (to.getTime() - from.getTime()) / 3_600_000;
+  const { pxPerHour, ref } = useZoom(hours);
+  const step = hourStep(pxPerHour, LABEL_GAP_PX);
   const height = hours * pxPerHour;
   const labels = marks(from, to, step);
 

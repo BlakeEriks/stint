@@ -372,3 +372,21 @@ export const DrawnSaving: Story = {
     await expect(getComputedStyle(block as Element).opacity).toBe('0.7');
   },
 };
+
+/** Zoomed all the way out on a tall screen: the day still fills the grid's
+    area, so the legend stays at the bottom of the card with no gap above. */
+export const ZoomOutFills: Story = {
+  ...wide,
+  beforeEach: () => localStorage.setItem(ZOOM_KEY, '22'),
+  play: async ({ canvasElement }) => {
+    const { el } = await column(canvasElement);
+    const area = el.parentElement?.parentElement as HTMLElement;
+    await waitFor(() =>
+      expect(
+        Math.abs(el.getBoundingClientRect().height - area.clientHeight),
+      ).toBeLessThan(2),
+    );
+    // Taller than 22px an hour would draw it: the floor is the area's.
+    await expect(area.clientHeight).toBeGreaterThan(24 * 22 + 10);
+  },
+};

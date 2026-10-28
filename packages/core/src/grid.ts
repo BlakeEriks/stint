@@ -134,10 +134,24 @@ export const MAX_PX_PER_HOUR = 176;
  * Exponential, so a pinch feels the same at every level, and capped per event,
  * because a mouse wheel's notch is a hundred times a trackpad's delta.
  */
-export function zoomed(pxPerHour: number, deltaY: number): number {
+export function zoomed(
+  pxPerHour: number,
+  deltaY: number,
+  min = MIN_PX_PER_HOUR,
+): number {
   const delta = Math.max(-100, Math.min(100, deltaY));
-  const next = pxPerHour * Math.exp(-delta * 0.005);
-  return Math.max(MIN_PX_PER_HOUR, Math.min(MAX_PX_PER_HOUR, next));
+  const next = Math.max(pxPerHour, min) * Math.exp(-delta * 0.005);
+  return Math.max(min, Math.min(MAX_PX_PER_HOUR, next));
+}
+
+/**
+ * The least zoom at which `hours` still fill a scroll area `viewportPx`
+ * tall: zoomed out past it, the day ends above the area's bottom and leaves
+ * empty space under it. Never below `MIN_PX_PER_HOUR`, nor above the most.
+ */
+export function fillPxPerHour(viewportPx: number, hours: number): number {
+  const fill = hours > 0 ? viewportPx / hours : 0;
+  return Math.max(MIN_PX_PER_HOUR, Math.min(MAX_PX_PER_HOUR, fill));
 }
 
 /**

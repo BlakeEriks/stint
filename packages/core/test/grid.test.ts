@@ -8,6 +8,7 @@ import {
   windowFor,
   drawnRange,
   zoomed,
+  fillPxPerHour,
   hourStep,
   MIN_PX_PER_HOUR,
   MAX_PX_PER_HOUR,
@@ -358,4 +359,21 @@ test('the label step widens as hours shrink and narrows as they grow', () => {
   assert.equal(hourStep(22, 132), 6);
   assert.equal(hourStep(44, 44), 1);
   assert.equal(hourStep(22, 44), 2);
+});
+
+test('zoom out stops where the day still fills its scroll area', () => {
+  // A 24-hour week in a 720px area: 30px an hour fills it exactly.
+  assert.equal(fillPxPerHour(720, 24), 30);
+  assert.equal(zoomed(30, 100, fillPxPerHour(720, 24)), 30);
+  // A level stored below it starts from it rather than from below.
+  assert.equal(zoomed(22, 0, 30), 30);
+  // Zooming in is unaffected.
+  assert.ok(zoomed(30, -50, 30) > 30);
+});
+
+test('the fill floor never drops below the least zoom or tops the most', () => {
+  assert.equal(fillPxPerHour(200, 24), MIN_PX_PER_HOUR);
+  assert.equal(fillPxPerHour(0, 24), MIN_PX_PER_HOUR);
+  assert.equal(fillPxPerHour(5000, 10), MAX_PX_PER_HOUR);
+  assert.equal(fillPxPerHour(720, 0), MIN_PX_PER_HOUR);
 });

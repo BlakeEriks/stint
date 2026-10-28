@@ -114,14 +114,12 @@ export function Calendar() {
   }>();
 
   const drag = useEntryDrag();
-  const zoom = useZoom();
 
   /* The window every column draws. In week view it is the whole day; in day
      view the hook has cropped it to the worked hours. Columns share one
      window, so the gutter's labels line up with every column's gridlines. */
   const from = cal.days[0]?.from ?? cal.weekStart;
   const to = cal.days[0]?.to ?? cal.weekEnd;
-  const marks = hourMarks(from, to, hourStep(zoom.pxPerHour, LABEL_GAP_PX));
 
   /* An hour is the same height in both views: the window sets how tall the
      grid is, never how tall an hour is. A week is 24 of them and taller than
@@ -130,6 +128,8 @@ export function Calendar() {
      into it. The day view keeps its cap, where the PAGE scrolls and a long
      window would otherwise run past the end of a cropped day. */
   const windowHours = (to.getTime() - from.getTime()) / 3_600_000;
+  const zoom = useZoom(windowHours);
+  const marks = hourMarks(from, to, hourStep(zoom.pxPerHour, LABEL_GAP_PX));
   const px = zoom.pxPerHour;
   const gridHeight = byDay
     ? Math.min(
@@ -241,13 +241,17 @@ export function Calendar() {
           them.
 
           The rules above and below are region separators: edge to edge, they
-          cut the panel into heading, grid and legend. */}
+          cut the panel into heading, grid and legend.
+
+          At `xl` it takes the rest of the panel whatever the zoom, so the
+          scroller's height is the room the day has to fill (`useZoom`), not
+          the day's own height. */}
         {/* The grid paints once, with its entries already in their clients'
             colors. */}
         <Listing query={loaded}>
           {() => (
             <>
-              <div className="flex min-h-0 flex-col overflow-hidden border-t border-edge-subtle">
+              <div className="flex min-h-0 flex-col overflow-hidden border-t border-edge-subtle xl:flex-1">
                 <div className="flex flex-none border-b border-edge-subtle">
                   <div className="w-12 flex-none sm:w-14" />
                   {cal.days.map((day) => (

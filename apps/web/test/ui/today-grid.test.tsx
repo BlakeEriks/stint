@@ -1,5 +1,11 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -268,5 +274,70 @@ describe('zooming a day column', () => {
     draw();
     await screen.findByRole('button', { name: /Edit API integration/ });
     expect(columnHeight()).toBeCloseTo(zoomed);
+  });
+});
+
+describe('the day fills its scroll area', () => {
+  /** A scroll area of `px`, and the observer that reports its resizes. */
+  function area() {
+    const seen: Array<() => void> = [];
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(cb: () => void) {
+          seen.push(cb);
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    return (px: number) => {
+      const scroller = document.querySelector<HTMLElement>('.overflow-y-auto')!;
+      // jsdom applies no stylesheet, so the class's overflow is set here.
+      scroller.style.overflowY = 'auto';
+      Object.defineProperty(scroller, 'clientHeight', {
+        configurable: true,
+        value: px,
+      });
+      act(() => {
+        for (const cb of seen) cb();
+      });
+    };
+  }
+
+  it('zooms in as the area grows, and never zooms out past filling it', async () => {
+    const resize = area();
+    serve([entry()]);
+    draw();
+    await screen.findByRole('button', { name: /Edit API integration/ });
+    const at44 = columnHeight();
+
+    // Taller than the day at the default: the hours grow to fill it.
+    resize(at44 * 2);
+    expect(columnHeight()).toBeCloseTo(at44 * 2);
+
+    // Zooming out stops at filling it.
+    const column = document.querySelector<HTMLElement>('.border-l')!;
+    fireEvent.wheel(column, { deltaY: 100, ctrlKey: true });
+    expect(columnHeight()).toBeCloseTo(at44 * 2);
+
+    // Zooming in above the floor still works, and outlives a shrink.
+    fireEvent.wheel(column, { deltaY: -100, ctrlKey: true });
+    const zoomedIn = columnHeight();
+    expect(zoomedIn).toBeGreaterThan(at44 * 2);
+    resize(at44);
+    expect(columnHeight()).toBeCloseTo(zoomedIn);
+  });
+
+  it('draws a stored level below the floor at the floor', async () => {
+    localStorage.setItem('stint.calendar.pxPerHour', '22');
+    const resize = area();
+    serve([entry()]);
+    draw();
+    await screen.findByRole('button', { name: /Edit API integration/ });
+    const at22 = columnHeight();
+
+    resize(at22 * 3);
+    expect(columnHeight()).toBeCloseTo(at22 * 3);
   });
 });

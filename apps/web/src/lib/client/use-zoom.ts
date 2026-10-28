@@ -4,9 +4,11 @@ import {
   useCallback,
   useLayoutEffect,
   useRef,
+  useState,
   useSyncExternalStore,
 } from 'react';
 import {
+  fillPxPerHour,
   MAX_PX_PER_HOUR,
   MIN_PX_PER_HOUR,
   PX_PER_HOUR,
@@ -59,10 +61,21 @@ const subscribe = (l: () => void) => {
  * The zoom stays anchored on the time under the pointer: the fraction of the
  * grid there is read before, and the scroller moves after layout so the same
  * fraction is under the pointer again.
+ *
+ * Zooming out stops where the `hours` drawn still fill the grid's scroll
+ * area, its parent when that scrolls, so the day never ends above the
+ * area's bottom with empty space under it. A level stored below that is
+ * drawn at it. The floor is measured, and follows the area's resizes.
  */
-export function useZoom() {
+export function useZoom(hours: number) {
   /* The default on the server and on first paint, so hydration matches. */
-  const pxPerHour = useSyncExternalStore(subscribe, read, () => PX_PER_HOUR);
+  const stored = useSyncExternalStore(subscribe, read, () => PX_PER_HOUR);
+  const [areaPx, setAreaPx] = useState(0);
+  const min = fillPxPerHour(areaPx, hours);
+  const pxPerHour = Math.max(stored, min);
+  /* The wheel listener is bound once, so it reads the floor from here. */
+  const floor = useRef(min);
+  floor.current = min;
   const anchor = useRef<{ el: HTMLElement; y: number; at: number } | null>(
     null,
   );
@@ -72,10 +85,11 @@ export function useZoom() {
     const onWheel = (event: WheelEvent) => {
       if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
-      const next = zoomed(read(), event.deltaY);
+      const from = Math.max(read(), floor.current);
+      const next = zoomed(from, event.deltaY, floor.current);
       /* At a limit nothing re-renders, so an anchor set here would fire on
          some later, unrelated render. */
-      if (next === read()) return;
+      if (next === from) return;
       const box = el.getBoundingClientRect();
       if (box.height > 0)
         anchor.current = {
@@ -86,7 +100,17 @@ export function useZoom() {
       write(next);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
+
+    /* Asked on each resize, since a breakpoint can make the parent scroll or
+       stop scrolling. */
+    const resized = new ResizeObserver(() =>
+      setAreaPx(scrollArea(el)?.clientHeight ?? 0),
+    );
+    if (el.parentElement) resized.observe(el.parentElement);
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      resized.disconnect();
+    };
   }, []);
 
   /* After the render a zoom caused, with the new height laid out. Every
@@ -100,6 +124,18 @@ export function useZoom() {
   });
 
   return { pxPerHour, ref };
+}
+
+/**
+ * The grid's parent when it is a scroll area, whose height the day should
+ * fill. None where the page scrolls instead: there the grid sets its own
+ * height, and measuring it would hold the zoom where it is.
+ */
+function scrollArea(el: HTMLElement): HTMLElement | null {
+  const p = el.parentElement;
+  if (!p) return null;
+  const { overflowY } = getComputedStyle(p);
+  return overflowY === 'auto' || overflowY === 'scroll' ? p : null;
 }
 
 /** The nearest ancestor that scrolls, or the page. */
