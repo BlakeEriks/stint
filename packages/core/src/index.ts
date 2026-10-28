@@ -9,6 +9,7 @@ export * from './billing-period.ts';
 export * from './payment.ts';
 export * from './format.ts';
 export * from './stats.ts';
+export * from './month-chart.ts';
 export * from './overlaps.ts';
 export * from './export.ts';
 export * from './import/index.ts';

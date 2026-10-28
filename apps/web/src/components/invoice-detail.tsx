@@ -281,11 +281,6 @@ function Loaded({
         updating={!invoice.lineItems}
         paymentTerms={invoice.paymentTerms}
         notes={invoice.notes}
-        footnote={
-          isDraft
-            ? 'A draft follows its period’s work and current rates until you mark it sent.'
-            : 'Rates are frozen once sent — editing a client or project later never changes this invoice.'
-        }
       />
 
       <MarkPaidDialog {...markPaid.dialog} />
@@ -295,17 +290,12 @@ function Loaded({
 
 function statusHint(
   status: InvoiceStatus,
-  due: string | null,
   period: { periodStart: string; periodEnd: string },
-): string {
+): string | null {
   if (status === 'draft')
     return `It keeps collecting ${shortDate(period.periodStart)} – ${shortDate(period.periodEnd)} until you mark it sent. Download it, send it from your own address, then mark it sent.`;
-  if (status === 'sent')
-    return due
-      ? `Awaiting payment. Due ${shortDate(due)}.`
-      : 'Awaiting payment.';
-  if (status === 'paid') return 'Settled.';
-  return 'Voided. The number stays on record so numbering is gapless, and the entries were released for re-billing.';
+  if (status === 'void') return 'Voided. Its entries can be billed again.';
+  return null;
 }
 
 /** Where the invoice stands, and what holds it, under the title. */
@@ -320,13 +310,12 @@ function Notices({
   unrated: UnratedEntry[];
   error: unknown;
 }) {
+  const hint = changed
+    ? 'Download the new PDF, send it from your own address, then mark it sent.'
+    : statusHint(invoice.status, invoice);
   return (
     <div className="flex flex-col gap-1 pt-1 pb-6">
-      <p className="type-support text-muted">
-        {changed
-          ? 'Download the new PDF, send it from your own address, then mark it sent.'
-          : statusHint(invoice.status, invoice.dueDate, invoice)}
-      </p>
+      {hint ? <p className="type-support text-muted">{hint}</p> : null}
       {changed ? (
         <Changed change={changed} currency={invoice.currency} />
       ) : null}

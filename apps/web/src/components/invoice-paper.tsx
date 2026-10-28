@@ -155,17 +155,17 @@ const paymentTitle = (p: PaymentDetails) =>
 /** A draft's line its last PDF didn't have: the reason Mark sent waits. */
 const NEW = 'bg-print-added';
 
-function Sender({ inv, className }: { inv: PaperInvoice; className?: string }) {
-  if (inv.noSender)
-    return (
-      <p
-        className={`rounded border border-dashed border-print-rule text-print-muted ${className ?? ''}`}
-        style={{ padding: pt(6) }}
-      >
-        Your business name and email go here
-      </p>
-    );
-  return null;
+/** Where the sender prints, marked as missing rather than left blank; the
+ *  card says why under it. */
+function Sender({ inv }: { inv: PaperInvoice }) {
+  if (!inv.noSender) return null;
+  return (
+    <div
+      aria-hidden
+      className="rounded border border-dashed border-print-rule"
+      style={{ minHeight: pt(40), minWidth: pt(160) }}
+    />
+  );
 }
 
 const Empty = () => (

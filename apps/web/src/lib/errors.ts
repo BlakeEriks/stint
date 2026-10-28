@@ -3,35 +3,9 @@ import { NextResponse } from 'next/server';
    loader cannot see the named exports `@sentry/nextjs` re-exports from
    CommonJS, so the route tests would import `undefined`. */
 import { captureException } from '@sentry/core';
-import type { z } from 'zod';
-import type { ErrorCode } from '@stint/schema';
+import { ERROR_STATUS } from '@stint/schema';
 
-/* A type-only import: the schema's codes cost nothing at run time, and
-   STATUS below fails to compile when a code is missing from it. */
-export type Code = z.infer<typeof ErrorCode>;
-
-const STATUS: Record<Code, number> = {
-  TIMER_ALREADY_RUNNING: 409,
-  NO_TIMER_RUNNING: 409,
-  ENTRY_LOCKED: 409,
-  EXPENSE_LOCKED: 409,
-  EXPENSE_ALREADY_INVOICED: 409,
-  ENTRY_ALREADY_INVOICED: 409,
-  INVOICE_STATUS_CHANGED: 409,
-  DRAFT_CHANGED: 409,
-  DRAFT_OVERLAPS: 409,
-  ENTRY_NOT_FOUND: 404,
-  NO_RATE_CONFIGURED: 400,
-  INVALID_PERIOD: 400,
-  UNAUTHORIZED: 401,
-  IMPORT_FILE_UNRECOGNIZED: 422,
-  VALIDATION_FAILED: 422,
-  ALREADY_SUBSCRIBED: 409,
-  NOT_SUBSCRIBED: 409,
-  CHECKOUT_NOT_FOUND: 404,
-  BILLING_UNAVAILABLE: 503,
-  PAYMENT_REQUIRED: 402,
-};
+export type Code = keyof typeof ERROR_STATUS;
 
 /** A failure the client is expected to handle — not a bug. */
 export class ApiError extends Error {
@@ -49,7 +23,7 @@ export class ApiError extends Error {
 function errorResponse(code: Code, message: string, details?: unknown) {
   return NextResponse.json(
     { code, message, details },
-    { status: STATUS[code] },
+    { status: ERROR_STATUS[code] },
   );
 }
 
@@ -146,7 +120,8 @@ const CONSTRAINT_CODES: Record<string, Code> = {
 export function dbCode(
   err: { message?: string; hint?: string } | null,
 ): Code | undefined {
-  if (err?.hint && Object.hasOwn(STATUS, err.hint)) return err.hint as Code;
+  if (err?.hint && Object.hasOwn(ERROR_STATUS, err.hint))
+    return err.hint as Code;
   const constraint = /constraint "([^"]+)"/.exec(err?.message ?? '')?.[1];
   return constraint ? CONSTRAINT_CODES[constraint] : undefined;
 }

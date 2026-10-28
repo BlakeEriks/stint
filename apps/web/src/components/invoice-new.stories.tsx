@@ -77,10 +77,25 @@ const chooseMeridian = async (canvasElement: HTMLElement) => {
 const card = (page: Page) =>
   within(page.getByRole('region', { name: 'Preview' }));
 
+/** The bordered sheet itself, which holds only what prints. */
+const sheet = (page: Page) =>
+  card(page).getByText('BILL TO').closest('.rounded-lg') as HTMLElement;
+
 // ── states ─────────────────────────────────────────────────────────
 
-/** No client yet: Generate waits and the card says what it needs. */
-export const Blank: Story = { ...desktop };
+/** No client yet: Generate waits, and in place of a card a line says what
+    it needs. */
+export const Blank: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const region = within(
+      await within(canvasElement).findByRole('region', { name: 'Preview' }),
+    );
+    const prompt = region.getByText(/^Choose a client to see/);
+    await expect(prompt).toBeVisible();
+    await expect(prompt.closest('.rounded-lg')).toBeNull();
+  },
+};
 export const Phone: Story = { ...phone };
 
 /** On September 17 the period is September, the month ending nearest, and
@@ -260,8 +275,9 @@ export const OverlapsDraft: Story = {
 };
 
 /** A client chosen: the card is the invoice as the PDF prints it, and
-    follows the form without a Preview button (US3 scenario 1). Northwind
-    has an address and email, so the Client field offers no Edit client. */
+    follows the form without a Preview button (US3 scenario 1). What
+    generating does reads under the card, not on it. Northwind has an address
+    and email, so the Client field offers no Edit client. */
 export const ClientChosen: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -269,6 +285,9 @@ export const ClientChosen: Story = {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
     await expect(card(page).getByText('SERVICE PERIOD')).toBeVisible();
+    const footnote = card(page).getByText(/^Generating assigns a number/);
+    await expect(footnote).toBeVisible();
+    await expect(sheet(page).contains(footnote)).toBe(false);
     await expect(page.queryByRole('button', { name: 'Preview' })).toBeNull();
     await expect(
       page.queryByRole('button', { name: 'Edit client' }),
@@ -385,8 +404,8 @@ export const Unrated: Story = {
   },
 };
 
-/** Work that overlaps other time is named before it bills, but the
-    invoice can still be generated: the user decides. */
+/** Work that overlaps other time is named under the card before it bills,
+    but the invoice can still be generated: the user decides. */
 export const Overlapping: Story = {
   ...desktop,
   parameters: {
@@ -419,9 +438,9 @@ export const Overlapping: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
-    await expect(
-      await page.findByText(/entries overlap other time/),
-    ).toBeVisible();
+    const warning = await page.findByText(/entries overlap other time/);
+    await expect(warning).toBeVisible();
+    await expect(sheet(page).contains(warning)).toBe(false);
   },
 };
 
@@ -874,7 +893,7 @@ const noSender = account((db: Db) => {
 });
 
 /** No business name or email: the notice says so, Generate waits, and the
- *  preview marks where the sender prints. */
+ *  preview marks where the sender prints, saying so under the card. */
 export const DetailsMissing: Story = {
   ...desktop,
   parameters: noSender,
@@ -883,9 +902,9 @@ export const DetailsMissing: Story = {
     await expect(
       await page.findByText('Your business details are missing'),
     ).toBeVisible();
-    await expect(
-      page.getByText('Your business name and email go here'),
-    ).toBeVisible();
+    const marker = await page.findByText(/^Your business name and email/);
+    await expect(marker).toBeVisible();
+    await expect(sheet(page).contains(marker)).toBe(false);
     await expect(
       page.getByRole('button', { name: 'Generate invoice' }),
     ).toBeDisabled();

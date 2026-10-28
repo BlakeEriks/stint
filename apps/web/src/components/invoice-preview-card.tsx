@@ -57,8 +57,8 @@ export type CardFigures = Pick<
 };
 
 /**
- * The invoice as its PDF prints it, line for line and in its template: live
- * beside the New invoice form, and as issued on its detail page.
+ * The invoice as its PDF prints it, line for line: live beside the New
+ * invoice form, and as issued on its detail page.
  *
  * The lines, totals and schedules are the server's answer; the rest — the
  * business block, the number, the dates, the payment block, which schedules
@@ -82,7 +82,7 @@ export function InvoicePreviewCard({
   notes,
   heading = true,
   noSender = false,
-  footnote = 'Generating assigns a number and locks these entries. Voiding later keeps the number on record.',
+  footnote,
   entryAction,
   children,
 }: {
@@ -107,18 +107,15 @@ export function InvoicePreviewCard({
   heading?: boolean;
   /** No business name or email yet: a draft marks where they will print. */
   noSender?: boolean;
+  /** Under the card, after `children`. */
   footnote?: string;
   /** Beside the entry count: an action on the entries it counts. */
   entryAction?: React.ReactNode;
-  /** Warnings and errors, above the last line. */
+  /** Warnings and errors, under the card. */
   children?: React.ReactNode;
 }) {
   const terms =
-    paymentTerms === undefined
-      ? due && due >= issued
-        ? paymentTermsText(issued, due)
-        : null
-      : paymentTerms;
+    paymentTerms === undefined ? termsFrom(issued, due) : paymentTerms;
   const scrollerFocus = useScrollerFocus();
 
   return (
@@ -143,56 +140,52 @@ export function InvoicePreviewCard({
         ) : null}
       </div>
 
-      {/* The scroller is around the card, not in it: the card moves as one
-          page, edges and all, while the caption above keeps "Updating…" in
-          view. */}
-      <div tabIndex={scrollerFocus} className="min-h-0 overflow-y-auto">
-        <div className="@container/card flex flex-col gap-5 rounded-lg border border-edge-subtle bg-surface-elevated p-6">
-          {client ? (
-            <div
-              className={`flex flex-col gap-5 transition-opacity duration-150 ${
-                updating ? 'opacity-50' : ''
-              }`}
-            >
-              <InvoicePaper
+      {client ? (
+        /* The scroller is around the card, not in it: the card moves as one
+           page, edges and all, while the caption above keeps "Updating…" in
+           view. */
+        <div tabIndex={scrollerFocus} className="min-h-0 overflow-y-auto">
+          <div
+            className={`@container/card flex flex-col gap-5 rounded-lg border border-edge-subtle bg-surface-elevated p-6 transition-opacity duration-150 ${
+              updating ? 'opacity-50' : ''
+            }`}
+          >
+            <InvoicePaper
+              template={template}
+              invoice={paperOf({
+                preview,
+                client,
+                business,
+                noSender,
+                number,
+                issued,
+                due,
+                reference,
+                payment,
+                terms,
+                notes,
+              })}
+            />
+
+            {preview?.schedules?.totalHours && schedules.length > 0 ? (
+              <DetailPaper
                 template={template}
-                invoice={paperOf({
-                  preview,
-                  client,
-                  business,
-                  noSender,
-                  number,
-                  issued,
-                  due,
-                  reference,
-                  payment,
-                  terms,
-                  notes,
-                })}
+                detail={preview.schedules}
+                chosen={schedules}
+                heading={`${number} · ${client.name} · ${shortDate(preview.periodStart)} – ${shortDate(preview.periodEnd)}`}
               />
-
-              {preview?.schedules?.totalHours && schedules.length > 0 ? (
-                <DetailPaper
-                  template={template}
-                  detail={preview.schedules}
-                  chosen={schedules}
-                  heading={`${number} · ${client.name} · ${shortDate(preview.periodStart)} – ${shortDate(preview.periodEnd)}`}
-                />
-              ) : null}
-            </div>
-          ) : (
-            <p className="type-support text-subtle">
-              Choose a client to see what this invoice will say.
-            </p>
-          )}
-
-          {children}
-
-          <p className="border-t border-edge-subtle pt-3 type-support text-subtle">
-            {footnote}
-          </p>
+            ) : null}
+          </div>
         </div>
-      </div>
+      ) : (
+        <p className="px-1 type-support text-subtle">
+          Choose a client to see what this invoice will say.
+        </p>
+      )}
+
+      <UnderCard noSender={Boolean(client) && noSender} footnote={footnote}>
+        {children}
+      </UnderCard>
     </section>
   );
 }
@@ -240,6 +233,35 @@ function paperOf(p: {
   };
 }
 
+/** The terms generation will freeze, made from `issued` and `due`. */
+function termsFrom(issued: string, due: string): string | null {
+  return due && due >= issued ? paymentTermsText(issued, due) : null;
+}
+
+/** The card reads as the PDF will, so anything that won't print goes here,
+    below it. */
+function UnderCard({
+  noSender,
+  footnote,
+  children,
+}: {
+  noSender: boolean;
+  footnote: string | undefined;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1 px-1 pt-2.5 empty:hidden">
+      {noSender ? (
+        <p className="type-support text-subtle">
+          Your business name and email print in the dashed box.
+        </p>
+      ) : null}
+      {children}
+      {footnote ? <p className="type-support text-subtle">{footnote}</p> : null}
+    </div>
+  );
+}
+
 function Caption({
   updating,
   entries,
@@ -256,3 +278,5 @@ function Caption({
     </span>
   );
 }
+
+/** The business, and the invoice's number and dates. */
