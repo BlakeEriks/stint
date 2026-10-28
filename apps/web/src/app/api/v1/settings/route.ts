@@ -31,10 +31,10 @@ export const GET = handle(async (req: Request) => {
       .select(SETTINGS_COLUMNS)
       .single();
     if (insertError) throw insertError;
-    return NextResponse.json(toSettings(created));
+    return NextResponse.json(toSettings(created, await highestInvoice(db)));
   }
 
-  return NextResponse.json(toSettings(data));
+  return NextResponse.json(toSettings(data, await highestInvoice(db)));
 });
 
 export const PATCH = handle(async (req: Request) => {
@@ -56,45 +56,77 @@ export const PATCH = handle(async (req: Request) => {
     throw new ApiError('VALIDATION_FAILED', 'No fields to update');
   }
 
-  let query = db.from('user_settings').update(update).eq('user_id', userId);
-  /* Forward only, in the update itself: a check before it could pass just
-     as an invoice takes the number. Going back would reissue a number a
-     client may already have; `invoice_number_unique_per_user` refuses that
-     too, but only at Generate. */
-  if (next !== undefined) query = query.lte('next_invoice_number', next);
-
-  const { data, error } = await query.select(SETTINGS_COLUMNS).maybeSingle();
-
-  if (error) throw error;
-  if (!data) {
-    throw next === undefined
-      ? new ApiError('ENTRY_NOT_FOUND', 'Settings not found')
-      : await refusal(
-          db,
-          (current) =>
-            `The next number can't go below ${current}, or an invoice could repeat a number already sent.`,
-        );
+  for (;;) {
+    const saved = await save(db, userId, update, next);
+    if (saved) {
+      return NextResponse.json(toSettings(saved, await highestInvoice(db)));
+    }
   }
-
-  return NextResponse.json(toSettings(data));
 });
 
-/** A refused `nextInvoiceNumber`, naming the field and the number it
-    stays at, so the form can say why there and show that number again. */
-async function refusal(
-  db: Awaited<ReturnType<typeof requireSession>>['db'],
-  message: string | ((current: number) => string),
+type Db = Awaited<ReturnType<typeof requireSession>>['db'];
+
+/** The saved settings, or null when an invoice took a number between the
+    check and the write, so the caller checks again. */
+async function save(
+  db: Db,
+  userId: string,
+  update: Record<string, unknown>,
+  next: number | undefined,
 ) {
+  let query = db.from('user_settings').update(update).eq('user_id', userId);
+  if (next !== undefined) {
+    // Read before the invoices: an invoice taken after this read moves it.
+    const current = await currentNumber(db);
+    const highest = await highestInvoice(db);
+    if (highest && next <= highest.sequence_no) {
+      throw await refusal(
+        db,
+        `${highest.invoice_number} is already used. Pick ${highest.sequence_no + 1} or higher.`,
+      );
+    }
+    /* Only if no invoice took a number since the read; otherwise the
+       counter could be set to the number it just gave out. */
+    query = query.eq('next_invoice_number', current);
+  }
+
+  const { data, error } = await query.select(SETTINGS_COLUMNS).maybeSingle();
+  if (error) throw error;
+  if (data) return data;
+  if (next === undefined) {
+    throw new ApiError('ENTRY_NOT_FOUND', 'Settings not found');
+  }
+  return null;
+}
+
+/** The invoice holding the highest number, drafts included: the next
+    number must pass it, or the counter steps into a number already used. */
+async function highestInvoice(db: Db) {
+  const { data, error } = await db
+    .from('invoices')
+    .select('sequence_no, invoice_number')
+    .order('sequence_no', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function currentNumber(db: Db) {
   const { data, error } = await db
     .from('user_settings')
     .select('next_invoice_number')
     .maybeSingle();
   if (error) throw error;
-  if (!data) return new ApiError('ENTRY_NOT_FOUND', 'Settings not found');
-  const current = data.next_invoice_number;
-  return new ApiError(
-    'VALIDATION_FAILED',
-    typeof message === 'string' ? message : message(current),
-    { field: 'nextInvoiceNumber', current },
-  );
+  if (!data) throw new ApiError('ENTRY_NOT_FOUND', 'Settings not found');
+  return data.next_invoice_number;
+}
+
+/** A refused `nextInvoiceNumber`, naming the field and the number it
+    stays at, so the form can say why there and show that number again. */
+async function refusal(db: Db, message: string) {
+  return new ApiError('VALIDATION_FAILED', message, {
+    field: 'nextInvoiceNumber',
+    current: await currentNumber(db),
+  });
 }

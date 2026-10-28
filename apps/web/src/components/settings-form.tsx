@@ -85,6 +85,7 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
   const setIdentity = edit(identity);
   const setNumbering = edit(numbering);
   const nextError = numberRefusal(numbering.error);
+  const lowest = (server ?? loaded).nextInvoiceNumberMin;
 
   return (
     <>
@@ -221,16 +222,16 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
       >
         <div className="flex flex-wrap gap-4">
           <Field
-            label="Next number"
+            label={`Next number (${lowest} or higher)`}
             htmlFor="next-number"
-            hint="Start past invoices sent before Stint. It only moves forward."
+            hint="Start past invoices sent before Stint."
             error={nextError}
             className="flex-1 basis-40"
           >
             <Input
               id="next-number"
               type="number"
-              min={server?.nextInvoiceNumber ?? 1}
+              min={lowest}
               max={NEXT_INVOICE_NUMBER_MAX}
               step="1"
               value={next}

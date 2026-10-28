@@ -61,9 +61,10 @@ omits one.
   Never pass them straight through.
 - A retried insert: a duplicate-key insert with a client-supplied id returns
   the existing row with 200, not an error.
-- `nextInvoiceNumber` moves forward only: the settings route makes it a
-  condition of the update, never a read before it, since
-  `allocate_invoice_number()` may take the number in between.
+- `nextInvoiceNumber` stays past the highest number an invoice holds. The
+  settings route checks that against the counter it read, and updates only
+  while the counter still holds that value: `allocate_invoice_number()` may
+  take a number between the read and the write.
 
 ### Schemas
 

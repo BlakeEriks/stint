@@ -8,7 +8,8 @@ import { SettingsDialog } from './settings-dialog';
 
 /**
  * The number the next invoice takes, moved from New invoice. The server
- * refuses a step back, or one past the ceiling, and the dialog says why.
+ * refuses a number an invoice holds, or one past the ceiling, and the
+ * dialog says why.
  */
 export function NumberDialog({
   onOpenChange,
@@ -32,9 +33,8 @@ export function NumberDialog({
       {(pending) => (
         <div className="flex flex-wrap gap-4">
           <Field
-            label="Next number"
+            label={`Next number (${settings.nextInvoiceNumberMin} or higher)`}
             htmlFor="number-dialog-next"
-            hint="It only moves forward."
             className="flex-1 basis-40"
           >
             {/* No min or max: the browser would block the submit with its own

@@ -287,9 +287,8 @@ export const CalendarQuery = z.object({
 });
 
 // ── settings ───────────────────────────────────────────────────────
-/** Well under the integer column's limit: the number moves forward only, so
-    one near the limit could never be undone and would overflow when
-    `allocate_invoice_number()` adds one. */
+/** Well under the integer column's limit, which `allocate_invoice_number()`
+    would overflow adding one. */
 export const NEXT_INVOICE_NUMBER_MAX = 999_999;
 
 export const Settings = z.object({
@@ -315,15 +314,20 @@ export const Settings = z.object({
   paymentTermsDays: termsDays,
   invoiceNumberPrefix: z.string().max(20),
   nextInvoiceNumber: z.number().int().positive().max(NEXT_INVOICE_NUMBER_MAX),
+  /** The lowest `nextInvoiceNumber` allowed: one past the highest number an
+      invoice holds, drafts included. Read-only. */
+  nextInvoiceNumberMin: z.number().int().positive(),
   /** When the welcome dialog was finished or skipped; null shows it. */
   welcomedAt: iso.nullable(),
 });
-/** `nextInvoiceNumber` moves forward only, under its ceiling. The settings
-    route refuses either in one shape, naming the field, so the ceiling is
-    not Zod's here. */
-export const UpdateSettings = Settings.partial().extend({
-  nextInvoiceNumber: z.number().int().positive().optional(),
-});
+/** `nextInvoiceNumber` stays from `nextInvoiceNumberMin` to its ceiling.
+    The settings route refuses either end in one shape, naming the field, so
+    the ceiling is not Zod's here. */
+export const UpdateSettings = Settings.omit({ nextInvoiceNumberMin: true })
+  .partial()
+  .extend({
+    nextInvoiceNumber: z.number().int().positive().optional(),
+  });
 
 /** What deleting the account removes, counted so the confirm can say so. */
 export const Account = z.object({

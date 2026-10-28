@@ -489,16 +489,26 @@ const changeNumber = async (canvasElement: HTMLElement, next: string) => {
   const page = await chooseNorthwind(canvasElement);
   await settled(page);
   await userEvent.type(page.getByLabelText('Reference'), 'PO-7');
-  const line = page.getByText(/Numbered STINT-0016/);
+  return { page, form: await saveNumber(page, 'STINT-0016', next) };
+};
+
+/** Opens Change on the "Numbered" line and saves `next`. STINT-0015 is
+    the highest number an invoice holds, so the field names 16. */
+const saveNumber = async (
+  page: ReturnType<typeof within>,
+  shown: string,
+  next: string,
+) => {
+  const line = page.getByText(new RegExp(`Numbered ${shown}`));
   await userEvent.click(within(line).getByRole('button', { name: 'Change' }));
   const dialog = await page.findByRole('dialog', { name: 'Invoice number' });
   await waitFor(() => expect(dialog).toBeVisible());
   const form = within(dialog);
-  const field = form.getByLabelText('Next number');
+  const field = form.getByLabelText('Next number (16 or higher)');
   await userEvent.clear(field);
   await userEvent.type(field, next);
   await userEvent.click(form.getByRole('button', { name: 'Save' }));
-  return { page, form };
+  return form;
 };
 
 /** The number Generate takes shows before it does. Change moves it in a
@@ -514,17 +524,34 @@ export const ChangeNumber: Story = {
   },
 };
 
-/** The number only moves forward: a step back is refused in the open
-    dialog, which says why. */
+/** A raise can be taken back: 16 is still free after moving to 20. */
+export const ChangeNumberBack: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const { page } = await changeNumber(canvasElement, '20');
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+    await saveNumber(page, 'STINT-0020', '16');
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+    await expect(page.getByText(/Numbered STINT-0016/)).toBeVisible();
+  },
+};
+
+/** A number an invoice already holds is refused in the open dialog, which
+    says which one and what is free. */
 export const ChangeNumberRefused: Story = {
   ...desktop,
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const { form } = await changeNumber(canvasElement, '10');
     await expect(
-      await form.findByText(/can't go below 16/, {}, { timeout: 3000 }),
+      await form.findByText(
+        'STINT-0015 is already used. Pick 16 or higher.',
+        {},
+        { timeout: 3000 },
+      ),
     ).toBeVisible();
-    await expect(form.getByLabelText('Next number')).toHaveValue(10);
+    await expect(form.getByLabelText(/Next number/)).toHaveValue(10);
   },
 };
 

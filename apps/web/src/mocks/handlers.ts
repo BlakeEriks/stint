@@ -87,6 +87,18 @@ const activeProfile = (db: Db, id: string) =>
 type CreateInvoice = z.infer<typeof schema.CreateInvoice>;
 type Preview = NonNullable<ReturnType<typeof invoicePreview>>;
 
+/** The invoice holding the highest number, drafts included. */
+const highestInvoice = (db: Db) =>
+  db.invoices.reduce<Db['invoices'][number] | undefined>(
+    (top, i) => (top && top.sequenceNo > i.sequenceNo ? top : i),
+    undefined,
+  );
+
+const settingsView = (db: Db) => ({
+  ...db.settings,
+  nextInvoiceNumberMin: (highestInvoice(db)?.sequenceNo ?? 0) + 1,
+});
+
 function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
   const seq = db.settings.nextInvoiceNumber;
   db.settings.nextInvoiceNumber += 1;
@@ -782,7 +794,7 @@ export const handlers = {
   }),
 
   settings: http.get(`${API}/settings`, () =>
-    ok(schema.Settings, getDb().settings),
+    ok(schema.Settings, settingsView(getDb())),
   ),
 
   updateSettings: http.patch(`${API}/settings`, async ({ request }) => {
@@ -802,13 +814,14 @@ export const handlers = {
       return refused(
         `The next number can't go above ${schema.NEXT_INVOICE_NUMBER_MAX}.`,
       );
-    if (next !== undefined && next < current)
+    const highest = highestInvoice(db);
+    if (highest && next !== undefined && next <= highest.sequenceNo)
       return refused(
-        `The next number can't go below ${current}, or an invoice could repeat a number already sent.`,
+        `${highest.invoiceNumber} is already used. Pick ${highest.sequenceNo + 1} or higher.`,
       );
     db.settings = { ...db.settings, ...input };
     if (input.paymentTermsDays !== undefined) db.legacyPaymentTerms = null;
-    return ok(schema.Settings, db.settings);
+    return ok(schema.Settings, settingsView(db));
   }),
 
   paymentProfiles: http.get(`${API}/payment-profiles`, () => {

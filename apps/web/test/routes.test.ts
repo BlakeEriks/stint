@@ -1464,27 +1464,70 @@ test('settings update', async () => {
   assert.equal(after.body.defaultHourlyRate, 125);
 });
 
-/* A contractor who already sent invoices outside Stint starts past them.
-   Going back could reissue a number a client already has, so it is
-   refused, and the refusal changes nothing else in the patch. */
-test('the next invoice number moves forward only', async () => {
-  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
+/* A contractor who already sent invoices outside Stint starts past them,
+   and can take a raise back. Only a number an invoice already holds, drafts
+   included, is refused: the counter would step into it at Generate. The
+   refusal changes nothing else in the patch. */
+test('the next invoice number goes anywhere past the numbers invoices hold', async () => {
+  const { GET: get, PATCH: patch } = await import(
+    '../src/app/api/v1/settings/route.ts'
+  );
   const set = (body: object) =>
     patch(req('/settings', body, 'PATCH')).then(json);
 
-  const ahead = await set({ nextInvoiceNumber: 3 });
+  const ahead = await set({
+    nextInvoiceNumber: 3,
+    invoiceNumberPrefix: 'INV-',
+  });
   assert.equal(ahead.status, 200);
   assert.equal(ahead.body.nextInvoiceNumber, 3);
+  assert.equal(ahead.body.nextInvoiceNumberMin, 1, 'no invoice holds one');
 
-  const same = await set({ nextInvoiceNumber: 3, maxEntryHours: 9 });
-  assert.equal(same.status, 200, 'the current number is not a step back');
-  assert.equal(same.body.maxEntryHours, 9);
+  const undone = await set({ nextInvoiceNumber: 1 });
+  assert.equal(undone.status, 200, 'a raise can be taken back');
+  assert.equal(undone.body.nextInvoiceNumber, 1);
 
-  const back = await set({ nextInvoiceNumber: 2, maxEntryHours: 12 });
-  assert.equal(back.status, 422);
-  assert.equal(back.body.code, 'VALIDATION_FAILED');
-  assert.match(back.body.message, /3/);
-  assert.deepEqual(back.body.details, {
+  await pool.query(`insert into clients (id,user_id,name) values ($1,$2,'C')`, [
+    'cc000000-0000-4000-8000-000000000001',
+    USER,
+  ]);
+  for (const seq of [1, 2]) {
+    const { rows } = await pool.query(
+      'select * from allocate_invoice_number($1)',
+      [USER],
+    );
+    await pool.query(
+      `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status)
+                      values ($1,$2,$3,$4,$5,$6)`,
+      [
+        `ff000000-0000-4000-8000-00000000000${seq}`,
+        USER,
+        'cc000000-0000-4000-8000-000000000001',
+        rows[0].invoice_number,
+        rows[0].sequence_no,
+        seq === 2 ? 'draft' : 'sent',
+      ],
+    );
+  }
+
+  const read = await json(await get(req('/settings')));
+  assert.equal(read.body.nextInvoiceNumberMin, 3, 'past the draft too');
+
+  const raised = await set({ nextInvoiceNumber: 7 });
+  assert.equal(raised.status, 200);
+  assert.equal(raised.body.nextInvoiceNumberMin, 3);
+  const back = await set({ nextInvoiceNumber: 3, maxEntryHours: 9 });
+  assert.equal(back.status, 200, 'back to the lowest unheld number');
+  assert.equal(back.body.maxEntryHours, 9);
+
+  const held = await set({ nextInvoiceNumber: 2, maxEntryHours: 12 });
+  assert.equal(held.status, 422);
+  assert.equal(held.body.code, 'VALIDATION_FAILED');
+  assert.equal(
+    held.body.message,
+    'INV-0002 is already used. Pick 3 or higher.',
+  );
+  assert.deepEqual(held.body.details, {
     field: 'nextInvoiceNumber',
     current: 3,
   });
@@ -1513,7 +1556,7 @@ test('the next invoice number has a ceiling', async () => {
   assert.deepEqual(
     res.body.details,
     { field: 'nextInvoiceNumber', current: 1 },
-    'refused like a step back, so the form can say why at the field',
+    'refused like a held number, so the form can say why at the field',
   );
 
   const { rows } = await pool.query(
