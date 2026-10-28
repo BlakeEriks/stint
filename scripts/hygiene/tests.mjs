@@ -17,8 +17,10 @@
 
 import { dirname, join, normalize } from 'node:path';
 
+const isStory = (path) => path.endsWith('.stories.tsx');
 /* What a test imports to help it, not what it tests. */
-const HELPER = /\/(test|e2e|mocks|fixtures)\/|\.stories\.tsx$/;
+const isHelper = (path) =>
+  /\/(test|e2e|mocks|fixtures)\//.test(path) || isStory(path);
 const EXTENSIONS = [
   '',
   '.ts',
@@ -50,12 +52,11 @@ export function importsOf(path, source, exists) {
   for (const [, spec] of source.matchAll(SPECIFIER)) {
     const b = base(path, spec);
     const file = b && EXTENSIONS.map((e) => b + e).find(exists);
-    if (file && !HELPER.test(file) && !found.includes(file)) found.push(file);
+    if (file && !isHelper(file) && !found.includes(file)) found.push(file);
   }
   return found;
 }
 
-const isStory = (path) => path.endsWith('.stories.tsx');
 const finding = (path, kind, detail, value) => ({
   path,
   kind,

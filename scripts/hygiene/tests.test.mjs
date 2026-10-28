@@ -14,6 +14,7 @@ describe('importsOf', () => {
     'apps/web/src/components/calendar.tsx',
     'apps/web/src/lib/client/use-beat.ts',
     'apps/web/src/mocks/db.ts',
+    'apps/web/src/calendar.stories.tsx',
     'apps/mobile/src/screens/timer-screen.tsx',
   ]);
   const exists = (p) => files.has(p);
@@ -33,8 +34,9 @@ describe('importsOf', () => {
     );
   });
 
-  it('leaves out mocks and fixtures, which are a test’s helpers, not its subject', () => {
-    const src = `import { account } from '@/mocks/db';`;
+  it('leaves out mocks and stories, which are a test’s helpers, not its subject', () => {
+    const src = `import { account } from '@/mocks/db';
+      import * as stories from './calendar.stories';`;
     assert.deepEqual(importsOf('apps/web/src/a.stories.tsx', src, exists), []);
   });
 });

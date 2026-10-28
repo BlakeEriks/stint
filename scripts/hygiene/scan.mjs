@@ -8,8 +8,9 @@
  *   fixes     three or more merged fixes in 90 days, on a whole-repo scan
  *             only, since it needs `gh`
  *   Vale      prose against the Google style guide and our house rules
- *   tests     duplicate coverage, orphans, and each suite's slowest tests,
- *             the last from main's newest CI run, on a whole-repo scan only
+ *   tests     duplicate coverage, orphans, and each suite's slowest tests
+ *             from main's newest CI run, on a whole-repo scan only: a scoped
+ *             run is /reduce's, which has no step for them
  *
  * usage: pnpm hygiene [paths...] [--since 30.days] [--top N] [--json]
  *                     [--skip-filed]
@@ -325,7 +326,7 @@ const findings = [
   deadCode(),
   scope.length ? [] : fixes(),
   prose(),
-  testFindings(),
+  scope.length ? [] : testFindings(),
   scope.length ? [] : slowTests(),
 ]
   .flat()
