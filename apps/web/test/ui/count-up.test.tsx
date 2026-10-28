@@ -190,6 +190,20 @@ async function travel(
   return seen;
 }
 
+/**
+ * Refetch, with the new figures committed before the next driven frame.
+ *
+ * TanStack hands a refetch's result to React on a `setTimeout(0)` that
+ * `refetchQueries` does not wait for, so without the extra turn the commit
+ * could land inside a later `frame()` and the tween would start late.
+ */
+async function refetch() {
+  await act(async () => {
+    await client.refetchQueries();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
 /** `--motion-count`, the tween's length, as `use-count-up` sets it. */
 const DURATION = 900;
 
@@ -313,11 +327,12 @@ describe('count-up', () => {
 
     render(<HomeCards />, { wrapper });
     await waitFor(() => expect(figure()).toBe('$1,000.00'));
+    /* The load's own arrival, from 92% of the figure, runs only on driven
+       frames; left pending, it would be the tween the travel samples. */
+    await travel(figure, frame);
 
     current = stats({ unbilled: unbilled(9000) });
-    await act(async () => {
-      await client.refetchQueries();
-    });
+    await refetch();
 
     const seen = await travel(figure, frame);
     expect(figure()).toBe('$9,000.00');
@@ -348,11 +363,12 @@ describe('count-up', () => {
     const today = () =>
       container.querySelectorAll('.type-figure')[0]?.textContent?.trim() ?? '';
     await waitFor(() => expect(today()).toBe('$1,000.00'));
+    /* The load's own arrival, from 92% of the figure, runs only on driven
+       frames; left pending, it would be the tween the travel samples. */
+    await travel(today, frame);
 
     current = stats({ earnedToday: 9000 });
-    await act(async () => {
-      await client.refetchQueries();
-    });
+    await refetch();
 
     const seen = await travel(today, frame);
     expect(today()).toBe('$9,000.00');
@@ -372,11 +388,12 @@ describe('count-up', () => {
     const earned = () =>
       document.querySelector('.type-figure-hero')?.textContent?.trim() ?? '';
     await waitFor(() => expect(earned()).toBe('$1,000.00'));
+    /* The load's own arrival, from 92% of the figure, runs only on driven
+       frames; left pending, it would be the tween the travel samples. */
+    await travel(earned, frame);
 
     current = stats({ month: { ...MONTH, earned: 9000 } });
-    await act(async () => {
-      await client.refetchQueries();
-    });
+    await refetch();
 
     const seen = await travel(earned, frame);
     expect(earned()).toBe('$9,000.00');
