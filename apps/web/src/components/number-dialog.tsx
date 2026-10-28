@@ -33,7 +33,21 @@ export function NumberDialog({
       {(pending) => (
         <div className="flex flex-wrap gap-4">
           <Field
-            label={`Next number (${settings.nextInvoiceNumberMin} or higher)`}
+            label="Prefix"
+            htmlFor="number-dialog-prefix"
+            className="flex-1 basis-40"
+          >
+            <Input
+              id="number-dialog-prefix"
+              placeholder="INV-"
+              maxLength={20}
+              value={prefix}
+              readOnly={pending}
+              onChange={(e) => setPrefix(e.target.value)}
+            />
+          </Field>
+          <Field
+            label="Next number"
             htmlFor="number-dialog-next"
             className="flex-1 basis-40"
           >
@@ -46,20 +60,6 @@ export function NumberDialog({
               value={next}
               readOnly={pending}
               onChange={(e) => setNext(e.target.value)}
-            />
-          </Field>
-          <Field
-            label="Prefix"
-            htmlFor="number-dialog-prefix"
-            className="flex-1 basis-40"
-          >
-            <Input
-              id="number-dialog-prefix"
-              placeholder="INV-"
-              maxLength={20}
-              value={prefix}
-              readOnly={pending}
-              onChange={(e) => setPrefix(e.target.value)}
             />
           </Field>
         </div>

@@ -115,14 +115,19 @@ export const NoPaymentProfiles: Story = {
   },
 };
 
-/** Next number goes anywhere past the numbers invoices hold: up to start
-    past invoices sent before Stint, and back down after a raise. A number
-    an invoice holds is refused, and the field says why. */
+/** Prefix comes first, then Next number, as the invoice prints them. The
+    number goes anywhere past the numbers invoices hold: up to start past
+    invoices sent before Stint, and back down after a raise. A number an
+    invoice holds is refused, and the field says why. */
 export const NextNumberPastUsed: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    const field = await page.findByLabelText('Next number (16 or higher)');
+    const field = await page.findByLabelText('Next number');
+    // Prefix, then number, in reading and tab order, as the invoice prints.
+    await expect(
+      page.getByLabelText('Prefix').compareDocumentPosition(field),
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     await userEvent.clear(field);
     await userEvent.type(field, '20');
     await expect(
@@ -137,7 +142,7 @@ export const NextNumberPastUsed: Story = {
     await userEvent.type(field, '15');
     await expect(
       await page.findByText(
-        'STINT-0015 is already used. Pick 16 or higher.',
+        'Must be higher than STINT-0015, your latest invoice.',
         {},
         { timeout: 3000 },
       ),
@@ -172,7 +177,7 @@ export const NextNumberCeiling: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    const field = await page.findByLabelText(/Next number/);
+    const field = await page.findByLabelText('Next number');
     await userEvent.clear(field);
     await userEvent.type(field, '1000000');
     await expect(

@@ -216,11 +216,7 @@ export const SETTINGS_COLUMNS = columns<SettingsRow>()(
   'default_hourly_rate, currency, week_starts_on, time_format, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, payment_terms_days, invoice_number_prefix, next_invoice_number, welcomed_at',
 );
 
-/** `highest` is the invoice holding the highest number, if any. */
-export function toSettings(
-  r: SettingsRow,
-  highest: { sequence_no: number } | null,
-) {
+export function toSettings(r: SettingsRow) {
   return {
     defaultHourlyRate: num(r.default_hourly_rate),
     currency: r.currency,
@@ -235,7 +231,6 @@ export function toSettings(
     paymentTermsDays: r.payment_terms_days,
     invoiceNumberPrefix: r.invoice_number_prefix,
     nextInvoiceNumber: r.next_invoice_number,
-    nextInvoiceNumberMin: (highest?.sequence_no ?? 0) + 1,
     welcomedAt: r.welcomed_at,
   };
 }

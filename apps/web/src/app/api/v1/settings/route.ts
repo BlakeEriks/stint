@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { handle, ApiError } from '@/lib/errors';
+import { handle, ApiError, refused } from '@/lib/errors';
+import { nextNumberRefusal } from '@stint/core';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import {
@@ -31,23 +32,15 @@ export const GET = handle(async (req: Request) => {
       .select(SETTINGS_COLUMNS)
       .single();
     if (insertError) throw insertError;
-    return NextResponse.json(toSettings(created, await highestInvoice(db)));
+    return NextResponse.json(toSettings(created));
   }
 
-  return NextResponse.json(toSettings(data, await highestInvoice(db)));
+  return NextResponse.json(toSettings(data));
 });
 
 export const PATCH = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
   const patch = await parseBody(req, UpdateSettings);
-
-  const next = patch.nextInvoiceNumber;
-  if (next !== undefined && next > NEXT_INVOICE_NUMBER_MAX) {
-    throw await refusal(
-      db,
-      `The next number can't go above ${NEXT_INVOICE_NUMBER_MAX}.`,
-    );
-  }
 
   const update: Record<string, unknown> = toColumns(patch, SETTINGS_FIELDS);
   // Saving terms answers the Inbox's question about the old text.
@@ -57,10 +50,8 @@ export const PATCH = handle(async (req: Request) => {
   }
 
   for (;;) {
-    const saved = await save(db, userId, update, next);
-    if (saved) {
-      return NextResponse.json(toSettings(saved, await highestInvoice(db)));
-    }
+    const saved = await save(db, userId, update, patch.nextInvoiceNumber);
+    if (saved) return NextResponse.json(toSettings(saved));
   }
 });
 
@@ -79,12 +70,16 @@ async function save(
     // Read before the invoices: an invoice taken after this read moves it.
     const current = await currentNumber(db);
     const highest = await highestInvoice(db);
-    if (highest && next <= highest.sequence_no) {
-      throw await refusal(
-        db,
-        `${highest.invoice_number} is already used. Pick ${highest.sequence_no + 1} or higher.`,
-      );
-    }
+    const refusal = nextNumberRefusal(
+      next,
+      current,
+      NEXT_INVOICE_NUMBER_MAX,
+      highest && {
+        sequenceNo: highest.sequence_no,
+        invoiceNumber: highest.invoice_number,
+      },
+    );
+    if (refusal) throw refused(refusal);
     /* Only if no invoice took a number since the read; otherwise the
        counter could be set to the number it just gave out. */
     query = query.eq('next_invoice_number', current);
@@ -120,13 +115,4 @@ async function currentNumber(db: Db) {
   if (error) throw error;
   if (!data) throw new ApiError('ENTRY_NOT_FOUND', 'Settings not found');
   return data.next_invoice_number;
-}
-
-/** A refused `nextInvoiceNumber`, naming the field and the number it
-    stays at, so the form can say why there and show that number again. */
-async function refusal(db: Db, message: string) {
-  return new ApiError('VALIDATION_FAILED', message, {
-    field: 'nextInvoiceNumber',
-    current: await currentNumber(db),
-  });
 }

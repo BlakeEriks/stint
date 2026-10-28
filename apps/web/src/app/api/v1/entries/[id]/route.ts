@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { handle, ApiError, dbCode } from '@/lib/errors';
+import { handle, ApiError, dbCode, refused } from '@/lib/errors';
+import { entryOrderRefusal, refusals } from '@stint/core';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import {
@@ -62,10 +63,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
 
   if (error) {
     if (dbCode(error) === 'ENTRY_LOCKED') {
-      throw new ApiError(
-        'ENTRY_LOCKED',
-        'This entry is billed on an issued invoice and cannot be modified',
-      );
+      throw refused(refusals.entryLocked('modified'));
     }
     if (dbCode(error) === 'TIMER_ALREADY_RUNNING') {
       throw new ApiError(
@@ -104,15 +102,13 @@ async function checkOrder(
     .maybeSingle();
   if (!current) throw new ApiError('ENTRY_NOT_FOUND', 'Entry not found');
 
-  const started = (update.started_at as string) ?? current.started_at;
-  const ended =
-    update.ended_at !== undefined ? update.ended_at : current.ended_at;
-  if (ended != null && new Date(ended as string) <= new Date(started)) {
-    throw new ApiError('VALIDATION_FAILED', 'endedAt must be after startedAt', {
-      startedAt: started,
-      endedAt: ended,
-    });
-  }
+  const order = entryOrderRefusal(
+    (update.started_at as string) ?? current.started_at,
+    (update.ended_at !== undefined ? update.ended_at : current.ended_at) as
+      | string
+      | null,
+  );
+  if (order) throw refused(order);
 }
 
 export const DELETE = handle(async (req: Request, ctx: Ctx) => {
@@ -128,10 +124,7 @@ export const DELETE = handle(async (req: Request, ctx: Ctx) => {
 
   if (error) {
     if (dbCode(error) === 'ENTRY_LOCKED') {
-      throw new ApiError(
-        'ENTRY_LOCKED',
-        'This entry is billed on an issued invoice and cannot be deleted',
-      );
+      throw refused(refusals.entryLocked('deleted'));
     }
     throw error;
   }

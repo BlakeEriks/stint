@@ -34,7 +34,6 @@ const scenarios: Record<
       settings: {
         ...settings(),
         nextInvoiceNumber: 1,
-        nextInvoiceNumberMin: 1,
       },
       clients: [],
       projects: [],

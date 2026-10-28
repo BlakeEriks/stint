@@ -512,7 +512,7 @@ const changeNumber = async (canvasElement: HTMLElement, next: string) => {
 };
 
 /** Opens Change on the "Numbered" line and saves `next`. STINT-0015 is
-    the highest number an invoice holds, so the field names 16. */
+    the highest number an invoice holds. */
 const saveNumber = async (
   page: ReturnType<typeof within>,
   shown: string,
@@ -523,7 +523,11 @@ const saveNumber = async (
   const dialog = await page.findByRole('dialog', { name: 'Invoice number' });
   await waitFor(() => expect(dialog).toBeVisible());
   const form = within(dialog);
-  const field = form.getByLabelText('Next number (16 or higher)');
+  const field = form.getByLabelText('Next number');
+  // Prefix, then number, in reading and tab order, as the invoice prints.
+  await expect(
+    form.getByLabelText('Prefix').compareDocumentPosition(field),
+  ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   await userEvent.clear(field);
   await userEvent.type(field, next);
   await userEvent.click(form.getByRole('button', { name: 'Save' }));
@@ -565,12 +569,12 @@ export const ChangeNumberRefused: Story = {
     const { form } = await changeNumber(canvasElement, '10');
     await expect(
       await form.findByText(
-        'STINT-0015 is already used. Pick 16 or higher.',
+        'Must be higher than STINT-0015, your latest invoice.',
         {},
         { timeout: 3000 },
       ),
     ).toBeVisible();
-    await expect(form.getByLabelText(/Next number/)).toHaveValue(10);
+    await expect(form.getByLabelText('Next number')).toHaveValue(10);
   },
 };
 

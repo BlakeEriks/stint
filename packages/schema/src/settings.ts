@@ -30,20 +30,16 @@ export const Settings = z.object({
   paymentTermsDays: termsDays,
   invoiceNumberPrefix: z.string().max(20),
   nextInvoiceNumber: z.number().int().positive().max(NEXT_INVOICE_NUMBER_MAX),
-  /** The lowest `nextInvoiceNumber` allowed: one past the highest number an
-      invoice holds, drafts included. Read-only. */
-  nextInvoiceNumberMin: z.number().int().positive(),
   /** When the welcome dialog was finished or skipped; null shows it. */
   welcomedAt: iso.nullable(),
 });
-/** `nextInvoiceNumber` stays from `nextInvoiceNumberMin` to its ceiling.
+/** `nextInvoiceNumber` stays past the highest number an invoice holds and
+    under its ceiling.
     The settings route refuses either end in one shape, naming the field, so
     the ceiling is not Zod's here. */
-export const UpdateSettings = Settings.omit({ nextInvoiceNumberMin: true })
-  .partial()
-  .extend({
-    nextInvoiceNumber: z.number().int().positive().optional(),
-  });
+export const UpdateSettings = Settings.partial().extend({
+  nextInvoiceNumber: z.number().int().positive().optional(),
+});
 
 /** What deleting the account removes, counted so the confirm can say so. */
 export const Account = z.object({

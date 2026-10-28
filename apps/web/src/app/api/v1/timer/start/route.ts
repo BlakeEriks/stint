@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { handle, ApiError, dbCode } from '@/lib/errors';
+import { handle, dbCode, refused } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import { findRunning } from '@/lib/timer';
@@ -7,7 +7,7 @@ import { pushTimerChanged } from '@/lib/push';
 import { projectBillableDefault } from '@/lib/projects';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
 import { askedToInclude, entryWith, readIncluded } from '@/lib/include';
-import { uuidv7 } from '@stint/core';
+import { refusals, uuidv7 } from '@stint/core';
 import { StartTimer } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -45,12 +45,7 @@ export const POST = handle(async (req: Request) => {
 
   if (error) {
     if (dbCode(error) === 'TIMER_ALREADY_RUNNING') {
-      const running = await findRunning(db);
-      throw new ApiError(
-        'TIMER_ALREADY_RUNNING',
-        'A timer is already running. Stop it before starting another.',
-        { running },
-      );
+      throw refused(refusals.timerRunning(await findRunning(db)));
     }
     throw error;
   }

@@ -1469,9 +1469,7 @@ test('settings update', async () => {
    included, is refused: the counter would step into it at Generate. The
    refusal changes nothing else in the patch. */
 test('the next invoice number goes anywhere past the numbers invoices hold', async () => {
-  const { GET: get, PATCH: patch } = await import(
-    '../src/app/api/v1/settings/route.ts'
-  );
+  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
   const set = (body: object) =>
     patch(req('/settings', body, 'PATCH')).then(json);
 
@@ -1481,7 +1479,6 @@ test('the next invoice number goes anywhere past the numbers invoices hold', asy
   });
   assert.equal(ahead.status, 200);
   assert.equal(ahead.body.nextInvoiceNumber, 3);
-  assert.equal(ahead.body.nextInvoiceNumberMin, 1, 'no invoice holds one');
 
   const undone = await set({ nextInvoiceNumber: 1 });
   assert.equal(undone.status, 200, 'a raise can be taken back');
@@ -1510,12 +1507,8 @@ test('the next invoice number goes anywhere past the numbers invoices hold', asy
     );
   }
 
-  const read = await json(await get(req('/settings')));
-  assert.equal(read.body.nextInvoiceNumberMin, 3, 'past the draft too');
-
   const raised = await set({ nextInvoiceNumber: 7 });
   assert.equal(raised.status, 200);
-  assert.equal(raised.body.nextInvoiceNumberMin, 3);
   const back = await set({ nextInvoiceNumber: 3, maxEntryHours: 9 });
   assert.equal(back.status, 200, 'back to the lowest unheld number');
   assert.equal(back.body.maxEntryHours, 9);
@@ -1525,7 +1518,7 @@ test('the next invoice number goes anywhere past the numbers invoices hold', asy
   assert.equal(held.body.code, 'VALIDATION_FAILED');
   assert.equal(
     held.body.message,
-    'INV-0002 is already used. Pick 3 or higher.',
+    'Must be higher than INV-0002, your latest invoice.',
   );
   assert.deepEqual(held.body.details, {
     field: 'nextInvoiceNumber',
@@ -1596,7 +1589,7 @@ test('an invoice taken during the save makes the next number check again', async
     assert.equal(res.status, 422);
     assert.equal(
       res.body.message,
-      'INV-0001 is already used. Pick 2 or higher.',
+      'Must be higher than INV-0001, your latest invoice.',
     );
   } finally {
     generate.release();
