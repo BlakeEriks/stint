@@ -1545,6 +1545,70 @@ test('the next invoice number goes anywhere past the numbers invoices hold', asy
   assert.equal(alloc[0].sequence_no, 3, 'the next invoice takes it');
 });
 
+/* The save checks the invoices, then writes. An invoice that takes the
+   number in between must not let the counter be set back onto it: the
+   write misses, and the save checks again against the new invoice. */
+test('an invoice taken during the save makes the next number check again', async () => {
+  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
+  await pool.query(
+    "update user_settings set invoice_number_prefix='INV-' where user_id=$1",
+    [USER],
+  );
+  await pool.query(`insert into clients (id,user_id,name) values ($1,$2,'C')`, [
+    'cc000000-0000-4000-8000-000000000001',
+    USER,
+  ]);
+
+  // A Generate in flight: it holds the counter's row lock and has taken 1.
+  const generate = await pool.connect();
+  try {
+    await generate.query('begin');
+    const { rows } = await generate.query(
+      'select * from allocate_invoice_number($1)',
+      [USER],
+    );
+    await generate.query(
+      `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status)
+                      values ($1,$2,$3,$4,$5,'draft')`,
+      [
+        'ff000000-0000-4000-8000-000000000001',
+        USER,
+        'cc000000-0000-4000-8000-000000000001',
+        rows[0].invoice_number,
+        rows[0].sequence_no,
+      ],
+    );
+
+    // The save sees neither yet, so 1 passes its check and its write waits.
+    const saving = patch(
+      req('/settings', { nextInvoiceNumber: 1 }, 'PATCH'),
+    ).then(json);
+    for (;;) {
+      const { rows: waiting } = await pool.query(
+        'select 1 from pg_locks where not granted',
+      );
+      if (waiting.length) break;
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    await generate.query('commit');
+
+    const res = await saving;
+    assert.equal(res.status, 422);
+    assert.equal(
+      res.body.message,
+      'INV-0001 is already used. Pick 2 or higher.',
+    );
+  } finally {
+    generate.release();
+  }
+
+  const { rows } = await pool.query(
+    'select next_invoice_number from user_settings where user_id=$1',
+    [USER],
+  );
+  assert.equal(rows[0].next_invoice_number, 2, 'not set back onto INV-0001');
+});
+
 test('the next invoice number has a ceiling', async () => {
   const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
 
