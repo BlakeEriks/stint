@@ -390,3 +390,29 @@ export const ZoomOutFills: Story = {
     await expect(area.clientHeight).toBeGreaterThan(24 * 22 + 10);
   },
 };
+
+/** A mouse over empty time shows the quarter hour a press would start,
+    and nothing over an entry. */
+export const HoverSlot: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const { el, x, y } = await column(canvasElement);
+    await userEvent.pointer({
+      target: el,
+      coords: { clientX: x, clientY: y((2 * 60 + 7) / 1440) },
+    });
+    const slot = el.querySelector('[data-hover-slot]');
+    await expect(slot).toHaveTextContent('+ 2:00 AM');
+
+    const page = within(canvasElement.ownerDocument.body);
+    const [block] = await page.findAllByRole('button', { name: /^Edit / });
+    const box = (block as HTMLElement).getBoundingClientRect();
+    await userEvent.pointer({
+      target: block as HTMLElement,
+      coords: { clientX: box.left + 5, clientY: box.top + box.height / 2 },
+    });
+    await expect(
+      canvasElement.ownerDocument.querySelector('[data-hover-slot]'),
+    ).toBeNull();
+  },
+};

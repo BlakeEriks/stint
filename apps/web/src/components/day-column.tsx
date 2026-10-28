@@ -1,8 +1,8 @@
 'use client';
 
-import { useRef, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { useMutationState } from '@tanstack/react-query';
-import { formatCompact, formatLocalTime } from '@stint/core';
+import { drawnRange, formatCompact, formatLocalTime } from '@stint/core';
 import { placement, type PositionedEntry } from '@/lib/client/use-calendar';
 import type { useEntryDrag, DragMode } from '@/lib/client/use-entry-drag';
 import type { TimeEntry } from '@/lib/client/api';
@@ -56,6 +56,7 @@ export function DayColumn({
     !positioned.some((p) => pending.has(p.entry.id))
       ? drag.preview
       : null;
+  const hover = useHoverSlot(dayStart, dayEnd);
 
   return (
     /* The grid is a pointer SHORTCUT for picking a time, not the only way in:
@@ -72,7 +73,11 @@ export function DayColumn({
         if (!column.current) return;
         drag.draw(event, column.current, dayStart, dayEnd, onCreate);
       }}
-      onPointerMove={drag.move}
+      onPointerMove={(event) => {
+        drag.move(event);
+        hover.move(event);
+      }}
+      onPointerLeave={hover.clear}
       onPointerUp={drag.end}
       onPointerCancel={drag.cancel}
       className="relative min-w-0 flex-1 border-l border-edge-subtle"
@@ -102,6 +107,24 @@ export function DayColumn({
         />
       ))}
 
+      {hover.slot && !drawing && !drag.preview ? (
+        <div
+          aria-hidden
+          data-hover-slot
+          className="pointer-events-none absolute inset-x-0 overflow-hidden rounded-[5px] border border-dashed border-edge-subtle px-1.5 type-meta leading-tight text-subtle [@media(hover:none)]:hidden"
+          style={edges(
+            placement(
+              hover.slot.startedAt,
+              hover.slot.endedAt,
+              dayStart,
+              dayEnd,
+            ),
+          )}
+        >
+          {`+ ${time(hover.slot.startedAt)}`}
+        </div>
+      ) : null}
+
       {drawing ? (
         <div
           aria-hidden
@@ -120,6 +143,34 @@ export function DayColumn({
       {children}
     </div>
   );
+}
+
+/**
+ * The quarter hour a press here would start, following a mouse over empty
+ * time: where a click or a drag would begin, before it does. Not over an
+ * entry or its grips (the event's target is then not the column), not while
+ * a button is held, and not for touch, which has no hover to show it on.
+ * It is the slot a press without travel draws, so the two always agree.
+ */
+function useHoverSlot(dayStart: Date, dayEnd: Date) {
+  const [slot, setSlot] = useState<{ startedAt: Date; endedAt: Date } | null>(
+    null,
+  );
+  const clear = () => setSlot(null);
+  const move = (event: React.PointerEvent<HTMLDivElement>) => {
+    const empty =
+      event.pointerType === 'mouse' &&
+      event.buttons === 0 &&
+      event.target === event.currentTarget;
+    if (!empty) return clear();
+    const box = event.currentTarget.getBoundingClientRect();
+    const at = (event.clientY - box.top) / box.height;
+    const next = drawnRange(at, at, dayStart, dayEnd);
+    setSlot((s) =>
+      s?.startedAt.getTime() === next.startedAt.getTime() ? s : next,
+    );
+  };
+  return { slot, move, clear };
 }
 
 /**
