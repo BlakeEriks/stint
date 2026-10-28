@@ -13,12 +13,14 @@ import {
   documentOpens,
   formatCompact,
   formatCurrency,
+  isPeriod,
   parseTermsDays,
 } from '@stint/core';
 import {
   Check,
   DollarSign,
   Download,
+  FilePlus,
   FolderInput,
   Inbox as InboxIcon,
   Pencil,
@@ -47,6 +49,7 @@ export function inboxCount(attention: Attention) {
     (attention.paymentTermsToCheck !== null ? 1 : 0) +
     attention.overdueInvoices.length +
     attention.staleDrafts.length +
+    attention.periodsDue.length +
     attention.lateEntries.length +
     attention.unprojected.length +
     attention.strangeDurations.length +
@@ -58,6 +61,7 @@ export function inboxCount(attention: Attention) {
 type InboxRow =
   | { id: string; kind: 'overdue'; row: Attention['overdueInvoices'][number] }
   | { id: string; kind: 'draft'; row: Attention['staleDrafts'][number] }
+  | { id: string; kind: 'due'; row: Attention['periodsDue'][number] }
   | { id: string; kind: 'late'; row: Attention['lateEntries'][number] }
   | { id: string; kind: 'unprojected'; row: Attention['unprojected'][number] }
   | { id: string; kind: 'strange'; row: Attention['strangeDurations'][number] }
@@ -86,6 +90,7 @@ export function Inbox({ stats }: { stats: Stats }) {
   const {
     overdueInvoices,
     staleDrafts,
+    periodsDue,
     lateEntries,
     unprojected,
     strangeDurations,
@@ -210,6 +215,12 @@ export function Inbox({ stats }: { stats: Stats }) {
       id: d.invoiceId,
       kind: 'draft' as const,
       row: d,
+    })),
+    /* An invoice not yet made, with the ones made and not sent. */
+    ...periodsDue.map((p) => ({
+      id: `due:${p.clientId}`,
+      kind: 'due' as const,
+      row: p,
     })),
     /* Money no invoice holds, beside the invoices: work dated in a period
        already sent. */
@@ -394,7 +405,7 @@ function Row({
   return <Item exiting={exiting} ref={ref} {...itemFor(entry, handlers)} />;
 }
 
-/** Which `Item` a row becomes — the one place the five kinds differ. */
+/** Which `Item` a row becomes — the one place the kinds differ. */
 function itemFor(r: ItemRow, h: Handlers): ItemProps {
   switch (r.kind) {
     case 'overdue':
@@ -412,6 +423,8 @@ function itemFor(r: ItemRow, h: Handlers): ItemProps {
         status: 'sent',
         refuses: r.row.refuses,
       });
+    case 'due':
+      return dueItem(r.row);
     case 'unprojected':
       return unprojectedItem(r.row, h);
     case 'overlap':
@@ -470,6 +483,48 @@ function invoiceItem(
       </>
     ),
   };
+}
+
+/* A chore, not money late, so neutral. The link fills in New invoice and
+   creates nothing: the user makes the draft, so it is numbered then. */
+function dueItem(p: Attention['periodsDue'][number]): ItemProps {
+  const href = `/invoices/new?${new URLSearchParams({
+    client: p.clientId,
+    from: p.periodStart,
+    to: p.periodEnd,
+  })}`;
+  return {
+    href,
+    label: p.clientName,
+    detail: `${periodName(p.periodStart, p.periodEnd)} ended with no invoice`,
+    value: p.seconds > 0 ? formatCompact(p.seconds) : undefined,
+    tone: 'neutral',
+    actions: (
+      <Action
+        label="Create invoice"
+        context={p.clientName}
+        icon={<FilePlus aria-hidden />}
+        href={href}
+        navigates
+      />
+    ),
+  };
+}
+
+/** A calendar month by its name, any other period by its dates:
+ *  "Oct 1 – 15", "Sep 28 – Oct 4". */
+function periodName(start: string, end: string) {
+  const date = (d: string, parts: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat('en-US', { ...parts, timeZone: 'UTC' }).format(
+      new Date(`${d}T00:00:00Z`),
+    );
+  if (isPeriod({ period: 'monthly' }, start, end))
+    return date(start, { month: 'long' });
+  const to =
+    start.slice(0, 7) === end.slice(0, 7)
+      ? date(end, { day: 'numeric' })
+      : date(end, { month: 'short', day: 'numeric' });
+  return `${date(start, { month: 'short', day: 'numeric' })} – ${to}`;
 }
 
 function entryItem(
@@ -748,15 +803,25 @@ function Action({
   icon,
   onClick,
   href,
+  navigates,
 }: {
   label: string;
   context: string;
   icon: React.ReactNode;
   onClick?: () => void;
+  /** A file to download, or with `navigates` a page in the app. */
   href?: string;
+  navigates?: boolean;
 }) {
   const ariaLabel = `${label}, ${context}`;
-  return href ? (
+  return navigates && href ? (
+    <Button asChild size="xs">
+      <Link href={href} aria-label={ariaLabel}>
+        {icon}
+        {label}
+      </Link>
+    </Button>
+  ) : href ? (
     <Button asChild size="xs">
       <a href={href} aria-label={ariaLabel} download>
         {icon}

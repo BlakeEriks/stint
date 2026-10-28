@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { Inbox } from '@/components/inbox';
+import { Inbox, inboxCount } from '@/components/inbox';
 import { MutationNotice } from '@/components/mutation-notice';
 import type { Stats } from '@/lib/client/api';
 
@@ -42,6 +42,7 @@ function stats(attention: Partial<Stats['attention']> = {}): Stats {
       paymentTermsToCheck: null,
       overdueInvoices: [],
       staleDrafts: [],
+      periodsDue: [],
       lateEntries: [],
       unprojected: [],
       strangeDurations: [],
@@ -89,6 +90,66 @@ const overdue = {
 };
 
 afterEach(() => vi.unstubAllGlobals());
+
+const due = {
+  clientId: 'c1',
+  clientName: 'Northwind',
+  periodStart: '2026-09-01',
+  periodEnd: '2026-09-30',
+  seconds: 54000,
+};
+
+describe('A scheduled period that ended with no invoice', () => {
+  it('names a calendar month by its name, and links New invoice to it', () => {
+    render(<Inbox stats={stats({ periodsDue: [due] })} />, { wrapper });
+
+    expect(
+      screen.getByText('September ended with no invoice'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('15h')).toBeInTheDocument();
+    const href = '/invoices/new?client=c1&from=2026-09-01&to=2026-09-30';
+    expect(
+      screen.getByRole('link', { name: 'Create invoice, Northwind' }),
+    ).toHaveAttribute('href', href);
+    // Navigates, never downloads.
+    expect(
+      screen.getByRole('link', { name: 'Create invoice, Northwind' }),
+    ).not.toHaveAttribute('download');
+    expect(screen.getByRole('link', { name: 'Northwind' })).toHaveAttribute(
+      'href',
+      href,
+    );
+  });
+
+  it('names any other period by its dates', () => {
+    render(
+      <Inbox
+        stats={stats({
+          periodsDue: [
+            { ...due, periodStart: '2026-10-01', periodEnd: '2026-10-15' },
+            {
+              ...due,
+              clientId: 'c2',
+              periodStart: '2026-09-28',
+              periodEnd: '2026-10-04',
+            },
+          ],
+        })}
+      />,
+      { wrapper },
+    );
+    expect(
+      screen.getByText('Oct 1 – 15 ended with no invoice'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Sep 28 – Oct 4 ended with no invoice'),
+    ).toBeInTheDocument();
+  });
+
+  it('counts in the header', () => {
+    expect(inboxCount(stats({ periodsDue: [due] }).attention)).toBe(1);
+  });
+});
 
 describe('Inbox', () => {
   it('names the invoice in every action, even where the label is generic', () => {

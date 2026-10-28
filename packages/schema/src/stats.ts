@@ -256,6 +256,18 @@ export const Stats = z.object({
         refuses: DraftActions,
       }),
     ),
+    /** Each scheduled client whose last ended period bills something and
+     *  has no invoice but a void one sharing a day with it (`periodsDue` in
+     *  `@stint/core`). `seconds` is the period's billable time. */
+    periodsDue: z.array(
+      z.object({
+        clientId: uuid,
+        clientName: z.string(),
+        periodStart: z.iso.date(),
+        periodEnd: z.iso.date(),
+        seconds: z.number().int().nonnegative(),
+      }),
+    ),
     /** Unbilled billable work dated inside a sent or paid invoice's period
      *  for its client, oldest first: billed nowhere until the user says. */
     lateEntries: z.array(

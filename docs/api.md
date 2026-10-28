@@ -178,7 +178,10 @@ stored answer instead — `duration_ok` on an entry of unusual length — so it
 cannot return every day once answered. `unprojected` is one row per entry,
 oldest first; `strangeDurations` one per stopped entry of implausible length;
 `lateEntries` one per unbilled billable entry dated, in `tz`, inside a sent or
-paid invoice's period for its client, naming that invoice.
+paid invoice's period for its client, naming that invoice;
+`periodsDue` one per active scheduled client whose last ended period, in
+`tz`, bills unbilled time or a one-off expense and has no invoice but a void
+one sharing a day with it, with that period's billable `seconds`.
 The long threshold defaults to 12 hours, which is how a timer left running
 overnight reaches the inbox; the short one defaults to null. `overlaps` is one
 per pair of entries sharing a minute or more (`MIN_OVERLAP_SECONDS` in

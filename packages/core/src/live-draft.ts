@@ -5,6 +5,7 @@
  * sent is surfaced rather than billed on whichever invoice comes next.
  */
 
+import { type BillingSchedule, lastEndedPeriod } from './billing-period.ts';
 import { addDays, localDateKey } from './calendar.ts';
 import { hundredths, type LineItem, termsDays } from './invoice.ts';
 
@@ -130,6 +131,80 @@ export function lateEntries(
         : [];
     })
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+}
+
+/** Inputs to `periodsDue()`: the rows it reads, each already unbilled
+ *  where that applies. */
+interface DueInputs {
+  /** The user's active clients with a billing schedule. */
+  clients: { id: string; name: string; schedule: BillingSchedule }[];
+  /** Finished entries on no invoice and not billed elsewhere. */
+  entries: Omit<LateCandidate, 'id' | 'taskName'>[];
+  /** Expenses on no invoice. */
+  expenses: { clientId: string; spentOn: string | null; recurring: boolean }[];
+  invoices: {
+    clientId: string;
+    status: string;
+    periodStart: string;
+    periodEnd: string;
+  }[];
+}
+
+/**
+ * Each scheduled client whose last ended period, on `today`, bills something
+ * and has no invoice but a void one sharing a day with it; oldest period
+ * first. A recurring expense alone bills nothing here: it bills on every
+ * invoice, so it would raise a row for every period of a client gone quiet.
+ */
+export function periodsDue(
+  { clients, entries, expenses, invoices }: DueInputs,
+  today: string,
+  tz: string,
+) {
+  return clients
+    .flatMap((c) => {
+      const { periodStart, periodEnd } = lastEndedPeriod(today, c.schedule);
+      const inPeriod = (day: string) => periodStart <= day && day <= periodEnd;
+      const covered = invoices.some(
+        (i) =>
+          i.clientId === c.id &&
+          i.status !== 'void' &&
+          i.periodStart <= periodEnd &&
+          periodStart <= i.periodEnd,
+      );
+      if (covered) return [];
+      const seconds = entries
+        .filter(
+          (e) =>
+            e.isBillable &&
+            e.clientId === c.id &&
+            inPeriod(localDateKey(new Date(e.startedAt), tz)),
+        )
+        .reduce((total, e) => total + e.durationSeconds, 0);
+      const expensed = expenses.some(
+        (x) =>
+          x.clientId === c.id &&
+          !x.recurring &&
+          x.spentOn !== null &&
+          inPeriod(x.spentOn),
+      );
+      return seconds > 0 || expensed
+        ? [
+            {
+              clientId: c.id,
+              clientName: c.name,
+              periodStart,
+              periodEnd,
+              seconds,
+            },
+          ]
+        : [];
+    })
+    .sort(
+      (a, b) =>
+        a.periodEnd.localeCompare(b.periodEnd) ||
+        a.clientName.localeCompare(b.clientName),
+    );
 }
 
 export interface OpenDraft {

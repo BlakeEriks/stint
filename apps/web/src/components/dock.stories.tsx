@@ -144,6 +144,43 @@ export const LateEntry: Story = {
   },
 };
 
+/** Northwind bills twice a month, and on September 17 its first half has
+    ended with work in it and no invoice. The row opens New invoice for it. */
+export const PeriodDue: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    for (const c of db.clients)
+      if (c.id === ids.northwind) c.billingSchedule = { period: 'semimonthly' };
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      await page.findByText('Sep 1 – 15 ended with no invoice'),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Create invoice, Northwind Trading' }),
+    ).toHaveAttribute(
+      'href',
+      `/invoices/new?client=${ids.northwind}&from=2026-09-01&to=2026-09-15`,
+    );
+  },
+};
+
+/** Billed monthly, Northwind's August holds a sent invoice for its first
+    half, which covers it: no row. */
+export const PeriodCovered: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    for (const c of db.clients)
+      if (c.id === ids.northwind) c.billingSchedule = { period: 'monthly' };
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await page.findAllByText(/days late/);
+    await expect(page.queryByText(/ended with no invoice/)).toBeNull();
+  },
+};
+
 /** Below `xl` the dock is a band that sizes to its content, with no split. */
 export const Band: Story = { ...tablet };
 

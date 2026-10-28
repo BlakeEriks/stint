@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { shortDate } from './invoice-bits';
 import {
@@ -133,6 +133,33 @@ const EMPTY: Draft = {
   excludedExpenseIds: [],
   paymentProfileId: '',
 };
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const isDate = (d: string | null): d is string =>
+  d !== null &&
+  DATE.test(d) &&
+  new Date(`${d}T00:00:00Z`).toISOString().startsWith(d);
+
+/**
+ * The draft a link opens with: `?client=…&from=…&to=…`, as the Inbox's row
+ * for a period that ended with no invoice sends. A client not in `clients`,
+ * or dates that aren't a period, are left out, so the form opens as usual.
+ */
+export function linkedDraft(
+  params: URLSearchParams,
+  clients: Pick<Client, 'id'>[],
+): Draft {
+  const client = params.get('client');
+  const from = params.get('from');
+  const to = params.get('to');
+  const period = isDate(from) && isDate(to) && from <= to;
+  return {
+    ...EMPTY,
+    clientId: clients.some((c) => c.id === client) ? client! : '',
+    periodStart: period ? from : null,
+    periodEnd: period ? to : null,
+  };
+}
 
 /** The period the user set, else the client's default for `today`. */
 function periodOf(
@@ -348,17 +375,18 @@ export function NewInvoice() {
 function Form() {
   const router = useRouter();
   const qc = useQueryClient();
+  const params = useSearchParams();
 
-  const [draft, setDraft] = useState<Draft>(EMPTY);
+  const clients =
+    useQuery({ queryKey: keys.clients(), queryFn: () => api.clients() }).data
+      ?.clients ?? [];
+  const [draft, setDraft] = useState(() => linkedDraft(params, clients));
   /* Read once: a form left open past midnight keeps the dates it showed
      rather than moving them to the next period unseen. */
   const [issued] = useState(() => localDateKey(new Date(), tz));
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
-  const clients =
-    useQuery({ queryKey: keys.clients(), queryFn: () => api.clients() }).data
-      ?.clients ?? [];
   const client = clients.find((c) => c.id === draft.clientId);
   const { data: settings } = useQuery({
     queryKey: keys.settings(),

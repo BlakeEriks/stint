@@ -6,6 +6,7 @@ import {
   draftSnapshot,
   lateEntries,
   newLines,
+  periodsDue,
   snapshotChanged,
 } from '../src/live-draft.ts';
 
@@ -224,4 +225,146 @@ test('draftDates: sending keeps the dates its last PDF printed', () => {
     issueDate: '2026-09-10',
     dueDate: '2026-10-17',
   });
+});
+
+// Northwind bills monthly; on Oct 3 its last ended period is September.
+const due = (over: Partial<Parameters<typeof periodsDue>[0]> = {}) =>
+  periodsDue(
+    {
+      clients: [
+        { id: 'c1', name: 'Northwind', schedule: { period: 'monthly' } },
+      ],
+      entries: [entry({})],
+      expenses: [],
+      invoices: [],
+      ...over,
+    },
+    '2026-10-03',
+    'America/Chicago',
+  );
+
+const september = {
+  clientId: 'c1',
+  clientName: 'Northwind',
+  periodStart: '2026-09-01',
+  periodEnd: '2026-09-30',
+  seconds: 9000,
+};
+
+test('a scheduled period that ended with unbilled work and no invoice is due', () => {
+  assert.deepEqual(due(), [september]);
+});
+
+test('a period with nothing billable in it is not due', () => {
+  assert.deepEqual(due({ entries: [] }), []);
+  assert.deepEqual(due({ entries: [entry({ isBillable: false })] }), []);
+  // Another client's work, and work in the open period, bill nothing here.
+  assert.deepEqual(due({ entries: [entry({ clientId: 'c2' })] }), []);
+  assert.deepEqual(
+    due({ entries: [entry({ startedAt: '2026-10-02T15:00:00Z' })] }),
+    [],
+  );
+});
+
+test('work is dated in the user zone', () => {
+  // 03:00 UTC on Oct 1 is still Sep 30 in Chicago.
+  assert.deepEqual(
+    due({ entries: [entry({ startedAt: '2026-10-01T03:00:00Z' })] }),
+    [september],
+  );
+});
+
+test('a one-off expense spent in the period is due; a recurring one alone is not', () => {
+  const expense = { clientId: 'c1', spentOn: '2026-09-12', recurring: false };
+  assert.deepEqual(due({ entries: [], expenses: [expense] }), [
+    { ...september, seconds: 0 },
+  ]);
+  assert.deepEqual(
+    due({ entries: [], expenses: [{ ...expense, spentOn: '2026-08-12' }] }),
+    [],
+  );
+  assert.deepEqual(
+    due({
+      entries: [],
+      expenses: [{ ...expense, spentOn: null, recurring: true }],
+    }),
+    [],
+  );
+});
+
+test('any invoice but a void one sharing a day with the period covers it', () => {
+  const invoice = (status: string, periodStart: string, periodEnd: string) => ({
+    clientId: 'c1',
+    status,
+    periodStart,
+    periodEnd,
+  });
+  for (const status of ['draft', 'sent', 'paid'])
+    assert.deepEqual(
+      due({ invoices: [invoice(status, '2026-09-01', '2026-09-30')] }),
+      [],
+    );
+  assert.deepEqual(
+    due({ invoices: [invoice('draft', '2026-09-20', '2026-10-05')] }),
+    [],
+  );
+  assert.deepEqual(
+    due({ invoices: [invoice('void', '2026-09-01', '2026-09-30')] }),
+    [september],
+  );
+  assert.deepEqual(
+    due({ invoices: [invoice('paid', '2026-08-01', '2026-08-31')] }),
+    [september],
+  );
+  assert.deepEqual(
+    due({
+      invoices: [
+        { ...invoice('paid', '2026-09-01', '2026-09-30'), clientId: 'c2' },
+      ],
+    }),
+    [september],
+  );
+});
+
+test("the period is the last one ended, even on the open one's last day", () => {
+  const semimonthly = (today: string) =>
+    periodsDue(
+      {
+        clients: [
+          { id: 'c1', name: 'Northwind', schedule: { period: 'semimonthly' } },
+        ],
+        entries: [entry({ startedAt: '2026-10-10T15:00:00Z' })],
+        expenses: [],
+        invoices: [],
+      },
+      today,
+      'America/Chicago',
+    );
+  assert.deepEqual(semimonthly('2026-10-15'), []);
+  assert.deepEqual(semimonthly('2026-10-16'), [
+    { ...september, periodStart: '2026-10-01', periodEnd: '2026-10-15' },
+  ]);
+});
+
+test('each client due gets a row, oldest period first', () => {
+  assert.deepEqual(
+    due({
+      clients: [
+        { id: 'c2', name: 'Acme', schedule: { period: 'monthly' } },
+        {
+          id: 'c1',
+          name: 'Northwind',
+          schedule: { period: 'weekly', anchor: '2026-09-26' },
+        },
+      ],
+      entries: [
+        entry({ id: 'e1', clientId: 'c1', startedAt: '2026-09-29T15:00:00Z' }),
+        entry({ id: 'e2', clientId: 'c2', startedAt: '2026-09-29T15:00:00Z' }),
+      ],
+    }),
+    [
+      { ...september, clientId: 'c2', clientName: 'Acme' },
+      { ...september, periodStart: '2026-09-26', periodEnd: '2026-10-02' },
+    ],
+  );
 });

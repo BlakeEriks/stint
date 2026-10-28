@@ -6,6 +6,7 @@ import type { Db } from '@/mocks/fixtures';
 import { ids } from '@/mocks/fixtures';
 import { handlers } from '@/mocks/handlers';
 import {
+  at,
   desktop,
   menuOpen,
   phone,
@@ -187,6 +188,29 @@ export const WeeklyDefaults: Story = {
     const page = await chooseNorthwind(canvasElement);
     await expect(page.getByLabelText('From')).toHaveValue('2026-09-07');
     await expect(page.getByLabelText('To')).toHaveValue('2026-09-13');
+  },
+};
+
+/** Opened from the Inbox's row for a period that ended with no invoice:
+    the client and period are filled in, and nothing is made yet. */
+export const FromInboxLink: Story = {
+  ...desktop,
+  parameters: {
+    ...at('/invoices/new', {
+      client: ids.northwind,
+      from: '2026-09-01',
+      to: '2026-09-15',
+    }),
+    ...scheduled(ids.northwind, { period: 'semimonthly' }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      await page.findByRole('button', { name: 'Client' }),
+    ).toHaveTextContent('Northwind');
+    await expect(page.getByLabelText('From')).toHaveValue('2026-09-01');
+    await expect(page.getByLabelText('To')).toHaveValue('2026-09-15');
+    await settled(page);
   },
 };
 

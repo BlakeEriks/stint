@@ -3694,6 +3694,46 @@ test('unbilled work dated in a sent period is late; billed, unbillable or voided
   assert.deepEqual(await late(), []);
 });
 
+test('a scheduled period that ended with work and no invoice is due until one covers it', async () => {
+  const r = await live();
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const { lastEndedPeriod, localDateKey, addDays } = await import(
+    '@stint/core'
+  );
+  const period = lastEndedPeriod(localDateKey(new Date(), 'UTC'), {
+    period: 'monthly',
+  });
+  await pool.query(`update clients set billing_period = 'monthly'`);
+  await seedEntry({
+    id: D(1),
+    start: `${addDays(period.periodStart, 1)}T12:00:00Z`,
+    hours: 2,
+  });
+
+  const due = async () =>
+    (await json(await stats(req('/stats?tz=UTC')))).body.attention.periodsDue;
+  const row = {
+    clientId: CLIENT,
+    clientName: 'Northwind',
+    ...period,
+    seconds: 7200,
+  };
+  assert.deepEqual(await due(), [row]);
+
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...period })),
+  );
+  assert.equal(inv.status, 201, JSON.stringify(inv.body));
+  assert.deepEqual(await due(), [], 'a draft covers it');
+
+  await send(inv.body.id);
+  await r.setStatus(req('/s', { status: 'void' }, 'PATCH'), at(inv.body.id));
+  assert.deepEqual(await due(), [row], 'a void one does not');
+
+  await pool.query(`update clients set archived_at = now()`);
+  assert.deepEqual(await due(), [], 'nor is an archived client due');
+});
+
 test('a draft is stale by its period end, at the total its work comes to now', async () => {
   const r = await live();
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');

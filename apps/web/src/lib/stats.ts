@@ -3,8 +3,10 @@ import { selectAll } from '@/lib/select-all';
 import { loadBilledSpans } from '@/lib/billed-spans';
 import { deriveDraft, draftRefusals } from '@/lib/invoicing';
 import {
+  type ClientRow,
   INVOICE_COLUMNS,
   type InvoiceRow as StoredInvoiceRow,
+  toBillingSchedule,
 } from '@/lib/rows';
 import {
   addDays,
@@ -44,6 +46,7 @@ import {
   type UnbilledRow,
   type UnprojectedRow,
   lateEntries,
+  periodsDue,
 } from '@stint/core';
 
 /**
@@ -106,6 +109,8 @@ export async function readStats(
     collectedRows,
     weekEntries,
     issuedPeriods,
+    scheduledClients,
+    unbilledExpenses,
   ] = await Promise.all([
     /* `p_now` on every rollup: a running entry is measured at the same
        instant the windows are cut at. */
@@ -236,8 +241,22 @@ export async function readStats(
        holds. */
     db
       .from('invoices')
-      .select('id, invoice_number, client_id, period_start, period_end')
+      .select('id, invoice_number, client_id, status, period_start, period_end')
       .in('status', ['sent', 'paid']),
+
+    /* For a scheduled period that ended with no invoice: the clients whose
+       schedule says when one is due, and the one-off expenses a period can
+       bill. */
+    db
+      .from('clients')
+      .select('id, name, billing_period, period_anchor')
+      .not('billing_period', 'is', null)
+      .is('archived_at', null),
+    db
+      .from('expenses')
+      .select('client_id, spent_on, recurring')
+      .is('invoice_id', null)
+      .eq('recurring', false),
   ]);
 
   for (const r of [
@@ -250,6 +269,8 @@ export async function readStats(
     projectRows,
     collectedRows,
     issuedPeriods,
+    scheduledClients,
+    unbilledExpenses,
   ]) {
     if (r.error) throw r.error;
   }
@@ -327,6 +348,8 @@ export async function readStats(
       (p.client_id as string | null) ?? null,
     ]),
   );
+  const clientOfProject = (projectId: string | null) =>
+    projectId ? (clientOf.get(projectId) ?? null) : null;
   const week = buildWeek(
     (weekDays.data ?? []) as DayRow[],
     Array.from({ length: 7 }, (_, i) => addDays(weekStartKey, i)),
@@ -397,7 +420,7 @@ export async function readStats(
           startedAt: new Date(r.started_at).toISOString(),
           durationSeconds: r.duration_seconds,
           isBillable: r.is_billable,
-          clientId: r.project_id ? (clientOf.get(r.project_id) ?? null) : null,
+          clientId: clientOfProject(r.project_id),
         })),
         (issuedPeriods.data ?? []).map((i) => ({
           id: i.id as string,
@@ -408,6 +431,37 @@ export async function readStats(
         })),
         tz,
       ).map((e) => ({ ...e, clientName: clientNames.get(e.clientId) ?? null })),
+      periodsDue: periodsDue(
+        {
+          clients: ((scheduledClients.data ?? []) as ClientRow[]).map((c) => ({
+            id: c.id,
+            name: c.name,
+            schedule: toBillingSchedule(c)!,
+          })),
+          entries: overlapCandidates.map((r) => ({
+            startedAt: new Date(r.started_at).toISOString(),
+            durationSeconds: r.duration_seconds,
+            isBillable: r.is_billable,
+            clientId: clientOfProject(r.project_id),
+          })),
+          expenses: (unbilledExpenses.data ?? []).map((x) => ({
+            clientId: x.client_id as string,
+            spentOn: x.spent_on as string | null,
+            recurring: x.recurring as boolean,
+          })),
+          invoices: [
+            ...((invoices.data ?? []) as StoredInvoiceRow[]),
+            ...((issuedPeriods.data ?? []) as StoredInvoiceRow[]),
+          ].map((i) => ({
+            clientId: i.client_id,
+            status: i.status,
+            periodStart: i.period_start,
+            periodEnd: i.period_end,
+          })),
+        },
+        todayKey,
+        tz,
+      ),
       unprojected: buildUnprojected(unprojected),
       strangeDurations: buildStrangeDurations(
         durationCandidates,
