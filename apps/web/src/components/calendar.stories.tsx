@@ -15,6 +15,7 @@ import {
   tablet,
   wide,
   expectOpen,
+  stalled,
 } from '@/mocks/screen';
 import { ZOOM_KEY } from '@/lib/client/use-zoom';
 import { Calendar } from './calendar';
@@ -226,6 +227,24 @@ async function column(canvasElement: HTMLElement) {
   return { el, x: box.left + 10, y: (at: number) => box.top + at * box.height };
 }
 
+/** Press at 02:00 and drag to 04:00, letting go when `release`. */
+async function drawAcross(
+  el: HTMLElement,
+  clientX: number,
+  y: (at: number) => number,
+  release: boolean,
+) {
+  await userEvent.pointer([
+    {
+      target: el,
+      coords: { clientX, clientY: y(2 / 24) },
+      keys: '[MouseLeft>]',
+    },
+    { target: el, coords: { clientX, clientY: y(4 / 24) } },
+    ...(release ? [{ target: el, keys: '[/MouseLeft]' }] : []),
+  ]);
+}
+
 /** Pressing on empty grid and dragging draws the entry's range, snapped;
     nothing is written until the editor saves. Held mid-drag. */
 export const Drawing: Story = {
@@ -233,14 +252,7 @@ export const Drawing: Story = {
   play: async ({ canvasElement }) => {
     // 02:00 to 04:00, hours the seed leaves empty.
     const { el, x, y } = await column(canvasElement);
-    await userEvent.pointer([
-      {
-        target: el,
-        coords: { clientX: x, clientY: y(2 / 24) },
-        keys: '[MouseLeft>]',
-      },
-      { target: el, coords: { clientX: x, clientY: y(4 / 24) } },
-    ]);
+    await drawAcross(el, x, y, false);
     const ghost = el.querySelector('.border-dashed');
     await expect(ghost).not.toBeNull();
     await expect(ghost).toHaveTextContent(/2:00 AM–4:00 AM/);
@@ -252,15 +264,7 @@ export const DrawnOpensEditor: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const { el, x, y } = await column(canvasElement);
-    await userEvent.pointer([
-      {
-        target: el,
-        coords: { clientX: x, clientY: y(2 / 24) },
-        keys: '[MouseLeft>]',
-      },
-      { target: el, coords: { clientX: x, clientY: y(4 / 24) } },
-      { target: el, keys: '[/MouseLeft]' },
-    ]);
+    await drawAcross(el, x, y, true);
     await expectOpen(canvasElement, 'dialog', 'Add entry');
     const page = within(canvasElement.ownerDocument.body);
     await expect(page.getByLabelText('Start')).toHaveValue('02:00');
@@ -343,5 +347,25 @@ export const Pinch: Story = {
     await waitFor(() =>
       expect(el.getBoundingClientRect().height).toBeGreaterThan(before),
     );
+  },
+};
+
+/** Saved and not yet answered: the drawn entry is on the grid at once, a
+    step darker and pulsing, while the form waits on the server. */
+export const DrawnSaving: Story = {
+  ...desktop,
+  parameters: stalled('createEntry'),
+  play: async ({ canvasElement }) => {
+    const { el, x, y } = await column(canvasElement);
+    await drawAcross(el, x, y, true);
+    await expectOpen(canvasElement, 'dialog', 'Add entry');
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.type(page.getByLabelText('Task'), 'Drawn work');
+    await userEvent.click(page.getByRole('button', { name: 'Add entry' }));
+    const block = (await page.findByText(/^Drawn work, .*, saving$/)).closest(
+      '[aria-busy="true"]',
+    );
+    await expect(block).not.toBeNull();
+    await expect(el.contains(block)).toBe(true);
   },
 };

@@ -349,7 +349,10 @@ export function Calendar() {
 
       <EntryDialog
         open={editor.open}
-        onOpenChange={editor.onOpenChange}
+        onOpenChange={(open) => {
+          editor.onOpenChange(open);
+          if (!open) drag.release();
+        }}
         existing={editor.subject?.existing}
         seed={editor.subject?.seed}
         projects={projects.data?.projects ?? []}

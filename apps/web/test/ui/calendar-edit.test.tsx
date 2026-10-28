@@ -447,3 +447,96 @@ describe('adjusting an entry by dragging', () => {
     expect(await screen.findByText(/billed/i)).toBeTruthy();
   });
 });
+
+describe('a drawn entry never leaves the grid', () => {
+  /** Serves the week empty, and holds the create until `answer` is called. */
+  function serveHeld(status = 201) {
+    let answer: () => void = () => {};
+    const created: Record<string, unknown>[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if ((init?.method ?? 'GET') === 'POST') {
+          const body = JSON.parse(String(init?.body));
+          await new Promise<void>((done) => (answer = done));
+          if (status !== 201)
+            return new Response(
+              JSON.stringify({ code: 'OVERLAP', message: 'Overlaps Standup' }),
+              { status },
+            );
+          created.push(body);
+          return new Response(
+            JSON.stringify({ ...body, durationSeconds: 7200 }),
+            { status: 201 },
+          );
+        }
+        const days = created.length
+          ? [
+              {
+                date: '2026-09-07',
+                totalSeconds: 7200,
+                entries: created.map((b) => ({ ...b, durationSeconds: 7200 })),
+              },
+            ]
+          : [];
+        return new Response(
+          JSON.stringify(
+            String(url).includes('/projects')
+              ? { projects: PROJECTS }
+              : { days },
+          ),
+          { status: 200 },
+        );
+      }),
+    );
+    return { answer: () => answer() };
+  }
+
+  async function drawAndSave() {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<Calendar />, { wrapper });
+    await screen.findByText('Mon');
+    layOut();
+    const column = document.querySelectorAll<HTMLElement>('.border-l')[0]!;
+    await user.pointer([
+      { target: column, coords: { x: 10, y: 510 }, keys: '[MouseLeft>]' },
+      { target: column, coords: { x: 10, y: 570 } },
+      { target: column, keys: '[/MouseLeft]' },
+    ]);
+    await screen.findByRole('heading', { name: 'Add entry' });
+    // Still drawn while the editor is open.
+    expect(column.querySelector('.border-dashed')).not.toBeNull();
+    await user.type(screen.getByLabelText('Task'), 'Drawn work');
+    await user.click(screen.getByRole('button', { name: 'Add entry' }));
+    return column;
+  }
+
+  it('shows the entry as settling until the server answers', async () => {
+    const srv = serveHeld();
+    const column = await drawAndSave();
+
+    const settling = await screen.findByText(/^Drawn work, .*, saving$/);
+    expect(settling.closest('[aria-busy="true"]')).not.toBeNull();
+    expect(column.querySelector('.border-dashed')).toBeNull();
+
+    srv.answer();
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: 'Add entry' })).toBeNull(),
+    );
+    expect(
+      await screen.findByRole('button', { name: /^Edit Drawn work/ }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/, saving$/)).toBeNull();
+  });
+
+  it('takes it back on a refusal and says why in the form', async () => {
+    const srv = serveHeld(409);
+    await drawAndSave();
+    await screen.findByText(/^Drawn work, .*, saving$/);
+
+    srv.answer();
+    expect(await screen.findByText('Overlaps Standup')).toBeInTheDocument();
+    expect(screen.queryByText(/^Drawn work, /)).toBeNull();
+    expect(screen.getByLabelText('Task')).toHaveValue('Drawn work');
+  });
+});

@@ -178,9 +178,13 @@ export function useEntryDrag() {
     if (!a) return;
     justDragged.current = a.moved;
 
+    /* The drawn block stays on the grid while its editor is open, until
+       `release`: a new entry never leaves the grid between the gesture and
+       the server's answer. */
     if (a.entryId === null) {
-      setPreview(null);
-      a.onDrawn?.(...drawn(a));
+      const [startedAt, endedAt] = drawn(a);
+      setPreview({ entryId: null, column: a.column, startedAt, endedAt });
+      a.onDrawn?.(startedAt, endedAt);
       return;
     }
 
@@ -216,6 +220,8 @@ export function useEntryDrag() {
     saving: save.isPending,
     begin,
     draw,
+    /** Drop a drawn block, once the editor it opened has closed. */
+    release: () => setPreview((p) => (p?.entryId === null ? null : p)),
     move,
     end,
     cancel,

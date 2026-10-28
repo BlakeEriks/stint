@@ -8,6 +8,7 @@ import { api, type Project, type TimeEntry } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { useProjectColors } from '@/lib/client/use-project-colors';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
+import { useEntryDrag } from '@/lib/client/use-entry-drag';
 import { Button } from '@/components/ui/button';
 import { EntryDialog } from './entry-dialog';
 import { Listing } from './page';
@@ -54,6 +55,7 @@ export function EntryList({
   const colors = useProjectColors();
 
   /* An entry edits it; otherwise it adds one, at the times drawn if any. */
+  const drag = useEntryDrag();
   const editing = useDialog<{
     existing?: TimeEntry;
     seed?: { startedAt: string; endedAt: string };
@@ -119,6 +121,7 @@ export function EntryList({
             <TodayGrid
               entries={entries}
               colors={colors}
+              drag={drag}
               onEdit={(existing) => editing.show({ existing })}
               onCreate={(startedAt, endedAt) =>
                 editing.show({
@@ -152,7 +155,10 @@ export function EntryList({
 
       <EntryDialog
         open={editing.open}
-        onOpenChange={editing.onOpenChange}
+        onOpenChange={(open) => {
+          editing.onOpenChange(open);
+          if (!open) drag.release();
+        }}
         existing={editing.subject?.existing}
         seed={editing.subject?.seed}
         projects={projects}

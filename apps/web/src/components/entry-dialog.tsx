@@ -34,6 +34,10 @@ import { EntryScrubber } from '@/components/entry-scrubber';
 import { useProjectColors } from '@/lib/client/use-project-colors';
 import { api, ApiError, type Project, type TimeEntry } from '@/lib/client/api';
 import { timeZone } from '@/lib/client/use-timer';
+import {
+  predictCreatedEntry,
+  type CreatedEntry,
+} from '@/lib/client/predict-entry';
 
 const LABEL = 'type-label text-subtle';
 
@@ -157,10 +161,10 @@ export function EntryDialog({
   const failWith = (fallback: string) => (e: Error) =>
     setError(e instanceof ApiError ? e.message : fallback);
 
-  /* Pending, not predicted: the server decides whether an entry is valid (an
-     overlap, a billed lock), and a form that closed at once would lose what
-     was typed when it said no. The button answers the press instead, and the
-     reason shows here. `stats` is in the refetch too: editing an entry
+  /* The form waits on the server, predicted or not: it decides whether an
+     entry is valid (an overlap, a billed lock), and a form that closed at
+          once would lose what was typed when it said no. The button shows the
+     press is pending, and the reason shows here. `stats` is in the refetch too: editing an entry
      changes the unbilled total, and giving a loose entry a project is what
      clears its inbox row. */
   const formPress = {
@@ -171,27 +175,47 @@ export function EntryDialog({
     onSuccess: settle,
   };
 
+  const body = () => {
+    const { startedAt, endedAt } = draftInstants(draft, tz);
+    return {
+      taskName: draft.taskName.trim(),
+      projectId: draft.projectId,
+      startedAt: startedAt.toISOString(),
+      endedAt: endedAt.toISOString(),
+      isBillable: draft.billable,
+    };
+  };
+
   const save = useOptimisticMutation({
     ...formPress,
-    mutationFn: async () => {
-      const { startedAt, endedAt } = draftInstants(draft, tz);
-      const body = {
-        taskName: draft.taskName.trim(),
-        projectId: draft.projectId,
-        startedAt: startedAt.toISOString(),
-        endedAt: endedAt.toISOString(),
-        isBillable: draft.billable,
-      };
+    mutationFn: async () =>
+      api.updateEntry(existing!.id, {
+        ...body(),
+        ...(draft.invoicedElsewhere !== existing!.invoicedElsewhere && {
+          invoicedElsewhere: draft.invoicedElsewhere,
+        }),
+      }),
+    onError: failWith('Could not save this entry.'),
+  });
 
-      return existing
-        ? api.updateEntry(existing.id, {
-            ...body,
-            ...(draft.invoicedElsewhere !== existing.invoicedElsewhere && {
-              invoicedElsewhere: draft.invoicedElsewhere,
-            }),
-          })
-        : api.createEntry({ id: uuidv7(), ...body });
-    },
+  /* A new entry is predicted as well: its block shows on the grid behind
+     the form the moment Save is pressed, drawn as settling until the answer
+     (`DayColumn`), so a drawn entry never leaves the grid. The form still
+     waits, so a refusal takes the block back and says why here, with what
+     was typed still in it. */
+  const create = useOptimisticMutation<CreatedEntry, TimeEntry, unknown>({
+    ...formPress,
+    invalidate: (qc, _entry, settled) => invalidateEntryData(qc, settled),
+    mutationFn: (entry) => api.createEntry(entry),
+    predict: (current, entry, key) =>
+      predictCreatedEntry(current, entry, key, tz),
+    alsoPredict: [
+      {
+        queryKey: keys.calendar(),
+        predict: (current, entry, key) =>
+          predictCreatedEntry(current, entry, key, tz),
+      },
+    ],
     onError: failWith('Could not save this entry.'),
   });
 
@@ -212,7 +236,7 @@ export function EntryDialog({
     enabled: open && existing?.invoiceId != null,
   });
   const locked = existing?.invoiceId != null;
-  const busy = save.isPending || remove.isPending;
+  const busy = save.isPending || create.isPending || remove.isPending;
 
   /* EDITING ONLY. Adjusting is a correction to times that already exist: the
      gesture answers "this started at 9, not 9:30", which is a question a new
@@ -240,7 +264,8 @@ export function EntryDialog({
           onSubmit={(e) => {
             e.preventDefault();
             setError(null);
-            save.mutate();
+            if (existing) save.mutate();
+            else create.mutate({ id: uuidv7(), ...body() });
           }}
           className="flex flex-col gap-4"
         >
@@ -371,7 +396,7 @@ export function EntryDialog({
           <EntryFooter
             locked={locked}
             existing={existing !== undefined}
-            saving={save.isPending}
+            saving={save.isPending || create.isPending}
             deleting={remove.isPending}
             onClose={() => onOpenChange(false)}
             onDelete={() => remove.mutate()}

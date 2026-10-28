@@ -10,7 +10,7 @@ import {
 import type { TimeEntry } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { position, workedWindow } from '@/lib/client/use-calendar';
-import { useEntryDrag } from '@/lib/client/use-entry-drag';
+import type { useEntryDrag } from '@/lib/client/use-entry-drag';
 import { useZoom } from '@/lib/client/use-zoom';
 import { DayColumn } from './day-column';
 
@@ -32,19 +32,21 @@ export function TodayGrid({
   colors,
   onEdit,
   onCreate,
+  drag,
 }: {
   /** Today's entries INCLUDING the running one, unlike the list. */
   entries: TimeEntry[];
   colors: Map<string, string | null>;
   onEdit: (entry: TimeEntry) => void;
   onCreate: (startedAt: Date, endedAt: Date) => void;
+  /** Owned by the caller, which owns the editor a drawn block waits on. */
+  drag: ReturnType<typeof useEntryDrag>;
 }) {
   /* The real next midnight, not +24h: a DST day is 23 or 25 hours and every
      position here is a fraction of the column's own span. */
   const dayStart = startOfLocalDay(new Date(), tz);
   const dayEnd = startOfLocalDayOffset(dayStart, tz, -1);
 
-  const drag = useEntryDrag();
   const { pxPerHour, ref } = useZoom();
   const step = hourStep(pxPerHour, LABEL_GAP_PX);
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, type ReactNode } from 'react';
+import { useMutationState } from '@tanstack/react-query';
 import { formatCompact, formatLocalTime } from '@stint/core';
 import { placement, type PositionedEntry } from '@/lib/client/use-calendar';
 import type { useEntryDrag, DragMode } from '@/lib/client/use-entry-drag';
@@ -46,8 +47,13 @@ export function DayColumn({
   children?: ReactNode;
 }) {
   const column = useRef<HTMLDivElement>(null);
+  const pending = usePendingCreates();
+  /* Once Save is pressed the prediction draws the entry, so the drawn
+     outline steps aside for it rather than covering it. */
   const drawing =
-    drag.preview?.entryId === null && drag.preview.column === column.current
+    drag.preview?.entryId === null &&
+    drag.preview.column === column.current &&
+    !positioned.some((p) => pending.has(p.entry.id))
       ? drag.preview
       : null;
 
@@ -92,6 +98,7 @@ export function DayColumn({
           column={column}
           drag={drag}
           onEdit={onEdit}
+          pending={pending.has(item.entry.id)}
         />
       ))}
 
@@ -114,6 +121,24 @@ export function DayColumn({
   );
 }
 
+/**
+ * Ids of entries being created, read from the mutation cache: a press that
+ * sends a new entry's id and task, from the editor or the timer. Its block is
+ * the prediction and the server has not answered yet.
+ */
+function usePendingCreates(): Set<string> {
+  const ids = useMutationState({
+    filters: { status: 'pending' },
+    select: (m) => {
+      const v = m.state.variables as { id?: unknown; taskName?: unknown };
+      return typeof v?.id === 'string' && typeof v.taskName === 'string'
+        ? v.id
+        : null;
+    },
+  });
+  return new Set(ids.filter((id): id is string => id !== null));
+}
+
 const edges = ({ top, height }: { top: number; height: number }) => ({
   top: `${top * 100}%`,
   height: `${height * 100}%`,
@@ -127,6 +152,7 @@ function EntryBlock({
   column,
   drag,
   onEdit,
+  pending,
 }: {
   item: PositionedEntry;
   colors: Map<string, string | null>;
@@ -135,9 +161,10 @@ function EntryBlock({
   column: React.RefObject<HTMLDivElement | null>;
   drag: DragApi;
   onEdit: (entry: TimeEntry) => void;
+  /** Created and not yet answered: shown, and settling. */
+  pending: boolean;
 }) {
-  const { entry, lane, lanes } = item;
-  const color = entry.projectId ? colors.get(entry.projectId) : undefined;
+  const { entry } = item;
   const running = entry.endedAt === null;
 
   /* An entry billed on an issued invoice is frozen by a database trigger, so
@@ -147,25 +174,14 @@ function EntryBlock({
 
   // While dragging, the block paints from the gesture rather than the server.
   const live = drag.preview?.entryId === entry.id ? drag.preview : null;
-  const { top, height } = live
-    ? placement(live.startedAt, live.endedAt, dayStart, dayEnd)
-    : { top: item.top, height: item.height };
-
-  const startedAt = live ? live.startedAt.toISOString() : entry.startedAt;
-  const endedAt = live ? live.endedAt.toISOString() : entry.endedAt;
+  const { height, range, style } = drawnAs(
+    item,
+    live,
+    colors,
+    dayStart,
+    dayEnd,
+  );
   const name = entry.taskName || 'Untitled';
-  const range = `${time(startedAt)}${
-    endedAt ? `–${time(endedAt)}` : ' (running)'
-  }`;
-
-  const style = {
-    ...edges({ top, height }),
-    left: `${(lane / lanes) * 100}%`,
-    width: `${(1 / lanes) * 100}%`,
-    // A client color reads as a left edge, so the block stays legible
-    // rather than becoming a saturated tile behind text.
-    borderLeft: color ? `2.5px solid ${color}` : undefined,
-  };
 
   const body = (
     <span className="block h-full overflow-hidden">
@@ -184,14 +200,19 @@ function EntryBlock({
 
   /* A running entry is not a button. `EntryDialog` refuses one by design —
      its end does not exist yet — and the timer bar owns retitling mid-run, so
-     a click here would open a dialog that declines to edit what was clicked. */
-  if (running) {
+     a click here would open a dialog that declines to edit what was clicked.
+     Nor is a pending one: the server has no such entry to edit yet. */
+  if (running || pending) {
     return (
-      <div className={blockClassName({ running, live: false })} style={style}>
+      <div
+        aria-busy={pending || undefined}
+        className={blockClassName({ running, pending, live: false })}
+        style={style}
+      >
         {/* The times as text rather than an `aria-label`: a plain div takes
             no accessible name, and the roles that would carry one here
             (`group`, `img`) both describe something this is not. */}
-        <span className="sr-only">{`${name}, ${range}`}</span>
+        <span className="sr-only">{`${name}, ${range}${pending ? ', saving' : ''}`}</span>
         <div aria-hidden className="h-full">
           {body}
         </div>
@@ -238,13 +259,45 @@ function EntryBlock({
   );
 }
 
+/** Where a block sits and the times it reads, from the drag while one is live. */
+function drawnAs(
+  item: PositionedEntry,
+  live: { startedAt: Date; endedAt: Date } | null,
+  colors: Map<string, string | null>,
+  dayStart: Date,
+  dayEnd: Date,
+) {
+  const { entry, lane, lanes } = item;
+  const color = entry.projectId ? colors.get(entry.projectId) : undefined;
+  const { top, height } = live
+    ? placement(live.startedAt, live.endedAt, dayStart, dayEnd)
+    : item;
+  const startedAt = live?.startedAt ?? entry.startedAt;
+  const endedAt = live?.endedAt ?? entry.endedAt;
+  return {
+    height,
+    range: `${time(startedAt)}${endedAt ? `–${time(endedAt)}` : ' (running)'}`,
+    style: {
+      ...edges({ top, height }),
+      left: `${(lane / lanes) * 100}%`,
+      width: `${(1 / lanes) * 100}%`,
+      // A client color reads as a left edge, so the block stays legible
+      // rather than becoming a saturated tile behind text.
+      borderLeft: color ? `2.5px solid ${color}` : undefined,
+    },
+  };
+}
+
 function blockClassName({
   running,
+  pending = false,
   adjustable = false,
   live,
   saving = false,
 }: {
   running: boolean;
+  /** Created, and the server has not answered. */
+  pending?: boolean;
   adjustable?: boolean;
   /** Being dragged right now. */
   live: boolean;
@@ -255,10 +308,16 @@ function blockClassName({
        edges, and the body clips its own text instead. */
     'group/block absolute rounded-[5px] border px-1.5 py-0.5 text-left',
     'focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none',
-    running
-      ? 'border-timer-running bg-accent-muted'
-      : 'border-edge-subtle bg-surface-hover hover:bg-surface-active',
-    running ? '' : adjustable ? 'cursor-grab' : 'cursor-pointer',
+    running && 'border-timer-running bg-accent-muted',
+    /* A step darker than a settled block, pulsing until the answer, as Home's
+       figures do while a press settles. */
+    !running &&
+      pending &&
+      'border-edge-control bg-surface-active motion-safe:animate-pulse',
+    !running &&
+      !pending &&
+      'border-edge-subtle bg-surface-hover hover:bg-surface-active',
+    !running && !pending && (adjustable ? 'cursor-grab' : 'cursor-pointer'),
     live && 'z-10 shadow-card',
     live && saving && 'opacity-70',
   ]
