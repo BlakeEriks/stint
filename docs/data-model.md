@@ -235,6 +235,12 @@ update grant. A token can sit under two accounts when a sign-out didn't
 reach the server, which leaks nothing: the push carries no data. It goes
 with the account (`on delete cascade`).
 
+### `realtime.messages`
+Realtime's own table, where the browsers hear of a timer change. One
+policy, `join_own_user_topic`, lets `authenticated` join only the private
+topic `user:<its id>`; there is no insert policy, since only the server
+broadcasts, as the secret key.
+
 ### `subscriptions`
 A mirror of the user's Stripe subscription, one row per user, keyed on
 `user_id`: the Stripe customer and subscription, Stripe's `status`, the
@@ -444,6 +450,7 @@ alone must still contain the query.
 | Changing or deleting sent feedback, even your own | refused by the grant |
 | Writing any subscription, your own included | refused by the grant |
 | Registering a phone to another user, or changing a registered one | rejected by `WITH CHECK`, refused by the grant |
+| Joining another user's Realtime topic | no row, so refused |
 | Claiming or changing the plan an invoice was generated on | overwritten at insert, refused on update |
 | An expense filed under another user's client | rejected by `expense_client_same_owner` |
 | An invoice billed to another user's client | rejected by `invoice_client_same_owner` |

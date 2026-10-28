@@ -193,3 +193,16 @@ export function followRunningTimer(queryClient: QueryClient) {
     void queryClient.invalidateQueries({ queryKey: keys.entries() });
   });
 }
+
+/**
+ * The server said the running timer changed, from any client: a phone's
+ * push or a browser's broadcast. The message says only that, so this asks
+ * the server for the timer and what it moves. A press in flight skips it:
+ * a refetch landing before the server has the press would put the old
+ * timer back over its prediction, and the press refetches when it settles
+ * (`followRunningTimer`'s rule).
+ */
+export function onTimerChanged(queryClient: QueryClient) {
+  if (queryClient.isMutating() > 0) return;
+  return invalidateEntryData(queryClient);
+}

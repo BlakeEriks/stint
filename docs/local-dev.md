@@ -257,16 +257,17 @@ the query.
 
 ## What is not running
 
-`dev:up` passes `-x` a list of nine services — realtime, storage, imgproxy,
-edge runtime, logflare, vector, supavisor, Studio and postgres-meta. The app
-touches none of them: its Supabase surface is `.from()`, one `.rpc()`, and
-auth. That matters in practice: the full stack wants ~7GB of RAM, and this
-subset runs in about **540MB**.
+`dev:up` passes `-x` a list of eight services — storage, imgproxy, edge
+runtime, logflare, vector, supavisor, Studio and postgres-meta. The app
+touches none of them: its Supabase surface is `.from()`, one `.rpc()`, auth,
+and Realtime, which tells the web app of a timer change. That matters in
+practice: the full stack wants ~7GB of RAM, and this subset runs in about
+**540MB**.
 
 **Studio is excluded by that list, not by `config.toml`** — `[studio] enabled`
 is `true` while the container is simply never started, so `:54323` refuses the
 connection. `pnpm dev:up:studio` keeps Studio and postgres-meta and excludes
-the other seven. To add a service back for good, take it off `dev:up`'s list.
+the other six. To add a service back for good, take it off `dev:up`'s list.
 
 ## Keeping local and production honest
 

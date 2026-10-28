@@ -47,6 +47,23 @@ do $$ begin
     create role service_role nologin bypassrls;
   end if;
 end $$;
+
+-- Realtime makes `realtime.messages` when it first starts; a topic's policy
+-- goes on it (#517). The columns a policy reads, and `realtime.topic()`,
+-- which Realtime sets while it asks whether a client may join.
+create schema if not exists realtime;
+create table if not exists realtime.messages (
+  id uuid primary key default gen_random_uuid(),
+  topic text not null,
+  extension text not null,
+  payload jsonb,
+  event text,
+  private boolean default false,
+  inserted_at timestamp not null default now()
+);
+alter table realtime.messages enable row level security;
+create or replace function realtime.topic() returns text language sql stable as
+  $$ select nullif(current_setting('realtime.topic', true), '')::text $$;
 SQL
 
 # `authenticated` mirrors the role PostgREST uses for a signed-in caller, so
@@ -72,12 +89,12 @@ if [ "$RLS" = "--rls" ]; then
   # Table privileges come from the grants migration, not from here, and
   # neither does execute on a `public` function: a blanket grant here would
   # make every migration's own grant untested, so a rollup that never granted
-  # execute would work in CI and 42501 in production. `auth` is the stub this
-  # script builds itself, so its grants belong here.
+  # execute would work in CI and 42501 in production. `auth` and `realtime`
+  # are stubs this script builds itself, so their grants belong here.
   $PSQL -d "$DB" <<'SQL'
-grant usage on schema public, auth to authenticated;
-grant select on auth.users to authenticated;
-grant execute on all functions in schema auth to authenticated;
+grant usage on schema public, auth, realtime to authenticated;
+grant select on auth.users, realtime.messages to authenticated;
+grant execute on all functions in schema auth, realtime to authenticated;
 SQL
 else
   # Every table, not a list: a table a new migration adds must not keep RLS

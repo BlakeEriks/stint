@@ -77,9 +77,32 @@ beforeEach(async () => {
   delete process.env.FCM_SERVICE_ACCOUNT;
   fcmFake = fakeFcm();
   (globalThis as any).__TEST_FCM__ = fcmFake.fetch;
+  // And the browsers' broadcast; `configureBroadcast()` turns it on.
+  delete process.env.SUPABASE_SECRET_KEY;
+  broadcasts = [];
+  broadcastStatus = 202;
+  (globalThis as any).__TEST_REALTIME__ = async (
+    url: string,
+    init?: RequestInit,
+  ) => {
+    broadcasts.push({
+      url,
+      apikey: new Headers(init?.headers).get('apikey'),
+      body: JSON.parse(String(init?.body)),
+    });
+    return new Response(null, { status: broadcastStatus });
+  };
 });
 
 let fcmFake: ReturnType<typeof fakeFcm>;
+/** Each request to Realtime's broadcast endpoint, and the status it gets. */
+let broadcasts: { url: string; apikey: string | null; body: unknown }[];
+let broadcastStatus: number;
+
+const configureBroadcast = () => {
+  process.env.SUPABASE_SECRET_KEY = 'sb_secret_test';
+  process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://supabase.test';
+};
 
 /** Whatever the handlers scheduled with `after()`, finished. */
 const settled = () =>
@@ -5077,6 +5100,7 @@ test('a change that leaves the running timer alone pushes nothing', async () => 
   );
   const entry = await import('../src/app/api/v1/entries/[id]/route.ts');
   configurePush();
+  configureBroadcast();
   await register();
   await pool.query(
     `insert into time_entries (id, user_id, task_name, started_at, ended_at)
@@ -5088,13 +5112,55 @@ test('a change that leaves the running timer alone pushes nothing', async () => 
     { params: Promise.resolve({ id: STOPPED }) },
   );
   assert.equal(res.status, 200);
+  await settled();
+  assert.deepEqual(broadcasts, []);
   await json(await start(req('/timer/start', { taskName: 'One' })));
   await settled();
   fcmFake.state.sent = [];
+  broadcasts = [];
   const refused = await start(req('/timer/start', { taskName: 'Two' }));
   assert.equal(refused.status, 409);
   await settled();
   assert.deepEqual(fcmFake.state.sent, []);
+  assert.deepEqual(broadcasts, []);
+});
+
+test('every change to the running timer broadcasts once to the user’s topic', async () => {
+  configureBroadcast();
+  const { timerBroadcast } = await import('@stint/core');
+  for (const [name, change] of Object.entries(await timerChanges())) {
+    await pool.query('delete from time_entries');
+    await change();
+    await settled();
+    // A change from a running timer follows the start that set it up.
+    assert.equal(broadcasts.length, name === 'start' ? 1 : 2, name);
+    assert.deepEqual(
+      broadcasts.at(-1),
+      {
+        url: 'http://supabase.test/realtime/v1/api/broadcast',
+        apikey: 'sb_secret_test',
+        body: timerBroadcast(USER),
+      },
+      name,
+    );
+    broadcasts = [];
+  }
+});
+
+test('a failed broadcast reaches Sentry and never fails the write', async () => {
+  configureBroadcast();
+  broadcastStatus = 500;
+  const { status, reported } = await startAndReport();
+  assert.equal(status, 201);
+  assert.equal(broadcasts.length, 1);
+  assert.match(reported[0] ?? '', /^Broadcast not delivered: 500/);
+});
+
+test('with no secret key, nothing is broadcast', async () => {
+  const { status, reported } = await startAndReport();
+  assert.equal(status, 201);
+  assert.deepEqual(broadcasts, []);
+  assert.deepEqual(reported, []);
 });
 
 /** Starts a timer and returns its status, once its push has settled, and

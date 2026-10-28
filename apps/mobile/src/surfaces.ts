@@ -178,7 +178,7 @@ export function createSurfaces({
 
   /**
    * Reads the timer and draws it: on a push, a sign-in and after a press.
-   * A press in flight skips it, as `onTimerPush` does, since a read landing
+   * A press in flight skips it, as `onTimerChanged` does, since a read landing
    * before the server has the press would draw the old timer.
    */
   async function refresh() {
