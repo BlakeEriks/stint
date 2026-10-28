@@ -564,11 +564,14 @@ const boundY = (FAVICON_BOX - boundH) / 2;
 const bound = (x) =>
   `<rect x="${x}" y="${boundY}" width="${boundW}" height="${boundH}" rx="${boundW / 2}" fill="${resolve(tokens.semantic.dark['accent-default'])}"/>`;
 
-const favicon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${FAVICON_BOX} ${FAVICON_BOX}">
-  <rect width="${FAVICON_BOX}" height="${FAVICON_BOX}" rx="${tokens.radius.xl - 3}" fill="${resolve(tokens.semantic.dark['bg-recessed'])}"/>
-  ${bound(boundInset)}
+const ground = resolve(tokens.semantic.dark['bg-recessed']);
+const mark = `${bound(boundInset)}
   ${bound(FAVICON_BOX - boundInset - boundW)}
-  <path d="${MARK_S_PATH}" fill="${resolve(tokens.semantic.dark['text-strong'])}"/>
+  <path d="${MARK_S_PATH}" fill="${resolve(tokens.semantic.dark['text-strong'])}"/>`;
+
+const favicon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${FAVICON_BOX} ${FAVICON_BOX}">
+  <rect width="${FAVICON_BOX}" height="${FAVICON_BOX}" rx="${tokens.radius.xl - 3}" fill="${ground}"/>
+  ${mark}
 </svg>
 `;
 
@@ -578,6 +581,62 @@ const faviconOut = join(
 );
 if (existsSync(dirname(faviconOut))) writeFileSync(faviconOut, favicon);
 
+// ── Phone app icons (the favicon's mark, on Android's 108dp canvas) ──
+/* One icon serves iOS (opaque, full bleed: iOS rounds the corners) and
+ * Android's adaptive foreground, which covers the background layer whole.
+ * Android shows only the middle 72dp, cropped by the launcher's mask to as
+ * little as a 66dp circle, so the mark stays inside it. The `-dev` icon,
+ * Stint Preview's and Stint Local's, raises the mark over a full-width band
+ * in `warning`, which the mask cuts but still shows, so a PR build is never
+ * taken for Stint.
+ *
+ * Expo takes PNGs, and the preview build's fingerprint hashes their bytes.
+ * Rasterizers differ by a pixel across machines, so a PNG is re-rendered
+ * only when its SVG changes: CI and EAS run this too, and must leave the
+ * committed PNGs alone. */
+const PHONE_BOX = 108;
+const markScale = 1.5;
+const markX = PHONE_BOX / 2 - (FAVICON_BOX / 2) * markScale;
+const band = `<rect y="70" width="${PHONE_BOX}" height="10" fill="${resolve(tokens.semantic.dark.warning)}"/>`;
+
+const phoneIcon = (
+  dev,
+) => `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 ${PHONE_BOX} ${PHONE_BOX}">
+  <rect width="${PHONE_BOX}" height="${PHONE_BOX}" fill="${ground}"/>
+  <g transform="translate(${markX} ${dev ? markX - 6 : markX}) scale(${markScale})">
+  ${mark}
+  </g>${dev ? `\n  ${band}` : ''}
+</svg>
+`;
+
+/** Read in one call rather than check then read, which a file can race. */
+function readIfThere(path, encoding) {
+  try {
+    return readFileSync(path, encoding);
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
+async function writeIcon(svgPath, svg) {
+  const pngPath = svgPath.replace(/\.svg$/, '.png');
+  if (readIfThere(svgPath, 'utf8') === svg && readIfThere(pngPath)) return;
+  const { default: sharp } = await import('sharp');
+  writeFileSync(pngPath, await sharp(Buffer.from(svg)).png().toBuffer());
+  writeFileSync(svgPath, svg);
+}
+
+const phoneAssets = join(import.meta.dirname, '../../../apps/mobile/assets');
+if (existsSync(dirname(phoneAssets))) {
+  mkdirSync(phoneAssets, { recursive: true });
+  for (const dev of [false, true])
+    await writeIcon(
+      join(phoneAssets, `icon${dev ? '-dev' : ''}.svg`),
+      phoneIcon(dev),
+    );
+}
+
 console.log(
-  'generated: tokens.css, tokens.ts, Tokens.swift, swatches.html, mockup.css, icon.svg',
+  'generated: tokens.css, tokens.ts, Tokens.swift, swatches.html, mockup.css, icon.svg, phone icons',
 );
