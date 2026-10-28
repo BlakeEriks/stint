@@ -1,5 +1,6 @@
 import { HttpResponse } from 'msw';
 import { z } from 'zod';
+import type { Refusal } from '@stint/core';
 import * as schema from '@stint/schema';
 
 /**
@@ -16,14 +17,14 @@ export const problems: string[] = [];
  * real server could never send fails the story instead of drawing a screen
  * the app will never show.
  */
-export function ok<S extends z.ZodType>(s: S, body: z.input<S>) {
+export function ok<S extends z.ZodType>(s: S, body: z.input<S>, status = 200) {
   const parsed = s.safeParse(body);
   if (!parsed.success) {
     problems.push(`A fake response fails its schema: ${parsed.error}`);
     return fail('INTERNAL');
   }
   // The parsed value, so a misspelled key never reaches the component.
-  return HttpResponse.json(parsed.data as never);
+  return HttpResponse.json(parsed.data as never, { status });
 }
 
 type Code = z.infer<typeof schema.ErrorCode> | 'INTERNAL';
@@ -64,6 +65,27 @@ export function fail(
     details === undefined ? { code, message } : { code, message, details },
     { status: STATUS[code] },
   );
+}
+
+/** A refusal `@stint/core` decided or named, as the route answers it. */
+export const refuse = (r: Refusal) => fail(r.code, r.message, r.details);
+
+export const missing = (what: string) =>
+  fail('ENTRY_NOT_FOUND', `${what} not found`);
+
+/** `src/lib/validate.ts`'s `parseBody`: the body, or its 422. */
+export async function parse<S extends z.ZodType>(
+  request: Request,
+  s: S,
+): Promise<z.infer<S> | Response> {
+  const parsed = s.safeParse(await request.json());
+  return parsed.success
+    ? parsed.data
+    : fail(
+        'VALIDATION_FAILED',
+        'Request body failed validation',
+        z.treeifyError(parsed.error),
+      );
 }
 
 export const noContent = () => new HttpResponse(null, { status: 204 });

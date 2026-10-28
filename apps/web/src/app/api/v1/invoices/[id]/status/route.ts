@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { handle, ApiError, isCheckViolation } from '@/lib/errors';
+import { handle, ApiError, isCheckViolation, refused } from '@/lib/errors';
+import { paidAtRefusal, refusals } from '@stint/core';
 import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import { sendDraft } from '@/lib/invoicing';
@@ -9,26 +10,6 @@ import { InvoiceReadQuery, UpdateInvoiceStatus } from '@stint/schema';
 export const dynamic = 'force-dynamic';
 
 type Ctx = { params: Promise<{ id: string }> };
-
-/* A user-supplied date is a record of when money actually arrived, not a
-   free-text field — it cannot predate the invoice being sent (paid before it
-   was even delivered) or postdate the moment of the request (a payment that
-   has not happened yet). */
-function assertPaidAt(paidAt: string, sentAt: string | null, now: Date) {
-  const paid = new Date(paidAt).getTime();
-  if (paid > now.getTime()) {
-    throw new ApiError('VALIDATION_FAILED', 'paidAt cannot be in the future', {
-      paidAt,
-    });
-  }
-  if (sentAt && paid < new Date(sentAt).getTime()) {
-    throw new ApiError(
-      'VALIDATION_FAILED',
-      'paidAt cannot be earlier than the invoice was sent',
-      { paidAt, sentAt },
-    );
-  }
-}
 
 /**
  * PATCH /api/v1/invoices/:id/status
@@ -77,8 +58,11 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
       ),
     );
 
-  if (body.status === 'paid' && body.paidAt)
-    assertPaidAt(body.paidAt, current.sent_at as string | null, now);
+  const paid =
+    body.status === 'paid' && body.paidAt
+      ? paidAtRefusal(body.paidAt, current.sent_at as string | null, now)
+      : null;
+  if (paid) throw refused(paid);
 
   const update: Record<string, unknown> = { status: body.status };
   if (body.status === 'sent') update.sent_at = body.sentAt ?? now.toISOString();
@@ -93,11 +77,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
     .maybeSingle();
 
   if (isCheckViolation(updateError))
-    throw new ApiError(
-      'VALIDATION_FAILED',
-      `An invoice cannot move from ${current.status} to ${body.status}`,
-      { from: current.status, to: body.status },
-    );
+    throw refused(refusals.transition(current.status, body.status));
   if (updateError) throw updateError;
   if (!data)
     throw new ApiError(

@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
    CommonJS, so the route tests would import `undefined`. */
 import { captureException } from '@sentry/core';
 import type { z } from 'zod';
+import type { Refusal } from '@stint/core';
 import type { ErrorCode } from '@stint/schema';
 
 /* A type-only import: the schema's codes cost nothing at run time, and
@@ -45,6 +46,10 @@ export class ApiError extends Error {
     this.details = details;
   }
 }
+
+/** A refusal `@stint/core` decided or named, thrown. */
+export const refused = (r: Refusal) =>
+  new ApiError(r.code, r.message, r.details);
 
 function errorResponse(code: Code, message: string, details?: unknown) {
   return NextResponse.json(

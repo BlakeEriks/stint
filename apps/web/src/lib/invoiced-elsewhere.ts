@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ApiError } from './errors';
+import { refusals } from '@stint/core';
+import { refused } from './errors';
 
 interface Filterable<T> {
   is(column: string, value: null): T;
@@ -21,15 +22,9 @@ export async function refuseUnmarkable(db: SupabaseClient, id: string) {
     .maybeSingle();
   if (error) throw error;
   if (data?.invoice_id) {
-    throw new ApiError(
-      'ENTRY_ALREADY_INVOICED',
-      'This entry is on an invoice, so it can’t be marked billed elsewhere',
-    );
+    throw refused(refusals.markInvoiced);
   }
   if (data && data.ended_at === null) {
-    throw new ApiError(
-      'TIMER_ALREADY_RUNNING',
-      'Stop this timer before marking it billed elsewhere',
-    );
+    throw refused(refusals.markRunning);
   }
 }
