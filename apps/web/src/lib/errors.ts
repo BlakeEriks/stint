@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
    loader cannot see the named exports `@sentry/nextjs` re-exports from
    CommonJS, so the route tests would import `undefined`. */
 import { captureException } from '@sentry/core';
+import type { Refusal } from '@stint/core';
 import { ERROR_STATUS } from '@stint/schema';
 
 export type Code = keyof typeof ERROR_STATUS;
@@ -19,6 +20,10 @@ export class ApiError extends Error {
     this.details = details;
   }
 }
+
+/** A refusal `@stint/core` decided or named, thrown. */
+export const refused = (r: Refusal) =>
+  new ApiError(r.code, r.message, r.details);
 
 function errorResponse(code: Code, message: string, details?: unknown) {
   return NextResponse.json(

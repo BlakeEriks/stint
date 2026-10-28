@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server';
-import { handle, ApiError } from '@/lib/errors';
+import { handle, refused } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import { findRunning } from '@/lib/timer';
 import { pushTimerChanged } from '@/lib/push';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
 import { askedToInclude, readIncluded } from '@/lib/include';
-import { buildUnbilled, type UnbilledRow } from '@stint/core';
+import {
+  buildUnbilled,
+  refusals,
+  stopOrderRefusal,
+  type UnbilledRow,
+} from '@stint/core';
 import { StopTimer } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -31,17 +36,10 @@ export const POST = handle(async (req: Request) => {
   const endedAt = body.endedAt ?? new Date().toISOString();
 
   const running = await findRunning(db);
-  if (!running) throw new ApiError('NO_TIMER_RUNNING', 'No timer is running');
-
-  // A backdated stop must still land after the start, or the check
-  // constraint rejects it with a less useful message.
-  if (new Date(endedAt) <= new Date(running.startedAt)) {
-    throw new ApiError(
-      'VALIDATION_FAILED',
-      'endedAt must be after the entry started',
-      { startedAt: running.startedAt, endedAt },
-    );
-  }
+  if (!running) throw refused(refusals.noTimer);
+  // Before the check constraint, which says it less usefully.
+  const backdated = stopOrderRefusal(running.startedAt, endedAt);
+  if (backdated) throw refused(backdated);
 
   const { data, error } = await db
     .from('time_entries')
@@ -53,7 +51,7 @@ export const POST = handle(async (req: Request) => {
 
   if (error) throw error;
   // Lost the race to another device stopping the same timer.
-  if (!data) throw new ApiError('NO_TIMER_RUNNING', 'No timer is running');
+  if (!data) throw refused(refusals.noTimer);
   pushTimerChanged(db, userId);
 
   const [unbilled, settings, included] = await Promise.all([

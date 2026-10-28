@@ -1,10 +1,10 @@
-import { ApiError, handle } from '@/lib/errors';
+import { ApiError, handle, refused } from '@/lib/errors';
+import { unratedRefusal } from '@stint/core';
 import { requireSession } from '@/lib/auth';
 import {
   loadPdfData,
   recordDownload,
   dueBeforeIssueError,
-  unratedError,
 } from '@/lib/invoicing';
 import { parseQuery } from '@/lib/validate';
 import { InvoiceReadQuery } from '@stint/schema';
@@ -45,7 +45,7 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
       'Downloading an invoice is on the paid plan. Subscribe in Settings.',
     );
   if (draft?.unratedEntries.length)
-    throw unratedError(draft.unratedEntries.map((e) => e.id));
+    throw refused(unratedRefusal(draft.unratedEntries.map((e) => e.id)));
   if (draft?.dueBeforeIssue.download)
     throw dueBeforeIssueError(draft.row.issue_date, draft.row.due_date!);
   const download = new URL(req.url).searchParams.get('download') === '1';

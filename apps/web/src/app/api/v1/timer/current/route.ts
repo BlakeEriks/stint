@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { handle, ApiError, dbCode } from '@/lib/errors';
+import { handle, ApiError, dbCode, refused } from '@/lib/errors';
+import { refusals } from '@stint/core';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import { findRunning } from '@/lib/timer';
@@ -37,7 +38,7 @@ export const PATCH = handle(async (req: Request) => {
 
   if (Object.keys(update).length === 0) {
     const entry = await findRunning(db);
-    if (!entry) throw new ApiError('NO_TIMER_RUNNING', 'No timer is running');
+    if (!entry) throw refused(refusals.noTimer);
     return NextResponse.json(entry);
   }
 
@@ -57,7 +58,7 @@ export const PATCH = handle(async (req: Request) => {
     }
     throw error;
   }
-  if (!data) throw new ApiError('NO_TIMER_RUNNING', 'No timer is running');
+  if (!data) throw refused(refusals.noTimer);
   pushTimerChanged(db, userId);
 
   return NextResponse.json(toEntry(data as EntryRow));

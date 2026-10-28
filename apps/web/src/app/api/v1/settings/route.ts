@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { handle, ApiError } from '@/lib/errors';
+import { handle, ApiError, refused } from '@/lib/errors';
+import { nextNumberRefusal } from '@stint/core';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import {
@@ -43,10 +44,7 @@ export const PATCH = handle(async (req: Request) => {
 
   const next = patch.nextInvoiceNumber;
   if (next !== undefined && next > NEXT_INVOICE_NUMBER_MAX) {
-    throw await refusal(
-      db,
-      `The next number can't go above ${NEXT_INVOICE_NUMBER_MAX}.`,
-    );
+    throw await refusal(db, next);
   }
 
   const update: Record<string, unknown> = toColumns(patch, SETTINGS_FIELDS);
@@ -69,21 +67,16 @@ export const PATCH = handle(async (req: Request) => {
   if (!data) {
     throw next === undefined
       ? new ApiError('ENTRY_NOT_FOUND', 'Settings not found')
-      : await refusal(
-          db,
-          (current) =>
-            `The next number can't go below ${current}, or an invoice could repeat a number already sent.`,
-        );
+      : await refusal(db, next);
   }
 
   return NextResponse.json(toSettings(data));
 });
 
-/** A refused `nextInvoiceNumber`, naming the field and the number it
-    stays at, so the form can say why there and show that number again. */
+/** Why `next` was refused, against the number it stays at. */
 async function refusal(
   db: Awaited<ReturnType<typeof requireSession>>['db'],
-  message: string | ((current: number) => string),
+  next: number,
 ) {
   const { data, error } = await db
     .from('user_settings')
@@ -91,10 +84,9 @@ async function refusal(
     .maybeSingle();
   if (error) throw error;
   if (!data) return new ApiError('ENTRY_NOT_FOUND', 'Settings not found');
-  const current = data.next_invoice_number;
-  return new ApiError(
-    'VALIDATION_FAILED',
-    typeof message === 'string' ? message : message(current),
-    { field: 'nextInvoiceNumber', current },
+  /* Never null: the update refused `next`, and the number it compared
+     against only moves forward. */
+  return refused(
+    nextNumberRefusal(next, data.next_invoice_number, NEXT_INVOICE_NUMBER_MAX)!,
   );
 }
