@@ -51,7 +51,7 @@ const has = <K extends string>(
   v !== null &&
   Array.isArray((v as Record<string, unknown>)[field]);
 
-/** A list whose range holds the entry's start gets it. */
+/** A list whose range holds the entry's start gets it, in the server's order. */
 function intoList(
   current: Record<'entries', unknown[]>,
   entry: TimeEntry,
@@ -63,9 +63,13 @@ function intoList(
   const within =
     (!from || new Date(from).getTime() <= start) &&
     (!to || start < new Date(to).getTime());
-  return within
-    ? { ...current, entries: [...current.entries, entry] }
-    : current;
+  if (!within) return current;
+  /* Newest first, as `GET /entries` sends it and Today reads it. */
+  const list = current.entries as TimeEntry[];
+  const at = list.findIndex((e) => new Date(e.startedAt).getTime() < start);
+  const entries = [...list];
+  entries.splice(at === -1 ? list.length : at, 0, entry);
+  return { ...current, entries };
 }
 
 /** The week that holds the entry gets it on its day, counted in the total. */
@@ -82,10 +86,13 @@ function intoWeek(
   const date = localDateKey(start, tz);
   const seconds = entry.durationSeconds ?? 0;
   const days = current.days as CalendarDay[];
+  /* Oldest first, as `GET /calendar` sends a day. */
   const add = (d: CalendarDay) => ({
     ...d,
     totalSeconds: d.totalSeconds + seconds,
-    entries: [...d.entries, entry],
+    entries: [...d.entries, entry].sort(
+      (a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt),
+    ),
   });
   return {
     ...current,

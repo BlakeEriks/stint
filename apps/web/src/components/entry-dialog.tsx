@@ -114,11 +114,16 @@ export function EntryDialog({
 }) {
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [error, setError] = useState<string | null>(null);
+  /* A new entry's id, minted once per opening: a Save pressed again after
+     the server went quiet replays onto the same row rather than adding a
+     second one. */
+  const [newId, setNewId] = useState('');
 
   // Reset each time it opens, so a canceled edit cannot leak into the next.
   useEffect(() => {
     if (!open) return;
     setError(null);
+    setNewId(uuidv7());
 
     const opened = existing ?? seed;
     const from = opened ? new Date(opened.startedAt) : new Date();
@@ -163,10 +168,10 @@ export function EntryDialog({
 
   /* The form waits on the server, predicted or not: it decides whether an
      entry is valid (an overlap, a billed lock), and a form that closed at
-          once would lose what was typed when it said no. The button shows the
-     press is pending, and the reason shows here. `stats` is in the refetch too: editing an entry
-     changes the unbilled total, and giving a loose entry a project is what
-     clears its inbox row. */
+     once would lose what was typed when it said no. The button shows the
+     press is pending, and the reason shows here. `stats` is in the refetch
+     too: editing an entry changes the unbilled total, and giving a loose
+     entry a project is what clears its inbox row. */
   const formPress = {
     queryKey: () => keys.entries(),
     invalidate: invalidateEntryData,
@@ -265,7 +270,7 @@ export function EntryDialog({
             e.preventDefault();
             setError(null);
             if (existing) save.mutate();
-            else create.mutate({ id: uuidv7(), ...body() });
+            else create.mutate({ id: newId, ...body() });
           }}
           className="flex flex-col gap-4"
         >

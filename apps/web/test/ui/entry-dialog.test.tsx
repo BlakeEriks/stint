@@ -637,3 +637,57 @@ describe('EntryDialog', () => {
     });
   });
 });
+
+describe('saving a new entry again after the server went quiet', () => {
+  afterEach(() => vi.useRealTimers());
+
+  /* The create is predicted, so it gives up after 10s while the first
+     write may still land. A second Save must replay onto the same row, or
+     the 23505 replay cannot catch it and the work is billed twice. */
+  it('sends the same id, so a retry cannot add a second entry', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const posts: Array<{ id: string }> = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          posts.push(JSON.parse(String(init.body)));
+          // The first never answers in time; the retry does.
+          if (posts.length === 1) return new Promise<Response>(() => {});
+          return new Response(JSON.stringify(entry({ id: posts[1]!.id })), {
+            status: 201,
+          });
+        }
+        return new Response(
+          JSON.stringify(
+            String(url).includes('task-names') ? { taskNames: [] } : {},
+          ),
+          { status: 200 },
+        );
+      }),
+    );
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(
+      <EntryDialog
+        open
+        onOpenChange={() => {}}
+        seed={{
+          startedAt: '2026-09-11T13:00:00.000Z',
+          endedAt: '2026-09-11T14:00:00.000Z',
+        }}
+        projects={PROJECTS}
+        tz={TZ}
+      />,
+      { wrapper },
+    );
+
+    await user.type(screen.getByLabelText('Task'), 'Retry me');
+    await user.click(screen.getByRole('button', { name: 'Add entry' }));
+    await vi.advanceTimersByTimeAsync(10_001);
+    expect(await screen.findByText(/didn.t answer/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Add entry' }));
+    await waitFor(() => expect(posts).toHaveLength(2));
+    expect(posts[1]!.id).toBe(posts[0]!.id);
+  });
+});

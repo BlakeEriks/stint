@@ -18,15 +18,19 @@ const created = {
   isBillable: true,
 };
 
-const old = { id: 'e1' } as TimeEntry;
+const old = { id: 'e1', startedAt: '2026-09-09T09:00:00.000Z' } as TimeEntry;
+const later = { id: 'e2', startedAt: '2026-09-09T20:00:00.000Z' } as TimeEntry;
 
 describe('predicting a created entry', () => {
-  it('adds it to a list whose range holds it', () => {
+  it('adds it to a list whose range holds it, newest first as the server sends', () => {
     const key = ['entries', { from: '2026-09-09T00:00:00.000Z' }];
-    const next = predictCreatedEntry({ entries: [old] }, created, key, TZ) as {
-      entries: TimeEntry[];
-    };
-    expect(next.entries.map((e) => e.id)).toEqual(['e1', 'n1']);
+    const next = predictCreatedEntry(
+      { entries: [later, old] },
+      created,
+      key,
+      TZ,
+    ) as { entries: TimeEntry[] };
+    expect(next.entries.map((e) => e.id)).toEqual(['e2', 'n1', 'e1']);
     expect(next.entries[1]).toMatchObject({ durationSeconds: 3600 });
   });
 
@@ -36,15 +40,15 @@ describe('predicting a created entry', () => {
     expect(predictCreatedEntry(list, created, key, TZ)).toBe(list);
   });
 
-  it('adds it to its day in the week that holds it, and counts it', () => {
+  it('adds it to its day in the week that holds it, oldest first, and counts it', () => {
     const key = ['calendar', '2026-09-07T00:00:00.000Z', TZ];
     const days: CalendarDay[] = [
-      { date: '2026-09-09', totalSeconds: 600, entries: [old] },
+      { date: '2026-09-09', totalSeconds: 600, entries: [old, later] },
     ];
     const next = predictCreatedEntry({ days }, created, key, TZ) as {
       days: CalendarDay[];
     };
-    expect(next.days[0]?.entries.map((e) => e.id)).toEqual(['e1', 'n1']);
+    expect(next.days[0]?.entries.map((e) => e.id)).toEqual(['e1', 'n1', 'e2']);
     expect(next.days[0]?.totalSeconds).toBe(4200);
   });
 
