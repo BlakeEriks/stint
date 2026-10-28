@@ -14,6 +14,8 @@ const env = {
   STINT_PREVIEW_PR: process.env.STINT_PREVIEW_PR,
 };
 const target = resolveIdentity(env);
+// Generated from the tokens (`packages/design-tokens/src/generate.js`).
+const icon = `./assets/icon${target.name === 'prod' ? '' : '-dev'}.png`;
 
 const config: ExpoConfig = {
   name: target.appName,
@@ -22,6 +24,7 @@ const config: ExpoConfig = {
   version: '0.1.0',
   orientation: 'portrait',
   userInterfaceStyle: 'automatic',
+  icon,
   ios: {
     bundleIdentifier: target.appId,
     supportsTablet: false,
@@ -32,6 +35,8 @@ const config: ExpoConfig = {
   },
   android: {
     package: target.appId,
+    // Opaque, so it hides the adaptive icon's background layer.
+    adaptiveIcon: { foregroundImage: icon },
     // Copied here by an EAS build hook (scripts/google-services.mjs).
     ...(target.push ? { googleServicesFile: './google-services.json' } : {}),
   },

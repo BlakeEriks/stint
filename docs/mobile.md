@@ -43,7 +43,8 @@ each target installs under its own id, beside the others:
 
 A preview's update needs `STINT_PREVIEW_PR` and `STINT_APP_URL`, and the
 app refuses to start without them. The header names the target whenever it is not
-production.
+production, and so does the icon. Stint Local's and Stint Preview's carry a
+band in `warning`. `pnpm tokens` generates both icons into `assets/`.
 
 **No secret ships in a build or an update**, and a preview's links are public. Its
 first launch asks for Vercel's Protection Bypass for Automation, the value
