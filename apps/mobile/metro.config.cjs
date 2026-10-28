@@ -1,9 +1,10 @@
 // Expo's monorepo defaults: it finds the workspace root and watches it, so
-// `@stint/client` and the tokens resolve from their packages.
-const { getDefaultConfig } = require('expo/metro-config');
+// `@stint/client` and the tokens resolve from their packages. Sentry's
+// wrapper adds the debug ids that match a stack to its uploaded source map.
+const { getSentryExpoConfig } = require('@sentry/react-native/metro');
 const http = require('node:http');
 
-const config = getDefaultConfig(__dirname);
+const config = getSentryExpoConfig(__dirname);
 
 /* The local web render's `/api/v1`, passed to the worktree's web server, so
    the page asks its own origin and needs no CORS (`src/config.ts`).

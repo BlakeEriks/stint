@@ -4,7 +4,7 @@ Every client (web and the macOS app) uses these endpoints, and an endpoint
 not built yet is marked `(not implemented)`. Auth is a Supabase JWT as
 `Authorization: Bearer <token>`, on every endpoint except `/health` and the
 Stripe webhook, which Stripe's signature authenticates instead. Request/response shapes are defined in
-`packages/schema/src/index.ts` — that file is the source of truth, and every
+`packages/schema/src/`, one file per resource — that is the source of truth, and every
 route parses its request against it; this document is the map.
 
 Handlers are covered by integration tests that run the real route code against
@@ -236,10 +236,11 @@ it means `false`.
 the last one is answered with the unchanged profile, and archiving the default
 promotes the next profile by name.
 
-`nextInvoiceNumber` moves **forward only** through `PATCH /settings`, so an
-account can start past invoices sent before Stint, up to
-`NEXT_INVOICE_NUMBER_MAX` (999999). A value below the current one or over
-that ceiling is a `422` whose `details` are
+`nextInvoiceNumber` can be set through `PATCH /settings` to anything past
+the highest number an invoice holds, drafts included, up to
+`NEXT_INVOICE_NUMBER_MAX` (999999). So an account can start past invoices
+sent before Stint and take a raise back. A value outside that range is a
+`422` whose `details` are
 `{ field: 'nextInvoiceNumber', current }`,
 and nothing else in the patch is written. Every other field of `Settings` is
 settable too, including the `minEntrySeconds` /
@@ -414,6 +415,7 @@ preference — `.claude/rules/invoicing.md` has the reason.
 | `NO_TIMER_RUNNING` | 409 | Nothing to stop. |
 | `ENTRY_LOCKED` | 409 | Billed on a non-draft invoice. |
 | `EXPENSE_LOCKED` | 409 | An expense billed on a non-draft invoice. |
+| `EXPENSE_ALREADY_INVOICED` | 409 | The database's refusal when another invoice took an expense. Marking a draft sent answers it as `ENTRY_ALREADY_INVOICED`. |
 | `ENTRY_ALREADY_INVOICED` | 409 | Marking a draft sent: another invoice billed an entry or expense in its period, or an entry was marked billed elsewhere, at the same moment. Open the draft again. Or a mark named an entry already on an invoice. |
 | `INVOICE_STATUS_CHANGED` | 409 | Another request changed the invoice's status first. Read it again. |
 | `DRAFT_CHANGED` | 409 | The draft moved since its PDF was rendered. Download it again, then mark it sent. |

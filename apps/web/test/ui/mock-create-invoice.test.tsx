@@ -39,7 +39,7 @@ test('stores a draft that claims nothing until sent', async () => {
   const db = getDb();
   const next = db.settings.nextInvoiceNumber;
   const res = await create({ groupingMode: 'task', reference: '  PO-7  ' });
-  expect(res.status).toBe(200);
+  expect(res.status).toBe(201);
   const invoice = res.body;
   expect(invoice).toMatchObject({
     status: 'draft',
@@ -83,7 +83,7 @@ test('a summary keeps its text and the detail asked for', async () => {
     summaryText: ' Consulting ',
     schedules: ['project'],
   });
-  expect(res.status).toBe(200);
+  expect(res.status).toBe(201);
   expect(res.body.summaryText).toBe('Consulting');
   expect(res.body.supportingDetail).toHaveProperty('project');
 });

@@ -333,7 +333,7 @@ success teaches you to stop reading it.
 | Backup failed, or a day passed without one | healthchecks.io's own | healthchecks.io → Discord |
 | App or database down, and its recovery | UptimeRobot's own | UptimeRobot → Discord |
 | A new unhandled error in the server or the browser | Sentry's own, with the stack trace | Sentry → Discord |
-| A new crash or error in the macOS app | Sentry's own, with the stack trace | Sentry → Discord |
+| A new crash or error in the macOS or phone app | Sentry's own, with the stack trace | Sentry → Discord |
 
 Never posted: a release with no migration going live, a rejection or
 cancellation (you did it), a backup that worked (healthchecks.io is quiet
@@ -383,6 +383,20 @@ once:
    ```bash
    brew install getsentry/tools/sentry-cli
    security add-generic-password -s dev.stint.sentry-auth-token -a stint -w <token>
+   ```
+
+The phone app reports to a third, `stint-mobile`, set up once:
+
+1. **Projects → Create Project**, platform React Native, slug
+   `stint-mobile`, added to the "Notify via Discord" alert rule.
+2. Its **Security & Privacy → Prevent Storing of IP Addresses** on.
+3. In `apps/mobile`, its DSN and an organization auth token, as EAS
+   variables of the production environment only, so no other build reports
+   and the token never reaches a bundle:
+
+   ```bash
+   npx eas-cli env:create --name SENTRY_DSN --value <dsn> --environment production --visibility plaintext
+   npx eas-cli env:create --name SENTRY_AUTH_TOKEN --value <token> --environment production --visibility secret
    ```
 
 The webhook is the `DISCORD_ALERTS_WEBHOOK` repository secret, used by

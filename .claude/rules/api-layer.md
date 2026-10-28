@@ -27,9 +27,10 @@ Shared plumbing in `apps/web/src/lib/`:
   `{ data: null, error: null }` — no error, no claims, and every bearer
   request 401s. The route tests inject `__TEST_DB__` and never exercise this
   path, so only a real token against a real server catches it.
-- `errors.ts` — `handle()` wraps every route; `ApiError` maps to documented
-  status codes. `Code` is `z.infer<typeof ErrorCode>` from `@stint/schema`, so
-  `STATUS: Record<Code, number>` fails to compile when a code is missing.
+- `errors.ts` — `handle()` wraps every route; `ApiError` answers with its
+  code's status from `ERROR_STATUS` in `@stint/schema`, the one table of
+  codes. A new code goes there, and in `docs/api.md`'s table, which
+  `scripts/doc-refs.mjs` checks against it.
 - `rows.ts` — the only snake_case↔camelCase boundary, invoices and line
   items included. Rename a column here and nowhere else.
 
@@ -61,9 +62,10 @@ omits one.
   Never pass them straight through.
 - A retried insert: a duplicate-key insert with a client-supplied id returns
   the existing row with 200, not an error.
-- `nextInvoiceNumber` moves forward only: the settings route makes it a
-  condition of the update, never a read before it, since
-  `allocate_invoice_number()` may take the number in between.
+- `nextInvoiceNumber` stays past the highest number an invoice holds. The
+  settings route checks that against the counter it read, and updates only
+  while the counter still holds that value: `allocate_invoice_number()` may
+  take a number between the read and the write.
 
 ### Schemas
 

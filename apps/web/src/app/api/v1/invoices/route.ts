@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { handle, ApiError, dbCode } from '@/lib/errors';
+import { handle, ApiError, dbCode, refused } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import {
@@ -7,10 +7,15 @@ import {
   deriveDraft,
   loadPaymentProfile,
   requireSender,
-  unratedError,
 } from '@/lib/invoicing';
 import { INVOICE_COLUMNS, toInvoice, type InvoiceRow } from '@/lib/rows';
-import { buildPaymentDetails, localDateKey, termsForDays } from '@stint/core';
+import {
+  buildPaymentDetails,
+  invoiceRequestRefusal,
+  localDateKey,
+  pricedInvoiceRefusal,
+  termsForDays,
+} from '@stint/core';
 import { CreateInvoice, ListInvoicesQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -60,12 +65,8 @@ export const POST = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
   const body = await parseBody(req, CreateInvoice);
 
-  if (body.periodEnd < body.periodStart) {
-    throw new ApiError(
-      'INVALID_PERIOD',
-      '`periodEnd` must not precede `periodStart`',
-    );
-  }
+  const asked = invoiceRequestRefusal(body, localDateKey(new Date(), body.tz));
+  if (asked) throw refused(asked);
 
   const computed = await computeInvoice(db, {
     clientId: body.clientId,
@@ -82,29 +83,8 @@ export const POST = handle(async (req: Request) => {
 
   requireSender(settings);
 
-  /* The issue date is the send date, so a typed due date is held to today:
-     it can only move further behind. */
-  const today = localDateKey(new Date(), body.tz);
-  if (body.dueDate && body.dueDate < today) {
-    throw new ApiError(
-      'VALIDATION_FAILED',
-      "The due date can't be before the issue date.",
-      { field: 'dueDate' },
-    );
-  }
-
-  if (totals.unratedEntryIds.length > 0)
-    throw unratedError(totals.unratedEntryIds);
-
-  // A fee or an expense alone is a valid invoice — a deposit before any work
-  // is done is the ordinary case — so this asks for LINES, not for time.
-  if (totals.lineItems.length === 0) {
-    throw new ApiError(
-      'INVALID_PERIOD',
-      'Nothing to invoice: no unbilled, billable time in this period, no unbilled expenses, and no charges added',
-      { periodStart: body.periodStart, periodEnd: body.periodEnd },
-    );
-  }
+  const priced = pricedInvoiceRefusal(totals, body);
+  if (priced) throw refused(priced);
 
   // Frozen alongside the rates: if the profile changes or is deleted later,
   // an issued invoice must still show what the client was actually given.

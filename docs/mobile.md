@@ -130,6 +130,14 @@ A local build has no push, so its surfaces follow only the app's own reads
 and presses. The module is native code: a change to it needs a new build,
 not an update.
 
+## Crash reporting
+
+**Only a production build reports**, to Sentry's `stint-mobile` project:
+crashes and errors nothing caught (`src/crash-reporting.ts`). It alone
+carries the DSN, and its EAS build uploads source maps and debug symbols
+when EAS holds `SENTRY_AUTH_TOKEN` (`docs/deploying.md` §3c). Production
+takes no updates, so no over-the-air bundle needs its own upload.
+
 ## Preview builds
 
 A PR's phone preview is an EAS Update, opened in one shared development

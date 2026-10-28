@@ -115,25 +115,40 @@ export const NoPaymentProfiles: Story = {
   },
 };
 
-/** Next number moves forward to start past invoices sent before Stint. A
-    step back is refused, and the field says why. */
-export const NextNumberForwardOnly: Story = {
+/** Prefix comes first, then Next number, as the invoice prints them. The
+    number goes anywhere past the numbers invoices hold: up to start past
+    invoices sent before Stint, and back down after a raise. A number an
+    invoice holds is refused, and the field says why. */
+export const NextNumberPastUsed: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     const field = await page.findByLabelText('Next number');
+    // Prefix, then number, in reading and tab order, as the invoice prints.
+    await expect(
+      page.getByLabelText('Prefix').compareDocumentPosition(field),
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     await userEvent.clear(field);
     await userEvent.type(field, '20');
     await expect(
       await page.findByLabelText('Saved', {}, { timeout: 3000 }),
     ).toBeVisible();
     await userEvent.clear(field);
-    await userEvent.type(field, '18');
+    await userEvent.type(field, '17');
     await expect(
-      await page.findByText(/can't go below 20/, {}, { timeout: 3000 }),
+      await page.findByLabelText('Saved', {}, { timeout: 3000 }),
+    ).toBeVisible();
+    await userEvent.clear(field);
+    await userEvent.type(field, '15');
+    await expect(
+      await page.findByText(
+        'Must be higher than STINT-0015, your latest invoice.',
+        {},
+        { timeout: 3000 },
+      ),
     ).toBeVisible();
     await expect(page.getByText('Not saved')).toBeVisible();
-    await expect(field).toHaveValue(20);
+    await expect(field).toHaveValue(17);
   },
 };
 

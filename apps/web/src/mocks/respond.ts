@@ -1,5 +1,6 @@
 import { HttpResponse } from 'msw';
 import { z } from 'zod';
+import type { Refusal } from '@stint/core';
 import * as schema from '@stint/schema';
 
 /**
@@ -16,47 +17,27 @@ export const problems: string[] = [];
  * real server could never send fails the story instead of drawing a screen
  * the app will never show.
  */
-export function ok<S extends z.ZodType>(s: S, body: z.input<S>) {
+export function ok<S extends z.ZodType>(s: S, body: z.input<S>, status = 200) {
   const parsed = s.safeParse(body);
   if (!parsed.success) {
     problems.push(`A fake response fails its schema: ${parsed.error}`);
     return fail('INTERNAL');
   }
   // The parsed value, so a misspelled key never reaches the component.
-  return HttpResponse.json(parsed.data as never);
+  return HttpResponse.json(parsed.data as never, { status });
 }
 
-type Code = z.infer<typeof schema.ErrorCode> | 'INTERNAL';
-
-/* `src/lib/errors.ts`'s statuses: the code decides the status, as it does
-   there. `UNAUTHORIZED` is left out because `api.ts` answers a 401 by
+/* The API's own statuses, and `INTERNAL`, which only `handle()` answers
+   with. `UNAUTHORIZED` is left out because `api.ts` answers a 401 by
    navigating away, which would take the story with it. */
-const STATUS: Record<Exclude<Code, 'UNAUTHORIZED'>, number> = {
-  TIMER_ALREADY_RUNNING: 409,
-  NO_TIMER_RUNNING: 409,
-  ENTRY_LOCKED: 409,
-  EXPENSE_LOCKED: 409,
-  EXPENSE_ALREADY_INVOICED: 409,
-  ENTRY_ALREADY_INVOICED: 409,
-  INVOICE_STATUS_CHANGED: 409,
-  DRAFT_CHANGED: 409,
-  DRAFT_OVERLAPS: 409,
-  ENTRY_NOT_FOUND: 404,
-  NO_RATE_CONFIGURED: 400,
-  INVALID_PERIOD: 400,
-  IMPORT_FILE_UNRECOGNIZED: 422,
-  VALIDATION_FAILED: 422,
-  ALREADY_SUBSCRIBED: 409,
-  NOT_SUBSCRIBED: 409,
-  CHECKOUT_NOT_FOUND: 404,
-  BILLING_UNAVAILABLE: 503,
-  PAYMENT_REQUIRED: 402,
-  INTERNAL: 500,
-};
+type Code =
+  | Exclude<keyof typeof schema.ERROR_STATUS, 'UNAUTHORIZED'>
+  | 'INTERNAL';
+const STATUS = { ...schema.ERROR_STATUS, INTERNAL: 500 };
 
 /** An error in the API's own shape, code and status. */
 export function fail(
-  code: keyof typeof STATUS,
+  code: Code,
   message = code === 'INTERNAL' ? 'Internal server error' : code,
   details?: unknown,
 ) {
@@ -64,6 +45,27 @@ export function fail(
     details === undefined ? { code, message } : { code, message, details },
     { status: STATUS[code] },
   );
+}
+
+/** A refusal `@stint/core` decided or named, as the route answers it. */
+export const refuse = (r: Refusal) => fail(r.code, r.message, r.details);
+
+export const missing = (what: string) =>
+  fail('ENTRY_NOT_FOUND', `${what} not found`);
+
+/** `src/lib/validate.ts`'s `parseBody`: the body, or its 422. */
+export async function parse<S extends z.ZodType>(
+  request: Request,
+  s: S,
+): Promise<z.infer<S> | Response> {
+  const parsed = s.safeParse(await request.json());
+  return parsed.success
+    ? parsed.data
+    : fail(
+        'VALIDATION_FAILED',
+        'Request body failed validation',
+        z.treeifyError(parsed.error),
+      );
 }
 
 export const noContent = () => new HttpResponse(null, { status: 204 });
