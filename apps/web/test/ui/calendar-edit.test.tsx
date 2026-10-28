@@ -540,6 +540,20 @@ describe('a drawn entry never leaves the grid', () => {
     expect(screen.queryByText(/, saving$/)).toBeNull();
   });
 
+  /* The editor has closed, so "try again" would mean drawing it again: a
+     second entry if the first lands late. */
+  it('says a quiet server has not confirmed it, never to try again', async () => {
+    serveHeld();
+    await drawAndSave();
+    await screen.findByText(/^Drawn work, .*, saving$/);
+
+    await vi.advanceTimersByTimeAsync(10_001);
+    expect(
+      await screen.findByText(/hasn.t confirmed this entry yet/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/try again/i)).toBeNull();
+  });
+
   it('takes it back on a refusal and says why in the notice', async () => {
     const srv = serveHeld(409);
     await drawAndSave();

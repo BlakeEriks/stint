@@ -211,6 +211,9 @@ export function EntryDialog({
     queryKey: () => keys.entries(),
     invalidate: (qc, _entry, settled) => invalidateEntryData(qc, settled),
     movesHome: true,
+    /* Drawing it again would be a second entry if the first lands late. */
+    timeoutMessage:
+      'The server hasn’t confirmed this entry yet. It will appear if it saved.',
     mutationFn: (entry) => api.createEntry(entry),
     predict: (current, entry, key) =>
       predictCreatedEntry(current, entry, key, tz),
