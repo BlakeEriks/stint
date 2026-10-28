@@ -153,8 +153,8 @@ left off). `payment_terms` keeps its terms (`Net N`, or `Due on receipt`) from
 the client's days, else the user's, as Generate found them. Its time and
 expense lines, totals, issue date and, unless typed, due date are computed on
 every read and written by nothing; no entry or expense points at a draft.
-`downloaded_snapshot` is what its PDF last showed, with its dates and its
-template, which sending keeps; it is the one column a read writes. Mark sent refuses with
+`downloaded_snapshot` is what its PDF last showed, and the one column a read
+writes; sending keeps its dates and its template. Mark sent refuses with
 `DRAFT_CHANGED` while the draft differs from it. **Mark sent is
 `send_draft()`**: it writes the lines and totals the route computed, claims
 the entries and one-off expenses, sets `issue_date`, `due_date` and the
