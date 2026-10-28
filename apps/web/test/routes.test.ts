@@ -4152,6 +4152,7 @@ async function sentryEventsFor(db: unknown) {
     value?: string;
     synthetic: boolean;
     fingerprint?: string[];
+    user?: unknown;
   }[] = [];
   Sentry.init({
     dsn: 'https://key@o0.ingest.sentry.io/0',
@@ -4162,6 +4163,7 @@ async function sentryEventsFor(db: unknown) {
         value,
         synthetic: mechanism?.synthetic ?? false,
         fingerprint: event.fingerprint,
+        user: event.user,
       });
       return null;
     },
@@ -4174,7 +4176,7 @@ async function sentryEventsFor(db: unknown) {
   return sent;
 }
 
-test('an unhandled route error reaches Sentry, not only the log', async () => {
+test('an unhandled route error reaches Sentry with its user, not only the log', async () => {
   const sent = await sentryEventsFor({
     from() {
       throw new Error('unexpected');
@@ -4186,6 +4188,8 @@ test('an unhandled route error reaches Sentry, not only the log', async () => {
       value: 'unexpected',
       synthetic: false,
       fingerprint: undefined,
+      // The id alone: an email or name would put who they are in Sentry.
+      user: { id: USER },
     },
   ]);
 });
@@ -4204,6 +4208,7 @@ test('a database error object reaches Sentry titled and grouped by its message',
       value: 'Project not specified.',
       synthetic: false,
       fingerprint: ['{{ default }}', 'Project not specified.'],
+      user: { id: USER },
     },
   ]);
 });
