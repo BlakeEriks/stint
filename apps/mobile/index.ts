@@ -1,4 +1,5 @@
 import './src/polyfills.ts';
+import './src/crash-reporting.ts';
 import { registerRootComponent } from 'expo';
 import { AppRegistry, Platform } from 'react-native';
 import { App, surfaces } from './src/main/app.tsx';
