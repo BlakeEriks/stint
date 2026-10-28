@@ -585,14 +585,15 @@ if (existsSync(dirname(faviconOut))) writeFileSync(faviconOut, favicon);
 /* One icon serves iOS (opaque, full bleed: iOS rounds the corners) and
  * Android's adaptive foreground, which covers the background layer whole.
  * Android shows only the middle 72dp, cropped by the launcher's mask to as
- * little as a 66dp circle, so the mark and the band stay inside it. The
- * `-dev` icon, Stint Preview's and Stint Local's, raises the mark over a band
- * in `warning`, so a PR build is never taken for Stint.
+ * little as a 66dp circle, so the mark stays inside it. The `-dev` icon,
+ * Stint Preview's and Stint Local's, raises the mark over a full-width band
+ * in `warning`, which the mask cuts but still shows, so a PR build is never
+ * taken for Stint.
  *
  * Expo takes PNGs, and the preview build's fingerprint hashes their bytes.
  * Rasterizers differ by a pixel across machines, so a PNG is re-rendered
  * only when its SVG changes: CI and EAS run this too, and must leave the
- * committed PNGs alone. CI diffs the SVGs. */
+ * committed PNGs alone. */
 const PHONE_BOX = 108;
 const markScale = 1.5;
 const markX = PHONE_BOX / 2 - (FAVICON_BOX / 2) * markScale;
