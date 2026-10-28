@@ -8,6 +8,8 @@
  *   fixes     three or more merged fixes in 90 days, on a whole-repo scan
  *             only, since it needs `gh`
  *   Vale      prose against the Google style guide and our house rules
+ *   tests     duplicate coverage, orphans, and each suite's slowest tests,
+ *             the last from main's newest CI run, on a whole-repo scan only
  *
  * usage: pnpm hygiene [paths...] [--since 30.days] [--top N] [--json]
  *                     [--skip-filed]
@@ -17,11 +19,18 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { filedPaths, fixChurn, rank, THRESHOLD, top } from './rank.mjs';
+import {
+  duplicateCoverage,
+  importsOf,
+  orphans,
+  parseJUnit,
+  slowest,
+} from './tests.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const BIN = join(ROOT, 'node_modules/.bin');
@@ -29,8 +38,9 @@ const BIN = join(ROOT, 'node_modules/.bin');
 const CODE = ['apps/web/src', 'packages', 'scripts'];
 const DOCS = ['docs', 'CLAUDE.md'];
 /* Tests repeat their arrangement on purpose, and shadcn's vendored
-   components are upstream's code. */
+   components are upstream's code. Test findings are about tests. */
 const EXCLUDED = /(^|\/)(test|e2e|node_modules|dist)\/|components\/ui\//;
+const TEST_KINDS = new Set(['duplicate-coverage', 'orphan-test', 'slow-test']);
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -192,6 +202,78 @@ function prose() {
   );
 }
 
+const tracked = run('git', ['ls-files']).split('\n').filter(Boolean);
+
+/* Constitution V's suites; `node --test` scripts test tooling. */
+const TEST_FILE = /\.(test\.tsx?|spec\.ts|stories\.tsx)$/;
+
+function testFindings() {
+  const files = new Set(tracked);
+  const graph = new Map(
+    tracked
+      .filter((p) => TEST_FILE.test(p))
+      .map((p) => [
+        p,
+        importsOf(p, readFileSync(join(ROOT, p), 'utf8'), (f) => files.has(f)),
+      ]),
+  );
+  // Production mode leaves tests and stories out, so what only they import
+  // shows as unused.
+  const out = run(
+    join(BIN, 'knip'),
+    ['--production', '--include=files', '--reporter=json', '--no-progress'],
+    [0, 1],
+  );
+  const unreachable = new Set(
+    JSON.parse(out).issues.flatMap((i) => (i.files ?? []).map((f) => f.name)),
+  );
+  return [...duplicateCoverage(graph), ...orphans(graph, unreachable)];
+}
+
+/* A report names its file relative to its runner's root, or absolutely. */
+const trackedAs = (file) =>
+  tracked.find(
+    (p) => file === p || file.endsWith(`/${p}`) || p.endsWith(`/${file}`),
+  );
+
+/* CI uploads a `timings-<job>` artifact of JUnit reports, one per suite,
+   on each push to main (.github/workflows/ci.yml). */
+function slowTests() {
+  const [latest] = JSON.parse(
+    run('gh', [
+      'run',
+      'list',
+      '--workflow=ci.yml',
+      '--branch=main',
+      '--event=push',
+      '--status=success',
+      '--limit=1',
+      '--json=databaseId',
+    ]),
+  );
+  if (!latest) return [];
+  const dir = mkdtempSync(join(tmpdir(), 'timings-'));
+  run('gh', [
+    'run',
+    'download',
+    String(latest.databaseId),
+    '--pattern=timings-*',
+    `--dir=${dir}`,
+  ]);
+  const timings = readdirSync(dir, { recursive: true })
+    .filter((f) => f.endsWith('.xml'))
+    .flatMap((f) =>
+      parseJUnit(readFileSync(join(dir, f), 'utf8')).map((t) => ({
+        ...t,
+        suite: basename(f, '.xml'),
+        path: trackedAs(t.file),
+      })),
+    )
+    // A test whose file is gone since that run is not worth a finding.
+    .filter((t) => t.path);
+  return slowest(timings);
+}
+
 function commits(since) {
   const out = run('git', [
     'log',
@@ -219,8 +301,8 @@ function filed() {
 }
 
 const scope = positionals.map((p) => p.replace(/\/$/, ''));
-const inScope = (path) =>
-  !EXCLUDED.test(path) &&
+const inScope = ({ path, kind }) =>
+  (TEST_KINDS.has(kind) || !EXCLUDED.test(path)) &&
   (!scope.length || scope.some((p) => path === p || path.startsWith(`${p}/`)));
 
 const findings = [
@@ -229,9 +311,11 @@ const findings = [
   deadCode(),
   scope.length ? [] : fixes(),
   prose(),
+  testFindings(),
+  scope.length ? [] : slowTests(),
 ]
   .flat()
-  .filter((f) => inScope(f.path));
+  .filter(inScope);
 let files = rank(
   findings,
   commits(values.since),

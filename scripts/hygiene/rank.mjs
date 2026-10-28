@@ -13,6 +13,10 @@ const MINUTES = {
   'dead-code': () => 5,
   prose: () => 1,
   fixes: (f) => 15 * f.value,
+  'duplicate-coverage': () => 10,
+  'orphan-test': () => 5,
+  // A minute a second: what it costs every CI run, not what it takes to fix.
+  'slow-test': (f) => Math.ceil(f.value),
 };
 
 export const debtOf = (f) => MINUTES[f.kind](f);

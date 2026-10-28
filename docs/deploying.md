@@ -53,9 +53,10 @@ the domain until required checks pass, so the migration runs while the
 Two more workflows. `docs.yml` runs Vale on the doc lines a PR adds, which
 only reports, and `/doc-drift` on the owner's PRs, whose `drift` check fails
 on drift or when it wrote no comment for the head commit, and is required
-to merge. `hygiene.yml` files issues each Monday from `pnpm hygiene`. Both
-spend Claude tokens from the `CLAUDE_CODE_OAUTH_TOKEN` secret, and only for
-the repository owner.
+to merge. `hygiene.yml` files issues each Monday from `pnpm hygiene`,
+which names each suite's slowest tests from the JUnit reports a push to
+`main` uploads. Both spend Claude tokens from the `CLAUDE_CODE_OAUTH_TOKEN`
+secret, and only for the repository owner.
 
 `ci.yml` carries the reasons for its runner narrowings and caching at the
 lines they govern.

@@ -30,6 +30,8 @@ jobs:
       contents: read
       issues: write
       pull-requests: read
+      # CI's test timings, as artifacts.
+      actions: read
     env:
       GH_TOKEN: ${{ github.token }}
       ISSUES: ${{ inputs.issues || '5' }}
