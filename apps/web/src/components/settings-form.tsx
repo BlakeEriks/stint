@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { parseTermsDays } from '@stint/core';
 import { NEXT_INVOICE_NUMBER_MAX } from '@stint/schema';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { type Segment, SegmentedControl } from './segmented-control';
@@ -41,10 +41,6 @@ const THEMES: Segment<Theme>[] = [
 export function SettingsForm({ loaded }: { loaded: Settings }) {
   const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
-  const { data: server } = useQuery({
-    queryKey: keys.settings(),
-    queryFn: api.settings,
-  });
 
   const [form, setForm] = useState<Settings>(loaded);
   /* Text, not the number: a cleared field is a step in typing a new one,
@@ -218,15 +214,23 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
 
       <TemplateSection />
 
-      {/* New invoice links here, so Next number comes first: it is the
-          field that link focuses. */}
       <Section
-        id="numbering"
         title="Invoice numbering"
-        description="Continue the count from invoices you sent before Stint. Numbers only go up."
+        description="Continue the count from invoices you sent before Stint."
         aside={<SaveIndicator state={numbering.state} />}
       >
         <div className="flex flex-wrap gap-4">
+          <Field label="Prefix" htmlFor="prefix" className="flex-1 basis-40">
+            <Input
+              id="prefix"
+              value={form.invoiceNumberPrefix}
+              onChange={(e) =>
+                setNumbering('invoiceNumberPrefix', e.target.value)
+              }
+              placeholder="INV-"
+            />
+          </Field>
+
           <Field
             label="Next number"
             htmlFor="next-number"
@@ -236,7 +240,6 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
             <Input
               id="next-number"
               type="number"
-              min={server?.nextInvoiceNumber ?? 1}
               max={NEXT_INVOICE_NUMBER_MAX}
               step="1"
               value={next}
@@ -246,17 +249,6 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
                   setNumbering('nextInvoiceNumber', Number(e.target.value));
                 }
               }}
-            />
-          </Field>
-
-          <Field label="Prefix" htmlFor="prefix" className="flex-1 basis-40">
-            <Input
-              id="prefix"
-              value={form.invoiceNumberPrefix}
-              onChange={(e) =>
-                setNumbering('invoiceNumberPrefix', e.target.value)
-              }
-              placeholder="INV-"
             />
           </Field>
         </div>

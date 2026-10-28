@@ -63,11 +63,12 @@ jobs:
       (github.event.action != 'labeled' ||
         github.event.label.name == 'ready-for-qa')
     # One at a time: a reset racing a seed leaves an account half-written.
-    # On the job, not the workflow, so a run its `if` skips never queues:
-    # a group keeps one waiting run, and a skipped one would cancel it.
+    # `queue: max` keeps every waiting run; the default keeps one, so a third
+    # PR's push cancelled a second's and left its check red (#509). On the
+    # job, not the workflow, so a run its `if` skips never takes a place.
     concurrency:
       group: preview-db
-      cancel-in-progress: false
+      queue: max
     runs-on: ubuntu-latest
     environment:
       name: Preview

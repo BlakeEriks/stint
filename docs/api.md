@@ -236,10 +236,11 @@ it means `false`.
 the last one is answered with the unchanged profile, and archiving the default
 promotes the next profile by name.
 
-`nextInvoiceNumber` moves **forward only** through `PATCH /settings`, so an
-account can start past invoices sent before Stint, up to
-`NEXT_INVOICE_NUMBER_MAX` (999999). A value below the current one or over
-that ceiling is a `422` whose `details` are
+`nextInvoiceNumber` can be set through `PATCH /settings` to anything past
+the highest number an invoice holds, drafts included, up to
+`NEXT_INVOICE_NUMBER_MAX` (999999). So an account can start past invoices
+sent before Stint and take a raise back. A value outside that range is a
+`422` whose `details` are
 `{ field: 'nextInvoiceNumber', current }`,
 and nothing else in the patch is written. Every other field of `Settings` is
 settable too, including the `minEntrySeconds` /
