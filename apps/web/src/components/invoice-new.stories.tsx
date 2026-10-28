@@ -504,15 +504,77 @@ export const NoReference: Story = {
   },
 };
 
-/** The number Generate takes shows before it does, linked to the setting
-    that moves it. */
-export const NumberLinksToSetting: Story = {
+const changeNumber = async (canvasElement: HTMLElement, next: string) => {
+  const page = await chooseNorthwind(canvasElement);
+  await settled(page);
+  await userEvent.type(page.getByLabelText('Reference'), 'PO-7');
+  return { page, form: await saveNumber(page, 'STINT-0016', next) };
+};
+
+/** Opens Change on the "Numbered" line and saves `next`. STINT-0015 is
+    the highest number an invoice holds. */
+const saveNumber = async (
+  page: ReturnType<typeof within>,
+  shown: string,
+  next: string,
+) => {
+  const line = page.getByText(new RegExp(`Numbered ${shown}`));
+  await userEvent.click(within(line).getByRole('button', { name: 'Change' }));
+  const dialog = await page.findByRole('dialog', { name: 'Invoice number' });
+  await waitFor(() => expect(dialog).toBeVisible());
+  const form = within(dialog);
+  const field = form.getByLabelText('Next number');
+  // Prefix, then number, in reading and tab order, as the invoice prints.
+  await expect(
+    form.getByLabelText('Prefix').compareDocumentPosition(field),
+  ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  await userEvent.clear(field);
+  await userEvent.type(field, next);
+  await userEvent.click(form.getByRole('button', { name: 'Save' }));
+  return form;
+};
+
+/** The number Generate takes shows before it does. Change moves it in a
+    dialog, so the draft being built stays as it was. */
+export const ChangeNumber: Story = {
   ...desktop,
+  parameters: menuOpen,
   play: async ({ canvasElement }) => {
-    const line = await within(canvasElement).findByText(/Numbered STINT-0016/);
+    const { page } = await changeNumber(canvasElement, '20');
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+    await expect(page.getByText(/Numbered STINT-0020/)).toBeVisible();
+    await expect(page.getByLabelText('Reference')).toHaveValue('PO-7');
+  },
+};
+
+/** A raise can be taken back: 16 is still free after moving to 20. */
+export const ChangeNumberBack: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const { page } = await changeNumber(canvasElement, '20');
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+    await saveNumber(page, 'STINT-0020', '16');
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+    await expect(page.getByText(/Numbered STINT-0016/)).toBeVisible();
+  },
+};
+
+/** A number an invoice already holds is refused in the open dialog, which
+    says which one and what is free. */
+export const ChangeNumberRefused: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const { form } = await changeNumber(canvasElement, '10');
     await expect(
-      within(line).getByRole('link', { name: 'Change' }),
-    ).toHaveAttribute('href', '/settings#numbering');
+      await form.findByText(
+        'Must be higher than STINT-0015, your latest invoice.',
+        {},
+        { timeout: 3000 },
+      ),
+    ).toBeVisible();
+    await expect(form.getByLabelText('Next number')).toHaveValue(10);
   },
 };
 

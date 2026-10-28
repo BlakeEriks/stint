@@ -100,6 +100,13 @@ function applyArchived<T>(
 type CreateInvoice = z.infer<typeof schema.CreateInvoice>;
 type Preview = NonNullable<ReturnType<typeof invoicePreview>>;
 
+/** The invoice holding the highest number, drafts included. */
+const highestInvoice = (db: Db) =>
+  db.invoices.reduce<Db['invoices'][number] | undefined>(
+    (top, i) => (top && top.sequenceNo > i.sequenceNo ? top : i),
+    undefined,
+  );
+
 function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
   const seq = db.settings.nextInvoiceNumber;
   db.settings.nextInvoiceNumber += 1;
@@ -916,6 +923,7 @@ export const handlers = {
             input.nextInvoiceNumber,
             db.settings.nextInvoiceNumber,
             schema.NEXT_INVOICE_NUMBER_MAX,
+            highestInvoice(db) ?? null,
           );
     if (refused) return refuse(refused);
     db.settings = { ...db.settings, ...input };

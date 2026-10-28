@@ -83,17 +83,21 @@ test('the unrated count reads as one or many', () => {
   assert.match(unratedRefusal(['a', 'b']).message, /^2 billable entries have/);
 });
 
-test('the next number moves forward and stays under the cap', () => {
-  assert.equal(nextNumberRefusal(20, 16, 999), null);
-  assert.equal(nextNumberRefusal(16, 16, 999), null);
+test('the next number stays past the highest used and under the cap', () => {
+  const highest = { sequenceNo: 15, invoiceNumber: 'INV-0015' };
+  assert.equal(nextNumberRefusal(20, 20, 999, highest), null);
+  assert.equal(nextNumberRefusal(16, 20, 999, highest), null, 'back down');
+  assert.equal(nextNumberRefusal(1, 1, 999, null), null, 'no invoices yet');
   assert.equal(
-    nextNumberRefusal(1000, 16, 999)?.message,
+    nextNumberRefusal(1000, 16, 999, highest)?.message,
     "The next number can't go above 999.",
   );
-  assert.deepEqual(nextNumberRefusal(3, 16, 999)?.details, {
-    field: 'nextInvoiceNumber',
-    current: 16,
-  });
+  const held = nextNumberRefusal(15, 20, 999, highest);
+  assert.equal(
+    held?.message,
+    'Must be higher than INV-0015, your latest invoice.',
+  );
+  assert.deepEqual(held?.details, { field: 'nextInvoiceNumber', current: 20 });
 });
 
 test('the refusals the database decides name themselves', () => {

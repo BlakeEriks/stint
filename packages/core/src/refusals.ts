@@ -131,18 +131,24 @@ export const nothingToSend = refusal(
   'Nothing to send: no unbilled, billable time in this period, no unbilled expenses, and no charges added',
 );
 
-/** A `nextInvoiceNumber` above `max` or behind `current`, naming the field
- *  and the number it stays at so the form can show it again. */
-export function nextNumberRefusal(next: number, current: number, max: number) {
+/** A `nextInvoiceNumber` above `max`, or at or below the highest number
+ *  an invoice holds, drafts included: the counter would step into it. Names
+ *  the field and the number it stays at so the form can show it again. */
+export function nextNumberRefusal(
+  next: number,
+  current: number,
+  max: number,
+  highest: { sequenceNo: number; invoiceNumber: string } | null,
+) {
   const refused = (message: string) =>
     refusal('VALIDATION_FAILED', message, {
       field: 'nextInvoiceNumber',
       current,
     });
   if (next > max) return refused(`The next number can't go above ${max}.`);
-  if (next < current)
+  if (highest && next <= highest.sequenceNo)
     return refused(
-      `The next number can't go below ${current}, or an invoice could repeat a number already sent.`,
+      `Must be higher than ${highest.invoiceNumber}, your latest invoice.`,
     );
   return null;
 }

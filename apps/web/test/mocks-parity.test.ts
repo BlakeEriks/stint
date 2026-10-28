@@ -782,7 +782,7 @@ const writes: Record<string, [Scenario, (db: Db) => Write]> = {
       params: { id: ids.figma },
     }),
   ],
-  'move the next number back': [
+  'move the next number onto a used one': [
     'seeded',
     () => ({
       handler: 'updateSettings',
