@@ -14,7 +14,7 @@ import type {
 } from '@/lib/client/api';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import { shortDate } from './invoice-bits';
-import { DetailPaper, InvoicePaper } from './invoice-paper';
+import { DetailPaper, InvoicePaper, type PaperInvoice } from './invoice-paper';
 
 type Business = Pick<Invoice['business'], 'name' | 'address' | 'email'>;
 
@@ -156,32 +156,19 @@ export function InvoicePreviewCard({
             >
               <InvoicePaper
                 template={template}
-                invoice={{
-                  number,
-                  issued,
-                  due: due || null,
-                  period: preview
-                    ? { start: preview.periodStart, end: preview.periodEnd }
-                    : null,
-                  reference: reference || null,
+                invoice={paperOf({
+                  preview,
+                  client,
                   business,
                   noSender,
-                  client,
-                  lines: preview?.lineItems?.map((li) => ({
-                    ...li,
-                    quantity: li.quantity ?? 0,
-                    amount: li.amount ?? 0,
-                  })),
-                  subtotal: preview?.subtotal ?? 0,
-                  taxRate: preview?.taxRate ?? 0,
-                  taxAmount: preview?.taxAmount ?? 0,
-                  expensesSubtotal: preview?.expensesSubtotal ?? 0,
-                  total: preview?.total ?? 0,
-                  currency: preview?.currency ?? 'USD',
-                  terms: terms ?? null,
+                  number,
+                  issued,
+                  due,
+                  reference,
                   payment,
-                  notes: notes ?? null,
-                }}
+                  terms,
+                  notes,
+                })}
               />
 
               {preview?.schedules?.totalHours && schedules.length > 0 ? (
@@ -208,6 +195,49 @@ export function InvoicePreviewCard({
       </div>
     </section>
   );
+}
+
+/** The card's props as the paper prints them; blanks print as absent. */
+function paperOf(p: {
+  preview: CardFigures | undefined;
+  client: Pick<Client, 'name' | 'address' | 'email'>;
+  business: Business | undefined;
+  noSender: boolean;
+  number: string;
+  issued: string;
+  due: string;
+  reference: string;
+  payment: PaymentDetails | null;
+  terms: string | null | undefined;
+  notes: string | null | undefined;
+}): PaperInvoice {
+  const { preview } = p;
+  return {
+    number: p.number,
+    issued: p.issued,
+    due: p.due || null,
+    period: preview
+      ? { start: preview.periodStart, end: preview.periodEnd }
+      : null,
+    reference: p.reference || null,
+    business: p.business,
+    noSender: p.noSender,
+    client: p.client,
+    lines: preview?.lineItems?.map((li) => ({
+      ...li,
+      quantity: li.quantity ?? 0,
+      amount: li.amount ?? 0,
+    })),
+    subtotal: preview?.subtotal ?? 0,
+    taxRate: preview?.taxRate ?? 0,
+    taxAmount: preview?.taxAmount ?? 0,
+    expensesSubtotal: preview?.expensesSubtotal ?? 0,
+    total: preview?.total ?? 0,
+    currency: preview?.currency ?? 'USD',
+    terms: p.terms ?? null,
+    payment: p.payment,
+    notes: p.notes ?? null,
+  };
 }
 
 function Caption({

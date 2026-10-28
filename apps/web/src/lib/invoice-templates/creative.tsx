@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from '@react-pdf/renderer';
-import { formatQuantity, type DetailBlock } from '@stint/core';
+import { formatQuantity, linesByUnit, type DetailBlock } from '@stint/core';
 import { print } from '@stint/design-tokens';
 import {
   accent,
@@ -18,12 +18,13 @@ import {
   PaymentView,
   period,
   rowsPerPage,
-  runMeta,
-  ScheduleView,
-  totalRows,
+  DetailView,
+  payStyles,
+  TotalsView,
   type Data,
   type LineItem,
   type Template,
+  type TotalsStyles,
 } from './shared';
 
 /*
@@ -333,37 +334,28 @@ function Shapes() {
   );
 }
 
-const cents = (n: number) => Math.round(n * 100) / 100;
+const KIND = {
+  hour: { title: 'TIME', mark: MARK.circle },
+  fixed: { title: 'FIXED FEES', mark: MARK.square },
+  expense: { title: 'EXPENSES', mark: MARK.triangle },
+};
 
-/** Time, fixed fees and expenses, in that order; a kind with none is left out. */
+/** Time, fixed fees and expenses, each with its total, numbered straight
+ *  through. */
 function kinds(data: Data) {
   const cur = data.currency;
-  // Numbered straight through, across the kinds.
-  let n = 0;
-  const of = (unit: LineItem['unit']) =>
-    data.lineItems.filter((li) => li.unit === unit);
   const aside = (li: LineItem) =>
     li.unit === 'expense'
       ? date(li.spentOn ?? null)
-      : li.unit === 'fixed'
-        ? (li.quantity ?? 1) === 1
-          ? 'Fixed'
-          : `${formatQuantity('fixed', li.quantity ?? 0)} × ${money(li.unitPrice, cur)}`
-        : `${formatQuantity('hour', li.quantity ?? 0)} × ${money(li.unitPrice, cur)}`;
-  return [
-    { title: 'TIME', mark: MARK.circle, items: of('hour') },
-    { title: 'FIXED FEES', mark: MARK.square, items: of('fixed') },
-    { title: 'EXPENSES', mark: MARK.triangle, items: of('expense') },
-  ]
-    .filter((k) => k.items.length > 0)
-    .map((k) => ({
-      ...k,
-      sum: money(
-        cents(k.items.reduce((t, li) => t + (li.amount ?? 0), 0)),
-        cur,
-      ),
-      rows: k.items.map((li) => ({ li, aside: aside(li), n: ++n })),
-    }));
+      : li.unit === 'fixed' && (li.quantity ?? 1) === 1
+        ? 'Fixed'
+        : `${formatQuantity(li.unit, li.quantity ?? 0)} × ${money(li.unitPrice, cur)}`;
+  let n = 0;
+  return linesByUnit(data.lineItems).map((k) => ({
+    ...KIND[k.unit],
+    sum: money(k.total, cur),
+    rows: k.items.map((li) => ({ li, aside: aside(li), n: ++n })),
+  }));
 }
 
 function First({ data }: { data: Data }) {
@@ -451,37 +443,10 @@ function First({ data }: { data: Data }) {
         ))}
       </View>
 
-      <View style={s.totals} wrap={false}>
-        {totalRows(data).map((r) => (
-          <View key={r.label} style={s.totalRow}>
-            <Text style={s.muted}>{r.label}</Text>
-            <Text style={s.fig}>{r.value}</Text>
-          </View>
-        ))}
-        <View style={s.grand}>
-          <Text>Total</Text>
-          <Text style={s.fig}>{money(data.total, cur)}</Text>
-        </View>
-        {data.paymentTerms ? (
-          <Text style={s.terms}>{data.paymentTerms}</Text>
-        ) : null}
-      </View>
+      <TotalsView data={data} s={totals} label="Total" wrap={false} />
 
       {data.payment ? (
-        <PaymentView
-          payment={data.payment}
-          s={{
-            box: s.pay,
-            title: s.payTitle,
-            grid: s.payGrid,
-            cell: s.payCell,
-            label: s.payLabel,
-            value: s.payValue,
-            sub: s.paySub,
-            link: s.payLink,
-            notes: s.payNotes,
-          }}
-        />
+        <PaymentView payment={data.payment} s={payStyles(s)} />
       ) : null}
       {data.notes ? (
         <View style={s.notes}>
@@ -500,35 +465,26 @@ const TABLE_MARK = {
 
 function Detail({ data, blocks }: { data: Data; blocks: DetailBlock[] }) {
   return (
-    <>
-      <Spine data={data} />
-      <View style={s.run}>
-        <Text style={s.runTitle}>Supporting detail</Text>
-        <Text style={s.runMeta}>{runMeta(data)}</Text>
-      </View>
-      {blocks.map((block, i) => (
-        <ScheduleView
-          key={i}
-          block={block}
-          mark={TABLE_MARK[block.kind]}
-          s={{
-            table: s.table,
-            title: s.tTitle,
-            continued: s.continued,
-            head: s.tHead,
-            headCell: s.tHeadCell,
-            row: s.tRow,
-            sum: s.tSum,
-            text: s.tText,
-            day: s.tDay,
-            when: s.tWhen,
-            hours: s.tHours,
-          }}
-        />
-      ))}
-    </>
+    <DetailView
+      data={data}
+      blocks={blocks}
+      s={s}
+      above={<Spine data={data} />}
+      mark={(kind) => TABLE_MARK[kind]}
+    />
   );
 }
+
+const totals: TotalsStyles = {
+  box: s.totals,
+  row: s.totalRow,
+  label: s.muted,
+  value: s.fig,
+  grand: s.grand,
+  grandLabel: {},
+  grandValue: s.fig,
+  terms: s.terms,
+};
 
 export const creative: Template = {
   page: s.page,

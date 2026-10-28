@@ -206,10 +206,7 @@ export function requireSender(s: InvoiceSettings) {
   }
 }
 
-/** The template a draft renders in: the account's current choice. */
-export async function chosenTemplate(
-  db: SupabaseClient,
-): Promise<InvoiceTemplate> {
+async function chosenTemplate(db: SupabaseClient): Promise<InvoiceTemplate> {
   const { data, error } = await db
     .from('user_settings')
     .select('invoice_template')
@@ -302,8 +299,6 @@ export async function loadPdfData(
   if (!stored) throw new ApiError('ENTRY_NOT_FOUND', 'Invoice not found');
   const row = stored as InvoiceRow;
 
-  // A sent invoice keeps the template it was sent in; a draft follows the
-  // account's.
   const [billing, draft, template] = await Promise.all([
     entitlement(db),
     deriveDraft(db, row, requestTz),

@@ -6,7 +6,7 @@ import type { InvoiceTemplate } from '@stint/schema';
 import { api, type Settings } from '@/lib/client/api';
 import { InvoicePaper, type PaperInvoice } from './invoice-paper';
 
-export const TEMPLATES: Array<{
+const TEMPLATES: Array<{
   id: InvoiceTemplate;
   name: string;
   line: string;

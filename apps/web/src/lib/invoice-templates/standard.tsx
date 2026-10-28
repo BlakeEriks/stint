@@ -1,27 +1,22 @@
 import { Text, View, StyleSheet, Image } from '@react-pdf/renderer';
-import {
-  formatCurrency,
-  formatHours,
-  formatQuantity,
-  type DateRow,
-  type DetailBlock,
-  type ProjectRow,
-  SCHEDULE_KINDS,
-  SCHEDULE_TITLES,
-  type ScheduleKind,
-  type WeekRow,
-} from '@stint/core';
+import { formatCurrency, formatQuantity, type DetailBlock } from '@stint/core';
 import { print } from '@stint/design-tokens';
 import {
   accent,
-  DAY,
   date,
   Lines,
   PAGE_SIZE,
+  PaymentView,
+  rowsPerPage,
+  runMeta,
+  ScheduleView,
+  TotalsView,
   type Data,
   type LineItem,
-  type Payment,
+  type PaymentStyles,
+  type ScheduleStyles,
   type Template,
+  type TotalsStyles,
 } from './shared';
 
 /**
@@ -57,14 +52,13 @@ const runHeaderHeight =
  * not the gap under it, so the gap is reserved for every table a page can
  * hold.
  */
-const DETAIL_ROWS_PER_PAGE = Math.floor(
-  (PAGE.size.height -
-    PAGE.margin.top -
-    PAGE.margin.bottom -
-    runHeaderHeight -
-    SCHEDULE_KINDS.length * PAGE.tableGap) /
-    detailRowHeight,
-);
+const DETAIL_ROWS_PER_PAGE = rowsPerPage({
+  top: PAGE.margin.top,
+  bottom: PAGE.margin.bottom,
+  header: runHeaderHeight,
+  tableGap: PAGE.tableGap,
+  row: detailRowHeight,
+});
 
 const styles = StyleSheet.create({
   /* Line height is set on each section, never on the page: react-pdf
@@ -280,11 +274,7 @@ const styles = StyleSheet.create({
   },
 });
 
-// `Text` has an SVG overload, so ComponentProps yields a union. Reuse the
-// exact style type the stylesheet produces instead.
-type TextStyle = (typeof styles)[keyof typeof styles];
-
-/** Today's invoice: Helvetica, Courier figures, the accent on the total. */
+/** Helvetica, Courier figures, the accent on the total. */
 function First({ data }: { data: Data }) {
   const services = data.lineItems.filter((li) => li.unit !== 'expense');
   const expenses = data.lineItems.filter((li) => li.unit === 'expense');
@@ -294,12 +284,8 @@ function First({ data }: { data: Data }) {
       <BillTo data={data} />
       <ServiceLines items={services} currency={data.currency} />
       <ExpenseLines items={expenses} currency={data.currency} />
-      <Totals
-        data={data}
-        hasServices={services.length > 0}
-        hasExpenses={expenses.length > 0}
-      />
-      {data.payment ? <PaymentBlock payment={data.payment} /> : null}
+      <TotalsView data={data} s={totals} />
+      {data.payment ? <PaymentView payment={data.payment} s={pay} /> : null}
       <Notes notes={data.notes} afterPay={Boolean(data.payment)} />
     </>
   );
@@ -443,100 +429,6 @@ function ExpenseLines({
   );
 }
 
-function Totals({
-  data,
-  hasServices,
-  hasExpenses,
-}: {
-  data: Data;
-  hasServices: boolean;
-  hasExpenses: boolean;
-}) {
-  const cur = data.currency;
-  return (
-    <View style={styles.totals}>
-      {/* An invoice of expenses alone has no services to subtotal. */}
-      {hasServices || !hasExpenses ? (
-        <TotalRow
-          label={hasExpenses ? 'Services' : 'Subtotal'}
-          value={formatCurrency(data.subtotal, cur)}
-        />
-      ) : null}
-      {data.taxRate > 0 ? (
-        <TotalRow
-          label={`Tax (${data.taxRate}%)`}
-          value={formatCurrency(data.taxAmount, cur)}
-        />
-      ) : null}
-      {hasExpenses ? (
-        <TotalRow
-          label="Expenses"
-          value={formatCurrency(data.expensesSubtotal, cur)}
-        />
-      ) : null}
-
-      <View style={styles.grand}>
-        <Text style={styles.grandLabel}>Amount due</Text>
-        <Text style={styles.grandValue}>{formatCurrency(data.total, cur)}</Text>
-      </View>
-
-      {data.paymentTerms ? (
-        <Text style={{ color: print.faint, marginTop: 6, fontSize: 8.5 }}>
-          {data.paymentTerms}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
-function TotalRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.totalRow}>
-      <Text style={{ color: print.muted }}>{label}</Text>
-      <Text style={{ fontFamily: 'Courier' }}>{value}</Text>
-    </View>
-  );
-}
-
-function PaymentBlock({ payment }: { payment: Payment }) {
-  return (
-    <View style={styles.pay} wrap={false}>
-      <Text style={styles.payTitle}>
-        {payment.title ? `Payment — ${payment.title}` : 'Payment details'}
-      </Text>
-      <PayGrid fields={payment.fields} />
-      {payment.intermediary.length > 0 ? (
-        <PayGrid fields={payment.intermediary} style={styles.paySub} />
-      ) : null}
-      {payment.link ? (
-        <Text style={styles.payLink}>
-          {payment.link.label}: {payment.link.url}
-        </Text>
-      ) : null}
-      <Lines text={payment.notes} style={styles.payNotes} />
-    </View>
-  );
-}
-
-function PayGrid({
-  fields,
-  style,
-}: {
-  fields: Payment['fields'];
-  style?: TextStyle;
-}) {
-  return (
-    <View style={style ? [styles.payGrid, style] : styles.payGrid}>
-      {fields.map((f, i) => (
-        <View key={i} style={styles.payCell}>
-          <Text style={styles.payLabel}>{f.label.toUpperCase()}</Text>
-          <Text style={styles.payValue}>{f.value}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
 function Notes({
   notes,
   afterPay,
@@ -560,84 +452,51 @@ function Detail({ data, blocks }: { data: Data; blocks: DetailBlock[] }) {
     <>
       <View style={styles.run}>
         <Text style={styles.runTitle}>Supporting detail</Text>
-        <Text style={styles.runMeta}>
-          {data.invoiceNumber} · {data.client.name} · {date(data.periodStart)} –{' '}
-          {date(data.periodEnd)}
-        </Text>
+        <Text style={styles.runMeta}>{runMeta(data)}</Text>
       </View>
       {blocks.map((block, j) => (
-        <ScheduleTable key={j} block={block} />
+        <ScheduleView key={j} block={block} s={table} />
       ))}
     </>
   );
 }
 
-function ScheduleTable({ block }: { block: DetailBlock }) {
-  const head = (text: string, style: TextStyle) => (
-    <Text style={[style, styles.headCell]}>{text}</Text>
-  );
-  return (
-    <View style={styles.schedule}>
-      <Text style={styles.scheduleTitle}>
-        {SCHEDULE_TITLES[block.kind]}
-        {block.continued ? (
-          <Text style={styles.continued}> (continued)</Text>
-        ) : null}
-      </Text>
-      <View style={styles.tHead}>
-        {block.kind === 'date' ? (
-          <>
-            {head('DATE', styles.cWhen)}
-            {head('DAY', styles.cDay)}
-          </>
-        ) : null}
-        {head(block.kind === 'week' ? 'WEEK' : 'PROJECT', styles.cText)}
-        {head('HOURS', styles.cHours)}
-      </View>
-      {block.rows.map((row, i) => (
-        <View key={i} style={styles.dRow}>
-          <ScheduleCells kind={block.kind} row={row} />
-          <Text style={styles.cHours}>{formatHours(row.hours)}</Text>
-        </View>
-      ))}
-      {block.total !== null ? (
-        <View style={styles.dSum}>
-          <Text style={styles.cText}>Total</Text>
-          <Text style={styles.cHours}>{formatHours(block.total)}</Text>
-        </View>
-      ) : null}
-    </View>
-  );
-}
+const totals: TotalsStyles = {
+  box: styles.totals,
+  row: styles.totalRow,
+  label: { color: print.muted },
+  value: { fontFamily: 'Courier' },
+  grand: styles.grand,
+  grandLabel: styles.grandLabel,
+  grandValue: styles.grandValue,
+  terms: { color: print.faint, marginTop: 6, fontSize: 8.5 },
+};
 
-function ScheduleCells({
-  kind,
-  row,
-}: {
-  kind: ScheduleKind;
-  row: DetailBlock['rows'][number];
-}) {
-  if (kind === 'project')
-    return <Text style={styles.cText}>{(row as ProjectRow).project}</Text>;
-  if (kind === 'week') {
-    const w = row as WeekRow;
-    return (
-      <Text style={styles.cText}>
-        {date(w.start)} – {date(w.end)}
-      </Text>
-    );
-  }
-  const d = row as DateRow;
-  return (
-    <>
-      <Text style={styles.cWhen}>{date(d.date)}</Text>
-      <Text style={styles.cDay}>
-        {DAY.format(new Date(`${d.date}T00:00:00Z`))}
-      </Text>
-      <Text style={styles.cText}>{d.project}</Text>
-    </>
-  );
-}
+const pay: PaymentStyles = {
+  box: styles.pay,
+  title: styles.payTitle,
+  grid: styles.payGrid,
+  cell: styles.payCell,
+  label: styles.payLabel,
+  value: styles.payValue,
+  sub: styles.paySub,
+  link: styles.payLink,
+  notes: styles.payNotes,
+};
+
+const table: ScheduleStyles = {
+  table: styles.schedule,
+  title: styles.scheduleTitle,
+  continued: styles.continued,
+  head: styles.tHead,
+  headCell: styles.headCell,
+  row: styles.dRow,
+  sum: styles.dSum,
+  text: styles.cText,
+  day: styles.cDay,
+  when: styles.cWhen,
+  hours: styles.cHours,
+};
 
 export const standard: Template = {
   page: styles.page,

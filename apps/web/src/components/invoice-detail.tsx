@@ -149,7 +149,6 @@ function Loaded({
 }) {
   const isDraft = invoice.status === 'draft';
   const isVoid = invoice.status === 'void';
-  // A sent invoice keeps its own; a draft follows the account's.
   const draftTemplate = useChosenTemplate();
   /* A draft that moved since its PDF was rendered holds Mark sent until the
      client's copy is the one Stint keeps; pressing Download releases it here,

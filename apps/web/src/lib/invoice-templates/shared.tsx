@@ -20,7 +20,7 @@ export type Style = Parameters<typeof StyleSheet.create>[0][string];
  *  design names. */
 export const accent = print.accent;
 
-export interface InvoicePdfData {
+interface InvoicePdfData {
   invoiceNumber: string;
   status: string;
   issueDate: string;
@@ -64,8 +64,7 @@ export interface InvoicePdfData {
   } | null;
   /** The frozen supporting detail, printed from page 2; null when none. */
   supportingDetail?: Schedules | null;
-  /** How it looks; Standard when absent. */
-  template?: InvoiceTemplate;
+  template: InvoiceTemplate;
 }
 
 export type Data = InvoicePdfData;
@@ -115,7 +114,7 @@ export function rowsPerPage(g: {
   );
 }
 
-export const DAY = new Intl.DateTimeFormat('en-US', {
+const DAY = new Intl.DateTimeFormat('en-US', {
   weekday: 'short',
   timeZone: 'UTC',
 });
@@ -170,7 +169,7 @@ export function split(data: Data) {
  * The rows above the total. An invoice of expenses alone has no services to
  * subtotal; tax shows only when charged.
  */
-export function totalRows(data: Data) {
+function totalRows(data: Data) {
   const { services, expenses } = split(data);
   const cur = data.currency;
   const rows: { label: string; value: string }[] = [];
@@ -189,7 +188,49 @@ export function totalRows(data: Data) {
   return rows;
 }
 
-export const paymentTitle = (payment: Payment) =>
+/** The slots a template styles in the totals. */
+export interface TotalsStyles {
+  box: Style;
+  row: Style;
+  label: Style;
+  value: Style;
+  grand: Style;
+  grandLabel: Style;
+  grandValue: Style;
+  terms: Style;
+}
+
+export function TotalsView({
+  data,
+  s,
+  label = 'Amount due',
+  wrap = true,
+}: {
+  data: Data;
+  s: TotalsStyles;
+  label?: string;
+  wrap?: boolean;
+}) {
+  return (
+    <View style={s.box} wrap={wrap}>
+      {totalRows(data).map((r) => (
+        <View key={r.label} style={s.row}>
+          <Text style={s.label}>{r.label}</Text>
+          <Text style={s.value}>{r.value}</Text>
+        </View>
+      ))}
+      <View style={s.grand}>
+        <Text style={s.grandLabel}>{label}</Text>
+        <Text style={s.grandValue}>{money(data.total, data.currency)}</Text>
+      </View>
+      {data.paymentTerms ? (
+        <Text style={s.terms}>{data.paymentTerms}</Text>
+      ) : null}
+    </View>
+  );
+}
+
+const paymentTitle = (payment: Payment) =>
   payment.title ? `Payment — ${payment.title}` : 'Payment details';
 
 /** The slots a template styles in the payment block. */
@@ -339,3 +380,95 @@ function ScheduleCells({
 /** The running header over every detail page. */
 export const runMeta = (data: Data) =>
   `${data.invoiceNumber} · ${data.client.name} · ${date(data.periodStart)} – ${date(data.periodEnd)}`;
+
+/** The style keys Modern, Classic and Creative share, so each passes its
+ *  sheet rather than mapping every slot. */
+type Sheet = Record<
+  | 'pay'
+  | 'payTitle'
+  | 'payGrid'
+  | 'payCell'
+  | 'payLabel'
+  | 'payValue'
+  | 'paySub'
+  | 'payLink'
+  | 'payNotes'
+  | 'table'
+  | 'tTitle'
+  | 'continued'
+  | 'tHead'
+  | 'tHeadCell'
+  | 'tRow'
+  | 'tSum'
+  | 'tText'
+  | 'tDay'
+  | 'tWhen'
+  | 'tHours'
+  | 'run'
+  | 'runTitle'
+  | 'runMeta',
+  Style
+>;
+
+export const payStyles = (s: Sheet): PaymentStyles => ({
+  box: s.pay,
+  title: s.payTitle,
+  grid: s.payGrid,
+  cell: s.payCell,
+  label: s.payLabel,
+  value: s.payValue,
+  sub: s.paySub,
+  link: s.payLink,
+  notes: s.payNotes,
+});
+
+/** A detail page: the running header, then each table. */
+export function DetailView({
+  data,
+  blocks,
+  s,
+  mark,
+  above,
+  below,
+}: {
+  data: Data;
+  blocks: DetailBlock[];
+  s: Sheet;
+  /** Drawn before a table's title. */
+  mark?: (kind: DetailBlock['kind']) => ReactNode;
+  /** Before the running header, and between it and the first table. */
+  above?: ReactNode;
+  below?: ReactNode;
+}) {
+  const table: ScheduleStyles = {
+    table: s.table,
+    title: s.tTitle,
+    continued: s.continued,
+    head: s.tHead,
+    headCell: s.tHeadCell,
+    row: s.tRow,
+    sum: s.tSum,
+    text: s.tText,
+    day: s.tDay,
+    when: s.tWhen,
+    hours: s.tHours,
+  };
+  return (
+    <>
+      {above}
+      <View style={s.run}>
+        <Text style={s.runTitle}>Supporting detail</Text>
+        <Text style={s.runMeta}>{runMeta(data)}</Text>
+      </View>
+      {below}
+      {blocks.map((block, i) => (
+        <ScheduleView
+          key={i}
+          block={block}
+          s={table}
+          mark={mark?.(block.kind)}
+        />
+      ))}
+    </>
+  );
+}

@@ -9,13 +9,14 @@ import {
   PaymentView,
   period,
   rowsPerPage,
-  runMeta,
-  ScheduleView,
+  DetailView,
+  payStyles,
   split,
-  totalRows,
+  TotalsView,
   type Data,
   type LineItem,
   type Template,
+  type TotalsStyles,
 } from './shared';
 
 /*
@@ -137,6 +138,7 @@ const s = StyleSheet.create({
   },
   terms: { color: print.faint, marginTop: 6, fontSize: 8.5 },
   payBox: { flex: 1 },
+  pay: {},
   payTitle: { fontWeight: 600 },
   payGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
   payCell: { width: '50%', paddingRight: 16, marginBottom: 5 },
@@ -252,134 +254,128 @@ function LineRows({
   ));
 }
 
-function First({ data }: { data: Data }) {
+function Top({ data }: { data: Data }) {
   const { business } = data;
-  const { services, expenses } = split(data);
-  const cur = data.currency;
-  const when = period(data);
   return (
-    <>
-      <View style={s.top}>
-        <View>
-          <Text style={s.word}>Invoice</Text>
-          <Text style={s.number}>{data.invoiceNumber}</Text>
-        </View>
-        <View style={s.from}>
-          {business.logoUrl ? (
-            <Image src={business.logoUrl} style={s.logo} />
-          ) : null}
-          <Text style={s.biz}>{business.name ?? ''}</Text>
-          <Lines text={business.address} style={[s.muted, s.right]} />
-          {business.email ? (
-            <Text style={[s.muted, s.right]}>{business.email}</Text>
-          ) : null}
-        </View>
+    <View style={s.top}>
+      <View>
+        <Text style={s.word}>Invoice</Text>
+        <Text style={s.number}>{data.invoiceNumber}</Text>
       </View>
-      <Rule />
-
-      <View style={s.info}>
-        <View style={s.billTo}>
-          <Text style={s.label}>BILLED TO</Text>
-          <Text style={s.strong}>{data.client.name}</Text>
-          <Lines text={data.client.address} style={s.muted} />
-          {data.client.email ? (
-            <Text style={s.muted}>{data.client.email}</Text>
-          ) : null}
-        </View>
-        <View style={s.cell}>
-          <Text style={s.label}>ISSUED</Text>
-          <Text>{date(data.issueDate)}</Text>
-        </View>
-        <View style={s.cell}>
-          <Text style={s.label}>DUE</Text>
-          <Text>{date(data.dueDate)}</Text>
-        </View>
-        <View style={s.due}>
-          <Text style={s.label}>AMOUNT DUE</Text>
-          <Text style={s.amount}>{money(data.total, cur)}</Text>
-        </View>
+      <View style={s.from}>
+        {business.logoUrl ? (
+          <Image src={business.logoUrl} style={s.logo} />
+        ) : null}
+        <Text style={s.biz}>{business.name ?? ''}</Text>
+        <Lines text={business.address} style={[s.muted, s.right]} />
+        {business.email ? (
+          <Text style={[s.muted, s.right]}>{business.email}</Text>
+        ) : null}
       </View>
+    </View>
+  );
+}
 
-      {when || data.reference ? (
-        <View style={s.info2}>
-          {when ? (
-            <View style={[s.info2Cell, { flex: 1.6 }]}>
-              <Text style={s.label}>PERIOD</Text>
-              <Text>{when}</Text>
-            </View>
-          ) : null}
-          {data.reference ? (
-            <View style={[s.info2Cell, { flex: 2.3 }]}>
-              <Text style={s.label}>REFERENCE</Text>
-              <Text style={{ flex: 1 }}>{data.reference}</Text>
-            </View>
-          ) : null}
+function Info({ data }: { data: Data }) {
+  return (
+    <View style={s.info}>
+      <View style={s.billTo}>
+        <Text style={s.label}>BILLED TO</Text>
+        <Text style={s.strong}>{data.client.name}</Text>
+        <Lines text={data.client.address} style={s.muted} />
+        {data.client.email ? (
+          <Text style={s.muted}>{data.client.email}</Text>
+        ) : null}
+      </View>
+      <View style={s.cell}>
+        <Text style={s.label}>ISSUED</Text>
+        <Text>{date(data.issueDate)}</Text>
+      </View>
+      <View style={s.cell}>
+        <Text style={s.label}>DUE</Text>
+        <Text>{date(data.dueDate)}</Text>
+      </View>
+      <View style={s.due}>
+        <Text style={s.label}>AMOUNT DUE</Text>
+        <Text style={s.amount}>{money(data.total, data.currency)}</Text>
+      </View>
+    </View>
+  );
+}
+
+/** Period and reference, a row of their own; absent when both are. */
+function Engagement({ data }: { data: Data }) {
+  const when = period(data);
+  if (!when && !data.reference) return null;
+  return (
+    <View style={s.info2}>
+      {when ? (
+        <View style={[s.info2Cell, { flex: 1.6 }]}>
+          <Text style={s.label}>PERIOD</Text>
+          <Text>{when}</Text>
         </View>
       ) : null}
+      {data.reference ? (
+        <View style={[s.info2Cell, { flex: 2.3 }]}>
+          <Text style={s.label}>REFERENCE</Text>
+          <Text style={{ flex: 1 }}>{data.reference}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
-      <View style={s.lines}>
-        {services.length > 0 || expenses.length === 0 ? (
-          <>
-            <View style={s.head} wrap={false}>
-              <Text style={[s.cDesc, s.label]}>DESCRIPTION</Text>
-              <Text style={[s.cQty, s.label]}>QTY</Text>
-              <Text style={[s.cRate, s.label]}>RATE</Text>
-              <Text style={[s.cAmt, s.label]}>AMOUNT</Text>
-            </View>
-            <LineRows items={services} currency={cur} />
-          </>
-        ) : null}
-        {expenses.length > 0 ? (
-          <>
-            <View
-              style={[s.head, services.length > 0 ? s.headGap : {}]}
-              wrap={false}
-            >
-              <Text style={[s.cDesc, s.label]}>EXPENSES</Text>
-              <Text style={[s.cDate, s.label]}>DATE</Text>
-              <Text style={[s.cAmt, s.label]}>AMOUNT</Text>
-            </View>
-            <LineRows items={expenses} currency={cur} />
-          </>
-        ) : null}
-      </View>
+function LineTable({ data }: { data: Data }) {
+  const { services, expenses } = split(data);
+  const cur = data.currency;
+  return (
+    <View style={s.lines}>
+      {services.length > 0 || expenses.length === 0 ? (
+        <>
+          <View style={s.head} wrap={false}>
+            <Text style={[s.cDesc, s.label]}>DESCRIPTION</Text>
+            <Text style={[s.cQty, s.label]}>QTY</Text>
+            <Text style={[s.cRate, s.label]}>RATE</Text>
+            <Text style={[s.cAmt, s.label]}>AMOUNT</Text>
+          </View>
+          <LineRows items={services} currency={cur} />
+        </>
+      ) : null}
+      {expenses.length > 0 ? (
+        <>
+          <View
+            style={[s.head, services.length > 0 ? s.headGap : {}]}
+            wrap={false}
+          >
+            <Text style={[s.cDesc, s.label]}>EXPENSES</Text>
+            <Text style={[s.cDate, s.label]}>DATE</Text>
+            <Text style={[s.cAmt, s.label]}>AMOUNT</Text>
+          </View>
+          <LineRows items={expenses} currency={cur} />
+        </>
+      ) : null}
+    </View>
+  );
+}
 
+function First({ data }: { data: Data }) {
+  return (
+    <>
+      <Top data={data} />
+      <Rule />
+      <Info data={data} />
+      <Engagement data={data} />
+      <LineTable data={data} />
+      {/* Payment beside the totals, so the page's right side is never
+          left empty. */}
       <View style={s.end} wrap={false}>
         {data.payment ? (
           <View style={s.payBox}>
-            <PaymentView
-              payment={data.payment}
-              s={{
-                box: {},
-                title: s.payTitle,
-                grid: s.payGrid,
-                cell: s.payCell,
-                label: s.payLabel,
-                value: s.payValue,
-                sub: s.paySub,
-                link: s.payLink,
-                notes: s.payNotes,
-              }}
-            />
+            <PaymentView payment={data.payment} s={payStyles(s)} />
           </View>
         ) : null}
-        <View style={s.totals}>
-          {totalRows(data).map((r) => (
-            <View key={r.label} style={s.totalRow}>
-              <Text style={s.muted}>{r.label}</Text>
-              <Text>{r.value}</Text>
-            </View>
-          ))}
-          <View style={s.grand}>
-            <Text>Amount due</Text>
-            <Text style={{ color: accent }}>{money(data.total, cur)}</Text>
-          </View>
-          {data.paymentTerms ? (
-            <Text style={s.terms}>{data.paymentTerms}</Text>
-          ) : null}
-        </View>
+        <TotalsView data={data} s={totals} />
       </View>
-
       {data.notes ? (
         <View style={s.notes}>
           <Lines text={data.notes} />
@@ -391,36 +387,29 @@ function First({ data }: { data: Data }) {
 
 function Detail({ data, blocks }: { data: Data; blocks: DetailBlock[] }) {
   return (
-    <>
-      <View style={s.run}>
-        <Text style={s.runTitle}>Supporting detail</Text>
-        <Text style={s.runMeta}>{runMeta(data)}</Text>
-      </View>
-      <View style={s.runRule}>
-        <View style={s.ruleAccent} />
-      </View>
-      {blocks.map((block, i) => (
-        <ScheduleView
-          key={i}
-          block={block}
-          s={{
-            table: s.table,
-            title: s.tTitle,
-            continued: s.continued,
-            head: s.tHead,
-            headCell: s.tHeadCell,
-            row: s.tRow,
-            sum: s.tSum,
-            text: s.tText,
-            day: s.tDay,
-            when: s.tWhen,
-            hours: s.tHours,
-          }}
-        />
-      ))}
-    </>
+    <DetailView
+      data={data}
+      blocks={blocks}
+      s={s}
+      below={
+        <View style={s.runRule}>
+          <View style={s.ruleAccent} />
+        </View>
+      }
+    />
   );
 }
+
+const totals: TotalsStyles = {
+  box: s.totals,
+  row: s.totalRow,
+  label: s.muted,
+  value: {},
+  grand: s.grand,
+  grandLabel: {},
+  grandValue: { color: accent },
+  terms: s.terms,
+};
 
 export const modern: Template = {
   page: s.page,

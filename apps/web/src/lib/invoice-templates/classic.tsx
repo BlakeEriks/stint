@@ -9,13 +9,14 @@ import {
   PaymentView,
   period,
   rowsPerPage,
-  runMeta,
-  ScheduleView,
+  DetailView,
+  payStyles,
   split,
-  totalRows,
+  TotalsView,
   type Data,
   type LineItem,
   type Template,
+  type TotalsStyles,
 } from './shared';
 
 /*
@@ -297,37 +298,10 @@ function First({ data }: { data: Data }) {
         ) : null}
       </View>
 
-      <View style={s.totals} wrap={false}>
-        {totalRows(data).map((r) => (
-          <View key={r.label} style={s.totalRow}>
-            <Text style={s.muted}>{r.label}</Text>
-            <Text>{r.value}</Text>
-          </View>
-        ))}
-        <View style={s.grand}>
-          <Text style={s.grandLabel}>Balance due</Text>
-          <Text style={s.grandValue}>{money(data.total, cur)}</Text>
-        </View>
-        {data.paymentTerms ? (
-          <Text style={s.terms}>{data.paymentTerms}</Text>
-        ) : null}
-      </View>
+      <TotalsView data={data} s={totals} label="Balance due" wrap={false} />
 
       {data.payment ? (
-        <PaymentView
-          payment={data.payment}
-          s={{
-            box: s.pay,
-            title: s.payTitle,
-            grid: s.payGrid,
-            cell: s.payCell,
-            label: s.payLabel,
-            value: s.payValue,
-            sub: s.paySub,
-            link: s.payLink,
-            notes: s.payNotes,
-          }}
-        />
+        <PaymentView payment={data.payment} s={payStyles(s)} />
       ) : null}
       {data.notes ? (
         <View style={s.notes}>
@@ -339,34 +313,19 @@ function First({ data }: { data: Data }) {
 }
 
 function Detail({ data, blocks }: { data: Data; blocks: DetailBlock[] }) {
-  return (
-    <>
-      <View style={s.run}>
-        <Text style={s.runTitle}>Supporting detail</Text>
-        <Text style={s.runMeta}>{runMeta(data)}</Text>
-      </View>
-      {blocks.map((block, i) => (
-        <ScheduleView
-          key={i}
-          block={block}
-          s={{
-            table: s.table,
-            title: s.tTitle,
-            continued: s.continued,
-            head: s.tHead,
-            headCell: s.tHeadCell,
-            row: s.tRow,
-            sum: s.tSum,
-            text: s.tText,
-            day: s.tDay,
-            when: s.tWhen,
-            hours: s.tHours,
-          }}
-        />
-      ))}
-    </>
-  );
+  return <DetailView data={data} blocks={blocks} s={s} />;
 }
+
+const totals: TotalsStyles = {
+  box: s.totals,
+  row: s.totalRow,
+  label: s.muted,
+  value: {},
+  grand: s.grand,
+  grandLabel: s.grandLabel,
+  grandValue: s.grandValue,
+  terms: s.terms,
+};
 
 export const classic: Template = {
   page: s.page,

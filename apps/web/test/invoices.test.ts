@@ -1454,6 +1454,7 @@ test('the PDF renders from the frozen line items', async () => {
 test('every page of a long invoice shows its footer at the bottom', async () => {
   const { renderInvoicePdf } = await import('../src/lib/invoice-pdf.tsx');
   const pdf = await renderInvoicePdf({
+    template: 'standard',
     invoiceNumber: 'INV-0042',
     status: 'issued',
     issueDate: '2026-10-01',

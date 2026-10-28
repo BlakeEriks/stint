@@ -12,8 +12,6 @@ import { modern } from './invoice-templates/modern';
 import { classic } from './invoice-templates/classic';
 import { creative } from './invoice-templates/creative';
 
-export type { InvoicePdfData } from './invoice-templates/shared';
-
 const TEMPLATES: Record<InvoiceTemplate, Template> = {
   standard,
   modern,
@@ -31,7 +29,7 @@ export const detailRowsPerPage = (template: InvoiceTemplate) =>
  * shell draws what every template keeps, so none can drop it.
  */
 function InvoiceDocument({ data }: { data: Data }) {
-  const t = TEMPLATES[data.template ?? 'standard'];
+  const t = TEMPLATES[data.template];
   const footer = (
     <View style={t.footer} fixed>
       <Text>{data.invoiceNumber}</Text>

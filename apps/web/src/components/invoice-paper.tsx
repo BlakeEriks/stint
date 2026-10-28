@@ -3,6 +3,7 @@ import {
   formatCurrency,
   formatHours,
   formatQuantity,
+  linesByUnit,
   type PaymentDetails,
   SCHEDULE_KINDS,
   SCHEDULE_TITLES,
@@ -174,14 +175,153 @@ const Empty = () => (
   </p>
 );
 
+/** Services, then expenses, as Standard and Modern set them in columns. */
+function LineTable({
+  inv,
+  th,
+  gap,
+  row,
+  cell,
+  figures,
+  style,
+}: {
+  inv: PaperInvoice;
+  /** A heading cell. */
+  th: string;
+  /** Above the expenses' heading. */
+  gap: string;
+  row: string;
+  /** The description cell, which sets the row's height. */
+  cell: string;
+  figures?: CSSProperties;
+  style?: CSSProperties;
+}) {
+  if (inv.lines?.length === 0) return <Empty />;
+  if (!inv.lines) return null;
+  const { services, expenses } = split(inv);
+  const cur = inv.currency;
+  const line = (l: Line, i: number, middle: ReactNode) => (
+    <tr key={i} className={`${row} ${l.isNew ? NEW : ''}`}>
+      <td className={cell}>{l.description}</td>
+      {middle}
+      <td className="text-right" style={figures}>
+        {money(l.amount, cur)}
+      </td>
+    </tr>
+  );
+  return (
+    <table className="w-full" style={style}>
+      {services.length > 0 || expenses.length === 0 ? (
+        <>
+          <thead>
+            <tr style={{ fontSize: pt(7.5) }}>
+              <th className={`${th} text-left`}>DESCRIPTION</th>
+              <th className={`${th} text-right`}>QTY</th>
+              <th className={`${th} text-right`}>RATE</th>
+              <th className={`${th} text-right`}>AMOUNT</th>
+            </tr>
+          </thead>
+          <tbody>
+            {services.map((l, i) =>
+              line(
+                l,
+                i,
+                <>
+                  <td className="text-right" style={figures}>
+                    {formatQuantity(l.unit, l.quantity)}
+                  </td>
+                  <td className="text-right" style={figures}>
+                    {money(l.unitPrice, cur)}
+                  </td>
+                </>,
+              ),
+            )}
+          </tbody>
+        </>
+      ) : null}
+      {expenses.length > 0 ? (
+        <>
+          <thead>
+            <tr style={{ fontSize: pt(7.5) }}>
+              <th className={`${th} ${gap} text-left`}>EXPENSES</th>
+              <th className={`${th} ${gap} text-right`} colSpan={2}>
+                DATE
+              </th>
+              <th className={`${th} ${gap} text-right`}>AMOUNT</th>
+            </tr>
+          </thead>
+          <tbody>
+            {expenses.map((l, i) =>
+              line(
+                l,
+                i,
+                <td className="text-right" colSpan={2} style={figures}>
+                  {shortDate(l.spentOn ?? null)}
+                </td>,
+              ),
+            )}
+          </tbody>
+        </>
+      ) : null}
+    </table>
+  );
+}
+
+/** The rows above the total, the total, and the terms under it. */
+function Totals({
+  inv,
+  width,
+  rowPad,
+  valueStyle,
+  grandClass,
+  grandStyle,
+  label,
+  amountClass,
+  amountStyle,
+  termsClass = 'text-print-faint',
+  termsStyle = { fontSize: pt(8.5), marginTop: pt(6) },
+}: {
+  inv: PaperInvoice;
+  width: number;
+  rowPad: string;
+  valueStyle?: CSSProperties;
+  grandClass: string;
+  grandStyle: CSSProperties;
+  label: ReactNode;
+  amountClass?: string;
+  amountStyle?: CSSProperties;
+  termsClass?: string;
+  termsStyle?: CSSProperties;
+}) {
+  if (!inv.lines?.length) return null;
+  return (
+    <div className="ml-auto" style={{ width: pt(width), marginTop: pt(12) }}>
+      {totalRows(inv).map((r) => (
+        <div key={r.label} className={`flex justify-between ${rowPad}`}>
+          <span className="text-print-muted">{r.label}</span>
+          <span style={valueStyle}>{r.value}</span>
+        </div>
+      ))}
+      <div className={grandClass} style={grandStyle}>
+        {typeof label === 'string' ? <span>{label}</span> : label}
+        <span className={amountClass} style={amountStyle}>
+          {money(inv.total, inv.currency)}
+        </span>
+      </div>
+      {inv.terms ? (
+        <div className={termsClass} style={termsStyle}>
+          {inv.terms}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 // ── Standard ─────────────────────────────────────────────────────────
 
 function Standard({ invoice: inv }: Props) {
-  const { services, expenses } = split(inv);
-  const cur = inv.currency;
   const label = 'font-bold text-print-faint tracking-[0.12em]';
   const labelSize = { fontSize: pt(7.5) };
-  const th = `${label} pb-[0.6em] border-b border-print-ink`;
   return (
     <Sheet template="standard" pad={[40, 44, 48, 44]}>
       <div
@@ -262,101 +402,25 @@ function Standard({ invoice: inv }: Props) {
           ) : null}
         </div>
       </div>
-      {inv.lines?.length === 0 ? <Empty /> : null}
-      {inv.lines?.length ? (
-        <table className="w-full">
-          {services.length > 0 || expenses.length === 0 ? (
-            <>
-              <thead>
-                <tr style={labelSize}>
-                  <th className={`${th} text-left`}>DESCRIPTION</th>
-                  <th className={`${th} text-right`}>QTY</th>
-                  <th className={`${th} text-right`}>RATE</th>
-                  <th className={`${th} text-right`}>AMOUNT</th>
-                </tr>
-              </thead>
-              <tbody>
-                {services.map((l, i) => (
-                  <tr
-                    key={i}
-                    className={`border-b border-print-rule ${l.isNew ? NEW : ''}`}
-                  >
-                    <td className="py-[0.58em]">{l.description}</td>
-                    <td className="text-right" style={fig}>
-                      {formatQuantity(l.unit, l.quantity)}
-                    </td>
-                    <td className="text-right" style={fig}>
-                      {money(l.unitPrice, cur)}
-                    </td>
-                    <td className="text-right" style={fig}>
-                      {money(l.amount, cur)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </>
-          ) : null}
-          {expenses.length > 0 ? (
-            <>
-              <thead>
-                <tr style={labelSize}>
-                  <th className={`${th} pt-[1.5em] text-left`}>EXPENSES</th>
-                  <th className={`${th} pt-[1.5em] text-right`} colSpan={2}>
-                    DATE
-                  </th>
-                  <th className={`${th} pt-[1.5em] text-right`}>AMOUNT</th>
-                </tr>
-              </thead>
-              <tbody>
-                {expenses.map((l, i) => (
-                  <tr
-                    key={i}
-                    className={`border-b border-print-rule ${l.isNew ? NEW : ''}`}
-                  >
-                    <td className="py-[0.58em]">{l.description}</td>
-                    <td className="text-right" colSpan={2} style={fig}>
-                      {shortDate(l.spentOn ?? null)}
-                    </td>
-                    <td className="text-right" style={fig}>
-                      {money(l.amount, cur)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </>
-          ) : null}
-        </table>
-      ) : null}
-      {inv.lines?.length ? (
-        <div className="ml-auto" style={{ width: pt(250), marginTop: pt(12) }}>
-          {totalRows(inv).map((r) => (
-            <div key={r.label} className="flex justify-between py-[0.3em]">
-              <span className="text-print-muted">{r.label}</span>
-              <span style={fig}>{r.value}</span>
-            </div>
-          ))}
-          <div
-            className="flex items-baseline justify-between border-t border-print-ink"
-            style={{ marginTop: pt(7), paddingTop: pt(9) }}
-          >
-            <b style={{ fontSize: pt(11) }}>Amount due</b>
-            <b
-              className="text-print-accent"
-              style={{ ...fig, fontSize: pt(13) }}
-            >
-              {money(inv.total, cur)}
-            </b>
-          </div>
-          {inv.terms ? (
-            <div
-              className="text-print-faint"
-              style={{ fontSize: pt(8.5), marginTop: pt(6) }}
-            >
-              {inv.terms}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+      <LineTable
+        inv={inv}
+        th={`${label} pb-[0.6em] border-b border-print-ink`}
+        gap="pt-[1.5em]"
+        row="border-b border-print-rule"
+        cell="py-[0.58em]"
+        figures={fig}
+      />
+      <Totals
+        inv={inv}
+        width={250}
+        rowPad="py-[0.3em]"
+        valueStyle={fig}
+        grandClass="flex items-baseline justify-between border-t border-print-ink"
+        grandStyle={{ marginTop: pt(7), paddingTop: pt(9) }}
+        label={<b style={{ fontSize: pt(11) }}>Amount due</b>}
+        amountClass="font-bold text-print-accent"
+        amountStyle={{ ...fig, fontSize: pt(13) }}
+      />
       {inv.payment ? (
         <div
           className="border-l-2 border-print-ink bg-print-band"
@@ -450,18 +514,9 @@ function AccentRule({ style }: { style?: CSSProperties }) {
 }
 
 function Modern({ invoice: inv }: Props) {
-  const { services, expenses } = split(inv);
   const cur = inv.currency;
   const label = 'font-medium tracking-[0.16em] text-print-faint';
   const ls = { fontSize: pt(7.5) };
-  const th = `${label} pb-[0.7em] border-b border-print-rule`;
-  const row = (l: Line, cells: ReactNode) => (
-    <tr className={`border-b border-print-hairline ${l.isNew ? NEW : ''}`}>
-      <td className="py-[0.68em]">{l.description}</td>
-      {cells}
-      <td className="text-right">{money(l.amount, cur)}</td>
-    </tr>
-  );
   return (
     <Sheet template="modern" pad={[46, 52, 52, 52]}>
       <div
@@ -548,65 +603,14 @@ function Modern({ invoice: inv }: Props) {
           ) : null}
         </div>
       ) : null}
-      {inv.lines?.length === 0 ? <Empty /> : null}
-      {inv.lines?.length ? (
-        <table className="w-full" style={{ marginTop: pt(22) }}>
-          {services.length > 0 || expenses.length === 0 ? (
-            <>
-              <thead>
-                <tr style={ls}>
-                  <th className={`${th} text-left`}>DESCRIPTION</th>
-                  <th className={`${th} text-right`}>QTY</th>
-                  <th className={`${th} text-right`}>RATE</th>
-                  <th className={`${th} text-right`}>AMOUNT</th>
-                </tr>
-              </thead>
-              <tbody>
-                {services.map((l, i) => (
-                  <Frag key={i}>
-                    {row(
-                      l,
-                      <>
-                        <td className="text-right">
-                          {formatQuantity(l.unit, l.quantity)}
-                        </td>
-                        <td className="text-right">
-                          {money(l.unitPrice, cur)}
-                        </td>
-                      </>,
-                    )}
-                  </Frag>
-                ))}
-              </tbody>
-            </>
-          ) : null}
-          {expenses.length > 0 ? (
-            <>
-              <thead>
-                <tr style={ls}>
-                  <th className={`${th} pt-[1.7em] text-left`}>EXPENSES</th>
-                  <th className={`${th} pt-[1.7em] text-right`} colSpan={2}>
-                    DATE
-                  </th>
-                  <th className={`${th} pt-[1.7em] text-right`}>AMOUNT</th>
-                </tr>
-              </thead>
-              <tbody>
-                {expenses.map((l, i) => (
-                  <Frag key={i}>
-                    {row(
-                      l,
-                      <td className="text-right" colSpan={2}>
-                        {shortDate(l.spentOn ?? null)}
-                      </td>,
-                    )}
-                  </Frag>
-                ))}
-              </tbody>
-            </>
-          ) : null}
-        </table>
-      ) : null}
+      <LineTable
+        inv={inv}
+        th={`${label} pb-[0.7em] border-b border-print-rule`}
+        gap="pt-[1.7em]"
+        row="border-b border-print-hairline"
+        cell="py-[0.68em]"
+        style={{ marginTop: pt(22) }}
+      />
       {inv.lines?.length ? (
         <div
           className="flex items-start"
@@ -622,29 +626,19 @@ function Modern({ invoice: inv }: Props) {
               />
             ) : null}
           </div>
-          <div style={{ width: pt(230) }}>
-            {totalRows(inv).map((r) => (
-              <div key={r.label} className="flex justify-between py-[0.3em]">
-                <span className="text-print-muted">{r.label}</span>
-                <span>{r.value}</span>
-              </div>
-            ))}
-            <div
-              className="flex justify-between border-t border-print-ink font-semibold"
-              style={{ marginTop: pt(6), paddingTop: pt(9), fontSize: pt(11) }}
-            >
-              <span>Amount due</span>
-              <span className="text-print-accent">{money(inv.total, cur)}</span>
-            </div>
-            {inv.terms ? (
-              <div
-                className="text-print-faint"
-                style={{ fontSize: pt(8.5), marginTop: pt(6) }}
-              >
-                {inv.terms}
-              </div>
-            ) : null}
-          </div>
+          <Totals
+            inv={inv}
+            width={230}
+            rowPad="py-[0.3em]"
+            grandClass="flex justify-between border-t border-print-ink font-semibold"
+            grandStyle={{
+              marginTop: pt(6),
+              paddingTop: pt(9),
+              fontSize: pt(11),
+            }}
+            label="Amount due"
+            amountClass="text-print-accent"
+          />
         </div>
       ) : null}
       {inv.notes ? (
@@ -794,38 +788,25 @@ function Classic({ invoice: inv }: Props) {
           {leaders(expenses)}
         </>
       ) : null}
-      {inv.lines?.length ? (
-        <div className="ml-auto" style={{ width: pt(240), marginTop: pt(12) }}>
-          {totalRows(inv).map((r) => (
-            <div key={r.label} className="flex justify-between py-[0.2em]">
-              <span className="text-print-muted">{r.label}</span>
-              <span>{r.value}</span>
-            </div>
-          ))}
-          <div
-            className="flex items-baseline justify-between border-t border-print-ink"
-            style={{ marginTop: pt(6), paddingTop: pt(8) }}
+      <Totals
+        inv={inv}
+        width={240}
+        rowPad="py-[0.2em]"
+        grandClass="flex items-baseline justify-between border-t border-print-ink"
+        grandStyle={{ marginTop: pt(6), paddingTop: pt(8) }}
+        label={
+          <span
+            className="uppercase tracking-[0.14em]"
+            style={{ fontSize: pt(10) }}
           >
-            <span
-              className="uppercase tracking-[0.14em]"
-              style={{ fontSize: pt(10) }}
-            >
-              Balance due
-            </span>
-            <span className="text-print-accent" style={{ fontSize: pt(13) }}>
-              {money(inv.total, cur)}
-            </span>
-          </div>
-          {inv.terms ? (
-            <div
-              className="text-print-muted"
-              style={{ marginTop: pt(4), fontSize: pt(9.5) }}
-            >
-              {inv.terms}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+            Balance due
+          </span>
+        }
+        amountClass="text-print-accent"
+        amountStyle={{ fontSize: pt(13) }}
+        termsClass="text-print-muted"
+        termsStyle={{ marginTop: pt(4), fontSize: pt(9.5) }}
+      />
       {inv.payment ? (
         <div
           className="border-t border-print-rule"
@@ -851,7 +832,7 @@ function Classic({ invoice: inv }: Props) {
 // ── Creative ─────────────────────────────────────────────────────────
 
 /** The page's three shapes, each marking one kind of line or table. */
-export const MARK = {
+const MARK = {
   circle: (
     <svg
       width="1em"
@@ -894,6 +875,12 @@ export const MARK = {
   ),
 };
 
+const KIND = {
+  hour: { title: 'TIME', mark: MARK.circle },
+  fixed: { title: 'FIXED FEES', mark: MARK.square },
+  expense: { title: 'EXPENSES', mark: MARK.triangle },
+};
+
 function Spine({ number }: { number: string }) {
   return (
     <div
@@ -914,31 +901,12 @@ function Creative({ invoice: inv }: Props) {
   const cur = inv.currency;
   const label = 'font-bold tracking-[0.19em] text-print-faint';
   const ls = { fontSize: pt(7.5) };
-  const all = inv.lines ?? [];
   let n = 0;
-  const kinds = [
-    {
-      title: 'TIME',
-      mark: MARK.circle,
-      items: all.filter((l) => l.unit === 'hour'),
-    },
-    {
-      title: 'FIXED FEES',
-      mark: MARK.square,
-      items: all.filter((l) => l.unit === 'fixed'),
-    },
-    {
-      title: 'EXPENSES',
-      mark: MARK.triangle,
-      items: all.filter((l) => l.unit === 'expense'),
-    },
-  ]
-    .filter((k) => k.items.length > 0)
-    .map((k) => ({
-      ...k,
-      sum: k.items.reduce((t, l) => t + l.amount, 0),
-      rows: k.items.map((l) => ({ l, n: ++n })),
-    }));
+  const kinds = linesByUnit(inv.lines ?? []).map((k) => ({
+    ...KIND[k.unit],
+    sum: k.total,
+    rows: k.items.map((l) => ({ l, n: ++n })),
+  }));
   const aside = (l: Line) =>
     l.unit === 'expense'
       ? shortDate(l.spentOn ?? null)
@@ -1121,36 +1089,21 @@ function Creative({ invoice: inv }: Props) {
           ))}
         </div>
       ))}
-      {inv.lines?.length ? (
-        <div className="ml-auto" style={{ width: pt(230), marginTop: pt(12) }}>
-          {totalRows(inv).map((r) => (
-            <div key={r.label} className="flex justify-between py-[0.3em]">
-              <span className="text-print-muted">{r.label}</span>
-              <span style={fig}>{r.value}</span>
-            </div>
-          ))}
-          <div
-            className="flex justify-between border-print-ink font-bold"
-            style={{
-              borderTopWidth: pt(2),
-              marginTop: pt(6),
-              paddingTop: pt(8),
-              fontSize: pt(11),
-            }}
-          >
-            <span>Total</span>
-            <span style={fig}>{money(inv.total, cur)}</span>
-          </div>
-          {inv.terms ? (
-            <div
-              className="text-print-faint"
-              style={{ fontSize: pt(8.5), marginTop: pt(6) }}
-            >
-              {inv.terms}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+      <Totals
+        inv={inv}
+        width={230}
+        rowPad="py-[0.3em]"
+        valueStyle={fig}
+        grandClass="flex justify-between border-print-ink font-bold"
+        grandStyle={{
+          borderTopWidth: pt(2),
+          marginTop: pt(6),
+          paddingTop: pt(8),
+          fontSize: pt(11),
+        }}
+        label="Total"
+        amountStyle={fig}
+      />
       {inv.payment ? (
         <div
           className="border-dashed border-print-ink"
