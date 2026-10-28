@@ -105,6 +105,7 @@ export function DayColumn({
       {drawing ? (
         <div
           aria-hidden
+          data-drawing
           className="pointer-events-none absolute inset-x-0 z-10 overflow-hidden rounded-[5px] border border-dashed border-edge-control bg-surface-hover px-1.5 py-0.5 shadow-card"
           style={edges(
             placement(drawing.startedAt, drawing.endedAt, dayStart, dayEnd),
@@ -161,7 +162,7 @@ function EntryBlock({
   column: React.RefObject<HTMLDivElement | null>;
   drag: DragApi;
   onEdit: (entry: TimeEntry) => void;
-  /** Created and not yet answered: shown, and settling. */
+  /** Created and not yet answered: shown, as not yet saved. */
   pending: boolean;
 }) {
   const { entry } = item;
@@ -309,11 +310,11 @@ function blockClassName({
     'group/block absolute rounded-[5px] border px-1.5 py-0.5 text-left',
     'focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none',
     running && 'border-timer-running bg-accent-muted',
-    /* A step darker than a settled block, pulsing until the answer, as Home's
-       figures do while a press settles. */
+    /* Not saved yet: recessed and dimmed like a disabled control, and still,
+       so it reads as not quite there rather than as busy. */
     !running &&
       pending &&
-      'border-edge-control bg-surface-active motion-safe:animate-pulse',
+      'border-dashed border-edge-default bg-surface-recessed opacity-60',
     !running &&
       !pending &&
       'border-edge-subtle bg-surface-hover hover:bg-surface-active',

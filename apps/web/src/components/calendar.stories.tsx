@@ -253,7 +253,7 @@ export const Drawing: Story = {
     // 02:00 to 04:00, hours the seed leaves empty.
     const { el, x, y } = await column(canvasElement);
     await drawAcross(el, x, y, false);
-    const ghost = el.querySelector('.border-dashed');
+    const ghost = el.querySelector('[data-drawing]');
     await expect(ghost).not.toBeNull();
     await expect(ghost).toHaveTextContent(/2:00 AM–4:00 AM/);
   },
@@ -350,8 +350,8 @@ export const Pinch: Story = {
   },
 };
 
-/** Saved and not yet answered: the drawn entry is on the grid at once, a
-    step darker and pulsing, while the form waits on the server. */
+/** Saved and not yet answered: the editor has closed, and the drawn entry
+    is on the grid at once, recessed and dimmed until the server answers. */
 export const DrawnSaving: Story = {
   ...desktop,
   parameters: stalled('createEntry'),
@@ -367,5 +367,6 @@ export const DrawnSaving: Story = {
     );
     await expect(block).not.toBeNull();
     await expect(el.contains(block)).toBe(true);
+    await expect(page.queryByRole('dialog')).toBeNull();
   },
 };

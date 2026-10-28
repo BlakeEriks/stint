@@ -114,9 +114,8 @@ export function EntryDialog({
 }) {
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [error, setError] = useState<string | null>(null);
-  /* A new entry's id, minted once per opening: a Save pressed again after
-     the server went quiet replays onto the same row rather than adding a
-     second one. */
+  /* A new entry's id, minted once per opening, so one draft is one row
+     however many times its request is sent. */
   const [newId, setNewId] = useState('');
 
   // Reset each time it opens, so a canceled edit cannot leak into the next.
@@ -166,12 +165,12 @@ export function EntryDialog({
   const failWith = (fallback: string) => (e: Error) =>
     setError(e instanceof ApiError ? e.message : fallback);
 
-  /* The form waits on the server, predicted or not: it decides whether an
-     entry is valid (an overlap, a billed lock), and a form that closed at
-     once would lose what was typed when it said no. The button shows the
-     press is pending, and the reason shows here. `stats` is in the refetch
-     too: editing an entry changes the unbilled total, and giving a loose
-     entry a project is what clears its inbox row. */
+  /* An edit waits on the server: it decides whether the change is valid (an
+     overlap, a billed lock), and a form that closed at once would lose what
+     was typed when it said no. The button shows the press is pending, and
+     the reason shows here. `stats` is in the refetch too: editing an entry
+     changes the unbilled total, and giving a loose entry a project is what
+     clears its inbox row. */
   const formPress = {
     queryKey: () => keys.entries(),
     invalidate: invalidateEntryData,
@@ -203,14 +202,15 @@ export function EntryDialog({
     onError: failWith('Could not save this entry.'),
   });
 
-  /* A new entry is predicted as well: its block shows on the grid behind
-     the form the moment Save is pressed, drawn as settling until the answer
-     (`DayColumn`), so a drawn entry never leaves the grid. The form still
-     waits, so a refusal takes the block back and says why here, with what
-     was typed still in it. */
+  /* A new entry is predicted instead: the form closes on the press and the
+     block shows on the grid at once, drawn as not yet saved until the
+     answer (`DayColumn`). Nothing it holds is refused by the form itself, so
+     a refusal or a silent server takes the block back and the app-wide
+     notice says why. */
   const create = useOptimisticMutation<CreatedEntry, TimeEntry, unknown>({
-    ...formPress,
+    queryKey: () => keys.entries(),
     invalidate: (qc, _entry, settled) => invalidateEntryData(qc, settled),
+    movesHome: true,
     mutationFn: (entry) => api.createEntry(entry),
     predict: (current, entry, key) =>
       predictCreatedEntry(current, entry, key, tz),
@@ -221,7 +221,6 @@ export function EntryDialog({
           predictCreatedEntry(current, entry, key, tz),
       },
     ],
-    onError: failWith('Could not save this entry.'),
   });
 
   const remove = useOptimisticMutation({
@@ -241,7 +240,7 @@ export function EntryDialog({
     enabled: open && existing?.invoiceId != null,
   });
   const locked = existing?.invoiceId != null;
-  const busy = save.isPending || create.isPending || remove.isPending;
+  const busy = save.isPending || remove.isPending;
 
   /* EDITING ONLY. Adjusting is a correction to times that already exist: the
      gesture answers "this started at 9, not 9:30", which is a question a new
@@ -269,8 +268,9 @@ export function EntryDialog({
           onSubmit={(e) => {
             e.preventDefault();
             setError(null);
-            if (existing) save.mutate();
-            else create.mutate({ id: newId, ...body() });
+            if (existing) return save.mutate();
+            create.mutate({ id: newId, ...body() });
+            onOpenChange(false);
           }}
           className="flex flex-col gap-4"
         >
@@ -401,7 +401,7 @@ export function EntryDialog({
           <EntryFooter
             locked={locked}
             existing={existing !== undefined}
-            saving={save.isPending || create.isPending}
+            saving={save.isPending}
             deleting={remove.isPending}
             onClose={() => onOpenChange(false)}
             onDelete={() => remove.mutate()}

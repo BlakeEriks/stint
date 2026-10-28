@@ -401,43 +401,6 @@ test('a manual entry replayed with the same id is idempotent', async () => {
   assert.equal(rows[0].n, 1, 'no duplicate was created');
 });
 
-/* The first save landed unseen and the user changed the form before saving
-   again: answering with the stored row would close the form on details that
-   were never saved. */
-test('a manual entry replayed with different details is refused, not dropped', async () => {
-  const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
-  const body = {
-    id: '018f0000-0000-7000-8000-000000000002',
-    taskName: 'Drawn work',
-    startedAt: '2026-09-11T09:00:00Z',
-    endedAt: '2026-09-11T10:00:00Z',
-  };
-  assert.equal((await create(req('/entries', body))).status, 201);
-
-  const changed = await json(
-    await create(
-      req('/entries', {
-        ...body,
-        taskName: 'Drawn work, renamed',
-        endedAt: '2026-09-11T10:30:00Z',
-      }),
-    ),
-  );
-  assert.equal(changed.status, 409);
-  assert.equal(changed.body.code, 'ENTRY_ALREADY_SAVED');
-
-  const { rows } = await pool.query(
-    'select task_name, ended_at from time_entries where id = $1',
-    [body.id],
-  );
-  assert.equal(rows.length, 1);
-  assert.equal(
-    rows[0].task_name,
-    'Drawn work',
-    'the stored entry is untouched',
-  );
-});
-
 test("a manual entry without isBillable takes the project's billable default", async () => {
   const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
   const { POST: createProject } = await import(

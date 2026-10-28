@@ -9,7 +9,6 @@ import {
   paidAtRefusal,
   pricedInvoiceRefusal,
   refusals,
-  replayRefusal,
   resolvePaymentProfile,
   stopOrderRefusal,
   unratedRefusal,
@@ -477,10 +476,7 @@ export const handlers = {
         Partial<Pick<TimeEntry, 'projectId' | 'isBillable'>>
     >(request);
     const existing = byId(db.entries, input.id);
-    if (existing) {
-      const refusal = replayRefusal(input, existing);
-      return refusal ? refuse(refusal) : ok(schema.TimeEntry, existing);
-    }
+    if (existing) return ok(schema.TimeEntry, existing);
     const entry = withDuration({
       projectId: null,
       isBillable: billableDefault(db, input.projectId),

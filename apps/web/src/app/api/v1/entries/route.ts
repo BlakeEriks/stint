@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { handle, refused } from '@/lib/errors';
+import { handle } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import { projectBillableDefault } from '@/lib/projects';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
 import { CreateTimeEntry, ListEntriesQuery } from '@stint/schema';
-import { measured, replayRefusal } from '@stint/core';
+import { measured } from '@stint/core';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,9 +52,9 @@ export const GET = handle(async (req: Request) => {
 /**
  * POST /api/v1/entries — a completed manual entry.
  *
- * The id is client-supplied (UUIDv7), which makes a replay idempotent:
- * re-sending the same entry returns the stored one instead of creating a
- * duplicate, and re-sending it changed is refused rather than dropped.
+ * The id is client-supplied (UUIDv7), which makes an offline replay
+ * idempotent: re-sending the same mutation returns the existing entry
+ * instead of creating a duplicate.
  */
 export const POST = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
@@ -77,19 +77,14 @@ export const POST = handle(async (req: Request) => {
     .single();
 
   if (error) {
-    // Replayed mutation: return what is already stored, if it is the same.
+    // Replayed mutation: return what is already stored.
     if (error.code === '23505') {
       const { data: existing } = await db
         .from('time_entries')
         .select(ENTRY_COLUMNS)
         .eq('id', body.id)
         .maybeSingle();
-      if (existing) {
-        const stored = toEntry(existing as EntryRow);
-        const refusal = replayRefusal(body, stored);
-        if (refusal) throw refused(refusal);
-        return NextResponse.json(stored);
-      }
+      if (existing) return NextResponse.json(toEntry(existing as EntryRow));
     }
     throw error;
   }

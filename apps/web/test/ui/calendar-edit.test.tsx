@@ -494,7 +494,13 @@ describe('a drawn entry never leaves the grid', () => {
 
   async function drawAndSave() {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    render(<Calendar />, { wrapper });
+    render(
+      <>
+        <Calendar />
+        <MutationNotice />
+      </>,
+      { wrapper },
+    );
     await screen.findByText('Mon');
     layOut();
     const column = document.querySelectorAll<HTMLElement>('.border-l')[0]!;
@@ -505,31 +511,36 @@ describe('a drawn entry never leaves the grid', () => {
     ]);
     await screen.findByRole('heading', { name: 'Add entry' });
     // Still drawn while the editor is open.
-    expect(column.querySelector('.border-dashed')).not.toBeNull();
+    expect(column.querySelector('[data-drawing]')).not.toBeNull();
     await user.type(screen.getByLabelText('Task'), 'Drawn work');
     await user.click(screen.getByRole('button', { name: 'Add entry' }));
     return column;
   }
 
-  it('shows the entry as settling until the server answers', async () => {
+  it('closes the editor and shows the entry as not yet saved', async () => {
     const srv = serveHeld();
     const column = await drawAndSave();
 
-    const settling = await screen.findByText(/^Drawn work, .*, saving$/);
-    expect(settling.closest('[aria-busy="true"]')).not.toBeNull();
-    expect(column.querySelector('.border-dashed')).toBeNull();
-
-    srv.answer();
+    // One indicator: the editor is gone, and the block says it is unsaved.
     await waitFor(() =>
       expect(screen.queryByRole('heading', { name: 'Add entry' })).toBeNull(),
     );
+    const unsaved = (
+      await screen.findByText(/^Drawn work, .*, saving$/)
+    ).closest('[aria-busy="true"]') as HTMLElement;
+    expect(unsaved).not.toBeNull();
+    expect(unsaved.className).toContain('bg-surface-recessed');
+    expect(unsaved.className).not.toMatch(/animate-/);
+    expect(column.querySelector('[data-drawing]')).toBeNull();
+
+    srv.answer();
     expect(
       await screen.findByRole('button', { name: /^Edit Drawn work/ }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/, saving$/)).toBeNull();
   });
 
-  it('takes it back on a refusal and says why in the form', async () => {
+  it('takes it back on a refusal and says why in the notice', async () => {
     const srv = serveHeld(409);
     await drawAndSave();
     await screen.findByText(/^Drawn work, .*, saving$/);
@@ -537,6 +548,5 @@ describe('a drawn entry never leaves the grid', () => {
     srv.answer();
     expect(await screen.findByText('Overlaps Standup')).toBeInTheDocument();
     expect(screen.queryByText(/^Drawn work, /)).toBeNull();
-    expect(screen.getByLabelText('Task')).toHaveValue('Drawn work');
   });
 });

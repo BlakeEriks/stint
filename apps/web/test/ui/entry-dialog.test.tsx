@@ -638,25 +638,17 @@ describe('EntryDialog', () => {
   });
 });
 
-describe('saving a new entry again after the server went quiet', () => {
-  afterEach(() => vi.useRealTimers());
-
-  /* The create is predicted, so it gives up after 10s while the first
-     write may still land. A second Save must replay onto the same row, or
-     the 23505 replay cannot catch it and the work is billed twice. */
-  it('sends the same id, so a retry cannot add a second entry', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const posts: Array<{ id: string }> = [];
+describe('adding an entry', () => {
+  /* Predicted: the form closes on the press and the block stands in for
+     the answer, so the editor never shows a second loader beside it. */
+  it('closes on the press, before the server answers', async () => {
+    const posts: unknown[] = [];
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string, init?: RequestInit) => {
         if (init?.method === 'POST') {
           posts.push(JSON.parse(String(init.body)));
-          // The first never answers in time; the retry does.
-          if (posts.length === 1) return new Promise<Response>(() => {});
-          return new Response(JSON.stringify(entry({ id: posts[1]!.id })), {
-            status: 201,
-          });
+          return new Promise<Response>(() => {});
         }
         return new Response(
           JSON.stringify(
@@ -666,11 +658,12 @@ describe('saving a new entry again after the server went quiet', () => {
         );
       }),
     );
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
     render(
       <EntryDialog
         open
-        onOpenChange={() => {}}
+        onOpenChange={onOpenChange}
         seed={{
           startedAt: '2026-09-11T13:00:00.000Z',
           endedAt: '2026-09-11T14:00:00.000Z',
@@ -681,74 +674,10 @@ describe('saving a new entry again after the server went quiet', () => {
       { wrapper },
     );
 
-    await user.type(screen.getByLabelText('Task'), 'Retry me');
-    await user.click(screen.getByRole('button', { name: 'Add entry' }));
-    await vi.advanceTimersByTimeAsync(10_001);
-    expect(await screen.findByText(/didn.t answer/)).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Add entry' }));
-    await waitFor(() => expect(posts).toHaveLength(2));
-    expect(posts[1]!.id).toBe(posts[0]!.id);
-  });
-});
-
-describe('saving a changed draft after the first save landed unseen', () => {
-  afterEach(() => vi.useRealTimers());
-
-  it('keeps the form open on what was typed, and says why', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    let posts = 0;
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (url: string, init?: RequestInit) => {
-        if (init?.method === 'POST') {
-          posts += 1;
-          if (posts === 1) return new Promise<Response>(() => {});
-          return new Response(
-            JSON.stringify({
-              code: 'ENTRY_ALREADY_SAVED',
-              message:
-                'This entry was already saved with its earlier details. Close this and edit the entry to change them.',
-            }),
-            { status: 409 },
-          );
-        }
-        return new Response(
-          JSON.stringify(
-            String(url).includes('task-names') ? { taskNames: [] } : {},
-          ),
-          { status: 200 },
-        );
-      }),
-    );
-    const closed = vi.fn();
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    render(
-      <EntryDialog
-        open
-        onOpenChange={closed}
-        seed={{
-          startedAt: '2026-09-11T13:00:00.000Z',
-          endedAt: '2026-09-11T14:00:00.000Z',
-        }}
-        projects={PROJECTS}
-        tz={TZ}
-      />,
-      { wrapper },
-    );
-
-    await user.type(screen.getByLabelText('Task'), 'First');
-    await user.click(screen.getByRole('button', { name: 'Add entry' }));
-    await vi.advanceTimersByTimeAsync(10_001);
-    await screen.findByText(/didn.t answer/);
-
-    await user.type(screen.getByLabelText('Task'), ', changed');
+    await user.type(screen.getByLabelText('Task'), 'Drawn');
     await user.click(screen.getByRole('button', { name: 'Add entry' }));
 
-    expect(
-      await screen.findByText(/already saved with its earlier details/),
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText('Task')).toHaveValue('First, changed');
-    expect(closed).not.toHaveBeenCalledWith(false);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    await waitFor(() => expect(posts).toHaveLength(1));
   });
 });

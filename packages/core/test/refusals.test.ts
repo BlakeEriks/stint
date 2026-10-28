@@ -7,7 +7,6 @@ import {
   paidAtRefusal,
   pricedInvoiceRefusal,
   refusals,
-  replayRefusal,
   stopOrderRefusal,
   unratedRefusal,
 } from '../src/refusals.ts';
@@ -112,36 +111,4 @@ test('the refusals the database decides name themselves', () => {
     /cannot be modified$/,
   );
   assert.deepEqual(refusals.timerRunning(null).details, { running: null });
-});
-
-test('a replayed create matches what is stored, or is refused', () => {
-  const stored = {
-    taskName: 'Drawn',
-    projectId: null,
-    startedAt: '2026-09-17T09:00:00+00:00',
-    endedAt: '2026-09-17T10:00:00+00:00',
-    isBillable: true,
-    rateOverride: null,
-  };
-  const sent = {
-    taskName: 'Drawn',
-    startedAt: nine,
-    endedAt: ten,
-  };
-  // The same instants written another way, and omitted fields, are a replay.
-  assert.equal(replayRefusal(sent, stored), null);
-  assert.equal(replayRefusal({ ...sent, isBillable: true }, stored), null);
-
-  for (const changed of [
-    { taskName: 'Drawn, renamed' },
-    { endedAt: '2026-09-17T10:15:00.000Z' },
-    { projectId: '018f0000-0000-7000-8000-000000000009' },
-    { isBillable: false },
-    { rateOverride: 90 },
-  ])
-    assert.equal(
-      replayRefusal({ ...sent, ...changed }, stored)?.code,
-      'ENTRY_ALREADY_SAVED',
-      JSON.stringify(changed),
-    );
 });

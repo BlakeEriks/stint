@@ -111,8 +111,7 @@ interface BaseOptions<TVars, TData> {
   onSettled?: (vars: TVars) => void;
   /**
    * The pressing screen explains a failure itself, so the notice stays out
-   * of it. Only for a form that stays open until the answer, pending or
-   * predicted.
+   * of it. Only for a pending-mode form that stays open until the answer.
    */
   inline?: boolean;
   /** The press changes Home's figures, which show it is settling until they count it. */
