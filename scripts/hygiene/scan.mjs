@@ -30,6 +30,7 @@ import {
   orphans,
   parseJUnit,
   slowest,
+  timingsRun,
 } from './tests.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
@@ -239,7 +240,7 @@ const trackedAs = (file) =>
 /* CI uploads a `timings-<job>` artifact of JUnit reports, one per suite,
    on each push to main (.github/workflows/ci.yml). */
 function slowTests() {
-  const [latest] = JSON.parse(
+  const runs = JSON.parse(
     run('gh', [
       'run',
       'list',
@@ -247,16 +248,29 @@ function slowTests() {
       '--branch=main',
       '--event=push',
       '--status=success',
-      '--limit=1',
+      '--limit=20',
       '--json=databaseId',
     ]),
+  ).map((r) => r.databaseId);
+  const id = timingsRun(
+    runs,
+    (runId) =>
+      JSON.parse(
+        run('gh', [
+          'api',
+          `repos/{owner}/{repo}/actions/runs/${runId}/artifacts`,
+        ]),
+      ).artifacts,
   );
-  if (!latest) return [];
+  if (id === null) {
+    console.error('hygiene: no CI run has timings, so no slow tests');
+    return [];
+  }
   const dir = mkdtempSync(join(tmpdir(), 'timings-'));
   run('gh', [
     'run',
     'download',
-    String(latest.databaseId),
+    String(id),
     '--pattern=timings-*',
     `--dir=${dir}`,
   ]);

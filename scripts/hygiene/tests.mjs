@@ -6,9 +6,7 @@
  *   Test Duplication": every test costs upkeep, so a behavior is tested once,
  *   as far down the pyramid as can see it.
  * - Software Engineering at Google, ch. 11: "the slower a test suite, the
- *   less frequently it will be run"; ch. 12: a test changes only when a
- *   requirement does, so one asserting what another suite already asserts
- *   doubles every change.
+ *   less frequently it will be run".
  *
  * No tool finds two tests asserting the same behavior. Coverage subsumption
  * is the academic answer, and it cuts tests that catch faults (Rothermel et
@@ -164,4 +162,15 @@ export function slowest(timings) {
         );
       }),
   );
+}
+
+/**
+ * The newest run, of `runIds` newest first, that still has an unexpired
+ * `timings-*` artifact; null when none does, as before CI first uploads
+ * them or after a month without a push to main.
+ * @param artifactsOf  (runId) => [{ name, expired }]
+ */
+export function timingsRun(runIds, artifactsOf) {
+  const timed = (a) => a.name.startsWith('timings-') && !a.expired;
+  return runIds.find((id) => artifactsOf(id).some(timed)) ?? null;
 }

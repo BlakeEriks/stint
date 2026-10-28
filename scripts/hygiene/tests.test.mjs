@@ -6,6 +6,7 @@ import {
   orphans,
   parseJUnit,
   slowest,
+  timingsRun,
 } from './tests.mjs';
 
 describe('importsOf', () => {
@@ -149,5 +150,32 @@ describe('slowest', () => {
       ],
     );
     assert.ok(found.every((f) => f.kind === 'slow-test'));
+  });
+});
+
+describe('timingsRun', () => {
+  const art = (name, expired = false) => ({ name, expired });
+
+  it('picks the newest run that still has unexpired timings', () => {
+    const artifacts = new Map([
+      [3, []],
+      [2, [art('timings-static', true), art('playwright-report')]],
+      [1, [art('timings-static')]],
+    ]);
+    assert.equal(
+      timingsRun([3, 2, 1], (id) => artifacts.get(id)),
+      1,
+    );
+  });
+
+  it('finds none when no run has timings, so the scan files the rest', () => {
+    assert.equal(
+      timingsRun([2, 1], () => []),
+      null,
+    );
+    assert.equal(
+      timingsRun([], () => []),
+      null,
+    );
   });
 });
