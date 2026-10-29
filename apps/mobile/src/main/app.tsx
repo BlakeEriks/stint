@@ -18,6 +18,7 @@ import { canPush, expoTokens, listenForTimerPushes } from '../push-native';
 import { origin, target } from '../config.ts';
 import { usePlex } from '../fonts.ts';
 import { createRequest } from '../request.ts';
+import { setCrashUser } from '../crash-reporting.ts';
 import { createAuth, type Session } from '../session.ts';
 import { secureStore } from '../storage';
 import { useColors } from '../theme.ts';
@@ -147,6 +148,7 @@ function useSession(): Session | null | undefined {
         preview: target.preview,
         show: setSession,
         clear: () => queryClient.clear(),
+        identify: setCrashUser,
       }),
     [],
   );

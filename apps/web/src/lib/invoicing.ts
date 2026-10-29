@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { InvoiceTemplate } from '@stint/schema';
 import { ApiError, dbCode, PG, refused } from './errors';
 import {
   CLIENT_COLUMNS,
@@ -207,6 +208,16 @@ export function requireSender(s: InvoiceSettings) {
   }
 }
 
+async function chosenTemplate(db: SupabaseClient): Promise<InvoiceTemplate> {
+  const { data, error } = await db
+    .from('user_settings')
+    .select('invoice_template')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new ApiError('ENTRY_NOT_FOUND', 'Settings not found');
+  return data.invoice_template as InvoiceTemplate;
+}
+
 async function loadSettings(db: SupabaseClient): Promise<InvoiceSettings> {
   const { data, error } = await db
     .from('user_settings')
@@ -288,9 +299,10 @@ export async function loadPdfData(
   if (!stored) throw new ApiError('ENTRY_NOT_FOUND', 'Invoice not found');
   const row = stored as InvoiceRow;
 
-  const [billing, draft] = await Promise.all([
+  const [billing, draft, template] = await Promise.all([
     entitlement(db),
     deriveDraft(db, row, requestTz),
+    row.status === 'draft' ? chosenTemplate(db) : row.template,
   ]);
   const canDownload = documentOpens(
     billing.available,
@@ -349,6 +361,7 @@ export async function loadPdfData(
       lineItems,
       payment: invoice.paymentDetails ?? null,
       supportingDetail: invoice.supportingDetail,
+      template,
     },
   };
 }
@@ -578,7 +591,12 @@ export async function recordDownload(
   db: SupabaseClient,
   invoiceId: string,
   lines: LineItem[],
-  printed: { total: number; issueDate: string; dueDate: string | null },
+  printed: {
+    total: number;
+    issueDate: string;
+    dueDate: string | null;
+    template: InvoiceTemplate;
+  },
 ) {
   const { error } = await db
     .from('invoices')
@@ -587,6 +605,7 @@ export async function recordDownload(
         ...draftSnapshot(lines, printed.total),
         issueDate: printed.issueDate,
         dueDate: printed.dueDate,
+        template: printed.template,
       },
     })
     .eq('id', invoiceId)
@@ -649,6 +668,8 @@ export async function sendDraft(
       due_date: sent.dueDate,
       payment_terms: paymentTermsText(sent.issueDate, sent.dueDate),
       tz,
+      // As the PDF the client was given, like its dates.
+      template: printed?.template ?? (await chosenTemplate(db)),
       lines: draft.computed.lines,
     },
     p_entry_ids: draft.computed.entryIds,

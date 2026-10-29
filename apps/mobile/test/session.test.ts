@@ -11,7 +11,7 @@ const gotrue = (n: number, over: object = {}) => ({
   access_token: `access-${n}`,
   refresh_token: `refresh-${n}`,
   expires_at: NOW / 1000 + 3600,
-  user: { email: 'builder@localhost.test' },
+  user: { id: 'user-1', email: 'builder@localhost.test' },
   ...over,
 });
 
@@ -74,6 +74,8 @@ test('a typed code is verified as type email and the session kept', async () => 
   });
   assert.equal(await a.accessToken(), 'access-1');
   assert.ok(store.data.get('stint.session.localhost_54321'));
+  // Crash reports name the user by it (`launch.ts`).
+  assert.equal((await a.load())?.userId, 'user-1');
 });
 
 test('a code that is not six digits never reaches the server', async () => {

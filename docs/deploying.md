@@ -367,15 +367,17 @@ failures in a row, and posts the recovery.
 
 **Sentry** is the `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN`, plus the
 `SENTRY_AUTH_TOKEN` that uploads source maps (§2), from a Next.js project on
-the free plan, with one alert rule: a new issue posts to Discord.
+the free plan, with one alert rule: a new issue posts to Discord. Every
+project has **Security & Privacy → Prevent Storing of IP Addresses** on, and
+every client's events carry the Stint user id and nothing else about the
+user.
 
 The macOS app reports to a second project in the same organization, set up
 once:
 
 1. **Projects → Create Project**, platform Apple macOS, slug `stint-macos`,
    added to the existing "Notify via Discord" alert rule.
-2. Its **Security & Privacy → Prevent Storing of IP Addresses** on: events
-   carry the user id and nothing else about the user.
+2. Its **Security & Privacy → Prevent Storing of IP Addresses** on.
 3. Its DSN goes in `SENTRY_DSN` in `apps/macos/bundle.sh`. It is public, and
    only the `prod` target writes it, so no other build reports.
 4. An organization auth token from **Settings → Auth Tokens**, in the

@@ -72,7 +72,9 @@ money.
 One row per user, auto-created by a trigger on `auth.users` insert. Holds the
 global rate fallback, display preferences, the invoice
 identity block (business name, address, logo), `payment_terms_days`
-(0–365, default 30), the invoice number sequence, and the entry-length thresholds
+(0–365, default 30), the invoice number sequence, `invoice_template`
+(`standard`, `modern`, `classic` or `creative`, default `standard`: the one
+drafts render in), and the entry-length thresholds
 (`min_entry_seconds`, `max_entry_hours`).
 
 **`legacy_payment_terms` is free text the move to days couldn't read**,
@@ -151,12 +153,15 @@ left off). `payment_terms` keeps its terms (`Net N`, or `Due on receipt`) from
 the client's days, else the user's, as Generate found them. Its time and
 expense lines, totals, issue date and, unless typed, due date are computed on
 every read and written by nothing; no entry or expense points at a draft.
-`downloaded_snapshot` is what its PDF last showed, dates included, which
-sending keeps; it is the one column a read writes. Mark sent refuses with
+`downloaded_snapshot` is what its PDF last showed, and the one column a read
+writes; sending keeps its dates and its template. Mark sent refuses with
 `DRAFT_CHANGED` while the draft differs from it. **Mark sent is
 `send_draft()`**: it writes the lines and totals the route computed, claims
 the entries and one-off expenses, sets `issue_date`, `due_date` and the
-`payment_terms` they make (the last PDF's, else the send date's), and sends, in one transaction. An entry another
+`payment_terms` they make (the last PDF's, else the send date's), freezes
+`template` (the last PDF's, else the setting's), and sends, in one
+transaction. A draft's `template` means nothing; it renders in the
+setting. An entry another
 invoice took, or one marked billed elsewhere, meanwhile raises
 `ENTRY_ALREADY_INVOICED`, an expense another invoice took
 `EXPENSE_ALREADY_INVOICED`, and either rolls it all back.

@@ -704,6 +704,46 @@ describe('NewInvoice — reference', () => {
   });
 });
 
+describe('NewInvoice — notes', () => {
+  it('shows a note in the card at once, and sends it', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await ready(user);
+    const sent = previews().length;
+
+    await user.type(
+      screen.getByLabelText('Notes'),
+      '  Thanks for a great month.  ',
+    );
+
+    expect(
+      within(card()).getByText('Thanks for a great month.'),
+    ).toBeInTheDocument();
+    expect(previews()).toHaveLength(sent);
+
+    await user.click(generate());
+    await waitFor(() => expect(push).toHaveBeenCalled());
+    expect(bodies.find((b) => b.path.endsWith('/invoices'))!.body.notes).toBe(
+      'Thanks for a great month.',
+    );
+  });
+
+  it('sends no note when the field is left empty', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await ready(user);
+
+    await user.type(screen.getByLabelText('Notes'), '   ');
+    await user.click(generate());
+    await waitFor(() => expect(push).toHaveBeenCalled());
+    expect(
+      bodies.find((b) => b.path.endsWith('/invoices'))!.body,
+    ).not.toHaveProperty('notes');
+  });
+});
+
 describe('NewInvoice — expenses, charges and payment details', () => {
   it('adds a charge through its dialog, and removes it there', async () => {
     serve();
