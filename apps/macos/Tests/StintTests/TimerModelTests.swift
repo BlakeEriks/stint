@@ -80,14 +80,16 @@ struct TimerModelTests {
 
     @Test func recentIsTheServersNamesLessTheRunningOne() async throws {
         let model = try await signedInModel()
+        // Fifteen, so a task from last week is still one click away.
+        let names = ["Standup"] + (1...15).map { "Task \($0)" }
         APIStub.routes["/summary"] = (200, summary(running: "standup"))
-        APIStub.routes["/entries/task-names"] = (200, taskNames(["Standup", "Design review", "Invoice chase", "Staging deploy", "Q4 scoping", "Audit"]))
+        APIStub.routes["/entries/task-names"] = (200, taskNames(names))
         await model.refresh()
-        #expect(model.recent.map(\.taskName) == ["Design review", "Invoice chase", "Staging deploy", "Q4 scoping", "Audit"])
+        #expect(model.recent.map(\.taskName) == Array(names.dropFirst()))
 
         APIStub.routes["/summary"] = (200, summary(running: nil))
         await model.refresh()
-        #expect(model.recent.map(\.taskName) == ["Standup", "Design review", "Invoice chase", "Staging deploy", "Q4 scoping"])
+        #expect(model.recent.map(\.taskName) == Array(names.prefix(15)))
         await model.signOut()
     }
 

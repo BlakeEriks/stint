@@ -12,5 +12,8 @@
   "scripts": {
     "build": "node src/generate.js",
     "validate": "node src/validate.js"
+  },
+  "devDependencies": {
+    "sharp": "0.35.5"
   }
 }

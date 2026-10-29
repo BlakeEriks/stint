@@ -8,6 +8,8 @@
  *   fixes     three or more merged fixes in 90 days, on a whole-repo scan
  *             only, since it needs `gh`
  *   Vale      prose against the Google style guide and our house rules
+ *   orphans   tests whose subject only tests import, on a whole-repo scan
+ *             only: a scoped run is /reduce's, which has no step for them
  *
  * usage: pnpm hygiene [paths...] [--since 30.days] [--top N] [--json]
  *                     [--skip-filed]
@@ -22,6 +24,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { filedPaths, fixChurn, rank, THRESHOLD, top } from './rank.mjs';
+import { importsOf, orphans } from './tests.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const BIN = join(ROOT, 'node_modules/.bin');
@@ -29,7 +32,7 @@ const BIN = join(ROOT, 'node_modules/.bin');
 const CODE = ['apps/web/src', 'packages', 'scripts'];
 const DOCS = ['docs', 'CLAUDE.md'];
 /* Tests repeat their arrangement on purpose, and shadcn's vendored
-   components are upstream's code. */
+   components are upstream's code. An orphaned test is about a test. */
 const EXCLUDED = /(^|\/)(test|e2e|node_modules|dist)\/|components\/ui\//;
 
 const { values, positionals } = parseArgs({
@@ -192,6 +195,34 @@ function prose() {
   );
 }
 
+const tracked = run('git', ['ls-files']).split('\n').filter(Boolean);
+
+/* Constitution V's suites; `node --test` scripts test tooling. */
+const TEST_FILE = /\.(test\.tsx?|spec\.ts|stories\.tsx)$/;
+
+function orphanTests() {
+  const files = new Set(tracked);
+  const graph = new Map(
+    tracked
+      .filter((p) => TEST_FILE.test(p))
+      .map((p) => [
+        p,
+        importsOf(p, readFileSync(join(ROOT, p), 'utf8'), (f) => files.has(f)),
+      ]),
+  );
+  // Production mode leaves tests and stories out, so what only they import
+  // shows as unused.
+  const out = run(
+    join(BIN, 'knip'),
+    ['--production', '--include=files', '--reporter=json', '--no-progress'],
+    [0, 1],
+  );
+  const unreachable = new Set(
+    JSON.parse(out).issues.flatMap((i) => (i.files ?? []).map((f) => f.name)),
+  );
+  return orphans(graph, unreachable);
+}
+
 function commits(since) {
   const out = run('git', [
     'log',
@@ -219,8 +250,8 @@ function filed() {
 }
 
 const scope = positionals.map((p) => p.replace(/\/$/, ''));
-const inScope = (path) =>
-  !EXCLUDED.test(path) &&
+const inScope = ({ path, kind }) =>
+  (kind === 'orphan-test' || !EXCLUDED.test(path)) &&
   (!scope.length || scope.some((p) => path === p || path.startsWith(`${p}/`)));
 
 const findings = [
@@ -229,9 +260,10 @@ const findings = [
   deadCode(),
   scope.length ? [] : fixes(),
   prose(),
+  scope.length ? [] : orphanTests(),
 ]
   .flat()
-  .filter((f) => inScope(f.path));
+  .filter(inScope);
 let files = rank(
   findings,
   commits(values.since),
