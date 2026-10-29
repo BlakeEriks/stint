@@ -100,23 +100,37 @@ export function resized(
  * down to where it is now, each end snapped like any drag.
  *
  * Dragging upward draws the same range as dragging down, and a drag shorter
- * than `MIN_ENTRY_MINUTES` still draws that much, pushed back inside the
- * column when it would run past the end.
+ * than `minMinutes` still draws that much, pushed back inside the column when
+ * it would run past the end. A press without travel passes `clickMinutes`.
  */
 export function drawnRange(
   from: number,
   to: number,
   dayStart: Date,
   dayEnd: Date,
+  minMinutes = MIN_ENTRY_MINUTES,
 ): { startedAt: Date; endedAt: Date } {
   const a = instantAt(Math.min(from, to), dayStart, dayEnd).getTime();
   const b = instantAt(Math.max(from, to), dayStart, dayEnd).getTime();
-  const floor = MIN_ENTRY_MINUTES * 60_000;
+  const floor = minMinutes * 60_000;
   const end = Math.min(Math.max(b, a + floor), dayEnd.getTime());
   return {
     startedAt: new Date(Math.min(a, end - floor)),
     endedAt: new Date(end),
   };
+}
+
+/** The lengths a click can make, shortest first. */
+const CLICK_MINUTES = [15, 30, 60] as const;
+
+/**
+ * How long an entry a click on empty grid makes: the shortest of 15, 30 or
+ * 60 minutes whose block is at least `labelPx` tall at this zoom, so the
+ * slot shown under the pointer, which is that block, never clips its label.
+ * An hour when even that is shorter.
+ */
+export function clickMinutes(pxPerHour: number, labelPx: number): number {
+  return CLICK_MINUTES.find((m) => (m / 60) * pxPerHour >= labelPx) ?? 60;
 }
 
 /**

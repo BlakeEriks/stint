@@ -427,3 +427,31 @@ export const HoverSlot: Story = {
     ).toBeNull();
   },
 };
+
+/** Zoomed all the way out, a quarter hour is too short for its label, so
+    the slot, and the entry a click makes, is an hour: the label shows
+    whole, and the click opens on exactly that hour. */
+export const HoverSlotZoomedOut: Story = {
+  ...desktop,
+  beforeEach: () => localStorage.setItem(ZOOM_KEY, '22'),
+  play: async ({ canvasElement }) => {
+    const { el, x, y } = await column(canvasElement);
+    await userEvent.pointer({
+      target: el,
+      coords: { clientX: x, clientY: y((2 * 60 + 7) / 1440) },
+    });
+    const slot = el.querySelector('[data-hover-slot]') as HTMLElement;
+    await expect(slot).toHaveTextContent('+ 2:00 AM');
+    await expect(slot.scrollHeight).toBeLessThanOrEqual(slot.clientHeight);
+
+    await userEvent.pointer({
+      target: el,
+      coords: { clientX: x, clientY: y((2 * 60 + 7) / 1440) },
+      keys: '[MouseLeft]',
+    });
+    await expectOpen(canvasElement, 'dialog', 'Add entry');
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(page.getByLabelText('Start')).toHaveValue('02:00');
+    await expect(page.getByLabelText('End')).toHaveValue('03:00');
+  },
+};

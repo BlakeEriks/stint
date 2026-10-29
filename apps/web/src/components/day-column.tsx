@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useMutationState } from '@tanstack/react-query';
-import { drawnRange, formatCompact, formatLocalTime } from '@stint/core';
+import {
+  clickMinutes,
+  drawnRange,
+  formatCompact,
+  formatLocalTime,
+} from '@stint/core';
+import { type } from '@stint/design-tokens';
 import { placement, type PositionedEntry } from '@/lib/client/use-calendar';
 import type { useEntryDrag, DragMode } from '@/lib/client/use-entry-drag';
 import type { TimeEntry } from '@/lib/client/api';
@@ -11,6 +17,13 @@ import { timeZone as tz } from '@/lib/client/use-timer';
 type DragApi = ReturnType<typeof useEntryDrag>;
 
 const time = (at: Date | string) => formatLocalTime(at, tz);
+
+/**
+ * How tall the hover slot must be to show its label whole: one line of the
+ * `meta` role at `leading-tight` (1.25), plus its 1px border top and bottom.
+ * From the role's size, so a change to the scale moves it.
+ */
+const SLOT_LABEL_PX = Math.ceil(type.meta.size * 1.25) + 2;
 
 /**
  * One day of entries, and where they get corrected: a block opens the editor,
@@ -56,7 +69,11 @@ export function DayColumn({
     !positioned.some((p) => pending.has(p.entry.id))
       ? drag.preview
       : null;
-  const hover = useHoverSlot(dayStart, dayEnd);
+  /* The length a click makes here, and so the slot shown under the
+     pointer: the shortest whose block fits its label at this zoom. */
+  const hours = (dayEnd.getTime() - dayStart.getTime()) / 3_600_000;
+  const minutes = clickMinutes(height / hours, SLOT_LABEL_PX);
+  const hover = useHoverSlot(dayStart, dayEnd, minutes);
 
   return (
     /* The grid is a pointer SHORTCUT for picking a time, not the only way in:
@@ -71,7 +88,7 @@ export function DayColumn({
       ref={column}
       onPointerDown={(event) => {
         if (!column.current) return;
-        drag.draw(event, column.current, dayStart, dayEnd, onCreate);
+        drag.draw(event, column.current, dayStart, dayEnd, onCreate, minutes);
       }}
       onPointerMove={(event) => {
         drag.move(event);
@@ -146,13 +163,13 @@ export function DayColumn({
 }
 
 /**
- * The quarter hour a press here would start, following a mouse over empty
- * time: where a click or a drag would begin, before it does. Not over an
+ * The block a click here would make, following a mouse over empty time:
+ * its start snapped to the quarter hour, its length `minutes`. Not over an
  * entry or its grips (the event's target is then not the column), not while
  * a button is held, and not for touch, which has no hover to show it on.
  * It is the slot a press without travel draws, so the two always agree.
  */
-function useHoverSlot(dayStart: Date, dayEnd: Date) {
+function useHoverSlot(dayStart: Date, dayEnd: Date, minutes: number) {
   const [slot, setSlot] = useState<{ startedAt: Date; endedAt: Date } | null>(
     null,
   );
@@ -175,9 +192,12 @@ function useHoverSlot(dayStart: Date, dayEnd: Date) {
     if (!empty) return clear();
     const box = event.currentTarget.getBoundingClientRect();
     const at = (event.clientY - box.top) / box.height;
-    const next = drawnRange(at, at, dayStart, dayEnd);
+    const next = drawnRange(at, at, dayStart, dayEnd, minutes);
     setSlot((s) =>
-      s?.startedAt.getTime() === next.startedAt.getTime() ? s : next,
+      s?.startedAt.getTime() === next.startedAt.getTime() &&
+      s.endedAt.getTime() === next.endedAt.getTime()
+        ? s
+        : next,
     );
   };
   return { slot, move, clear };

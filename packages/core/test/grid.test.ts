@@ -9,6 +9,7 @@ import {
   drawnRange,
   zoomed,
   fillPxPerHour,
+  clickMinutes,
   hourStep,
   MIN_PX_PER_HOUR,
   MAX_PX_PER_HOUR,
@@ -376,4 +377,29 @@ test('the fill floor never drops below the least zoom or tops the most', () => {
   assert.equal(fillPxPerHour(0, 24), MIN_PX_PER_HOUR);
   assert.equal(fillPxPerHour(5000, 10), MAX_PX_PER_HOUR);
   assert.equal(fillPxPerHour(720, 0), MIN_PX_PER_HOUR);
+});
+
+test('a click makes the shortest block its label fits, across the zoom range', () => {
+  const label = 17;
+  assert.equal(clickMinutes(MIN_PX_PER_HOUR, label), 60); // 22px an hour
+  assert.equal(clickMinutes(33, label), 60);
+  assert.equal(clickMinutes(44, label), 30); // the default
+  assert.equal(clickMinutes(67, label), 30);
+  assert.equal(clickMinutes(68, label), 15);
+  assert.equal(clickMinutes(MAX_PX_PER_HOUR, label), 15);
+  // Shorter than the label even at an hour: still an hour.
+  assert.equal(clickMinutes(10, label), 60);
+});
+
+test('a click draws its length from where it landed, inside the day', () => {
+  const { start, end } = column('2026-09-09T12:00:00Z', 'UTC');
+  const at = (9 * 60 + 7) / 1440;
+
+  const r = drawnRange(at, at, start, end, 30);
+  assert.equal(clock(r.startedAt, 'UTC'), '09:00');
+  assert.equal(clock(r.endedAt, 'UTC'), '09:30');
+
+  const last = drawnRange(1, 1, start, end, 60);
+  assert.equal(last.endedAt.getTime(), end.getTime());
+  assert.equal(last.endedAt.getTime() - last.startedAt.getTime(), 60 * MIN);
 });

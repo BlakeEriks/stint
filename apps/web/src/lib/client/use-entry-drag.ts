@@ -38,6 +38,8 @@ interface Active extends Drag {
   mode: DragMode | 'draw';
   /** What a draw hands its range to. Nothing is written until it saves. */
   onDrawn?: Drawn;
+  /** How long a press without travel makes the entry (`clickMinutes`). */
+  clickMinutes?: number;
   dayStart: Date;
   dayEnd: Date;
   originY: number;
@@ -126,7 +128,8 @@ export function useEntryDrag() {
 
   /**
    * Press on empty grid: a drag draws a new entry's range, and a press that
-   * never travels is a click, which takes the hour from where it landed.
+   * never travels is a click, which takes `clickMinutes` from where it
+   * landed.
    * Either way the range goes to `onDrawn`, which opens the editor on it.
    */
   function draw(
@@ -135,6 +138,7 @@ export function useEntryDrag() {
     dayStart: Date,
     dayEnd: Date,
     onDrawn: Drawn,
+    clickMinutes: number,
   ) {
     if (event.button !== 0 || event.target !== event.currentTarget) return;
     event.preventDefault();
@@ -143,6 +147,7 @@ export function useEntryDrag() {
       entryId: null,
       mode: 'draw',
       onDrawn,
+      clickMinutes,
       column,
       dayStart,
       dayEnd,
@@ -240,19 +245,16 @@ export function useEntryDrag() {
 }
 
 /**
- * What a finished draw hands the editor. A click draws an hour from where it
- * landed: the most common block, and the dialog on top of it makes the
- * length one edit away.
+ * What a finished draw hands the editor. A click draws `clickMinutes` from
+ * where it landed, the slot that was under the pointer; the dialog on top of
+ * it makes the length one edit away.
  */
 function drawn(a: Active): [Date, Date] {
   if (a.moved) return [a.startedAt, a.endedAt];
   const box = a.column.getBoundingClientRect();
-  const start = instantAt(
-    (a.originY - box.top) / box.height,
-    a.dayStart,
-    a.dayEnd,
-  );
-  return [start, new Date(start.getTime() + 3_600_000)];
+  const at = (a.originY - box.top) / box.height;
+  const r = drawnRange(at, at, a.dayStart, a.dayEnd, a.clickMinutes);
+  return [r.startedAt, r.endedAt];
 }
 
 /** Where the pointer puts the entry, given what the gesture is adjusting. */
