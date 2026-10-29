@@ -129,6 +129,7 @@ export const settings = (): Settings => ({
   logoUrl: null,
   paymentTermsDays: 30,
   invoiceNumberPrefix: 'STINT-',
+  invoiceTemplate: 'standard',
   nextInvoiceNumber: 16,
   welcomedAt: '2026-09-01T16:00:00.000Z',
 });
@@ -565,6 +566,7 @@ function invoicesFor(
       groupingMode: 'task',
       summaryText: null,
       reference: null,
+      template: spec.status === 'draft' ? null : 'standard',
       supportingDetail: null,
       paymentDetails: null,
       ...parties(settings(), who),

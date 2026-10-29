@@ -9,7 +9,8 @@ and `pnpm dev` talks to it. The hosted project is for deploys; see
 
 Install a container runtime. Docker Desktop works; so do OrbStack, colima,
 Podman, and Rancher Desktop. `pnpm hygiene` and `/copyedit` also need Vale:
-`brew install vale`. A whole-repo `pnpm hygiene` also needs a signed-in `gh`. `/standards-review`, which `/work-issues` and `/speckit-implement` both run,
+`brew install vale`. `pnpm --filter @stint/web sample:invoice` needs
+poppler's `pdftoppm`: `brew install poppler`. A whole-repo `pnpm hygiene` also needs a signed-in `gh`. `/standards-review`, which `/work-issues` and `/speckit-implement` both run,
 reviews with an official plugin:
 `claude plugin install pr-review-toolkit@claude-plugins-official --scope project`.
 

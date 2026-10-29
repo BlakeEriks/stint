@@ -42,7 +42,8 @@ pnpm tokens:validate             # assert the contrast contract (runs in CI)
 pnpm --filter @stint/core test      # pure logic, no database needed
 pnpm --filter @stint/web dev
 pnpm --filter @stint/web typecheck
-pnpm --filter @stint/web sample:invoice   # regenerate docs/design/samples/
+pnpm --filter @stint/web sample:invoice   # regenerate docs/design/samples/ and the picker's
+                                          # thumbnails in apps/web/src/components/template-thumbs/
 
 ./apps/macos/bundle.sh                    # build and install ~/Applications/Stint Local.app
 ```

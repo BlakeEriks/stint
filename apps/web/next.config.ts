@@ -31,6 +31,12 @@ const config: NextConfig = {
      answers it; `package.json`'s number does not move between releases. */
   env: { NEXT_PUBLIC_APP_VERSION: buildVersion() },
 
+  /* The PDF reads its typefaces from disk at render, never from the network,
+     and a file read at runtime reaches the function only if traced. */
+  outputFileTracingIncludes: {
+    '/api/v1/invoices/[id]/pdf': ['./src/fonts/pdf/**'],
+  },
+
   // Projects moved under Clients; old bookmarks land there, query and all.
   async redirects() {
     return [{ source: '/projects', destination: '/clients', permanent: true }];
