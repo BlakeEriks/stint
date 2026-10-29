@@ -5,6 +5,8 @@
 -- server, with the secret key, broadcasts. Realtime owns the table and turns
 -- its RLS on, so this adds a policy and nothing else.
 
+-- The preview rebuild empties `public` but not `realtime`, so it may be left over.
+drop policy if exists join_own_user_topic on realtime.messages;
 create policy join_own_user_topic on realtime.messages
   for select to authenticated
   using (realtime.topic() = 'user:' || (select auth.uid())::text);
