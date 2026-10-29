@@ -8,8 +8,6 @@ import Foundation
 struct Backend {
   struct Refusal: Error { let message: String }
 
-  /// Constitution VI: a silent server fails the prediction after 10s.
-  private static let timeout: TimeInterval = 10
   private static let headroom: Double = 60
 
   let origin: String
@@ -26,37 +24,41 @@ struct Backend {
     bypassKey = b["bypass"] ?? ""
   }
 
-  func post(_ path: String, _ body: [String: Any]) async throws -> (Int, [String: Any]) {
+  /// `body` nil: a GET. Answers the status and the JSON body's data.
+  func request(_ path: String, _ body: Data?) async throws -> (Int, Data) {
     var session = try load()
     if session.expiresAt - Date().timeIntervalSince1970 <= Self.headroom {
       session = try await refresh(session)
     }
     var (status, answer) = try await call(path, body, session.accessToken)
-    if status == 401, answer["code"] is String {
+    if status == 401, Self.json(answer)["code"] is String {
       session = try await refresh(session)
       (status, answer) = try await call(path, body, session.accessToken)
     }
     return (status, answer)
   }
 
-  private func call(_ path: String, _ body: [String: Any], _ token: String) async throws -> (Int, [String: Any]) {
+  private func call(_ path: String, _ body: Data?, _ token: String) async throws -> (Int, Data) {
     guard let url = URL(string: "\(origin)/api/v1\(path)") else { throw Refusal(message: "no server") }
-    var req = URLRequest(url: url, timeoutInterval: Self.timeout)
-    req.httpMethod = "POST"
+    var req = URLRequest(url: url)
+    req.httpMethod = body == nil ? "GET" : "POST"
     req.setValue("Bearer \(token)", forHTTPHeaderField: "authorization")
     req.setValue("application/json", forHTTPHeaderField: "content-type")
     if let pass = SecureStore.get(bypassKey) {
       req.setValue(pass, forHTTPHeaderField: "x-vercel-protection-bypass")
     }
-    req.httpBody = try JSONSerialization.data(withJSONObject: body)
+    req.httpBody = body
     return try await send(req)
   }
 
-  private func send(_ req: URLRequest) async throws -> (Int, [String: Any]) {
+  private func send(_ req: URLRequest) async throws -> (Int, Data) {
     let (data, res) = try await URLSession.shared.data(for: req)
-    let status = (res as? HTTPURLResponse)?.statusCode ?? 0
-    let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
-    return (status, json)
+    return ((res as? HTTPURLResponse)?.statusCode ?? 0, data)
+  }
+
+  /// A body as JSON; one that isn't, such as Vercel's page, as none.
+  static func json(_ data: Data) -> [String: Any] {
+    (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
   }
 
   // MARK: The session, as `src/session.ts` stores it
@@ -82,12 +84,13 @@ struct Backend {
     guard let url = URL(string: "\(supabaseUrl)/auth/v1/token?grant_type=refresh_token") else {
       throw Refusal(message: "no server")
     }
-    var req = URLRequest(url: url, timeoutInterval: Self.timeout)
+    var req = URLRequest(url: url)
     req.httpMethod = "POST"
     req.setValue(supabaseKey, forHTTPHeaderField: "apikey")
     req.setValue("application/json", forHTTPHeaderField: "content-type")
     req.httpBody = try JSONSerialization.data(withJSONObject: ["refresh_token": current.refreshToken])
-    let (status, body) = try await send(req)
+    let (status, data) = try await send(req)
+    let body = Self.json(data)
     guard status == 200,
       let access = body["access_token"] as? String,
       let refresh = body["refresh_token"] as? String,
@@ -102,11 +105,9 @@ struct Backend {
     raw["accessToken"] = access
     raw["refreshToken"] = refresh
     raw["expiresAt"] = expires
-    if let data = try? JSONSerialization.data(withJSONObject: raw),
-      let text = String(data: data, encoding: .utf8)
-    {
-      SecureStore.set(sessionKey, text)
-    }
+    // Stored where the app's JS takes it, or the rotated token is lost.
+    let stored = try JSONSerialization.data(withJSONObject: raw)
+    try SecureStore.set(sessionKey, String(decoding: stored, as: UTF8.self))
     return Session(raw: raw)
   }
 }

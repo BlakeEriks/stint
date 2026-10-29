@@ -208,6 +208,8 @@ final class TimerModel: Optimistic {
         await fetch(full: panelOpen, recent: true)
     }
 
+    func message(for error: Error) -> String { userMessage(for: error) }
+
     /// `Optimistic` requires a bare `refresh()`.
     func refresh() async {
         await refresh(recent: true)

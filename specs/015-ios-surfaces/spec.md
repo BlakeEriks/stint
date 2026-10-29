@@ -35,10 +35,9 @@ nothing here may need push; updates from other clients through APNs are
   that can't be pressed misses the issue's point.)
 - Q: How does a widget show a rejected press? → A: As on Android: what the
   server holds, with the reason on the line under the task, until the next
-  press or app read. A Stop the server refuses because none is running
-  shows stopped, which is what it holds; any other refusal shows what the
-  surface showed before the press. (decided autonomously: Principle VI's
-  rule, said on the surface that pressed.)
+  press or app read: the timer is read again once the last press settles.
+  (decided autonomously: Principle VI's rule, said on the surface that
+  pressed.)
 - Q: Where does a press run, with the app closed? → A: In the app, which
   iOS starts in the background for it, never in the widget's own process.
   The app's session is then the only one that calls the server, and the

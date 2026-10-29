@@ -11,7 +11,7 @@ import AppIntents
 @available(iOS 17.0, *)
 private func press(_ action: String) async -> String {
   #if canImport(StintSurfaces)
-    return await StintPress.press(action)
+    return await StintPress.run(action)
   #else
     return ""
   #endif

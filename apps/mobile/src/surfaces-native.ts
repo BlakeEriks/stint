@@ -6,7 +6,8 @@ import { type Backend, nativeState, type SurfaceState } from './surfaces.ts';
 
 /** `modules/stint-surfaces`, on Android and iOS. */
 const native = requireOptionalNativeModule<{
-  draw(state: string): void;
+  /** A promise on iOS, which draws on the main thread. */
+  draw(state: string): Promise<void> | void;
   addListener?(event: 'pressed', listener: () => void): { remove(): void };
 }>('StintSurfaces');
 export const canDraw = native !== null;
@@ -34,7 +35,7 @@ const pick = (colors: Record<string, string>) =>
 export function drawSurfaces(state: SurfaceState, backend: Backend) {
   if (!native) return;
   const out = nativeState(state, backend);
-  native.draw(
+  void native.draw(
     JSON.stringify(
       out.kind === 'kept'
         ? out

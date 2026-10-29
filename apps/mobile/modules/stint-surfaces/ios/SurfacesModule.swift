@@ -14,9 +14,9 @@ public class SurfacesModule: Module {
       SurfacesModule.current = self
     }
 
-    Function("draw") { (state: String) in
-      Surfaces.draw(state)
-    }
+    AsyncFunction("draw") { (state: String) in
+      try MainActor.assumeIsolated { try Surfaces.draw(state) }
+    }.runOnQueue(.main)
   }
 
   static func pressed() {

@@ -148,13 +148,15 @@ their look, and `targets/widget` their SwiftUI, added to the build by
 
 **A press runs in the app, in Swift.** Each intent is a `LiveActivityIntent`,
 which iOS runs in the app, launched in the background with no scene, where
-React Native doesn't start. So `modules/stint-surfaces/ios` presses itself:
-it draws `pressed` at once, calls `/api/v1` with the app's session, and
-draws the answer, or the state before with JS's words for the failure. The
-app's JS refetches the timer when it next runs. The widget extension only
-reads what the module stored, the keychain item `dev.stint.surfaces`. Until
-#471, a timer started on another client reaches the iPhone's surfaces only
-when the app next opens.
+React Native doesn't start. So `modules/stint-surfaces/ios` presses itself,
+through the macOS app's `Optimistic`, compiling
+`apps/macos/Sources/Stint/Shared` through a symlink. It draws `pressed` at
+once, calls `/api/v1` with the app's session, and once the last press
+settles, draws the timer the server holds, with JS's words for a failure.
+The app's JS refetches the timer when it next runs. The widget extension
+only reads what the module stored, the keychain item `dev.stint.surfaces`.
+Until #471, a timer started on another client reaches the iPhone's surfaces
+only when the app next opens.
 
 **A free Apple ID can sign it.** The build relies on keychain sharing alone:
 no app group, no Siri capability, and no push entitlement, which

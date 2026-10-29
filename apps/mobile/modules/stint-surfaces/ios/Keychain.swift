@@ -16,21 +16,24 @@ enum Keychain {
 
   /// Replaces the item, or adds it readable after first unlock, so a lock
   /// screen widget redraws while the phone is locked.
-  static func write(service: String, account: String, data: Data) {
+  static func write(service: String, account: String, data: Data) throws {
     let query = base(service, account)
     let update = [kSecValueData as String: data]
     let status = SecItemUpdate(query as CFDictionary, update as CFDictionary)
-    guard status == errSecItemNotFound else { return }
+    if status == errSecSuccess { return }
+    guard status == errSecItemNotFound else { throw KeychainError(status: status) }
     var add = query
     add[kSecValueData as String] = data
     add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-    SecItemAdd(add as CFDictionary, nil)
+    let added = SecItemAdd(add as CFDictionary, nil)
+    guard added == errSecSuccess else { throw KeychainError(status: added) }
   }
 
   /// Rewrites an item that exists, keeping its access group and protection.
-  static func update(service: String, account: String, data: Data) {
+  static func update(service: String, account: String, data: Data) throws {
     let update = [kSecValueData as String: data]
-    SecItemUpdate(base(service, account) as CFDictionary, update as CFDictionary)
+    let status = SecItemUpdate(base(service, account) as CFDictionary, update as CFDictionary)
+    guard status == errSecSuccess else { throw KeychainError(status: status) }
   }
 
   private static func base(_ service: String, _ account: String) -> [String: Any] {
@@ -44,6 +47,11 @@ enum Keychain {
   }
 }
 
+struct KeychainError: LocalizedError {
+  let status: OSStatus
+  var errorDescription: String? { "the Keychain refused it (\(status))" }
+}
+
 /// What JS last drew, with the press's words and backend
 /// (`nativeState()` in `src/surfaces.ts`): the item the widgets read.
 enum Store {
@@ -55,9 +63,9 @@ enum Store {
     return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
   }
 
-  static func save(_ state: [String: Any]) {
-    guard let data = try? JSONSerialization.data(withJSONObject: state) else { return }
-    Keychain.write(service: service, account: account, data: data)
+  static func save(_ state: [String: Any]) throws {
+    let data = try JSONSerialization.data(withJSONObject: state)
+    try Keychain.write(service: service, account: account, data: data)
   }
 }
 
@@ -69,7 +77,7 @@ enum SecureStore {
     Keychain.read(service: service, account: key).flatMap { String(data: $0, encoding: .utf8) }
   }
 
-  static func set(_ key: String, _ value: String) {
-    Keychain.update(service: service, account: key, data: Data(value.utf8))
+  static func set(_ key: String, _ value: String) throws {
+    try Keychain.update(service: service, account: key, data: Data(value.utf8))
   }
 }

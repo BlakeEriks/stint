@@ -32,8 +32,8 @@ and the `_shared` intents), WidgetKit, ActivityKit, AppIntents
 unlock, in the shared keychain group the session already uses
 
 **Testing**: `apps/mobile/test` (node:test) for the state handed to Swift
-and the session the press and the app share; the Swift is seen on EAS
-Simulator
+and the session the press and the app share; `apps/macos`'s `swift test`
+for `Optimistic`, which the module compiles from the same files
 
 **Target Platform**: iOS 17 and later for the surfaces, iOS 18 for the
 control; the app stays at iOS 16.4
@@ -52,8 +52,8 @@ Developer Program: no app group, no Siri capability, no push entitlement.
 | II. Logic written twice has a parity test | No | No rule exists in both TypeScript and SQL. Swift's press reads what JS decided (`pressed`, the failure's words). |
 | III. Every client through `/api/v1`; server owns timer truth | Yes | Swift's press calls `/api/v1/timer/start` and `/stop`; the server's answer replaces the prediction, and the app's next read replaces everything. |
 | IV. `packages/core` does no I/O | No | Nothing added to core. |
-| V. Tests first where a regression is silent | Partly | The state, the press's words and the shared session get node tests first. The Swift press has no suite: see Complexity Tracking. |
-| VI. Every press answers in the same frame | Partly | Swift draws the prediction before the request, fails it after 10s and takes a late answer. A second write mechanism on the phone: see Complexity Tracking. |
+| V. Tests first where a regression is silent | Yes | The state and the shared session get node tests first; the press's rules are `Optimistic`'s, which `OptimisticTests` covers in `swift test`. |
+| VI. Every press answers in the same frame | Partly | The Swift press goes through the macOS app's `Optimistic`, shared as source: see Complexity Tracking. |
 
 Additional Constraints: one running timer (a refused start says so), client
 ids (`UUID` v7 per press, as `uuidv7()` makes), no new fixed cost.
@@ -85,5 +85,4 @@ docs/mobile.md                               # Outside the app
 
 | Violation | Why needed | Simpler alternative rejected because |
 | --- | --- | --- |
-| VI: the phone's iOS presses outside the app go through Swift, not `useOptimisticMutation` | iOS runs the intent in a background launch with no scene, and Expo SDK 58 starts React Native only in `SceneDelegate`, so no JS runs | Opening the app for each press (`openAppWhenRun`) defeats the issue; a press in the widget's own process could not end the Live Activity, which only the app may change |
-| V: the Swift press has no automated test | The repo has no iOS Swift suite, and no Xcode to run one; adding a suite changes the constitution's table | Kept to the HTTP call and the choice between `pressed` and the failure, both decided in tested JS; seen on EAS Simulator |
+| VI: the phone's iOS presses outside the app are a third caller of the shared Swift mechanism, `Optimistic` (`apps/macos/Sources/Stint/Shared`), not of `useOptimisticMutation` | iOS runs the intent in a background launch with no scene, and Expo SDK 58 starts React Native only in `SceneDelegate`, so no JS runs | Opening the app for each press (`openAppWhenRun`) defeats the issue; a press in the widget's own process could not end the Live Activity, which only the app may change |
