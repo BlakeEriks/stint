@@ -101,8 +101,18 @@ export function createAuth({
 
   async function refresh(): Promise<Session> {
     refreshing ??= (async () => {
+      // The iPhone's presses outside the app refresh in Swift and store the
+      // result (`modules/stint-surfaces`), so the stored session is the
+      // newest: its refresh token is the one not yet spent.
+      const had = cached?.accessToken;
+      cached = undefined;
       const current = await load();
       if (!current) throw signedOut();
+      if (
+        current.accessToken !== had &&
+        current.expiresAt - now() / 1000 > HEADROOM_S
+      )
+        return current;
       const { status, body } = await post('/token?grant_type=refresh_token', {
         refresh_token: current.refreshToken,
       });
@@ -124,6 +134,8 @@ export function createAuth({
   }
 
   return {
+    /** Its secure-store key, which Swift's press on iOS reads too. */
+    key,
     load,
     refresh,
     signInWithSession,

@@ -4,6 +4,7 @@ import { ApiError, keys, type Summary, type TimeEntry } from '@stint/client';
 import { QueryClient } from '@tanstack/react-query';
 import {
   createSurfaces,
+  nativeState,
   pressedState,
   type SurfaceState,
 } from '../src/surfaces.ts';
@@ -407,4 +408,37 @@ test('a refetch whose clock reading moved by milliseconds draws nothing new', as
   const n = s.drawn.length;
   await s.surfaces.refresh();
   assert.equal(s.drawn.length, n);
+});
+
+const backend = {
+  origin: 'http://localhost:3100',
+  supabaseUrl: 'http://localhost:54321',
+  supabaseKey: 'key',
+  session: 'stint.session.localhost_54321',
+  bypass: 'stint.vercel-bypass',
+};
+
+test("Swift presses with the app's words and backend; signed out, nowhere", async () => {
+  const { surfaces, last, failWith } = setup(entry());
+  await surfaces.refresh();
+  const running = last() as SurfaceState;
+  assert.deepEqual(nativeState(running, backend), {
+    ...running,
+    pressed: pressedState(running),
+    failed: {
+      start: 'Not started',
+      stop: 'Not stopped',
+      unreachable: 'can’t reach Stint',
+    },
+    backend,
+  });
+
+  // The words a failed press starts with are the app's own.
+  failWith(new ApiError(500, { code: 'UNKNOWN', message: 'Boom.' }));
+  await surfaces.press({ action: 'stop' });
+  assert.match(String(last()?.why), /^Not stopped: /);
+
+  surfaces.signOut();
+  const out = nativeState(last() as SurfaceState, backend);
+  assert.equal('backend' in out && out.backend, null);
 });
