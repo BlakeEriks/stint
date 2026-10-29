@@ -6,9 +6,11 @@ import {
   draftSnapshot,
   lateEntries,
   newLines,
-  periodsDue,
+  UNBILLED_DUE_DAYS,
+  unbilledDue,
   snapshotChanged,
 } from '../src/live-draft.ts';
+import { addDays as addDaysTo } from '../src/calendar.ts';
 
 const hour = (description: string, quantity: number, amount: number) => ({
   description,
@@ -227,144 +229,135 @@ test('draftDates: sending keeps the dates its last PDF printed', () => {
   });
 });
 
-// Northwind bills monthly; on Oct 3 its last ended period is September.
-const due = (over: Partial<Parameters<typeof periodsDue>[0]> = {}) =>
-  periodsDue(
-    {
-      clients: [
-        { id: 'c1', name: 'Northwind', schedule: { period: 'monthly' } },
-      ],
-      entries: [entry({})],
-      expenses: [],
-      invoices: [],
-      ...over,
-    },
-    '2026-10-03',
+// On Oct 3, Northwind bills monthly and Acme has no schedule.
+const TODAY = '2026-10-03';
+const clients = [
+  { id: 'c1', name: 'Northwind', schedule: { period: 'monthly' as const } },
+  { id: 'c2', name: 'Acme', schedule: null },
+];
+const work = (id: string, startedAt: string, clientId = 'c1', hours = 1) =>
+  entry({ id, startedAt, clientId, durationSeconds: hours * 3600 });
+const due = (
+  entries: ReturnType<typeof entry>[],
+  invoiceRows: Parameters<typeof unbilledDue>[0]['invoices'] = [],
+  today = TODAY,
+) =>
+  unbilledDue(
+    { clients, entries, invoices: invoiceRows },
+    today,
     'America/Chicago',
   );
 
-const september = {
-  clientId: 'c1',
-  clientName: 'Northwind',
-  periodStart: '2026-09-01',
-  periodEnd: '2026-09-30',
-  seconds: 9000,
-};
-
-test('a scheduled period that ended with unbilled work and no invoice is due', () => {
-  assert.deepEqual(due(), [september]);
+test('a scheduled client with work in its last ended period is due for that period', () => {
+  assert.deepEqual(due([work('e1', '2026-09-20T15:00:00Z', 'c1', 2)]), [
+    {
+      clientId: 'c1',
+      clientName: 'Northwind',
+      entryIds: ['e1'],
+      seconds: 7200,
+      since: '2026-09-20',
+      periodStart: '2026-09-01',
+      periodEnd: '2026-09-30',
+      onePeriod: true,
+    },
+  ]);
 });
 
-test('a period with nothing billable in it is not due', () => {
-  assert.deepEqual(due({ entries: [] }), []);
-  assert.deepEqual(due({ entries: [entry({ isBillable: false })] }), []);
-  // Another client's work, and work in the open period, bill nothing here.
-  assert.deepEqual(due({ entries: [entry({ clientId: 'c2' })] }), []);
+test('work from every ended period is due, in one row spanning them', () => {
   assert.deepEqual(
-    due({ entries: [entry({ startedAt: '2026-10-02T15:00:00Z' })] }),
+    due([
+      work('e1', '2026-08-03T15:00:00Z'),
+      work('e2', '2026-09-20T15:00:00Z'),
+      // The open period has not ended.
+      work('e3', '2026-10-01T15:00:00Z'),
+    ]),
+    [
+      {
+        clientId: 'c1',
+        clientName: 'Northwind',
+        entryIds: ['e1', 'e2'],
+        seconds: 7200,
+        since: '2026-08-03',
+        periodStart: '2026-08-01',
+        periodEnd: '2026-09-30',
+        onePeriod: false,
+      },
+    ],
+  );
+});
+
+test(`unscheduled work is due once it is more than ${UNBILLED_DUE_DAYS} days old`, () => {
+  assert.equal(UNBILLED_DUE_DAYS, 30);
+  const at = (daysAgo: number) =>
+    due(
+      [work('e1', '2026-10-10T15:00:00Z', 'c2')],
+      [],
+      addDaysTo('2026-10-10', daysAgo),
+    );
+  assert.deepEqual(at(29), []);
+  assert.deepEqual(at(30), []);
+  assert.deepEqual(at(31), [
+    {
+      clientId: 'c2',
+      clientName: 'Acme',
+      entryIds: ['e1'],
+      seconds: 3600,
+      since: '2026-10-10',
+      periodStart: '2026-10-10',
+      periodEnd: '2026-10-10',
+      onePeriod: false,
+    },
+  ]);
+});
+
+test('non-billable work, and work of no client, is never due', () => {
+  assert.deepEqual(
+    due([
+      entry({ startedAt: '2026-09-20T15:00:00Z', isBillable: false }),
+      entry({ startedAt: '2026-09-20T15:00:00Z', clientId: null }),
+    ]),
     [],
   );
 });
 
 test('work is dated in the user zone', () => {
   // 03:00 UTC on Oct 1 is still Sep 30 in Chicago.
-  assert.deepEqual(
-    due({ entries: [entry({ startedAt: '2026-10-01T03:00:00Z' })] }),
-    [september],
-  );
+  assert.equal(due([work('e1', '2026-10-01T03:00:00Z')]).length, 1);
 });
 
-test('a one-off expense spent in the period is due; a recurring one alone is not', () => {
-  const expense = { clientId: 'c1', spentOn: '2026-09-12', recurring: false };
-  assert.deepEqual(due({ entries: [], expenses: [expense] }), [
-    { ...september, seconds: 0 },
-  ]);
-  assert.deepEqual(
-    due({ entries: [], expenses: [{ ...expense, spentOn: '2026-08-12' }] }),
-    [],
-  );
-  assert.deepEqual(
-    due({
-      entries: [],
-      expenses: [{ ...expense, spentOn: null, recurring: true }],
-    }),
-    [],
-  );
-});
-
-test('any invoice but a void one sharing a day with the period covers it', () => {
-  const invoice = (status: string, periodStart: string, periodEnd: string) => ({
+test('work inside any invoice but a void one is not due', () => {
+  const inv = (status: string, periodStart: string, periodEnd: string) => ({
     clientId: 'c1',
     status,
     periodStart,
     periodEnd,
   });
+  const e = [work('e1', '2026-09-20T15:00:00Z')];
   for (const status of ['draft', 'sent', 'paid'])
-    assert.deepEqual(
-      due({ invoices: [invoice(status, '2026-09-01', '2026-09-30')] }),
-      [],
-    );
-  assert.deepEqual(
-    due({ invoices: [invoice('draft', '2026-09-20', '2026-10-05')] }),
-    [],
+    assert.deepEqual(due(e, [inv(status, '2026-09-01', '2026-09-30')]), []);
+  assert.equal(due(e, [inv('void', '2026-09-01', '2026-09-30')]).length, 1);
+  // Another client's invoice, or one beside the work, covers nothing.
+  assert.equal(
+    due(e, [{ ...inv('paid', '2026-09-01', '2026-09-30'), clientId: 'c2' }])
+      .length,
+    1,
   );
-  assert.deepEqual(
-    due({ invoices: [invoice('void', '2026-09-01', '2026-09-30')] }),
-    [september],
-  );
-  assert.deepEqual(
-    due({ invoices: [invoice('paid', '2026-08-01', '2026-08-31')] }),
-    [september],
-  );
-  assert.deepEqual(
-    due({
-      invoices: [
-        { ...invoice('paid', '2026-09-01', '2026-09-30'), clientId: 'c2' },
-      ],
-    }),
-    [september],
-  );
+  assert.equal(due(e, [inv('paid', '2026-09-01', '2026-09-15')]).length, 1);
 });
 
-test("the period is the last one ended, even on the open one's last day", () => {
-  const semimonthly = (today: string) =>
-    periodsDue(
-      {
-        clients: [
-          { id: 'c1', name: 'Northwind', schedule: { period: 'semimonthly' } },
-        ],
-        entries: [entry({ startedAt: '2026-10-10T15:00:00Z' })],
-        expenses: [],
-        invoices: [],
-      },
-      today,
-      'America/Chicago',
-    );
-  assert.deepEqual(semimonthly('2026-10-15'), []);
-  assert.deepEqual(semimonthly('2026-10-16'), [
-    { ...september, periodStart: '2026-10-01', periodEnd: '2026-10-15' },
-  ]);
+test('an entry the late row flags is never due as well', () => {
+  const sent = [{ ...invoices[0]!, status: 'sent' }];
+  const late = entry({});
+  assert.equal(lateEntries([late], invoices, 'America/Chicago').length, 1);
+  assert.deepEqual(due([late], sent), []);
 });
 
-test('each client due gets a row, oldest period first', () => {
+test('each client due gets one row, oldest work first', () => {
   assert.deepEqual(
-    due({
-      clients: [
-        { id: 'c2', name: 'Acme', schedule: { period: 'monthly' } },
-        {
-          id: 'c1',
-          name: 'Northwind',
-          schedule: { period: 'weekly', anchor: '2026-09-26' },
-        },
-      ],
-      entries: [
-        entry({ id: 'e1', clientId: 'c1', startedAt: '2026-09-29T15:00:00Z' }),
-        entry({ id: 'e2', clientId: 'c2', startedAt: '2026-09-29T15:00:00Z' }),
-      ],
-    }),
-    [
-      { ...september, clientId: 'c2', clientName: 'Acme' },
-      { ...september, periodStart: '2026-09-26', periodEnd: '2026-10-02' },
-    ],
+    due([
+      work('e1', '2026-09-20T15:00:00Z', 'c1'),
+      work('e2', '2026-08-20T15:00:00Z', 'c2'),
+    ]).map((r) => r.clientName),
+    ['Acme', 'Northwind'],
   );
 });

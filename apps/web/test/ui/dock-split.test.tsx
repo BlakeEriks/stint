@@ -59,7 +59,7 @@ function serve() {
             attention: {
               overdueInvoices: [],
               staleDrafts: [],
-              periodsDue: [],
+              unbilledDue: [],
               lateEntries: [],
               unprojected: [],
               strangeDurations: [],

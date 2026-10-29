@@ -3778,9 +3778,12 @@ test('unbilled work dated in a sent period is late; billed, unbillable or voided
   assert.deepEqual(await late(), []);
 });
 
-test('a scheduled period that ended with work and no invoice is due until one covers it', async () => {
+test('work in an ended period is due until an invoice covers it or it is billed elsewhere', async () => {
   const r = await live();
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const { POST: elsewhere } = await import(
+    '../src/app/api/v1/entries/invoiced-elsewhere/route.ts'
+  );
   const { lastEndedPeriod, localDateKey, addDays } = await import(
     '@stint/core'
   );
@@ -3788,19 +3791,19 @@ test('a scheduled period that ended with work and no invoice is due until one co
     period: 'monthly',
   });
   await pool.query(`update clients set billing_period = 'monthly'`);
-  await seedEntry({
-    id: D(1),
-    start: `${addDays(period.periodStart, 1)}T12:00:00Z`,
-    hours: 2,
-  });
+  const day = addDays(period.periodStart, 1);
+  await seedEntry({ id: D(1), start: `${day}T12:00:00Z`, hours: 2 });
 
   const due = async () =>
-    (await json(await stats(req('/stats?tz=UTC')))).body.attention.periodsDue;
+    (await json(await stats(req('/stats?tz=UTC')))).body.attention.unbilledDue;
   const row = {
     clientId: CLIENT,
     clientName: 'Northwind',
-    ...period,
+    entryIds: [D(1)],
     seconds: 7200,
+    since: day,
+    ...period,
+    onePeriod: true,
   };
   assert.deepEqual(await due(), [row]);
 
@@ -3814,6 +3817,17 @@ test('a scheduled period that ended with work and no invoice is due until one co
   await r.setStatus(req('/s', { status: 'void' }, 'PATCH'), at(inv.body.id));
   assert.deepEqual(await due(), [row], 'a void one does not');
 
+  const mark = (invoicedElsewhere: boolean) =>
+    elsewhere(
+      req('/entries/invoiced-elsewhere', {
+        ids: row.entryIds,
+        invoicedElsewhere,
+      }),
+    );
+  assert.equal((await mark(true)).status, 200);
+  assert.deepEqual(await due(), [], 'billed elsewhere clears it');
+
+  await mark(false);
   await pool.query(`update clients set archived_at = now()`);
   assert.deepEqual(await due(), [], 'nor is an archived client due');
 });

@@ -1,6 +1,6 @@
 Closes #482
 
-# Feature Specification: Say in the Inbox when a scheduled period has ended with no invoice
+# Feature Specification: Say in the Inbox when billable work is past due to bill
 
 **Feature Branch**: `f482-invoice-due`
 
@@ -8,116 +8,122 @@ Closes #482
 
 **Status**: Draft
 
-**Input**: Issue #482. A contractor on a fixed billing schedule has to
-remember each period's end and create the invoice. When she forgets, the
-invoice goes out late and so does the payment. Her clients' schedules are
-already in Stint, so the Inbox can say when a period has ended with work in
-it and no invoice, and open New invoice ready for it. No cron, no email, and
-nothing leaves the app: the row is derived when the Inbox is read.
+**Input**: Issue #482, widened by the owner's review of PR #548. A
+contractor has to remember when work is due to bill and make the invoice.
+When she forgets, the invoice goes out late and so does the payment, and a
+missed period is forgotten for good once the next one ends. The Inbox says,
+one row per client, when billable work is past due to bill, and answers it
+either with an invoice or by marking that work billed outside Stint. No
+cron, no email, and nothing leaves the app: the row is derived when the
+Inbox is read.
 
 ## Clarifications
 
 ### Session 2026-10-28
 
-- Q: What counts as "bills something"? → A: Billable, finished work on no invoice and not billed elsewhere, dated in the period, or an unbilled one-off expense spent in the period. A recurring expense alone raises no row: it bills on every invoice, so it would raise one for every period of a client she has stopped working for. (decided autonomously)
-- Q: What counts as an invoice covering the period? → A: Any draft, sent or paid invoice for that client whose period shares a day with it. A void one doesn't count. Work left outside a partial invoice is not this row's question: a sent invoice's period already raises the late-entry row. (decided autonomously)
-- Q: Only the last ended period, or every missed one? → A: Only the last ended one, as the issue asks. An older missed period is out of scope. (decided autonomously)
-- Q: What does the row say? → A: The client's name, the period's billable time, and "September ended with no invoice" for a monthly client, or the dates for any other schedule: "Oct 1 – 15 ended with no invoice". (decided autonomously)
-- Q: Where does it sort? → A: After stale drafts, with the other invoice rows. Its tone is neutral: a chore, like a stale draft, not money already late. (decided autonomously)
-- Q: How does New invoice receive the client and period? → A: In its address, so the link works from anywhere and survives a reload. A client it doesn't know or dates that aren't a period are ignored, and the form opens as it does today. (decided autonomously)
+- Q: What counts as having work in it? → A: Billable, finished work on no invoice and not billed elsewhere. Expenses don't raise the row: they can't be marked billed elsewhere, so the row couldn't be answered for them. (decided autonomously)
+- Q: Where does it sort? → A: After stale drafts, with the other invoice rows. Its tone is neutral: a chore, not money already late. (decided autonomously)
+- Q: How does New invoice receive the client and dates? → A: In its address, so the link works from anywhere and survives a reload. A client it doesn't know or dates that aren't a range are ignored, and the form opens as it does today. (decided autonomously)
 - Q: Archived clients? → A: No row. Archiving says she no longer bills them. (decided autonomously)
+
+### Session 2026-10-29 (owner review on PR #548)
+
+- Q: Which work is due? → A: For a scheduled client, work in any ended period, not only the latest, so a missed September doesn't drop out once October ends. For a client with no schedule, work more than 30 days old (`UNBILLED_DUE_DAYS`). (reviewer)
+- Q: One row per what? → A: One per client, never one per period. A single period reads "September ended with no invoice", or its dates for another schedule; work across several reads "14h · unbilled since Aug 1". (reviewer)
+- Q: How is it answered? → A: Create invoice, opening New invoice with the client and dates spanning the work, or Billed elsewhere, which marks that work billed outside Stint and clears the row at once. No snooze; a wrong billable flag is fixed on the entry. (reviewer)
+- Q: What covers work? → A: Any draft, sent or paid invoice for that client whose period holds its day. A void one doesn't. Work inside a sent or paid period is already the late-entry row's, so no entry is in both rows. (reviewer, reconciled autonomously)
+- Q: Is 30 days old "due" at 30? → A: No, once it is more than 30 days old: 31. (decided autonomously)
+- Q: What dates does Create invoice fill in? → A: The first day to the last of the work, widened to whole periods for a scheduled client. (decided autonomously)
 
 ## Design
 
 No design review (decided autonomously): the row is one more Inbox card in
-the pattern every row already follows (title, figure, qualifier, one
-action), and New invoice is unchanged but for what it opens with. The dock's
+the pattern every row already follows (title, figure, qualifier, actions), and New invoice is unchanged but for what it opens with. The dock's
 stories show each state.
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - See that a period has ended with no invoice (Priority: P1)
+### User Story 1 - See work past due to bill, and answer it (Priority: P1)
 
-Her client Northwind is billed monthly. On October 3 she opens Stint, and
-the Inbox says Northwind's September has ended with no invoice. She presses
-Create invoice, and New invoice opens with Northwind and September 1–30
-filled in. She creates the draft, and the row is gone.
+Her client Northwind is billed monthly. On October 3 the Inbox says
+Northwind's September ended with no invoice. She presses Create invoice,
+New invoice opens with Northwind and September filled in, and once she
+creates the draft the row is gone. Had she billed September from her old
+tool, she'd press Billed elsewhere instead, and the row would leave at once.
 
 **Why this priority**: It is the whole feature.
 
-**Independent Test**: Give a client a monthly schedule, log billable work
-for it last month, and see the row; create an invoice for last month and see
-it clear.
+**Independent Test**: Give a client a monthly schedule and billable work
+last month; see the row; mark it billed elsewhere and see it go.
 
 **Acceptance Scenarios**:
 
 1. **Given** a monthly client with unbilled work last month and no invoice
-   for it, **Then** the Inbox shows a row naming the client, last month's
-   billable time and "September ended with no invoice".
-2. **Given** a semi-monthly, weekly or biweekly client in the same state,
-   **Then** the row names the period by its dates.
-3. **Given** the row, **When** she presses Create invoice, **Then** New
-   invoice opens with that client and period filled in, and nothing is
-   created until she creates it.
-4. **Given** she creates the invoice, **Then** the row is gone the next time
-   the Inbox is read.
-5. **Given** the period's only invoice was voided, **Then** the row is back.
-6. **Given** the period holds no billable unbilled work and no one-off
-   expense, **Then** there is no row.
-7. **Given** a client with no schedule, or an archived one, **Then** there
-   is no row.
+   for it, **Then** one row names the client, the time and "September
+   ended with no invoice"; another schedule names its dates.
+2. **Given** that client also has unbilled work from August, **Then** it is
+   still one row, reading "unbilled since" the first day of that work.
+3. **Given** a client with no schedule, **Then** its work is due once it is
+   more than 30 days old, and not at 29 or 30.
+4. **Given** the row, **When** she presses Create invoice, **Then** New
+   invoice opens with the client and dates spanning that work, and nothing
+   is created until she creates it.
+5. **Given** the row, **When** she presses Billed elsewhere, **Then** the
+   row leaves at once, that work is billed elsewhere, and a refusal brings
+   the row back with the reason.
+6. **Given** an invoice that isn't void now holds that work, **Then** the
+   row is gone; voided, it is back.
+7. **Given** work inside a sent invoice's period, **Then** only the
+   late-entry row names it.
+8. **Given** non-billable work, an archived client, or work in a period not
+   yet ended, **Then** there is no row.
 
 ### Edge Cases
 
-- Today is the period's last day: the period hasn't ended, so the row is
-  about the period before it.
-- The only work in the period is non-billable or billed elsewhere: no row.
-- A running timer started in the period: it isn't finished, so it doesn't
-  count.
-- A draft covers only part of the period: it covers the period, so no row.
-- Two scheduled clients both owe an invoice: one row each.
+- Today is a period's last day: that period hasn't ended.
+- A running timer: not finished, so not due.
 - A link to New invoice naming a client that doesn't exist, or dates that
-  aren't a period: the form opens empty, as it does today.
+  aren't a range: the form opens empty, as it does today.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: The Inbox MUST show one row per active client with a billing
-  schedule whose last ended period, on today's date in the user's zone,
-  bills something and has no invoice but a void one sharing a day with it.
-- **FR-002**: "Bills something" MUST mean billable, finished work on no
-  invoice and not billed elsewhere, dated in the user's zone inside the
-  period, or an unbilled one-off expense spent inside it.
-- **FR-003**: The row MUST name the client, show the period's billable time,
-  and say the period ended with no invoice: by month name for a monthly
-  client, by its dates for any other schedule.
-- **FR-004**: The row's action MUST open New invoice with that client and
-  period filled in, and create nothing itself.
-- **FR-005**: New invoice MUST ignore a client it doesn't know, and dates
-  that aren't valid or run backwards, opening as it does without them.
-- **FR-006**: The row MUST clear once a draft, sent or paid invoice for that
-  client shares a day with the period, with no job, schedule or email.
+- **FR-001**: The Inbox MUST show one row per active client with billable,
+  finished work on no invoice and not billed elsewhere that is past due:
+  in an ended period of the client's schedule, or more than 30 days old
+  when it has none.
+- **FR-002**: Work dated, in the user's zone, inside a draft, sent or paid
+  invoice's period for its client MUST NOT be due; work inside a sent or
+  paid one stays the late-entry row's alone.
+- **FR-003**: The row MUST name the client and show the work's time; it MUST
+  say "<period> ended with no invoice" when the work is one period of a
+  schedule, and "unbilled since <first day>" otherwise.
+- **FR-004**: Create invoice MUST open New invoice with the client and the
+  dates spanning that work, and create nothing itself.
+- **FR-005**: Billed elsewhere MUST mark exactly that row's entries billed
+  elsewhere through the API, removing the row at once and bringing it back
+  with the reason if refused.
+- **FR-006**: New invoice MUST ignore a client it doesn't know, and dates
+  that aren't valid or run backwards.
 - **FR-007**: The Inbox's count MUST include these rows.
 
 ### Key Entities
 
-- **Period due**: derived, never stored. A client, its last ended period,
-  and the billable time in it.
+- **Work due**: derived, never stored. A client, its entries past due, their
+  time, the first day, and the dates spanning them.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: On the first day after a scheduled period ends with work in
-  it, the Inbox says so without her doing anything.
-- **SC-002**: From the row, an invoice for the period is two presses away:
-  Create invoice, then create.
-- **SC-003**: Once an invoice covers the period, no row about it remains.
+- **SC-001**: The first day work is past due, the Inbox says so without her
+  doing anything, and keeps saying so until she answers.
+- **SC-002**: From the row, either answer is at most two presses away.
+- **SC-003**: No entry is named by two Inbox rows for the same reason.
 
 ## Assumptions
 
 - The user's zone decides which day it is, as it does for every other Inbox
   row.
-- The phone and macOS apps show no Inbox, so they change nothing; they
-  ignore the new field.
+- The phone and macOS apps show no Inbox; they ignore the new field.

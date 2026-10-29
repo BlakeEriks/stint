@@ -144,14 +144,33 @@ export const LateEntry: Story = {
   },
 };
 
+/** Northwind on `schedule`, with its unbilled work before `from` billed
+    elsewhere, so only the work from `from` on can be due. */
+const northwindFrom = (
+  schedule: Db['clients'][number]['billingSchedule'],
+  from: string,
+) =>
+  account((db) => {
+    const northwind = new Set(
+      db.projects.filter((p) => p.clientId === ids.northwind).map((p) => p.id),
+    );
+    for (const c of db.clients)
+      if (c.id === ids.northwind) c.billingSchedule = schedule;
+    for (const e of db.entries)
+      if (
+        !e.invoiceId &&
+        e.projectId &&
+        northwind.has(e.projectId) &&
+        e.startedAt < from
+      )
+        e.invoicedElsewhere = true;
+  });
+
 /** Northwind bills twice a month, and on September 17 its first half has
     ended with work in it and no invoice. The row opens New invoice for it. */
 export const PeriodDue: Story = {
   ...desktop,
-  parameters: account((db) => {
-    for (const c of db.clients)
-      if (c.id === ids.northwind) c.billingSchedule = { period: 'semimonthly' };
-  }),
+  parameters: northwindFrom({ period: 'semimonthly' }, '2026-09-01'),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await expect(
@@ -196,11 +215,10 @@ export const PeriodDueMonthly: Story = {
     from August 27, the one that last ended is August 27 to September 9. */
 export const PeriodDueAcrossMonths: Story = {
   ...desktop,
-  parameters: account((db) => {
-    for (const c of db.clients)
-      if (c.id === ids.northwind)
-        c.billingSchedule = { period: 'biweekly', anchor: '2026-08-27' };
-  }),
+  parameters: northwindFrom(
+    { period: 'biweekly', anchor: '2026-08-27' },
+    '2026-08-27',
+  ),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await expect(
@@ -209,18 +227,72 @@ export const PeriodDueAcrossMonths: Story = {
   },
 };
 
-/** Billed monthly, Northwind's August holds a sent invoice for its first
-    half, which covers it: no row. */
-export const PeriodCovered: Story = {
-  ...desktop,
-  parameters: account((db) => {
+/** Meridian's August invoices voided and work logged on the dates given,
+    so nothing but that work is due for Meridian. */
+const meridianWork = (
+  schedule: Db['clients'][number]['billingSchedule'],
+  ...dates: string[]
+) =>
+  account((db) => {
     for (const c of db.clients)
-      if (c.id === ids.northwind) c.billingSchedule = { period: 'monthly' };
-  }),
+      if (c.id === ids.meridian) c.billingSchedule = schedule;
+    for (const i of db.invoices)
+      if (i.clientId === ids.meridian && i.periodStart.startsWith('2026-08'))
+        i.status = 'void';
+    db.entries.push(
+      ...dates.map((date, n) =>
+        entry(990 + n, date, '09:00', 120, ids.pipeline, 'Audit notes'),
+      ),
+    );
+  });
+
+/** Work across several ended periods is one row, saying how far back it
+    goes rather than naming a period. */
+export const PastDueSincePeriods: Story = {
+  ...desktop,
+  parameters: meridianWork({ period: 'monthly' }, '2026-07-10', '2026-08-20'),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
-    await page.findAllByText(/days late/);
-    await expect(page.queryByText(/ended with no invoice/)).toBeNull();
+    const row = within(
+      (await page.findByText('unbilled since Jul 10')).closest(
+        '[data-tone]',
+      ) as HTMLElement,
+    );
+    await expect(row.getByText('Meridian Labs')).toBeVisible();
+    await expect(row.getByText('4h')).toBeVisible();
+    await expect(
+      row.getByRole('link', { name: 'Create invoice, Meridian Labs' }),
+    ).toHaveAttribute(
+      'href',
+      `/invoices/new?client=${ids.meridian}&from=2026-07-01&to=2026-08-31`,
+    );
+  },
+};
+
+/** With no schedule, work waits a month before it is due. */
+export const PastDueUnscheduled: Story = {
+  ...desktop,
+  parameters: meridianWork(null, '2026-07-10'),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(await page.findByText('unbilled since Jul 10')).toBeVisible();
+  },
+};
+
+/** Billed elsewhere marks that work billed outside Stint, and the row
+    leaves at once. */
+export const PastDueBilledElsewhere: Story = {
+  ...desktop,
+  parameters: meridianWork({ period: 'monthly' }, '2026-07-10', '2026-08-20'),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(await page.findByText('unbilled since Jul 10')).toBeVisible();
+    await userEvent.click(
+      page.getByRole('button', { name: 'Billed elsewhere, Meridian Labs' }),
+    );
+    await waitFor(() =>
+      expect(page.queryByText('unbilled since Jul 10')).toBeNull(),
+    );
   },
 };
 
@@ -240,6 +312,10 @@ export const Clear: Story = {
         e.projectId !== null &&
         !['Client call and follow-ups'].includes(e.taskName),
     );
+    // Work a month old with no invoice is past due to bill.
+    for (const e of db.entries)
+      if (!e.invoiceId && e.startedAt < '2026-08-18')
+        e.invoicedElsewhere = true;
   }),
 };
 

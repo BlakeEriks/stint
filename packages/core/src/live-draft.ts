@@ -5,7 +5,11 @@
  * sent is surfaced rather than billed on whichever invoice comes next.
  */
 
-import { type BillingSchedule, lastEndedPeriod } from './billing-period.ts';
+import {
+  type BillingSchedule,
+  isPeriod,
+  periodContaining,
+} from './billing-period.ts';
 import { addDays, localDateKey } from './calendar.ts';
 import { hundredths, type LineItem, termsDays } from './invoice.ts';
 
@@ -135,15 +139,19 @@ export function lateEntries(
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
 }
 
-/** Inputs to `periodsDue()`: the rows it reads, each already unbilled
- *  where that applies. */
+/**
+ * How old unbilled work of a client with no billing schedule gets before the
+ * Inbox asks about it: a month, the longest period any schedule bills, so
+ * someone who bills monthly without saying so is not asked before her month
+ * is up.
+ */
+export const UNBILLED_DUE_DAYS = 30;
+
 interface DueInputs {
-  /** The user's active clients with a billing schedule. */
-  clients: { id: string; name: string; schedule: BillingSchedule }[];
+  /** The user's active clients; `schedule` null when none is set. */
+  clients: { id: string; name: string; schedule: BillingSchedule | null }[];
   /** Finished entries on no invoice and not billed elsewhere. */
-  entries: Omit<LateCandidate, 'id' | 'taskName'>[];
-  /** Expenses on no invoice. */
-  expenses: { clientId: string; spentOn: string | null; recurring: boolean }[];
+  entries: Omit<LateCandidate, 'taskName'>[];
   invoices: {
     clientId: string;
     status: string;
@@ -153,58 +161,66 @@ interface DueInputs {
 }
 
 /**
- * Each scheduled client whose last ended period, on `today`, bills something
- * and has no invoice but a void one sharing a day with it; oldest period
- * first. A recurring expense alone bills nothing here: it bills on every
- * invoice, so it would raise a row for every period of a client gone quiet.
+ * Billable work past due to bill, one row per client, oldest first: for a
+ * scheduled client, work in any period that has ended; for any other, work
+ * more than `UNBILLED_DUE_DAYS` old. Work inside an invoice that isn't void
+ * is never due: a draft will bill it, and one inside a sent or paid period
+ * is `lateEntries()`' row, so no entry is flagged twice.
+ *
+ * `periodStart`..`periodEnd` span the work, widened to whole periods for a
+ * scheduled client; `onePeriod` says they are exactly one of its periods.
  */
-export function periodsDue(
-  { clients, entries, expenses, invoices }: DueInputs,
+export function unbilledDue(
+  { clients, entries, invoices }: DueInputs,
   today: string,
   tz: string,
 ) {
+  const cutoff = addDays(today, -UNBILLED_DUE_DAYS);
   return clients
     .flatMap((c) => {
-      const { periodStart, periodEnd } = lastEndedPeriod(today, c.schedule);
-      const inPeriod = (day: string) => periodStart <= day && day <= periodEnd;
-      const covered = invoices.some(
-        (i) =>
-          i.clientId === c.id &&
-          i.status !== 'void' &&
-          i.periodStart <= periodEnd &&
-          periodStart <= i.periodEnd,
-      );
-      if (covered) return [];
-      const seconds = entries
-        .filter(
-          (e) =>
-            e.isBillable &&
-            e.clientId === c.id &&
-            inPeriod(localDateKey(new Date(e.startedAt), tz)),
-        )
-        .reduce((total, e) => total + e.durationSeconds, 0);
-      const expensed = expenses.some(
-        (x) =>
-          x.clientId === c.id &&
-          !x.recurring &&
-          x.spentOn !== null &&
-          inPeriod(x.spentOn),
-      );
-      return seconds > 0 || expensed
-        ? [
-            {
-              clientId: c.id,
-              clientName: c.name,
-              periodStart,
-              periodEnd,
-              seconds,
-            },
-          ]
-        : [];
+      const covered = (day: string) =>
+        invoices.some(
+          (i) =>
+            i.clientId === c.id &&
+            i.status !== 'void' &&
+            i.periodStart <= day &&
+            day <= i.periodEnd,
+        );
+      const isDue = (day: string) =>
+        c.schedule
+          ? periodContaining(day, c.schedule).periodEnd < today
+          : day < cutoff;
+      const work = entries
+        .filter((e) => e.isBillable && e.clientId === c.id)
+        .map((e) => ({ ...e, day: localDateKey(new Date(e.startedAt), tz) }))
+        .filter((e) => isDue(e.day) && !covered(e.day))
+        .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+      const first = work[0]?.day;
+      const last = work.at(-1)?.day;
+      if (!first || !last) return [];
+      const span = c.schedule
+        ? {
+            periodStart: periodContaining(first, c.schedule).periodStart,
+            periodEnd: periodContaining(last, c.schedule).periodEnd,
+          }
+        : { periodStart: first, periodEnd: last };
+      return [
+        {
+          clientId: c.id,
+          clientName: c.name,
+          entryIds: work.map((e) => e.id),
+          seconds: work.reduce((t, e) => t + e.durationSeconds, 0),
+          since: first,
+          ...span,
+          onePeriod:
+            c.schedule !== null &&
+            isPeriod(c.schedule, span.periodStart, span.periodEnd),
+        },
+      ];
     })
     .sort(
       (a, b) =>
-        a.periodEnd.localeCompare(b.periodEnd) ||
+        a.since.localeCompare(b.since) ||
         a.clientName.localeCompare(b.clientName),
     );
 }

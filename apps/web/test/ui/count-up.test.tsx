@@ -31,7 +31,7 @@ function stats(over: Partial<Stats> = {}): Stats {
     attention: {
       overdueInvoices: [],
       staleDrafts: [],
-      periodsDue: [],
+      unbilledDue: [],
       lateEntries: [],
       unprojected: [],
       strangeDurations: [],

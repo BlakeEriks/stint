@@ -24,6 +24,7 @@ import {
   FolderInput,
   Inbox as InboxIcon,
   Pencil,
+  ReceiptText,
   Send,
 } from 'lucide-react';
 import {
@@ -49,7 +50,7 @@ export function inboxCount(attention: Attention) {
     (attention.paymentTermsToCheck !== null ? 1 : 0) +
     attention.overdueInvoices.length +
     attention.staleDrafts.length +
-    attention.periodsDue.length +
+    attention.unbilledDue.length +
     attention.lateEntries.length +
     attention.unprojected.length +
     attention.strangeDurations.length +
@@ -61,7 +62,7 @@ export function inboxCount(attention: Attention) {
 type InboxRow =
   | { id: string; kind: 'overdue'; row: Attention['overdueInvoices'][number] }
   | { id: string; kind: 'draft'; row: Attention['staleDrafts'][number] }
-  | { id: string; kind: 'due'; row: Attention['periodsDue'][number] }
+  | { id: string; kind: 'due'; row: Attention['unbilledDue'][number] }
   | { id: string; kind: 'late'; row: Attention['lateEntries'][number] }
   | { id: string; kind: 'unprojected'; row: Attention['unprojected'][number] }
   | { id: string; kind: 'strange'; row: Attention['strangeDurations'][number] }
@@ -90,7 +91,7 @@ export function Inbox({ stats }: { stats: Stats }) {
   const {
     overdueInvoices,
     staleDrafts,
-    periodsDue,
+    unbilledDue,
     lateEntries,
     unprojected,
     strangeDurations,
@@ -145,6 +146,18 @@ export function Inbox({ stats }: { stats: Stats }) {
     ...rowPress,
     mutationFn: (id: string) => api.updateEntry(id, { durationOk: true }),
     invalidate: async (qc, id) => {
+      await leaving.get(id);
+      return invalidateEntryData(qc);
+    },
+  });
+
+  /* Reversible from each entry's dialog, so the row leaves at once. A wrong
+     billable flag is fixed on the entry, not answered here. */
+  const markElsewhere = useOptimisticMutation({
+    ...rowPress,
+    mutationFn: ({ ids }: { id: string; ids: string[] }) =>
+      api.markInvoicedElsewhere({ ids, invoicedElsewhere: true }),
+    invalidate: async (qc, { id }) => {
       await leaving.get(id);
       return invalidateEntryData(qc);
     },
@@ -216,8 +229,8 @@ export function Inbox({ stats }: { stats: Stats }) {
       kind: 'draft' as const,
       row: d,
     })),
-    /* An invoice not yet made, with the ones made and not sent. */
-    ...periodsDue.map((p) => ({
+    /* Invoices not yet made, with the ones made and not sent. */
+    ...unbilledDue.map((p) => ({
       id: `due:${p.clientId}`,
       kind: 'due' as const,
       row: p,
@@ -356,6 +369,10 @@ export function Inbox({ stats }: { stats: Stats }) {
                   leave(id);
                   confirmLength.mutate(id);
                 }}
+                onElsewhere={(v) => {
+                  leave(v.id);
+                  markElsewhere.mutate(v);
+                }}
                 exiting={exit.exiting.has(r.id)}
                 ref={exit.register(r.id)}
               />
@@ -388,6 +405,7 @@ type Handlers = {
   onStatus: (v: { id: string; status: InvoiceStatus }) => void;
   onOpen: (v: { id: string; focus: 'task' | 'project' }) => void;
   onConfirm: (id: string) => void;
+  onElsewhere: (v: { id: string; ids: string[] }) => void;
 };
 
 type ItemProps = Omit<React.ComponentProps<typeof Item>, 'exiting' | 'ref'>;
@@ -424,7 +442,7 @@ function itemFor(r: ItemRow, h: Handlers): ItemProps {
         refuses: r.row.refuses,
       });
     case 'due':
-      return dueItem(r.row);
+      return dueItem(r.row, h);
     case 'unprojected':
       return unprojectedItem(r.row, h);
     case 'overlap':
@@ -485,31 +503,51 @@ function invoiceItem(
   };
 }
 
-/* A chore, not money late, so neutral. The link fills in New invoice and
-   creates nothing: the user makes the draft, so it is numbered then. */
-function dueItem(p: Attention['periodsDue'][number]): ItemProps {
+/* A chore, not money late, so neutral. Create invoice fills in New invoice
+   and creates nothing: the user makes the draft, so it is numbered then.
+   One period is named; work across several says how far back it goes. */
+function dueItem(d: Attention['unbilledDue'][number], h: Handlers): ItemProps {
+  const id = `due:${d.clientId}`;
   const href = `/invoices/new?${new URLSearchParams({
-    client: p.clientId,
-    from: p.periodStart,
-    to: p.periodEnd,
+    client: d.clientId,
+    from: d.periodStart,
+    to: d.periodEnd,
   })}`;
   return {
     href,
-    label: p.clientName,
-    detail: `${periodName(p.periodStart, p.periodEnd)} ended with no invoice`,
-    value: p.seconds > 0 ? formatCompact(p.seconds) : undefined,
+    label: d.clientName,
+    detail: d.onePeriod
+      ? `${periodName(d.periodStart, d.periodEnd)} ended with no invoice`
+      : `unbilled since ${shortDay(d.since)}`,
+    value: formatCompact(d.seconds),
     tone: 'neutral',
     actions: (
-      <Action
-        label="Create invoice"
-        context={p.clientName}
-        icon={<FilePlus aria-hidden />}
-        href={href}
-        navigates
-      />
+      <>
+        <Action
+          label="Create invoice"
+          context={d.clientName}
+          icon={<FilePlus aria-hidden />}
+          href={href}
+          navigates
+        />
+        <Action
+          label="Billed elsewhere"
+          context={d.clientName}
+          icon={<ReceiptText aria-hidden />}
+          onClick={() => h.onElsewhere({ id, ids: d.entryIds })}
+        />
+      </>
     ),
   };
 }
+
+/** `YYYY-MM-DD` as "Aug 1". */
+const shortDay = (d: string) =>
+  new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${d}T00:00:00Z`));
 
 /** A calendar month by its name, any other period by its dates:
  *  "Oct 1 – 15", "Sep 28 – Oct 4". */
@@ -523,8 +561,8 @@ function periodName(start: string, end: string) {
   const to =
     start.slice(0, 7) === end.slice(0, 7)
       ? date(end, { day: 'numeric' })
-      : date(end, { month: 'short', day: 'numeric' });
-  return `${date(start, { month: 'short', day: 'numeric' })} – ${to}`;
+      : shortDay(end);
+  return `${shortDay(start)} – ${to}`;
 }
 
 function entryItem(

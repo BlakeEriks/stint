@@ -42,7 +42,7 @@ function stats(attention: Partial<Stats['attention']> = {}): Stats {
       paymentTermsToCheck: null,
       overdueInvoices: [],
       staleDrafts: [],
-      periodsDue: [],
+      unbilledDue: [],
       lateEntries: [],
       unprojected: [],
       strangeDurations: [],
@@ -94,14 +94,17 @@ afterEach(() => vi.unstubAllGlobals());
 const due = {
   clientId: 'c1',
   clientName: 'Northwind',
+  entryIds: ['e1'],
+  seconds: 54000,
+  since: '2026-09-04',
   periodStart: '2026-09-01',
   periodEnd: '2026-09-30',
-  seconds: 54000,
+  onePeriod: true,
 };
 
-describe('A scheduled period that ended with no invoice', () => {
+describe('Work past due to bill', () => {
   it('counts in the header', () => {
-    expect(inboxCount(stats({ periodsDue: [due] }).attention)).toBe(1);
+    expect(inboxCount(stats({ unbilledDue: [due] }).attention)).toBe(1);
   });
 });
 

@@ -46,7 +46,7 @@ import {
   type UnbilledRow,
   type UnprojectedRow,
   lateEntries,
-  periodsDue,
+  unbilledDue,
 } from '@stint/core';
 
 /**
@@ -109,8 +109,7 @@ export async function readStats(
     collectedRows,
     weekEntries,
     issuedPeriods,
-    scheduledClients,
-    unbilledExpenses,
+    activeClients,
   ] = await Promise.all([
     /* `p_now` on every rollup: a running entry is measured at the same
        instant the windows are cut at. */
@@ -244,19 +243,12 @@ export async function readStats(
       .select('id, invoice_number, client_id, status, period_start, period_end')
       .in('status', ['sent', 'paid']),
 
-    /* For a scheduled period that ended with no invoice: the clients whose
-       schedule says when one is due, and the one-off expenses a period can
-       bill. */
+    /* For work past due to bill: each client's schedule, which says when
+       its work is due. */
     db
       .from('clients')
       .select('id, name, billing_period, period_anchor')
-      .not('billing_period', 'is', null)
       .is('archived_at', null),
-    db
-      .from('expenses')
-      .select('client_id, spent_on, recurring')
-      .is('invoice_id', null)
-      .eq('recurring', false),
   ]);
 
   for (const r of [
@@ -269,8 +261,7 @@ export async function readStats(
     projectRows,
     collectedRows,
     issuedPeriods,
-    scheduledClients,
-    unbilledExpenses,
+    activeClients,
   ]) {
     if (r.error) throw r.error;
   }
@@ -431,23 +422,19 @@ export async function readStats(
         })),
         tz,
       ).map((e) => ({ ...e, clientName: clientNames.get(e.clientId) ?? null })),
-      periodsDue: periodsDue(
+      unbilledDue: unbilledDue(
         {
-          clients: ((scheduledClients.data ?? []) as ClientRow[]).map((c) => ({
+          clients: ((activeClients.data ?? []) as ClientRow[]).map((c) => ({
             id: c.id,
             name: c.name,
-            schedule: toBillingSchedule(c)!,
+            schedule: toBillingSchedule(c),
           })),
           entries: overlapCandidates.map((r) => ({
+            id: r.id,
             startedAt: new Date(r.started_at).toISOString(),
             durationSeconds: r.duration_seconds,
             isBillable: r.is_billable,
             clientId: clientOfProject(r.project_id),
-          })),
-          expenses: (unbilledExpenses.data ?? []).map((x) => ({
-            clientId: x.client_id as string,
-            spentOn: x.spent_on as string | null,
-            recurring: x.recurring as boolean,
           })),
           invoices: [
             ...((invoices.data ?? []) as StoredInvoiceRow[]),

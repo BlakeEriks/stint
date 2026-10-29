@@ -1,14 +1,12 @@
-# Data model: Say in the Inbox when a scheduled period has ended with no invoice
+# Data model: Say in the Inbox when billable work is past due to bill
 
-Nothing stored. `attention.periodsDue` is derived per request:
+Nothing stored. `attention.unbilledDue` is derived per request, one row per client:
 
 | Field | Type | From |
 | --- | --- | --- |
-| `clientId` | uuid | an active client with `billing_period` set |
-| `clientName` | string | `clients.name` |
-| `periodStart`, `periodEnd` | `YYYY-MM-DD` | `lastEndedPeriod(today in tz, schedule)` |
-| `seconds` | integer ≥ 0 | billable, finished, uninvoiced, not-elsewhere time dated in the period |
-
-A row exists when `seconds > 0` or a one-off unbilled expense is spent in
-the period, and no draft, sent or paid invoice for the client shares a day
-with the period. Ordered by `periodEnd`, then client name.
+| `clientId`, `clientName` | uuid, string | an active client |
+| `entryIds` | uuid[] | its billable, finished entries on no invoice, not billed elsewhere, past due, inside no non-void invoice's period |
+| `seconds` | integer | their time |
+| `since` | `YYYY-MM-DD` | the first one's day in `tz` |
+| `periodStart`, `periodEnd` | `YYYY-MM-DD` | the first to the last day, widened to whole periods for a scheduled client |
+| `onePeriod` | boolean | that span is exactly one of the client's periods |

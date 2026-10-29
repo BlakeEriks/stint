@@ -70,6 +70,10 @@ export const Clear: Story = {
         e.projectId !== null &&
         !['Client call and follow-ups'].includes(e.taskName),
     );
+    // Work a month old with no invoice is past due to bill.
+    for (const e of db.entries)
+      if (!e.invoiceId && e.startedAt < '2026-08-18')
+        e.invoicedElsewhere = true;
   }),
   play: async ({ canvasElement }) => {
     const page = body(canvasElement);

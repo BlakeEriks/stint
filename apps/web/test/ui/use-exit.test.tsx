@@ -220,7 +220,7 @@ describe('an inbox row leaving', () => {
       attention: {
         overdueInvoices: [],
         staleDrafts: [],
-        periodsDue: [],
+        unbilledDue: [],
         lateEntries: [],
         unprojected: [],
         strangeDurations: [],

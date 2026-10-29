@@ -206,7 +206,7 @@
     "overdueInvoices": [],
     "staleDrafts": [],
     "lateEntries": [],
-    "periodsDue": [],
+    "unbilledDue": [],
     "unprojected": [],
     "strangeDurations": [],
     "overlaps": []

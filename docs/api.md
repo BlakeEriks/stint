@@ -179,9 +179,13 @@ cannot return every day once answered. `unprojected` is one row per entry,
 oldest first; `strangeDurations` one per stopped entry of implausible length;
 `lateEntries` one per unbilled billable entry dated, in `tz`, inside a sent or
 paid invoice's period for its client, naming that invoice;
-`periodsDue` one per active scheduled client whose last ended period, in
-`tz`, bills unbilled time or a one-off expense and has no invoice but a void
-one sharing a day with it, with that period's billable `seconds`.
+`unbilledDue` one per active client with billable work past due to bill,
+dated in `tz` inside no invoice but a void one: in any ended period of a
+scheduled client, or more than `UNBILLED_DUE_DAYS` (30) old for any other.
+It names the `entryIds`, their `seconds`, the first day as `since`, and
+`periodStart`..`periodEnd` spanning them, whole periods for a scheduled
+client, with `onePeriod` true when that span is exactly one of them. No
+entry is in both it and `lateEntries`.
 The long threshold defaults to 12 hours, which is how a timer left running
 overnight reaches the inbox; the short one defaults to null. `overlaps` is one
 per pair of entries sharing a minute or more (`MIN_OVERLAP_SECONDS` in
