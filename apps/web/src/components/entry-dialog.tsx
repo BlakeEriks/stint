@@ -12,6 +12,7 @@ import {
   addDays,
   localDateKey,
   localDateTimeToInstant,
+  localTimeKey,
 } from '@stint/core';
 import { Check, Loader2, Trash2 } from 'lucide-react';
 import {
@@ -55,6 +56,16 @@ interface Draft {
   drawn: { startedAt: Date; endedAt: Date };
 }
 
+/** An entry to edit, or the times a new one opens on: never neither, so
+    no caller can open a blank Add. */
+export type Opens =
+  | { existing: TimeEntry; seed?: never }
+  | {
+      existing?: undefined;
+      /** From where it was drawn or clicked on a grid. */
+      seed: { startedAt: string; endedAt: string };
+    };
+
 /**
  * Create, edit or delete a completed time entry.
  *
@@ -74,17 +85,9 @@ export function EntryDialog({
   projects,
   onSaved,
   tz = timeZone,
-}: {
+}: Opens & {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Omitted for a new entry. */
-  existing?: TimeEntry;
-  /**
-   * The times a new entry opens on, from where it was drawn or clicked.
-   * Adding needs one: with neither this nor `existing` the dialog draws
-   * nothing. Ignored when `existing` is set, which opens on its own times.
-   */
-  seed?: { startedAt: string; endedAt: string };
   /**
    * Which field takes focus on open. Defaults to the task, which is what a
    * new entry or an ordinary edit starts from — but a caller that opened the
@@ -103,34 +106,20 @@ export function EntryDialog({
   /** Overridable so a test can pin a zone; production always uses the real one. */
   tz?: string;
 }) {
-  const [draft, setDraft] = useState<Draft | null>(null);
+  const [draft, setDraft] = useState(() =>
+    opening(existing ? { existing } : { seed }, tz),
+  );
   const [error, setError] = useState<string | null>(null);
 
   // Reset each time it opens, so a canceled edit cannot leak into the next.
   useEffect(() => {
     if (!open) return;
     setError(null);
-
-    const opened = existing ?? seed;
-    if (!opened) return;
-    const startedAt = new Date(opened.startedAt);
-    // A running entry never opens here; its end would be now.
-    const endedAt = new Date(opened.endedAt ?? Date.now());
-    setDraft({
-      taskName: existing?.taskName ?? '',
-      projectId: existing?.projectId ?? null,
-      date: localDateKey(startedAt, tz),
-      start: localTime(startedAt, tz),
-      end: localTime(endedAt, tz),
-      billable: existing?.isBillable ?? true,
-      billableTouched: false,
-      invoicedElsewhere: existing?.invoicedElsewhere ?? false,
-      drawn: { startedAt, endedAt },
-    });
+    setDraft(opening(existing ? { existing } : { seed }, tz));
   }, [open, existing, seed, tz]);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
-    setDraft((d) => d && redrawn({ ...d, [key]: value }, tz));
+    setDraft((d) => redrawn({ ...d, [key]: value }, tz));
 
   /* A new entry takes the project's billable default, as a started timer
      does. An entry that exists keeps the flag the user saved, and a box the
@@ -171,13 +160,13 @@ export function EntryDialog({
   };
 
   const body = () => {
-    const { startedAt, endedAt } = draftInstants(draft!, tz);
+    const { startedAt, endedAt } = draftInstants(draft, tz);
     return {
-      taskName: draft!.taskName.trim(),
-      projectId: draft!.projectId,
+      taskName: draft.taskName.trim(),
+      projectId: draft.projectId,
       startedAt: startedAt.toISOString(),
       endedAt: endedAt.toISOString(),
-      isBillable: draft!.billable,
+      isBillable: draft.billable,
     };
   };
 
@@ -186,8 +175,8 @@ export function EntryDialog({
     mutationFn: async () =>
       api.updateEntry(existing!.id, {
         ...body(),
-        ...(draft!.invoicedElsewhere !== existing!.invoicedElsewhere && {
-          invoicedElsewhere: draft!.invoicedElsewhere,
+        ...(draft.invoicedElsewhere !== existing!.invoicedElsewhere && {
+          invoicedElsewhere: draft.invoicedElsewhere,
         }),
       }),
     onError: failWith('Could not save this entry.'),
@@ -238,7 +227,6 @@ export function EntryDialog({
   const busy = save.isPending || remove.isPending;
 
   const colors = useProjectColors();
-  if (!draft) return null;
 
   return (
     <Dialog
@@ -275,12 +263,10 @@ export function EntryDialog({
                    the user's answer to which client this is billed to, and
                    a row used under another one must not move the work
                    there. */
-                setDraft(
-                  (d) =>
-                    d &&
-                    (rowProject && !d.projectId
-                      ? withProject({ ...d, taskName: name }, rowProject)
-                      : { ...d, taskName: name }),
+                setDraft((d) =>
+                  rowProject && !d.projectId
+                    ? withProject({ ...d, taskName: name }, rowProject)
+                    : { ...d, taskName: name },
                 );
               }}
               projectId={draft.projectId}
@@ -312,7 +298,7 @@ export function EntryDialog({
               id="entry-project"
               projects={projects}
               value={draft.projectId}
-              onChange={(id) => setDraft((d) => d && withProject(d, id))}
+              onChange={(id) => setDraft((d) => withProject(d, id))}
               disabled={locked}
               autoFocus={focus === 'project'}
               /* This is already a dialog, and Radix mounts no dialog inside
@@ -343,16 +329,13 @@ export function EntryDialog({
               /* The date too: a drag past midnight either way moves the
                  day the entry starts on. */
               onChange={({ startedAt, endedAt }) =>
-                setDraft(
-                  (d) =>
-                    d && {
-                      ...d,
-                      date: localDateKey(startedAt, tz),
-                      start: localTime(startedAt, tz),
-                      end: localTime(endedAt, tz),
-                      drawn: { startedAt, endedAt },
-                    },
-                )
+                setDraft((d) => ({
+                  ...d,
+                  date: localDateKey(startedAt, tz),
+                  start: localTimeKey(startedAt, tz),
+                  end: localTimeKey(endedAt, tz),
+                  drawn: { startedAt, endedAt },
+                }))
               }
             />
           </div>
@@ -366,7 +349,7 @@ export function EntryDialog({
               checked={draft.billable}
               onChange={(e) => {
                 const billable = e.target.checked;
-                setDraft((d) => d && { ...d, billable, billableTouched: true });
+                setDraft((d) => ({ ...d, billable, billableTouched: true }));
               }}
               className="size-4 accent-[var(--text-muted)]"
             />
@@ -405,19 +388,23 @@ export function EntryDialog({
   );
 }
 
-/** `14:05` on a wall clock in `tz`. The date half is `localDateKey`. */
-function localTime(at: Date, tz: string) {
-  const p = Object.fromEntries(
-    new Intl.DateTimeFormat('en-CA', {
-      timeZone: tz,
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    })
-      .formatToParts(at)
-      .map((part) => [part.type, part.value]),
-  ) as Record<string, string>;
-  return `${p.hour === '24' ? '00' : p.hour}:${p.minute}`;
+/** The form as it opens on an entry, or on a new one's times. */
+function opening({ existing, seed }: Opens, tz: string): Draft {
+  const opened = existing ?? seed;
+  const startedAt = new Date(opened.startedAt);
+  // A running entry never opens here; its end would be now.
+  const endedAt = new Date(opened.endedAt ?? Date.now());
+  return {
+    taskName: existing?.taskName ?? '',
+    projectId: existing?.projectId ?? null,
+    date: localDateKey(startedAt, tz),
+    start: localTimeKey(startedAt, tz),
+    end: localTimeKey(endedAt, tz),
+    billable: existing?.isBillable ?? true,
+    billableTouched: false,
+    invoicedElsewhere: existing?.invoicedElsewhere ?? false,
+    drawn: { startedAt, endedAt },
+  };
 }
 
 /**

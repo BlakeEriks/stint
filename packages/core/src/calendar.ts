@@ -187,6 +187,17 @@ export function localDateKey(at: Date, tz: string): string {
   return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
+/** `14:05` on a wall clock in the given zone: `localDateKey`'s time half,
+    and the `HH:MM` that `localDateTimeToInstant` reads back. */
+export function localTimeKey(at: Date, tz: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone: tz,
+  }).format(at);
+}
+
 /**
  * The seconds of `[start, end)` on each local date, cut at local midnight so
  * no day holds more than it has. A zero-length span keeps its one day.

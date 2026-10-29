@@ -77,7 +77,9 @@ describe('EntryList', () => {
     serve([entry()]);
     renderList();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Add' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Add an entry today' }),
+    );
 
     const local = (iso: string) =>
       new Intl.DateTimeFormat('en-GB', {

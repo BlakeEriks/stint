@@ -20,10 +20,10 @@ import { useMediaQuery } from '@/lib/client/use-media-query';
 import { useScrollerFocus, XL } from '@/lib/client/use-scroller-focus';
 import { useEntryDrag } from '@/lib/client/use-entry-drag';
 import { useZoom } from '@/lib/client/use-zoom';
-import { Plus } from 'lucide-react';
 import { api, type TimeEntry } from '@/lib/client/api';
 import { Listing, Page, useLoaded } from './page';
-import { EntryDialog } from './entry-dialog';
+import { EntryDialog, type Opens } from './entry-dialog';
+import { KeyboardAdd } from './keyboard-add';
 import { DayColumn, GUTTER_CLASS, gutterMarks, HourGutter } from './day-column';
 import { keys } from '@stint/client';
 import { timeZone as tz } from '@/lib/client/use-timer';
@@ -71,10 +71,7 @@ export function Calendar() {
   const loaded = [week, projects, clients, allProjects] as const;
   const ready = useLoaded(...loaded);
 
-  const editor = useDialog<{
-    existing?: TimeEntry;
-    seed?: { startedAt: string; endedAt: string };
-  }>();
+  const editor = useDialog<Opens>();
 
   const drag = useEntryDrag();
 
@@ -296,16 +293,17 @@ export function Calendar() {
         </Listing>
       </div>
 
-      <EntryDialog
-        open={editor.open}
-        onOpenChange={(open) => {
-          editor.onOpenChange(open);
-          if (!open) drag.release();
-        }}
-        existing={editor.subject?.existing}
-        seed={editor.subject?.seed}
-        projects={projects.data?.projects ?? []}
-      />
+      {editor.subject ? (
+        <EntryDialog
+          {...editor.subject}
+          open={editor.open}
+          onOpenChange={(open) => {
+            editor.onOpenChange(open);
+            if (!open) drag.release();
+          }}
+          projects={projects.data?.projects ?? []}
+        />
+      ) : null}
     </Page>
   );
 }
@@ -517,20 +515,7 @@ function DayHeading({
         <span className="type-meta text-subtle">
           {seconds > 0 ? formatCompact(seconds) : '—'}
         </span>
-        {/* The keyboard path to adding an entry (WCAG 2.1.1). A pointer
-            draws or clicks a time on the grid instead, so this shows only
-            on keyboard focus, never on hover or touch. */}
-        <button
-          type="button"
-          onClick={onAdd}
-          aria-label={`Add an entry on ${full}`}
-          className="rounded-sm px-0.5 text-subtle opacity-0 transition-opacity
-                     hover:text-primary focus-visible:opacity-100
-                     focus-visible:ring-2 focus-visible:ring-edge-focus
-                     focus-visible:outline-none"
-        >
-          <Plus aria-hidden className="size-3" strokeWidth={2.5} />
-        </button>
+        <KeyboardAdd label={`Add an entry on ${full}`} onClick={onAdd} />
       </div>
     </div>
   );
