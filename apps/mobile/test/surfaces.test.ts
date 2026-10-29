@@ -4,6 +4,7 @@ import { ApiError, keys, type Summary, type TimeEntry } from '@stint/client';
 import { QueryClient } from '@tanstack/react-query';
 import {
   createSurfaces,
+  type Press,
   pressedState,
   type SurfaceState,
 } from '../src/surfaces.ts';
@@ -82,7 +83,7 @@ function server(running: TimeEntry | null) {
       });
     },
     answer: () => release(),
-    failWith: (e: Error) => {
+    failWith: (e: Error | null) => {
       fail = e;
     },
   };
@@ -155,7 +156,7 @@ test('on the first day, Start begins an unnamed timer on no project', async () =
   });
 });
 
-test('signed out draws the sign-in state and fetches nothing', async () => {
+test('signed out draws the sign-in state, fetches nothing, and has no press', async () => {
   const { surfaces, last, calls } = setup(entry(), false);
   await surfaces.refresh();
   assert.deepEqual(last(), {
@@ -167,65 +168,154 @@ test('signed out draws the sign-in state and fetches nothing', async () => {
     shortcut: null,
   });
   assert.deepEqual(calls, []);
+  assert.equal(pressedState(last() as SurfaceState), null);
 });
 
-test('a stop draws stopped at once, then what the server holds', async () => {
-  const { surfaces, last, holdPresses, answer } = setup(entry());
-  await surfaces.refresh();
-  holdPresses();
-  const press = surfaces.press({ action: 'stop' });
-  await new Promise((r) => setTimeout(r, 0));
-  assert.equal(last()?.kind, 'stopped');
-  answer();
-  await press;
-  assert.equal(last()?.kind, 'stopped');
-  assert.equal(last()?.why, null);
+const tick = () => new Promise((r) => setTimeout(r, 0));
+const noTimer = new ApiError(409, {
+  code: 'NO_TIMER_RUNNING',
+  message: 'No timer.',
 });
+const unreachable = new TypeError('Network request failed');
 
-test('a start sends what the surface showed', async () => {
-  const { surfaces, calls, last } = setup(null);
-  await surfaces.press({
-    action: 'start',
-    taskName: 'Filter panel',
-    projectId: 'p1',
+/**
+ * A press, over (state, press, server answer): what the surface shows when
+ * pressed (`pressedState`, drawn natively), what JS draws at once, what
+ * reaches the server, and what is drawn once it answers. One press per
+ * answer, each held until the draw at once is read.
+ */
+const pressRows: {
+  name: string;
+  running: TimeEntry | null;
+  /** No task yet: Start offers an unnamed timer. */
+  firstDay?: true;
+  /** Nothing cached, and the server can't be reached. */
+  offline?: true;
+  press: Press;
+  answers: (Error | null)[];
+  pressed?: SurfaceState;
+  atOnce?: SurfaceState['kind'];
+  calls: string[];
+  drawn: Partial<Record<string, unknown>>;
+}[] = [
+  {
+    name: 'a stop shows its own task to start again, then stopped',
+    running: entry(),
+    press: { action: 'stop' },
+    answers: [null],
+    pressed: {
+      kind: 'stopped',
+      title: 'Checkout timeout fix',
+      detail: 'Warehouse dashboard · Northwind Trading',
+      color: '#5B8DEF',
+      next: { taskName: 'Checkout timeout fix', projectId: 'p1' },
+      why: null,
+      tile: 'Start: Checkout timeout fix',
+      shortcut: 'Start: Checkout timeout fix',
+    },
+    atOnce: 'stopped',
+    calls: ['stop'],
+    drawn: { kind: 'stopped', why: null },
+  },
+  {
+    name: 'a start sends what the surface showed',
+    running: null,
+    press: { action: 'start', taskName: 'Filter panel', projectId: 'p1' },
+    answers: [null],
+    pressed: {
+      kind: 'running',
+      title: 'Filter panel',
+      detail: 'Warehouse dashboard',
+      color: '#5B8DEF',
+      startedAt: 0,
+      next: { taskName: 'Filter panel', projectId: 'p1' },
+      why: null,
+      tile: 'Filter panel',
+      shortcut: 'Stop',
+    },
+    atOnce: 'running',
+    calls: ['start Filter panel'],
+    drawn: { kind: 'running', title: 'Filter panel', why: null },
+  },
+  {
+    name: 'a first-day start runs Untitled, on no project',
+    running: null,
+    firstDay: true,
+    press: { action: 'start', taskName: '', projectId: null },
+    answers: [null],
+    pressed: {
+      kind: 'running',
+      title: 'Untitled',
+      detail: null,
+      color: null,
+      startedAt: 0,
+      next: { taskName: '', projectId: null },
+      why: null,
+      tile: 'Untitled',
+      shortcut: 'Stop',
+    },
+    atOnce: 'running',
+    calls: ['start '],
+    drawn: { kind: 'running', title: 'Untitled' },
+  },
+  {
+    name: 'a refused stop draws what the server holds, with the reason',
+    running: entry(),
+    press: { action: 'stop' },
+    answers: [noTimer],
+    atOnce: 'stopped',
+    calls: ['stop'],
+    drawn: { kind: 'running', why: 'Not stopped: No timer' },
+  },
+  {
+    name: 'a press that fails with nothing cached keeps the drawn state',
+    running: entry(),
+    offline: true,
+    press: { action: 'stop' },
+    answers: [unreachable],
+    calls: ['stop'],
+    drawn: { kind: 'kept', why: 'Not stopped: can’t reach Stint' },
+  },
+  {
+    name: 'the next press clears the reason',
+    running: entry(),
+    press: { action: 'stop' },
+    answers: [new ApiError(500, { code: 'INTERNAL', message: 'Broke.' }), null],
+    atOnce: 'stopped',
+    calls: ['stop', 'stop'],
+    drawn: { kind: 'stopped', why: null },
+  },
+];
+
+for (const row of pressRows) {
+  test(row.name, async () => {
+    const s = setup(row.running);
+    const api = s.api as { taskNames: unknown; summary: unknown };
+    if (row.firstDay) api.taskNames = async () => ({ taskNames: [] });
+    if (row.offline)
+      api.summary = async () => {
+        throw unreachable;
+      };
+    else await s.surfaces.refresh();
+    if (row.pressed)
+      assert.deepEqual(pressedState(s.last() as SurfaceState), row.pressed);
+
+    for (const answer of row.answers) {
+      s.failWith(answer);
+      s.holdPresses();
+      const press = s.surfaces.press(row.press);
+      await tick();
+      if (row.atOnce) assert.equal(s.last()?.kind, row.atOnce);
+      s.answer();
+      await press;
+    }
+
+    assert.deepEqual(s.calls, row.calls);
+    const last = s.last() as Record<string, unknown>;
+    for (const [k, v] of Object.entries(row.drawn))
+      assert.deepEqual(last[k], v, k);
   });
-  assert.deepEqual(calls, ['start Filter panel']);
-  assert.equal(last()?.kind, 'running');
-});
-
-test('a refused stop draws what the server holds, with the reason', async () => {
-  const { surfaces, last, failWith } = setup(entry());
-  await surfaces.refresh();
-  failWith(
-    new ApiError(409, { code: 'NO_TIMER_RUNNING', message: 'No timer.' }),
-  );
-  await surfaces.press({ action: 'stop' });
-  assert.equal(last()?.kind, 'running');
-  assert.equal(last()?.why, 'Not stopped: No timer');
-});
-
-test('a press that fails with nothing cached keeps the drawn state, with the reason', async () => {
-  const { surfaces, last, failWith, api } = setup(entry());
-  failWith(new TypeError('Network request failed'));
-  (api as { summary: unknown }).summary = async () => {
-    throw new TypeError('Network request failed');
-  };
-  await surfaces.press({ action: 'stop' });
-  assert.deepEqual(last(), {
-    kind: 'kept',
-    why: 'Not stopped: can’t reach Stint',
-  });
-});
-
-test('the next press clears the reason', async () => {
-  const { surfaces, last, failWith } = setup(entry());
-  await surfaces.refresh();
-  failWith(new ApiError(500, { code: 'INTERNAL', message: 'Broke.' }));
-  await surfaces.press({ action: 'stop' });
-  failWith(null as never);
-  await surfaces.press({ action: 'stop' });
-  assert.equal(last()?.why, null);
-});
+}
 
 test('presses reach the server in press order', async () => {
   const { surfaces, calls, holdPresses, answer } = setup(null);
@@ -276,53 +366,6 @@ test('an unchanged state is not drawn twice', async () => {
   assert.equal(drawn.length, n);
 });
 
-test('pressed, a running timer shows stopped, offering its own task again', async () => {
-  const { surfaces, last } = setup(entry());
-  await surfaces.refresh();
-  assert.deepEqual(pressedState(last() as SurfaceState), {
-    kind: 'stopped',
-    title: 'Checkout timeout fix',
-    detail: 'Warehouse dashboard · Northwind Trading',
-    color: '#5B8DEF',
-    next: { taskName: 'Checkout timeout fix', projectId: 'p1' },
-    why: null,
-    tile: 'Start: Checkout timeout fix',
-    shortcut: 'Start: Checkout timeout fix',
-  });
-});
-
-test('pressed, Start shows its task running; an unnamed one is Untitled', async () => {
-  const { surfaces, last, api } = setup(null);
-  await surfaces.refresh();
-  const named = pressedState(last() as SurfaceState);
-  assert.equal(named?.kind, 'running');
-  assert.equal(named?.title, 'Filter panel');
-  assert.equal(
-    named?.kind === 'running' && named.detail,
-    'Warehouse dashboard',
-  );
-
-  (api as { taskNames: unknown }).taskNames = async () => ({ taskNames: [] });
-  await surfaces.refresh();
-  const unnamed = pressedState(last() as SurfaceState);
-  assert.equal(unnamed?.kind === 'running' && unnamed.title, 'Untitled');
-  assert.equal(unnamed?.kind === 'running' && unnamed.detail, null);
-});
-
-test('signed out, nothing can be pressed', () => {
-  assert.equal(
-    pressedState({
-      kind: 'signedOut',
-      title: '',
-      detail: null,
-      why: null,
-      tile: '',
-      shortcut: null,
-    }),
-    null,
-  );
-});
-
 test('a refresh leaves the screen its whole Recent list', async () => {
   const { surfaces, queryClient } = setup(null);
   await surfaces.refresh();
@@ -349,8 +392,6 @@ function openScreen(s: ReturnType<typeof setup>, { agoS = 0, skewS = 0 } = {}) {
   );
   return running;
 }
-const tick = () => new Promise((r) => setTimeout(r, 0));
-
 test('a surface Stop with the app open keeps Today where it stood', async () => {
   const s = setup(entry());
   openScreen(s, { agoS: 60 });

@@ -6,6 +6,7 @@ import {
   nextNumberRefusal,
   paidAtRefusal,
   pricedInvoiceRefusal,
+  type Refusal,
   refusals,
   stopOrderRefusal,
   unratedRefusal,
@@ -13,102 +14,156 @@ import {
 
 const nine = '2026-09-17T09:00:00.000Z';
 const ten = '2026-09-17T10:00:00.000Z';
+const tomorrow = '2026-09-18T00:00:00.000Z';
+const now = new Date(ten);
+const today = '2026-09-17';
+const period = { periodStart: '2026-09-01', periodEnd: '2026-09-15' };
+const highest = { sequenceNo: 15, invoiceNumber: 'INV-0015' };
 
-test('an entry ends after it starts, or is still running', () => {
-  assert.equal(entryOrderRefusal(nine, ten), null);
-  assert.equal(entryOrderRefusal(nine, null), null);
-  assert.deepEqual(entryOrderRefusal(ten, ten), {
-    code: 'VALIDATION_FAILED',
-    message: 'endedAt must be after startedAt',
-    details: { startedAt: ten, endedAt: ten },
-  });
-});
-
-test('a stop lands after the start', () => {
-  assert.equal(stopOrderRefusal(nine, ten), null);
-  assert.equal(stopOrderRefusal(ten, nine)?.code, 'VALIDATION_FAILED');
-});
-
-test('a paid date is between the send and now', () => {
-  const now = new Date(ten);
-  assert.equal(paidAtRefusal(nine, nine, now), null);
-  assert.equal(paidAtRefusal(nine, null, now), null);
-  assert.equal(
-    paidAtRefusal('2026-09-18T00:00:00.000Z', null, now)?.message,
-    'paidAt cannot be in the future',
-  );
-  assert.deepEqual(paidAtRefusal(nine, ten, now)?.details, {
-    paidAt: nine,
-    sentAt: ten,
-  });
-});
-
-test('an invoice request needs its period in order and a due date not past', () => {
-  const today = '2026-09-17';
-  const r = { periodStart: '2026-09-01', periodEnd: '2026-09-15' };
-  assert.equal(invoiceRequestRefusal(r, today), null);
-  assert.equal(invoiceRequestRefusal({ ...r, dueDate: today }, today), null);
-  assert.equal(
-    invoiceRequestRefusal({ ...r, periodEnd: '2026-08-31' }, today)?.code,
-    'INVALID_PERIOD',
-  );
-  assert.deepEqual(
-    invoiceRequestRefusal({ ...r, dueDate: '2026-09-16' }, today)?.details,
-    { field: 'dueDate' },
-  );
-});
-
-test('a priced invoice needs every entry rated, then a line', () => {
-  const period = { periodStart: '2026-09-01', periodEnd: '2026-09-15' };
-  assert.equal(
+/* What each refusal decides: whether it refuses, its code and the details a
+   form reads. A message is asserted only where it is computed; fixed words
+   are copy, and a route test compares against the refusal itself. */
+type Want = { code?: Refusal['code']; message?: RegExp; details?: unknown };
+const cases: [string, Refusal | null, Want | null][] = [
+  ['an entry ending after it starts', entryOrderRefusal(nine, ten), null],
+  ['a running entry', entryOrderRefusal(nine, null), null],
+  [
+    'an entry ending as it starts',
+    entryOrderRefusal(ten, ten),
+    { code: 'VALIDATION_FAILED', details: { startedAt: ten, endedAt: ten } },
+  ],
+  ['a stop after the start', stopOrderRefusal(nine, ten), null],
+  [
+    'a stop at the start',
+    stopOrderRefusal(ten, ten),
+    { code: 'VALIDATION_FAILED' },
+  ],
+  [
+    'a stop before the start',
+    stopOrderRefusal(ten, nine),
+    { code: 'VALIDATION_FAILED' },
+  ],
+  ['paid as it was sent', paidAtRefusal(nine, nine, now), null],
+  ['paid, never sent', paidAtRefusal(nine, null, now), null],
+  [
+    'paid in the future',
+    paidAtRefusal(tomorrow, null, now),
+    { code: 'VALIDATION_FAILED', details: { paidAt: tomorrow } },
+  ],
+  [
+    'paid before it was sent',
+    paidAtRefusal(nine, ten, now),
+    { code: 'VALIDATION_FAILED', details: { paidAt: nine, sentAt: ten } },
+  ],
+  ['a period in order', invoiceRequestRefusal(period, today), null],
+  [
+    'a one-day period',
+    invoiceRequestRefusal({ ...period, periodEnd: period.periodStart }, today),
+    null,
+  ],
+  [
+    'due today',
+    invoiceRequestRefusal({ ...period, dueDate: today }, today),
+    null,
+  ],
+  [
+    'a period ending before it starts',
+    invoiceRequestRefusal({ ...period, periodEnd: '2026-08-31' }, today),
+    { code: 'INVALID_PERIOD' },
+  ],
+  [
+    'due before today',
+    invoiceRequestRefusal({ ...period, dueDate: '2026-09-16' }, today),
+    { code: 'VALIDATION_FAILED', details: { field: 'dueDate' } },
+  ],
+  [
+    'every entry rated, with a line',
     pricedInvoiceRefusal({ unratedEntryIds: [], lineItems: [{}] }, period),
     null,
-  );
-  assert.equal(
-    pricedInvoiceRefusal({ unratedEntryIds: ['a'], lineItems: [] }, period)
-      ?.code,
-    'NO_RATE_CONFIGURED',
-  );
-  assert.deepEqual(
+  ],
+  [
+    'an unrated entry',
+    pricedInvoiceRefusal({ unratedEntryIds: ['a'], lineItems: [] }, period),
+    { code: 'NO_RATE_CONFIGURED', details: { unratedEntryIds: ['a'] } },
+  ],
+  [
+    'no lines, naming only the period',
     pricedInvoiceRefusal({ unratedEntryIds: [], lineItems: [] }, {
       ...period,
       dueDate: '2026-10-01',
-    } as typeof period)?.details,
-    period,
-  );
-});
+    } as typeof period),
+    { code: 'INVALID_PERIOD', details: period },
+  ],
+  [
+    'one unrated entry',
+    unratedRefusal(['a']),
+    { message: /^1 billable entry has/ },
+  ],
+  [
+    'two unrated entries',
+    unratedRefusal(['a', 'b']),
+    { message: /^2 billable entries have/ },
+  ],
+  ['the next number unchanged', nextNumberRefusal(20, 20, 999, highest), null],
+  [
+    'the next number back down, past the highest',
+    nextNumberRefusal(16, 20, 999, highest),
+    null,
+  ],
+  [
+    'the next number, no invoices yet',
+    nextNumberRefusal(1, 1, 999, null),
+    null,
+  ],
+  [
+    'the next number at the cap',
+    nextNumberRefusal(999, 20, 999, highest),
+    null,
+  ],
+  [
+    'the next number over the cap',
+    nextNumberRefusal(1000, 16, 999, highest),
+    { code: 'VALIDATION_FAILED', message: /above 999\.$/ },
+  ],
+  [
+    'the next number onto the highest',
+    nextNumberRefusal(15, 20, 999, highest),
+    {
+      message: /than INV-0015,/,
+      details: { field: 'nextInvoiceNumber', current: 20 },
+    },
+  ],
+  [
+    'a transition the database refuses',
+    refusals.transition('paid', 'sent'),
+    { details: { from: 'paid', to: 'sent' } },
+  ],
+  [
+    'a billed entry deleted',
+    refusals.entryLocked('deleted'),
+    { code: 'ENTRY_LOCKED', message: /cannot be deleted$/ },
+  ],
+  [
+    'a billed expense modified',
+    refusals.expenseLocked('modified'),
+    { code: 'EXPENSE_LOCKED', message: /cannot be modified$/ },
+  ],
+  [
+    'a second timer',
+    refusals.timerRunning(null),
+    { code: 'TIMER_ALREADY_RUNNING', details: { running: null } },
+  ],
+];
 
-test('the unrated count reads as one or many', () => {
-  assert.match(unratedRefusal(['a']).message, /^1 billable entry has/);
-  assert.match(unratedRefusal(['a', 'b']).message, /^2 billable entries have/);
-});
-
-test('the next number stays past the highest used and under the cap', () => {
-  const highest = { sequenceNo: 15, invoiceNumber: 'INV-0015' };
-  assert.equal(nextNumberRefusal(20, 20, 999, highest), null);
-  assert.equal(nextNumberRefusal(16, 20, 999, highest), null, 'back down');
-  assert.equal(nextNumberRefusal(1, 1, 999, null), null, 'no invoices yet');
-  assert.equal(
-    nextNumberRefusal(1000, 16, 999, highest)?.message,
-    "The next number can't go above 999.",
-  );
-  const held = nextNumberRefusal(15, 20, 999, highest);
-  assert.equal(
-    held?.message,
-    'Must be higher than INV-0015, your latest invoice.',
-  );
-  assert.deepEqual(held?.details, { field: 'nextInvoiceNumber', current: 20 });
-});
-
-test('the refusals the database decides name themselves', () => {
-  assert.deepEqual(refusals.transition('paid', 'sent').details, {
-    from: 'paid',
-    to: 'sent',
-  });
-  assert.match(refusals.entryLocked('deleted').message, /cannot be deleted$/);
-  assert.match(
-    refusals.expenseLocked('modified').message,
-    /cannot be modified$/,
-  );
-  assert.deepEqual(refusals.timerRunning(null).details, { running: null });
+test('each refusal refuses only what it names, with its code and details', () => {
+  for (const [name, got, want] of cases) {
+    if (want === null) {
+      assert.equal(got, null, name);
+      continue;
+    }
+    assert.ok(got, name);
+    if (want.code) assert.equal(got.code, want.code, name);
+    if (want.message) assert.match(got.message, want.message, name);
+    if ('details' in want) assert.deepEqual(got.details, want.details, name);
+  }
 });
