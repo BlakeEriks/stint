@@ -12,6 +12,7 @@ private final class Model: Optimistic {
     var refreshes = 0
 
     func report(_ reason: String) { reasons.append(reason) }
+    func message(for error: Error) -> String { error.localizedDescription }
     func refresh() async { refreshes += 1 }
 
     /// The real 10s bound unless a test is about the bound itself: a slow CI

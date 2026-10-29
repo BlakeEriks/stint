@@ -17,6 +17,20 @@ test('local takes another web origin', () => {
   assert.equal(t.appUrl, 'http://localhost:3101');
 });
 
+test('a native local build loaded from Metro reaches the stack through it', () => {
+  for (const [hostUri, origin] of [
+    ['192.168.1.20:8085', 'http://192.168.1.20:8085'],
+    ['abc-8085.exp.direct', 'https://abc-8085.exp.direct'],
+  ]) {
+    const t = resolveTarget(
+      { STINT_APP_URL: 'http://localhost:3164' },
+      hostUri,
+    );
+    assert.equal(t.appUrl, origin);
+    assert.equal(t.supabaseUrl, origin);
+  }
+});
+
 test('prod is Stint, unlabeled, on production', () => {
   const t = resolveTarget({ STINT_TARGET: 'prod' });
   assert.equal(t.appName, 'Stint');

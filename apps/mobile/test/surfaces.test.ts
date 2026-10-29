@@ -4,6 +4,7 @@ import { ApiError, keys, type Summary, type TimeEntry } from '@stint/client';
 import { QueryClient } from '@tanstack/react-query';
 import {
   createSurfaces,
+  nativeState,
   pressedState,
   type SurfaceState,
 } from '../src/surfaces.ts';
@@ -407,4 +408,22 @@ test('a refetch whose clock reading moved by milliseconds draws nothing new', as
   const n = s.drawn.length;
   await s.surfaces.refresh();
   assert.equal(s.drawn.length, n);
+});
+
+const backend = {
+  origin: 'http://localhost:3100',
+  supabaseUrl: 'http://localhost:54321',
+  supabaseKey: 'key',
+  session: 'stint.session.localhost_54321',
+  bypass: 'stint.vercel-bypass',
+};
+
+test("Swift presses at the app's backend; signed out, nowhere", async () => {
+  const { surfaces, last } = setup(entry());
+  await surfaces.refresh();
+  const running = nativeState(last() as SurfaceState, backend);
+  assert.equal('backend' in running && running.backend, backend);
+  surfaces.signOut();
+  const out = nativeState(last() as SurfaceState, backend);
+  assert.equal('backend' in out && out.backend, null);
 });

@@ -40,8 +40,9 @@ migration only while it is `ready-for-qa`).
 - [ ] **Rates and line items still freeze** onto issued invoices — nothing
       recomputes a sent invoice.
 - [ ] **A screen or state this adds or changes has its story.**
-- [ ] **A new macOS write goes through `press`** (Constitution VI) — the web
-      has a lint for this; Swift has this box.
+- [ ] **A new Swift write, macOS or an iPhone surface, goes through
+      `press`** (Constitution VI) — the web has a lint for this; Swift has
+      this box.
 - [ ] Verified by running it, not only by the suite passing.
 
 <!-- Delete any line that does not apply. -->

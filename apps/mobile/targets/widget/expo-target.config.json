@@ -1,0 +1,11 @@
+{
+  "type": "widget",
+  "name": "StintWidgets",
+  "displayName": "Stint",
+  "bundleIdentifier": ".widgets",
+  "deploymentTarget": "17.0",
+  "frameworks": ["SwiftUI", "WidgetKit", "ActivityKit", "AppIntents"],
+  "entitlements": {
+    "keychain-access-groups": ["$(AppIdentifierPrefix)dev.stint.shared"]
+  }
+}

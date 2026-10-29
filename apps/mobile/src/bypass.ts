@@ -1,7 +1,8 @@
 import { createListeners } from './listeners.ts';
 import type { Store } from './session.ts';
 
-const KEY = 'stint.vercel-bypass';
+/** Its secure-store key, which Swift's press on iOS reads too. */
+export const BYPASS_KEY = 'stint.vercel-bypass';
 
 /**
  * Vercel's Protection Bypass for Automation, which a protected preview
@@ -15,18 +16,18 @@ export function createBypass(store: Store) {
   const listeners = createListeners<string | null>();
   return {
     async load() {
-      value = await store.get(KEY);
+      value = await store.get(BYPASS_KEY);
       return value;
     },
     async save(typed: string) {
       const trimmed = typed.trim();
       if (!trimmed) throw new Error('The bypass is empty.');
-      await store.set(KEY, trimmed);
+      await store.set(BYPASS_KEY, trimmed);
       value = trimmed;
     },
     /** Vercel refused it: forget it, so the screen asks again. */
     async clear() {
-      await store.delete(KEY);
+      await store.delete(BYPASS_KEY);
       value = null;
       listeners.emit(null);
     },
