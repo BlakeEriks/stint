@@ -266,6 +266,39 @@ describe('InvoiceDetail', () => {
     });
   });
 
+  /* The page stays until the list arrives, and a deleted draft is gone:
+     refetching it, or deleting it again, answers "Invoice not found" as if
+     the delete had failed. */
+  it('holds a deleted draft pending, never asking for it again', async () => {
+    serve('draft');
+    let deleted = false;
+    const answer = vi.mocked(fetch).getMockImplementation()!;
+    const askedAfter: string[] = [];
+    vi.mocked(fetch).mockImplementation(async (url, init) => {
+      if (init?.method === 'DELETE') {
+        deleted = true;
+        return new Response(null, { status: 204 });
+      }
+      if (deleted && String(url).includes('/invoices/inv-1')) {
+        askedAfter.push(String(url));
+      }
+      return answer(url, init);
+    });
+    const user = userEvent.setup();
+    show();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Delete draft' }),
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Delete INV-13 for good' }),
+    );
+    await waitFor(() => expect(deleted).toBe(true));
+
+    expect(screen.getByRole('button', { name: 'Deleting…' })).toBeDisabled();
+    expect(askedAfter).toEqual([]);
+  });
+
   /* Pending, not predicted: the confirm says it is working until the server
      answers, and nothing can be pressed twice meanwhile. */
   it('holds the confirm pending while the server answers', async () => {
