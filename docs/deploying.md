@@ -138,13 +138,14 @@ grandfathered.
 - `SUPABASE_SECRET_KEY` (**sensitive**), the project's secret key: the
   Stripe webhook has no user session, so it writes `subscriptions` as
   `service_role`. Without it, the webhook and the Checkout return fail with
-  `500`, and no browser hears of a timer change until it polls. Never
-  `NEXT_PUBLIC_`.
+  `500`. Never `NEXT_PUBLIC_`.
 
 Push, for Production and Preview: `FCM_SERVICE_ACCOUNT` (**sensitive**),
 the whole JSON key of a Firebase service account allowed to send messages
 (`docs/mobile.md`, Push). Unset, no phone is pushed and every timer route
-answers as before.
+answers as before. The browsers hear of the same change through
+`SUPABASE_SECRET_KEY`, so Preview needs it too, as the preview project's
+key; unset, a browser sees the change only when it polls.
 
 In the Stripe dashboard, once:
 
