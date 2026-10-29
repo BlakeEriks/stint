@@ -3,10 +3,8 @@ import type { InvoiceTemplate } from '@stint/schema';
 import { ApiError, dbCode, PG, refused } from './errors';
 import {
   CLIENT_COLUMNS,
-  INVOICE_COLUMNS,
   LINE_ITEM_COLUMNS,
   PAYMENT_PROFILE_COLUMNS,
-  toInvoice,
   toLineItem,
   toPaymentProfile,
   type ClientRow,
@@ -15,14 +13,13 @@ import {
   type PaymentProfileRow,
 } from './rows';
 import { selectAll } from './select-all';
-import { entitlement } from './billing';
 import {
-  addDays,
-  assignExpenses,
+  billableExpenses,
+  billingWindow,
+  isBillableEntry,
   attachedSchedules,
   buildLineItems,
   buildSchedules,
-  documentOpens,
   draftSnapshot,
   localDateKey,
   newLines,
@@ -30,7 +27,6 @@ import {
   pickSchedules,
   resolvePaymentProfile,
   snapshotChanged,
-  startOfLocalDate,
   draftDates,
   nothingToSend,
   unratedRefusal,
@@ -65,19 +61,9 @@ async function loadClient(
 }
 
 /**
- * Unbilled, completed entries for a client in a period, carrying every rate
- * level so the line-item builder can resolve without further queries.
- *
- * **The period is local dates, so the window is resolved in `tz`.** A user
- * picks "September" on a wall calendar, and `buildLineItems` groups the result
- * by local day — so a UTC window disagrees with its own grouping. West of
- * Greenwich that drops an evening of work at the end of the period and pulls
- * in the evening before it started, in both the preview and the invoice, with
- * nothing to show it happened.
- *
- * Deliberately excludes:
- *  - running entries (`ended_at IS NULL`) — you cannot bill time still accruing
- *  - entries already attached to an invoice
+ * The client's entries an invoice for the period bills (`isBillableEntry`),
+ * carrying every rate level so the line-item builder can resolve without
+ * further queries.
  */
 async function loadBillableEntries(
   db: SupabaseClient,
@@ -100,28 +86,35 @@ async function loadBillableEntries(
 
   const byId = new Map(projects.map((p) => [p.id as string, p]));
 
-  /* periodEnd is an inclusive date, so the window ends where the NEXT local
-     day begins. Stepping the date on the calendar rather than adding 24h:
-     a day containing a DST transition is 23 or 25 hours long. */
-  const startInstant = startOfLocalDate(opts.periodStart, opts.tz);
-  const endExclusive = startOfLocalDate(addDays(opts.periodEnd, 1), opts.tz);
+  const window = billingWindow(opts.periodStart, opts.periodEnd, opts.tz);
 
   const rows = await selectAll(() =>
     db
       .from('time_entries')
       .select(
-        'id, task_name, project_id, started_at, duration_seconds, is_billable, rate_override',
+        'id, task_name, project_id, started_at, ended_at, duration_seconds, is_billable, rate_override, invoice_id, invoiced_elsewhere',
       )
       .in('project_id', [...byId.keys()])
       .is('invoice_id', null)
       .eq('invoiced_elsewhere', false)
       .not('ended_at', 'is', null)
-      .gte('started_at', startInstant.toISOString())
-      .lt('started_at', endExclusive.toISOString())
+      .gte('started_at', window.start.toISOString())
+      .lt('started_at', window.end.toISOString())
       .order('started_at', { ascending: true }),
   );
 
-  return rows.map((row) => {
+  const billed = rows.filter((row) =>
+    isBillableEntry(
+      {
+        invoiceId: row.invoice_id as string | null,
+        invoicedElsewhere: row.invoiced_elsewhere as boolean,
+        endedAt: row.ended_at as string | null,
+        startedAt: row.started_at as string,
+      },
+      window,
+    ),
+  );
+  return billed.map((row) => {
     const project = byId.get(row.project_id as string);
     return {
       id: row.id as string,
@@ -139,50 +132,35 @@ async function loadBillableEntries(
   });
 }
 
-/**
- * What a draft bills of the client's expenses: every recurring one, and the
- * unbilled one-offs `assignExpenses` gives it among the client's open
- * drafts, less the ones the user left off. An earlier month's one-off is
- * included, so one missed invoice does not strand a reimbursement.
- *
- * A recurring expense has no date of its own, so its line takes the period's
- * last day: the date the invoice claims to cover. `recurring` tells the
- * caller not to claim it, since it bills again on the next invoice.
- */
+/** The client's expenses the draft bills (`billableExpenses`). */
 async function loadBillableExpenses(
   db: SupabaseClient,
   opts: { clientId: string; draft: OpenDraft; openDrafts: OpenDraft[] },
 ): Promise<Array<ExpenseInput & { recurring: boolean }>> {
-  const { data, error } = await db
-    .from('expenses')
-    .select('id, recurring, spent_on, description, amount, created_at')
-    .eq('client_id', opts.clientId)
-    .is('invoice_id', null)
-    .order('spent_on', { ascending: true })
-    .order('created_at', { ascending: true });
-  if (error) throw error;
-
-  const rows = data ?? [];
-  const assigned = assignExpenses(
-    rows
-      .filter((r) => !r.recurring)
-      .map((r) => ({ id: r.id as string, spentOn: r.spent_on as string })),
-    [...opts.openDrafts.filter((d) => d.id !== opts.draft.id), opts.draft],
+  const rows = await selectAll(() =>
+    db
+      .from('expenses')
+      .select(
+        'id, recurring, spent_on, description, amount, invoice_id, created_at',
+      )
+      .eq('client_id', opts.clientId)
+      .is('invoice_id', null)
+      .order('spent_on', { ascending: true })
+      .order('created_at', { ascending: true }),
   );
-  const { periodEnd, excludedExpenseIds } = opts.draft;
-  return rows
-    .filter((r) =>
-      r.recurring
-        ? !excludedExpenseIds.includes(r.id as string)
-        : assigned.get(r.id as string) === opts.draft.id,
-    )
-    .map((r) => ({
+
+  return billableExpenses(
+    rows.map((r) => ({
       id: r.id as string,
       recurring: r.recurring as boolean,
-      spentOn: (r.spent_on as string | null) ?? periodEnd,
+      spentOn: r.spent_on as string | null,
       description: r.description as string,
       amount: num(r.amount) ?? 0,
-    }));
+      invoiceId: r.invoice_id as string | null,
+    })),
+    opts.draft,
+    opts.openDrafts,
+  );
 }
 
 export interface InvoiceSettings {
@@ -208,7 +186,10 @@ export function requireSender(s: InvoiceSettings) {
   }
 }
 
-async function chosenTemplate(db: SupabaseClient): Promise<InvoiceTemplate> {
+/** The template the user picked in settings, which a draft prints in. */
+export async function chosenTemplate(
+  db: SupabaseClient,
+): Promise<InvoiceTemplate> {
   const { data, error } = await db
     .from('user_settings')
     .select('invoice_template')
@@ -276,94 +257,6 @@ export async function loadPaymentProfile(
     clientProfileId,
     defaultProfileId: defaultProfile?.id ?? null,
   });
-}
-
-/**
- * Assembles everything the detail and the PDF show. An issued invoice's
- * lines are FROZEN: re-downloading it a year later must produce the same
- * document even if rates have since changed. A draft's are derived from its
- * period's work as it is now.
- */
-export async function loadPdfData(
-  db: SupabaseClient,
-  invoiceId: string,
-  requestTz?: string,
-) {
-  const { data: stored, error } = await db
-    .from('invoices')
-    .select(INVOICE_COLUMNS)
-    .eq('id', invoiceId)
-    .maybeSingle();
-
-  if (error) throw error;
-  if (!stored) throw new ApiError('ENTRY_NOT_FOUND', 'Invoice not found');
-  const row = stored as InvoiceRow;
-
-  const [billing, draft, template] = await Promise.all([
-    entitlement(db),
-    deriveDraft(db, row, requestTz),
-    row.status === 'draft' ? chosenTemplate(db) : row.template,
-  ]);
-  const canDownload = documentOpens(
-    billing.available,
-    billing.plan,
-    row.issued_subscription_status,
-  );
-  const invoice = toInvoice(draft?.row ?? row);
-  const lineItems = draft
-    ? draft.lines.map(
-        ({ description, unit, quantity, unitPrice, amount, spentOn }) => ({
-          description,
-          unit,
-          quantity,
-          unitPrice,
-          amount,
-          spentOn: spentOn ?? null,
-        }),
-      )
-    : (
-        await selectAll(() =>
-          db
-            .from('invoice_line_items')
-            .select(LINE_ITEM_COLUMNS)
-            .eq('invoice_id', invoiceId)
-            .order('sort_order', { ascending: true }),
-        )
-      ).map((r) => {
-        const { id: _, sortOrder: __, ...line } = toLineItem(r as LineItemRow);
-        return line;
-      });
-
-  return {
-    invoice,
-    canDownload,
-    draft,
-    pdfData: {
-      invoiceNumber: invoice.invoiceNumber,
-      status: invoice.status,
-      issueDate: invoice.issueDate,
-      dueDate: invoice.dueDate,
-      periodStart: invoice.periodStart,
-      periodEnd: invoice.periodEnd,
-      currency: invoice.currency,
-      subtotal: invoice.subtotal ?? 0,
-      taxRate: invoice.taxRate ?? 0,
-      taxAmount: invoice.taxAmount ?? 0,
-      expensesSubtotal: invoice.expensesSubtotal ?? 0,
-      total: invoice.total ?? 0,
-      notes: invoice.notes,
-      paymentTerms: invoice.paymentTerms,
-      reference: invoice.reference,
-      // The FROZEN snapshots, never a live lookup: a re-downloaded invoice
-      // must show the details the client was actually given.
-      business: invoice.business,
-      client: invoice.billTo,
-      lineItems,
-      payment: invoice.paymentDetails ?? null,
-      supportingDetail: invoice.supportingDetail,
-      template,
-    },
-  };
 }
 
 /** Which of a draft's PDF and Mark sent refuse it as it stands. */

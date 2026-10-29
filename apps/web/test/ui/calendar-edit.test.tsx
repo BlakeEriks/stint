@@ -134,7 +134,7 @@ describe('opening an entry from the calendar', () => {
     render(<Calendar />, { wrapper });
 
     const button = await screen.findByRole('button', { name: /Standup/ });
-    expect(button).toHaveAccessibleName(/^Standup .*\d+:\d+\s?(AM|PM)/i);
+    expect(button).toHaveAccessibleName(/^Edit Standup .*\d+:\d+\s?(AM|PM)/i);
   });
 
   it('marks a billed entry as billed in its accessible name', async () => {
@@ -197,6 +197,36 @@ describe('creating an entry by clicking a time', () => {
     expect(srv.writes()).toEqual([]);
   });
 
+  it('seeds a dragged range into the form, writing nothing', async () => {
+    const srv = serve([]);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<Calendar />, { wrapper });
+
+    await screen.findByText('Mon');
+    layOut();
+
+    // 510px to 600px down a 720px column is 17:00 to 20:00.
+    const column = document.querySelectorAll<HTMLElement>('.border-l')[0]!;
+    await user.pointer([
+      { target: column, coords: { x: 10, y: 510 }, keys: '[MouseLeft>]' },
+      { target: column, coords: { x: 10, y: 600 } },
+      { target: column, keys: '[/MouseLeft]' },
+    ]);
+
+    await screen.findByRole('heading', { name: 'Add entry' });
+    const minutes = (label: string) => {
+      const [h = 0, m = 0] = (
+        screen.getByLabelText(label) as HTMLInputElement
+      ).value
+        .split(':')
+        .map(Number);
+      return h * 60 + m;
+    };
+    // The zone is the machine's, so the length is asserted, not the clock.
+    expect((minutes('End') - minutes('Start') + 1440) % 1440).toBe(180);
+    expect(srv.writes()).toEqual([]);
+  });
+
   it('seeds the clicked time into the form', async () => {
     serve([]);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
@@ -213,8 +243,8 @@ describe('creating an entry by clicking a time', () => {
     });
 
     await screen.findByRole('heading', { name: 'Add entry' });
-    // Times render in the viewer's zone, so assert the shape and the one-hour
-    // default rather than a wall clock the test environment decides.
+    // Times render in the viewer's zone, so assert the shape rather than a
+    // wall clock the test environment decides.
     const start = (screen.getByLabelText('Start') as HTMLInputElement).value;
     const end = (screen.getByLabelText('End') as HTMLInputElement).value;
     expect(start).toMatch(/^\d\d:\d\d$/);
@@ -344,10 +374,13 @@ describe('adjusting an entry by dragging', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     render(<Calendar />, { wrapper });
 
-    await screen.findByRole('button', { name: /Running/ });
+    /* Not a button at all: the editor refuses a running entry. */
+    const target = await screen.findByText(/^Running, /);
+    expect(
+      screen.queryByRole('button', { name: /Running/ }),
+    ).not.toBeInTheDocument();
     layOut();
 
-    const target = block(/Running/);
     await user.pointer([
       { target, coords: { x: 10, y: 300 }, keys: '[MouseLeft>]' },
       { target, coords: { x: 10, y: 400 } },
@@ -412,5 +445,120 @@ describe('adjusting an entry by dragging', () => {
 
     // Explained by the app-wide notice, which outlives the calendar.
     expect(await screen.findByText(/billed/i)).toBeTruthy();
+  });
+});
+
+describe('a drawn entry never leaves the grid', () => {
+  /** Serves the week empty, and holds the create until `answer` is called. */
+  function serveHeld(status = 201) {
+    let answer: () => void = () => {};
+    const created: Record<string, unknown>[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if ((init?.method ?? 'GET') === 'POST') {
+          const body = JSON.parse(String(init?.body));
+          await new Promise<void>((done) => (answer = done));
+          if (status !== 201)
+            return new Response(
+              JSON.stringify({ code: 'OVERLAP', message: 'Overlaps Standup' }),
+              { status },
+            );
+          created.push(body);
+          return new Response(
+            JSON.stringify({ ...body, durationSeconds: 7200 }),
+            { status: 201 },
+          );
+        }
+        const days = created.length
+          ? [
+              {
+                date: '2026-09-07',
+                totalSeconds: 7200,
+                entries: created.map((b) => ({ ...b, durationSeconds: 7200 })),
+              },
+            ]
+          : [];
+        return new Response(
+          JSON.stringify(
+            String(url).includes('/projects')
+              ? { projects: PROJECTS }
+              : { days },
+          ),
+          { status: 200 },
+        );
+      }),
+    );
+    return { answer: () => answer() };
+  }
+
+  async function drawAndSave() {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(
+      <>
+        <Calendar />
+        <MutationNotice />
+      </>,
+      { wrapper },
+    );
+    await screen.findByText('Mon');
+    layOut();
+    const column = document.querySelectorAll<HTMLElement>('.border-l')[0]!;
+    await user.pointer([
+      { target: column, coords: { x: 10, y: 510 }, keys: '[MouseLeft>]' },
+      { target: column, coords: { x: 10, y: 570 } },
+      { target: column, keys: '[/MouseLeft]' },
+    ]);
+    await screen.findByRole('heading', { name: 'Add entry' });
+    // Still drawn while the editor is open.
+    expect(column.querySelector('[data-drawing]')).not.toBeNull();
+    await user.type(screen.getByLabelText('Task'), 'Drawn work');
+    await user.click(screen.getByRole('button', { name: 'Add entry' }));
+    return column;
+  }
+
+  it('closes the editor and shows the entry as not yet saved', async () => {
+    const srv = serveHeld();
+    const column = await drawAndSave();
+
+    // One indicator: the editor is gone, and the block says it is unsaved.
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: 'Add entry' })).toBeNull(),
+    );
+    const unsaved = (
+      await screen.findByText(/^Drawn work, .*, saving$/)
+    ).closest('[aria-busy="true"]') as HTMLElement;
+    expect(unsaved).not.toBeNull();
+    expect(column.querySelector('[data-drawing]')).toBeNull();
+
+    srv.answer();
+    expect(
+      await screen.findByRole('button', { name: /^Edit Drawn work/ }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/, saving$/)).toBeNull();
+  });
+
+  /* The editor has closed, so "try again" would mean drawing it again: a
+     second entry if the first lands late. */
+  it('says a quiet server has not confirmed it, never to try again', async () => {
+    serveHeld();
+    await drawAndSave();
+    await screen.findByText(/^Drawn work, .*, saving$/);
+
+    await vi.advanceTimersByTimeAsync(10_001);
+    expect(
+      await screen.findByText(/hasn.t confirmed this entry yet/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/try again/i)).toBeNull();
+  });
+
+  it('takes it back on a refusal and says why in the notice', async () => {
+    const srv = serveHeld(409);
+    await drawAndSave();
+    await screen.findByText(/^Drawn work, .*, saving$/);
+
+    srv.answer();
+    expect(await screen.findByText('Overlaps Standup')).toBeInTheDocument();
+    expect(screen.queryByText(/^Drawn work, /)).toBeNull();
   });
 });

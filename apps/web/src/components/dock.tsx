@@ -96,7 +96,7 @@ export function Dock() {
               />
             ) : null}
 
-            <DockToday flush={wide} />
+            <DockToday flush={wide} fills={wide} />
           </>
         )}
       </Listing>
@@ -105,7 +105,14 @@ export function Dock() {
 }
 
 /** The dock's Today, in its column or opened from the folded strip. */
-export function DockToday({ flush }: { flush: boolean }) {
+export function DockToday({
+  flush,
+  fills = false,
+}: {
+  flush: boolean;
+  /** Only in the dock's column: the strip's popover sizes to its content. */
+  fills?: boolean;
+}) {
   const timer = useTimer();
   return (
     <Listing query={useDockTodayQueries()}>
@@ -116,6 +123,7 @@ export function DockToday({ flush }: { flush: boolean }) {
           earnedToday={stats.earnedToday}
           currency={stats.currency}
           flush={flush}
+          fills={fills}
         />
       )}
     </Listing>

@@ -116,6 +116,7 @@ export function timerPresses(
      writes are the same entry. */
   const start: OptimisticOptions<StartVars, unknown, Summary> = {
     ...settles,
+    mutationKey: keys.createsEntry(),
     mutationFn: (body) => api.startTimer(body, HOME),
     predict: (current, body) => showing(current, started(body)),
     // Today's list shows the new row at once, as the bar does.
