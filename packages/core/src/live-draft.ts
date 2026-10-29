@@ -22,10 +22,54 @@ export interface DraftSnapshot {
   dueDate?: string | null;
   /** The template the PDF printed in, which sending keeps. */
   template?: string;
+  /** What else it printed that an edit can change; absent on a snapshot
+   *  recorded before edits existed. */
+  printed?: Printed;
 }
 
-export function draftSnapshot(lines: Line[], total: number): DraftSnapshot {
+/** A draft's choices as its PDF printed them, besides its lines. */
+export interface Printed {
+  periodStart: string;
+  periodEnd: string;
+  /** The due date typed, not the one the terms date: that moves every day. */
+  typedDueDate: string | null;
+  notes: string | null;
+  reference: string | null;
+  paymentDetails: unknown;
+  supportingDetail: unknown;
+  tz: string | null;
+}
+
+/** Each printed field in the words the draft's notice uses. */
+const PRINTED: Record<keyof Printed, string> = {
+  periodStart: 'dates',
+  periodEnd: 'dates',
+  typedDueDate: 'due date',
+  notes: 'notes',
+  reference: 'reference',
+  paymentDetails: 'payment details',
+  supportingDetail: 'attachments',
+  tz: 'time zone',
+};
+
+/** Content, not key order: Postgres stores the JSON as jsonb, which keeps
+ *  none. */
+const canonical = (v: unknown) =>
+  JSON.stringify(v, (_, x) =>
+    x && typeof x === 'object' && !Array.isArray(x)
+      ? Object.fromEntries(
+          Object.entries(x).sort(([a], [b]) => (a < b ? -1 : 1)),
+        )
+      : x,
+  );
+
+export function draftSnapshot(
+  lines: Line[],
+  total: number,
+  printed?: Printed,
+): DraftSnapshot {
   return {
+    ...(printed ? { printed } : {}),
     total,
     hours: cents(
       lines
@@ -51,17 +95,30 @@ export function snapshotChanged(
 ): {
   hours: { from: number; to: number };
   total: { from: number; to: number };
+  /** The printed fields edited since, by name. */
+  edited: string[];
 } | null {
   if (!before) return null;
   const same =
     before.total === now.total &&
     before.lines.length === now.lines.length &&
     before.lines.every((l, i) => key(l) === key(now.lines[i]!));
-  if (same) return null;
+  const edited = editedFields(before.printed, now.printed);
+  if (same && edited.length === 0) return null;
   return {
     hours: { from: before.hours, to: now.hours },
     total: { from: before.total, to: now.total },
+    edited,
   };
+}
+
+/** The printed fields that differ; a field `before` lacks is unchanged. */
+function editedFields(before: Printed | undefined, now: Printed | undefined) {
+  if (!before || !now) return [];
+  const names = (Object.keys(PRINTED) as (keyof Printed)[])
+    .filter((k) => k in before && canonical(before[k]) !== canonical(now[k]))
+    .map((k) => PRINTED[k]);
+  return [...new Set(names)];
 }
 
 /** For each line, whether `before` lacked it; each line of `before` matches

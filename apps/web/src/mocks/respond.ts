@@ -94,6 +94,7 @@ export const invoiceDetail = schema.Invoice.extend({
   unratedEntries: z.array(schema.UnratedEntry),
   dueBeforeIssue: schema.DraftActions,
   refuses: schema.DraftActions,
+  choices: schema.DraftChoices.nullable(),
 });
 
 export const createdInvoice = schema.Invoice.extend({

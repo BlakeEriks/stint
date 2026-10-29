@@ -3663,6 +3663,7 @@ test('a draft changed since its PDF was rendered refuses to be marked sent', asy
   assert.deepEqual(got.body.changedSinceDownload, {
     hours: { from: 2, to: 3 },
     total: { from: 300, to: 450 },
+    edited: [],
   });
   assert.ok(got.body.lineItems.some((l: { isNew: boolean }) => l.isNew));
 
@@ -3984,3 +3985,261 @@ test('a draft generated beside an earlier open one keeps its total on its first 
   );
   assert.equal(aug.body.total, 190);
 });
+
+// ── editing a draft ───────────────────────────────────────────────
+const edit = async (id: string, body: unknown) => {
+  const { PATCH } = await import('../src/app/api/v1/invoices/[id]/route.ts');
+  return json(await PATCH(req('/invoices/x', body, 'PATCH'), at(id)));
+};
+
+test('editing a draft writes every choice but its client, and keeps its number', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  await seedEntry({ id: D(2), start: '2026-10-05T09:00:00Z', hours: 1 });
+  await seedExpense({ id: D(10), spentOn: '2026-10-06', amount: 40 });
+  const made = await json(
+    await r.create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...PERIOD,
+        manualLines: [{ description: 'Setup', amount: 50 }],
+      }),
+    ),
+  );
+
+  const edited = await edit(made.body.id, {
+    clientId: CLIENT,
+    periodStart: '2026-09-01',
+    periodEnd: '2026-10-31',
+    groupingMode: 'summary',
+    summaryText: 'Consulting',
+    schedules: ['project'],
+    manualLines: [{ description: 'Deposit', amount: 25 }],
+    excludedExpenseIds: [D(10)],
+    dueDate: '2099-01-15',
+    reference: 'PO-7',
+    notes: 'Thanks',
+    tz: 'UTC',
+  });
+  assert.equal(edited.status, 200, JSON.stringify(edited.body));
+  assert.equal(edited.body.invoiceNumber, made.body.invoiceNumber);
+  assert.equal(edited.body.total, 475, 'three hours and the deposit');
+
+  const read = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(made.body.id)),
+  );
+  assert.equal(read.body.periodEnd, '2026-10-31');
+  assert.equal(read.body.summaryText, 'Consulting');
+  assert.equal(read.body.reference, 'PO-7');
+  assert.equal(read.body.notes, 'Thanks');
+  assert.ok(read.body.supportingDetail.project);
+  assert.deepEqual(read.body.choices, {
+    dueDate: '2099-01-15',
+    excludedExpenseIds: [D(10)],
+    manualLines: [{ description: 'Deposit', amount: 25 }],
+  });
+  const { rows } = await pool.query(
+    'select next_invoice_number n from user_settings where user_id = $1',
+    [USER],
+  );
+  assert.equal(rows[0].n, 2, 'an edit takes no number');
+});
+
+/* Each refusal, one row. An edit onto its own dates is not one: the edit
+   above moves the draft over them. */
+test('an edit is refused for another client, an issued or missing invoice, or another draft’s dates', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  await seedEntry({ id: D(2), start: '2026-10-05T09:00:00Z', hours: 1 });
+  const september = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  const october = await json(
+    await r.create(
+      req('/invoices', {
+        clientId: CLIENT,
+        periodStart: '2026-10-01',
+        periodEnd: '2026-10-31',
+      }),
+    ),
+  );
+  const other = 'cc000000-0000-4000-8000-000000000002';
+  await pool.query(
+    `insert into clients (id,user_id,name) values ($1,$2,'Contoso')`,
+    [other, USER],
+  );
+  const sent = await json(
+    await r.create(
+      req('/invoices', {
+        clientId: CLIENT,
+        periodStart: '2026-08-01',
+        periodEnd: '2026-08-31',
+        manualLines: [{ description: 'Deposit', amount: 50 }],
+      }),
+    ),
+  );
+  await send(sent.body.id);
+
+  for (const [what, id, body, status, code] of [
+    [
+      'another client',
+      september.body.id,
+      { clientId: other, ...PERIOD },
+      422,
+      'VALIDATION_FAILED',
+    ],
+    [
+      'an issued invoice',
+      sent.body.id,
+      { clientId: CLIENT, ...PERIOD },
+      409,
+      'INVOICE_STATUS_CHANGED',
+    ],
+    [
+      'a missing invoice',
+      D(99),
+      { clientId: CLIENT, ...PERIOD },
+      404,
+      'ENTRY_NOT_FOUND',
+    ],
+    [
+      'another draft’s dates',
+      october.body.id,
+      { clientId: CLIENT, periodStart: '2026-09-20', periodEnd: '2026-10-31' },
+      409,
+      'DRAFT_OVERLAPS',
+    ],
+  ] as const) {
+    const res = await edit(id, body);
+    assert.equal(res.status, status, what);
+    assert.equal(res.body.code, code, what);
+  }
+});
+
+test('an edit keeps the draft’s payment details unless others are picked', async () => {
+  const r = await live();
+  const { POST: createProfile } = await import(
+    '../src/app/api/v1/payment-profiles/route.ts'
+  );
+  await createProfile(req('/pp', { name: 'ACH', accountNumber: '111' }));
+  await seedEntry({ id: D(1), hours: 2 });
+  const made = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  const before = made.body.paymentDetails;
+  const wire = await json(
+    await createProfile(
+      req('/pp', { name: 'Wire', accountNumber: '222', isDefault: true }),
+    ),
+  );
+
+  const kept = await edit(made.body.id, { clientId: CLIENT, ...PERIOD });
+  assert.deepEqual(kept.body.paymentDetails, before);
+
+  const picked = await edit(made.body.id, {
+    clientId: CLIENT,
+    ...PERIOD,
+    paymentProfileId: wire.body.id,
+  });
+  const fields = picked.body.paymentDetails.fields as {
+    label: string;
+    value: string;
+  }[];
+  assert.ok(fields.some((f) => f.value.endsWith('222')));
+  assert.deepEqual(fields.at(-1), {
+    label: 'Payment reference',
+    value: made.body.invoiceNumber,
+  });
+});
+
+test('a draft’s edit previews its own expenses, as its next read bills them', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  await seedExpense({ id: D(10), spentOn: '2026-09-12', amount: 40 });
+  const made = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  const shown = await json(
+    await preview(
+      req('/invoices/preview', {
+        clientId: CLIENT,
+        ...PERIOD,
+        draftId: made.body.id,
+      }),
+    ),
+  );
+  assert.equal(shown.body.total, 340);
+  assert.equal(shown.body.total, made.body.total);
+});
+
+/* What the PDF printed besides its lines is the client's copy too: an edit
+   to any of it after a download holds Mark sent until a new PDF. A draft
+   downloaded before snapshots kept those fields is backfilled from its own
+   columns, since nothing could edit it then. */
+const BACKFILL = new URL(
+  '../../../supabase/migrations/20261029122450_backfill_printed_snapshot.sql',
+  import.meta.url,
+);
+for (const [what, change, old] of [
+  ['notes', { notes: 'Thanks again' }, false],
+  ['payment details', { paymentProfileId: 'wire' }, false],
+  ['due date', { dueDate: '2099-02-01' }, false],
+  ['notes, on a snapshot from before edits', { notes: 'Thanks again' }, true],
+] as const)
+  test(`after a download, an edit to only the ${what} is DRAFT_CHANGED`, async () => {
+    const r = await live();
+    const { POST: createProfile } = await import(
+      '../src/app/api/v1/payment-profiles/route.ts'
+    );
+    await createProfile(req('/pp', { name: 'ACH', accountNumber: '111' }));
+    const wire = await json(
+      await createProfile(req('/pp', { name: 'Wire', accountNumber: '222' })),
+    );
+    await seedEntry({ id: D(1), hours: 2 });
+    const body = { clientId: CLIENT, ...PERIOD, notes: 'Thanks' };
+    const inv = await json(await r.create(req('/invoices', body)));
+    await r.pdf(req('/pdf?tz=UTC'), at(inv.body.id));
+    if (old) {
+      await pool.query(
+        `update invoices set downloaded_snapshot = downloaded_snapshot - 'printed'
+          where id = $1`,
+        [inv.body.id],
+      );
+      const { readFileSync } = await import('node:fs');
+      await pool.query(readFileSync(BACKFILL, 'utf8'));
+      const untouched = await json(
+        await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
+      );
+      assert.equal(untouched.body.changedSinceDownload, null, 'unchanged');
+    }
+
+    const edited = await edit(inv.body.id, {
+      ...body,
+      ...change,
+      ...('paymentProfileId' in change
+        ? { paymentProfileId: wire.body.id }
+        : {}),
+    });
+    assert.equal(edited.status, 200, JSON.stringify(edited.body));
+    const refused = await json(
+      await r.setStatus(
+        req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
+        at(inv.body.id),
+      ),
+    );
+    assert.equal(refused.status, 409);
+    assert.equal(refused.body.code, 'DRAFT_CHANGED');
+
+    await r.pdf(req('/pdf?tz=UTC'), at(inv.body.id));
+    const sent = await json(
+      await r.setStatus(
+        req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
+        at(inv.body.id),
+      ),
+    );
+    assert.equal(sent.status, 200, JSON.stringify(sent.body));
+    if ('dueDate' in change) assert.equal(sent.body.dueDate, change.dueDate);
+  });

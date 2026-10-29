@@ -14,7 +14,15 @@ import {
   invalidateEntryData,
 } from '@stint/client';
 import { useMarkPaid } from '@/lib/client/use-mark-paid';
-import { Ban, DollarSign, Download, Lock, Send, Trash2 } from 'lucide-react';
+import {
+  Ban,
+  DollarSign,
+  Download,
+  Lock,
+  Pencil,
+  Send,
+  Trash2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConfirmAction } from './confirm-action';
 import { shortDate, StatusBadge } from './invoice-bits';
@@ -182,6 +190,16 @@ function Loaded({
               <Trash2 aria-hidden strokeWidth={1.75} />
               Delete draft
             </ConfirmAction>
+          ) : null}
+
+          {/* "Edit", not "Edit draft": the row stays on the title's line. */}
+          {isDraft ? (
+            <Button asChild>
+              <Link href={`/invoices/${invoice.id}/edit`}>
+                <Pencil aria-hidden strokeWidth={1.75} />
+                Edit
+              </Link>
+            </Button>
           ) : null}
 
           {!isVoid && !isDraft ? (
@@ -352,6 +370,16 @@ function Changed({
   currency: string;
 }) {
   const added = change.hours.to - change.hours.from;
+  if (change.total.from === change.total.to && change.edited.length)
+    return (
+      <div role="status" className={NOTICE}>
+        <p className="type-body text-strong">Edited since you downloaded it</p>
+        <p className="type-support text-muted">
+          Its {change.edited.join(', ')} changed. Download the new PDF to mark
+          it sent.
+        </p>
+      </div>
+    );
   return (
     <div role="status" className={NOTICE}>
       <p className="type-body text-strong">Changed since you downloaded it</p>
@@ -417,7 +445,7 @@ function DueBeforeIssue({
       <p className="type-support text-muted">
         {downloaded
           ? `The due date you typed, ${shortDate(due)}, is before today, so it can’t be downloaded again. Send the PDF you downloaded, then mark it sent.`
-          : `The due date you typed, ${shortDate(due)}, is before today’s issue date, ${shortDate(issued)}, so it can’t be downloaded or sent. Delete this draft and generate it again with a later due date.`}
+          : `The due date you typed, ${shortDate(due)}, is before today’s issue date, ${shortDate(issued)}, so it can’t be downloaded or sent. Edit this draft to give it a later due date.`}
       </p>
     </div>
   );
