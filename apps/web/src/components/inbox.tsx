@@ -353,16 +353,18 @@ export function Inbox({ stats }: { stats: Stats }) {
         </ul>
       )}
 
-      <EntryDialog
-        open={assigning.open}
-        onOpenChange={assigning.onOpenChange}
-        existing={assigning.subject?.entry}
-        focus={assigning.subject?.focus}
-        projects={projects}
-        /* The row's id IS the entry id for both kinds that open this dialog,
+      {assigning.subject ? (
+        <EntryDialog
+          open={assigning.open}
+          onOpenChange={assigning.onOpenChange}
+          existing={assigning.subject.entry}
+          focus={assigning.subject.focus}
+          projects={projects}
+          /* The row's id IS the entry id for both kinds that open this dialog,
            so the mark lands on the row the user just answered. */
-        onSaved={exit.mark}
-      />
+          onSaved={exit.mark}
+        />
+      ) : null}
     </section>
   );
 }

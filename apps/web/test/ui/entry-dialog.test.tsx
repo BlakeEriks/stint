@@ -86,8 +86,7 @@ const open = (existing?: TimeEntry) =>
     <EntryDialog
       open
       onOpenChange={() => {}}
-      existing={existing}
-      seed={existing ? undefined : SEED}
+      {...(existing ? { existing } : { seed: SEED })}
       projects={PROJECTS}
       tz={TZ}
     />,

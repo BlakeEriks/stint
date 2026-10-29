@@ -249,9 +249,7 @@ test('a long entry is padded by its own length, not a flat two hours', () => {
   assert.equal(w.to.toISOString(), '2026-09-10T08:00:00.000Z');
 });
 
-/* An entry by midnight keeps the window it would have had at midday,
-   rather than being pushed inside one day. */
-test('a window near midnight runs past it instead of stopping there', () => {
+test('a window near midnight runs past it', () => {
   const w = windowFor(
     new Date('2026-09-09T00:00:00Z'),
     new Date('2026-09-09T00:30:00Z'),

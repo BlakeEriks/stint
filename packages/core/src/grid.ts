@@ -12,6 +12,7 @@ import {
   addDays,
   localDateKey,
   localDateTimeToInstant,
+  localTimeKey,
   startOfLocalDay,
 } from './calendar.ts';
 
@@ -290,13 +291,11 @@ export function resizedWithinDay(
 
 /** The instant `days` later in `tz` whose wall clock reads as `at`'s does. */
 function sameWallTime(at: Date, days: number, tz: string): Date {
-  const time = new Intl.DateTimeFormat('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-    timeZone: tz,
-  }).format(at);
-  return localDateTimeToInstant(addDays(localDateKey(at, tz), days), time, tz);
+  return localDateTimeToInstant(
+    addDays(localDateKey(at, tz), days),
+    localTimeKey(at, tz),
+    tz,
+  );
 }
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));

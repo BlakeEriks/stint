@@ -4,6 +4,7 @@ import {
   startOfLocalDay,
   startOfLocalWeek,
   localDateKey,
+  localTimeKey,
   localDayOfWeek,
   isValidTimeZone,
   startOfLocalDate,
@@ -432,4 +433,15 @@ test('dayByClient keys by the local date the entry started on', () => {
     { from, tz: 'America/New_York', now },
   );
   assert.deepEqual(dst.get('2026-11-01'), { 'c-north': 120 });
+});
+
+test('localTimeKey reads the wall clock in the zone, midnight as 00', () => {
+  assert.equal(
+    localTimeKey(new Date('2026-09-11T04:00:00Z'), 'America/New_York'),
+    '00:00',
+  );
+  assert.equal(
+    localTimeKey(new Date('2026-09-11T18:05:00Z'), 'America/New_York'),
+    '14:05',
+  );
 });
