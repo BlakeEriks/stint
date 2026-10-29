@@ -185,8 +185,8 @@ scheduled client, or more than `UNBILLED_DUE_DAYS` (30) old for any other.
 It names the `entryIds`, their `seconds` and the first day as `since`.
 `periodStart`..`periodEnd` span the oldest run of that work no invoice
 interrupts (adjacent whole periods for a scheduled client), and
-`onePeriod` is true when all of it is in one period. No
-entry is in both it and `lateEntries`.
+`onePeriod` is true when all of it is in one of the client's periods, so
+always false with no schedule. No entry is in both it and `lateEntries`.
 The long threshold defaults to 12 hours, which is how a timer left running
 overnight reaches the inbox; the short one defaults to null. `overlaps` is one
 per pair of entries sharing a minute or more (`MIN_OVERLAP_SECONDS` in
