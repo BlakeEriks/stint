@@ -56,7 +56,7 @@ its title marked "(continued)".
   and reference. Lines are grouped by kind — time, fixed fees, expenses —
   each headed by an accent shape and its subtotal, numbered straight
   through; a kind with no lines is left out. Payment details sit in a
-  dashed ticket stub.
+  dashed ticket stub beside the totals.
 - **Settings**: an "Invoice template" section between Business identity and
   Invoice numbering. Four cards in a radio group, each a thumbnail of the
   invoice in that template with its name, a line on what it is, and

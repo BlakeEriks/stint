@@ -159,10 +159,16 @@ const s = StyleSheet.create({
     fontFamily: FIGURES,
     fontWeight: 600,
   },
-  totals: {
-    width: 230,
-    marginLeft: 'auto',
+  end: {
+    flexDirection: 'row',
+    gap: 24,
     marginTop: 12,
+    alignItems: 'flex-start',
+  },
+  payBox: { flex: 1 },
+  totals: {
+    width: 180,
+    marginLeft: 'auto',
     lineHeight: `${LINE}pt`,
   },
   totalRow: {
@@ -182,10 +188,8 @@ const s = StyleSheet.create({
   },
   terms: { color: print.faint, marginTop: 6, fontSize: 8.5 },
   pay: {
-    marginTop: 16,
     paddingVertical: 12,
-    paddingRight: 18,
-    paddingLeft: 26,
+    paddingHorizontal: 16,
     borderWidth: 1.5,
     borderStyle: 'dashed',
     borderColor: print.ink,
@@ -194,7 +198,7 @@ const s = StyleSheet.create({
   },
   payTitle: { fontWeight: 700 },
   payGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
-  payCell: { width: '33.33%', paddingRight: 10, marginBottom: 5 },
+  payCell: { width: '50%', paddingRight: 10, marginBottom: 5 },
   payLabel: { ...label, fontSize: 7 },
   payValue: { fontFamily: FIGURES, fontSize: 9 },
   paySub: {
@@ -443,11 +447,16 @@ function First({ data }: { data: Data }) {
         ))}
       </View>
 
-      <TotalsView data={data} s={totals} label="Total" wrap={false} />
-
-      {data.payment ? (
-        <PaymentView payment={data.payment} s={payStyles(s)} />
-      ) : null}
+      {/* The stub beside the totals, as Modern sets it, so an invoice of a
+          few lines keeps its payment details on page 1. */}
+      <View style={s.end} wrap={false}>
+        {data.payment ? (
+          <View style={s.payBox}>
+            <PaymentView payment={data.payment} s={payStyles(s)} />
+          </View>
+        ) : null}
+        <TotalsView data={data} s={totals} label="Total" />
+      </View>
       {data.notes ? (
         <View style={s.notes}>
           <Lines text={data.notes} />

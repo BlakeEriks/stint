@@ -46,11 +46,11 @@ export const SAMPLE = {
   periodStart: '2026-09-01',
   periodEnd: '2026-09-30',
   currency: 'USD',
-  subtotal: 6762.5,
+  subtotal: 4212.75,
   taxRate: 8.25,
-  taxAmount: 557.91,
+  taxAmount: 347.55,
   expensesSubtotal: 84,
-  total: 7404.41,
+  total: 4644.3,
   notes: 'Thanks for a great quarter.',
   // Bank details belong on the invoice document, never in the email body.
   payment: {
@@ -86,20 +86,6 @@ export const SAMPLE = {
       quantity: 12.25,
       unitPrice: 175,
       amount: 2143.75,
-    },
-    {
-      description: 'Checkout validation fixes (Safari)',
-      unit: 'hour',
-      quantity: 8.5,
-      unitPrice: 175,
-      amount: 1487.5,
-    },
-    {
-      description: 'Design review + component pass',
-      unit: 'hour',
-      quantity: 6.0,
-      unitPrice: 175,
-      amount: 1050.0,
     },
     // A different rate on the same invoice: these must not merge with the
     // 175/h lines above.
@@ -179,4 +165,15 @@ for (const template of ['standard', 'modern', 'classic', 'creative']) {
     outFile,
     resolve(thumbDir, template),
   ]);
+  // The thumbnail is page 1, so the whole invoice must fit on it: a payment
+  // block pushed to page 2 would vanish from the picker.
+  const page1 = execFileSync(
+    'pdftotext',
+    ['-f', '1', '-l', '1', outFile, '-'],
+    {
+      encoding: 'utf8',
+    },
+  );
+  if (!page1.includes('021000021'))
+    throw new Error(`${template}: payment details are not on page 1`);
 }
