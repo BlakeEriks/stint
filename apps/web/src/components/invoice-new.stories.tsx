@@ -358,14 +358,14 @@ export const Updating: Story = {
     stalls: 1,
     msw: {
       handlers: {
-        // The play's By task never answers; every other preview does.
+        // The play's By project never answers; every other preview does.
         previewInvoice: http.post(
           handlers.previewInvoice.info.path,
           async (info) => {
             const body = (await info.request.clone().json()) as {
               groupingMode?: string;
             };
-            if (body.groupingMode === 'task') await delay('infinite');
+            if (body.groupingMode === 'project') await delay('infinite');
             // `resolver` is protected in msw's types, and public at runtime.
             const real = handlers.previewInvoice as unknown as {
               resolver: (i: typeof info) => Promise<Response>;
@@ -379,7 +379,7 @@ export const Updating: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
-    await pickGrouping(page, /By task/);
+    await pickGrouping(page, /By project/);
     await expect(await page.findByText('Updating…')).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Generate invoice' }),
@@ -743,6 +743,51 @@ export const FromLastInvoice: Story = {
       page.getByRole('checkbox', { name: 'Hours by project' }),
     ).not.toBeChecked();
     await settled(page);
+  },
+};
+
+/** The client's last invoice was by task under a PO, so this one opens by
+    task under that PO. */
+export const FromLastByTask: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      const last = db.invoices
+        .filter((i) => i.clientId === ids.northwind && i.status !== 'void')
+        .sort(
+          (a, b) => b.sequenceNo - a.sequenceNo,
+        )[0] as Db['invoices'][number];
+      last.reference = 'PO 4471';
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    await expect(
+      page.getByRole('button', { name: 'Show time as' }),
+    ).toHaveTextContent('By task');
+    await expect(page.getByLabelText('Reference')).toHaveValue('PO 4471');
+    await expect(card(page).getByText('PO 4471')).toBeVisible();
+  },
+};
+
+/** A client never invoiced opens on one summary line, waiting for its
+    text. */
+export const FirstInvoice: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      db.invoices = db.invoices.filter((i) => i.clientId !== ids.northwind);
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(await page.findByLabelText(/Summary line/)).toHaveValue('');
+    await expect(
+      page.getByRole('button', { name: 'Show time as' }),
+    ).toHaveTextContent('One summary line');
   },
 };
 

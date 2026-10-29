@@ -145,8 +145,19 @@ const WITH_EXPENSE = {
   total: 574,
 };
 
+/** An earlier invoice of every entry, which most tests open on. */
+const EARLIER = {
+  id: 'inv-0',
+  clientId: 'c1',
+  status: 'paid',
+  groupingMode: 'entry',
+  summaryText: null,
+  supportingDetail: null,
+  reference: null,
+};
+
 /** The client's invoices, newest first, as the list serves them. */
-let invoices: unknown[] = [];
+let invoices: unknown[] = [EARLIER];
 /** A held invoice list: a test answers it after the form has settled. */
 let holdInvoices: Promise<void> | null = null;
 
@@ -261,7 +272,7 @@ beforeEach(() => {
   settings = SETTINGS;
   CLIENTS[0]!.paymentTermsDays = null;
   holdSettings = null;
-  invoices = [];
+  invoices = [EARLIER];
   holdInvoices = null;
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -644,8 +655,11 @@ describe('NewInvoice — from the client’s last invoice', () => {
     );
   });
 
-  it('opens every entry when the last invoice was not a summary', async () => {
-    invoices = [sent(null)];
+  it('opens on the last invoice’s grouping and reference, whatever it was', async () => {
+    invoices = [
+      { ...sent(null), groupingMode: 'task', reference: 'SOW 12' },
+      sent('Consulting'),
+    ];
     serve();
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
@@ -653,8 +667,46 @@ describe('NewInvoice — from the client’s last invoice', () => {
     await ready(user);
     expect(
       screen.getByRole('button', { name: 'Show time as' }),
-    ).toHaveTextContent('Every entry');
+    ).toHaveTextContent('By task');
     expect(screen.queryByLabelText(/Summary line/)).toBeNull();
+    expect(screen.getByLabelText('Reference')).toHaveValue('SOW 12');
+    expect(previews().every((p) => p.body.groupingMode === 'task')).toBe(true);
+
+    await user.click(generate());
+    await waitFor(() => expect(push).toHaveBeenCalled());
+    const made = bodies.find((b) => b.path.endsWith('/invoices'))!.body;
+    expect(made.groupingMode).toBe('task');
+    expect(made.reference).toBe('SOW 12');
+  });
+
+  it('keeps a reference cleared here, rather than the last one', async () => {
+    invoices = [{ ...sent(null), reference: 'SOW 12' }];
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+
+    await ready(user);
+    await user.clear(screen.getByLabelText('Reference'));
+    expect(screen.getByLabelText('Reference')).toHaveValue('');
+    await user.click(generate());
+    await waitFor(() => expect(push).toHaveBeenCalled());
+    expect(
+      bodies.find((b) => b.path.endsWith('/invoices'))!.body.reference,
+    ).toBeUndefined();
+  });
+
+  it('opens a client’s first invoice on one summary line', async () => {
+    invoices = [sent('Voided', 'void')];
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+
+    await chooseClient(user);
+    expect(await screen.findByLabelText(/Summary line/)).toHaveValue('');
+    expect(
+      screen.getByRole('button', { name: 'Show time as' }),
+    ).toHaveTextContent('One summary line');
+    expect(screen.getByLabelText('Reference')).toHaveValue('');
   });
 });
 

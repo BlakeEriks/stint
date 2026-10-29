@@ -103,13 +103,13 @@ interface Draft {
   /** `null` until the user picks one, so it follows the payment terms the
    *  invoice prints. */
   dueDate: string | null;
-  /** The PO, contract or SOW. It decides no line, so it never asks the
-   *  server again. */
-  reference: string;
   /** Printed on this invoice only; blank prints nothing. */
   notes: string;
-  /* These three are `null` until the user sets them, so they follow the
+  /* These four are `null` until the user sets them, so they follow the
      client's last invoice. */
+  /** The PO, contract or SOW. It decides no line, so it never asks the
+   *  server again. */
+  reference: string | null;
   groupingMode: GroupingMode | null;
   /** The one line's text with `summary`. */
   summaryText: string | null;
@@ -128,7 +128,7 @@ const EMPTY: Draft = {
   periodStart: null,
   periodEnd: null,
   dueDate: null,
-  reference: '',
+  reference: null,
   notes: '',
   groupingMode: null,
   summaryText: null,
@@ -175,16 +175,15 @@ function ScheduleHint({
   );
 }
 
-/** What a client's last invoice carries into the next: a summary's text and
- *  attachments, so a monthly invoice isn't retyped. */
-const carriedFrom = (last: Invoice | undefined) =>
-  last?.groupingMode === 'summary'
-    ? {
-        groupingMode: last.groupingMode,
-        summaryText: last.summaryText ?? '',
-        schedules: attachedSchedules(last.supportingDetail),
-      }
-    : { groupingMode: 'entry' as const, summaryText: '', schedules: [] };
+/** What a client's last invoice carries into the next, so a monthly invoice
+ *  isn't retyped. A first invoice is one summary line: itemizing is the
+ *  exception. */
+const carriedFrom = (last: Invoice | undefined) => ({
+  groupingMode: last?.groupingMode ?? 'summary',
+  summaryText: last?.summaryText ?? '',
+  schedules: attachedSchedules(last?.supportingDetail ?? null),
+  reference: last?.reference ?? '',
+});
 
 /** `key` `'new'` adds the charge; any other replaces the charge it names. */
 const putCharge = (
@@ -212,6 +211,7 @@ function useCarried(draft: Draft) {
     lastPending: lastInvoice.isPending,
     groupingMode,
     summaryText: draft.summaryText ?? carried.summaryText,
+    reference: draft.reference ?? carried.reference,
     schedules:
       groupingMode === 'summary' ? (draft.schedules ?? carried.schedules) : [],
   };
@@ -376,7 +376,7 @@ function Form() {
       queryFn: () => api.paymentProfiles(),
     }).data?.paymentProfiles ?? [];
 
-  const { lastPending, groupingMode, summaryText, schedules } =
+  const { lastPending, groupingMode, summaryText, schedules, reference } =
     useCarried(draft);
   const { periodStart, periodEnd } = periodOf(draft, client, issued);
   const waiting = useWaitingExpenses(draft.clientId, periodEnd);
@@ -431,7 +431,7 @@ function Form() {
         // Only a typed one: otherwise the terms date it from the day it is
         // sent.
         dueDate: draft.dueDate ?? undefined,
-        reference: draft.reference.trim() || undefined,
+        reference: reference.trim() || undefined,
         notes: draft.notes.trim() || undefined,
         // The profile the card shows, frozen as it is now.
         paymentProfileId: profile?.id,
@@ -672,7 +672,7 @@ function Form() {
               <Field label="Reference" htmlFor="inv-reference">
                 <Input
                   id="inv-reference"
-                  value={draft.reference}
+                  value={reference}
                   onChange={(e) => set('reference', e.target.value)}
                   placeholder="PO number, contract or SOW"
                   maxLength={200}
@@ -769,7 +769,7 @@ function Form() {
               number={number}
               issued={issued}
               due={due}
-              reference={draft.reference.trim()}
+              reference={reference.trim()}
               notes={draft.notes.trim()}
               payment={payment}
               schedules={schedules}
