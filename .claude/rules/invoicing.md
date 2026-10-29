@@ -15,8 +15,9 @@ preview a user approves and the invoice that issues are built by identical
 code. Routes in `apps/web/src/app/api/v1/invoices/`. Their loaders split
 along the draft/issued line, and read rows through `rows.ts` like everything
 else: `apps/web/src/lib/drafts.ts` reads live data to price a draft, and
-`apps/web/src/lib/issued.ts` reads nothing live for a non-draft: only its
-`invoices` row and line items, so a live lookup there is out of place.
+`apps/web/src/lib/issued.ts` prints a non-draft from its `invoices` row and
+line items alone, so a live lookup for what it prints is out of place. Its one
+other read, `entitlement()`, decides only whether the PDF opens.
 `formatCurrency` and `formatHours` are in core for the same reason: the
 preview and the PDF render one number one way.
 
