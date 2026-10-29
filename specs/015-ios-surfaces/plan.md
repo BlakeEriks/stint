@@ -52,7 +52,7 @@ Developer Program: no app group, no Siri capability, no push entitlement.
 | II. Logic written twice has a parity test | No | No rule exists in both TypeScript and SQL. Swift's press reads what JS decided (`pressed`, the failure's words). |
 | III. Every client through `/api/v1`; server owns timer truth | Yes | Swift's press calls `/api/v1/timer/start` and `/stop`; the server's answer replaces the prediction, and the app's next read replaces everything. |
 | IV. `packages/core` does no I/O | No | Nothing added to core. |
-| V. Tests first where a regression is silent | Yes | The state and the shared session get node tests first; the press's rules are `Optimistic`'s, which `OptimisticTests` covers in `swift test`. |
+| V. Tests first where a regression is silent | Partly | The state and the shared session get node tests first; the press's rules are `Optimistic`'s, which `OptimisticTests` covers in `swift test`. The iPhone's own Swift has no suite: see Complexity Tracking. |
 | VI. Every press answers in the same frame | Partly | The Swift press goes through the macOS app's `Optimistic`, shared as source: see Complexity Tracking. |
 
 Additional Constraints: one running timer (a refused start says so), client
@@ -86,3 +86,4 @@ docs/mobile.md                               # Outside the app
 | Violation | Why needed | Simpler alternative rejected because |
 | --- | --- | --- |
 | VI: the phone's iOS presses outside the app are a third caller of the shared Swift mechanism, `Optimistic` (`apps/macos/Sources/Stint/Shared`), not of `useOptimisticMutation` | iOS runs the intent in a background launch with no scene, and Expo SDK 58 starts React Native only in `SceneDelegate`, so no JS runs | Opening the app for each press (`openAppWhenRun`) defeats the issue; a press in the widget's own process could not end the Live Activity, which only the app may change |
+| V: `StintPress`'s own Swift has no automated test: `predict` (the state a press shows), `held(_:over:)` (what the server's timer draws over the stored state) and the words `report` and `message(for:)` give a failure | The pod builds only inside an iOS app, and the repo has no iOS Swift suite; adding one changes the constitution's table | Moving them into `apps/macos/Sources/Stint/Shared` for `swift test` would put iPhone-only state into the Mac app; they are seen on the owner's Xcode run (`quickstart.md`) |

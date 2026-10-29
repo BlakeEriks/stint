@@ -39,14 +39,19 @@ public final class StintPress: Optimistic {
     let words = (before["failed"] as? [String: String]) ?? [:]
     let api = Backend(backend)
     let path = "/timer/\(action)"
-    let body = try? JSONSerialization.data(withJSONObject: action == "start" ? startBody(before["next"]) : [:])
+    let next = before["next"] as? [String: Any]
+    let task = next?["taskName"] as? String ?? ""
+    let project = next?["projectId"] as? String
+    let id = uuidv7()
     unstored = nil
     let answer = await press("timer") {
       failing = words[action] ?? ""
       draw(predicted)
       return { self.draw(before) }
     } perform: {
-      let (status, data) = try await api.request(path, body)
+      let fields: [String: Any] =
+        action == "start" ? ["id": id, "taskName": task, "projectId": project ?? NSNull()] : [:]
+      let (status, data) = try await api.request(path, try JSONSerialization.data(withJSONObject: fields))
       guard (200..<300).contains(status) else {
         throw Backend.Refusal(message: Self.reason(Backend.json(data)) ?? "the server said \(status)")
       }
@@ -78,11 +83,19 @@ public final class StintPress: Optimistic {
   /// Draws the timer the server holds, over what is drawn: the same task
   /// keeps its project line, another shows bare until the app reads it.
   func refresh() async {
-    // Offline, what is drawn stays until the app reads the timer.
-    guard let stored = Store.load(), let backend = stored["backend"] as? [String: String],
-      let answer = try? await Backend(backend).request("/timer/current", nil),
-      (200..<300).contains(answer.0)
-    else { return }
+    guard let stored = Store.load(), let backend = stored["backend"] as? [String: String] else { return }
+    let answer: (Int, Data)
+    do {
+      answer = try await Backend(backend).request("/timer/current", nil)
+    } catch is URLError {
+      // Offline, what is drawn stays until the app reads the timer.
+      return
+    } catch {
+      // Such as a refreshed session the Keychain refused: Siri says it.
+      unstored = error
+      return
+    }
+    guard (200..<300).contains(answer.0) else { return }
     draw(Self.held(Backend.json(answer.1)["entry"] as? [String: Any], over: stored))
   }
 
@@ -131,15 +144,6 @@ public final class StintPress: Optimistic {
     }
     if let started = millis(entry["startedAt"]) { out["startedAt"] = started }
     return out
-  }
-
-  private func startBody(_ next: Any?) -> [String: Any] {
-    let n = next as? [String: Any]
-    return [
-      "id": uuidv7(),
-      "taskName": n?["taskName"] as? String ?? "",
-      "projectId": n?["projectId"] ?? NSNull(),
-    ]
   }
 
   private static func title(_ s: [String: Any]) -> String { s["title"] as? String ?? "" }
