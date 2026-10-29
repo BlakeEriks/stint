@@ -23,8 +23,11 @@ export function KeyboardAdd({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className={`rounded-sm px-0.5 text-subtle opacity-0 transition-opacity
-                  hover:text-primary focus-visible:opacity-100
+      /* Never a pointer target: an invisible button a click could still
+         hit would open Add from empty space. Enter and Space still press
+         it. */
+      className={`pointer-events-none rounded-sm px-0.5 text-subtle opacity-0
+                  transition-opacity focus-visible:opacity-100
                   focus-visible:ring-2 focus-visible:ring-edge-focus
                   focus-visible:outline-none ${className}`}
     >

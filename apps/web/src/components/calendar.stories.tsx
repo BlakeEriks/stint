@@ -172,6 +172,21 @@ export const AddFromKeyboard: Story = {
     await expect(getComputedStyle(el).opacity).toBe('0');
     await expect(pointerReveals(el)).toEqual([]);
 
+    // Nor can a pointer hit it: a click on its spot opens nothing.
+    const box = el.getBoundingClientRect();
+    const x = box.left + box.width / 2;
+    const y = box.top + box.height / 2;
+    const hit = el.ownerDocument.elementFromPoint(x, y) as HTMLElement;
+    await expect(el.contains(hit)).toBe(false);
+    await userEvent.pointer({
+      target: hit,
+      coords: { clientX: x, clientY: y },
+      keys: '[MouseLeft]',
+    });
+    await expect(
+      within(canvasElement.ownerDocument.body).queryByRole('dialog'),
+    ).toBeNull();
+
     el.focus({ focusVisible: true } as FocusOptions);
     await waitFor(() => expect(getComputedStyle(el).opacity).toBe('1'));
   },
