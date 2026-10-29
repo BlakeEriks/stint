@@ -68,8 +68,7 @@ interface Active extends Drag {
  *
  * A move also goes sideways, to the day under the pointer, keeping its wall
  * clock (`movedByDays`); its time still resolves against the column it left,
- * whose own span is what makes the vertical math DST-correct. A resize stays
- * in its column.
+ * whose own span is what makes the vertical math DST-correct.
  */
 export function useEntryDrag() {
   const active = useRef<Active | null>(null);
