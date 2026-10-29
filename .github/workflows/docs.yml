@@ -63,6 +63,9 @@ jobs:
           # The workflow's own token, so the job needs no Claude GitHub App
           # and can do nothing beyond the permissions above.
           github_token: ${{ github.token }}
+          # `migration-handoff.yml` merges `main` into a PR as `stint-bot`; the
+          # action refuses bot actors, so that push would fail drift unreviewed.
+          allowed_bots: stint-bot
           # Turn-by-turn report in the job summary: where a slow run spent its turns.
           display_report: true
           prompt: /doc-drift ${{ github.event.pull_request.number }} ${{ github.event.pull_request.base.ref }} ${{ github.event.pull_request.head.sha }}

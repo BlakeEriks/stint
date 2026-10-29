@@ -16,6 +16,21 @@ export function fcmTimerMessage(token: string) {
   };
 }
 
+/** The private Realtime topic only `userId` may join (`join_own_user_topic`). */
+export function userTopic(userId: string) {
+  return `user:${userId}`;
+}
+
+/** What the server broadcasts a user's browsers when the running timer
+ *  changes: as with a phone, only that it changed. */
+export function timerBroadcast(userId: string) {
+  return {
+    messages: [
+      { topic: userTopic(userId), event: 'timer', payload: {}, private: true },
+    ],
+  };
+}
+
 /** What became of one send: `dead` deletes the token, `retry` tries once more. */
 export type PushOutcome = 'sent' | 'dead' | 'retry' | 'failed';
 

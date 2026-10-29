@@ -1,4 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+// `@sentry/core`, not `@sentry/nextjs`, for the reason in `errors.ts`.
+import { setUser } from '@sentry/core';
 import { cookieClient, bearerClient, testDb } from './supabase';
 import { ApiError } from './errors';
 
@@ -13,8 +15,16 @@ export interface Session {
  * Resolves the caller from either a bearer token (Expo, macOS) or a cookie
  * session (web). Both paths end up with an RLS-scoped client, so downstream
  * queries cannot reach another user's rows even if a filter is forgotten.
+ *
+ * The request's Sentry events name the user by id alone.
  */
 export async function requireSession(req: Request): Promise<Session> {
+  const session = await resolve(req);
+  setUser({ id: session.userId });
+  return session;
+}
+
+async function resolve(req: Request): Promise<Session> {
   const injected = testDb();
   if (injected) return { userId: TEST_USER_ID, db: injected };
 

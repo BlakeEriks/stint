@@ -1,8 +1,16 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { EntryList } from '@/components/entry-list';
+import { ZOOM_KEY } from '@/lib/client/use-zoom';
 
 /**
  * Today drawn as a day column rather than a list.
@@ -42,16 +50,37 @@ type Entry = {
 };
 
 function serve(entries: Entry[]) {
+  const writes: { method: string; url: string }[] = [];
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (input: RequestInfo | URL) => {
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
+      if ((init?.method ?? 'GET') !== 'GET') {
+        writes.push({ method: init?.method ?? 'GET', url });
+        return new Response(JSON.stringify({ entry: entries[0] }), {
+          status: 200,
+        });
+      }
       if (url.includes('/entries'))
         return new Response(JSON.stringify({ entries }), { status: 200 });
       return new Response(JSON.stringify({ projects: [] }), { status: 200 });
     }),
   );
+  return { writes };
 }
+
+/** jsdom lays nothing out: give the column a height to resolve pixels in. */
+function layOut() {
+  const column = document.querySelector<HTMLElement>('.border-l')!;
+  column.getBoundingClientRect = () =>
+    ({ top: 0, left: 0, height: 720, width: 100 }) as DOMRect;
+  return column;
+}
+
+const columnHeight = () =>
+  Number.parseFloat(
+    document.querySelector<HTMLElement>('.border-l')!.style.height,
+  );
 
 function wrapper({ children }: { children: ReactNode }) {
   const client = new QueryClient({
@@ -69,6 +98,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  localStorage.clear();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -172,5 +202,163 @@ describe('Today as a day column', () => {
     const top = Number.parseFloat((line as HTMLElement).style.top);
     expect(top).toBeGreaterThanOrEqual(0);
     expect(top).toBeLessThanOrEqual(100);
+  });
+});
+
+describe("Today takes the calendar's gestures", () => {
+  it('drags a block to new times', async () => {
+    const srv = serve([entry()]);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    draw();
+
+    const target = await screen.findByRole('button', {
+      name: /Edit API integration/,
+    });
+    layOut();
+    await user.pointer([
+      { target, coords: { x: 10, y: 300 }, keys: '[MouseLeft>]' },
+      { target, coords: { x: 10, y: 360 } },
+      { target, keys: '[/MouseLeft]' },
+    ]);
+
+    await waitFor(() => expect(srv.writes).toHaveLength(1));
+    expect(srv.writes[0]).toMatchObject({ method: 'PATCH' });
+    expect(srv.writes[0]!.url).toContain('/entries/e1');
+  });
+
+  it('opens a new entry where empty grid is clicked, writing nothing', async () => {
+    const srv = serve([entry()]);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    draw();
+
+    await screen.findByRole('button', { name: /Edit API integration/ });
+    const column = layOut();
+    await user.pointer({
+      target: column,
+      coords: { x: 10, y: 700 },
+      keys: '[MouseLeft]',
+    });
+
+    expect(
+      await screen.findByRole('heading', { name: 'Add entry' }),
+    ).toBeInTheDocument();
+    expect(srv.writes).toEqual([]);
+  });
+});
+
+describe('zooming a day column', () => {
+  it('scales the hour on a pinch or a modified scroll, and keeps it', async () => {
+    serve([entry()]);
+    const { unmount } = draw();
+    await screen.findByRole('button', { name: /Edit API integration/ });
+    const column = document.querySelector<HTMLElement>('.border-l')!;
+    const before = columnHeight();
+
+    // A plain scroll is a scroll: the page zoom it would be is not taken.
+    expect(fireEvent.wheel(column, { deltaY: -50 })).toBe(true);
+    expect(columnHeight()).toBe(before);
+
+    // A pinch arrives with ctrlKey set; the browser's page zoom is refused.
+    expect(fireEvent.wheel(column, { deltaY: -50, ctrlKey: true })).toBe(false);
+    const zoomed = columnHeight();
+    expect(zoomed).toBeGreaterThan(before);
+
+    fireEvent.wheel(column, { deltaY: 50, metaKey: true });
+    expect(columnHeight()).toBeLessThan(zoomed);
+    fireEvent.wheel(column, { deltaY: -50, metaKey: true });
+
+    // The level outlives the screen that set it, in this browser.
+    expect(Number(localStorage.getItem(ZOOM_KEY))).toBeCloseTo(
+      (zoomed / before) * 44,
+    );
+    unmount();
+    draw();
+    await screen.findByRole('button', { name: /Edit API integration/ });
+    expect(columnHeight()).toBeCloseTo(zoomed);
+  });
+});
+
+describe('the day fills its scroll area', () => {
+  /** As the dock's column draws it, where the layout sets the height. */
+  const drawFilling = () =>
+    render(<EntryList projects={[]} todaySeconds={6300} fills />, {
+      wrapper,
+    });
+
+  /** A scroll area of `px`, and the observer that reports its resizes. */
+  function area() {
+    const seen: Array<() => void> = [];
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(cb: () => void) {
+          seen.push(cb);
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    return (px: number) => {
+      const scroller = document.querySelector<HTMLElement>('.overflow-y-auto')!;
+      // jsdom applies no stylesheet, so the class's overflow is set here.
+      scroller.style.overflowY = 'auto';
+      scroller.getBoundingClientRect = () => ({ height: px }) as DOMRect;
+      act(() => {
+        for (const cb of seen) cb();
+      });
+    };
+  }
+
+  /* The strip's popover and the band below `xl` size to the grid: their
+     height is the zoom's own, so a floor read from it would hold the zoom
+     where it is and zoom-out would never move. */
+  it('zooms out freely where the area sizes to the grid', async () => {
+    const resize = area();
+    serve([entry()]);
+    draw();
+    await screen.findByRole('button', { name: /Edit API integration/ });
+    const before = columnHeight();
+    resize(before);
+
+    const column = document.querySelector<HTMLElement>('.border-l')!;
+    fireEvent.wheel(column, { deltaY: 100, ctrlKey: true });
+    resize(columnHeight());
+    expect(columnHeight()).toBeLessThan(before);
+  });
+
+  it('zooms in as the area grows, and never zooms out past filling it', async () => {
+    const resize = area();
+    serve([entry()]);
+    drawFilling();
+    await screen.findByRole('button', { name: /Edit API integration/ });
+    const at44 = columnHeight();
+
+    // Taller than the day at the default: the hours grow to fill it.
+    resize(at44 * 2);
+    expect(columnHeight()).toBeCloseTo(at44 * 2);
+
+    // Zooming out stops at filling it.
+    const column = document.querySelector<HTMLElement>('.border-l')!;
+    fireEvent.wheel(column, { deltaY: 100, ctrlKey: true });
+    expect(columnHeight()).toBeCloseTo(at44 * 2);
+
+    // Zooming in above the floor still works, and outlives a shrink.
+    fireEvent.wheel(column, { deltaY: -100, ctrlKey: true });
+    const zoomedIn = columnHeight();
+    expect(zoomedIn).toBeGreaterThan(at44 * 2);
+    resize(at44);
+    expect(columnHeight()).toBeCloseTo(zoomedIn);
+  });
+
+  it('draws a stored level below the floor at the floor', async () => {
+    localStorage.setItem(ZOOM_KEY, '22');
+    const resize = area();
+    serve([entry()]);
+    drawFilling();
+    await screen.findByRole('button', { name: /Edit API integration/ });
+    const at22 = columnHeight();
+
+    resize(at22 * 3);
+    expect(columnHeight()).toBeCloseTo(at22 * 3);
   });
 });

@@ -1,4 +1,4 @@
-import { ApiError, currentTimeZone } from '@stint/client';
+import { ApiError, currentTimeZone, onTimerChanged } from '@stint/client';
 import { startSession } from '../launch.ts';
 import {
   focusManager,
@@ -11,13 +11,14 @@ import { AppState, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { createApi } from '../api.ts';
 import { createBypass } from '../bypass.ts';
-import { createPushDevice, onTimerPush } from '../push.ts';
+import { createPushDevice } from '../push.ts';
 import { createSurfaces } from '../surfaces.ts';
 import { canDraw, drawSurfaces } from '../surfaces-native';
 import { canPush, expoTokens, listenForTimerPushes } from '../push-native';
 import { origin, target } from '../config.ts';
 import { usePlex } from '../fonts.ts';
 import { createRequest } from '../request.ts';
+import { setCrashUser } from '../crash-reporting.ts';
 import { createAuth, type Session } from '../session.ts';
 import { secureStore } from '../storage';
 import { useColors } from '../theme.ts';
@@ -95,7 +96,7 @@ async function canRequest() {
 /* A timer changed on another client: refetch it now, not on the next
    foreground (`push.ts`), and redraw the surfaces with the app closed. */
 listenForTimerPushes(() => {
-  void onTimerPush(queryClient);
+  void onTimerChanged(queryClient);
   if (canDraw) void surfaces.refresh();
 });
 
@@ -147,6 +148,7 @@ function useSession(): Session | null | undefined {
         preview: target.preview,
         show: setSession,
         clear: () => queryClient.clear(),
+        identify: setCrashUser,
       }),
     [],
   );
