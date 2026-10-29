@@ -15,5 +15,6 @@ export * from './export.ts';
 export * from './import/index.ts';
 export * from './billing.ts';
 export * from './live-draft.ts';
+export * from './billable.ts';
 export * from './push.ts';
 export * from './refusals.ts';

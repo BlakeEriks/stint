@@ -44,6 +44,8 @@ type StoredInvoice = Invoice & {
    *  stored `dueDate` was typed. A draft without one is due by its terms
    *  from the day it is sent. */
   typedDueDate?: string | null;
+  /** The expenses left off it, the row's `excluded_expense_ids`. */
+  excludedExpenseIds?: string[];
   /** Set by a story whose draft was downloaded before its due date. */
   dueBeforeIssue?: { download: boolean; send: boolean };
 };
