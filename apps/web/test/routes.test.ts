@@ -63,7 +63,8 @@ beforeEach(async () => {
                     payment_terms_days=30, legacy_payment_terms=null,
                     -- Off, so a long fixture elsewhere does not also raise the
                     -- strange-duration row; its own tests set a threshold.
-                    min_entry_seconds=null, max_entry_hours=null
+                    min_entry_seconds=null, max_entry_hours=null,
+                    invoice_template='standard'
      where user_id=$1`,
     [USER],
   );
@@ -77,9 +78,32 @@ beforeEach(async () => {
   delete process.env.FCM_SERVICE_ACCOUNT;
   fcmFake = fakeFcm();
   (globalThis as any).__TEST_FCM__ = fcmFake.fetch;
+  // And the browsers' broadcast; `configureBroadcast()` turns it on.
+  delete process.env.SUPABASE_SECRET_KEY;
+  broadcasts = [];
+  broadcastStatus = 202;
+  (globalThis as any).__TEST_REALTIME__ = async (
+    url: string,
+    init?: RequestInit,
+  ) => {
+    broadcasts.push({
+      url,
+      apikey: new Headers(init?.headers).get('apikey'),
+      body: JSON.parse(String(init?.body)),
+    });
+    return new Response(null, { status: broadcastStatus });
+  };
 });
 
 let fcmFake: ReturnType<typeof fakeFcm>;
+/** Each request to Realtime's broadcast endpoint, and the status it gets. */
+let broadcasts: { url: string; apikey: string | null; body: unknown }[];
+let broadcastStatus: number;
+
+const configureBroadcast = () => {
+  process.env.SUPABASE_SECRET_KEY = 'sb_secret_test';
+  process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://supabase.test';
+};
 
 /** Whatever the handlers scheduled with `after()`, finished. */
 const settled = () =>
@@ -1462,6 +1486,35 @@ test('settings update', async () => {
   assert.equal(after.status, 200);
   assert.equal(after.body.maxEntryHours, 10);
   assert.equal(after.body.defaultHourlyRate, 125);
+});
+
+test('the invoice template is Standard until chosen, and one of the four', async () => {
+  const { GET: get, PATCH: patch } = await import(
+    '../src/app/api/v1/settings/route.ts'
+  );
+  const set = (invoiceTemplate: string) =>
+    patch(req('/settings', { invoiceTemplate }, 'PATCH')).then(json);
+
+  assert.equal(
+    (await json(await get(req('/settings')))).body.invoiceTemplate,
+    'standard',
+  );
+  const chosen = await set('classic');
+  assert.equal(chosen.status, 200);
+  assert.equal(chosen.body.invoiceTemplate, 'classic');
+  assert.equal(
+    (await json(await get(req('/settings')))).body.invoiceTemplate,
+    'classic',
+  );
+
+  const refused = await set('compact');
+  assert.equal(refused.status, 422);
+  assert.equal(refused.body.code, 'VALIDATION_FAILED');
+  assert.equal(
+    (await json(await get(req('/settings')))).body.invoiceTemplate,
+    'classic',
+    'a refused template changes nothing',
+  );
 });
 
 /* A contractor who already sent invoices outside Stint starts past them,
@@ -4152,6 +4205,7 @@ async function sentryEventsFor(db: unknown) {
     value?: string;
     synthetic: boolean;
     fingerprint?: string[];
+    user?: unknown;
   }[] = [];
   Sentry.init({
     dsn: 'https://key@o0.ingest.sentry.io/0',
@@ -4162,6 +4216,7 @@ async function sentryEventsFor(db: unknown) {
         value,
         synthetic: mechanism?.synthetic ?? false,
         fingerprint: event.fingerprint,
+        user: event.user,
       });
       return null;
     },
@@ -4174,7 +4229,7 @@ async function sentryEventsFor(db: unknown) {
   return sent;
 }
 
-test('an unhandled route error reaches Sentry, not only the log', async () => {
+test('an unhandled route error reaches Sentry with its user, not only the log', async () => {
   const sent = await sentryEventsFor({
     from() {
       throw new Error('unexpected');
@@ -4186,6 +4241,8 @@ test('an unhandled route error reaches Sentry, not only the log', async () => {
       value: 'unexpected',
       synthetic: false,
       fingerprint: undefined,
+      // The id alone: an email or name would put who they are in Sentry.
+      user: { id: USER },
     },
   ]);
 });
@@ -4204,6 +4261,7 @@ test('a database error object reaches Sentry titled and grouped by its message',
       value: 'Project not specified.',
       synthetic: false,
       fingerprint: ['{{ default }}', 'Project not specified.'],
+      user: { id: USER },
     },
   ]);
 });
@@ -5177,6 +5235,7 @@ test('a change that leaves the running timer alone pushes nothing', async () => 
   );
   const entry = await import('../src/app/api/v1/entries/[id]/route.ts');
   configurePush();
+  configureBroadcast();
   await register();
   await pool.query(
     `insert into time_entries (id, user_id, task_name, started_at, ended_at)
@@ -5188,13 +5247,55 @@ test('a change that leaves the running timer alone pushes nothing', async () => 
     { params: Promise.resolve({ id: STOPPED }) },
   );
   assert.equal(res.status, 200);
+  await settled();
+  assert.deepEqual(broadcasts, []);
   await json(await start(req('/timer/start', { taskName: 'One' })));
   await settled();
   fcmFake.state.sent = [];
+  broadcasts = [];
   const refused = await start(req('/timer/start', { taskName: 'Two' }));
   assert.equal(refused.status, 409);
   await settled();
   assert.deepEqual(fcmFake.state.sent, []);
+  assert.deepEqual(broadcasts, []);
+});
+
+test('every change to the running timer broadcasts once to the user’s topic', async () => {
+  configureBroadcast();
+  const { timerBroadcast } = await import('@stint/core');
+  for (const [name, change] of Object.entries(await timerChanges())) {
+    await pool.query('delete from time_entries');
+    await change();
+    await settled();
+    // A change from a running timer follows the start that set it up.
+    assert.equal(broadcasts.length, name === 'start' ? 1 : 2, name);
+    assert.deepEqual(
+      broadcasts.at(-1),
+      {
+        url: 'http://supabase.test/realtime/v1/api/broadcast',
+        apikey: 'sb_secret_test',
+        body: timerBroadcast(USER),
+      },
+      name,
+    );
+    broadcasts = [];
+  }
+});
+
+test('a failed broadcast reaches Sentry and never fails the write', async () => {
+  configureBroadcast();
+  broadcastStatus = 500;
+  const { status, reported } = await startAndReport();
+  assert.equal(status, 201);
+  assert.equal(broadcasts.length, 1);
+  assert.match(reported[0] ?? '', /^Broadcast not delivered: 500/);
+});
+
+test('with no secret key, nothing is broadcast', async () => {
+  const { status, reported } = await startAndReport();
+  assert.equal(status, 201);
+  assert.deepEqual(broadcasts, []);
+  assert.deepEqual(reported, []);
 });
 
 /** Starts a timer and returns its status, once its push has settled, and

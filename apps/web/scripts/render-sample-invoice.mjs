@@ -1,6 +1,7 @@
 /**
- * Renders a sample invoice from the real template to
- * `docs/design/samples/`.
+ * Renders a sample invoice in each template to `docs/design/samples/`, and
+ * its first page to the template picker's thumbnail and preview (needs
+ * poppler's `pdftoppm`), so what the picker shows is the PDF.
  *
  * The sample is committed so the current look can be reviewed without running
  * anything, and regenerated from this script so it can never drift from the
@@ -21,6 +22,7 @@ import { pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const webRoot = resolve(here, '..');
@@ -36,6 +38,24 @@ const { renderInvoicePdf } = await import(
   pathToFileURL(resolve(webRoot, 'src/lib/invoice-pdf.tsx')).href
 );
 
+/* September's days, which the project and week schedules sum: Onboarding
+   every third day, Checkout the rest. */
+const DAYS = Array.from({ length: 30 }, (_, i) => ({
+  date: `2026-09-${String(i + 1).padStart(2, '0')}`,
+  project: i % 3 ? 'Checkout' : 'Onboarding',
+  hours: i % 3 ? 0.4 : 1.25,
+}));
+const WEEKS = [
+  ['2026-09-01', '2026-09-06'],
+  ['2026-09-07', '2026-09-13'],
+  ['2026-09-14', '2026-09-20'],
+  ['2026-09-21', '2026-09-27'],
+  ['2026-09-28', '2026-09-30'],
+];
+// In hundredths, so the week totals print as the dates add up.
+const sum = (days) =>
+  days.reduce((n, d) => n + Math.round(d.hours * 100), 0) / 100;
+
 export const SAMPLE = {
   invoiceNumber: 'INV-0042',
   status: 'sent',
@@ -44,14 +64,14 @@ export const SAMPLE = {
   periodStart: '2026-09-01',
   periodEnd: '2026-09-30',
   currency: 'USD',
-  subtotal: 6262.5,
+  subtotal: 3967.5,
   taxRate: 8.25,
-  taxAmount: 516.66,
-  total: 6779.16,
+  taxAmount: 327.32,
+  expensesSubtotal: 84,
+  total: 4378.82,
   notes: 'Thanks for a great quarter.',
   // Bank details belong on the invoice document, never in the email body.
   payment: {
-    title: 'USD ACH',
     fields: [
       { label: 'Account holder', value: 'Sam Rivera' },
       { label: 'Bank', value: 'First Republic Bank' },
@@ -67,61 +87,104 @@ export const SAMPLE = {
   paymentTerms: 'Net 30',
   business: {
     name: 'Sam Rivera',
-    address: '1847 Clement Street\nSan Francisco, CA 94121\nUnited States',
+    address: '1847 Clement Street\nSan Francisco, CA 94121',
     email: 'sam@example.dev',
     logoUrl: null,
   },
   client: {
     name: 'Northwind Trading Co.',
     email: 'ap@northwind.example',
-    address: '1 Harbour Street\nSeattle, WA 98104\nUnited States',
+    address: '1 Harbour Street\nSeattle, WA 98104',
   },
   lineItems: [
     {
       description: 'Onboarding email sequence rework',
       unit: 'hour',
-      quantity: 12.25,
+      quantity: 12.5,
       unitPrice: 175,
-      amount: 2143.75,
+      amount: 2187.5,
     },
-    {
-      description: 'Checkout validation fixes (Safari)',
-      unit: 'hour',
-      quantity: 8.5,
-      unitPrice: 175,
-      amount: 1487.5,
-    },
-    {
-      description: 'Design review + component pass',
-      unit: 'hour',
-      quantity: 6.0,
-      unitPrice: 175,
-      amount: 1050.0,
-    },
-    // A different rate on the same invoice: these must not merge with the
-    // 175/h lines above.
-    {
-      description: 'Q4 retainer scoping call',
-      unit: 'hour',
-      quantity: 1.75,
-      unitPrice: 220,
-      amount: 385.0,
-    },
+    // A different rate on the same invoice: it must not merge with the
+    // 175/h line above.
     {
       description: 'Performance profiling, product listing pages',
       unit: 'hour',
-      quantity: 7.4,
+      quantity: 8,
       unitPrice: 160,
-      amount: 1184.0,
+      amount: 1280.0,
+    },
+    // Each kind of line, so every template shows how it sets them apart.
+    {
+      description: 'Monthly retainer',
+      unit: 'fixed',
+      quantity: 1,
+      unitPrice: 500,
+      amount: 500,
+    },
+    {
+      description: 'Hosting, September',
+      unit: 'expense',
+      quantity: 1,
+      unitPrice: 84,
+      amount: 84,
+      spentOn: '2026-09-12',
     },
   ],
+  reference: 'ICA dated Aug 5, 2026 · Exhibit A SOW',
+  // Long enough that the date table continues onto a third page.
+  supportingDetail: {
+    project: [
+      { project: 'Checkout', hours: 8 },
+      { project: 'Onboarding', hours: 12.5 },
+    ],
+    week: WEEKS.map(([start, end]) => ({
+      start,
+      end,
+      hours: sum(DAYS.filter((d) => d.date >= start && d.date <= end)),
+    })),
+    date: DAYS,
+    totalHours: 20.5,
+  },
 };
 
 const outDir = resolve(repoRoot, 'docs/design/samples');
+const thumbDir = resolve(webRoot, 'src/components/template-thumbs');
 mkdirSync(outDir, { recursive: true });
 
-const bytes = await renderInvoicePdf(SAMPLE);
-const outFile = resolve(outDir, 'invoice-default.pdf');
-writeFileSync(outFile, bytes);
-
-console.log(`wrote ${outFile} (${bytes.length} bytes)`);
+for (const template of ['standard', 'modern', 'classic', 'creative']) {
+  const bytes = await renderInvoicePdf({ ...SAMPLE, template });
+  const outFile = resolve(outDir, `invoice-${template}.pdf`);
+  writeFileSync(outFile, bytes);
+  console.log(`wrote ${outFile} (${bytes.length} bytes)`);
+  // Twice the page's width in points, sharp in the full-size preview.
+  execFileSync('pdftoppm', [
+    '-png',
+    '-singlefile',
+    '-f',
+    '1',
+    '-scale-to-x',
+    '1224',
+    '-scale-to-y',
+    '-1',
+    outFile,
+    resolve(thumbDir, template),
+  ]);
+  // The thumbnail is page 1, so the whole invoice must fit on it: payment
+  // details or notes pushed to page 2 would vanish from the picker.
+  const page1 = execFileSync(
+    'pdftotext',
+    ['-f', '1', '-l', '1', outFile, '-'],
+    {
+      encoding: 'utf8',
+    },
+  );
+  const routing = SAMPLE.payment.fields.find((f) =>
+    f.label.startsWith('Routing'),
+  ).value;
+  for (const [what, text] of [
+    ['payment details', routing],
+    ['notes', SAMPLE.notes],
+  ])
+    if (!page1.includes(text))
+      throw new Error(`${template}: the ${what} are not on page 1`);
+}

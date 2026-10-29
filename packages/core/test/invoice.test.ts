@@ -4,6 +4,7 @@ import {
   buildLineItems,
   defaultInvoicePeriod,
   formatInvoiceNumber,
+  linesByUnit,
   parseTermsDays,
   paymentTermsText,
   termsDays,
@@ -608,4 +609,29 @@ test('a draft keeps its terms as text and reads back the days', () => {
   for (const text of ['2/10 Net 45', 'net 30', 'End of month', '', null]) {
     assert.equal(termsDays(text), null, String(text));
   }
+});
+
+test('lines group by kind in print order, totalled in cents, empty kinds left out', () => {
+  const line = (unit: 'hour' | 'fixed' | 'expense', amount: number) => ({
+    unit,
+    amount,
+  });
+  const kinds = linesByUnit([
+    line('expense', 0.1),
+    line('hour', 0.1),
+    line('hour', 0.2),
+    line('expense', 0.2),
+  ]);
+  assert.deepEqual(
+    kinds.map((k) => [k.unit, k.items.length, k.total]),
+    [
+      ['hour', 2, 0.3],
+      ['expense', 2, 0.3],
+    ],
+    'no fixed fees, so no fixed kind; 0.1 + 0.2 is 0.30, not 0.30000000000000004',
+  );
+  assert.deepEqual(
+    linesByUnit([line('fixed', 500)]).map((k) => [k.unit, k.total]),
+    [['fixed', 500]],
+  );
 });

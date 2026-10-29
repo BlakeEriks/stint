@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fcmOutcome, fcmTimerMessage } from '../src/push.ts';
+import {
+  fcmOutcome,
+  fcmTimerMessage,
+  timerBroadcast,
+  userTopic,
+} from '../src/push.ts';
 
 test('a timer push names nothing but the change, and collapses', () => {
   assert.deepEqual(fcmTimerMessage('tok'), {
@@ -9,6 +14,15 @@ test('a timer push names nothing but the change, and collapses', () => {
       data: { kind: 'timer' },
       android: { priority: 'HIGH', collapse_key: 'timer' },
     },
+  });
+});
+
+test('a timer broadcast names nothing but the change, on the user’s private topic', () => {
+  assert.equal(userTopic('u1'), 'user:u1');
+  assert.deepEqual(timerBroadcast('u1'), {
+    messages: [
+      { topic: 'user:u1', event: 'timer', payload: {}, private: true },
+    ],
   });
 });
 

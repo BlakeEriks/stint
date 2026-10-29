@@ -1,5 +1,6 @@
 import { Providers } from '@/components/providers';
 import { AppShell } from '@/components/app-shell';
+import { TimerChanges } from '@/components/timer-changes';
 
 /**
  * The application shell.
@@ -12,6 +13,7 @@ import { AppShell } from '@/components/app-shell';
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <Providers>
+      <TimerChanges />
       <AppShell>{children}</AppShell>
     </Providers>
   );

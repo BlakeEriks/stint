@@ -118,7 +118,15 @@ interface BaseOptions<TVars, TData> {
   movesHome?: boolean;
   /** A lane whose presses reach the server one at a time, in press order. */
   serial?: string;
+  /** Names the press in the mutation cache, so a screen can find it. */
+  mutationKey?: QueryKey;
   timeoutMs?: number;
+  /**
+   * What the notice says when the server goes quiet. A press that can't be
+   * pressed again on the same record, like a create whose form has closed,
+   * says so instead of "try again", which would make a second one.
+   */
+  timeoutMessage?: string;
 }
 
 interface Context {
@@ -199,10 +207,14 @@ function optimisticOptions<TVars, TData, TCache>(
   return {
     meta: { inline: opts.inline ?? false, movesHome: opts.movesHome ?? false },
     scope: opts.serial ? { id: opts.serial } : undefined,
+    mutationKey: opts.mutationKey,
     mutationFn: (vars) =>
       predicts
-        ? withTimeout(opts.mutationFn(vars), opts.timeoutMs ?? TIMEOUT_MS, () =>
-            refetch(vars),
+        ? withTimeout(
+            opts.mutationFn(vars),
+            opts.timeoutMs ?? TIMEOUT_MS,
+            () => refetch(vars),
+            opts.timeoutMessage,
           )
         : opts.mutationFn(vars),
     onMutate: (vars) => {
@@ -298,6 +310,7 @@ function withTimeout<T>(
   call: Promise<T>,
   ms: number,
   late: () => void,
+  message = 'The server didn’t answer. Try again.',
 ): Promise<T> {
   let timedOut = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -307,7 +320,7 @@ function withTimeout<T>(
       reject(
         new ApiError(0, {
           code: 'TIMEOUT',
-          message: 'The server didn’t answer. Try again.',
+          message,
         }),
       );
     }, ms);

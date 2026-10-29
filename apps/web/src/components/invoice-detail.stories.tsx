@@ -451,7 +451,6 @@ export const AsPrinted: Story = {
     if (!sent) return;
     sent.notes = 'Thank you for the work this month.';
     sent.paymentDetails = {
-      title: 'USD wire',
       fields: [
         { label: 'Account holder', value: 'Sam Rivera' },
         { label: 'Routing number (ACH)', value: '021000021' },
@@ -465,7 +464,7 @@ export const AsPrinted: Story = {
     const page = within(canvasElement);
     for (const text of [
       'Net 30',
-      'Payment — USD wire',
+      'Payment details',
       'Pay online: https://pay.example.test/sam',
       'Include the invoice number in the memo.',
       'Thank you for the work this month.',

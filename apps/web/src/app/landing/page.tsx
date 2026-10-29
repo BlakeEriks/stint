@@ -376,7 +376,7 @@ function InvoicePreview() {
           </div>
 
           <div className="mt-6 border-l-2 border-print-ink bg-print-band p-3">
-            <p className="type-heading">Payment — USD ACH</p>
+            <p className="type-heading">Payment details</p>
           </div>
         </div>
       </ScrollRegion>

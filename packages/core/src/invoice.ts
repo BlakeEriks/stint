@@ -358,3 +358,23 @@ export function termsDays(text: string | null): number | null {
   const net = /^Net (\d{1,3})$/.exec(text ?? '');
   return net ? Number(net[1]) : null;
 }
+
+/**
+ * An invoice's lines grouped by kind, in print order — time, fixed fees,
+ * expenses — with each kind's total, leaving out a kind with none. Summed in
+ * whole cents, so the totals add up to the invoice's own.
+ */
+export function linesByUnit<
+  L extends { unit: LineUnit; amount: number | null },
+>(lines: L[]) {
+  return (['hour', 'fixed', 'expense'] as const)
+    .map((unit) => {
+      const items = lines.filter((l) => l.unit === unit);
+      const total = items.reduce(
+        (t, l) => t + Math.round((l.amount ?? 0) * 100),
+        0,
+      );
+      return { unit, items, total: total / 100 };
+    })
+    .filter((k) => k.items.length > 0);
+}

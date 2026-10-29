@@ -1,0 +1,106 @@
+# Implementation Plan: Invoice templates, Standard by default
+
+**Branch**: `f461-invoice-templates` | **Date**: 2026-10-27 | **Spec**: [spec.md](spec.md)
+
+**Input**: Feature specification from `specs/011-invoice-templates/spec.md`
+
+## Summary
+
+Four invoice templates — Standard, Modern, Classic, Creative — chosen by one
+account setting, `user_settings.invoice_template`, from Settings or New
+invoice. The PDF renderer becomes one document shell plus one module per
+template; each template supplies its fonts, page geometry and section
+components, and the shell keeps every shared rule (VOID, supporting-detail
+pagination, footer). A draft renders in the current setting; `send_draft`
+freezes `invoices.template` from the PDF the client was given, else the
+setting. The thumbnails in Settings and on New invoice are page 1 of each
+template's sample PDF, rendered to PNG; the invoice preview is unchanged.
+
+## Technical Context
+
+**Language/Version**: TypeScript 5.x on Node 22; SQL (Postgres 15)
+
+**Primary Dependencies**: Next.js 16 route handlers, `@react-pdf/renderer` 4.9
+(`Font.register` for the new faces), Zod in
+`@stint/schema`, TanStack Query
+
+**Storage**: Supabase Postgres; two columns, no table
+
+**Testing**: `apps/web/test/routes.test.ts` and `invoices.test.ts` (real
+Postgres), `apps/web/test/ui` (vitest + jsdom), `*.stories.tsx` (CI renders
+in a browser)
+
+**Target Platform**: Vercel (Node runtime for the PDF route), browsers
+
+**Project Type**: web app with a macOS client; macOS unchanged
+
+**Performance Goals**: a PDF renders no slower than today, plus one-time font
+registration per cold start
+
+**Constraints**: fonts ship in the repo under OFL and are never fetched at
+render (FR-004); no new fixed cost; the real PDF stays behind the paid tier,
+so no screen shows it free
+
+**Scale/Scope**: 4 templates × (page 1 + detail pages); 3 screens touched
+(Settings, New invoice)
+
+## Constitution Check
+
+| Principle (`.specify/memory/constitution.md`) | Applies | How the design meets it |
+| --- | --- | --- |
+| I. Never silently modifies user data | Yes | Choosing a template changes only the setting. A sent invoice's template is never rewritten; the column's default makes existing sent and void invoices `standard`, the look they already have. |
+| II. Logic written twice has a parity test | No | The template is resolved once, in TypeScript (the setting for a draft, else `invoice.template`); SQL only stores it. The thumbnails are rendered from the PDF code, so no look is drawn twice. |
+| III. Every client through `/api/v1` | Yes | The setting goes through `PATCH /api/v1/settings`; the freeze happens inside the existing Mark sent route. No Server Actions. |
+| IV. `packages/core` does no I/O | Yes | Nothing new in core. `paginateSchedules` already takes rows per page; each template passes its own. |
+| V. Tests first where a regression is silent | Yes | Route tests for the setting, the freeze and the default; a ui test for the picker's prediction and rollback; a story per template and per picker state. |
+| VI. Every press answers in the same frame | Yes | The picker writes through `useOptimisticMutation`: selected at once, and a rejection restores the saved template and says why under the picker. |
+
+Additional Constraints: an issued invoice stays immutable (`guard_issued_invoice`
+freezes `template` with every column it does not name); no new fixed cost
+(font files are static assets); US-first unchanged.
+
+## Project Structure
+
+### Documentation (this feature)
+
+```text
+specs/011-invoice-templates/
+├── plan.md
+├── research.md
+├── data-model.md
+├── quickstart.md
+├── contracts/api.md
+├── design/{invoice,settings,new-invoice}.html
+└── tasks.md             # /speckit-tasks
+```
+
+### Source Code
+
+```text
+supabase/migrations/<ts>_invoice_templates.sql     # columns, checks, send_draft
+packages/schema/src/index.ts                       # InvoiceTemplate enum; Settings, Invoice
+apps/web/src/lib/invoice-pdf.tsx                   # shell: pages, VOID, detail pagination, footer
+apps/web/src/lib/invoice-templates/
+  shared.tsx  fonts.ts                             # helpers; Font.register, once, from bundled TTFs
+  standard.tsx  modern.tsx  classic.tsx  creative.tsx
+apps/web/src/fonts/pdf/*.ttf + OFL.txt             # Outfit, EB Garamond, Space Grotesk, IBM Plex Mono
+apps/web/next.config.ts                            # outputFileTracingIncludes for the PDF route
+apps/web/src/lib/invoicing.ts                      # template in pdfData, snapshot, sendDraft
+apps/web/src/app/api/v1/settings/route.ts          # invoice_template read and write
+apps/web/src/components/template-thumbs/*.png     # page 1 of each sample PDF
+apps/web/src/components/template-picker.tsx        # radio group of thumbnails, two sizes
+apps/web/src/components/settings-page.tsx          # Invoice template section
+apps/web/src/components/invoice-new.tsx            # Template field
+apps/web/scripts/render-sample-invoice.mjs         # one sample PDF and thumbnail per template
+apps/web/test/routes.test.ts, invoices.test.ts, ui/template-picker.test.tsx
+```
+
+**Structure Decision**: the web app only. The PDF splits into a shell and
+one module per template because four layouts in one 800-line file would bury
+the shared rules; the shell owns those rules so no template can drop one
+(FR-003). The modules sit in `invoice-templates/`, not `invoice-pdf/`, so
+`@/lib/invoice-pdf` still resolves to the shell under the test loader.
+
+## Complexity Tracking
+
+None.
