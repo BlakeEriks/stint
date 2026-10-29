@@ -61,6 +61,9 @@ Every PR reaches QA the same way, whether `/work-issues` built it or not:
 
 - **`/standards-review` has reviewed its commits** before it opens:
   `/work-issues` runs it each round, and Spec Kit after `/speckit-implement`.
+  Once a PR's rounds have churned enough to leave leftovers,
+  `/work-issues` recommends `/standards-review final <n>`, which reviews the
+  whole branch; the owner decides when it runs.
 
 - **The branch name is under 30 characters.** It becomes the preview's URL,
   and Vercel hashes a longer one.

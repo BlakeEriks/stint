@@ -70,6 +70,15 @@ Every build and every fix goes the same way:
 
 The PR shows the fixed work, never the findings.
 
+**A whole-branch review, recommended by churn.** When a feedback round
+ships, judge what the rounds have churned since the PR's last
+`/standards-review final` (its `final` row in the log): how much code they
+rewrote or reverted against the PR's size, and whether an approach was
+swapped, such as a reverted design or a replaced mechanism. Never count
+rounds. Once leftovers are likely, recommend `/standards-review final <n>`
+in your report and your wrap-up, once per PR until it runs. The owner
+decides when it runs; its findings go to the builder as a round.
+
 **Log every subagent run** — you alone, as each result arrives, `at` from
 `date -u +%FT%RZ`: append one line to
 `.claude/work-issues/runs.jsonl` in the main checkout — the parent of
@@ -80,7 +89,7 @@ the most. Gitignored; one JSON object per line:
      "agent":"issue-builder","agentId":"…","tokens":81234,"toolUses":42,
      "durationMs":512000,"findings":2,"outcome":"reviewed"}
 
-`round` is `build`, `feedback` or `ci`; `tokens`, `toolUses` and
+`round` is `build`, `feedback`, `ci` or `final`; `tokens`, `toolUses` and
 `durationMs` are what the subagent's result reports; `findings` only on the
 reviewer's rows. `outcome` is what that agent did, one word: a builder's is
 `committed`, `shipped`, `closed`, `needs-input`, `blocked`, `design-review` or `failed`; the reviewer's
