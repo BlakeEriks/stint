@@ -256,6 +256,24 @@ export const Stats = z.object({
         refuses: DraftActions,
       }),
     ),
+    /** Billable work past due to bill, one row per client (`unbilledDue` in
+     *  `@stint/core`): in an ended period of a scheduled client, or older
+     *  than `UNBILLED_DUE_DAYS` for any other. `periodStart`..`periodEnd`
+     *  span its oldest run that no invoice interrupts, which Create invoice
+     *  opens; `onePeriod` says all of it is in one of the client's
+     *  periods. */
+    unbilledDue: z.array(
+      z.object({
+        clientId: uuid,
+        clientName: z.string(),
+        entryIds: z.array(uuid),
+        seconds: z.number().int().nonnegative(),
+        since: z.iso.date(),
+        periodStart: z.iso.date(),
+        periodEnd: z.iso.date(),
+        onePeriod: z.boolean(),
+      }),
+    ),
     /** Unbilled billable work dated inside a sent or paid invoice's period
      *  for its client, oldest first: billed nowhere until the user says. */
     lateEntries: z.array(

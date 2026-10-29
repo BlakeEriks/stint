@@ -5,6 +5,11 @@
  * sent is surfaced rather than billed on whichever invoice comes next.
  */
 
+import {
+  type BillingSchedule,
+  type Period,
+  periodContaining,
+} from './billing-period.ts';
 import { addDays, localDateKey } from './calendar.ts';
 import { hundredths, type LineItem, termsDays } from './invoice.ts';
 
@@ -132,6 +137,117 @@ export function lateEntries(
         : [];
     })
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+}
+
+/**
+ * How old unbilled work of a client with no billing schedule gets before the
+ * Inbox asks about it: a month, the longest period any schedule bills, so
+ * someone who bills monthly without saying so is not asked before her month
+ * is up.
+ */
+export const UNBILLED_DUE_DAYS = 30;
+
+interface DueInputs {
+  /** The user's active clients; `schedule` null when none is set. */
+  clients: { id: string; name: string; schedule: BillingSchedule | null }[];
+  /** Finished entries on no invoice and not billed elsewhere. */
+  entries: Omit<LateCandidate, 'taskName'>[];
+  invoices: {
+    clientId: string;
+    status: string;
+    periodStart: string;
+    periodEnd: string;
+  }[];
+}
+
+/** The oldest span of `units` (in date order) that `joins` lets grow. */
+function firstRun(
+  units: Period[],
+  joins: (span: Period, next: Period) => boolean,
+): Period {
+  let span = units[0]!;
+  for (const next of units) {
+    if (next.periodStart <= span.periodEnd) continue;
+    if (!joins(span, next)) break;
+    span = { periodStart: span.periodStart, periodEnd: next.periodEnd };
+  }
+  return span;
+}
+
+/**
+ * Billable work past due to bill, one row per client, oldest first: for a
+ * scheduled client, work in any period that has ended; for any other, work
+ * more than `UNBILLED_DUE_DAYS` old. Work inside an invoice that isn't void
+ * is never due: a draft will bill it, and one inside a sent or paid period
+ * is `lateEntries()`' row, so no entry is flagged twice.
+ *
+ * `periodStart`..`periodEnd` span the oldest run of that work, in whole
+ * periods for a scheduled client; `onePeriod` says all of it is in one.
+ */
+export function unbilledDue(
+  { clients, entries, invoices }: DueInputs,
+  today: string,
+  tz: string,
+) {
+  const cutoff = addDays(today, -UNBILLED_DUE_DAYS);
+  return clients
+    .flatMap((c) => {
+      const covered = (day: string) =>
+        invoices.some(
+          (i) =>
+            i.clientId === c.id &&
+            i.status !== 'void' &&
+            i.periodStart <= day &&
+            day <= i.periodEnd,
+        );
+      const isDue = (day: string) =>
+        c.schedule
+          ? periodContaining(day, c.schedule).periodEnd < today
+          : day < cutoff;
+      const work = entries
+        .filter((e) => e.isBillable && e.clientId === c.id)
+        .map((e) => ({ ...e, day: localDateKey(new Date(e.startedAt), tz) }))
+        .filter((e) => isDue(e.day) && !covered(e.day))
+        .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+      if (work.length === 0) return [];
+      const schedule = c.schedule;
+      const units = work.map((e) =>
+        schedule
+          ? periodContaining(e.day, schedule)
+          : { periodStart: e.day, periodEnd: e.day },
+      );
+      /* A scheduled run is adjacent periods; any other stops at an invoice
+         between two days of work. Either way the link never spans an
+         invoice, which New invoice would refuse or sweep into the new one. */
+      const joins = (span: Period, next: Period) =>
+        schedule
+          ? next.periodStart === addDays(span.periodEnd, 1)
+          : !invoices.some(
+              (i) =>
+                i.clientId === c.id &&
+                i.status !== 'void' &&
+                i.periodEnd > span.periodEnd &&
+                i.periodStart < next.periodStart,
+            );
+      return [
+        {
+          clientId: c.id,
+          clientName: c.name,
+          entryIds: work.map((e) => e.id),
+          seconds: work.reduce((t, e) => t + e.durationSeconds, 0),
+          since: work[0]!.day,
+          ...firstRun(units, joins),
+          onePeriod:
+            schedule !== null &&
+            units.every((u) => u.periodStart === units[0]!.periodStart),
+        },
+      ];
+    })
+    .sort(
+      (a, b) =>
+        a.since.localeCompare(b.since) ||
+        a.clientName.localeCompare(b.clientName),
+    );
 }
 
 export interface OpenDraft {

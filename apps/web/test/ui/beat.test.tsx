@@ -43,6 +43,7 @@ function arrival(
       paymentTermsToCheck: null,
       overdueInvoices: [],
       staleDrafts: [],
+      unbilledDue: [],
       lateEntries: [],
       unprojected: [],
       strangeDurations: [],

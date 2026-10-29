@@ -16,6 +16,7 @@ import {
   buildUnbilled,
   buildUnprojected,
   lateEntries,
+  unbilledDue,
   buildWeek,
   dayByClient,
   type ClientRevenueRow,
@@ -372,6 +373,30 @@ export function stats(db: Db, tz: string) {
           })),
         tz,
       ).map((e) => ({ ...e, clientName: clientNames.get(e.clientId) ?? null })),
+      unbilledDue: unbilledDue(
+        {
+          clients: db.clients
+            .filter((c) => !c.archivedAt)
+            .map((c) => ({
+              id: c.id,
+              name: c.name,
+              schedule: c.billingSchedule ?? null,
+            })),
+          entries: candidates
+            .filter((e) => !e.invoicedElsewhere)
+            .map((e) => ({
+              id: e.id,
+              startedAt: e.startedAt,
+              durationSeconds: e.durationSeconds ?? 0,
+              isBillable: e.isBillable,
+              clientId:
+                db.projects.find((p) => p.id === e.projectId)?.clientId ?? null,
+            })),
+          invoices: db.invoices,
+        },
+        todayKey,
+        tz,
+      ),
       unprojected: buildUnprojected(unprojected),
       strangeDurations: buildStrangeDurations(
         candidates

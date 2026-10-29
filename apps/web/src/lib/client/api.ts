@@ -18,6 +18,7 @@ import {
   type Project,
 } from '@stint/client';
 import type { z } from 'zod';
+import { MARK_IDS_MAX } from '@stint/schema';
 import type * as schema from '@stint/schema';
 import type { ImportPreview, ImportResult } from '@stint/core';
 import { forgetCache } from './query-cache';
@@ -214,6 +215,21 @@ export const api = {
     ids: string[];
     invoicedElsewhere: boolean;
   }) => request<{ ids: string[] }>('POST', '/entries/invoiced-elsewhere', body),
+
+  /** Marks every one of `ids` billed elsewhere, `MARK_IDS_MAX` a request, in
+   *  order. A request that fails fails the whole call and sends no more;
+   *  the ones already marked stay marked, and a refetch shows what is left. */
+  markAllInvoicedElsewhere: async (ids: string[]) => {
+    const changed: string[] = [];
+    for (let i = 0; i < ids.length; i += MARK_IDS_MAX) {
+      const res = await api.markInvoicedElsewhere({
+        ids: ids.slice(i, i + MARK_IDS_MAX),
+        invoicedElsewhere: true,
+      });
+      changed.push(...res.ids);
+    }
+    return { ids: changed };
+  },
 
   deleteEntry: (id: string) => request<void>('DELETE', `/entries/${id}`),
 

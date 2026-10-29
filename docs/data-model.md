@@ -314,8 +314,8 @@ exception. An edit to unbilled work shows on the next read of any draft.
 
 ### Work invoiced elsewhere
 `time_entries.invoiced_elsewhere` marks work already billed from another tool:
-history an import brought in, or entries the user marks on New invoice or in
-the entry dialog. It counts as **earned** and is never **unbilled**:
+history an import brought in, or entries the user marks on New invoice, on
+the Inbox's past-due row, or in the entry dialog. It counts as **earned** and is never **unbilled**:
 `unbilled_by_client`, invoice generation and the inbox's uninvoiced rows all
 skip it. It is a flag, not an invoice, so it takes no number and appears in
 no invoice list, and the entry stays editable. `entry_billed_once` refuses

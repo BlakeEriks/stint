@@ -3795,6 +3795,59 @@ test('unbilled work dated in a sent period is late; billed, unbillable or voided
   assert.deepEqual(await late(), []);
 });
 
+/* The due rule's cases are core's table (`live-draft.test.ts`); this holds
+   what the route adds: the rows it loads, and Billed elsewhere clearing it. */
+test('/stats lists work past due to bill, from the clients, entries and drafts it loads', async () => {
+  const r = await live();
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const { POST: elsewhere } = await import(
+    '../src/app/api/v1/entries/invoiced-elsewhere/route.ts'
+  );
+  const { lastEndedPeriod, localDateKey, addDays } = await import(
+    '@stint/core'
+  );
+  const period = lastEndedPeriod(localDateKey(new Date(), 'UTC'), {
+    period: 'monthly',
+  });
+  await pool.query(`update clients set billing_period = 'monthly'`);
+  const day = addDays(period.periodStart, 1);
+  await seedEntry({ id: D(1), start: `${day}T12:00:00Z`, hours: 2 });
+
+  const due = async () =>
+    (await json(await stats(req('/stats?tz=UTC')))).body.attention.unbilledDue;
+  const row = {
+    clientId: CLIENT,
+    clientName: 'Northwind',
+    entryIds: [D(1)],
+    seconds: 7200,
+    since: day,
+    ...period,
+    onePeriod: true,
+  };
+  assert.deepEqual(await due(), [row]);
+
+  await pool.query(`update clients set archived_at = now()`);
+  assert.deepEqual(await due(), [], 'an archived client is never due');
+  await pool.query(`update clients set archived_at = null`);
+
+  const mark = (invoicedElsewhere: boolean) =>
+    elsewhere(
+      req('/entries/invoiced-elsewhere', {
+        ids: row.entryIds,
+        invoicedElsewhere,
+      }),
+    );
+  assert.equal((await mark(true)).status, 200);
+  assert.deepEqual(await due(), [], 'billed elsewhere clears it');
+  await mark(false);
+
+  const draft = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...period })),
+  );
+  assert.equal(draft.status, 201, JSON.stringify(draft.body));
+  assert.deepEqual(await due(), [], 'a draft it loads covers it');
+});
+
 test('a draft is stale by its period end, at the total its work comes to now', async () => {
   const r = await live();
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');

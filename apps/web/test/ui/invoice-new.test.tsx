@@ -10,12 +10,13 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { addDays, localDateKey } from '@stint/core';
-import { NewInvoice } from '@/components/invoice-new';
+import { linkedDraft, NewInvoice } from '@/components/invoice-new';
 
 const push = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, back: vi.fn() }),
   usePathname: () => '/invoices/new',
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -898,5 +899,39 @@ describe('NewInvoice — expenses, charges and payment details', () => {
     expect(
       bodies.find((b) => b.path.endsWith('/invoices'))!.body.paymentProfileId,
     ).toBe('pp2');
+  });
+});
+
+describe('A link to New invoice', () => {
+  const link = (q: string) => linkedDraft(new URLSearchParams(q), CLIENTS);
+
+  it('fills in a known client and a valid period', () => {
+    expect(link('client=c1&from=2026-09-01&to=2026-09-30')).toMatchObject({
+      clientId: 'c1',
+      periodStart: '2026-09-01',
+      periodEnd: '2026-09-30',
+    });
+  });
+
+  it('ignores a client it does not know, and dates that are not a period', () => {
+    expect(link('client=nope&from=2026-09-01&to=2026-09-30')).toMatchObject({
+      clientId: '',
+    });
+    for (const q of [
+      'client=c1&from=2026-09-30&to=2026-09-01',
+      'client=c1&from=2026-09-01',
+      'client=c1&from=Sept&to=2026-09-30',
+      'client=c1&from=2026-02-30&to=2026-03-01',
+    ])
+      expect(link(q)).toMatchObject({
+        clientId: 'c1',
+        periodStart: null,
+        periodEnd: null,
+      });
+    expect(link('')).toMatchObject({
+      clientId: '',
+      periodStart: null,
+      periodEnd: null,
+    });
   });
 });
