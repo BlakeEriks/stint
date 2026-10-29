@@ -126,6 +126,7 @@ export function DayColumn({
     drag.preview?.entryId === null && drag.preview.column === column.current
       ? drag.preview
       : null;
+  const arriving = arrivingAt(drag.preview, positioned, dayStart, dayEnd);
   /* The length a click makes here, and so the slot shown under the
      pointer: the shortest whose block fits its label at this zoom. */
   const hours = (dayEnd.getTime() - dayStart.getTime()) / 3_600_000;
@@ -143,6 +144,8 @@ export function DayColumn({
        whatever element started it, which is this or a block inside it. */
     <div
       ref={column}
+      /* The columns side by side that a move can land in. */
+      data-day-column
       onPointerDown={(event) => {
         if (!column.current) return;
         drag.draw(event, column.current, dayStart, dayEnd, onCreate, minutes);
@@ -199,6 +202,16 @@ export function DayColumn({
         >
           {`+ ${time(hover.slot.startedAt)}`}
         </div>
+      ) : null}
+
+      {arriving ? (
+        <Arriving
+          moved={arriving}
+          colors={colors}
+          dayStart={dayStart}
+          dayEnd={dayEnd}
+          saving={drag.saving}
+        />
       ) : null}
 
       {drawing ? (
@@ -262,6 +275,65 @@ function useHoverSlot(dayStart: Date, dayEnd: Date, minutes: number) {
   return { slot, move, clear };
 }
 
+type Moved = { entry: TimeEntry; startedAt: Date; endedAt: Date };
+
+const overlaps = (
+  r: { startedAt: Date; endedAt: Date },
+  from: Date,
+  to: Date,
+) => r.startedAt < to && r.endedAt > from;
+
+/** An entry dragged here from another day's column, which this column has
+    no block for. */
+function arrivingAt(
+  preview: DragApi['preview'],
+  positioned: PositionedEntry[],
+  dayStart: Date,
+  dayEnd: Date,
+): Moved | null {
+  const entry = preview?.entry;
+  if (!preview || !entry) return null;
+  if (positioned.some((p) => p.entry.id === entry.id)) return null;
+  return overlaps(preview, dayStart, dayEnd) ? { ...preview, entry } : null;
+}
+
+/**
+ * A moved entry's block in the column it was dropped on, drawn from the drag
+ * until the server's answer redraws the week with it here. Its own block,
+ * back in the column it left, holds the gesture.
+ */
+function Arriving({
+  moved,
+  colors,
+  dayStart,
+  dayEnd,
+  saving,
+}: {
+  moved: Moved;
+  colors: Map<string, string | null>;
+  dayStart: Date;
+  dayEnd: Date;
+  saving: boolean;
+}) {
+  const item = { entry: moved.entry, top: 0, height: 0, lane: 0, lanes: 1 };
+  const { height, range, style } = drawnAs(
+    item,
+    moved,
+    colors,
+    dayStart,
+    dayEnd,
+  );
+  return (
+    <div
+      aria-hidden
+      className={`pointer-events-none ${blockClassName({ running: false, live: true, saving })}`}
+      style={style}
+    >
+      {blockBody(moved.entry.taskName || 'Untitled', height, range)}
+    </div>
+  );
+}
+
 /**
  * Ids of entries being created and not yet answered, from the presses keyed
  * `keys.createsEntry()`: the editor's create and the timer's start. Each one's
@@ -310,6 +382,8 @@ function EntryBlock({
 
   // While dragging, the block paints from the gesture rather than the server.
   const live = drag.preview?.entryId === entry.id ? drag.preview : null;
+  /* Moved off this day: kept, unseen, since it holds the pointer. */
+  const gone = live !== null && !overlaps(live, dayStart, dayEnd);
   const { height, range, style } = drawnAs(
     item,
     live,
@@ -319,19 +393,12 @@ function EntryBlock({
   );
   const name = entry.taskName || 'Untitled';
 
-  const body = (
-    <span className="block h-full overflow-hidden">
-      <span className="block truncate type-support leading-tight text-primary">
-        {name}
-      </span>{' '}
-      {height > 0.045 ? (
-        <span className="block truncate type-meta text-subtle">
-          {/* During a drag the time range is what the user is aiming at, so it
-              replaces the duration — the duration is what they already know. */}
-          {live ? range : formatCompact(entry.durationSeconds ?? 0)}
-        </span>
-      ) : null}
-    </span>
+  /* During a drag the time range is what the user is aiming at, so it
+     replaces the duration — the duration is what they already know. */
+  const body = blockBody(
+    name,
+    height,
+    live ? range : formatCompact(entry.durationSeconds ?? 0),
   );
 
   /* A running entry is not a button. `EntryDialog` refuses one by design —
@@ -378,6 +445,7 @@ function EntryBlock({
         adjustable: !locked,
         live: live !== null,
         saving: drag.saving,
+        gone,
       })}
       style={style}
     >
@@ -392,6 +460,20 @@ function EntryBlock({
         </>
       )}
     </button>
+  );
+}
+
+/** A block's name, and under it `detail` when the block is tall enough. */
+function blockBody(name: string, height: number, detail: string) {
+  return (
+    <span className="block h-full overflow-hidden">
+      <span className="block truncate type-support leading-tight text-primary">
+        {name}
+      </span>{' '}
+      {height > 0.045 ? (
+        <span className="block truncate type-meta text-subtle">{detail}</span>
+      ) : null}
+    </span>
   );
 }
 
@@ -430,6 +512,7 @@ function blockClassName({
   adjustable = false,
   live,
   saving = false,
+  gone = false,
 }: {
   running: boolean;
   /** Created, and the server has not answered. */
@@ -438,6 +521,8 @@ function blockClassName({
   /** Being dragged right now. */
   live: boolean;
   saving?: boolean;
+  /** Dragged to another day's column, which draws it there. */
+  gone?: boolean;
 }) {
   return [
     /* No `overflow-hidden` here: the resize handles reach past the block's
@@ -451,7 +536,8 @@ function blockClassName({
     live && 'z-10 shadow-card',
     /* One look for any write the server hasn't answered: a dropped drag, or
        a new entry. */
-    ((live && saving) || pending) && 'opacity-70',
+    gone && 'opacity-0',
+    !gone && ((live && saving) || pending) && 'opacity-70',
   ]
     .filter(Boolean)
     .join(' ');

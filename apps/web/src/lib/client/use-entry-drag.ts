@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import {
   drawnRange,
   instantAt,
+  movedByDays,
   movedTo,
   resized,
   DRAG_THRESHOLD_PX,
@@ -14,6 +15,7 @@ import {
   keys,
   useOptimisticMutation,
 } from '@stint/client';
+import { timeZone as tz } from './use-timer';
 
 // A block is fixed where the mistake is noticed, so the gesture that writes is
 // made deliberate rather than removed: a threshold and a snap, and a move never
@@ -26,6 +28,8 @@ export type DragMode = 'move' | 'start' | 'end';
 export interface Drag {
   /** Null while drawing a new entry on empty grid. */
   entryId: string | null;
+  /** The entry being moved, for a column it lands in to draw. */
+  entry: TimeEntry | null;
   /** The column: pixels resolve against it, and only it paints a draw. */
   column: HTMLElement;
   startedAt: Date;
@@ -42,6 +46,9 @@ interface Active extends Drag {
   clickMinutes?: number;
   dayStart: Date;
   dayEnd: Date;
+  /** The columns side by side, a day each: a move lands in any of them. */
+  columns: HTMLElement[];
+  originX: number;
   originY: number;
   /** Original times, so a drag is computed from them rather than compounding. */
   fromStart: Date;
@@ -59,11 +66,9 @@ interface Active extends Drag {
  * without a threshold every click would land a PATCH that rewrites billable
  * time by whatever a 1px tremor resolved to.
  *
- * Vertical only, within one day. Moving an entry to a different day is the
- * rarer correction and the dialog already does it; the common one is "this
- * started at 9, not 9:30", and keeping the drag in one column means the
- * fraction→instant math uses that column's own span, which is what makes it
- * DST-correct.
+ * A move also goes sideways, to the day under the pointer, keeping its wall
+ * clock (`movedByDays`); its time still resolves against the column it left,
+ * whose own span is what makes the vertical math DST-correct.
  */
 export function useEntryDrag() {
   const active = useRef<Active | null>(null);
@@ -110,10 +115,13 @@ export function useEntryDrag() {
     };
     active.current = {
       entryId: entry.id,
+      entry,
       mode,
       column,
       dayStart,
       dayEnd,
+      columns: dayColumns(column),
+      originX: event.clientX,
       originY: event.clientY,
       fromStart: from.startedAt,
       fromEnd: from.endedAt,
@@ -145,12 +153,15 @@ export function useEntryDrag() {
     const at = new Date(0);
     active.current = {
       entryId: null,
+      entry: null,
       mode: 'draw',
       onDrawn,
       clickMinutes,
       column,
       dayStart,
       dayEnd,
+      columns: [column],
+      originX: event.clientX,
       originY: event.clientY,
       fromStart: at,
       fromEnd: at,
@@ -165,16 +176,19 @@ export function useEntryDrag() {
     const a = active.current;
     if (!a) return;
 
-    if (!a.moved && Math.abs(event.clientY - a.originY) < DRAG_THRESHOLD_PX) {
-      return;
-    }
+    if (!a.moved && travel(a, event) < DRAG_THRESHOLD_PX) return;
     a.moved = true;
 
     const box = a.column.getBoundingClientRect();
-    const next = resolve(a, event.clientY, box);
+    const next = resolve(a, event, box);
     a.startedAt = next.startedAt;
     a.endedAt = next.endedAt;
-    setPreview({ entryId: a.entryId, column: a.column, ...next });
+    setPreview({
+      entryId: a.entryId,
+      entry: a.entry,
+      column: a.column,
+      ...next,
+    });
   }
 
   function end() {
@@ -188,7 +202,13 @@ export function useEntryDrag() {
        the server's answer. */
     if (a.entryId === null) {
       const [startedAt, endedAt] = drawn(a);
-      setPreview({ entryId: null, column: a.column, startedAt, endedAt });
+      setPreview({
+        entryId: null,
+        entry: null,
+        column: a.column,
+        startedAt,
+        endedAt,
+      });
       a.onDrawn?.(startedAt, endedAt);
       return;
     }
@@ -257,10 +277,45 @@ function drawn(a: Active): [Date, Date] {
   return [r.startedAt, r.endedAt];
 }
 
+/** The day columns beside `column`, itself included, in day order. */
+function dayColumns(column: HTMLElement): HTMLElement[] {
+  const all = column.parentElement?.querySelectorAll<HTMLElement>(
+    ':scope > [data-day-column]',
+  );
+  return all ? [...all] : [column];
+}
+
+/** How far the pointer has gone. Only a move goes sideways. */
+function travel(a: Active, event: React.PointerEvent): number {
+  const dy = Math.abs(event.clientY - a.originY);
+  if (a.mode !== 'move') return dy;
+  return Math.max(dy, Math.abs(event.clientX - a.originX));
+}
+
+/**
+ * How many days over from its own column the pointer is: the column under
+ * it, or the nearest end of the row past either edge.
+ */
+function daysOver(a: Active, clientX: number): number {
+  const within = (el: HTMLElement) => {
+    const { left, width } = el.getBoundingClientRect();
+    return clientX >= left && clientX < left + width;
+  };
+  if (within(a.column)) return 0;
+  const first = a.columns[0];
+  let at = a.columns.findIndex(within);
+  if (at === -1)
+    at =
+      first && clientX < first.getBoundingClientRect().left
+        ? 0
+        : a.columns.length - 1;
+  return at - a.columns.indexOf(a.column);
+}
+
 /** Where the pointer puts the entry, given what the gesture is adjusting. */
 function resolve(
   a: Active,
-  clientY: number,
+  { clientX, clientY }: React.PointerEvent,
   box: DOMRect,
 ): { startedAt: Date; endedAt: Date } {
   const fraction = (y: number) => (y - box.top) / box.height;
@@ -280,10 +335,16 @@ function resolve(
     // rather than putting the start under the pointer — otherwise grabbing a
     // block near its bottom would jump it upward on the first pixel.
     const delta = at(clientY).getTime() - at(a.originY).getTime();
-    return movedTo(
+    const moved = movedTo(
       a.fromStart,
       a.fromEnd,
       new Date(a.fromStart.getTime() + delta),
+    );
+    return movedByDays(
+      moved.startedAt,
+      moved.endedAt,
+      daysOver(a, clientX),
+      tz,
     );
   }
   return resized(a.fromStart, a.fromEnd, a.mode, at(clientY));

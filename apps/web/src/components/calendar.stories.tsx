@@ -394,6 +394,55 @@ export const ShortBlock: Story = {
   },
 };
 
+/** In week view a block dragged sideways lands on the day it is dropped on,
+    at the same time, once the server has it. */
+export const MoveToAnotherDay: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    const [first] = db.entries;
+    if (!first) return;
+    const today = localDateKey(db.now, ZONE);
+    db.entries.push({
+      ...first,
+      id: '018f0000-0000-7000-8000-0000000000f0',
+      taskName: 'Misfiled work',
+      startedAt: localDateTimeToInstant(today, '03:00', ZONE).toISOString(),
+      endedAt: localDateTimeToInstant(today, '04:00', ZONE).toISOString(),
+      durationSeconds: 3600,
+      invoiceId: null,
+    });
+  }),
+  play: async ({ canvasElement }) => {
+    const page = await calendar(canvasElement);
+    const name = /^Edit Misfiled work/;
+    const block = await page.findByRole('button', { name });
+    const columns = [
+      ...canvasElement.ownerDocument.querySelectorAll('[data-day-column]'),
+    ];
+    const day = (el: Element) =>
+      columns.indexOf(el.closest('[data-day-column]') as Element);
+    const from = day(block);
+    const box = block.getBoundingClientRect();
+    const next = (columns[from + 1] as Element).getBoundingClientRect();
+    const clientY = box.top + box.height / 2;
+    await userEvent.pointer([
+      {
+        target: block,
+        coords: { clientX: box.left + 5, clientY },
+        keys: '[MouseLeft>]',
+      },
+      { target: block, coords: { clientX: next.left + 5, clientY } },
+      { target: block, keys: '[/MouseLeft]' },
+    ]);
+    await waitFor(() =>
+      expect(day(page.getByRole('button', { name }))).toBe(from + 1),
+    );
+    await expect(page.getByRole('button', { name })).toHaveAccessibleName(
+      /3:00 AM–4:00 AM/,
+    );
+  },
+};
+
 /** Zoomed all the way in: an hour is 176px, and every hour is labeled. */
 export const ZoomedIn: Story = {
   ...desktop,
