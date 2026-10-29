@@ -19,7 +19,7 @@ Tests come first in each phase (Constitution V).
 
 ## Phase 3: User Story 1 — An invoice covers the same days wherever it is made (P1)
 
-- [x] T008 [US1] Route tests first in apps/web/test/invoices.test.ts: generated from `Europe/Lisbon` and from `America/Los_Angeles` with the account on Los Angeles, both bill the 11:30 PM Sep 30 entry; the client's zone wins over the account's; the draft stores the resolved zone and keeps it after the account's changes; the preview reads the same zone
+- [x] T008 [US1] Route tests first in apps/web/test/invoices.test.ts: generated from `Europe/Lisbon` and from `America/Los_Angeles` with the account on Los Angeles, both bill the 11:30 PM Sep 30 entry; the client's zone wins over the account's; the draft stores the resolved zone; the preview reads the same zone (a draft keeping its zone is `deriveDraft`'s unchanged path, so no test of its own; the DST window is `billingWindow`'s core test)
 - [x] T009 [US1] `computeInvoice` resolves the zone with `billingZone()` and returns it; `POST /invoices` and `POST /invoices/preview` use it in apps/web/src/lib/drafts.ts and apps/web/src/app/api/v1/invoices/
 - [x] T010 [US1] UI test first in apps/web/test/ui/invoice-new.test.tsx: New invoice's issue date is today in the client's billing zone
 - [x] T011 [US1] apps/web/src/components/invoice-new.tsx: today, the issue date and the suggested period in `billingZone(client, settings, device)`

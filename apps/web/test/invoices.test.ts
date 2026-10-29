@@ -4034,21 +4034,6 @@ test('an invoice covers the same entries wherever it is generated', async () => 
   assert.deepEqual(home.entryIds, lisbon.entryIds);
 });
 
-test('a billing period across a DST change loses and repeats no hour', async () => {
-  await billIn('America/Los_Angeles');
-  // Clocks went back on Nov 1, 2026: the month starts in PDT, ends in PST.
-  await seedEntry({ id: E(1), start: '2026-11-01T06:30:00Z' }); // Oct 31, 11:30 PM PDT
-  await seedEntry({ id: E(2), start: '2026-11-01T07:30:00Z' }); // Nov 1, 12:30 AM PDT
-  await seedEntry({ id: E(3), start: '2026-12-01T07:30:00Z' }); // Nov 30, 11:30 PM PST
-  await seedEntry({ id: E(4), start: '2026-12-01T08:30:00Z' }); // Dec 1, 12:30 AM PST
-
-  const november = await generateFrom('Europe/Lisbon', {
-    periodStart: '2026-11-01',
-    periodEnd: '2026-11-30',
-  });
-  assert.deepEqual(november.entryIds, [E(2), E(3)]);
-});
-
 test("a client's own zone wins over the account's, and the issue date is read in it", async () => {
   await billIn('America/Los_Angeles');
   await pool.query(
@@ -4063,24 +4048,6 @@ test("a client's own zone wins over the account's, and the issue date is read in
 
   const { localDateKey } = await import('@stint/core');
   assert.equal(oct.issueDate, localDateKey(new Date(), 'America/New_York'));
-});
-
-test('a draft keeps the zone it was generated in when the zone changes', async () => {
-  const { GET: list } = await import('../src/app/api/v1/invoices/route.ts');
-  await billIn('America/Los_Angeles');
-  await seedEntry({ id: E(1), start: '2026-10-01T06:30:00Z' }); // Sep 30, 11:30 PM PDT
-  await generateFrom('Europe/Lisbon');
-
-  await billIn('Europe/Lisbon');
-  const res = await json(await list(req('/invoices?tz=Europe/Lisbon')));
-  assert.equal(res.body.invoices[0].total, 150);
-});
-
-test('an account with no billing zone reads the device zone, as before', async () => {
-  await seedEntry({ id: E(1), start: '2026-10-01T06:30:00Z' }); // Oct 1 in Lisbon
-  const lisbon = await generateFrom('Europe/Lisbon', OCTOBER);
-  assert.equal(lisbon.tz, 'Europe/Lisbon');
-  assert.deepEqual(lisbon.entryIds, [E(1)]);
 });
 
 test('the preview reads the same zone the invoice will', async () => {

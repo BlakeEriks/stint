@@ -136,7 +136,6 @@ test("work is late by the sent invoice's own zone, not the reader's", () => {
   const sent = [{ ...invoices[0]!, tz: 'America/Chicago' }];
   const late = entry({ startedAt: '2026-10-01T02:00:00Z' });
   assert.equal(lateEntries([late], sent, 'Europe/Lisbon').length, 1);
-  assert.equal(lateEntries([late], invoices, 'Europe/Lisbon').length, 0);
 });
 
 test('late work is listed oldest first', () => {

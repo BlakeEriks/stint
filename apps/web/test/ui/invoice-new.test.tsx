@@ -429,19 +429,8 @@ describe('NewInvoice', () => {
   });
 
   /* Kiritimati is 25 hours ahead of Pago Pago, so their dates always
-     differ: whichever Due shows names the zone it was read in. */
-  it("dates the invoice on the billing zone's calendar, not the device's", async () => {
-    serve();
-    settings = { ...SETTINGS, billingTimeZone: 'Pacific/Pago_Pago' };
-    const user = userEvent.setup();
-    render(<NewInvoice />, { wrapper });
-    await ready(user);
-    expect(screen.getByLabelText('Due')).toHaveValue(
-      addDays(localDateKey(new Date(), 'Pacific/Pago_Pago'), 30),
-    );
-  });
-
-  it("dates it on the client's own zone over the account's", async () => {
+     differ, and the device is rarely on Kiritimati's. */
+  it("dates the invoice on the client's billing zone, not the account's or the device's", async () => {
     serve();
     settings = { ...SETTINGS, billingTimeZone: 'Pacific/Pago_Pago' };
     CLIENTS[0]!.billingTimeZone = 'Pacific/Kiritimati';

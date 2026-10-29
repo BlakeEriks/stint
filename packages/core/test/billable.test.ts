@@ -7,22 +7,19 @@ import {
   isBillableEntry,
 } from '../src/billable.ts';
 
-test("an invoice reads the client's zone, else the account's, else the device's", () => {
-  const device = 'Europe/Lisbon';
-  const account = { billingTimeZone: 'America/Los_Angeles' };
-  const client = { billingTimeZone: 'America/New_York' };
-  assert.equal(billingZone(client, account, device), 'America/New_York');
-  assert.equal(
-    billingZone({ billingTimeZone: null }, account, device),
-    'America/Los_Angeles',
-  );
-  assert.equal(billingZone(undefined, account, device), 'America/Los_Angeles');
-  assert.equal(
-    billingZone(undefined, { billingTimeZone: null }, device),
-    device,
-  );
-  assert.equal(billingZone(undefined, undefined, device), device);
-});
+const device = 'Europe/Lisbon';
+const account = { billingTimeZone: 'America/Los_Angeles' };
+const unset = { billingTimeZone: null };
+for (const [client, acct, zone] of [
+  [{ billingTimeZone: 'America/New_York' }, account, 'America/New_York'],
+  [unset, account, 'America/Los_Angeles'],
+  [undefined, account, 'America/Los_Angeles'],
+  [undefined, unset, device],
+  [undefined, undefined, device],
+] as const)
+  test(`an invoice reads its client's zone, else the account's, else the device's: ${zone}`, () => {
+    assert.equal(billingZone(client, acct, device), zone);
+  });
 
 test('a period of local dates covers its first day to the start of the day after its last', () => {
   const w = billingWindow('2026-03-01', '2026-03-31', 'America/New_York');
