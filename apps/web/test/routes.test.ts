@@ -1569,6 +1569,7 @@ test('the next invoice number goes anywhere past the numbers invoices hold', asy
   const held = await set({ nextInvoiceNumber: 2, maxEntryHours: 12 });
   assert.equal(held.status, 422);
   assert.equal(held.body.code, 'VALIDATION_FAILED');
+  assert.match(held.body.message, /INV-0002/, 'names the latest, a draft');
   assert.deepEqual(held.body.details, {
     field: 'nextInvoiceNumber',
     current: 3,

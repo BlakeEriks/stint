@@ -34,6 +34,11 @@ const cases: [string, Refusal | null, Want | null][] = [
   ],
   ['a stop after the start', stopOrderRefusal(nine, ten), null],
   [
+    'a stop at the start',
+    stopOrderRefusal(ten, ten),
+    { code: 'VALIDATION_FAILED' },
+  ],
+  [
     'a stop before the start',
     stopOrderRefusal(ten, nine),
     { code: 'VALIDATION_FAILED' },
@@ -51,6 +56,11 @@ const cases: [string, Refusal | null, Want | null][] = [
     { code: 'VALIDATION_FAILED', details: { paidAt: nine, sentAt: ten } },
   ],
   ['a period in order', invoiceRequestRefusal(period, today), null],
+  [
+    'a one-day period',
+    invoiceRequestRefusal({ ...period, periodEnd: period.periodStart }, today),
+    null,
+  ],
   [
     'due today',
     invoiceRequestRefusal({ ...period, dueDate: today }, today),
@@ -103,6 +113,11 @@ const cases: [string, Refusal | null, Want | null][] = [
   [
     'the next number, no invoices yet',
     nextNumberRefusal(1, 1, 999, null),
+    null,
+  ],
+  [
+    'the next number at the cap',
+    nextNumberRefusal(999, 20, 999, highest),
     null,
   ],
   [
