@@ -1,11 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ApiError, keys } from '@stint/client';
+import { ApiError, keys, onTimerChanged } from '@stint/client';
 import { QueryClient } from '@tanstack/react-query';
 import {
   createPushDevice,
   isTimerPush,
-  onTimerPush,
   TokenUnavailable,
   tokenUnavailable,
 } from '../src/push.ts';
@@ -30,7 +29,7 @@ function cached() {
 
 test('a push refetches the timer', async () => {
   const { client, stale } = cached();
-  await onTimerPush(client);
+  await onTimerChanged(client);
   assert.equal(stale(), true);
 });
 
@@ -41,7 +40,7 @@ test('a push while a press is in flight leaves the prediction alone', async () =
     .getMutationCache()
     .build(client, { mutationFn: () => new Promise<void>((r) => (land = r)) })
     .execute(undefined);
-  await onTimerPush(client);
+  await onTimerChanged(client);
   assert.equal(stale(), false);
   land();
   await press;

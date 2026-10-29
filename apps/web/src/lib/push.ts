@@ -1,6 +1,6 @@
 import { after } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { PushOutcome } from '@stint/core';
+import { timerBroadcast, type PushOutcome } from '@stint/core';
 import type { PushPlatform } from '@stint/schema';
 import { report } from './errors';
 import { fcm } from './fcm';
@@ -18,13 +18,48 @@ const PROVIDERS: Record<PushPlatform, () => PushProvider | null> = {
 const RETRY_MS = 1000;
 
 /**
- * Tells each of the user's phones the running timer changed, once the
- * response is out (`after()`), so a slow or failing provider never delays or
- * fails the write. A failure reaches Sentry; a token the provider calls
- * unregistered is deleted.
+ * Tells each of the user's phones and signed-in browsers the running timer
+ * changed, once the response is out (`after()`), so a slow or failing
+ * provider never delays or fails the write. A failure reaches Sentry; a
+ * token the provider calls unregistered is deleted.
  */
 export function pushTimerChanged(db: SupabaseClient, userId: string) {
-  after(() => send(db, userId).catch(report));
+  after(() =>
+    Promise.all([
+      send(db, userId).catch(report),
+      broadcast(userId).catch(report),
+    ]),
+  );
+}
+
+/**
+ * The browsers' path: Realtime's broadcast endpoint, as the secret key, to
+ * the user's private topic. Nothing while `SUPABASE_SECRET_KEY` is unset.
+ */
+async function broadcast(userId: string) {
+  const key = process.env.SUPABASE_SECRET_KEY;
+  if (!key) return;
+  const res = await realtimeTransport()(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/realtime/v1/api/broadcast`,
+    {
+      method: 'POST',
+      headers: { apikey: key, 'content-type': 'application/json' },
+      body: JSON.stringify(timerBroadcast(userId)),
+    },
+  );
+  if (!res.ok) {
+    throw new Error(
+      `Broadcast not delivered: ${res.status} ${await res.text()}`,
+    );
+  }
+}
+
+/** The route tests answer Realtime in memory, as `__TEST_FCM__` answers FCM. */
+function realtimeTransport(): typeof fetch {
+  return (
+    (globalThis as { __TEST_REALTIME__?: typeof fetch }).__TEST_REALTIME__ ??
+    fetch
+  );
 }
 
 async function send(db: SupabaseClient, userId: string) {

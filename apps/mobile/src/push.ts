@@ -1,10 +1,9 @@
-import { ApiError, invalidateEntryData } from '@stint/client';
-import type { QueryClient } from '@tanstack/react-query';
+import { ApiError } from '@stint/client';
 
 /**
  * The server pushes a phone when the running timer changes, from any
- * client. The push says only that: the phone asks the server, as it does
- * on foreground.
+ * client. The push says only that: the phone asks the server
+ * (`onTimerChanged`), as it does on foreground.
  */
 
 /** The data message the server sends (`fcmTimerMessage()` in `@stint/core`),
@@ -14,17 +13,6 @@ export function isTimerPush(payload: unknown): boolean {
     (payload as { data?: { kind?: unknown } } | undefined)?.data?.kind ===
     'timer'
   );
-}
-
-/**
- * Refetches the timer and what it moves. A press in flight skips the push:
- * a refetch landing before the server has the press would put the old
- * timer back over its prediction, and the press refetches when it settles
- * (`followRunningTimer`'s rule).
- */
-export function onTimerPush(queryClient: QueryClient) {
-  if (queryClient.isMutating() > 0) return;
-  return invalidateEntryData(queryClient);
 }
 
 /** The phone's address with the provider: Expo's in the app, a fake in tests. */
