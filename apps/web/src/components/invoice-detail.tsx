@@ -39,6 +39,7 @@ import {
 } from '@/lib/client/api';
 import { DetailPage, Listing } from './page';
 import { useHydrated } from '@/lib/client/use-hydrated';
+import { invoiceQuery } from '@/lib/client/prefetch-invoices';
 
 /** An invoice; the lines, and whether its PDF opens, are absent until they
     load. */
@@ -64,8 +65,7 @@ export function InvoiceDetail({ id }: { id: string }) {
   const qc = useQueryClient();
 
   const query = useQuery<Shown>({
-    queryKey: keys.invoice(id),
-    queryFn: () => api.invoice(id),
+    ...invoiceQuery(id),
     placeholderData: () => fromList(qc, id),
   });
 

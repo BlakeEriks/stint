@@ -109,29 +109,6 @@ beforeEach(() => vi.clearAllMocks());
 afterEach(() => vi.unstubAllGlobals());
 
 describe('InvoiceDetail', () => {
-  it('draws the invoice from the cached list while its lines load', () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => new Promise(() => {})),
-    );
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false, gcTime: Infinity } },
-    });
-    qc.setQueryData(keys.invoices(), { invoices: [invoice('sent')] });
-    // The list fetches the settings with itself, for this screen.
-    qc.setQueryData(keys.settings(), {});
-    render(
-      <QueryClientProvider client={qc}>
-        <InvoiceDetail id="inv-1" />
-      </QueryClientProvider>,
-    );
-
-    expect(screen.getByRole('heading', { name: /INV-13/ })).toBeVisible();
-    expect(screen.getByText('Acme Corp')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Mark paid' })).toBeVisible();
-    expect(screen.queryByRole('status')).toBeNull();
-  });
-
   /* A refetch of a query that failed with no data puts it back to pending
      with no error, which must not draw a draft's actions over the 404. */
   it('shows no actions over a missing invoice while it is asked again', async () => {

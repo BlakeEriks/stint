@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePrefetchInvoices } from '@/lib/client/prefetch-invoices';
 import { useRef, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -92,6 +93,13 @@ export function Inbox({ stats }: { stats: Stats }) {
     overlaps,
   } = stats.attention;
   const queryClient = useQueryClient();
+  usePrefetchInvoices([
+    ...overdueInvoices.map((i) => ({
+      id: i.invoiceId,
+      status: 'sent' as const,
+    })),
+    ...staleDrafts.map((d) => ({ id: d.invoiceId, status: 'draft' as const })),
+  ]);
 
   const exit = useExit();
 

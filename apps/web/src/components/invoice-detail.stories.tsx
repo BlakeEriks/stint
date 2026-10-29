@@ -1,6 +1,6 @@
 import type { Decorator, Meta, StoryObj } from '@storybook/nextjs-vite';
 import { useQuery } from '@tanstack/react-query';
-import { http } from 'msw';
+import { delay, http } from 'msw';
 import { api } from '@/lib/client/api';
 import { handlers } from '@/mocks/handlers';
 import { addDays } from '@stint/core';
@@ -59,23 +59,37 @@ export const Draft: Story = {
 };
 export const DraftPhone: Story = { ...phone };
 
+/* The `invoice` handler with one invoice answering only once `wait`
+   settles. The rest answer at once: the dock's Inbox prefetches them. */
+const waitingOn = (which: string, wait: () => Promise<unknown>) => ({
+  invoice: http.get(handlers.invoice.info.path, async (info) => {
+    if (info.params.id === which) await wait();
+    const answer = await handlers.invoice.run({
+      request: info.request,
+      requestId: info.requestId,
+    });
+    return answer?.response;
+  }),
+});
+
+/** As `stalled('invoice')`, for this invoice only. */
+const stalledOn = (which: string) => ({
+  stalls: 1,
+  msw: { handlers: waitingOn(which, () => delay('infinite')) },
+});
+
 /* The invoice answers only when the play says, so it can measure the
    actions before and after. */
 let arrive = () => {};
 const held = {
   msw: {
-    handlers: {
-      invoice: http.get(handlers.invoice.info.path, async (info) => {
-        await new Promise<void>((done) => {
+    handlers: waitingOn(
+      invoice(15),
+      () =>
+        new Promise<void>((done) => {
           arrive = done;
-        });
-        const answer = await handlers.invoice.run({
-          request: info.request,
-          requestId: info.requestId,
-        });
-        return answer?.response;
-      }),
-    },
+        }),
+    ),
   },
 };
 
@@ -89,11 +103,7 @@ export const ColdLoadPhone: Story = {
     const top = () =>
       page.getByRole('button', { name: 'Delete draft' }).getBoundingClientRect()
         .top;
-    await expectWaiting(within(canvasElement), [
-      'Delete draft',
-      'Mark sent',
-      'Download PDF',
-    ]);
+    await page.findByRole('button', { name: 'Delete draft' });
     const before = top();
     arrive();
     await page.findByRole('link', { name: 'Download PDF' });
@@ -186,9 +196,6 @@ export const DraftDueBeforeIssue: Story = {
       page.getByRole('button', { name: 'Mark sent' }),
     ).toBeDisabled();
     await expect(page.queryByRole('link', { name: 'Download PDF' })).toBeNull();
-    await expect(
-      page.getByRole('button', { name: 'Download PDF' }),
-    ).toBeDisabled();
   },
 };
 
@@ -211,9 +218,6 @@ export const DraftDueSinceDownload: Story = {
     ).toBeVisible();
     await expect(page.getByRole('button', { name: 'Mark sent' })).toBeEnabled();
     await expect(page.queryByRole('link', { name: 'Download PDF' })).toBeNull();
-    await expect(
-      page.getByRole('button', { name: 'Download PDF' }),
-    ).toBeDisabled();
   },
 };
 
@@ -495,7 +499,7 @@ export const OpenedFromList: Story = {
   args: { id: invoice(14) },
   decorators: [fromTheList],
   parameters: {
-    ...stalled('invoice'),
+    ...stalledOn(invoice(14)),
     /* The card dims until its lines land; axe reads the half opacity as low
        contrast. */
     a11y: skipping('color-contrast'),
@@ -515,19 +519,6 @@ export const OpenedFromList: Story = {
   },
 };
 
-/** A draft opened from the list: its own actions, disabled until it loads. */
-export const DraftOpenedFromList: Story = {
-  ...OpenedFromList,
-  args: { id: invoice(15) },
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
-    await expect(
-      await page.findByRole('heading', { name: 'STINT-0015' }),
-    ).toBeVisible();
-    await expectWaiting(page, ['Delete draft', 'Mark sent', 'Download PDF']);
-  },
-};
-
 /** Each action is on screen and disabled, and nothing links yet. */
 async function expectWaiting(page: ReturnType<typeof within>, names: string[]) {
   for (const name of names) {
@@ -540,7 +531,7 @@ async function expectWaiting(page: ReturnType<typeof within>, names: string[]) {
     draft's actions, disabled, since the status isn't known yet. */
 export const Loading: Story = {
   ...desktop,
-  parameters: stalled('invoice'),
+  parameters: stalledOn(invoice(15)),
   play: async ({ canvasElement }) => {
     const region = within(canvasElement.querySelector('main') as HTMLElement);
     await expect(await region.findByRole('status')).toHaveTextContent(

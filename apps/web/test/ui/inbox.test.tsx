@@ -91,6 +91,41 @@ const overdue = {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Inbox', () => {
+  /* Its invoices open on their own page, so each is fetched in full once
+     the inbox paints, and that page opens loaded. */
+  it('prefetches the overdue invoice and the stale draft', async () => {
+    const fetched: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const one = String(url).match(/\/invoices\/(\w+)\?/)?.[1];
+        if (one) fetched.push(one);
+        return new Response('{}');
+      }),
+    );
+    render(
+      <Inbox
+        stats={stats({
+          overdueInvoices: [overdue],
+          staleDrafts: [
+            {
+              invoiceId: 'd1',
+              invoiceNumber: 'STINT-0019',
+              clientId: 'c1',
+              clientName: 'Byrne Studio',
+              amount: 780,
+              currency: 'USD',
+              ageDays: 13,
+              refuses: { download: false, send: false },
+            },
+          ],
+        })}
+      />,
+      { wrapper },
+    );
+    await waitFor(() => expect(fetched.sort()).toEqual(['d1', 'i1']));
+  });
+
   it('names the invoice in every action, even where the label is generic', () => {
     render(<Inbox stats={stats({ overdueInvoices: [overdue] })} />, {
       wrapper,
