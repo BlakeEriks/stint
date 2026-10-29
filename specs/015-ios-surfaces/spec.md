@@ -19,6 +19,75 @@ control, and Siri and Shortcuts actions. The owner's decision on the issue
 nothing here may need push; updates from other clients through APNs are
 #471.
 
+## Clarifications
+
+### Session 2026-10-29
+
+- Q: What does Start start? → A: What it starts on Android: the most
+  recently tracked task on its project, the first of the app's Recent list;
+  with none, an unnamed timer on no project. (decided autonomously: one
+  press with no picker, and the same answer on both phones.)
+- Q: What is the oldest iOS supported? → A: The app keeps its own minimum,
+  iOS 16.4. The Live Activity, widgets, Siri and Shortcuts need iOS 17,
+  whose widgets and Live Activities take presses; the Control Center control
+  needs iOS 18. Below that, a surface is absent. (decided autonomously:
+  raising the app's minimum would drop phones the app runs on, and a surface
+  that can't be pressed misses the issue's point.)
+- Q: How does a widget show a rejected press? → A: As on Android: what the
+  server holds, with the reason on the line under the task, until the next
+  press or app read. When the server's refusal says what it holds (a timer
+  already running, none running), the surface shows that; otherwise it
+  shows what it showed before the press. (decided autonomously: Principle
+  VI's rule, said on the surface that pressed.)
+- Q: Where does a press run, with the app closed? → A: In the app, which
+  iOS starts in the background for it, never in the widget's own process.
+  The app's session is then the only one that calls the server, and the
+  Live Activity, which only the app can change, follows the press.
+  (decided autonomously)
+- Q: Which capabilities may a free Apple ID's build rely on? → A: Only
+  keychain sharing, for the widgets and the control to read what to show.
+  No app group, no Siri capability, and no push entitlement: Siri and
+  Shortcuts use App Intents, which need none, and a Live Activity needs no
+  entitlement. Where keychain sharing isn't signed, the widgets and the
+  control say "Open Stint" and the rest works. (the owner's decision on
+  #464: design so it degrades if a capability can't be signed)
+- Q: Do presses from the lock screen need unlocking? → A: Yes, as on
+  Android: they write billable time, which a found phone shouldn't change.
+  (decided autonomously)
+- Q: Which widget sizes? → A: Android's two in iOS's sizes: the small square
+  and the medium row on the home screen; on the lock screen, a rectangle
+  with the clock and task, and a circle with the button. (decided
+  autonomously: the owner chose both layouts on Android.)
+- Q: How is it verified without Xcode? → A: In an EAS Build simulator build,
+  run on EAS Simulator against the builder's local stack, which Metro passes
+  through. The owner installs it on a real iPhone later. (the owner's
+  decision on #464)
+
+## Design
+
+No design review: every layout choice was settled by Android's approved
+surfaces (`specs/014-android-surfaces/design/surfaces.html`), and iOS fixes
+the Dynamic Island's and Control Center's layouts itself. (decided
+autonomously) In iOS's sizes, in the app's tokens, dark and light:
+
+- **Small widget**: Android's 2×2 square: the wordmark at the top left and
+  the round Start or Stop at the top right, the clock in the middle, the
+  task in two lines at most and the project under it.
+- **Medium widget**: Android's 4×1 row: the live dot, the clock, the task,
+  then the project's dot, project and client; the round button at the right.
+- **Lock screen**: a rectangle with the clock and the task, and a circle
+  holding the button.
+- **Every widget, first day, failed press and signed out**: Android's words:
+  "Start a timer" with "Name it in the app later"; the reason in the danger
+  color in place of the project line; "Sign in to Stint" and "Tap to open
+  the app", no button. Where it can't read what to show: "Open Stint".
+- **Live Activity, lock screen**: the medium widget's row with Stop only,
+  since it exists only while a timer runs.
+- **Dynamic Island**: compact, the project's dot leading and the clock
+  trailing; minimal, the clock; expanded, the lock screen's row.
+- **Control Center**: one toggle named Stint, on while a timer runs; its
+  value line is the running task, or "Start: <task>" when stopped.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - A running timer is on the lock screen and in the Dynamic Island (Priority: P1)
