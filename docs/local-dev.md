@@ -261,8 +261,7 @@ the query.
 runtime, logflare, vector, supavisor, Studio and postgres-meta. The app
 touches none of them: its Supabase surface is `.from()`, one `.rpc()`, auth,
 and Realtime, which tells the web app of a timer change. That matters in
-practice: the full stack wants ~7GB of RAM, and this subset runs in about
-**540MB**.
+practice: the full stack wants ~7GB of RAM.
 
 **Studio is excluded by that list, not by `config.toml`** — `[studio] enabled`
 is `true` while the container is simply never started, so `:54323` refuses the

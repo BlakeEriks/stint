@@ -49,7 +49,7 @@ do $$ begin
 end $$;
 
 -- Realtime makes `realtime.messages` when it first starts; a topic's policy
--- goes on it (#517). The columns a policy reads, and `realtime.topic()`,
+-- goes on it. The columns a policy reads, and `realtime.topic()`,
 -- which Realtime sets while it asks whether a client may join.
 create schema if not exists realtime;
 create table if not exists realtime.messages (
