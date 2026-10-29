@@ -279,8 +279,8 @@ export const PastDueUnscheduled: Story = {
   },
 };
 
-/** Billed elsewhere marks that work billed outside Stint, and the row
-    leaves at once. */
+/** Billed elsewhere marks that work billed outside Stint; the row leaves
+    on the server's answer. */
 export const PastDueBilledElsewhere: Story = {
   ...desktop,
   parameters: meridianWork({ period: 'monthly' }, '2026-07-10', '2026-08-20'),
@@ -293,6 +293,26 @@ export const PastDueBilledElsewhere: Story = {
     await waitFor(() =>
       expect(page.queryByText('unbilled since Jul 10')).toBeNull(),
     );
+  },
+};
+
+/** While the server decides, the button says so and the row stays. */
+export const PastDueBilledElsewherePending: Story = {
+  ...desktop,
+  parameters: {
+    ...meridianWork({ period: 'monthly' }, '2026-07-10', '2026-08-20'),
+    ...stalled('markInvoicedElsewhere'),
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(await page.findByText('unbilled since Jul 10')).toBeVisible();
+    await userEvent.click(
+      page.getByRole('button', { name: 'Billed elsewhere, Meridian Labs' }),
+    );
+    await expect(
+      await page.findByRole('button', { name: 'Marking…, Meridian Labs' }),
+    ).toBeDisabled();
+    await expect(page.getByText('unbilled since Jul 10')).toBeVisible();
   },
 };
 

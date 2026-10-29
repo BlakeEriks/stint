@@ -39,7 +39,7 @@ existing `POST /entries/invoiced-elsewhere`. No migration.
 | III. Every client through `/api/v1` | Yes | The row comes from `GET /stats`; Billed elsewhere is `POST /entries/invoiced-elsewhere`. |
 | IV. `packages/core` does no I/O | Yes | `unbilledDue()` takes rows and returns rows. |
 | V. Tests first where a regression is silent | Yes | Core: every ended period, 29/30/31 days unscheduled, covered and void, no double flag with `lateEntries`. Route: due, covered by a draft, back on void, cleared by Billed elsewhere. UI: the link's params, the count. Stories: single period, across months, several periods, unscheduled, Billed elsewhere. |
-| VI. Every press answers in the same frame | Yes | Billed elsewhere is predicted: the row leaves at once through `useOptimisticMutation`, and a rejection brings it back with the app-wide notice. Create invoice is a link. |
+| VI. Every press answers in the same frame | Yes | Billed elsewhere is pending: it can mark hundreds of entries and is undone an entry at a time, so the button reads "Marking…" and the row leaves on the server's answer; a failure shows in the app-wide notice. It sends at most `MARK_IDS_MAX` ids a request, in order, and one failed request fails the press. Create invoice is a link. |
 
 ## Source Code (repository root)
 

@@ -7,7 +7,7 @@
 
 import {
   type BillingSchedule,
-  isPeriod,
+  type Period,
   periodContaining,
 } from './billing-period.ts';
 import { addDays, localDateKey } from './calendar.ts';
@@ -160,6 +160,20 @@ interface DueInputs {
   }[];
 }
 
+/** The oldest span of `units` (in date order) that `joins` lets grow. */
+function firstRun(
+  units: Period[],
+  joins: (span: Period, next: Period) => boolean,
+): Period {
+  let span = units[0]!;
+  for (const next of units) {
+    if (next.periodStart <= span.periodEnd) continue;
+    if (!joins(span, next)) break;
+    span = { periodStart: span.periodStart, periodEnd: next.periodEnd };
+  }
+  return span;
+}
+
 /**
  * Billable work past due to bill, one row per client, oldest first: for a
  * scheduled client, work in any period that has ended; for any other, work
@@ -167,8 +181,8 @@ interface DueInputs {
  * is never due: a draft will bill it, and one inside a sent or paid period
  * is `lateEntries()`' row, so no entry is flagged twice.
  *
- * `periodStart`..`periodEnd` span the work, widened to whole periods for a
- * scheduled client; `onePeriod` says they are exactly one of its periods.
+ * `periodStart`..`periodEnd` span the oldest run of that work, in whole
+ * periods for a scheduled client; `onePeriod` says all of it is in one.
  */
 export function unbilledDue(
   { clients, entries, invoices }: DueInputs,
@@ -195,26 +209,37 @@ export function unbilledDue(
         .map((e) => ({ ...e, day: localDateKey(new Date(e.startedAt), tz) }))
         .filter((e) => isDue(e.day) && !covered(e.day))
         .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
-      const first = work[0]?.day;
-      const last = work.at(-1)?.day;
-      if (!first || !last) return [];
-      const span = c.schedule
-        ? {
-            periodStart: periodContaining(first, c.schedule).periodStart,
-            periodEnd: periodContaining(last, c.schedule).periodEnd,
-          }
-        : { periodStart: first, periodEnd: last };
+      if (work.length === 0) return [];
+      const schedule = c.schedule;
+      const units = work.map((e) =>
+        schedule
+          ? periodContaining(e.day, schedule)
+          : { periodStart: e.day, periodEnd: e.day },
+      );
+      /* A scheduled run is adjacent periods; any other stops at an invoice
+         between two days of work. Either way the link never spans an
+         invoice, which New invoice would refuse or sweep into the new one. */
+      const joins = (span: Period, next: Period) =>
+        schedule
+          ? next.periodStart === addDays(span.periodEnd, 1)
+          : !invoices.some(
+              (i) =>
+                i.clientId === c.id &&
+                i.status !== 'void' &&
+                i.periodEnd > span.periodEnd &&
+                i.periodStart < next.periodStart,
+            );
       return [
         {
           clientId: c.id,
           clientName: c.name,
           entryIds: work.map((e) => e.id),
           seconds: work.reduce((t, e) => t + e.durationSeconds, 0),
-          since: first,
-          ...span,
+          since: work[0]!.day,
+          ...firstRun(units, joins),
           onePeriod:
-            c.schedule !== null &&
-            isPeriod(c.schedule, span.periodStart, span.periodEnd),
+            schedule !== null &&
+            units.every((u) => u.periodStart === units[0]!.periodStart),
         },
       ];
     })

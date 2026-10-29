@@ -286,6 +286,65 @@ test('work from every ended period is due, in one row spanning them', () => {
   );
 });
 
+test('Create invoice spans only the oldest run of adjacent due periods', () => {
+  assert.deepEqual(
+    due(
+      [
+        work('e1', '2026-07-20T15:00:00Z'),
+        work('e2', '2026-08-20T15:00:00Z'),
+        work('e4', '2026-10-20T15:00:00Z'),
+      ],
+      [
+        {
+          clientId: 'c1',
+          status: 'sent',
+          periodStart: '2026-09-01',
+          periodEnd: '2026-09-30',
+        },
+      ],
+      '2026-11-03',
+    ).map(({ entryIds, since, periodStart, periodEnd, onePeriod }) => ({
+      entryIds,
+      since,
+      periodStart,
+      periodEnd,
+      onePeriod,
+    })),
+    [
+      {
+        entryIds: ['e1', 'e2', 'e4'],
+        since: '2026-07-20',
+        periodStart: '2026-07-01',
+        periodEnd: '2026-08-31',
+        onePeriod: false,
+      },
+    ],
+  );
+});
+
+test('for an unscheduled client, the run stops at an invoice between the work', () => {
+  const [row] = due(
+    [
+      work('e1', '2026-07-10T15:00:00Z', 'c2'),
+      work('e2', '2026-07-12T15:00:00Z', 'c2'),
+      work('e3', '2026-08-20T15:00:00Z', 'c2'),
+    ],
+    [
+      {
+        clientId: 'c2',
+        status: 'draft',
+        periodStart: '2026-08-01',
+        periodEnd: '2026-08-15',
+      },
+    ],
+    '2026-10-03',
+  );
+  assert.deepEqual(
+    [row?.periodStart, row?.periodEnd, row?.entryIds.length],
+    ['2026-07-10', '2026-07-12', 3],
+  );
+});
+
 test(`unscheduled work is due once it is more than ${UNBILLED_DUE_DAYS} days old`, () => {
   assert.equal(UNBILLED_DUE_DAYS, 30);
   const at = (daysAgo: number) =>

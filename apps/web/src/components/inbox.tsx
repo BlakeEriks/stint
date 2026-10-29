@@ -151,17 +151,22 @@ export function Inbox({ stats }: { stats: Stats }) {
     },
   });
 
-  /* Reversible from each entry's dialog, so the row leaves at once. A wrong
-     billable flag is fixed on the entry, not answered here. */
+  /* Pending, not predicted: it can mark hundreds of entries, and undoing
+     that is one entry dialog at a time. The button says it is marking, and
+     the row leaves on the server's answer. A wrong billable flag is fixed on
+     the entry, not answered here. */
   const markElsewhere = useOptimisticMutation({
-    ...rowPress,
+    queryKey: () => keys.stats(),
     mutationFn: ({ ids }: { id: string; ids: string[] }) =>
-      api.markInvoicedElsewhere({ ids, invoicedElsewhere: true }),
+      api.markAllInvoicedElsewhere(ids),
     invalidate: async (qc, { id }) => {
-      await leaving.get(id);
+      await exit.mark(id);
       return invalidateEntryData(qc);
     },
   });
+  const marking = markElsewhere.isPending
+    ? markElsewhere.variables?.id
+    : undefined;
 
   /* Deduped against Home's identical query, so the one screen rendering both
      makes no second request. */
@@ -369,10 +374,8 @@ export function Inbox({ stats }: { stats: Stats }) {
                   leave(id);
                   confirmLength.mutate(id);
                 }}
-                onElsewhere={(v) => {
-                  leave(v.id);
-                  markElsewhere.mutate(v);
-                }}
+                onElsewhere={markElsewhere.mutate}
+                marking={marking}
                 exiting={exit.exiting.has(r.id)}
                 ref={exit.register(r.id)}
               />
@@ -406,6 +409,8 @@ type Handlers = {
   onOpen: (v: { id: string; focus: 'task' | 'project' }) => void;
   onConfirm: (id: string) => void;
   onElsewhere: (v: { id: string; ids: string[] }) => void;
+  /** The row whose Billed elsewhere is waiting on the server. */
+  marking?: string;
 };
 
 type ItemProps = Omit<React.ComponentProps<typeof Item>, 'exiting' | 'ref'>;
@@ -531,10 +536,11 @@ function dueItem(d: Attention['unbilledDue'][number], h: Handlers): ItemProps {
           navigates
         />
         <Action
-          label="Billed elsewhere"
+          label={h.marking === id ? 'Marking…' : 'Billed elsewhere'}
           context={d.clientName}
           icon={<ReceiptText aria-hidden />}
           onClick={() => h.onElsewhere({ id, ids: d.entryIds })}
+          disabled={h.marking === id}
         />
       </>
     ),
@@ -842,11 +848,13 @@ function Action({
   onClick,
   href,
   navigates,
+  disabled,
 }: {
   label: string;
   context: string;
   icon: React.ReactNode;
   onClick?: () => void;
+  disabled?: boolean;
   /** A file to download, or with `navigates` a page in the app. */
   href?: string;
   navigates?: boolean;
@@ -867,7 +875,13 @@ function Action({
       </a>
     </Button>
   ) : (
-    <Button type="button" size="xs" aria-label={ariaLabel} onClick={onClick}>
+    <Button
+      type="button"
+      size="xs"
+      aria-label={ariaLabel}
+      onClick={onClick}
+      disabled={disabled}
+    >
       {icon}
       {label}
     </Button>

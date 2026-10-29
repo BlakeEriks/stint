@@ -259,7 +259,8 @@ export const Stats = z.object({
     /** Billable work past due to bill, one row per client (`unbilledDue` in
      *  `@stint/core`): in an ended period of a scheduled client, or older
      *  than `UNBILLED_DUE_DAYS` for any other. `periodStart`..`periodEnd`
-     *  span the work; `onePeriod` says they are one of the client's
+     *  span its oldest run that no invoice interrupts, which Create invoice
+     *  opens; `onePeriod` says all of it is in one of the client's
      *  periods. */
     unbilledDue: z.array(
       z.object({

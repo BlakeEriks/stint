@@ -17,7 +17,12 @@
 - [x] T008 [US1] `linkedDraft()` in `apps/web/src/components/invoice-new.tsx`, with Suspense in its page
 - [x] T009 [US1] Stories in `dock.stories.tsx`: one period, across months, a calendar month, several periods, unscheduled, Billed elsewhere; `invoice-new.stories.tsx` FromInboxLink; the Clear stories bill old work elsewhere
 
-## Phase 3: Polish
+## Phase 3: Review fixes
+
+- [x] T012 Tests first: `markAllInvoicedElsewhere()` past `MARK_IDS_MAX` in `apps/web/test/ui/mark-elsewhere.test.tsx`; the oldest run across an invoiced gap in `packages/core/test/live-draft.test.ts`
+- [x] T013 Chunked marking in `apps/web/src/lib/client/api.ts`; the run in `unbilledDue()`; Billed elsewhere in pending mode, with `PastDueBilledElsewherePending`
+
+## Phase 4: Polish
 
 - [x] T010 `docs/api.md`
 - [x] T011 Verify: doc drift, `pnpm verify:static`, `TT=tt_482 pnpm db:setup && TT=tt_482 pnpm verify:db`, seen in local Stint

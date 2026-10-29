@@ -30,10 +30,11 @@ Inbox is read.
 
 - Q: Which work is due? → A: For a scheduled client, work in any ended period, not only the latest, so a missed September doesn't drop out once October ends. For a client with no schedule, work more than 30 days old (`UNBILLED_DUE_DAYS`). (reviewer)
 - Q: One row per what? → A: One per client, never one per period. A single period reads "September ended with no invoice", or its dates for another schedule; work across several reads "14h · unbilled since Aug 1". (reviewer)
-- Q: How is it answered? → A: Create invoice, opening New invoice with the client and dates spanning the work, or Billed elsewhere, which marks that work billed outside Stint and clears the row at once. No snooze; a wrong billable flag is fixed on the entry. (reviewer)
+- Q: How is it answered? → A: Create invoice, opening New invoice with the client and dates spanning the work, or Billed elsewhere, which marks that work billed outside Stint and clears the row. No snooze; a wrong billable flag is fixed on the entry. (reviewer)
+- Q: Is Billed elsewhere predicted? → A: No, pending: it can mark hundreds of entries and is undone an entry at a time, so the button says it is marking and the row leaves on the server's answer. (review)
+- Q: What dates does Create invoice fill in, when the due work has an invoice between? → A: Only the oldest run: adjacent due periods for a scheduled client, days with no invoice between them otherwise. A span across an invoice would be refused over a draft, or sweep in work the row never named over a sent one. (review)
 - Q: What covers work? → A: Any draft, sent or paid invoice for that client whose period holds its day. A void one doesn't. Work inside a sent or paid period is already the late-entry row's, so no entry is in both rows. (reviewer, reconciled autonomously)
 - Q: Is 30 days old "due" at 30? → A: No, once it is more than 30 days old: 31. (decided autonomously)
-- Q: What dates does Create invoice fill in? → A: The first day to the last of the work, widened to whole periods for a scheduled client. (decided autonomously)
 
 ## Design
 
@@ -66,11 +67,11 @@ last month; see the row; mark it billed elsewhere and see it go.
 3. **Given** a client with no schedule, **Then** its work is due once it is
    more than 30 days old, and not at 29 or 30.
 4. **Given** the row, **When** she presses Create invoice, **Then** New
-   invoice opens with the client and dates spanning that work, and nothing
-   is created until she creates it.
+   invoice opens with the client and the oldest run of that work no invoice
+   interrupts, and nothing is created until she creates it.
 5. **Given** the row, **When** she presses Billed elsewhere, **Then** the
-   row leaves at once, that work is billed elsewhere, and a refusal brings
-   the row back with the reason.
+   button says it is marking until the server answers, then the row
+   leaves; a refusal keeps it and says why.
 6. **Given** an invoice that isn't void now holds that work, **Then** the
    row is gone; voided, it is back.
 7. **Given** work inside a sent invoice's period, **Then** only the
@@ -100,10 +101,12 @@ last month; see the row; mark it billed elsewhere and see it go.
   say "<period> ended with no invoice" when the work is one period of a
   schedule, and "unbilled since <first day>" otherwise.
 - **FR-004**: Create invoice MUST open New invoice with the client and the
-  dates spanning that work, and create nothing itself.
+  dates of the oldest run of that work no invoice interrupts, and create
+  nothing itself.
 - **FR-005**: Billed elsewhere MUST mark exactly that row's entries billed
-  elsewhere through the API, removing the row at once and bringing it back
-  with the reason if refused.
+  elsewhere through the API, however many there are, showing it is pending
+  until the server answers and removing the row only then; a refusal keeps
+  the row and says why.
 - **FR-006**: New invoice MUST ignore a client it doesn't know, and dates
   that aren't valid or run backwards.
 - **FR-007**: The Inbox's count MUST include these rows.

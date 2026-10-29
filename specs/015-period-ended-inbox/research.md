@@ -14,5 +14,5 @@
 
 ## The answers
 
-- **Decision**: Create invoice links to `?client&from&to`, read once into New invoice's first draft. Billed elsewhere posts the row's `entryIds` to the existing `POST /entries/invoiced-elsewhere`, predicted: the row leaves at once.
-- **Rationale**: both reuse what exists; marking is reversible from each entry's dialog, so predicting is allowed by Principle VI.
+- **Decision**: Create invoice links to `?client&from&to`, read once into New invoice's first draft. Billed elsewhere posts the row's `entryIds` to the existing `POST /entries/invoiced-elsewhere`, `MARK_IDS_MAX` at a time, in pending mode.
+- **Rationale**: both reuse what exists. Marking can cover hundreds of entries and is undone one dialog at a time, so Principle VI asks for a pending state rather than a prediction. Create invoice opens only the oldest run of due work: spanning an invoice, New invoice would refuse over a draft (`DRAFT_OVERLAPS`) or sweep in late entries over a sent period.

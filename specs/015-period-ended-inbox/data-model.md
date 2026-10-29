@@ -8,5 +8,5 @@ Nothing stored. `attention.unbilledDue` is derived per request, one row per clie
 | `entryIds` | uuid[] | its billable, finished entries on no invoice, not billed elsewhere, past due, inside no non-void invoice's period |
 | `seconds` | integer | their time |
 | `since` | `YYYY-MM-DD` | the first one's day in `tz` |
-| `periodStart`, `periodEnd` | `YYYY-MM-DD` | the first to the last day, widened to whole periods for a scheduled client |
+| `periodStart`, `periodEnd` | `YYYY-MM-DD` | the oldest run of that work no invoice interrupts: adjacent whole periods for a scheduled client, days with no invoice between them for any other |
 | `onePeriod` | boolean | that span is exactly one of the client's periods |
