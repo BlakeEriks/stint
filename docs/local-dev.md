@@ -33,7 +33,8 @@ Billing stays hidden locally until Stripe **test-mode** keys are added here
 too: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` and `STRIPE_WEBHOOK_SECRET` (from
 `stripe listen --forward-to localhost:3100/api/v1/billing/webhook`), plus
 `SUPABASE_SECRET_KEY` from `supabase status`, which the webhook writes
-with. With the three Stripe keys set, the invoice gate is on
+with. The same key is what the server broadcasts timer changes with, so
+without it a web tab sees another client's change only when it polls. With the three Stripe keys set, the invoice gate is on
 too: a free account's invoice PDF answers `402 PAYMENT_REQUIRED`, and the
 invoice screen offers Subscribe in place of Download PDF.
 
