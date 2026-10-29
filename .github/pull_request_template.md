@@ -10,10 +10,15 @@
 <!-- Three bullets at most, each an outcome someone notices, not how it's
      built. -->
 
+## Decisions made
+
+<!-- One line per call made without the reviewer, each with its reason and
+     any risk it creates. Reply on the PR to change one. "None." if none. -->
+
 ## Needs you
 
-<!-- Calls you might make differently, anything to do before merging, and
-     risks. "Nothing." if none. -->
+<!-- Only what you must do before merging or testing (set a secret, install
+     an app), or a question only you can answer. "Nothing." if none. -->
 
 ## Try it
 
