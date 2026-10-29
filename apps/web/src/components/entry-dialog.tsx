@@ -114,15 +114,11 @@ export function EntryDialog({
 }) {
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [error, setError] = useState<string | null>(null);
-  /* A new entry's id, minted once per opening, so one draft is one row
-     however many times its request is sent. */
-  const [newId, setNewId] = useState('');
 
   // Reset each time it opens, so a canceled edit cannot leak into the next.
   useEffect(() => {
     if (!open) return;
     setError(null);
-    setNewId(uuidv7());
 
     const opened = existing ?? seed;
     const from = opened ? new Date(opened.startedAt) : new Date();
@@ -211,6 +207,7 @@ export function EntryDialog({
     queryKey: () => keys.entries(),
     invalidate: (qc, _entry, settled) => invalidateEntryData(qc, settled),
     movesHome: true,
+    mutationKey: keys.createsEntry(),
     /* Drawing it again would be a second entry if the first lands late. */
     timeoutMessage:
       'The server hasn’t confirmed this entry yet. It will appear if it saved.',
@@ -272,7 +269,7 @@ export function EntryDialog({
             e.preventDefault();
             setError(null);
             if (existing) return save.mutate();
-            create.mutate({ id: newId, ...body() });
+            create.mutate({ id: uuidv7(), ...body() });
             onOpenChange(false);
           }}
           className="flex flex-col gap-4"

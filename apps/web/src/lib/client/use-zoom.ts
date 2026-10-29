@@ -18,9 +18,9 @@ import {
 /** Where the level is kept; stories set it to draw a zoomed grid. */
 export const ZOOM_KEY = 'stint.calendar.pxPerHour';
 
-/* One level for every day column, so an hour is one size on `/calendar` and
-   in the dock alike. A device preference, like the dock split: it lives in
-   `localStorage` and never reaches the server. */
+/* One stored level per device, read by every day column. A device
+   preference, like the dock split: it lives in `localStorage` and never
+   reaches the server. */
 const listeners = new Set<() => void>();
 
 /* Read each time rather than cached, so clearing storage resets it. */

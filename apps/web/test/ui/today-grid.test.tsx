@@ -10,6 +10,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { EntryList } from '@/components/entry-list';
+import { ZOOM_KEY } from '@/lib/client/use-zoom';
 
 /**
  * Today drawn as a day column rather than a list.
@@ -267,9 +268,9 @@ describe('zooming a day column', () => {
     fireEvent.wheel(column, { deltaY: -50, metaKey: true });
 
     // The level outlives the screen that set it, in this browser.
-    expect(
-      Number(localStorage.getItem('stint.calendar.pxPerHour')),
-    ).toBeCloseTo((zoomed / before) * 44);
+    expect(Number(localStorage.getItem(ZOOM_KEY))).toBeCloseTo(
+      (zoomed / before) * 44,
+    );
     unmount();
     draw();
     await screen.findByRole('button', { name: /Edit API integration/ });
@@ -350,7 +351,7 @@ describe('the day fills its scroll area', () => {
   });
 
   it('draws a stored level below the floor at the floor', async () => {
-    localStorage.setItem('stint.calendar.pxPerHour', '22');
+    localStorage.setItem(ZOOM_KEY, '22');
     const resize = area();
     serve([entry()]);
     drawFilling();

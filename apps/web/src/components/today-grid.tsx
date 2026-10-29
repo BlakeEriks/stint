@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import {
-  hourStep,
   PX_PER_HOUR,
   startOfLocalDay,
   startOfLocalDayOffset,
@@ -12,7 +11,7 @@ import { timeZone as tz } from '@/lib/client/use-timer';
 import { position, workedWindow } from '@/lib/client/use-calendar';
 import type { useEntryDrag } from '@/lib/client/use-entry-drag';
 import { useZoom } from '@/lib/client/use-zoom';
-import { DayColumn } from './day-column';
+import { DayColumn, gutterMarks, HourGutter } from './day-column';
 
 /** The least room between labeled hours: every hour at the default scale,
     since the dock is too narrow for the calendar's 3-hour step. */
@@ -23,9 +22,9 @@ const LABEL_GAP_PX = PX_PER_HOUR;
  *
  * The list answers "what have I booked"; this answers "where did the day go",
  * which is the question that catches an hour nobody tracked. It is the
- * column `/calendar` draws — same window, same positions, same hour, same
- * gestures. At the default 44px a 15-minute entry is 11px tall; zooming in is
- * what makes one tall enough to grab an end of.
+ * column `/calendar` draws — same window, same positions, same gestures. At
+ * the default 44px a 15-minute entry is 11px tall; zooming in is what makes
+ * one tall enough to grab an end of.
  */
 export function TodayGrid({
   entries,
@@ -74,9 +73,8 @@ export function TodayGrid({
 
   const hours = (to.getTime() - from.getTime()) / 3_600_000;
   const { pxPerHour, ref } = useZoom(hours, { fill: fills });
-  const step = hourStep(pxPerHour, LABEL_GAP_PX);
   const height = hours * pxPerHour;
-  const labels = marks(from, to, step);
+  const labels = gutterMarks(from, to, pxPerHour, LABEL_GAP_PX);
 
   /* Where now falls in the drawn window. The window covers it by
      construction, but the guard stays: it is the one value read off a clock
@@ -90,27 +88,14 @@ export function TodayGrid({
      name. */
   return (
     <div className="flex" ref={ref}>
-      {/* Each label placed at its hour rather than stacked a step tall: a
-          stack runs past the grid whenever the step does not divide the
-          window, and a filled area would scroll by the difference. */}
-      <div className="relative flex-none" style={{ width: 30, height }}>
-        {labels.map((m) => (
-          <div
-            key={m.at.toISOString()}
-            className="absolute right-1.5 -translate-y-[5px] type-meta text-subtle"
-            style={{ top: `${fractionOf(m.at, from, to) * 100}%` }}
-          >
-            {m.label}
-          </div>
-        ))}
-      </div>
+      <HourGutter marks={labels} height={height} />
 
       <DayColumn
         positioned={placed}
         colors={colors}
         dayStart={from}
         dayEnd={to}
-        gridlines={labels.slice(1).map((m) => fractionOf(m.at, from, to) * 100)}
+        marks={labels}
         height={height}
         drag={drag}
         onEdit={onEdit}
@@ -197,20 +182,3 @@ function withNow(
 
 const fractionOf = (at: Date, from: Date, to: Date) =>
   (at.getTime() - from.getTime()) / (to.getTime() - from.getTime());
-
-function marks(from: Date, to: Date, hours: number) {
-  const out: { at: Date; label: string }[] = [];
-  const step = hours * 3_600_000;
-  for (let t = from.getTime(); t < to.getTime(); t += step) {
-    const at = new Date(t);
-    out.push({
-      at,
-      label: new Intl.DateTimeFormat('en-US', {
-        hour: '2-digit',
-        hour12: false,
-        timeZone: tz,
-      }).format(at),
-    });
-  }
-  return out;
-}

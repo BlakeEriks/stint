@@ -6,7 +6,6 @@ import { useQuery } from '@tanstack/react-query';
 import {
   formatCompact,
   formatClock,
-  hourStep,
   localDateKey,
   PX_PER_HOUR,
 } from '@stint/core';
@@ -25,7 +24,7 @@ import { Plus } from 'lucide-react';
 import { api, type TimeEntry } from '@/lib/client/api';
 import { Listing, Page, useLoaded } from './page';
 import { EntryDialog } from './entry-dialog';
-import { DayColumn } from './day-column';
+import { DayColumn, GUTTER_CLASS, gutterMarks, HourGutter } from './day-column';
 import { keys } from '@stint/client';
 import { timeZone as tz } from '@/lib/client/use-timer';
 
@@ -34,48 +33,12 @@ import { timeZone as tz } from '@/lib/client/use-timer';
 const LABEL_GAP_PX = 3 * PX_PER_HOUR;
 
 /**
- * The day view's cap alone, at the default scale: there the PAGE scrolls, and a long window would
- * otherwise render taller than the uncropped day it crops. A week is 24 hours
- * and overflows the panel on purpose, which is the panel's scroll to carry.
+ * The day view's cap alone, at the default scale: there the PAGE scrolls,
+ * and a long window would otherwise render taller than the uncropped day it
+ * crops. A week is 24 hours and overflows the panel on purpose, which is the
+ * panel's scroll to carry.
  */
 const DAY_MAX_HEIGHT = 620;
-
-/**
- * The gridlines for a column spanning `from`–`to`, as percentages of it.
- *
- * Marks fall on multiples of `step` in local wall-clock terms, so a
- * cropped window starting at 06:00 shows 06, 09, 12 rather than an offset
- * sequence counted from the window's own start.
- */
-function hourMarks(
-  from: Date,
-  to: Date,
-  step: number,
-): { hour: number; pct: number }[] {
-  const span = to.getTime() - from.getTime();
-  const startHour = Number(
-    new Intl.DateTimeFormat('en-GB', {
-      hour: '2-digit',
-      hour12: false,
-      timeZone: tz,
-    }).format(from),
-  );
-
-  const marks: { hour: number; pct: number }[] = [];
-  const first = Math.ceil(startHour / step) * step;
-  /* Stepping by elapsed hours from the window's start: a DST day is 23 or 25
-     hours long, so a wall-clock hour is not always 3600s of the column. */
-  for (let h = first; ; h += step) {
-    const at = from.getTime() + (h - startHour) * 3_600_000;
-    const pct = ((at - from.getTime()) / span) * 100;
-    if (pct > 100) break;
-    /* A full-day window ends on hour 24, which `% 24` turns back into 0 — the
-       same React key as the midnight at the top, and two children with one
-       key. Keyed by `pct` instead, which is unique by construction. */
-    marks.push({ hour: h % 24, pct });
-  }
-  return marks;
-}
 
 /**
  * A week of logged time, and where it gets corrected: seven `DayColumn`s,
@@ -121,18 +84,16 @@ export function Calendar() {
   const from = cal.days[0]?.from ?? cal.weekStart;
   const to = cal.days[0]?.to ?? cal.weekEnd;
 
-  /* An hour is the same height in both views: the window sets how tall the
-     grid is, never how tall an hour is. A week is 24 of them and taller than
-     the panel, so the scroller the panel already owns carries the difference
-     — which is what a fixed height could not do without crushing the hours
-     into it. The day view keeps its cap, where the PAGE scrolls and a long
-     window would otherwise run past the end of a cropped day. */
+  /* The zoom sets how tall an hour is, one level shared with the dock's
+     Today; the window sets how many hours the grid holds. A week is 24 and
+     can run taller than the panel, which the panel's scroller carries. At
+     `xl` that scroller is the card's remaining height and zooming out stops
+     where the day fills it; below `xl` the page scrolls, the grid sets its
+     own height, and the day view keeps its cap. */
   const windowHours = (to.getTime() - from.getTime()) / 3_600_000;
-  /* At `xl` the scroller is the card's remaining height; below it the page
-     scrolls and the grid sets its own height. */
   const xl = useMediaQuery(XL);
   const zoom = useZoom(windowHours, { fill: xl });
-  const marks = hourMarks(from, to, hourStep(zoom.pxPerHour, LABEL_GAP_PX));
+  const marks = gutterMarks(from, to, zoom.pxPerHour, LABEL_GAP_PX);
   const px = zoom.pxPerHour;
   const gridHeight = byDay
     ? Math.min(
@@ -256,7 +217,7 @@ export function Calendar() {
             <>
               <div className="flex min-h-0 flex-col overflow-hidden border-t border-edge-subtle xl:flex-1">
                 <div className="flex flex-none border-b border-edge-subtle">
-                  <div className="w-12 flex-none sm:w-14" />
+                  <div className={GUTTER_CLASS} />
                   {cal.days.map((day) => (
                     <DayHeading
                       key={day.date}
@@ -296,34 +257,7 @@ export function Calendar() {
                   className="xl:min-h-0 xl:flex-1 xl:overflow-y-auto"
                 >
                   <div className="flex" ref={zoom.ref}>
-                    {/* Clipped at its bottom edge: a glyph's box runs a pixel or
-                        two past its line box, and a filled grid would scroll
-                        by it. */}
-                    <div
-                      className="relative w-12 flex-none overflow-y-clip sm:w-14"
-                      style={{ height: gridHeight }}
-                    >
-                      {marks.map(({ hour, pct }) => (
-                        <span
-                          key={pct}
-                          /* The label is a zero-height row anchored at the gridline,
-                       so digits sit on the line at every position. The first
-                       mark hangs below its line and the last sits wholly above
-                       it, or the container clips the one and scrolls to the
-                       other. */
-                          className={`absolute right-2 flex h-0 type-meta leading-none text-subtle ${
-                            pct === 0
-                              ? 'items-center translate-y-1.5'
-                              : pct >= 100
-                                ? 'items-end'
-                                : 'items-center'
-                          }`}
-                          style={{ top: `${pct}%` }}
-                        >
-                          {String(hour).padStart(2, '0')}
-                        </span>
-                      ))}
-                    </div>
+                    <HourGutter marks={marks} height={gridHeight} />
 
                     {cal.days.map((day) => (
                       <DayColumn
@@ -337,12 +271,7 @@ export function Calendar() {
                      new entry at the wrong time. */
                         dayStart={day.from}
                         dayEnd={day.to}
-                        /* None on the grid's bottom edge: its border would
-                           sit a pixel past the end, and a filled grid would
-                           scroll by it. */
-                        gridlines={marks
-                          .filter((m) => m.pct < 100)
-                          .map((m) => m.pct)}
+                        marks={marks}
                         height={gridHeight}
                         drag={drag}
                         onEdit={edit}

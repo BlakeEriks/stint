@@ -10,6 +10,7 @@ import {
   zoomed,
   fillPxPerHour,
   clickMinutes,
+  hourMarks,
   hourStep,
   MIN_PX_PER_HOUR,
   MAX_PX_PER_HOUR,
@@ -402,4 +403,38 @@ test('a click draws its length from where it landed, inside the day', () => {
   const last = drawnRange(1, 1, start, end, 60);
   assert.equal(last.endedAt.getTime(), end.getTime());
   assert.equal(last.endedAt.getTime() - last.startedAt.getTime(), 60 * MIN);
+});
+
+test('hour marks fall on the step across an ordinary day, ends included', () => {
+  const { start, end } = column('2026-09-09T12:00:00Z', 'America/New_York');
+  const marks = hourMarks(start, end, 3, 'America/New_York');
+  assert.deepEqual(
+    marks.map((m) => m.hour),
+    [0, 3, 6, 9, 12, 15, 18, 21, 0],
+  );
+  assert.equal(marks[1]?.pct, 12.5);
+  assert.equal(marks.at(-1)?.pct, 100);
+});
+
+/* A 25-hour day repeats 01:00. Counting elapsed hours as wall hours would
+   label 02:00 as "03" and end the day on "01". */
+test('hour marks on a fall-back day name the hour the clock reads', () => {
+  const tz = 'America/New_York';
+  const { start, end } = column('2026-11-01T12:00:00Z', tz);
+  const marks = hourMarks(start, end, 3, tz);
+  assert.deepEqual(
+    marks.map((m) => m.hour),
+    [0, 3, 6, 9, 12, 15, 18, 21, 0],
+  );
+  // 03:00 is four elapsed hours into the 25.
+  assert.equal(marks[1]?.pct, (4 / 25) * 100);
+  assert.equal(marks.at(-1)?.pct, 100);
+});
+
+test('hour marks on a spring-forward day skip the hour that never was', () => {
+  const tz = 'America/New_York';
+  const { start, end } = column('2026-03-08T12:00:00Z', tz);
+  const hours = hourMarks(start, end, 1, tz).map((m) => m.hour);
+  assert.equal(hours.length, 24);
+  assert.ok(!hours.includes(2));
 });

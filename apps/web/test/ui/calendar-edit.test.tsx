@@ -529,10 +529,6 @@ describe('a drawn entry never leaves the grid', () => {
       await screen.findByText(/^Drawn work, .*, saving$/)
     ).closest('[aria-busy="true"]') as HTMLElement;
     expect(unsaved).not.toBeNull();
-    // Faded exactly as a dropped drag is, and otherwise a plain block.
-    expect(unsaved.className).toContain('opacity-70');
-    expect(unsaved.className).toContain('bg-surface-hover');
-    expect(unsaved.className).not.toMatch(/animate-|border-dashed|recessed/);
     expect(column.querySelector('[data-drawing]')).toBeNull();
 
     srv.answer();

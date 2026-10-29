@@ -640,7 +640,7 @@ describe('EntryDialog', () => {
 
 describe('adding an entry', () => {
   /* Predicted: the form closes on the press and the block stands in for
-     the answer, so the editor never shows a second loader beside it. */
+     the answer. */
   it('closes on the press, before the server answers', async () => {
     const posts: unknown[] = [];
     vi.stubGlobal(

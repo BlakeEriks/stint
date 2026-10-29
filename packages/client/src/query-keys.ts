@@ -44,6 +44,9 @@ export const keys = {
   expenses: () => ['expenses'] as const,
   settings: () => ['settings'] as const,
   paymentProfiles: () => ['payment-profiles'] as const,
+  /** A mutation key, not a query: a press that creates an entry under the
+      id it sends, so a screen can find the ones still waiting. */
+  createsEntry: () => ['creates-entry'] as const,
 };
 
 /**

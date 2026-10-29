@@ -118,6 +118,8 @@ interface BaseOptions<TVars, TData> {
   movesHome?: boolean;
   /** A lane whose presses reach the server one at a time, in press order. */
   serial?: string;
+  /** Names the press in the mutation cache, so a screen can find it. */
+  mutationKey?: QueryKey;
   timeoutMs?: number;
   /**
    * What the notice says when the server goes quiet. A press that can't be
@@ -205,6 +207,7 @@ function optimisticOptions<TVars, TData, TCache>(
   return {
     meta: { inline: opts.inline ?? false, movesHome: opts.movesHome ?? false },
     scope: opts.serial ? { id: opts.serial } : undefined,
+    mutationKey: opts.mutationKey,
     mutationFn: (vars) =>
       predicts
         ? withTimeout(

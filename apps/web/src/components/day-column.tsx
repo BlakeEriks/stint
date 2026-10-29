@@ -2,11 +2,14 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useMutationState } from '@tanstack/react-query';
+import { keys } from '@stint/client';
 import {
   clickMinutes,
   drawnRange,
   formatCompact,
   formatLocalTime,
+  hourMarks,
+  hourStep,
 } from '@stint/core';
 import { type } from '@stint/design-tokens';
 import { placement, type PositionedEntry } from '@/lib/client/use-calendar';
@@ -25,6 +28,62 @@ const time = (at: Date | string) => formatLocalTime(at, tz);
  */
 const SLOT_LABEL_PX = Math.ceil(type.meta.size * 1.25) + 2;
 
+/** The hour gutter's width, which the calendar's heading row matches. */
+export const GUTTER_CLASS = 'w-10 flex-none';
+
+export type HourMark = { hour: number; pct: number };
+
+/**
+ * The hours a column spanning `from`–`to` labels at `pxPerHour`: the
+ * smallest step that keeps labels `labelGapPx` apart, on the wall clock.
+ */
+export function gutterMarks(
+  from: Date,
+  to: Date,
+  pxPerHour: number,
+  labelGapPx: number,
+): HourMark[] {
+  return hourMarks(from, to, hourStep(pxPerHour, labelGapPx), tz);
+}
+
+/**
+ * The hour labels beside a day column, each a zero-height row at its line so
+ * the digits sit on it. The first hangs below its line and the last sits
+ * above it, and the gutter clips at its edges: a glyph's box runs a pixel
+ * past its line box, and a filled grid would scroll by it.
+ */
+export function HourGutter({
+  marks,
+  height,
+}: {
+  marks: HourMark[];
+  height: number;
+}) {
+  return (
+    <div
+      aria-hidden
+      className={`relative ${GUTTER_CLASS} overflow-y-clip`}
+      style={{ height }}
+    >
+      {marks.map(({ hour, pct }) => (
+        <span
+          key={pct}
+          className={`absolute right-2 flex h-0 type-meta leading-none text-subtle ${
+            pct === 0
+              ? 'items-center translate-y-1.5'
+              : pct >= 100
+                ? 'items-end'
+                : 'items-center'
+          }`}
+          style={{ top: `${pct}%` }}
+        >
+          {String(hour).padStart(2, '0')}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 /**
  * One day of entries, and where they get corrected: a block opens the editor,
  * dragging it or an end adjusts its times, and pressing on empty grid draws a
@@ -38,7 +97,7 @@ export function DayColumn({
   colors,
   dayStart,
   dayEnd,
-  gridlines,
+  marks,
   height,
   drag,
   onEdit,
@@ -50,8 +109,10 @@ export function DayColumn({
   /** The window the column draws — not necessarily the whole day. */
   dayStart: Date;
   dayEnd: Date;
-  /** Where the gridlines fall, as percentages of the column. */
-  gridlines: number[];
+  /** The gutter's hours: a gridline at each, but not on the top or bottom
+      edge, where a border would double the heading's or run a pixel past
+      the end. */
+  marks: HourMark[];
   height: number;
   drag: DragApi;
   onEdit: (entry: TimeEntry) => void;
@@ -61,12 +122,8 @@ export function DayColumn({
 }) {
   const column = useRef<HTMLDivElement>(null);
   const pending = usePendingCreates();
-  /* Once Save is pressed the prediction draws the entry, so the drawn
-     outline steps aside for it rather than covering it. */
   const drawing =
-    drag.preview?.entryId === null &&
-    drag.preview.column === column.current &&
-    !positioned.some((p) => pending.has(p.entry.id))
+    drag.preview?.entryId === null && drag.preview.column === column.current
       ? drag.preview
       : null;
   /* The length a click makes here, and so the slot shown under the
@@ -101,14 +158,16 @@ export function DayColumn({
       style={{ height }}
     >
       {/* The gutter carries the hour; a gridline only needs its position. */}
-      {gridlines.map((pct) => (
-        <div
-          key={pct}
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 border-t border-edge-grid"
-          style={{ top: `${pct}%` }}
-        />
-      ))}
+      {marks
+        .filter(({ pct }) => pct > 0 && pct < 100)
+        .map(({ pct }) => (
+          <div
+            key={pct}
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 border-t border-edge-grid"
+            style={{ top: `${pct}%` }}
+          />
+        ))}
 
       {positioned.map((item) => (
         <EntryBlock
@@ -124,7 +183,7 @@ export function DayColumn({
         />
       ))}
 
-      {hover.slot && !drawing && !drag.preview ? (
+      {hover.slot && !drag.preview ? (
         <div
           aria-hidden
           data-hover-slot
@@ -204,21 +263,16 @@ function useHoverSlot(dayStart: Date, dayEnd: Date, minutes: number) {
 }
 
 /**
- * Ids of entries being created, read from the mutation cache: a press that
- * sends a new entry's id and task, from the editor or the timer. Its block is
- * the prediction and the server has not answered yet.
+ * Ids of entries being created and not yet answered, from the presses keyed
+ * `keys.createsEntry()`: the editor's create and the timer's start. Each one's
+ * block is its prediction.
  */
 function usePendingCreates(): Set<string> {
   const ids = useMutationState({
-    filters: { status: 'pending' },
-    select: (m) => {
-      const v = m.state.variables as { id?: unknown; taskName?: unknown };
-      return typeof v?.id === 'string' && typeof v.taskName === 'string'
-        ? v.id
-        : null;
-    },
+    filters: { mutationKey: keys.createsEntry(), status: 'pending' },
+    select: (m) => (m.state.variables as { id: string }).id,
   });
-  return new Set(ids.filter((id): id is string => id !== null));
+  return new Set(ids);
 }
 
 const edges = ({ top, height }: { top: number; height: number }) => ({

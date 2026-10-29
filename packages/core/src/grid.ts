@@ -178,6 +178,36 @@ export function hourStep(pxPerHour: number, minGapPx: number): number {
 }
 
 /**
+ * The hour lines a day column labels between `from` and `to`, ends included:
+ * every hour whose wall clock in `tz` is a multiple of `step`, at its place
+ * as a percentage of the column.
+ *
+ * Walked in elapsed hours from `from` and labeled by each instant's own wall
+ * clock, so on a 23- or 25-hour day a label names the hour the clock reads
+ * there, and a repeated or skipped hour is drawn as the clock has it.
+ */
+export function hourMarks(
+  from: Date,
+  to: Date,
+  step: number,
+  tz: string,
+): { hour: number; pct: number }[] {
+  const clock = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    hourCycle: 'h23',
+    timeZone: tz,
+  });
+  const span = to.getTime() - from.getTime();
+  const marks: { hour: number; pct: number }[] = [];
+  for (let t = from.getTime(); t <= to.getTime(); t += 3_600_000) {
+    const hour = Number(clock.format(new Date(t)));
+    if (hour % step === 0)
+      marks.push({ hour, pct: ((t - from.getTime()) / span) * 100 });
+  }
+  return marks;
+}
+
+/**
  * The strip in the entry dialog crops to the entry rather than drawing the
  * whole day: two hours either side, or the entry's own length when that is
  * longer, so a twelve-hour entry keeps some ground around it.
