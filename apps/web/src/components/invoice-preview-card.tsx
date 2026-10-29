@@ -371,9 +371,8 @@ const RATE = '@max-[360px]/card:hidden';
 function Payment({ payment }: { payment: PaymentDetails }) {
   return (
     <div className="flex flex-col gap-3 border-t border-edge-subtle pt-4 type-support">
-      <span className={LABEL}>
-        {payment.title ? `Payment — ${payment.title}` : 'Payment details'}
-      </span>
+      {/* Never the profile's name: that is the contractor's label in Stint. */}
+      <span className={LABEL}>Payment details</span>
       <PaymentFields fields={payment.fields} />
       {payment.intermediary.length > 0 ? (
         <PaymentFields fields={payment.intermediary} />

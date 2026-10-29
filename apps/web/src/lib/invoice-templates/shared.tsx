@@ -230,9 +230,6 @@ export function TotalsView({
   );
 }
 
-const paymentTitle = (payment: Payment) =>
-  payment.title ? `Payment — ${payment.title}` : 'Payment details';
-
 /** The slots a template styles in the payment block. */
 export interface PaymentStyles {
   box: Style;
@@ -249,11 +246,9 @@ export interface PaymentStyles {
 export function PaymentView({
   payment,
   s,
-  title = paymentTitle(payment),
 }: {
   payment: Payment;
   s: PaymentStyles;
-  title?: string;
 }) {
   const grid = (fields: Payment['fields'], style: Style | Style[]) => (
     <View style={style}>
@@ -267,7 +262,8 @@ export function PaymentView({
   );
   return (
     <View style={s.box} wrap={false}>
-      <Text style={s.title}>{title}</Text>
+      {/* Never the profile's name: that is the contractor's label in Stint. */}
+      <Text style={s.title}>Payment details</Text>
       {grid(payment.fields, s.grid)}
       {payment.intermediary.length > 0
         ? grid(payment.intermediary, [s.grid, s.sub])

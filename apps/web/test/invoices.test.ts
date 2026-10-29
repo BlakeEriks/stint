@@ -1449,6 +1449,55 @@ test('the PDF renders from the frozen line items', async () => {
   );
 });
 
+/* The profile's name is the contractor's own label inside Stint, and an
+   issued invoice's frozen details may still carry it. Standard only, as
+   below; every template draws the heading through `PaymentView`. */
+test('the payment block is headed "Payment details", never the profile name', async () => {
+  const { renderInvoicePdf } = await import('../src/lib/invoice-pdf.tsx');
+  const pdf = await renderInvoicePdf({
+    template: 'standard',
+    invoiceNumber: 'INV-0042',
+    status: 'issued',
+    issueDate: '2026-10-01',
+    dueDate: null,
+    periodStart: null,
+    periodEnd: null,
+    currency: 'USD',
+    subtotal: 100,
+    taxRate: 0,
+    taxAmount: 0,
+    expensesSubtotal: 0,
+    total: 100,
+    notes: null,
+    paymentTerms: null,
+    business: { name: 'Sam Rivera', address: null, email: null, logoUrl: null },
+    client: { name: 'Northwind', email: null, address: null },
+    lineItems: [
+      {
+        description: 'Design work',
+        unit: 'hour' as const,
+        quantity: 1,
+        unitPrice: 100,
+        amount: 100,
+      },
+    ],
+    payment: {
+      title: 'Business checking',
+      fields: [{ label: 'Routing number (ACH)', value: '011000015' }],
+      intermediary: [],
+      link: null,
+      notes: null,
+    },
+  });
+
+  const text = pdfText(pdf)
+    .flat()
+    .map((r) => r.text)
+    .join(' ');
+  assert.match(text, /Payment details/);
+  assert.doesNotMatch(text, /Business checking/);
+});
+
 /* Standard only: the other templates embed their faces, which draw glyph
    ids `pdfText` cannot read. The shell draws the footer for every template. */
 test('every page of a long invoice shows its footer at the bottom', async () => {

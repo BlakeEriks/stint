@@ -408,13 +408,15 @@ export const AsPrinted: Story = {
     const page = within(canvasElement);
     for (const text of [
       'Net 30',
-      'Payment — USD wire',
+      'Payment details',
       'Pay online: https://pay.example.test/sam',
       'Include the invoice number in the memo.',
       'Thank you for the work this month.',
     ]) {
       await expect(await page.findByText(text)).toBeVisible();
     }
+    // The profile's name is the contractor's label, never printed.
+    await expect(page.queryByText(/USD wire/)).toBeNull();
   },
 };
 
