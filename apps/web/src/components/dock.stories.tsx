@@ -164,8 +164,36 @@ export const Clear: Story = {
   }),
 };
 
-/** A day with nothing logged yet. */
-export const EmptyDay: Story = { ...desktop, parameters: account('empty') };
+/** A day with nothing logged yet: the grid is still drawn, so a pointer
+    can draw or click a time, and a mouse over it shows the slot a press
+    would make. */
+export const EmptyDay: Story = {
+  ...desktop,
+  parameters: account('empty'),
+  play: async ({ canvasElement }) => {
+    const today = within(
+      await within(canvasElement).findByRole('region', {
+        name: "Today's entries",
+      }),
+    );
+    await expect(
+      await today.findByText(/Nothing logged yet today/),
+    ).toBeVisible();
+
+    const column = canvasElement.querySelector<HTMLElement>(
+      'section .border-l',
+    ) as HTMLElement;
+    await expect(column).toBeVisible();
+    const box = column.getBoundingClientRect();
+    await userEvent.pointer({
+      target: column,
+      coords: { clientX: box.left + 10, clientY: box.top + box.height / 2 },
+    });
+    await waitFor(() =>
+      expect(column.querySelector('[data-hover-slot]')).not.toBeNull(),
+    );
+  },
+};
 
 /** Work with no project is assigned in place, one entry at a time. */
 export const AssignProject: Story = {

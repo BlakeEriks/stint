@@ -20,10 +20,10 @@ import { useMediaQuery } from '@/lib/client/use-media-query';
 import { useScrollerFocus, XL } from '@/lib/client/use-scroller-focus';
 import { useEntryDrag } from '@/lib/client/use-entry-drag';
 import { useZoom } from '@/lib/client/use-zoom';
-import { Plus } from 'lucide-react';
 import { api, type TimeEntry } from '@/lib/client/api';
 import { Listing, Page, useLoaded } from './page';
-import { EntryDialog } from './entry-dialog';
+import { EntryDialog, type Opens } from './entry-dialog';
+import { KeyboardAdd } from './keyboard-add';
 import { DayColumn, GUTTER_CLASS, gutterMarks, HourGutter } from './day-column';
 import { keys } from '@stint/client';
 import { timeZone as tz } from '@/lib/client/use-timer';
@@ -71,10 +71,7 @@ export function Calendar() {
   const loaded = [week, projects, clients, allProjects] as const;
   const ready = useLoaded(...loaded);
 
-  const editor = useDialog<{
-    existing?: TimeEntry;
-    seed?: { startedAt: string; endedAt: string };
-  }>();
+  const editor = useDialog<Opens>();
 
   const drag = useEntryDrag();
 
@@ -296,16 +293,17 @@ export function Calendar() {
         </Listing>
       </div>
 
-      <EntryDialog
-        open={editor.open}
-        onOpenChange={(open) => {
-          editor.onOpenChange(open);
-          if (!open) drag.release();
-        }}
-        existing={editor.subject?.existing}
-        seed={editor.subject?.seed}
-        projects={projects.data?.projects ?? []}
-      />
+      {editor.subject ? (
+        <EntryDialog
+          {...editor.subject}
+          open={editor.open}
+          onOpenChange={(open) => {
+            editor.onOpenChange(open);
+            if (!open) drag.release();
+          }}
+          projects={projects.data?.projects ?? []}
+        />
+      ) : null}
     </Page>
   );
 }
@@ -368,8 +366,8 @@ function CalendarStatus({
   if (visibleSeconds === 0) {
     return (
       <p className={muted}>
-        Nothing logged {byDay ? 'this day' : 'this week'}. Click a time to add
-        an entry.
+        Nothing logged {byDay ? 'this day' : 'this week'}. Draw or click a time
+        to add an entry.
       </p>
     );
   }
@@ -498,7 +496,7 @@ function DayHeading({
   }).format(at);
 
   return (
-    <div className="group min-w-0 flex-1 px-1 py-2 text-center">
+    <div className="min-w-0 flex-1 px-1 py-2 text-center">
       {nameless ? null : (
         <>
           <div className="type-label text-subtle">{weekday}</div>
@@ -517,23 +515,7 @@ function DayHeading({
         <span className="type-meta text-subtle">
           {seconds > 0 ? formatCompact(seconds) : '—'}
         </span>
-        {/* The keyboard path to adding an entry, and the discoverable one:
-            clicking a time in the grid is faster but invisible until tried.
-            Always in the DOM so it is tabbable; shown on hover or focus so
-            seven of them do not compete with the durations, and always where
-            there is no hover, or a touch screen could never reach it. */}
-        <button
-          type="button"
-          onClick={onAdd}
-          aria-label={`Add an entry on ${full}`}
-          className="rounded-sm px-0.5 text-subtle opacity-0 transition-opacity
-                     hover:text-primary focus-visible:opacity-100
-                     focus-visible:ring-2 focus-visible:ring-edge-focus
-                     focus-visible:outline-none group-hover:opacity-100
-                     [@media(hover:none)]:opacity-100"
-        >
-          <Plus aria-hidden className="size-3" strokeWidth={2.5} />
-        </button>
+        <KeyboardAdd label={`Add an entry on ${full}`} onClick={onAdd} />
       </div>
     </div>
   );

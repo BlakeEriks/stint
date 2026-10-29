@@ -8,6 +8,14 @@
  * a 24-hour constant. Every function here takes the column's real span.
  */
 
+import {
+  addDays,
+  localDateKey,
+  localDateTimeToInstant,
+  localTimeKey,
+  startOfLocalDay,
+} from './calendar.ts';
+
 /**
  * Adjusting billable time by dragging resolves to the quarter hour.
  *
@@ -218,60 +226,76 @@ export function hourMarks(
 export const WINDOW_PAD_MINUTES = 120;
 
 /**
- * The span a dialog strip draws for an entry, clamped to `dayStart`–`dayEnd`.
+ * The span a dialog strip draws for an entry, past midnight either way when
+ * the entry or its padding reaches it.
  *
  * Rounded out to a tick, which is what puts the strip's ends on labeled
- * ones; the step itself is at the line that picks it.
- *
- * Elapsed time from the day's start throughout, like everything else here, so
- * a 23- or 25-hour day does not shift the window off its own ticks.
+ * ones; the step itself is at the line that picks it. The rounding counts
+ * elapsed time from the start's local midnight in `tz`, so a 23- or 25-hour
+ * day inside the window does not shift it off its own ticks.
  */
 export function windowFor(
   startedAt: Date,
   endedAt: Date,
-  dayStart: Date,
-  dayEnd: Date,
+  tz: string,
 ): { from: Date; to: Date } {
   const minute = 60_000;
-  const dayFrom = dayStart.getTime();
-  const dayTo = dayEnd.getTime();
+  const origin = startOfLocalDay(startedAt, tz).getTime();
 
   const pad = Math.max(
     WINDOW_PAD_MINUTES * minute,
     endedAt.getTime() - startedAt.getTime(),
   );
-  let from = startedAt.getTime() - pad;
-  let to = endedAt.getTime() + pad;
-
-  /* Shifted back inside the day rather than merely clipped, so an entry near
-     midnight keeps the full window it would have had anywhere else. */
-  if (from < dayFrom) {
-    to += dayFrom - from;
-    from = dayFrom;
-  }
-  if (to > dayTo) {
-    from -= to - dayTo;
-    to = dayTo;
-  }
+  const from = startedAt.getTime() - pad;
+  const to = endedAt.getTime() + pad;
 
   /* Under five hours the ends round to the half hour. Two hours of padding
      either side of a short entry already spans 4h15, so a whole-hour step
      would round every short entry out to six hours and give back most of the
      width the padding was there to protect. */
   const step = to - from <= 5 * 60 * minute ? 30 * minute : 60 * minute;
-  const round = (at: number, dir: 'down' | 'up') => {
-    const elapsed = at - dayFrom;
-    const snapped =
-      dir === 'down'
-        ? Math.floor(elapsed / step) * step
-        : Math.ceil(elapsed / step) * step;
-    return dayFrom + snapped;
-  };
-
   return {
-    from: new Date(Math.max(dayFrom, round(from, 'down'))),
-    to: new Date(Math.min(dayTo, round(to, 'up'))),
+    from: new Date(origin + Math.floor((from - origin) / step) * step),
+    to: new Date(origin + Math.ceil((to - origin) / step) * step),
   };
+}
+
+/**
+ * `resized`, held under a day: the dialog's date, start and end read an end
+ * at or before the start as the next day, so they cannot hold an entry of a
+ * day or more. The edge stops a snap short of the other end's wall time a
+ * day away, which is 23, 24 or 25 hours across a DST change.
+ */
+export function resizedWithinDay(
+  startedAt: Date,
+  endedAt: Date,
+  edge: 'start' | 'end',
+  to: Date,
+  tz: string,
+): { startedAt: Date; endedAt: Date } {
+  const next = resized(startedAt, endedAt, edge, to);
+  const snap = SNAP_MINUTES * 60_000;
+  if (edge === 'end') {
+    const latest = sameWallTime(startedAt, 1, tz).getTime() - snap;
+    return {
+      startedAt,
+      endedAt: new Date(Math.min(next.endedAt.getTime(), latest)),
+    };
+  }
+  const earliest = sameWallTime(endedAt, -1, tz).getTime() + snap;
+  return {
+    startedAt: new Date(Math.max(next.startedAt.getTime(), earliest)),
+    endedAt,
+  };
+}
+
+/** The instant `days` later in `tz` whose wall clock reads as `at`'s does. */
+function sameWallTime(at: Date, days: number, tz: string): Date {
+  return localDateTimeToInstant(
+    addDays(localDateKey(at, tz), days),
+    localTimeKey(at, tz),
+    tz,
+  );
 }
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));

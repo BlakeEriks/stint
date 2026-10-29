@@ -75,12 +75,18 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
+/** Adding opens on a drawn or clicked time: 09:00–10:00 in New York. */
+const SEED = {
+  startedAt: '2026-09-11T13:00:00.000Z',
+  endedAt: '2026-09-11T14:00:00.000Z',
+};
+
 const open = (existing?: TimeEntry) =>
   render(
     <EntryDialog
       open
       onOpenChange={() => {}}
-      existing={existing}
+      {...(existing ? { existing } : { seed: SEED })}
       projects={PROJECTS}
       tz={TZ}
     />,
@@ -398,8 +404,6 @@ describe('EntryDialog', () => {
       screen.getByRole('checkbox', { name: 'Billable' }),
     ).not.toBeChecked();
 
-    await user.type(screen.getByLabelText('Start'), '09:00');
-    await user.type(screen.getByLabelText('End'), '10:00');
     await user.click(screen.getByRole('button', { name: 'Add entry' }));
 
     await waitFor(() =>
@@ -419,8 +423,6 @@ describe('EntryDialog', () => {
     await user.click(
       await screen.findByRole('menuitemradio', { name: /Acme Redesign/ }),
     );
-    await user.type(screen.getByLabelText('Start'), '09:00');
-    await user.type(screen.getByLabelText('End'), '10:00');
     await user.click(screen.getByRole('button', { name: 'Add entry' }));
 
     await waitFor(() =>
@@ -449,8 +451,6 @@ describe('EntryDialog', () => {
     open(); // no existing entry
 
     await user.type(screen.getByLabelText('Task'), 'Manual');
-    await user.type(screen.getByLabelText('Start'), '09:00');
-    await user.type(screen.getByLabelText('End'), '10:00');
     await user.click(screen.getByRole('button', { name: 'Add entry' }));
 
     await waitFor(() => expect(calls.length).toBeGreaterThan(0));
@@ -634,6 +634,52 @@ describe('EntryDialog', () => {
          grew can sit further along a window that grew with it, so position
          alone does not say the redraw happened. */
       expect(Number.parseFloat(blockEl().style.width)).toBeGreaterThan(before);
+    });
+
+    /** A press at `from` and a release at `to`, as fractions of the strip. */
+    function dragFraction(target: HTMLElement, to: number, from = to) {
+      const el = strip();
+      fireEvent.pointerDown(target, {
+        clientX: from * BOX.width,
+        pointerId: 1,
+      });
+      fireEvent.pointerMove(el, { clientX: to * BOX.width, pointerId: 1 });
+      fireEvent.pointerUp(el, { clientX: to * BOX.width, pointerId: 1 });
+    }
+
+    /* A drag past midnight either way moves the date the fields show.
+       Each strip spans five hours: 20:00–01:00 and 22:30–03:30. */
+    it.each([
+      {
+        name: 'forward, moving the block',
+        startedAt: '2026-09-12T02:00:00.000Z', // 22:00–23:00 on the 11th
+        endedAt: '2026-09-12T03:00:00.000Z',
+        target: blockEl,
+        from: 2 / 5,
+        to: 4 / 5,
+        want: ['2026-09-12', '00:00', '01:00'],
+      },
+      {
+        name: 'back, dragging the start',
+        startedAt: '2026-09-12T04:30:00.000Z', // 00:30–01:30 on the 12th
+        endedAt: '2026-09-12T05:30:00.000Z',
+        target: () => screen.getByTestId('scrubber-handle-start'),
+        from: 0.5 / 5,
+        to: 0.5 / 5,
+        want: ['2026-09-11', '23:00', '01:30'],
+      },
+    ])('moves the date on a drag past midnight, $name', async (c) => {
+      serve();
+      open(entry({ startedAt: c.startedAt, endedAt: c.endedAt }));
+      await waitFor(() => screen.getByLabelText('End'));
+
+      dragFraction(c.target(), c.to, c.from);
+
+      expect(
+        ['Date', 'Start', 'End'].map(
+          (f) => (screen.getByLabelText(f) as HTMLInputElement).value,
+        ),
+      ).toEqual(c.want);
     });
   });
 });

@@ -2,15 +2,20 @@
 
 import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery } from '@tanstack/react-query';
-import { formatCompact, formatCurrency, startOfLocalDay } from '@stint/core';
-import { CalendarDays, Plus } from 'lucide-react';
-import { api, type Project, type TimeEntry } from '@/lib/client/api';
+import {
+  formatCompact,
+  formatCurrency,
+  SNAP_MINUTES,
+  startOfLocalDay,
+} from '@stint/core';
+import { CalendarDays } from 'lucide-react';
+import { api, type Project } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { useProjectColors } from '@/lib/client/use-project-colors';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import { useEntryDrag } from '@/lib/client/use-entry-drag';
-import { Button } from '@/components/ui/button';
-import { EntryDialog } from './entry-dialog';
+import { EntryDialog, type Opens } from './entry-dialog';
+import { KeyboardAdd } from './keyboard-add';
 import { Listing } from './page';
 import { TodayGrid } from './today-grid';
 import { keys } from '@stint/client';
@@ -59,10 +64,7 @@ export function EntryList({
 
   /* An entry edits it; otherwise it adds one, at the times drawn if any. */
   const drag = useEntryDrag();
-  const editing = useDialog<{
-    existing?: TimeEntry;
-    seed?: { startedAt: string; endedAt: string };
-  }>();
+  const editing = useDialog<Opens>();
 
   return (
     <section
@@ -99,43 +101,44 @@ export function EntryList({
             {formatCurrency(earnedToday, currency)}
           </span>
         )}
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          className={earnedToday === undefined ? 'ml-auto' : undefined}
-          onClick={() => editing.show({})}
-        >
-          <Plus aria-hidden />
-          Add
-        </Button>
+        <KeyboardAdd
+          label="Add an entry today"
+          className={earnedToday === undefined ? 'ml-auto' : ''}
+          onClick={() => editing.show({ seed: lastHour(new Date()) })}
+        />
       </header>
 
       <div
         tabIndex={useScrollerFocus()}
         className="min-h-0 flex-1 overflow-y-auto"
       >
-        <Listing
-          query={query}
-          tight
-          empty="Nothing logged yet today. Start a timer above."
-        >
+        {/* No `empty`: a day with nothing logged still draws its grid, the
+            only place a pointer adds an entry. */}
+        <Listing query={query} tight>
           {(entries) => (
-            <TodayGrid
-              entries={entries}
-              colors={colors}
-              drag={drag}
-              fills={fills}
-              onEdit={(existing) => editing.show({ existing })}
-              onCreate={(startedAt, endedAt) =>
-                editing.show({
-                  seed: {
-                    startedAt: startedAt.toISOString(),
-                    endedAt: endedAt.toISOString(),
-                  },
-                })
-              }
-            />
+            <>
+              {entries.length === 0 ? (
+                <p className="px-1 pb-2 type-support text-subtle">
+                  Nothing logged yet today. Draw or click a time, or start a
+                  timer above.
+                </p>
+              ) : null}
+              <TodayGrid
+                entries={entries}
+                colors={colors}
+                drag={drag}
+                fills={fills}
+                onEdit={(existing) => editing.show({ existing })}
+                onCreate={(startedAt, endedAt) =>
+                  editing.show({
+                    seed: {
+                      startedAt: startedAt.toISOString(),
+                      endedAt: endedAt.toISOString(),
+                    },
+                  })
+                }
+              />
+            </>
           )}
         </Listing>
       </div>
@@ -157,18 +160,33 @@ export function EntryList({
         </div>
       ) : null}
 
-      <EntryDialog
-        open={editing.open}
-        onOpenChange={(open) => {
-          editing.onOpenChange(open);
-          if (!open) drag.release();
-        }}
-        existing={editing.subject?.existing}
-        seed={editing.subject?.seed}
-        projects={projects}
-      />
+      {editing.subject ? (
+        <EntryDialog
+          {...editing.subject}
+          open={editing.open}
+          onOpenChange={(open) => {
+            editing.onOpenChange(open);
+            if (!open) drag.release();
+          }}
+          projects={projects}
+        />
+      ) : null}
     </section>
   );
+}
+
+/**
+ * The hour up to the last quarter hour: what Add opens on. Work is logged
+ * after it is done, and an end in the future would be a guess.
+ */
+function lastHour(now: Date) {
+  const dayStart = startOfLocalDay(now, tz).getTime();
+  const step = SNAP_MINUTES * 60_000;
+  const end = dayStart + Math.floor((now.getTime() - dayStart) / step) * step;
+  return {
+    startedAt: new Date(end - 3_600_000).toISOString(),
+    endedAt: new Date(end).toISOString(),
+  };
 }
 
 /**

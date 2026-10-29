@@ -5,6 +5,7 @@ import {
   snapMs,
   movedTo,
   resized,
+  resizedWithinDay,
   windowFor,
   drawnRange,
   zoomed,
@@ -226,76 +227,146 @@ test('dragging the start below the end clamps instead of inverting', () => {
   );
 });
 
-test('the dialog window pads the entry and lands on whole hours', () => {
-  const { start, end } = column('2026-09-09T12:00:00Z', 'America/New_York');
-  const w = windowFor(
-    new Date('2026-09-09T13:30:00Z'), // 09:30 local
-    new Date('2026-09-09T15:00:00Z'), // 11:00 local
-    start,
-    end,
-  );
-
-  assert.equal(clock(w.from, 'America/New_York'), '07:00');
-  assert.equal(clock(w.to, 'America/New_York'), '13:00');
-});
-
-test('a long entry is padded by its own length, not a flat two hours', () => {
-  const { start, end } = column('2026-09-09T12:00:00Z', 'UTC');
-  const w = windowFor(
-    new Date('2026-09-09T08:00:00Z'),
-    new Date('2026-09-09T20:00:00Z'), // 12 hours
-    start,
-    end,
-  );
-
-  // Padded by 12h each side, so it clamps to the whole day rather than
-  // drawing the entry edge to edge with no ground around it.
-  assert.equal(w.from.getTime(), start.getTime());
-  assert.equal(w.to.getTime(), end.getTime());
-});
-
-test('a window near midnight shifts inside the day instead of shrinking', () => {
-  const { start, end } = column('2026-09-09T12:00:00Z', 'UTC');
-  const w = windowFor(
-    new Date('2026-09-09T00:00:00Z'),
-    new Date('2026-09-09T00:30:00Z'),
-    start,
-    end,
-  );
-
-  assert.equal(w.from.getTime(), start.getTime());
-  // The 2h of padding it could not take before midnight is taken after it,
-  // so the span is the same width it would have had at midday.
-  assert.equal((w.to.getTime() - w.from.getTime()) / MIN, 4 * 60 + 30);
-});
-
-test('a short window rounds to the half hour, keeping the entry wide', () => {
-  const { start, end } = column('2026-09-09T12:00:00Z', 'UTC');
-  const w = windowFor(
-    new Date('2026-09-09T09:15:00Z'),
-    new Date('2026-09-09T09:30:00Z'),
-    start,
-    end,
-  );
-
-  assert.equal(clock(w.from, 'UTC'), '07:00');
-  assert.equal(clock(w.to, 'UTC'), '11:30');
-});
-
-test('the window holds its width across a spring-forward boundary', () => {
+/**
+ * The dialog strip's window: padded by two hours or the entry's length,
+ * rounded out to the hour (to the half hour under five hours), and run past
+ * midnight rather than kept inside one day. Rounding counts elapsed time from
+ * the start's local midnight, so a DST change keeps the ends on the hour.
+ */
+const WINDOWS = [
+  [
+    'a short entry, to whole hours',
+    'America/New_York',
+    '2026-09-09T13:30:00Z',
+    '2026-09-09T15:00:00Z',
+    '2026-09-09T11:00:00Z',
+    '2026-09-09T17:00:00Z',
+  ],
+  [
+    'a long entry, by its own length',
+    'UTC',
+    '2026-09-09T08:00:00Z',
+    '2026-09-09T20:00:00Z',
+    '2026-09-08T20:00:00Z',
+    '2026-09-10T08:00:00Z',
+  ],
+  [
+    'under five hours, to the half hour',
+    'UTC',
+    '2026-09-09T09:15:00Z',
+    '2026-09-09T09:30:00Z',
+    '2026-09-09T07:00:00Z',
+    '2026-09-09T11:30:00Z',
+  ],
+  [
+    'near midnight, past it',
+    'UTC',
+    '2026-09-09T00:00:00Z',
+    '2026-09-09T00:30:00Z',
+    '2026-09-08T22:00:00Z',
+    '2026-09-09T02:30:00Z',
+  ],
+  [
+    'overnight, whole',
+    'UTC',
+    '2026-09-09T22:00:00Z',
+    '2026-09-10T02:00:00Z',
+    '2026-09-09T18:00:00Z',
+    '2026-09-10T06:00:00Z',
+  ],
   // 2026-03-08 is the US spring forward: a 23-hour local day.
-  const { start, end } = column('2026-03-08T12:00:00Z', 'America/New_York');
-  const w = windowFor(
-    new Date('2026-03-08T14:00:00Z'), // 10:00 local, after the skip
-    new Date('2026-03-08T15:00:00Z'), // 11:00 local
+  [
+    'after a spring forward, on the hour',
+    'America/New_York',
+    '2026-03-08T14:00:00Z',
+    '2026-03-08T15:00:00Z',
+    '2026-03-08T12:00:00Z',
+    '2026-03-08T17:00:00Z',
+  ],
+  // 2026-11-01 is the US fall back: 23:00 EDT to 03:00 EST is five hours.
+  [
+    'overnight across a fall back, on the hour',
+    'America/New_York',
+    '2026-11-01T03:00:00Z',
+    '2026-11-01T08:00:00Z',
+    '2026-10-31T22:00:00Z',
+    '2026-11-01T13:00:00Z',
+  ],
+] as const;
+
+test('the dialog window for each kind of entry', () => {
+  for (const [name, tz, startedAt, endedAt, from, to] of WINDOWS) {
+    const w = windowFor(new Date(startedAt), new Date(endedAt), tz);
+    assert.deepEqual(
+      [w.from.toISOString(), w.to.toISOString()],
+      [new Date(from).toISOString(), new Date(to).toISOString()],
+      name,
+    );
+  }
+});
+
+/**
+ * A resize in the dialog stops a snap short of the other end's wall time a
+ * day away: the fields cannot hold a day or more. Across a spring forward
+ * that day is 23 elapsed hours.
+ */
+const WITHIN_A_DAY = [
+  [
+    'an end a day out',
+    'UTC',
+    '2026-09-09T09:00:00Z',
+    '2026-09-09T17:00:00Z',
+    'end',
+    '2026-09-10T15:00:00Z',
+    '2026-09-09T09:00:00Z',
+    '2026-09-10T08:45:00Z',
+  ],
+  [
+    'a start a day back',
+    'UTC',
+    '2026-09-09T22:00:00Z',
+    '2026-09-10T02:00:00Z',
+    'start',
+    '2026-09-08T20:00:00Z',
+    '2026-09-09T02:15:00Z',
+    '2026-09-10T02:00:00Z',
+  ],
+  [
+    'an end across a spring forward',
+    'America/New_York',
+    '2026-03-07T15:00:00Z',
+    '2026-03-07T17:00:00Z',
+    'end',
+    '2026-03-08T16:00:00Z',
+    '2026-03-07T15:00:00Z',
+    '2026-03-08T13:45:00Z',
+  ],
+] as const;
+
+test('a dialog resize stops short of a day', () => {
+  for (const [
+    name,
+    tz,
+    startedAt,
+    endedAt,
+    edge,
+    to,
     start,
     end,
-  );
-
-  // Ticks are elapsed time from the day's start, so the ends stay on the
-  // hour rather than drifting by the missing hour.
-  assert.equal(clock(w.from, 'America/New_York'), '08:00');
-  assert.equal(clock(w.to, 'America/New_York'), '13:00');
+  ] of WITHIN_A_DAY) {
+    const out = resizedWithinDay(
+      new Date(startedAt),
+      new Date(endedAt),
+      edge,
+      new Date(to),
+      tz,
+    );
+    assert.deepEqual(
+      [out.startedAt.toISOString(), out.endedAt.toISOString()],
+      [new Date(start).toISOString(), new Date(end).toISOString()],
+      name,
+    );
+  }
 });
 
 test('a drawn range snaps both ends and reads the same in either direction', () => {
