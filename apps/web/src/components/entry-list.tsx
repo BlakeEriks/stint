@@ -8,6 +8,7 @@ import { api, type Project, type TimeEntry } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { useProjectColors } from '@/lib/client/use-project-colors';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
+import { useEntryDrag } from '@/lib/client/use-entry-drag';
 import { Button } from '@/components/ui/button';
 import { EntryDialog } from './entry-dialog';
 import { Listing } from './page';
@@ -26,6 +27,7 @@ export function EntryList({
   earnedToday,
   currency = 'USD',
   flush = false,
+  fills = false,
 }: {
   projects: Project[];
   todaySeconds: number;
@@ -44,6 +46,8 @@ export function EntryList({
    * between the two regions. Two would read as a boxed region.
    */
   flush?: boolean;
+  /** The dock's fixed column at `xl`, which Today's day fills. */
+  fills?: boolean;
 }) {
   const query = useDayEntries();
 
@@ -53,8 +57,12 @@ export function EntryList({
 
   const colors = useProjectColors();
 
-  /* `undefined` adds an entry; an entry, edits it. */
-  const editing = useDialog<TimeEntry | undefined>();
+  /* An entry edits it; otherwise it adds one, at the times drawn if any. */
+  const drag = useEntryDrag();
+  const editing = useDialog<{
+    existing?: TimeEntry;
+    seed?: { startedAt: string; endedAt: string };
+  }>();
 
   return (
     <section
@@ -96,7 +104,7 @@ export function EntryList({
           variant="ghost"
           size="xs"
           className={earnedToday === undefined ? 'ml-auto' : undefined}
-          onClick={() => editing.show(undefined)}
+          onClick={() => editing.show({})}
         >
           <Plus aria-hidden />
           Add
@@ -116,7 +124,17 @@ export function EntryList({
             <TodayGrid
               entries={entries}
               colors={colors}
-              onEdit={editing.show}
+              drag={drag}
+              fills={fills}
+              onEdit={(existing) => editing.show({ existing })}
+              onCreate={(startedAt, endedAt) =>
+                editing.show({
+                  seed: {
+                    startedAt: startedAt.toISOString(),
+                    endedAt: endedAt.toISOString(),
+                  },
+                })
+              }
             />
           )}
         </Listing>
@@ -141,8 +159,12 @@ export function EntryList({
 
       <EntryDialog
         open={editing.open}
-        onOpenChange={editing.onOpenChange}
-        existing={editing.subject}
+        onOpenChange={(open) => {
+          editing.onOpenChange(open);
+          if (!open) drag.release();
+        }}
+        existing={editing.subject?.existing}
+        seed={editing.subject?.seed}
         projects={projects}
       />
     </section>

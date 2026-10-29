@@ -1,5 +1,7 @@
 import {
   addDays,
+  billableExpenses,
+  billingWindow,
   buildAwaitingPayment,
   buildCollected,
   buildEarnedPace,
@@ -22,6 +24,7 @@ import {
   type DayRow,
   daysSincePaid,
   entrySeconds,
+  isBillableEntry,
   type GroupingMode,
   localDateKey,
   localMonthKeys,
@@ -31,7 +34,6 @@ import {
   resolveRate,
   revenueByDay,
   STALE_DRAFT_DAYS,
-  startOfLocalDate,
   startOfLocalDay,
   startOfLocalDayOffset,
   startOfLocalMonth,
@@ -475,6 +477,8 @@ export interface PreviewRequest {
   tz?: string;
   manualLines?: ManualLine[];
   excludedExpenseIds?: string[];
+  /** The draft computed; absent for one not yet generated. */
+  draftId?: string;
 }
 
 /** An expense as the API returns it: its invoice's number and status are
@@ -488,43 +492,36 @@ export function expenseView(db: Db, e: Expense): Expense {
   };
 }
 
-/**
- * `loadBillableExpenses`: every recurring expense, dated the period's end,
- * and every unbilled one-off dated on or before it, less the excluded.
- */
-function billableExpenses(db: Db, body: PreviewRequest) {
-  return db.expenses
-    .filter(
-      (e) =>
-        e.clientId === body.clientId &&
-        e.invoiceId === null &&
-        (e.recurring || (e.spentOn as string) <= body.periodEnd) &&
-        !body.excludedExpenseIds?.includes(e.id),
-    )
-    .map(({ id, recurring, spentOn, description, amount }) => ({
-      id,
-      recurring,
-      spentOn: spentOn ?? body.periodEnd,
-      description,
-      amount,
+/** `loadBillableExpenses`: the client's expenses the draft bills, among
+    its open drafts. */
+function draftExpenses(db: Db, body: PreviewRequest) {
+  const openDrafts = db.invoices
+    .filter((i) => i.clientId === body.clientId && i.status === 'draft')
+    .map((i) => ({
+      id: i.id,
+      periodEnd: i.periodEnd,
+      excludedExpenseIds: i.excludedExpenseIds ?? [],
     }));
+  return billableExpenses(
+    db.expenses.filter((e) => e.clientId === body.clientId),
+    {
+      id: body.draftId ?? 'new',
+      periodEnd: body.periodEnd,
+      excludedExpenseIds: body.excludedExpenseIds ?? [],
+    },
+    openDrafts,
+  );
 }
 
 /** `POST /invoices/preview`: the client's unbilled work in the period. */
 export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
   const client = db.clients.find((c) => c.id === body.clientId);
   if (!client) return undefined;
-  const from = startOfLocalDate(body.periodStart, tz).getTime();
-  const to = startOfLocalDate(addDays(body.periodEnd, 1), tz).getTime();
+  const window = billingWindow(body.periodStart, body.periodEnd, tz);
   const entries = db.entries
     .filter(
       (e) =>
-        clientOf(db, e.projectId) === client.id &&
-        e.invoiceId === null &&
-        !e.invoicedElsewhere &&
-        stopped(e) &&
-        at(e.startedAt) >= from &&
-        at(e.startedAt) < to,
+        clientOf(db, e.projectId) === client.id && isBillableEntry(e, window),
     )
     // `loadBillableEntries` reads them oldest first, which orders a line's entries.
     .sort((a, b) => at(a.startedAt) - at(b.startedAt));
@@ -555,7 +552,7 @@ export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
       taxRate: client.taxRate ?? 0,
       tz,
       manualLines: body.manualLines,
-      expenses: billableExpenses(db, body),
+      expenses: draftExpenses(db, body),
     }),
     overlappingEntryIds: toBill
       .map((e) => e.id)
