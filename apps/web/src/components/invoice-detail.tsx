@@ -370,6 +370,16 @@ function Changed({
   currency: string;
 }) {
   const added = change.hours.to - change.hours.from;
+  if (change.total.from === change.total.to && change.edited.length)
+    return (
+      <div role="status" className={NOTICE}>
+        <p className="type-body text-strong">Edited since you downloaded it</p>
+        <p className="type-support text-muted">
+          Its {change.edited.join(', ')} changed. Download the new PDF to mark
+          it sent.
+        </p>
+      </div>
+    );
   return (
     <div role="status" className={NOTICE}>
       <p className="type-body text-strong">Changed since you downloaded it</p>

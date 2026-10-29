@@ -69,7 +69,8 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
  * PATCH /api/v1/invoices/:id — edits a draft: every choice Generate takes,
  * checked as Generate checks it, but its client, which it keeps. Its number
  * stays. Without `paymentProfileId` it keeps the payment details it has.
- * An edit after a download is caught at Mark sent, as `DRAFT_CHANGED`.
+ * After a download, an edit to anything its PDF printed holds Mark sent as
+ * `DRAFT_CHANGED` until a new PDF is downloaded.
  */
 export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);

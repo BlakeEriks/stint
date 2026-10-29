@@ -42,6 +42,7 @@ import type {
   LineItem,
   ManualLine,
   OpenDraft,
+  Printed,
   ScheduleKind,
 } from '@stint/core';
 
@@ -557,9 +558,22 @@ export async function deriveDraft(
     printed: row.downloaded_snapshot,
   });
   const unrated = new Set(totals.unratedEntryIds);
+  /* What its PDF prints besides the lines: an edit to any of it after a
+     download is a change too, or the invoice sent would not be the client's
+     copy. */
+  const printed: Printed = {
+    periodStart: row.period_start,
+    periodEnd: row.period_end,
+    typedDueDate: row.due_date,
+    notes: row.notes,
+    reference: row.reference,
+    paymentDetails: row.payment_details,
+    supportingDetail: computed.supportingDetail,
+    tz: row.tz,
+  };
   const change = snapshotChanged(
     row.downloaded_snapshot,
-    draftSnapshot(totals.lineItems, totals.total),
+    draftSnapshot(totals.lineItems, totals.total, printed),
   );
 
   return {
@@ -592,6 +606,7 @@ export async function deriveDraft(
     /** How it moved since its last PDF; null when it hasn't, or never had
      *  one. */
     change,
+    printed,
     /** What an edit opens with that the row as read doesn't say: the due
      *  date typed, else null, the expenses left off, and the charges. */
     choices: {
@@ -610,7 +625,7 @@ export async function deriveDraft(
 export async function recordDownload(
   db: SupabaseClient,
   invoiceId: string,
-  lines: LineItem[],
+  draft: { lines: LineItem[]; printed: Printed },
   printed: {
     total: number;
     issueDate: string;
@@ -622,7 +637,7 @@ export async function recordDownload(
     .from('invoices')
     .update({
       downloaded_snapshot: {
-        ...draftSnapshot(lines, printed.total),
+        ...draftSnapshot(draft.lines, printed.total, draft.printed),
         issueDate: printed.issueDate,
         dueDate: printed.dueDate,
         template: printed.template,

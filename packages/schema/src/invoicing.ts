@@ -128,7 +128,12 @@ const Change = z.object({ from: z.number(), to: z.number() });
 
 /** How a draft moved since its PDF was last rendered: what Mark sent's
  *  `DRAFT_CHANGED` carries, and the detail's `changedSinceDownload`. */
-export const DraftChange = z.object({ hours: Change, total: Change });
+export const DraftChange = z.object({
+  hours: Change,
+  total: Change,
+  /** What else it printed that was edited since, by name. */
+  edited: z.array(z.string()),
+});
 
 /** A billable entry on a draft that no rate prices: the draft shows without
  *  it, and its PDF and Mark sent are refused until it has one. */

@@ -3646,6 +3646,7 @@ test('a draft changed since its PDF was rendered refuses to be marked sent', asy
   assert.deepEqual(got.body.changedSinceDownload, {
     hours: { from: 2, to: 3 },
     total: { from: 300, to: 450 },
+    edited: [],
   });
   assert.ok(got.body.lineItems.some((l: { isNew: boolean }) => l.isNew));
 
@@ -4144,3 +4145,57 @@ test('a draft’s edit previews its own expenses, as its next read bills them', 
   assert.equal(shown.body.total, 340);
   assert.equal(shown.body.total, made.body.total);
 });
+
+/* What the PDF printed besides its lines is the client's copy too: an edit
+   to any of it after a download holds Mark sent until a new PDF. */
+for (const [what, change] of [
+  ['notes', { notes: 'Thanks again' }],
+  ['payment details', { paymentProfileId: 'wire' }],
+  ['due date', { dueDate: '2099-02-01' }],
+] as const)
+  test(`an edit to only the ${what} after a download is DRAFT_CHANGED`, async () => {
+    const r = await live();
+    const { POST: createProfile } = await import(
+      '../src/app/api/v1/payment-profiles/route.ts'
+    );
+    await createProfile(req('/pp', { name: 'ACH', accountNumber: '111' }));
+    const wire = await json(
+      await createProfile(req('/pp', { name: 'Wire', accountNumber: '222' })),
+    );
+    await seedEntry({ id: D(1), hours: 2 });
+    const body = { clientId: CLIENT, ...PERIOD, notes: 'Thanks' };
+    const inv = await json(await r.create(req('/invoices', body)));
+    await r.pdf(req('/pdf?tz=UTC'), at(inv.body.id));
+
+    const edited = await edit(inv.body.id, {
+      ...body,
+      ...change,
+      ...('paymentProfileId' in change
+        ? { paymentProfileId: wire.body.id }
+        : {}),
+    });
+    assert.equal(edited.status, 200, JSON.stringify(edited.body));
+
+    const got = await json(
+      await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
+    );
+    assert.ok(got.body.changedSinceDownload, 'the detail says it moved');
+    const refused = await json(
+      await r.setStatus(
+        req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
+        at(inv.body.id),
+      ),
+    );
+    assert.equal(refused.status, 409);
+    assert.equal(refused.body.code, 'DRAFT_CHANGED');
+
+    await r.pdf(req('/pdf?tz=UTC'), at(inv.body.id));
+    const sent = await json(
+      await r.setStatus(
+        req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
+        at(inv.body.id),
+      ),
+    );
+    assert.equal(sent.status, 200, JSON.stringify(sent.body));
+    if ('dueDate' in change) assert.equal(sent.body.dueDate, change.dueDate);
+  });
