@@ -1,7 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { usePrefetchInvoices } from '@/lib/client/prefetch-invoices';
+import {
+  forgetInvoice,
+  usePrefetchInvoices,
+} from '@/lib/client/prefetch-invoices';
 import { useRef, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -178,6 +181,7 @@ export function Inbox({ stats }: { stats: Stats }) {
       api.updateInvoiceStatus(id, { status }),
     invalidate: async (qc, { id }) => {
       await leaving.get(id);
+      forgetInvoice(qc, id);
       return Promise.all([
         qc.invalidateQueries({ queryKey: keys.invoices() }),
         invalidateEntryData(qc),

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { type QueryClient, useQueryClient } from '@tanstack/react-query';
 import { keys } from '@stint/client';
 import { api, type InvoiceStatus } from './api';
 
@@ -29,9 +29,26 @@ export function usePrefetchInvoices(
     .join(',');
   useEffect(() => {
     if (!ids) return;
+    /* Only what isn't cached, as `ensureQueryData` does: a write
+       invalidates them all, and the page's own read refetches a stale one
+       when it opens. `prefetchQuery`, because a failure here is the page's
+       to report, not an unhandled rejection. */
     for (const id of ids.split(',')) {
-      // Fresh for 30s, so a list drawn again within it asks for nothing.
-      void qc.prefetchQuery({ ...invoiceQuery(id), staleTime: 30_000 });
+      if (qc.getQueryData(keys.invoice(id)) === undefined)
+        void qc.prefetchQuery(invoiceQuery(id));
     }
   }, [qc, ids]);
+}
+
+/**
+ * After a row writes to an invoice, its copy fetched beforehand goes, so
+ * opening it draws from the refreshed row rather than the old status with
+ * live actions. An open page keeps its copy and refetches it as before.
+ */
+export function forgetInvoice(qc: QueryClient, id: string) {
+  const query = qc
+    .getQueryCache()
+    .find({ queryKey: keys.invoice(id), exact: true });
+  if (query && query.getObserversCount() === 0)
+    qc.getQueryCache().remove(query);
 }
