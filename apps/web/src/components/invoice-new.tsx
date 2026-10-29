@@ -106,6 +106,8 @@ interface Draft {
   /** The PO, contract or SOW. It decides no line, so it never asks the
    *  server again. */
   reference: string;
+  /** Printed on this invoice only; blank prints nothing. */
+  notes: string;
   /* These three are `null` until the user sets them, so they follow the
      client's last invoice. */
   groupingMode: GroupingMode | null;
@@ -127,6 +129,7 @@ const EMPTY: Draft = {
   periodEnd: null,
   dueDate: null,
   reference: '',
+  notes: '',
   groupingMode: null,
   summaryText: null,
   schedules: null,
@@ -429,6 +432,7 @@ function Form() {
         // sent.
         dueDate: draft.dueDate ?? undefined,
         reference: draft.reference.trim() || undefined,
+        notes: draft.notes.trim() || undefined,
         // The profile the card shows, frozen as it is now.
         paymentProfileId: profile?.id,
       }),
@@ -722,6 +726,21 @@ function Form() {
               />
             </Field>
 
+            <Field label="Notes" htmlFor="inv-notes">
+              <textarea
+                id="inv-notes"
+                rows={3}
+                value={draft.notes}
+                onChange={(e) => set('notes', e.target.value)}
+                placeholder="Printed on this invoice"
+                maxLength={2000}
+                className="w-full rounded-md border border-edge-default bg-transparent px-3 py-2
+                           type-control text-strong placeholder:text-subtle outline-none
+                           focus-visible:border-edge-focus focus-visible:ring-[3px]
+                           focus-visible:ring-edge-focus"
+              />
+            </Field>
+
             {/* Only a summary has detail to support: every other grouping
                 already breaks the time down on the invoice. */}
             {groupingMode === 'summary' ? (
@@ -751,6 +770,7 @@ function Form() {
               issued={issued}
               due={due}
               reference={draft.reference.trim()}
+              notes={draft.notes.trim()}
               payment={payment}
               schedules={schedules}
               updating={updating}

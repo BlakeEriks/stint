@@ -65,12 +65,14 @@ its title marked "(continued)".
   it; its "Use <template>" button chooses it. A press selects at once
   and saves. A refused save returns the selection to the saved template,
   and the app-wide notice says why.
-- **New invoice**: a Template field, last in the form: the same four
-  templates as small thumbnails in a radio group, each with Preview, and a hint that it
-  changes the template for every draft, here and in Settings. The preview
-  beside the form is unchanged: it shows what the invoice says, not its
-  look. A user's own invoice in a template is the PDF, the paid document;
-  the thumbnails and previews are page 1 of a sample invoice's PDF.
+- **New invoice**: an optional Notes field, for this invoice only: every
+  template prints it, and left blank it prints nothing. Then a Template
+  field, last in the form: the same four templates as small thumbnails in a
+  radio group, each with Preview, and a hint that it changes the template
+  for every draft, here and in Settings. The preview beside the form shows
+  what the invoice says, notes included, not its look. A user's own invoice
+  in a template is the PDF, the paid document; the thumbnails and previews
+  are page 1 of a sample invoice's PDF.
 
 ## User Scenarios & Testing *(mandatory)*
 

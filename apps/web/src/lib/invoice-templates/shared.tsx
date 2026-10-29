@@ -376,8 +376,8 @@ function ScheduleCells({
 const runMeta = (data: Data) =>
   `${data.invoiceNumber} · ${data.client.name} · ${date(data.periodStart)} – ${date(data.periodEnd)}`;
 
-/** The style keys Modern, Classic and Creative share, so each passes its
- *  sheet rather than mapping every slot. */
+/** The style keys every template's sheet has, so each passes its sheet
+ *  rather than mapping every slot. */
 type Sheet = Record<
   | 'pay'
   | 'payTitle'

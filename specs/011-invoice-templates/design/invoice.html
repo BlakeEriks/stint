@@ -354,8 +354,6 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .pick { text-align: left; display: flex; flex-direction: column; gap: 8px; padding: 8px 8px 10px; border-radius: 8px; border: 1px solid var(--border-default); background: var(--bg-elevated); position: relative; }
 .pick:hover { background: var(--bg-hover); }
 .pick[aria-checked="true"] { border-color: var(--accent-default); box-shadow: 0 0 0 1px var(--accent-default); }
-.pick .badge { position: absolute; top: 14px; right: 14px; width: 20px; height: 20px; border-radius: 999px; background: var(--accent-default); color: var(--text-on-accent); display: none; align-items: center; justify-content: center; }
-.pick[aria-checked="true"] .badge { display: flex; }
 .thumb { aspect-ratio: 612 / 792; border-radius: 4px; overflow: hidden; position: relative; box-shadow: var(--shadow-card); }
 .thumb .paper { position: absolute; top: 0; left: 0; transform-origin: 0 0; pointer-events: none; }
 .hint { margin-top: 12px; }
@@ -789,7 +787,6 @@ const settings = (state) => {
   <div class="section">
     <div class="section-head">
       <div><h2 class="type-section strong">Invoice template</h2><p class="type-support muted">How your invoices look. Every template prints the same details.</p></div>
-      
     </div>
     <div class="picker" role="radiogroup" aria-label="Invoice template">
       ${T.map((t) => `<button class="pick" role="radio" aria-checked="${t.id === sel}" data-pick="${t.id}">
@@ -809,9 +806,7 @@ const settings = (state) => {
 const field = (label, control, extra = '') => `<div class="nf-f"><span class="type-label subtle">${label}</span>${control}${extra}</div>`;
 const box = (text, chev) => `<span class="nf-in type-control">${text}${chev ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.6"><path d="m6 9 6 6 6-6"/></svg>' : ''}</span>`;
 const tick = (on, text, amt) => `<label class="nf-tick type-control primary"><span class="nf-cb ${on ? 'on' : ''}">${on ? check : ''}</span><span class="grow">${text}</span>${amt ? `<span class="type-duration muted">${amt}</span>` : ''}</label>`;
-const newInvoice = () => {
-  const was = withDetail; withDetail = true;
-  const html = `<div class="nf">
+const newInvoice = () => `<div class="nf">
     <div class="nf-form">
       <div class="nf-band">
         ${field('Client', box('Northwind Trading', true))}
@@ -823,25 +818,23 @@ const newInvoice = () => {
       <div class="nf-band">${field('Expenses', tick(true, 'Hosting, September', '$84.00') + tick(true, 'Mileage, site visit', '$42.50'))}</div>
       <div class="nf-band">${field('Charges', tick(true, 'Monthly retainer', '$500.00'))}</div>
       <div class="nf-band">${field('Payment details', box('Business checking', true))}</div>
+      <div class="nf-band">${field('Notes', box(inv.notes), '<p class="type-support subtle">Printed on this invoice. Optional.</p>')}</div>
       <div class="nf-band">${field('Attach', tick(true, 'Hours by project') + tick(true, 'Hours by week') + tick(true, 'Hours by date'))}</div>
       <div class="nf-band">
-        ${field('Template', `<div class="mini" role="radiogroup" aria-label="Template">${T.map((t) => `<button class="mpick" role="radio" aria-checked="${t.id === chosen}" data-pick="${t.id}"><div class="thumb">${light(papers[t.id]())}</div><span class="type-meta ${t.id === chosen ? 'strong' : 'muted'}">${t.name}</span></button>`).join('')}</div>`,
+        ${field('Template', `<div class="mini" role="radiogroup" aria-label="Template">${T.map((t) => `<button class="mpick" role="radio" aria-checked="${t.id === chosen}" data-pick="${t.id}"><div class="thumb">${light(papers[t.id]())}</div><span class="type-meta ${t.id === chosen ? 'strong' : 'muted'}">${t.name}</span><span class="type-meta strong">Preview</span></button>`).join('')}</div>`,
           '<p class="type-support subtle">Changes your template for every draft, here and in Settings.</p>')}
       </div>
     </div>
     <div class="nf-prev">
       <div class="row-cap type-label subtle">Preview</div>
-      <p class="type-support muted">The invoice preview, unchanged: what the invoice says, not its template. The chosen look shows only in the thumbnails and the PDF.</p>
+      <p class="type-support muted">What the invoice says, notes included, not its template. The chosen look shows in the thumbnails and the PDF.</p>
     </div>
   </div>`;
-  withDetail = was;
-  return html;
-};
 
 const views = {
   picker: { title: 'Settings · picker', page: 'Settings', note: '<b>Settings, between Business identity and Invoice numbering.</b> Four cards, each page 1 of a sample invoice\'s PDF in that template, with Preview to see it full size without choosing it. A press selects and saves at once, on its own press rather than after a pause like the fields around it. Click a card to try it.', render: () => settings() },
   rejected: { title: 'Settings · save failed', page: 'Settings', note: '<b>The save was refused:</b> the selection goes back to the saved template and the line under the cards says why, in the section that stays open (Constitution VI).', render: () => settings('rejected') },
-  newinv: { title: 'New invoice', page: 'New invoice', note: '<b>New invoice gets the same picker, last in the form</b> as four small thumbnails. Picking one is the account\'s template: it saves at once, Settings shows the same choice, and every draft follows it. Each has Preview too. The preview beside the form is unchanged: a user\'s own invoice in a template is the PDF. Click a thumbnail to try it.', render: () => newInvoice() },
+  newinv: { title: 'New invoice', page: 'New invoice', note: '<b>New invoice gets the same picker, last in the form</b> as four small thumbnails. Picking one is the account\'s template: it saves at once, Settings shows the same choice, and every draft follows it. Each has Preview too. An optional Notes field prints on this invoice only. The preview beside the form shows what the invoice says, notes included; a user\'s own invoice in a template is the PDF. Click a thumbnail to try it.', render: () => newInvoice() },
   standard: { title: 'Standard', page: 'STINT-0015', note: '<b>Standard is today\'s PDF, without the payment notice.</b> Best at: nothing to learn, and every invoice sent so far already looks like this. Accent once, on the amount due.', render: () => sheet('standard') },
   modern: { title: 'Modern', page: 'STINT-0015', note: '<b>Modern, in Outfit.</b> The light-weight word "Invoice" heads the page with the business across from it, so the header fills the width. Every row after spans the page: billed to, dates and the amount due; period and reference; the lines; then payment beside the totals. Green marks the rule under the header and the amount due. Best at: a sleek page that still reads at a glance. Cost: no headline color, by design.', render: () => sheet('modern') },
   classic: { title: 'Classic', page: 'STINT-0015', note: '<b>Classic, in EB Garamond.</b> An italic "Invoice" heads the page, the one italic on it, over its number; a green rule; then the name centered in small capitals over its address. Lines read like a table of contents with dotted leaders. Green marks the rule, the section labels and the balance due. Best at: a formal, literary page that still sits beside the others. Cost: quantity and rate read as a phrase, not a column.', render: () => sheet('classic') },

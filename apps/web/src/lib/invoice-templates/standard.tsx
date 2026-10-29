@@ -25,10 +25,6 @@ const FONT = 9.5;
 const LINE = FONT * 1.5;
 const LEADING = `${LINE}pt`;
 
-/**
- * The printed page, in points. A detail page's row count is derived from it,
- * so a change here re-flows the detail pages rather than overflowing them.
- */
 const M = { top: 40, right: 44, bottom: 48, left: 44 };
 const ROW = { padY: 3.5, rule: 0.5 };
 /** A detail page's running header: a line, the space over its rule, the

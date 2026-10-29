@@ -38,6 +38,24 @@ const { renderInvoicePdf } = await import(
   pathToFileURL(resolve(webRoot, 'src/lib/invoice-pdf.tsx')).href
 );
 
+/* September's days, which the project and week schedules sum: Onboarding
+   every third day, Checkout the rest. */
+const DAYS = Array.from({ length: 30 }, (_, i) => ({
+  date: `2026-09-${String(i + 1).padStart(2, '0')}`,
+  project: i % 3 ? 'Checkout' : 'Onboarding',
+  hours: i % 3 ? 0.4 : 1.25,
+}));
+const WEEKS = [
+  ['2026-09-01', '2026-09-06'],
+  ['2026-09-07', '2026-09-13'],
+  ['2026-09-14', '2026-09-20'],
+  ['2026-09-21', '2026-09-27'],
+  ['2026-09-28', '2026-09-30'],
+];
+// In hundredths, so the week totals print as the dates add up.
+const sum = (days) =>
+  days.reduce((n, d) => n + Math.round(d.hours * 100), 0) / 100;
+
 export const SAMPLE = {
   invoiceNumber: 'INV-0042',
   status: 'sent',
@@ -119,18 +137,12 @@ export const SAMPLE = {
       { project: 'Checkout', hours: 8 },
       { project: 'Onboarding', hours: 12.5 },
     ],
-    week: [
-      { start: '2026-09-01', end: '2026-09-06', hours: 5.5 },
-      { start: '2026-09-07', end: '2026-09-13', hours: 6.5 },
-      { start: '2026-09-14', end: '2026-09-20', hours: 4 },
-      { start: '2026-09-21', end: '2026-09-27', hours: 3 },
-      { start: '2026-09-28', end: '2026-09-30', hours: 1.5 },
-    ],
-    date: Array.from({ length: 30 }, (_, i) => ({
-      date: `2026-09-${String(i + 1).padStart(2, '0')}`,
-      project: i % 3 ? 'Checkout' : 'Onboarding',
-      hours: i % 3 ? 0.4 : 1.25,
+    week: WEEKS.map(([start, end]) => ({
+      start,
+      end,
+      hours: sum(DAYS.filter((d) => d.date >= start && d.date <= end)),
     })),
+    date: DAYS,
     totalHours: 20.5,
   },
 };
