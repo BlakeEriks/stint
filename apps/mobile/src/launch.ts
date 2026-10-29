@@ -9,6 +9,8 @@ interface Options {
   show: (session: Session | null) => void;
   /** Forgets every cached read. */
   clear: () => void;
+  /** Names the user crash reports belong to (`crash-reporting.ts`). */
+  identify: (userId: string | null) => void;
 }
 
 /**
@@ -16,7 +18,17 @@ interface Options {
  * Nothing of one account outlives its sign-out, so the cache is cleared
  * then. Returns the unsubscribe.
  */
-export function startSession({ auth, preview, show, clear }: Options) {
+export function startSession({
+  auth,
+  preview,
+  show: render,
+  clear,
+  identify,
+}: Options) {
+  const show = (session: Session | null) => {
+    identify(session?.userId ?? null);
+    render(session);
+  };
   const off = auth.subscribe((next) => {
     if (!next) clear();
     show(next);

@@ -1,5 +1,6 @@
 import { SUBSCRIPTION_STATUSES } from '@stint/core';
 import { z } from 'zod';
+import { InvoiceTemplate } from './invoicing.ts';
 import { currency, iso, money, termsDays, uuid } from './primitives.ts';
 
 // ── settings ───────────────────────────────────────────────────────
@@ -29,6 +30,8 @@ export const Settings = z.object({
   logoUrl: z.url().nullable(),
   paymentTermsDays: termsDays,
   invoiceNumberPrefix: z.string().max(20),
+  /** The template drafts render in; a sent invoice keeps its own. */
+  invoiceTemplate: InvoiceTemplate,
   nextInvoiceNumber: z.number().int().positive().max(NEXT_INVOICE_NUMBER_MAX),
   /** When the welcome dialog was finished or skipped; null shows it. */
   welcomedAt: iso.nullable(),

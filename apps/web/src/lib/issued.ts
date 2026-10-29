@@ -8,7 +8,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { documentOpens } from '@stint/core';
 import { entitlement } from './billing';
-import { deriveDraft } from './drafts';
+import { chosenTemplate, deriveDraft } from './drafts';
 import { ApiError } from './errors';
 import {
   INVOICE_COLUMNS,
@@ -50,9 +50,11 @@ export async function loadPdfData(
   if (!stored) throw new ApiError('ENTRY_NOT_FOUND', 'Invoice not found');
   const row = stored as InvoiceRow;
 
-  const [billing, draft] = await Promise.all([
+  const [billing, draft, template] = await Promise.all([
     entitlement(db),
     deriveDraft(db, row, requestTz),
+    // A draft prints in the template picked now; a sent one in its own.
+    row.status === 'draft' ? chosenTemplate(db) : row.template,
   ]);
   const canDownload = documentOpens(
     billing.available,
@@ -100,6 +102,7 @@ export async function loadPdfData(
       lineItems,
       payment: invoice.paymentDetails ?? null,
       supportingDetail: invoice.supportingDetail,
+      template,
     },
   };
 }

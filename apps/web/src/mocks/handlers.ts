@@ -144,6 +144,7 @@ function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
     groupingMode: preview.groupingMode,
     summaryText: preview.groupingMode === 'summary' ? input.summaryText : null,
     reference: input.reference ?? null,
+    template: null,
     supportingDetail: preview.schedules
       ? pickSchedules(preview.schedules, input.schedules)
       : null,
@@ -220,6 +221,7 @@ function sendDraft(
   Object.assign(invoice, {
     status: 'sent',
     sentAt,
+    template: db.settings.invoiceTemplate,
     issueDate: sent.issueDate,
     dueDate: sent.dueDate,
     paymentTerms: paymentTermsText(sent.issueDate, sent.dueDate),

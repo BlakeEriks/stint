@@ -15,6 +15,8 @@ export interface Session {
   /** Epoch seconds. */
   expiresAt: number;
   email: string;
+  /** Absent from a session an earlier build stored, until its next refresh. */
+  userId?: string;
 }
 
 /** Secure storage on a phone (`storage.ts`), a Map in tests. */
@@ -37,7 +39,7 @@ interface GoTrueSession {
   access_token: string;
   refresh_token: string;
   expires_at: number;
-  user: { email?: string };
+  user: { id: string; email?: string };
 }
 
 /** Refresh this long before the access token dies. */
@@ -93,6 +95,7 @@ export function createAuth({
       refreshToken: s.refresh_token,
       expiresAt: s.expires_at,
       email: s.user.email ?? '',
+      userId: s.user.id,
     });
   }
 

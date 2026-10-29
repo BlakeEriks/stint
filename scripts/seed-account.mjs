@@ -34,6 +34,10 @@
  */
 import pg from 'pg';
 import { isPreviewDb, sslFor } from './db-url.mjs';
+import {
+  buildPaymentDetails,
+  resolvePaymentProfile,
+} from '../packages/core/src/payment.ts';
 
 const DEFAULT_URL = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
@@ -614,6 +618,29 @@ try {
       (Math.round(seconds / 36) * Math.round(Number(resolvedRate) * 100)) / 100,
     ) / 100;
 
+  /* Payment details as `POST /invoices` freezes them: the client's profile,
+     else the default, through core's own builder, so a seeded invoice prints
+     the bank details a generated one would. */
+  const { rows: profileRows } = await db.query(
+    `select p.*, c.payment_profile_id as client_profile_id
+       from payment_profiles p
+       join clients c on c.id = $1
+      where p.user_id = c.user_id and p.archived_at is null`,
+    [firstClientId],
+  );
+  const camel = (row) =>
+    Object.fromEntries(
+      Object.entries(row).map(([k, v]) => [
+        k.replace(/_(.)/g, (_, c) => c.toUpperCase()),
+        v,
+      ]),
+    );
+  const live = profileRows.map(camel);
+  const profile = resolvePaymentProfile(live, {
+    clientProfileId: live[0]?.clientProfileId ?? null,
+    defaultProfileId: live.find((p) => p.isDefault)?.id ?? null,
+  });
+
   for (const inv of INVOICES) {
     /* Seconds first, then money: the line's amount is what those seconds are
        worth at the resolved rate, which is the direction the app computes in
@@ -632,6 +659,7 @@ try {
     periodStart.setDate(periodStart.getDate() - 30);
 
     const seq = nextNumber + invoiceNo;
+    const number = `${prefix}${String(seq).padStart(4, '0')}`;
     const {
       rows: [{ id: invoiceId }],
     } = await db.query(
@@ -643,13 +671,13 @@ try {
       `insert into invoices
          (user_id, client_id, invoice_number, sequence_no, status, issue_date,
           due_date, period_start, period_end, subtotal, tax_rate, tax_amount,
-          total, currency, grouping_mode, sent_at, paid_at)
-       values ($1,$2,$3,$4,'draft',$5,$6,$7,$8,$9,0,0,$9,'USD','entry',$10,$11)
+          total, currency, grouping_mode, sent_at, paid_at, payment_details)
+       values ($1,$2,$3,$4,'draft',$5,$6,$7,$8,$9,0,0,$9,'USD','entry',$10,$11,$12)
        returning id`,
       [
         userId,
         firstClientId,
-        `${prefix}${String(seq).padStart(4, '0')}`,
+        number,
         seq,
         issued.toISOString().slice(0, 10),
         // A draft's follows its terms from the day it is sent.
@@ -659,6 +687,7 @@ try {
         total,
         inv.status === 'draft' ? null : issued.toISOString(),
         inv.status === 'paid' ? due.toISOString() : null,
+        buildPaymentDetails(profile, { invoiceNumber: number }),
       ],
     );
     if (inv.status !== 'draft')

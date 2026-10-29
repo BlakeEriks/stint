@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { InvoiceTemplate } from '@stint/schema';
 import { ApiError, dbCode, PG, refused } from './errors';
 import {
   CLIENT_COLUMNS,
@@ -183,6 +184,19 @@ export function requireSender(s: InvoiceSettings) {
       'Add your business name and email before generating an invoice.',
     );
   }
+}
+
+/** The template the user picked in settings, which a draft prints in. */
+export async function chosenTemplate(
+  db: SupabaseClient,
+): Promise<InvoiceTemplate> {
+  const { data, error } = await db
+    .from('user_settings')
+    .select('invoice_template')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new ApiError('ENTRY_NOT_FOUND', 'Settings not found');
+  return data.invoice_template as InvoiceTemplate;
 }
 
 async function loadSettings(db: SupabaseClient): Promise<InvoiceSettings> {
@@ -470,7 +484,12 @@ export async function recordDownload(
   db: SupabaseClient,
   invoiceId: string,
   lines: LineItem[],
-  printed: { total: number; issueDate: string; dueDate: string | null },
+  printed: {
+    total: number;
+    issueDate: string;
+    dueDate: string | null;
+    template: InvoiceTemplate;
+  },
 ) {
   const { error } = await db
     .from('invoices')
@@ -479,6 +498,7 @@ export async function recordDownload(
         ...draftSnapshot(lines, printed.total),
         issueDate: printed.issueDate,
         dueDate: printed.dueDate,
+        template: printed.template,
       },
     })
     .eq('id', invoiceId)
@@ -541,6 +561,8 @@ export async function sendDraft(
       due_date: sent.dueDate,
       payment_terms: paymentTermsText(sent.issueDate, sent.dueDate),
       tz,
+      // As the PDF the client was given, like its dates.
+      template: printed?.template ?? (await chosenTemplate(db)),
       lines: draft.computed.lines,
     },
     p_entry_ids: draft.computed.entryIds,

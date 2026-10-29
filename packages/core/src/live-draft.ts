@@ -20,6 +20,8 @@ export interface DraftSnapshot {
    *  only compared. */
   issueDate?: string;
   dueDate?: string | null;
+  /** The template the PDF printed in, which sending keeps. */
+  template?: string;
 }
 
 export function draftSnapshot(lines: Line[], total: number): DraftSnapshot {

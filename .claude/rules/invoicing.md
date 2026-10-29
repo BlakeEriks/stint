@@ -6,6 +6,7 @@ paths:
   - "packages/core/src/invoice.ts"
   - "packages/core/src/payment.ts"
   - "apps/web/src/lib/invoice-pdf.tsx"
+  - "apps/web/src/lib/invoice-templates/**"
 ---
 
 ## Invoicing
@@ -78,7 +79,8 @@ order and the resolution chain.
 
 ### PDF and the test runner
 
-JSX lives only in `invoice-pdf.tsx`; routes import `renderInvoicePdf`
+JSX lives only in `invoice-pdf.tsx` and the template modules it imports from
+`lib/invoice-templates/`; routes import `renderInvoicePdf`
 **dynamically** so the handlers stay loadable by the type-stripping test
 runner. `test/loader.mjs` transforms `.tsx` through the SWC binary Next ships.
 
