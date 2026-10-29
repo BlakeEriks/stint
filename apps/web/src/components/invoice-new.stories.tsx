@@ -94,6 +94,10 @@ export const Blank: Story = {
     const prompt = region.getByText(/^Choose a client to see/);
     await expect(prompt).toBeVisible();
     await expect(prompt.closest('.rounded-lg')).toBeNull();
+    // No client, no format yet: nothing to fault.
+    await expect(
+      within(canvasElement).queryByText('Give the summary line its text.'),
+    ).toBeNull();
   },
 };
 export const Phone: Story = { ...phone };
@@ -769,6 +773,33 @@ export const FromLastByTask: Story = {
     ).toHaveTextContent('By task');
     await expect(page.getByLabelText('Reference')).toHaveValue('PO 4471');
     await expect(card(page).getByText('PO 4471')).toBeVisible();
+  },
+};
+
+/** Until the client's invoices answer, its format is unknown, so neither
+    the grouping nor a summary line shows, rather than one that flips. */
+export const FormatLoading: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...stalled('invoices'),
+    // The last invoice and the open drafts both read the list.
+    stalls: 2,
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    // Past the 400ms the form takes to settle.
+    await new Promise((r) => setTimeout(r, 600));
+    await expect(
+      page.queryByRole('button', { name: 'Show time as' }),
+    ).toBeNull();
+    await expect(page.queryByLabelText(/Summary line/)).toBeNull();
+    await expect(
+      page.queryByText('Give the summary line its text.'),
+    ).toBeNull();
+    await expect(
+      page.getByRole('button', { name: 'Generate invoice' }),
+    ).toBeDisabled();
   },
 };
 

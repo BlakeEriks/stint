@@ -681,19 +681,25 @@ function Form() {
               <NumberLine number={number} settings={settings} />
             </div>
 
-            <Field label="Show time as" htmlFor="inv-group">
-              <GroupingPicker
-                value={groupingMode}
-                onChange={(mode) => set('groupingMode', mode)}
-              />
-              {groupingMode === 'summary' ? (
-                <SummaryLineField
-                  value={summaryText}
-                  missing={noSummaryText}
-                  onChange={(v) => set('summaryText', v)}
+            {/* Shown once the client's last invoice says its format, so a
+                carried grouping never flips in after a default. */}
+            {lastPending ? null : (
+              <Field label="Show time as" htmlFor="inv-group">
+                <GroupingPicker
+                  value={groupingMode}
+                  onChange={(mode) => set('groupingMode', mode)}
                 />
-              ) : null}
-            </Field>
+                {groupingMode === 'summary' ? (
+                  <SummaryLineField
+                    value={summaryText}
+                    missing={
+                      noSummaryText && draft.clientId !== '' && !lastPending
+                    }
+                    onChange={(v) => set('summaryText', v)}
+                  />
+                ) : null}
+              </Field>
+            )}
 
             {client ? (
               <Field label="Expenses">
@@ -743,7 +749,7 @@ function Form() {
 
             {/* Only a summary has detail to support: every other grouping
                 already breaks the time down on the invoice. */}
-            {groupingMode === 'summary' ? (
+            {!lastPending && groupingMode === 'summary' ? (
               <ScheduleChecklist
                 value={schedules}
                 onChange={(v) => set('schedules', v)}
