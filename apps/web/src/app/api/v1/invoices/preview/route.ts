@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { handle, ApiError } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
-import { computeInvoice } from '@/lib/invoicing';
+import { computeInvoice } from '@/lib/drafts';
 import { loadBilledSpans } from '@/lib/billed-spans';
 import { buildOverlaps, buildSchedules } from '@stint/core';
 import { InvoicePreviewRequest } from '@stint/schema';

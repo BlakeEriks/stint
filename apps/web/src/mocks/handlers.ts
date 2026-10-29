@@ -134,6 +134,7 @@ function draftChoices(db: Db, input: CreateInvoice, preview: Preview) {
     notes: input.notes ?? null,
     paymentTerms: paymentTermsText(issueDate, dueDate),
     typedDueDate: input.dueDate ?? null,
+    excludedExpenseIds: input.excludedExpenseIds ?? [],
     groupingMode: preview.groupingMode,
     summaryText: preview.groupingMode === 'summary' ? input.summaryText : null,
     reference: input.reference ?? null,
@@ -214,10 +215,11 @@ const listed = ({
   unratedEntries: ___,
   dueBeforeIssue: ____,
   typedDueDate: _____,
+  excludedExpenseIds: ______,
   ...invoice
 }: StoredInvoice) => invoice;
 
-/** `lib/invoicing.ts`'s `sendDraft`: the draft as its period stands at
+/** `lib/drafts.ts`'s `sendDraft`: the draft as its period stands at
  *  `sentAt`, priced, dated, claimed and sent. */
 function sendDraft(
   db: Db,
@@ -234,6 +236,8 @@ function sendDraft(
       periodEnd: invoice.periodEnd,
       groupingMode: invoice.groupingMode,
       summaryText: invoice.summaryText ?? undefined,
+      excludedExpenseIds: invoice.excludedExpenseIds,
+      draftId: invoice.id,
     },
     zone,
   );
@@ -725,6 +729,7 @@ export const handlers = {
       unratedEntries,
       dueBeforeIssue: due,
       typedDueDate: _,
+      excludedExpenseIds: __,
       ...rest
     } = invoice;
     return ok(invoiceDetail, {

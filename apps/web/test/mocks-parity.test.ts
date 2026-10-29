@@ -306,6 +306,27 @@ for (const scenario of scenarios)
         grouping.groupingMode,
       );
     }
+
+    // Byrne's open August draft holds the stock photos, so September's
+    // invoice leaves them off.
+    const september = {
+      clientId: ids.byrne,
+      periodStart: '2026-09-01',
+      periodEnd: today,
+      tz: ZONE,
+    };
+    const res: Response = await POST(
+      new Request('http://t/api/v1/invoices/preview', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(september),
+      }),
+    );
+    assert.deepEqual(
+      wire(await res.json()),
+      wire(invoicePreview(db, september, ZONE)),
+      'a one-off an earlier draft holds',
+    );
   });
 
 /* Writes: each case sent to the route against Postgres and to the fake, from

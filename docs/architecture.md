@@ -75,7 +75,7 @@ route handlers verify it identically.
 ## Live updates
 
 Local tick, reconcile on an interval and on wake/focus, and a push to the
-phone.
+phone and the browser.
 
 The panel's readout counts seconds locally from the known `startedAt`, and the
 menu bar shows whole minutes from the same tick, at no network cost. The Mac
@@ -83,9 +83,11 @@ app reconciles with `GET /api/v1/summary` roughly every 60s; the web and the
 phone, every 10s while a timer runs and the app is in front, so a stop on
 another device shows within one poll. `serverTime` in the response lets clients correct for clock skew.
 
-An Android phone also hears of a change at once: every change to the
-running timer, from any client, pushes it an FCM data message, and the open
-app refetches (`docs/mobile.md`, Push).
+An Android phone and the web app also hear of a change at once: every
+change to the running timer, from any client, pushes the phone an FCM data
+message and broadcasts to the user's private Realtime topic, `user:<id>`,
+which the web app joins with its session. Each then refetches through
+`/api/v1`; the poll stays for a dropped socket (`docs/mobile.md`, Push).
 
 ## Hosting
 
