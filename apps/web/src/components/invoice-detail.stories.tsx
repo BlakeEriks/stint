@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client/api';
 import { addDays } from '@stint/core';
 import { keys } from '@stint/client';
-import { expect, userEvent, within } from 'storybook/test';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import { type Db, id } from '@/mocks/fixtures';
 import { desktop, phone, screen, skipping, stalled } from '@/mocks/screen';
@@ -105,7 +105,7 @@ const unrated = paying((db) => {
 });
 
 /** Work with no rate shows on the draft by name, and neither the PDF nor
-    Mark sent is offered until it has one. */
+    Mark sent opens until it has one. */
 export const DraftUnrated: Story = {
   ...desktop,
   parameters: unrated,
@@ -117,6 +117,9 @@ export const DraftUnrated: Story = {
       page.getByRole('button', { name: 'Mark sent' }),
     ).toBeDisabled();
     await expect(page.queryByRole('link', { name: 'Download PDF' })).toBeNull();
+    await expect(
+      page.getByRole('button', { name: 'Download PDF' }),
+    ).toBeDisabled();
   },
 };
 
@@ -138,6 +141,9 @@ export const DraftDueBeforeIssue: Story = {
       page.getByRole('button', { name: 'Mark sent' }),
     ).toBeDisabled();
     await expect(page.queryByRole('link', { name: 'Download PDF' })).toBeNull();
+    await expect(
+      page.getByRole('button', { name: 'Download PDF' }),
+    ).toBeDisabled();
   },
 };
 
@@ -160,6 +166,9 @@ export const DraftDueSinceDownload: Story = {
     ).toBeVisible();
     await expect(page.getByRole('button', { name: 'Mark sent' })).toBeEnabled();
     await expect(page.queryByRole('link', { name: 'Download PDF' })).toBeNull();
+    await expect(
+      page.getByRole('button', { name: 'Download PDF' }),
+    ).toBeDisabled();
   },
 };
 
@@ -259,7 +268,10 @@ const press =
   (first: string, then?: string) =>
   async ({ canvasElement }: { canvasElement: HTMLElement }) => {
     const page = within(canvasElement);
-    await userEvent.click(await page.findByRole('button', { name: first }));
+    // Each action is on screen at once, and pressable once the invoice is.
+    const button = await page.findByRole('button', { name: first });
+    await waitFor(() => expect(button).toBeEnabled());
+    await userEvent.click(button);
     if (then) await userEvent.click(page.getByRole('button', { name: then }));
   };
 
@@ -452,15 +464,36 @@ export const OpenedFromList: Story = {
     await expect(page.getByText('Updating…')).toBeVisible();
     await expect(page.queryByText('Loading…')).toBeNull();
     await expect(page.queryByText('Amount due')).toBeNull();
-    /* The lists don't say whether the PDF opens, so neither action shows
-       yet rather than one that turns into the other. */
-    await expect(page.queryByRole('link', { name: /Download PDF/ })).toBeNull();
+    /* The row's status picks the actions; they wait, disabled, for the
+       invoice, which alone says whether the PDF opens. */
+    await expectWaiting(page, ['Void', 'Mark paid', 'Download PDF']);
     await expect(page.queryByRole('link', { name: /Subscribe/ })).toBeNull();
   },
 };
 
-/** On its way: one quiet word where it will be, and none of it until all of
- *  it has arrived. */
+/** A draft opened from the list: its own actions, disabled until it loads. */
+export const DraftOpenedFromList: Story = {
+  ...OpenedFromList,
+  args: { id: invoice(15) },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByRole('heading', { name: 'STINT-0015' }),
+    ).toBeVisible();
+    await expectWaiting(page, ['Delete draft', 'Mark sent', 'Download PDF']);
+  },
+};
+
+/** Each action is on screen and disabled, and nothing links yet. */
+async function expectWaiting(page: ReturnType<typeof within>, names: string[]) {
+  for (const name of names) {
+    await expect(page.getByRole('button', { name })).toBeDisabled();
+  }
+  await expect(page.queryByRole('link', { name: /Download PDF/ })).toBeNull();
+}
+
+/** On its way from a pasted link: one quiet word where it will be, under a
+    draft's actions, disabled, since the status isn't known yet. */
 export const Loading: Story = {
   ...desktop,
   parameters: stalled('invoice'),
@@ -469,5 +502,6 @@ export const Loading: Story = {
     await expect(await region.findByRole('status')).toHaveTextContent(
       'Loading',
     );
+    await expectWaiting(region, ['Delete draft', 'Mark sent', 'Download PDF']);
   },
 };

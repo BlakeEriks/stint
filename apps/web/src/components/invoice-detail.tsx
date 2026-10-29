@@ -38,6 +38,7 @@ import {
   type UnratedEntry,
 } from '@/lib/client/api';
 import { DetailPage, Listing } from './page';
+import { useHydrated } from '@/lib/client/use-hydrated';
 
 /** An invoice; the lines, and whether its PDF opens, are absent until they
     load. */
@@ -96,43 +97,95 @@ export function InvoiceDetail({ id }: { id: string }) {
   });
 
   const markPaid = useMarkPaid();
+  /* A draft that moved since its PDF was rendered holds Mark sent until the
+     client's copy is the one Stint keeps; pressing Download releases it here,
+     and the server, which recorded the render, has the last word. */
+  const [downloaded, setDownloaded] = useState(false);
+  const error = remove.error ?? setStatus.error ?? markPaid.error;
+
+  /* What the server rendered until hydration, as `Listing` does. A list row
+     has no lines, so only the invoice itself makes the actions live. */
+  const shown = useHydrated() ? query.data : undefined;
+  const changed =
+    shown?.status === 'draft' && !downloaded
+      ? shown.changedSinceDownload
+      : null;
 
   return (
     <DetailPage back="/invoices" label="Invoices">
+      {shown !== undefined || query.error == null ? (
+        <Header
+          invoice={shown}
+          ready={shown?.lineItems !== undefined}
+          changed={changed}
+          onDownload={() => {
+            setDownloaded(true);
+            /* The download is a navigation the page can't await, and it is
+               what records the copy the client gets; the server's answer
+               replaces the change once the PDF has rendered. */
+            setTimeout(
+              () => qc.invalidateQueries({ queryKey: keys.invoice(id) }),
+              1500,
+            );
+          }}
+          setStatus={setStatus}
+          remove={remove}
+          markPaid={markPaid}
+        />
+      ) : null}
       <Listing query={query} missing="That invoice no longer exists.">
-        {(data) => (
-          <Loaded
-            data={data}
-            onDownload={() =>
-              /* The download is a navigation the page can't await, and it is
-                 what records the copy the client gets; the server's answer
-                 replaces the change once the PDF has rendered. */
-              setTimeout(
-                () => qc.invalidateQueries({ queryKey: keys.invoice(id) }),
-                1500,
-              )
-            }
-            setStatus={setStatus}
-            remove={remove}
-            markPaid={markPaid}
-            error={remove.error ?? setStatus.error ?? markPaid.error}
-          />
+        {(invoice) => (
+          <>
+            <Notices
+              invoice={invoice}
+              // A new PDF it can't have is no remedy.
+              changed={invoice.refuses?.download ? null : changed}
+              unrated={invoice.unratedEntries ?? []}
+              error={error}
+            />
+            <InvoicePreviewCard
+              heading={false}
+              preview={{ ...invoice, schedules: invoice.supportingDetail }}
+              client={invoice.billTo}
+              business={invoice.business}
+              number={invoice.invoiceNumber}
+              issued={invoice.issueDate}
+              due={invoice.dueDate ?? ''}
+              reference={invoice.reference ?? ''}
+              payment={invoice.paymentDetails}
+              schedules={
+                invoice.supportingDetail
+                  ? attachedSchedules(invoice.supportingDetail)
+                  : []
+              }
+              updating={!invoice.lineItems}
+              paymentTerms={invoice.paymentTerms}
+              notes={invoice.notes}
+            />
+          </>
         )}
       </Listing>
+      <MarkPaidDialog {...markPaid.dialog} />
     </DetailPage>
   );
 }
 
-/** The invoice itself, as the PDF prints it, with what can be done to it. */
-function Loaded({
-  data: invoice,
+/** The title and what can be done to the invoice: the page's frame, so it
+    paints at once (`.claude/rules/web-ui.md`). Until the invoice answers its
+    actions are disabled, picked by the status the list row gave, or a
+    draft's on a cold load, the common case. */
+function Header({
+  invoice,
+  ready,
+  changed,
   onDownload,
   setStatus,
   remove,
   markPaid,
-  error,
 }: {
-  data: Shown;
+  invoice: Shown | undefined;
+  ready: boolean;
+  changed: DraftChange | null | undefined;
   onDownload: () => void;
   setStatus: {
     mutate: (args: { status: InvoiceStatus }) => void;
@@ -141,147 +194,111 @@ function Loaded({
   };
   remove: { mutate: () => void; isPending: boolean };
   markPaid: ReturnType<typeof useMarkPaid>;
-  /* Picked ONCE by the caller. Re-evaluating `a ?? b` for the check and again
-     for the message could type-check a stale error while printing a different
-     one — React Query holds the last error until the next success. */
-  error: unknown;
 }) {
-  const isDraft = invoice.status === 'draft';
-  const isVoid = invoice.status === 'void';
-  /* A draft that moved since its PDF was rendered holds Mark sent until the
-     client's copy is the one Stint keeps; pressing Download releases it here,
-     and the server, which recorded the render, has the last word. */
-  const [downloaded, setDownloaded] = useState(false);
-  const changed = isDraft && !downloaded ? invoice.changedSinceDownload : null;
-  const unrated = invoice.unratedEntries ?? [];
-  const refuses = invoice.refuses ?? { download: false, send: false };
+  const status = invoice?.status ?? 'draft';
+  const isDraft = status === 'draft';
+  const number = invoice?.invoiceNumber ?? '';
+  const refuses = invoice?.refuses ?? { download: false, send: false };
 
   return (
-    <>
-      {/* The hint sits under the row, not in it: a long one would push the
-          actions below the title. */}
-      <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <h1 className="truncate type-title text-strong">
-            {invoice.invoiceNumber}
-          </h1>
-          <StatusBadge status={invoice.status} />
-        </div>
+    <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+      <div className="flex min-w-0 items-center gap-2.5">
+        {invoice ? (
+          <>
+            <h1 className="truncate type-title text-strong">{number}</h1>
+            <StatusBadge status={status} />
+          </>
+        ) : null}
+      </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Deleting removes the draft and voiding can't be undone, so each
-              asks first. */}
-          {isDraft ? (
-            <ConfirmAction
-              label={`Delete ${invoice.invoiceNumber} for good`}
-              pendingLabel="Deleting…"
-              consequence="Its work stays unbilled."
-              pending={remove.isPending}
-              onConfirm={() => remove.mutate()}
-            >
-              <Trash2 aria-hidden strokeWidth={1.75} />
-              Delete draft
-            </ConfirmAction>
-          ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Deleting removes the draft and voiding can't be undone, so each
+            asks first. */}
+        {isDraft ? (
+          <ConfirmAction
+            label={`Delete ${number} for good`}
+            pendingLabel="Deleting…"
+            consequence="Its work stays unbilled."
+            pending={remove.isPending}
+            disabled={!ready}
+            onConfirm={() => remove.mutate()}
+          >
+            <Trash2 aria-hidden strokeWidth={1.75} />
+            Delete draft
+          </ConfirmAction>
+        ) : null}
 
-          {!isVoid && !isDraft ? (
-            <ConfirmAction
-              label={`Void ${invoice.invoiceNumber}`}
-              pendingLabel="Voiding…"
-              consequence="The number stays on record, and this invoice can't be reissued."
-              pending={setStatus.isPending}
-              onConfirm={() => setStatus.mutate({ status: 'void' })}
-            >
-              <Ban aria-hidden strokeWidth={1.75} />
-              Void
-            </ConfirmAction>
-          ) : null}
+        {status !== 'void' && !isDraft ? (
+          <ConfirmAction
+            label={`Void ${number}`}
+            pendingLabel="Voiding…"
+            consequence="The number stays on record, and this invoice can't be reissued."
+            pending={setStatus.isPending}
+            disabled={!ready}
+            onConfirm={() => setStatus.mutate({ status: 'void' })}
+          >
+            <Ban aria-hidden strokeWidth={1.75} />
+            Void
+          </ConfirmAction>
+        ) : null}
 
-          {isDraft ? (
-            <Button
-              onClick={() => setStatus.mutate({ status: 'sent' })}
-              disabled={setStatus.isPending || changed != null || refuses.send}
-            >
-              <Send aria-hidden strokeWidth={1.75} />
-              Mark sent
-            </Button>
-          ) : null}
+        {isDraft ? (
+          <Button
+            onClick={() => setStatus.mutate({ status: 'sent' })}
+            disabled={
+              !ready || setStatus.isPending || changed != null || refuses.send
+            }
+          >
+            <Send aria-hidden strokeWidth={1.75} />
+            Mark sent
+          </Button>
+        ) : null}
 
-          {invoice.status === 'sent' ? (
-            <Button
-              variant="accent"
-              onClick={() => {
-                // A void error from earlier on this screen must not read as
-                // a rejection of the payment date about to be entered.
-                setStatus.reset();
-                markPaid.show(invoice);
-              }}
-              disabled={setStatus.isPending || markPaid.isPending(invoice.id)}
-            >
-              {/* A currency glyph, not a check: the check commits a form. */}
-              <DollarSign aria-hidden strokeWidth={1.75} />
-              Mark paid
-            </Button>
-          ) : null}
+        {status === 'sent' && invoice ? (
+          <Button
+            variant="accent"
+            onClick={() => {
+              // A void error from earlier on this screen must not read as
+              // a rejection of the payment date about to be entered.
+              setStatus.reset();
+              markPaid.show(invoice);
+            }}
+            disabled={
+              !ready || setStatus.isPending || markPaid.isPending(invoice.id)
+            }
+          >
+            {/* A currency glyph, not a check: the check commits a form. */}
+            <DollarSign aria-hidden strokeWidth={1.75} />
+            Mark paid
+          </Button>
+        ) : null}
 
-          {/* Downloading is how an invoice reaches a client: the app sends no
-              mail, so it is last, as the primary action. Neither shows until
-              the invoice itself answers: the lists it first draws from don't
-              say whether its PDF opens. */}
-          {invoice.canDownload === true && !refuses.download ? (
-            <Button asChild>
-              <a
-                href={api.invoicePdfUrl(invoice.id, true)}
-                onClick={() => {
-                  setDownloaded(true);
-                  onDownload();
-                }}
-              >
-                <Download aria-hidden strokeWidth={1.75} />
-                Download PDF
-              </a>
-            </Button>
-          ) : null}
-          {invoice.canDownload === false ? (
-            <Button asChild>
-              <Link href="/settings#plan">
-                <Lock aria-hidden strokeWidth={1.75} />
-                Subscribe to download
-              </Link>
-            </Button>
-          ) : null}
-        </div>
-      </header>
-      <Notices
-        invoice={invoice}
-        // A new PDF it can't have is no remedy.
-        changed={refuses.download ? null : changed}
-        unrated={unrated}
-        error={error}
-      />
-
-      <InvoicePreviewCard
-        heading={false}
-        preview={{ ...invoice, schedules: invoice.supportingDetail }}
-        client={invoice.billTo}
-        business={invoice.business}
-        number={invoice.invoiceNumber}
-        issued={invoice.issueDate}
-        due={invoice.dueDate ?? ''}
-        reference={invoice.reference ?? ''}
-        payment={invoice.paymentDetails}
-        schedules={
-          invoice.supportingDetail
-            ? attachedSchedules(invoice.supportingDetail)
-            : []
-        }
-        updating={!invoice.lineItems}
-        paymentTerms={invoice.paymentTerms}
-        notes={invoice.notes}
-      />
-
-      <MarkPaidDialog {...markPaid.dialog} />
-    </>
+        {/* Downloading is how an invoice reaches a client: the app sends no
+            mail, so it is last, as the primary action. Only the invoice
+            itself says whether its PDF opens, so until then it is Download,
+            disabled. */}
+        {invoice?.canDownload === false ? (
+          <Button asChild>
+            <Link href="/settings#plan">
+              <Lock aria-hidden strokeWidth={1.75} />
+              Subscribe to download
+            </Link>
+          </Button>
+        ) : ready && !refuses.download && invoice ? (
+          <Button asChild>
+            <a href={api.invoicePdfUrl(invoice.id, true)} onClick={onDownload}>
+              <Download aria-hidden strokeWidth={1.75} />
+              Download PDF
+            </a>
+          </Button>
+        ) : (
+          <Button disabled>
+            <Download aria-hidden strokeWidth={1.75} />
+            Download PDF
+          </Button>
+        )}
+      </div>
+    </header>
   );
 }
 
