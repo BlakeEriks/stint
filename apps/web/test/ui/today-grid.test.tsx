@@ -301,10 +301,7 @@ describe('the day fills its scroll area', () => {
       const scroller = document.querySelector<HTMLElement>('.overflow-y-auto')!;
       // jsdom applies no stylesheet, so the class's overflow is set here.
       scroller.style.overflowY = 'auto';
-      Object.defineProperty(scroller, 'clientHeight', {
-        configurable: true,
-        value: px,
-      });
+      scroller.getBoundingClientRect = () => ({ height: px }) as DOMRect;
       act(() => {
         for (const cb of seen) cb();
       });

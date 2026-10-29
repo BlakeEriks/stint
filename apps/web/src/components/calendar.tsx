@@ -296,8 +296,11 @@ export function Calendar() {
                   className="xl:min-h-0 xl:flex-1 xl:overflow-y-auto"
                 >
                   <div className="flex" ref={zoom.ref}>
+                    {/* Clipped at its bottom edge: a glyph's box runs a pixel or
+                        two past its line box, and a filled grid would scroll
+                        by it. */}
                     <div
-                      className="relative w-12 flex-none sm:w-14"
+                      className="relative w-12 flex-none overflow-y-clip sm:w-14"
                       style={{ height: gridHeight }}
                     >
                       {marks.map(({ hour, pct }) => (
@@ -305,10 +308,15 @@ export function Calendar() {
                           key={pct}
                           /* The label is a zero-height row anchored at the gridline,
                        so digits sit on the line at every position. The first
-                       mark hangs below its line instead of above it, or the
-                       container clips it. */
-                          className={`absolute right-2 flex h-0 items-center type-meta leading-none text-subtle ${
-                            pct === 0 ? 'translate-y-1.5' : ''
+                       mark hangs below its line and the last sits wholly above
+                       it, or the container clips the one and scrolls to the
+                       other. */
+                          className={`absolute right-2 flex h-0 type-meta leading-none text-subtle ${
+                            pct === 0
+                              ? 'items-center translate-y-1.5'
+                              : pct >= 100
+                                ? 'items-end'
+                                : 'items-center'
                           }`}
                           style={{ top: `${pct}%` }}
                         >
@@ -329,7 +337,12 @@ export function Calendar() {
                      new entry at the wrong time. */
                         dayStart={day.from}
                         dayEnd={day.to}
-                        gridlines={marks.map((m) => m.pct)}
+                        /* None on the grid's bottom edge: its border would
+                           sit a pixel past the end, and a filled grid would
+                           scroll by it. */
+                        gridlines={marks
+                          .filter((m) => m.pct < 100)
+                          .map((m) => m.pct)}
                         height={gridHeight}
                         drag={drag}
                         onEdit={edit}

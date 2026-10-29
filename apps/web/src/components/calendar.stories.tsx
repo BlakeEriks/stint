@@ -381,11 +381,12 @@ export const ZoomOutFills: Story = {
   play: async ({ canvasElement }) => {
     const { el } = await column(canvasElement);
     const area = el.parentElement?.parentElement as HTMLElement;
-    await waitFor(() =>
-      expect(
-        Math.abs(el.getBoundingClientRect().height - area.clientHeight),
-      ).toBeLessThan(2),
-    );
+    // Filled exactly: nothing left to scroll, so no scrollbar.
+    await waitFor(() => expect(area.scrollHeight).toBe(area.clientHeight));
+    // At most the pixel the area's height is rounded down by.
+    await expect(
+      area.clientHeight - el.getBoundingClientRect().height,
+    ).toBeLessThanOrEqual(1);
     // Taller than 22px an hour would draw it: the floor is the area's.
     await expect(area.clientHeight).toBeGreaterThan(24 * 22 + 10);
   },

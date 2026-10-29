@@ -90,12 +90,15 @@ export function TodayGrid({
      name. */
   return (
     <div className="flex" ref={ref}>
-      <div className="flex-none pr-1.5" style={{ width: 30 }}>
+      {/* Each label placed at its hour rather than stacked a step tall: a
+          stack runs past the grid whenever the step does not divide the
+          window, and a filled area would scroll by the difference. */}
+      <div className="relative flex-none" style={{ width: 30, height }}>
         {labels.map((m) => (
           <div
             key={m.at.toISOString()}
-            className="-translate-y-[5px] text-right type-meta text-subtle"
-            style={{ height: pxPerHour * step }}
+            className="absolute right-1.5 -translate-y-[5px] type-meta text-subtle"
+            style={{ top: `${fractionOf(m.at, from, to) * 100}%` }}
           >
             {m.label}
           </div>

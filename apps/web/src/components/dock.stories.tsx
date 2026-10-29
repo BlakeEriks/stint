@@ -4,6 +4,7 @@ import { account } from '@/mocks/db';
 import { ids, type Db } from '@/mocks/fixtures';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { desktop, expectOpen, stalled, tablet } from '@/mocks/screen';
+import { ZOOM_KEY } from '@/lib/client/use-zoom';
 import { ZONE } from '@/mocks/time.mts';
 import { Dock } from './dock';
 
@@ -316,5 +317,24 @@ export const TodayEditable: Story = {
       keys: '[MouseLeft]',
     });
     await expectOpen(canvasElement, 'dialog', 'Add entry');
+  },
+};
+
+/** Zoomed all the way out, Today's day fills its half of the column
+    exactly: no empty space under it and nothing to scroll. */
+export const TodayFills: Story = {
+  ...desktop,
+  beforeEach: () => localStorage.setItem(ZOOM_KEY, '22'),
+  play: async ({ canvasElement }) => {
+    const region = await within(canvasElement).findByRole('region', {
+      name: "Today's entries",
+    });
+    await within(region).findAllByRole('button', { name: /^Edit / });
+    const area = region.querySelector('.overflow-y-auto') as HTMLElement;
+    const column = region.querySelector('.border-l') as HTMLElement;
+    await waitFor(() => expect(area.scrollHeight).toBe(area.clientHeight));
+    await expect(
+      area.clientHeight - column.getBoundingClientRect().height,
+    ).toBeLessThanOrEqual(1);
   },
 };

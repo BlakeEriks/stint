@@ -81,8 +81,10 @@ export function useZoom(hours: number, { fill }: { fill: boolean }) {
   const anchor = useRef<{ el: HTMLElement; y: number; at: number } | null>(
     null,
   );
+  const grid = useRef<HTMLElement | null>(null);
 
   const ref = useCallback((el: HTMLElement | null) => {
+    grid.current = el;
     if (!el) return;
     const onWheel = (event: WheelEvent) => {
       if (!event.ctrlKey && !event.metaKey) return;
@@ -106,7 +108,7 @@ export function useZoom(hours: number, { fill }: { fill: boolean }) {
     /* Asked on each resize, since a breakpoint can make the parent scroll or
        stop scrolling. */
     const resized = new ResizeObserver(() =>
-      setAreaPx(scrollArea(el)?.clientHeight ?? 0),
+      setAreaPx(heightOf(scrollArea(el))),
     );
     if (el.parentElement) resized.observe(el.parentElement);
     return () => {
@@ -114,6 +116,13 @@ export function useZoom(hours: number, { fill }: { fill: boolean }) {
       resized.disconnect();
     };
   }, []);
+
+  /* And after every render: the observer reports only resizes, and the area
+     can settle without one, as when what is above it loads. */
+  useLayoutEffect(() => {
+    const h = heightOf(scrollArea(grid.current));
+    if (h !== areaPx) setAreaPx(h);
+  });
 
   /* After the render a zoom caused, with the new height laid out. Every
      render, since nothing but a wheel sets the anchor. */
@@ -133,12 +142,20 @@ export function useZoom(hours: number, { fill }: { fill: boolean }) {
  * fill. None where the page scrolls instead: there the grid sets its own
  * height, and measuring it would hold the zoom where it is.
  */
-function scrollArea(el: HTMLElement): HTMLElement | null {
-  const p = el.parentElement;
+function scrollArea(el: HTMLElement | null): HTMLElement | null {
+  const p = el?.parentElement;
   if (!p) return null;
   const { overflowY } = getComputedStyle(p);
   return overflowY === 'auto' || overflowY === 'scroll' ? p : null;
 }
+
+/**
+ * The area's height in whole pixels, rounded down. `clientHeight` rounds to
+ * the nearest, and an area 778.75px tall reads as 779: a day drawn to fill
+ * that is a quarter pixel taller than the room, and scrolls by it.
+ */
+const heightOf = (area: HTMLElement | null) =>
+  area ? Math.floor(area.getBoundingClientRect().height) : 0;
 
 /** The nearest ancestor that scrolls, or the page. */
 function scrollerOf(el: HTMLElement): Element {
