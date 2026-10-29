@@ -17,8 +17,9 @@ import {
 import { selectAll } from './select-all';
 import { entitlement } from './billing';
 import {
-  addDays,
-  assignExpenses,
+  billableExpenses,
+  billingWindow,
+  isBillableEntry,
   attachedSchedules,
   buildLineItems,
   buildSchedules,
@@ -30,7 +31,6 @@ import {
   pickSchedules,
   resolvePaymentProfile,
   snapshotChanged,
-  startOfLocalDate,
   draftDates,
   nothingToSend,
   unratedRefusal,
@@ -65,19 +65,9 @@ async function loadClient(
 }
 
 /**
- * Unbilled, completed entries for a client in a period, carrying every rate
- * level so the line-item builder can resolve without further queries.
- *
- * **The period is local dates, so the window is resolved in `tz`.** A user
- * picks "September" on a wall calendar, and `buildLineItems` groups the result
- * by local day — so a UTC window disagrees with its own grouping. West of
- * Greenwich that drops an evening of work at the end of the period and pulls
- * in the evening before it started, in both the preview and the invoice, with
- * nothing to show it happened.
- *
- * Deliberately excludes:
- *  - running entries (`ended_at IS NULL`) — you cannot bill time still accruing
- *  - entries already attached to an invoice
+ * The client's entries an invoice for the period bills (`isBillableEntry`),
+ * carrying every rate level so the line-item builder can resolve without
+ * further queries.
  */
 async function loadBillableEntries(
   db: SupabaseClient,
@@ -100,28 +90,35 @@ async function loadBillableEntries(
 
   const byId = new Map(projects.map((p) => [p.id as string, p]));
 
-  /* periodEnd is an inclusive date, so the window ends where the NEXT local
-     day begins. Stepping the date on the calendar rather than adding 24h:
-     a day containing a DST transition is 23 or 25 hours long. */
-  const startInstant = startOfLocalDate(opts.periodStart, opts.tz);
-  const endExclusive = startOfLocalDate(addDays(opts.periodEnd, 1), opts.tz);
+  const window = billingWindow(opts.periodStart, opts.periodEnd, opts.tz);
 
   const rows = await selectAll(() =>
     db
       .from('time_entries')
       .select(
-        'id, task_name, project_id, started_at, duration_seconds, is_billable, rate_override',
+        'id, task_name, project_id, started_at, ended_at, duration_seconds, is_billable, rate_override, invoice_id, invoiced_elsewhere',
       )
       .in('project_id', [...byId.keys()])
       .is('invoice_id', null)
       .eq('invoiced_elsewhere', false)
       .not('ended_at', 'is', null)
-      .gte('started_at', startInstant.toISOString())
-      .lt('started_at', endExclusive.toISOString())
+      .gte('started_at', window.start.toISOString())
+      .lt('started_at', window.end.toISOString())
       .order('started_at', { ascending: true }),
   );
 
-  return rows.map((row) => {
+  const billed = rows.filter((row) =>
+    isBillableEntry(
+      {
+        invoiceId: row.invoice_id as string | null,
+        invoicedElsewhere: row.invoiced_elsewhere as boolean,
+        endedAt: row.ended_at as string | null,
+        startedAt: row.started_at as string,
+      },
+      window,
+    ),
+  );
+  return billed.map((row) => {
     const project = byId.get(row.project_id as string);
     return {
       id: row.id as string,
@@ -139,50 +136,34 @@ async function loadBillableEntries(
   });
 }
 
-/**
- * What a draft bills of the client's expenses: every recurring one, and the
- * unbilled one-offs `assignExpenses` gives it among the client's open
- * drafts, less the ones the user left off. An earlier month's one-off is
- * included, so one missed invoice does not strand a reimbursement.
- *
- * A recurring expense has no date of its own, so its line takes the period's
- * last day: the date the invoice claims to cover. `recurring` tells the
- * caller not to claim it, since it bills again on the next invoice.
- */
+/** The client's expenses the draft bills (`billableExpenses`). */
 async function loadBillableExpenses(
   db: SupabaseClient,
   opts: { clientId: string; draft: OpenDraft; openDrafts: OpenDraft[] },
 ): Promise<Array<ExpenseInput & { recurring: boolean }>> {
   const { data, error } = await db
     .from('expenses')
-    .select('id, recurring, spent_on, description, amount, created_at')
+    .select(
+      'id, recurring, spent_on, description, amount, invoice_id, created_at',
+    )
     .eq('client_id', opts.clientId)
     .is('invoice_id', null)
     .order('spent_on', { ascending: true })
     .order('created_at', { ascending: true });
   if (error) throw error;
 
-  const rows = data ?? [];
-  const assigned = assignExpenses(
-    rows
-      .filter((r) => !r.recurring)
-      .map((r) => ({ id: r.id as string, spentOn: r.spent_on as string })),
-    [...opts.openDrafts.filter((d) => d.id !== opts.draft.id), opts.draft],
-  );
-  const { periodEnd, excludedExpenseIds } = opts.draft;
-  return rows
-    .filter((r) =>
-      r.recurring
-        ? !excludedExpenseIds.includes(r.id as string)
-        : assigned.get(r.id as string) === opts.draft.id,
-    )
-    .map((r) => ({
+  return billableExpenses(
+    (data ?? []).map((r) => ({
       id: r.id as string,
       recurring: r.recurring as boolean,
-      spentOn: (r.spent_on as string | null) ?? periodEnd,
+      spentOn: r.spent_on as string | null,
       description: r.description as string,
       amount: num(r.amount) ?? 0,
-    }));
+      invoiceId: r.invoice_id as string | null,
+    })),
+    opts.draft,
+    opts.openDrafts,
+  );
 }
 
 export interface InvoiceSettings {
