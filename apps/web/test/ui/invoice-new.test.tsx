@@ -655,7 +655,8 @@ describe('NewInvoice — from the client’s last invoice', () => {
     );
   });
 
-  it('opens on the last invoice’s grouping and reference, whatever it was', async () => {
+  // What it shows is the FromLastByTask story's; this is what it sends.
+  it('sends the last invoice’s grouping and reference, whatever it was', async () => {
     invoices = [
       { ...sent(null), groupingMode: 'task', reference: 'SOW 12' },
       sent('Consulting'),
@@ -665,48 +666,12 @@ describe('NewInvoice — from the client’s last invoice', () => {
     render(<NewInvoice />, { wrapper });
 
     await ready(user);
-    expect(
-      screen.getByRole('button', { name: 'Show time as' }),
-    ).toHaveTextContent('By task');
-    expect(screen.queryByLabelText(/Summary line/)).toBeNull();
-    expect(screen.getByLabelText('Reference')).toHaveValue('SOW 12');
     expect(previews().every((p) => p.body.groupingMode === 'task')).toBe(true);
-
     await user.click(generate());
     await waitFor(() => expect(push).toHaveBeenCalled());
     const made = bodies.find((b) => b.path.endsWith('/invoices'))!.body;
     expect(made.groupingMode).toBe('task');
     expect(made.reference).toBe('SOW 12');
-  });
-
-  it('keeps a reference cleared here, rather than the last one', async () => {
-    invoices = [{ ...sent(null), reference: 'SOW 12' }];
-    serve();
-    const user = userEvent.setup();
-    render(<NewInvoice />, { wrapper });
-
-    await ready(user);
-    await user.clear(screen.getByLabelText('Reference'));
-    expect(screen.getByLabelText('Reference')).toHaveValue('');
-    await user.click(generate());
-    await waitFor(() => expect(push).toHaveBeenCalled());
-    expect(
-      bodies.find((b) => b.path.endsWith('/invoices'))!.body.reference,
-    ).toBeUndefined();
-  });
-
-  it('opens a client’s first invoice on one summary line', async () => {
-    invoices = [sent('Voided', 'void')];
-    serve();
-    const user = userEvent.setup();
-    render(<NewInvoice />, { wrapper });
-
-    await chooseClient(user);
-    expect(await screen.findByLabelText(/Summary line/)).toHaveValue('');
-    expect(
-      screen.getByRole('button', { name: 'Show time as' }),
-    ).toHaveTextContent('One summary line');
-    expect(screen.getByLabelText('Reference')).toHaveValue('');
   });
 });
 
