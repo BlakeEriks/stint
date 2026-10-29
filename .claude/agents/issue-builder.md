@@ -203,9 +203,10 @@ On `ship` for a new PR: push, and `gh pr create` with a body that follows
 `.github/pull_request_template.md`, each section filled in as its comment
 says. **Why** stands on its own: the reviewer should know whether they want the
 change without opening the issue, so restate the problem in plain words
-even when the issue doesn't. **Needs you** holds any call the reviewer might make
-differently (a feature lists every decision marked "(decided
-autonomously)"). **How it works** holds how it was verified — only
+even when the issue doesn't. **Decisions made** holds every call you made without
+the reviewer, each with its reason (a feature lists every decision marked
+"(decided autonomously)"). **Needs you** holds only what the reviewer must
+do before merging or testing, or a question only they can answer. **How it works** holds how it was verified — only
 commands you ran this round and what they showed, and plainly what nobody
 has seen yet, like the menu bar. In **Try it**, `<n>` is the number `gh pr create` prints — never the
 issue's. Label the PR `migration` if its issue is. A stacked PR is opened
