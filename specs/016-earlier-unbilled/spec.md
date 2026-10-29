@@ -17,6 +17,16 @@ says so, and moves its period's start back only when she presses Include.
 #568 (PR #580) stops new work being stranded by a time zone change. This
 feature finds what is already stranded.
 
+## Clarifications
+
+### Session 2026-10-29
+
+- Q: How far back does a client's first invoice look? → A: 30 days before the period starts, the age at which #548's Inbox row asks about a client with no schedule. Older work is that row's, and its Create invoice opens a period of its own. (decided autonomously)
+- Q: Which zone dates the work? → A: The zone the invoice bills in, so the offer and the period agree on every entry's day. On this branch that is the zone New invoice previews in. Once #580 merges, it is the client's billing zone, `billingZone()`, and whichever of the two merges second makes the switch. (decided autonomously)
+- Q: Does the offer show when a draft is edited (#571)? → A: Yes, on the same screen and by the same rule. The draft being edited neither ends the look-back nor holds the work, and Save draft refuses a start moved onto another draft, as Generate does. #571 isn't merged; whichever merges second passes the edited draft's id. (decided autonomously)
+- Q: Does Include wait for the server? → A: No. It moves a date she can move back, so the period changes at once and the preview follows (Principle VI). (decided autonomously)
+- Q: Do expenses count? → A: No. A one-off expense already shows on the first draft whose period ends on or after its date, so none is left behind by a period's start. (decided autonomously)
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - See earlier unbilled work and include it (Priority: P1)
@@ -60,6 +70,8 @@ invoice for the next period, then press Include it.
   not a day either side.
 - She edits the start herself after Include: the offer is worked out again
   from the date she typed.
+- She edits a draft: the offer shows by the same rule, and the draft being
+  edited is left out of it.
 - Earlier work spans several days: the offer reads its first and last
   dates, "3 earlier entries, Sep 28 – Sep 30, aren't on any invoice".
 
@@ -82,6 +94,10 @@ invoice for the next period, then press Include it.
   name the draft and link to it instead of offering Include.
 - **FR-006**: An entry's date MUST be read in the zone the invoice bills in,
   the same zone that decides which entries the period holds.
+- **FR-007**: Include MUST change the period at once, with no wait on the
+  server; the preview then follows.
+- **FR-008**: When a draft is edited, the offer MUST leave that draft out of
+  FR-001 and FR-005.
 
 ### Key Entities
 
