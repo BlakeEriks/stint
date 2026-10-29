@@ -77,6 +77,30 @@ export const Light: Story = { ...light };
  *  Earned, the week's bar and the month count the session so far. */
 export const Running: Story = { ...desktop, parameters: account('running') };
 
+/** On a phone the page scrolls under the pinned timer bar, and nothing under
+ *  it shows through. */
+export const RunningPhoneScrolled: Story = {
+  ...phone,
+  parameters: account('running'),
+  play: async ({ canvasElement }) => {
+    const bar = await within(canvasElement).findByRole('region', {
+      name: 'Timer',
+    });
+    await within(bar).findByRole('button', { name: 'Stop timer' });
+    window.scrollTo(0, document.documentElement.scrollHeight / 2);
+    // The fill as painted: 255 is opaque, whatever color syntax it computes to.
+    const paint = document.createElement('canvas').getContext('2d');
+    if (!paint) throw new Error('No 2d canvas');
+    paint.fillStyle = getComputedStyle(bar).backgroundColor;
+    paint.fillRect(0, 0, 1, 1);
+    await expect(paint.getImageData(0, 0, 1, 1).data[3]).toBe(255);
+  },
+};
+export const RunningPhoneScrolledLight: Story = {
+  ...RunningPhoneScrolled,
+  globals: { ...phone.globals, theme: 'light' },
+};
+
 /** A Today row is a summary line: pressing it starts nothing. */
 export const TodayRowInert: Story = {
   ...desktop,
