@@ -368,8 +368,8 @@ function CalendarStatus({
   if (visibleSeconds === 0) {
     return (
       <p className={muted}>
-        Nothing logged {byDay ? 'this day' : 'this week'}. Click a time to add
-        an entry.
+        Nothing logged {byDay ? 'this day' : 'this week'}. Draw or click a time
+        to add an entry.
       </p>
     );
   }
@@ -498,7 +498,7 @@ function DayHeading({
   }).format(at);
 
   return (
-    <div className="group min-w-0 flex-1 px-1 py-2 text-center">
+    <div className="min-w-0 flex-1 px-1 py-2 text-center">
       {nameless ? null : (
         <>
           <div className="type-label text-subtle">{weekday}</div>
@@ -517,11 +517,9 @@ function DayHeading({
         <span className="type-meta text-subtle">
           {seconds > 0 ? formatCompact(seconds) : '—'}
         </span>
-        {/* The keyboard path to adding an entry, and the discoverable one:
-            clicking a time in the grid is faster but invisible until tried.
-            Always in the DOM so it is tabbable; shown on hover or focus so
-            seven of them do not compete with the durations, and always where
-            there is no hover, or a touch screen could never reach it. */}
+        {/* The keyboard path to adding an entry (WCAG 2.1.1). A pointer
+            draws or clicks a time on the grid instead, so this shows only
+            on keyboard focus, never on hover or touch. */}
         <button
           type="button"
           onClick={onAdd}
@@ -529,8 +527,7 @@ function DayHeading({
           className="rounded-sm px-0.5 text-subtle opacity-0 transition-opacity
                      hover:text-primary focus-visible:opacity-100
                      focus-visible:ring-2 focus-visible:ring-edge-focus
-                     focus-visible:outline-none group-hover:opacity-100
-                     [@media(hover:none)]:opacity-100"
+                     focus-visible:outline-none"
         >
           <Plus aria-hidden className="size-3" strokeWidth={2.5} />
         </button>

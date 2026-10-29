@@ -2,7 +2,12 @@
 
 import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery } from '@tanstack/react-query';
-import { formatCompact, formatCurrency, startOfLocalDay } from '@stint/core';
+import {
+  formatCompact,
+  formatCurrency,
+  SNAP_MINUTES,
+  startOfLocalDay,
+} from '@stint/core';
 import { CalendarDays, Plus } from 'lucide-react';
 import { api, type Project, type TimeEntry } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
@@ -104,7 +109,7 @@ export function EntryList({
           variant="ghost"
           size="xs"
           className={earnedToday === undefined ? 'ml-auto' : undefined}
-          onClick={() => editing.show({})}
+          onClick={() => editing.show({ seed: lastHour(new Date()) })}
         >
           <Plus aria-hidden />
           Add
@@ -169,6 +174,20 @@ export function EntryList({
       />
     </section>
   );
+}
+
+/**
+ * The hour up to the last quarter hour: what Add opens on. Work is logged
+ * after it is done, and an end in the future would be a guess.
+ */
+function lastHour(now: Date) {
+  const dayStart = startOfLocalDay(now, tz).getTime();
+  const step = SNAP_MINUTES * 60_000;
+  const end = dayStart + Math.floor((now.getTime() - dayStart) / step) * step;
+  return {
+    startedAt: new Date(end - 3_600_000).toISOString(),
+    endedAt: new Date(end).toISOString(),
+  };
 }
 
 /**
