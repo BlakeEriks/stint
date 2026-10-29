@@ -23,7 +23,9 @@ other read, `entitlement()`, decides only whether the PDF opens.
 preview and the PDF render one number one way.
 
 **An invalid `tz` is rejected rather than swallowed here.** The period is local
-dates, so the zone decides which entries are billed. Preview, generation,
+dates, so the zone decides which entries are billed: the client's billing
+zone, else the account's (`billingZone`), with `tz` only the fallback for an
+account that has none. Preview, generation,
 `GET /invoices`, `GET /invoices/:id`, `/pdf` and `/status` return 422 for
 one, the reads included, since each derives a draft. An omitted one defaults
 to UTC, except that sending a draft with no zone of its own refuses.
