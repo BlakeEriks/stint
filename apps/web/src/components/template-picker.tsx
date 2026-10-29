@@ -99,7 +99,7 @@ export function TemplatePicker({
       <div
         role="radiogroup"
         aria-label="Invoice template"
-        className={`grid gap-3 ${card ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-4 gap-2'}`}
+        className={`grid ${card ? 'grid-cols-2 gap-3 sm:grid-cols-4' : 'grid-cols-4 gap-2'}`}
       >
         {TEMPLATES.map((t) => {
           const on = t.id === value;

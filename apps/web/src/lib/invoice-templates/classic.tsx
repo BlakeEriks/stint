@@ -1,14 +1,11 @@
 import { Image, StyleSheet, Text, View } from '@react-pdf/renderer';
-import { formatQuantity, type DetailBlock } from '@stint/core';
+import { formatCurrency, formatQuantity, type DetailBlock } from '@stint/core';
 import { print } from '@stint/design-tokens';
 import {
-  accent,
   date,
   Lines,
-  money,
   PaymentView,
   period,
-  rowsPerPage,
   DetailView,
   payStyles,
   split,
@@ -30,9 +27,11 @@ import {
  */
 
 const LINE = 15;
-const M = { top: 44, x: 52, bottom: 52 };
+const M = { top: 44, right: 52, bottom: 52, left: 52 };
 const ROW = { padY: 3, rule: 0.5 };
-const RUN = LINE + 8 + 0.5 + 18;
+/** A detail page's running header: a line, the space over its rule, the
+ *  rule and the space under it. */
+const RUN = { pad: 8, rule: 0.5, after: 18 };
 const GAP = 18;
 
 const caps = {
@@ -43,11 +42,7 @@ const caps = {
 } as const;
 
 const s = StyleSheet.create({
-  // Line height is set on each section, never on the page: see standard.tsx.
   page: {
-    paddingTop: M.top,
-    paddingHorizontal: M.x,
-    paddingBottom: M.bottom,
     fontFamily: 'EB Garamond',
     fontSize: 10.5,
     color: print.ink,
@@ -58,7 +53,7 @@ const s = StyleSheet.create({
   rule: {
     width: 160,
     height: 1.25,
-    backgroundColor: accent,
+    backgroundColor: print.accent,
     marginVertical: 14,
   },
   logo: { width: 108, height: 36, objectFit: 'contain', marginBottom: 8 },
@@ -83,7 +78,7 @@ const s = StyleSheet.create({
   kvRow: { flexDirection: 'row', gap: 12, alignItems: 'baseline' },
   kvLabel: { ...caps, width: 60 },
   kvValue: { flexShrink: 1 },
-  part: { ...caps, color: accent, marginTop: 10, marginBottom: 2 },
+  part: { ...caps, color: print.accent, marginTop: 10, marginBottom: 2 },
   lines: { lineHeight: `${LINE}pt` },
   row: { flexDirection: 'row', alignItems: 'flex-end', paddingVertical: 3.5 },
   desc: { flexShrink: 1 },
@@ -123,7 +118,7 @@ const s = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 1.4,
   },
-  grandValue: { fontSize: 13, color: accent },
+  grandValue: { fontSize: 13, color: print.accent },
   terms: { color: print.muted, marginTop: 4, fontSize: 9.5 },
   pay: {
     marginTop: 20,
@@ -147,45 +142,26 @@ const s = StyleSheet.create({
     borderTopWidth: 0.5,
     borderTopColor: print.hairline,
   },
-  payLink: { marginTop: 8, color: accent },
+  payLink: { marginTop: 8, color: print.accent },
   payNotes: { marginTop: 8, color: print.muted },
   notes: { marginTop: 14, lineHeight: `${LINE}pt` },
-  footer: {
-    position: 'absolute',
-    bottom: 24,
-    left: M.x,
-    right: M.x,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    fontSize: 9,
-    color: print.muted,
-  },
-  voidMark: {
-    position: 'absolute',
-    top: 300,
-    left: 0,
-    right: 0,
-    textAlign: 'center',
-    fontSize: 76,
-    color: print.void,
-    opacity: 0.12,
-    letterSpacing: 10,
-  },
+  footer: { fontSize: 9, color: print.muted },
+  voidMark: { color: print.void },
 
   run: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'baseline',
-    paddingBottom: 8,
-    marginBottom: 18,
-    borderBottomWidth: 0.5,
+    paddingBottom: RUN.pad,
+    marginBottom: RUN.after,
+    borderBottomWidth: RUN.rule,
     borderBottomColor: print.ink,
     lineHeight: `${LINE}pt`,
   },
   runTitle: { textTransform: 'uppercase', fontSize: 10, letterSpacing: 1.6 },
   runMeta: { color: print.muted, fontSize: 9 },
   table: { marginBottom: GAP, lineHeight: `${LINE}pt` },
-  tTitle: { ...caps, fontSize: 9, color: accent, marginBottom: 4 },
+  tTitle: { ...caps, fontSize: 9, color: print.accent, marginBottom: 4 },
   continued: { textTransform: 'none', letterSpacing: 0, color: print.muted },
   tHead: {
     flexDirection: 'row',
@@ -218,8 +194,8 @@ function aside(li: LineItem, currency: string) {
   if (li.unit === 'fixed')
     return (li.quantity ?? 1) === 1
       ? 'fixed fee'
-      : `${formatQuantity('fixed', li.quantity ?? 0)} at ${money(li.unitPrice, currency)}`;
-  return `${formatQuantity('hour', li.quantity ?? 0)} at ${money(li.unitPrice, currency)}`;
+      : `${formatQuantity('fixed', li.quantity ?? 0)} at ${formatCurrency(li.unitPrice, currency)}`;
+  return `${formatQuantity('hour', li.quantity ?? 0)} at ${formatCurrency(li.unitPrice, currency)}`;
 }
 
 function Leaders({ items, currency }: { items: LineItem[]; currency: string }) {
@@ -228,7 +204,7 @@ function Leaders({ items, currency }: { items: LineItem[]; currency: string }) {
       <Text style={s.desc}>{li.description}</Text>
       <Text style={s.aside}>{aside(li, currency)}</Text>
       <View style={s.leader} />
-      <Text style={s.amount}>{money(li.amount, currency)}</Text>
+      <Text style={s.amount}>{formatCurrency(li.amount, currency)}</Text>
     </View>
   ));
 }
@@ -332,13 +308,12 @@ export const classic: Template = {
   page: s.page,
   voidMark: s.voidMark,
   footer: s.footer,
-  rowsPerPage: rowsPerPage({
-    top: M.top,
-    bottom: M.bottom,
-    header: RUN,
+  margin: M,
+  detail: {
+    header: LINE + RUN.pad + RUN.rule + RUN.after,
     tableGap: GAP,
     row: 2 * ROW.padY + LINE + ROW.rule,
-  }),
+  },
   First,
   Detail,
 };

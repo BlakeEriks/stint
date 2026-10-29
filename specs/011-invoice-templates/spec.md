@@ -24,7 +24,7 @@ sent keeps the template it was sent with.
 
 ## Design
 
-[invoice.html](design/invoice.html) · [settings.html](design/settings.html) · [new-invoice.html](design/new-invoice.html)
+[invoice.html](design/invoice.html): each template, Settings and New invoice
 
 Every template prints on white and uses the accent sparingly, so each sits
 beside Stint's own screens. Each page's supporting detail (hours by project,
@@ -60,7 +60,7 @@ its title marked "(continued)".
 - **Settings**: an "Invoice template" section between Business identity and
   Invoice numbering. Four cards in a radio group, each a thumbnail of the
   invoice in that template with its name, a line on what it is, and
-  Preview; the chosen card is edged in the accent with a check. Preview
+  Preview; the chosen card is edged in the accent. Preview
   opens the sample's first page at full size in a dialog, without choosing
   it; its "Use <template>" button chooses it. A press selects at once
   and saves. A refused save returns the selection to the saved template,

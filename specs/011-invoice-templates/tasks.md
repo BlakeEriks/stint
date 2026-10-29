@@ -25,7 +25,7 @@ Tests come first where a regression is silent (Constitution V).
 - [x] T009 [P] [US1] `apps/web/src/lib/invoice-templates/modern.tsx` per design/invoice.html
 - [x] T010 [P] [US1] `apps/web/src/lib/invoice-templates/classic.tsx` per design/invoice.html (synthetic small capitals: uppercase at 80% size)
 - [x] T011 [P] [US1] `apps/web/src/lib/invoice-templates/creative.tsx` per design/invoice.html (lines grouped time / fixed fees / expenses; empty kinds omitted)
-- [x] T012 [US1] `loadPdfData` in `apps/web/src/lib/invoicing.ts` resolves `template = invoice.template ?? settings.invoiceTemplate`; `recordDownload` stores it in `downloaded_snapshot`
+- [x] T012 [US1] `loadPdfData` in `apps/web/src/lib/invoicing.ts` resolves the template: the setting for a draft, else `invoice.template`; `recordDownload` stores it in `downloaded_snapshot`
 - [x] T013 [US1] `apps/web/scripts/render-sample-invoice.mjs` renders page 1 of each sample PDF to `apps/web/src/components/template-thumbs/<template>.png`
 - [x] T014 [US1] ui test `apps/web/test/ui/template-picker.test.tsx`: a press selects at once; a rejection restores the saved template and shows why
 - [x] T015 [US1] `useTemplateChoice()` over `useOptimisticMutation` and `TemplatePicker` (cards and mini sizes) in `apps/web/src/components/template-picker.tsx`, with stories

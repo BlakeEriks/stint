@@ -2,19 +2,16 @@ import { Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 import { formatCurrency, formatQuantity, type DetailBlock } from '@stint/core';
 import { print } from '@stint/design-tokens';
 import {
-  accent,
   date,
+  DetailView,
   Lines,
-  PAGE_SIZE,
   PaymentView,
-  rowsPerPage,
-  runMeta,
-  ScheduleView,
+  payStyles,
+  period,
+  split,
   TotalsView,
   type Data,
   type LineItem,
-  type PaymentStyles,
-  type ScheduleStyles,
   type Template,
   type TotalsStyles,
 } from './shared';
@@ -32,43 +29,15 @@ const LEADING = `${LINE}pt`;
  * The printed page, in points. A detail page's row count is derived from it,
  * so a change here re-flows the detail pages rather than overflowing them.
  */
-const PAGE = {
-  size: PAGE_SIZE,
-  margin: { top: 40, x: 44, bottom: 48 },
-  // The footer's distance from the bottom edge, inside the bottom margin.
-  footerInset: 24,
-  detailRow: { padY: 3.5, rule: 0.5 },
-  runHeader: { padBottom: 8, rule: 0.5, gap: 18 },
-  tableGap: 18,
-};
-
-const detailRowHeight = 2 * PAGE.detailRow.padY + LINE + PAGE.detailRow.rule;
-const runHeaderHeight =
-  LINE + PAGE.runHeader.padBottom + PAGE.runHeader.rule + PAGE.runHeader.gap;
-
-/**
- * One-line rows that fit a detail page under its running header.
- * `paginateSchedules` charges a table's headings and total one row each, but
- * not the gap under it, so the gap is reserved for every table a page can
- * hold.
- */
-const DETAIL_ROWS_PER_PAGE = rowsPerPage({
-  top: PAGE.margin.top,
-  bottom: PAGE.margin.bottom,
-  header: runHeaderHeight,
-  tableGap: PAGE.tableGap,
-  row: detailRowHeight,
-});
+const M = { top: 40, right: 44, bottom: 48, left: 44 };
+const ROW = { padY: 3.5, rule: 0.5 };
+/** A detail page's running header: a line, the space over its rule, the
+ *  rule and the space under it. */
+const RUN = { pad: 8, rule: 0.5, after: 18 };
+const GAP = 18;
 
 const styles = StyleSheet.create({
-  /* Line height is set on each section, never on the page: react-pdf
-     re-resolves the page-number Text's styles on every page and multiplies a
-     line height inherited from the page by the font size each time, in any
-     unit, until the footer is drawn far above the page. */
   page: {
-    paddingTop: PAGE.margin.top,
-    paddingHorizontal: PAGE.margin.x,
-    paddingBottom: PAGE.margin.bottom,
     fontSize: FONT,
     fontFamily: 'Helvetica',
     color: print.ink,
@@ -139,7 +108,7 @@ const styles = StyleSheet.create({
   /* An expense's date spans the quantity and rate columns it has no use
      for: at the quantity's width alone, a full date wraps. */
   cDate: { width: 136, textAlign: 'right', fontFamily: 'Courier' },
-  headCell: {
+  tHeadCell: {
     fontSize: 7.5,
     letterSpacing: 1.1,
     color: print.faint,
@@ -163,7 +132,7 @@ const styles = StyleSheet.create({
     borderTopColor: print.ink,
   },
   grandLabel: { fontSize: 11, fontFamily: 'Helvetica-Bold' },
-  grandValue: { fontSize: 13, fontFamily: 'Courier-Bold', color: accent },
+  grandValue: { fontSize: 13, fontFamily: 'Courier-Bold', color: print.accent },
 
   notes: {
     marginTop: 16,
@@ -207,77 +176,55 @@ const styles = StyleSheet.create({
   payLink: {
     marginTop: 8,
     fontSize: 9,
-    color: accent,
+    color: print.accent,
     fontFamily: 'Helvetica-Bold',
   },
-  footer: {
-    position: 'absolute',
-    bottom: PAGE.footerInset,
-    left: PAGE.margin.x,
-    right: PAGE.margin.x,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    fontSize: 8,
-    color: print.faint,
-  },
+  footer: { fontSize: 8, color: print.faint },
 
   // Supporting detail. Every row is one line, so a page holds a known number
   // of them and `paginateSchedules` can decide the breaks.
   run: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingBottom: PAGE.runHeader.padBottom,
-    marginBottom: PAGE.runHeader.gap,
-    borderBottomWidth: PAGE.runHeader.rule,
+    paddingBottom: RUN.pad,
+    marginBottom: RUN.after,
+    borderBottomWidth: RUN.rule,
     borderBottomColor: print.rule,
     lineHeight: LEADING,
   },
   runTitle: { fontFamily: 'Helvetica-Bold' },
   runMeta: { color: print.muted, fontSize: 8.5 },
-  schedule: { marginBottom: PAGE.tableGap, lineHeight: LEADING },
-  scheduleTitle: {
+  table: { marginBottom: GAP, lineHeight: LEADING },
+  tTitle: {
     fontSize: 11,
     fontFamily: 'Helvetica-Bold',
     marginBottom: 6,
   },
   continued: { fontFamily: 'Helvetica-Oblique', color: print.muted },
-  dRow: {
+  tRow: {
     flexDirection: 'row',
-    paddingVertical: PAGE.detailRow.padY,
-    borderBottomWidth: PAGE.detailRow.rule,
+    paddingVertical: ROW.padY,
+    borderBottomWidth: ROW.rule,
     borderBottomColor: print.rule,
   },
-  dSum: {
+  tSum: {
     flexDirection: 'row',
     paddingTop: 5,
     borderTopWidth: 1,
     borderTopColor: print.ink,
     fontFamily: 'Helvetica-Bold',
   },
-  cText: { flex: 1, paddingRight: 12, maxLines: 1, textOverflow: 'ellipsis' },
-  cDay: { width: 44 },
-  cWhen: { width: 96 },
-  cHours: { width: 62, textAlign: 'right', fontFamily: 'Courier' },
+  tText: { flex: 1, paddingRight: 12, maxLines: 1, textOverflow: 'ellipsis' },
+  tDay: { width: 44 },
+  tWhen: { width: 96 },
+  tHours: { width: 62, textAlign: 'right', fontFamily: 'Courier' },
 
-  voidMark: {
-    position: 'absolute',
-    top: 300,
-    left: 0,
-    right: 0,
-    textAlign: 'center',
-    fontSize: 76,
-    fontFamily: 'Helvetica-Bold',
-    color: print.void,
-    opacity: 0.12,
-    letterSpacing: 10,
-    lineHeight: LEADING,
-  },
+  voidMark: { fontFamily: 'Helvetica-Bold', color: print.void },
 });
 
 /** Helvetica, Courier figures, the accent on the total. */
 function First({ data }: { data: Data }) {
-  const services = data.lineItems.filter((li) => li.unit !== 'expense');
-  const expenses = data.lineItems.filter((li) => li.unit === 'expense');
+  const { services, expenses } = split(data);
   return (
     <>
       <Letterhead data={data} />
@@ -285,7 +232,9 @@ function First({ data }: { data: Data }) {
       <ServiceLines items={services} currency={data.currency} />
       <ExpenseLines items={expenses} currency={data.currency} />
       <TotalsView data={data} s={totals} />
-      {data.payment ? <PaymentView payment={data.payment} s={pay} /> : null}
+      {data.payment ? (
+        <PaymentView payment={data.payment} s={payStyles(styles)} />
+      ) : null}
       <Notes notes={data.notes} afterPay={Boolean(data.payment)} />
     </>
   );
@@ -345,12 +294,10 @@ function Dates({ data }: { data: Data }) {
           </Text>
         </View>
       </View>
-      {data.periodStart && data.periodEnd ? (
+      {period(data) ? (
         <View style={[styles.dateCell, { marginTop: 12 }]}>
           <Text style={styles.label}>SERVICE PERIOD</Text>
-          <Text style={styles.bizLine}>
-            {date(data.periodStart)} – {date(data.periodEnd)}
-          </Text>
+          <Text style={styles.bizLine}>{period(data)}</Text>
         </View>
       ) : null}
       {/* What accounts payable matches the invoice to. */}
@@ -376,10 +323,10 @@ function ServiceLines({
   return (
     <>
       <View style={styles.tHead}>
-        <Text style={[styles.cDesc, styles.headCell]}>DESCRIPTION</Text>
-        <Text style={[styles.cQty, styles.headCell]}>QTY</Text>
-        <Text style={[styles.cRate, styles.headCell]}>RATE</Text>
-        <Text style={[styles.cAmt, styles.headCell]}>AMOUNT</Text>
+        <Text style={[styles.cDesc, styles.tHeadCell]}>DESCRIPTION</Text>
+        <Text style={[styles.cQty, styles.tHeadCell]}>QTY</Text>
+        <Text style={[styles.cRate, styles.tHeadCell]}>RATE</Text>
+        <Text style={[styles.cAmt, styles.tHeadCell]}>AMOUNT</Text>
       </View>
       {items.map((li, i) => (
         <View key={i} style={styles.row} wrap={false}>
@@ -414,9 +361,9 @@ function ExpenseLines({
   return (
     <>
       <View style={[styles.tHead, { marginTop: 14 }]} wrap={false}>
-        <Text style={[styles.cDesc, styles.headCell]}>EXPENSES</Text>
-        <Text style={[styles.cDate, styles.headCell]}>DATE</Text>
-        <Text style={[styles.cAmt, styles.headCell]}>AMOUNT</Text>
+        <Text style={[styles.cDesc, styles.tHeadCell]}>EXPENSES</Text>
+        <Text style={[styles.cDate, styles.tHeadCell]}>DATE</Text>
+        <Text style={[styles.cAmt, styles.tHeadCell]}>AMOUNT</Text>
       </View>
       {items.map((li, i) => (
         <View key={i} style={styles.row} wrap={false}>
@@ -448,17 +395,7 @@ function Notes({
 }
 
 function Detail({ data, blocks }: { data: Data; blocks: DetailBlock[] }) {
-  return (
-    <>
-      <View style={styles.run}>
-        <Text style={styles.runTitle}>Supporting detail</Text>
-        <Text style={styles.runMeta}>{runMeta(data)}</Text>
-      </View>
-      {blocks.map((block, j) => (
-        <ScheduleView key={j} block={block} s={table} />
-      ))}
-    </>
-  );
+  return <DetailView data={data} blocks={blocks} s={styles} />;
 }
 
 const totals: TotalsStyles = {
@@ -472,37 +409,16 @@ const totals: TotalsStyles = {
   terms: { color: print.faint, marginTop: 6, fontSize: 8.5 },
 };
 
-const pay: PaymentStyles = {
-  box: styles.pay,
-  title: styles.payTitle,
-  grid: styles.payGrid,
-  cell: styles.payCell,
-  label: styles.payLabel,
-  value: styles.payValue,
-  sub: styles.paySub,
-  link: styles.payLink,
-  notes: styles.payNotes,
-};
-
-const table: ScheduleStyles = {
-  table: styles.schedule,
-  title: styles.scheduleTitle,
-  continued: styles.continued,
-  head: styles.tHead,
-  headCell: styles.headCell,
-  row: styles.dRow,
-  sum: styles.dSum,
-  text: styles.cText,
-  day: styles.cDay,
-  when: styles.cWhen,
-  hours: styles.cHours,
-};
-
 export const standard: Template = {
   page: styles.page,
   voidMark: styles.voidMark,
   footer: styles.footer,
-  rowsPerPage: DETAIL_ROWS_PER_PAGE,
+  margin: M,
+  detail: {
+    header: LINE + RUN.pad + RUN.rule + RUN.after,
+    tableGap: GAP,
+    row: 2 * ROW.padY + LINE + ROW.rule,
+  },
   First,
   Detail,
 };

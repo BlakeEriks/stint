@@ -4,6 +4,7 @@ import type { InvoiceTemplate } from '@stint/schema';
 import { registerFonts } from './invoice-templates/fonts';
 import {
   PAGE_SIZE,
+  rowsPerPage,
   type Data,
   type Template,
 } from './invoice-templates/shared';
@@ -21,7 +22,29 @@ const TEMPLATES: Record<InvoiceTemplate, Template> = {
 
 /** One-line rows a detail page holds in `template`. */
 export const detailRowsPerPage = (template: InvoiceTemplate) =>
-  TEMPLATES[template].rowsPerPage;
+  rowsPerPage(TEMPLATES[template]);
+
+/* Where every template's footer and VOID mark sit; the template gives only
+   their face. */
+const FOOTER_INSET = 24;
+const placed = {
+  footer: {
+    position: 'absolute',
+    bottom: FOOTER_INSET,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  voidMark: {
+    position: 'absolute',
+    top: 300,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontSize: 76,
+    opacity: 0.12,
+    letterSpacing: 10,
+  },
+} as const;
 
 /**
  * The invoice document, ink on white paper: the page has no background, so
@@ -30,8 +53,21 @@ export const detailRowsPerPage = (template: InvoiceTemplate) =>
  */
 function InvoiceDocument({ data }: { data: Data }) {
   const t = TEMPLATES[data.template];
+  const m = t.margin;
+  const page = [
+    {
+      paddingTop: m.top,
+      paddingRight: m.right,
+      paddingBottom: m.bottom,
+      paddingLeft: m.left,
+    },
+    t.page,
+  ];
   const footer = (
-    <View style={t.footer} fixed>
+    <View
+      style={[placed.footer, { left: m.left, right: m.right }, t.footer]}
+      fixed
+    >
       <Text>{data.invoiceNumber}</Text>
       <Text
         render={({ pageNumber, totalPages }) =>
@@ -46,8 +82,10 @@ function InvoiceDocument({ data }: { data: Data }) {
       title={data.invoiceNumber}
       author={data.business.name ?? undefined}
     >
-      <Page size={PAGE_SIZE} style={t.page}>
-        {data.status === 'void' && <Text style={t.voidMark}>VOID</Text>}
+      <Page size={PAGE_SIZE} style={page}>
+        {data.status === 'void' && (
+          <Text style={[placed.voidMark, t.voidMark]}>VOID</Text>
+        )}
         <t.First data={data} />
         {footer}
       </Page>
@@ -55,9 +93,9 @@ function InvoiceDocument({ data }: { data: Data }) {
       {/* Each detail page is a page of its own, so the detail starts on page
           2 however much room page 1 has left, and never sums into it. */}
       {data.supportingDetail
-        ? paginateSchedules(data.supportingDetail, t.rowsPerPage).map(
+        ? paginateSchedules(data.supportingDetail, rowsPerPage(t)).map(
             (blocks, i) => (
-              <Page key={i} size={PAGE_SIZE} style={t.page}>
+              <Page key={i} size={PAGE_SIZE} style={page}>
                 <t.Detail data={data} blocks={blocks} />
                 {footer}
               </Page>

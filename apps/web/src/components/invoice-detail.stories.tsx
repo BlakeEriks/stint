@@ -394,7 +394,6 @@ export const AsPrinted: Story = {
     if (!sent) return;
     sent.notes = 'Thank you for the work this month.';
     sent.paymentDetails = {
-      title: 'USD wire',
       fields: [
         { label: 'Account holder', value: 'Sam Rivera' },
         { label: 'Routing number (ACH)', value: '021000021' },
@@ -415,8 +414,6 @@ export const AsPrinted: Story = {
     ]) {
       await expect(await page.findByText(text)).toBeVisible();
     }
-    // The profile's name is the contractor's label, never printed.
-    await expect(page.queryByText(/USD wire/)).toBeNull();
   },
 };
 

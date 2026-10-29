@@ -8,16 +8,18 @@ import {
   Text,
   View,
 } from '@react-pdf/renderer';
-import { formatQuantity, linesByUnit, type DetailBlock } from '@stint/core';
+import {
+  formatCurrency,
+  formatQuantity,
+  linesByUnit,
+  type DetailBlock,
+} from '@stint/core';
 import { print } from '@stint/design-tokens';
 import {
-  accent,
   date,
   Lines,
-  money,
   PaymentView,
   period,
-  rowsPerPage,
   DetailView,
   payStyles,
   TotalsView,
@@ -37,7 +39,9 @@ import {
 const LINE = 14;
 const M = { top: 48, right: 52, bottom: 52, left: 76 };
 const ROW = { padY: 3.5, rule: 0.5 };
-const RUN = 26 + 8 + 2 + 18;
+/** A detail page's running header: its title, the space over its rule, the
+ *  rule and the space under it. */
+const RUN = { title: 26, pad: 8, rule: 2, after: 18 };
 const GAP = 18;
 const FIGURES = 'IBM Plex Mono';
 
@@ -49,12 +53,7 @@ const label = {
 } as const;
 
 const s = StyleSheet.create({
-  // Line height is set on each section, never on the page: see standard.tsx.
   page: {
-    paddingTop: M.top,
-    paddingRight: M.right,
-    paddingBottom: M.bottom,
-    paddingLeft: M.left,
     fontFamily: 'Space Grotesk',
     fontSize: 9.5,
     color: print.ink,
@@ -104,7 +103,7 @@ const s = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: accent,
+    backgroundColor: print.accent,
   },
   amount: {
     fontFamily: FIGURES,
@@ -207,42 +206,27 @@ const s = StyleSheet.create({
     borderTopWidth: 0.5,
     borderTopColor: print.rule,
   },
-  payLink: { marginTop: 8, fontWeight: 700, color: accent },
+  payLink: { marginTop: 8, fontWeight: 700, color: print.accent },
   payNotes: { marginTop: 8, fontSize: 8.5, color: print.muted },
   notes: { marginTop: 12, color: print.muted, lineHeight: `${LINE}pt` },
-  footer: {
-    position: 'absolute',
-    bottom: 24,
-    left: M.left,
-    right: M.right,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    fontSize: 8,
-    color: print.faint,
-  },
-  voidMark: {
-    position: 'absolute',
-    top: 300,
-    left: 0,
-    right: 0,
-    textAlign: 'center',
-    fontSize: 76,
-    fontWeight: 700,
-    color: print.void,
-    opacity: 0.12,
-    letterSpacing: 10,
-  },
+  footer: { fontSize: 8, color: print.faint },
+  voidMark: { fontWeight: 700, color: print.void },
 
   run: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    paddingBottom: 8,
-    marginBottom: 18,
-    borderBottomWidth: 2,
+    paddingBottom: RUN.pad,
+    marginBottom: RUN.after,
+    borderBottomWidth: RUN.rule,
     borderBottomColor: print.ink,
   },
-  runTitle: { fontSize: 22, fontWeight: 700, letterSpacing: -0.6 },
+  runTitle: {
+    fontSize: 22,
+    fontWeight: 700,
+    letterSpacing: -0.6,
+    lineHeight: `${RUN.title}pt`,
+  },
   runMeta: { color: print.muted, fontSize: 8.5 },
   table: { marginBottom: GAP, lineHeight: `${LINE}pt` },
   tTitle: { ...label, marginLeft: 8, textTransform: 'uppercase' },
@@ -278,7 +262,7 @@ const s = StyleSheet.create({
 const MARK = {
   circle: (
     <Svg width={10} height={10} viewBox="0 0 10 10">
-      <Circle cx={5} cy={5} r={5} fill={accent} />
+      <Circle cx={5} cy={5} r={5} fill={print.accent} />
     </Svg>
   ),
   square: (
@@ -288,14 +272,14 @@ const MARK = {
         y={0.5}
         width={9}
         height={9}
-        fill={accent}
+        fill={print.accent}
         transform="rotate(12 5 5)"
       />
     </Svg>
   ),
   triangle: (
     <Svg width={11} height={10} viewBox="0 0 11 10">
-      <Path d="M5.5 0 L11 10 L0 10 Z" fill={accent} />
+      <Path d="M5.5 0 L11 10 L0 10 Z" fill={print.accent} />
     </Svg>
   ),
 };
@@ -327,7 +311,7 @@ function Shapes() {
         fill={print.ink}
         transform="rotate(12 121 153)"
       />
-      <Circle cx={210} cy={176} r={22} fill={accent} />
+      <Circle cx={210} cy={176} r={22} fill={print.accent} />
       <Path
         d="M40 200 L74 140 L108 200 Z"
         fill="none"
@@ -353,11 +337,11 @@ function kinds(data: Data) {
       ? date(li.spentOn ?? null)
       : li.unit === 'fixed' && (li.quantity ?? 1) === 1
         ? 'Fixed'
-        : `${formatQuantity(li.unit, li.quantity ?? 0)} × ${money(li.unitPrice, cur)}`;
+        : `${formatQuantity(li.unit, li.quantity ?? 0)} × ${formatCurrency(li.unitPrice, cur)}`;
   let n = 0;
   return linesByUnit(data.lineItems).map((k) => ({
     ...KIND[k.unit],
-    sum: money(k.total, cur),
+    sum: formatCurrency(k.total, cur),
     rows: k.items.map((li) => ({ li, aside: aside(li), n: ++n })),
   }));
 }
@@ -387,7 +371,7 @@ function First({ data }: { data: Data }) {
         <View style={s.ring}>
           <View style={s.dot} />
           <Text style={s.label}>AMOUNT DUE</Text>
-          <Text style={s.amount}>{money(data.total, cur)}</Text>
+          <Text style={s.amount}>{formatCurrency(data.total, cur)}</Text>
           {data.dueDate ? (
             <Text style={s.muted}>by {date(data.dueDate)}</Text>
           ) : null}
@@ -440,7 +424,9 @@ function First({ data }: { data: Data }) {
                   <Text style={s.strong}>{li.description}</Text>
                   <Text style={s.muted}> {aside}</Text>
                 </Text>
-                <Text style={s.itemAmount}>{money(li.amount, cur)}</Text>
+                <Text style={s.itemAmount}>
+                  {formatCurrency(li.amount, cur)}
+                </Text>
               </View>
             ))}
           </View>
@@ -499,13 +485,12 @@ export const creative: Template = {
   page: s.page,
   voidMark: s.voidMark,
   footer: s.footer,
-  rowsPerPage: rowsPerPage({
-    top: M.top,
-    bottom: M.bottom,
-    header: RUN,
+  margin: M,
+  detail: {
+    header: RUN.title + RUN.pad + RUN.rule + RUN.after,
     tableGap: GAP,
     row: 2 * ROW.padY + LINE + ROW.rule,
-  }),
+  },
   First,
   Detail,
 };

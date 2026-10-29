@@ -1449,55 +1449,6 @@ test('the PDF renders from the frozen line items', async () => {
   );
 });
 
-/* The profile's name is the contractor's own label inside Stint, and an
-   issued invoice's frozen details may still carry it. Standard only, as
-   below; every template draws the heading through `PaymentView`. */
-test('the payment block is headed "Payment details", never the profile name', async () => {
-  const { renderInvoicePdf } = await import('../src/lib/invoice-pdf.tsx');
-  const pdf = await renderInvoicePdf({
-    template: 'standard',
-    invoiceNumber: 'INV-0042',
-    status: 'issued',
-    issueDate: '2026-10-01',
-    dueDate: null,
-    periodStart: null,
-    periodEnd: null,
-    currency: 'USD',
-    subtotal: 100,
-    taxRate: 0,
-    taxAmount: 0,
-    expensesSubtotal: 0,
-    total: 100,
-    notes: null,
-    paymentTerms: null,
-    business: { name: 'Sam Rivera', address: null, email: null, logoUrl: null },
-    client: { name: 'Northwind', email: null, address: null },
-    lineItems: [
-      {
-        description: 'Design work',
-        unit: 'hour' as const,
-        quantity: 1,
-        unitPrice: 100,
-        amount: 100,
-      },
-    ],
-    payment: {
-      title: 'Business checking',
-      fields: [{ label: 'Routing number (ACH)', value: '011000015' }],
-      intermediary: [],
-      link: null,
-      notes: null,
-    },
-  });
-
-  const text = pdfText(pdf)
-    .flat()
-    .map((r) => r.text)
-    .join(' ');
-  assert.match(text, /Payment details/);
-  assert.doesNotMatch(text, /Business checking/);
-});
-
 /* Standard only: the other templates embed their faces, which draw glyph
    ids `pdfText` cannot read. The shell draws the footer for every template. */
 test('every page of a long invoice shows its footer at the bottom', async () => {
@@ -1721,11 +1672,11 @@ test('the payment details chosen on the form are the ones frozen', async () => {
     );
   };
 
-  assert.equal(
-    (await make(WIRE)).body.paymentDetails.title,
-    'International wire',
-  );
-  assert.equal((await make()).body.paymentDetails.title, 'USD ACH');
+  // Each profile is told apart by its bank, the one field they differ in.
+  const bank = async (id?: string) =>
+    (await make(id)).body.paymentDetails.fields[0].value;
+  assert.equal(await bank(WIRE), 'Wise');
+  assert.equal(await bank(), 'First Republic');
 
   for (const id of [GONE, 'dd000000-0000-4000-8000-0000000000ff']) {
     const res = await make(id);
@@ -1759,7 +1710,6 @@ test('an invoice freezes the payment profile at generation', async () => {
   );
   const frozen = rows[0].payment_details;
   assert.ok(frozen, 'the snapshot is written at generation');
-  assert.equal(frozen.title, 'USD ACH');
   // JSONB comes back untyped from pg.
   type Field = { label: string; value: string };
   const labels = (frozen.fields as Field[]).map((f) => f.label);
@@ -1878,7 +1828,7 @@ test('a client profile preference overrides the user default', async () => {
     'select payment_details from invoices where id=$1',
     [inv.body.id],
   );
-  assert.equal(rows[0].payment_details.title, 'EUR wire');
+  assert.equal(rows[0].payment_details.fields[0].value, '222');
 });
 
 test('an invoice generates fine with no payment profile configured', async () => {

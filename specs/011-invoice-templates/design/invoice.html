@@ -423,8 +423,8 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .t-modern th { padding: 0 0 7px; border-bottom: .5px solid var(--print-rule); }
 .t-modern td { padding: 8px 0; border-bottom: .5px solid var(--print-hairline); }
 .t-modern .grp th { padding-top: 16px; }
-.t-modern .end { display: grid; grid-template-columns: 1fr 230px; gap: 36px; margin-top: 18px; align-items: start; }
-.t-modern .end .totals { width: auto; margin: 0; }
+.t-modern .end, .t-creative .end { display: grid; grid-template-columns: 1fr 230px; gap: 36px; margin-top: 18px; align-items: start; }
+.t-modern .end .totals, .t-creative .end .totals { width: auto; margin: 0; }
 .t-modern .totals .flex { padding: 3px 0; }
 .t-modern .grand { margin-top: 6px; padding-top: 9px; border-top: .5px solid var(--print-ink); font-size: 11px; font-weight: 600; }
 .t-modern .grand .v { color: var(--accent-default); }
@@ -449,7 +449,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .t-classic .title { font-size: 26px; line-height: 30px; font-style: italic; text-align: center; }
 .t-classic .no { text-align: center; font-variant: small-caps; letter-spacing: 1.4px; color: var(--print-muted); }
 .t-classic .meta { display: flex; justify-content: space-between; margin-bottom: 18px; padding-top: 14px; border-top: .5px solid var(--print-rule); }
-.t-classic .kv { display: grid; grid-template-columns: auto auto; gap: 1px 12px; text-align: right; align-content: start; }
+.t-classic .kv { display: grid; grid-template-columns: auto auto; gap: 1px 12px; text-align: left; align-content: start; }
 .t-classic .kv .lab { line-height: 15px; }
 .t-classic .toc .part { margin: 10px 0 2px; color: var(--accent-default); }
 .t-classic .toc .row { display: flex; align-items: baseline; gap: 6px; padding: 3.5px 0; }
@@ -630,8 +630,8 @@ const totals = (grandLabel = 'Amount due') => `<div class="totals">
   <div class="flex"><span class="m">Reimbursed expenses</span><span class="mono">${inv.expenses_total}</span></div>
   <div class="flex grand"><span class="k">${grandLabel}</span><span class="v mono">${inv.total}</span></div>
 </div>`;
-const pay = (title = 'Pay by ACH · Business checking', withNotes = true) => `<div class="pay">
-  <div class="b">${title}</div>
+const pay = (withNotes = true) => `<div class="pay">
+  <div class="b">Payment details</div>
   <div class="pay-grid">${inv.pay.map(([k, v]) => `<div><div class="lab">${k}</div><div class="mono">${v}</div></div>`).join('')}</div>
 </div>
 ${withNotes ? `<div class="notes">${inv.notes}</div>` : ''}`;
@@ -672,7 +672,7 @@ const papers = {
     </div>
     ${table()}
     <div class="end">
-      ${pay('Pay by ACH', false)}
+      ${pay(false)}
       ${totals('Amount due')}
     </div>
     <div class="thanks">${inv.notes}</div>
@@ -699,7 +699,7 @@ const papers = {
       ${inv.expenses.map((e) => `<div class="row"><span class="d">${e.d}</span><span class="q">${e.on}</span><span class="dots"></span><span class="a">${e.a}</span></div>`).join('')}
     </div>
     ${totals('Balance due')}
-    ${pay('Pay by ACH')}
+    ${pay()}
     ${foot()}
   </div>`,
   creative: () => {
@@ -736,7 +736,7 @@ const papers = {
     </div>
     ${kinds.map((k) => `<div class="kind">${k.mark}<span class="lab">${k.title}</span><span class="sum fig">${k.sum}</span></div>
       ${k.rows.map((x) => `<div class="it"><span class="n fig">${String(++n).padStart(2, '0')}</span><div><b>${x.d}</b> <span class="m">${x.sub}</span></div><span class="a fig">${x.a}</span></div>`).join('')}`).join('')}
-    ${totals('Total')}${pay('Pay by ACH')}${foot()}
+    <div class="end">${pay()}${totals('Total')}</div>${foot()}
   </div>`;
   }
 };
@@ -789,14 +789,14 @@ const settings = (state) => {
   <div class="section">
     <div class="section-head">
       <div><h2 class="type-section strong">Invoice template</h2><p class="type-support muted">How your invoices look. Every template prints the same details.</p></div>
-      <span class="type-meta subtle">${state === 'rejected' ? '' : 'Saved'}</span>
+      
     </div>
     <div class="picker" role="radiogroup" aria-label="Invoice template">
       ${T.map((t) => `<button class="pick" role="radio" aria-checked="${t.id === sel}" data-pick="${t.id}">
         <div class="thumb">${light(papers[t.id]())}</div>
-        <span class="badge">${check}</span>
         <span class="type-control strong">${t.name}</span>
         <span class="type-meta subtle">${t.line}</span>
+        <span class="type-meta strong">Preview</span>
       </button>`).join('')}
     </div>
     ${state === 'rejected'
@@ -830,9 +830,8 @@ const newInvoice = () => {
       </div>
     </div>
     <div class="nf-prev">
-      <div class="row-cap type-label subtle">Preview · ${T.find((t) => t.id === chosen).name}</div>
-      <div class="sheet-wrap">${light(papers[chosen]())}</div>
-      ${detail(chosen).map((d) => `<div class="sheet-wrap">${light(d)}</div>`).join('')}
+      <div class="row-cap type-label subtle">Preview</div>
+      <p class="type-support muted">The invoice preview, unchanged: what the invoice says, not its template. The chosen look shows only in the thumbnails and the PDF.</p>
     </div>
   </div>`;
   withDetail = was;
@@ -840,18 +839,16 @@ const newInvoice = () => {
 };
 
 const views = {
-  picker: { title: 'Settings · picker', page: 'Settings', note: '<b>Settings, between Business identity and Invoice numbering.</b> Four cards, each a thumbnail of the real PDF drawn from your seeded data. A press selects at once and autosaves, like every other Settings section. Click a card to try it.', render: () => settings() },
+  picker: { title: 'Settings · picker', page: 'Settings', note: '<b>Settings, between Business identity and Invoice numbering.</b> Four cards, each page 1 of a sample invoice\'s PDF in that template, with Preview to see it full size without choosing it. A press selects and saves at once, on its own press rather than after a pause like the fields around it. Click a card to try it.', render: () => settings() },
   rejected: { title: 'Settings · save failed', page: 'Settings', note: '<b>The save was refused:</b> the selection goes back to the saved template and the line under the cards says why, in the section that stays open (Constitution VI).', render: () => settings('rejected') },
-  newinv: { title: 'New invoice', page: 'New invoice', note: '<b>New invoice gets the same picker, last in the form</b> as four small thumbnails. Picking one is the account\'s template: it saves at once, Settings shows the same choice, and every draft follows it. The preview beside the form draws the invoice in the chosen template, supporting detail included. Click a thumbnail to try it.', render: () => newInvoice() },
+  newinv: { title: 'New invoice', page: 'New invoice', note: '<b>New invoice gets the same picker, last in the form</b> as four small thumbnails. Picking one is the account\'s template: it saves at once, Settings shows the same choice, and every draft follows it. Each has Preview too. The preview beside the form is unchanged: a user\'s own invoice in a template is the PDF. Click a thumbnail to try it.', render: () => newInvoice() },
   standard: { title: 'Standard', page: 'STINT-0015', note: '<b>Standard is today\'s PDF, without the payment notice.</b> Best at: nothing to learn, and every invoice sent so far already looks like this. Accent once, on the amount due.', render: () => sheet('standard') },
   modern: { title: 'Modern', page: 'STINT-0015', note: '<b>Modern, in Outfit.</b> The light-weight word "Invoice" heads the page with the business across from it, so the header fills the width. Every row after spans the page: billed to, dates and the amount due; period and reference; the lines; then payment beside the totals. Green marks the rule under the header and the amount due. Best at: a sleek page that still reads at a glance. Cost: no headline color, by design.', render: () => sheet('modern') },
   classic: { title: 'Classic', page: 'STINT-0015', note: '<b>Classic, in EB Garamond.</b> An italic "Invoice" heads the page, the one italic on it, over its number; a green rule; then the name centered in small capitals over its address. Lines read like a table of contents with dotted leaders. Green marks the rule, the section labels and the balance due. Best at: a formal, literary page that still sits beside the others. Cost: quantity and rate read as a phrase, not a column.', render: () => sheet('classic') },
   creative: { title: 'Creative', page: 'STINT-0015', note: '<b>Creative groups the lines by kind:</b> time, fixed fees and expenses, each headed by one of the page\'s shapes in green with its subtotal, numbered straight through. A kind with no lines is left out. Figures are IBM Plex Mono, the app\'s own. Best at: designers and studios. Cost: the busiest page, and the shapes take room from the first page.', render: () => sheet('creative') },
 };
 
-/* This screen's states. */
-for (const k of Object.keys(views)) if (!['standard', 'modern', 'classic', 'creative'].includes(k)) delete views[k];
-let phone = false, current = 'standard';
+let phone = false, current = 'picker';
 function sheet(id) {
   return `<div class="sheet-wrap">${light(papers[id]())}</div>${withDetail ? detail(id).map((d) => `<div class="sheet-wrap">${light(d)}</div>`).join('') : ''}`;
 }

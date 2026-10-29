@@ -48,11 +48,11 @@ so no screen shows it free
 
 | Principle (`.specify/memory/constitution.md`) | Applies | How the design meets it |
 | --- | --- | --- |
-| I. Never silently modifies user data | Yes | Choosing a template changes only the setting. A sent invoice's template is never rewritten; existing sent and void invoices are backfilled to `standard`, the look they already have. |
-| II. Logic written twice has a parity test | No | The template is resolved once, in TypeScript (`invoice.template ?? settings.invoiceTemplate`); SQL only stores it. The HTML thumbnails duplicate presentation, not logic. |
+| I. Never silently modifies user data | Yes | Choosing a template changes only the setting. A sent invoice's template is never rewritten; the column's default makes existing sent and void invoices `standard`, the look they already have. |
+| II. Logic written twice has a parity test | No | The template is resolved once, in TypeScript (the setting for a draft, else `invoice.template`); SQL only stores it. The thumbnails are rendered from the PDF code, so no look is drawn twice. |
 | III. Every client through `/api/v1` | Yes | The setting goes through `PATCH /api/v1/settings`; the freeze happens inside the existing Mark sent route. No Server Actions. |
 | IV. `packages/core` does no I/O | Yes | Nothing new in core. `paginateSchedules` already takes rows per page; each template passes its own. |
-| V. Tests first where a regression is silent | Yes | Route tests for the setting, the freeze and the backfill; a ui test for the picker's prediction and rollback; a story per template and per picker state. |
+| V. Tests first where a regression is silent | Yes | Route tests for the setting, the freeze and the default; a ui test for the picker's prediction and rollback; a story per template and per picker state. |
 | VI. Every press answers in the same frame | Yes | The picker writes through `useOptimisticMutation`: selected at once, and a rejection restores the saved template and says why under the picker. |
 
 Additional Constraints: an issued invoice stays immutable (`guard_issued_invoice`
@@ -77,7 +77,7 @@ specs/011-invoice-templates/
 ### Source Code
 
 ```text
-supabase/migrations/<ts>_invoice_templates.sql     # columns, check, backfill, send_draft
+supabase/migrations/<ts>_invoice_templates.sql     # columns, checks, send_draft
 packages/schema/src/index.ts                       # InvoiceTemplate enum; Settings, Invoice
 apps/web/src/lib/invoice-pdf.tsx                   # shell: pages, VOID, detail pagination, footer
 apps/web/src/lib/invoice-templates/

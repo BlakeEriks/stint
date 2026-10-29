@@ -46,15 +46,14 @@ export const SAMPLE = {
   periodStart: '2026-09-01',
   periodEnd: '2026-09-30',
   currency: 'USD',
-  subtotal: 4212.75,
+  subtotal: 3967.5,
   taxRate: 8.25,
-  taxAmount: 347.55,
+  taxAmount: 327.32,
   expensesSubtotal: 84,
-  total: 4644.3,
+  total: 4378.82,
   notes: 'Thanks for a great quarter.',
   // Bank details belong on the invoice document, never in the email body.
   payment: {
-    title: 'USD ACH',
     fields: [
       { label: 'Account holder', value: 'Sam Rivera' },
       { label: 'Bank', value: 'First Republic Bank' },
@@ -70,38 +69,31 @@ export const SAMPLE = {
   paymentTerms: 'Net 30',
   business: {
     name: 'Sam Rivera',
-    address: '1847 Clement Street\nSan Francisco, CA 94121\nUnited States',
+    address: '1847 Clement Street\nSan Francisco, CA 94121',
     email: 'sam@example.dev',
     logoUrl: null,
   },
   client: {
     name: 'Northwind Trading Co.',
     email: 'ap@northwind.example',
-    address: '1 Harbour Street\nSeattle, WA 98104\nUnited States',
+    address: '1 Harbour Street\nSeattle, WA 98104',
   },
   lineItems: [
     {
       description: 'Onboarding email sequence rework',
       unit: 'hour',
-      quantity: 12.25,
+      quantity: 12.5,
       unitPrice: 175,
-      amount: 2143.75,
+      amount: 2187.5,
     },
-    // A different rate on the same invoice: these must not merge with the
-    // 175/h lines above.
-    {
-      description: 'Q4 retainer scoping call',
-      unit: 'hour',
-      quantity: 1.75,
-      unitPrice: 220,
-      amount: 385.0,
-    },
+    // A different rate on the same invoice: it must not merge with the
+    // 175/h line above.
     {
       description: 'Performance profiling, product listing pages',
       unit: 'hour',
-      quantity: 7.4,
+      quantity: 8,
       unitPrice: 160,
-      amount: 1184.0,
+      amount: 1280.0,
     },
     // Each kind of line, so every template shows how it sets them apart.
     {
@@ -124,22 +116,22 @@ export const SAMPLE = {
   // Long enough that the date table continues onto a third page.
   supportingDetail: {
     project: [
-      { project: 'Checkout', hours: 21.6 },
-      { project: 'Onboarding', hours: 14 },
+      { project: 'Checkout', hours: 8 },
+      { project: 'Onboarding', hours: 12.5 },
     ],
     week: [
-      { start: '2026-09-01', end: '2026-09-06', hours: 9 },
-      { start: '2026-09-07', end: '2026-09-13', hours: 11.5 },
-      { start: '2026-09-14', end: '2026-09-20', hours: 6.85 },
-      { start: '2026-09-21', end: '2026-09-27', hours: 6.25 },
-      { start: '2026-09-28', end: '2026-09-30', hours: 2 },
+      { start: '2026-09-01', end: '2026-09-06', hours: 5.5 },
+      { start: '2026-09-07', end: '2026-09-13', hours: 6.5 },
+      { start: '2026-09-14', end: '2026-09-20', hours: 4 },
+      { start: '2026-09-21', end: '2026-09-27', hours: 3 },
+      { start: '2026-09-28', end: '2026-09-30', hours: 1.5 },
     ],
     date: Array.from({ length: 30 }, (_, i) => ({
       date: `2026-09-${String(i + 1).padStart(2, '0')}`,
       project: i % 3 ? 'Checkout' : 'Onboarding',
-      hours: 1.19,
+      hours: i % 3 ? 0.4 : 1.25,
     })),
-    totalHours: 35.6,
+    totalHours: 20.5,
   },
 };
 
@@ -165,8 +157,8 @@ for (const template of ['standard', 'modern', 'classic', 'creative']) {
     outFile,
     resolve(thumbDir, template),
   ]);
-  // The thumbnail is page 1, so the whole invoice must fit on it: a payment
-  // block pushed to page 2 would vanish from the picker.
+  // The thumbnail is page 1, so the whole invoice must fit on it: payment
+  // details or notes pushed to page 2 would vanish from the picker.
   const page1 = execFileSync(
     'pdftotext',
     ['-f', '1', '-l', '1', outFile, '-'],
@@ -174,6 +166,13 @@ for (const template of ['standard', 'modern', 'classic', 'creative']) {
       encoding: 'utf8',
     },
   );
-  if (!page1.includes('021000021'))
-    throw new Error(`${template}: payment details are not on page 1`);
+  const routing = SAMPLE.payment.fields.find((f) =>
+    f.label.startsWith('Routing'),
+  ).value;
+  for (const [what, text] of [
+    ['payment details', routing],
+    ['notes', SAMPLE.notes],
+  ])
+    if (!page1.includes(text))
+      throw new Error(`${template}: the ${what} are not on page 1`);
 }

@@ -6,13 +6,15 @@ enum in `@stint/schema` and a check in SQL.
 | Column | Type | Rule |
 | --- | --- | --- |
 | `user_settings.invoice_template` | `text not null default 'standard'` | in the four |
-| `invoices.template` | `text` | in the four; null only while `status = 'draft'` |
+| `invoices.template` | `text not null default 'standard'` | in the four |
 
-- **Migration** adds both, backfills every non-draft invoice to `standard`,
-  then adds `check (status = 'draft' or template is not null)`.
-- **Draft**: `template` is null; it renders in `user_settings.invoice_template`.
-- **Sent**: `send_draft` sets `template` from `p_invoice->>'template'`;
+- **Migration** adds both; the default makes every existing invoice
+  `standard`, the look it already has, without touching a row.
+- **Draft**: its stored `template` is ignored, and the API returns null; it
+  renders in `user_settings.invoice_template`.
+- **Sent**: `send_draft` sets `template` from `p_invoice->>'template'`, else
+  keeps the stored one;
   `guard_issued_invoice` keeps it fixed from then on, void included.
 - **`downloaded_snapshot`** gains `template`, the template that PDF was drawn in.
-- **Effective template**: `invoice.template ?? settings.invoiceTemplate`,
-  resolved in `loadPdfData` and on the client.
+- **Effective template**: the setting for a draft, else `invoice.template`,
+  resolved in `loadPdfData`.

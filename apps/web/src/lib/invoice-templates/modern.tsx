@@ -1,14 +1,11 @@
 import { Image, StyleSheet, Text, View } from '@react-pdf/renderer';
-import { formatQuantity, type DetailBlock } from '@stint/core';
+import { formatCurrency, formatQuantity, type DetailBlock } from '@stint/core';
 import { print } from '@stint/design-tokens';
 import {
-  accent,
   date,
   Lines,
-  money,
   PaymentView,
   period,
-  rowsPerPage,
   DetailView,
   payStyles,
   split,
@@ -26,9 +23,11 @@ import {
  */
 
 const LINE = 14.5;
-const M = { top: 46, x: 52, bottom: 52 };
+const M = { top: 46, right: 52, bottom: 52, left: 52 };
 const ROW = { padY: 5, rule: 0.5 };
-const RUN = 28 + 14 + 1 + 22;
+/** A detail page's running header: its title, the gap, the rule and the
+ *  space under it. */
+const RUN = { title: 28, gap: 14, rule: 1, after: 22 };
 const GAP = 18;
 
 const label = {
@@ -39,11 +38,7 @@ const label = {
 } as const;
 
 const s = StyleSheet.create({
-  // Line height is set on each section, never on the page: see standard.tsx.
   page: {
-    paddingTop: M.top,
-    paddingHorizontal: M.x,
-    paddingBottom: M.bottom,
     fontFamily: 'Outfit',
     fontSize: 9.5,
     color: print.ink,
@@ -69,7 +64,7 @@ const s = StyleSheet.create({
     top: -1,
     width: 56,
     height: 3,
-    backgroundColor: accent,
+    backgroundColor: print.accent,
   },
   label,
   info: { flexDirection: 'row', gap: 20, lineHeight: `${LINE}pt` },
@@ -80,7 +75,7 @@ const s = StyleSheet.create({
     fontSize: 22,
     fontWeight: 500,
     letterSpacing: -0.3,
-    color: accent,
+    color: print.accent,
     lineHeight: 1.2,
   },
   strong: { fontWeight: 600 },
@@ -150,7 +145,7 @@ const s = StyleSheet.create({
     borderTopWidth: 0.5,
     borderTopColor: print.hairline,
   },
-  payLink: { marginTop: 8, color: accent, fontWeight: 600 },
+  payLink: { marginTop: 8, color: print.accent, fontWeight: 600 },
   payNotes: { marginTop: 8, fontSize: 8.5, color: print.muted },
   notes: {
     marginTop: 26,
@@ -160,38 +155,22 @@ const s = StyleSheet.create({
     color: print.muted,
     lineHeight: `${LINE}pt`,
   },
-  footer: {
-    position: 'absolute',
-    bottom: 24,
-    left: M.x,
-    right: M.x,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    fontSize: 8,
-    color: print.faint,
-  },
-  voidMark: {
-    position: 'absolute',
-    top: 300,
-    left: 0,
-    right: 0,
-    textAlign: 'center',
-    fontSize: 76,
-    fontWeight: 600,
-    color: print.void,
-    opacity: 0.12,
-    letterSpacing: 10,
-  },
+  footer: { fontSize: 8, color: print.faint },
+  voidMark: { fontWeight: 600, color: print.void },
 
   run: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    marginBottom: 14,
+    marginBottom: RUN.gap,
   },
-  runTitle: { fontSize: 24, fontWeight: 300, lineHeight: 1.15 },
+  runTitle: { fontSize: 24, fontWeight: 300, lineHeight: `${RUN.title}pt` },
   runMeta: { color: print.muted, fontSize: 8.5 },
-  runRule: { height: 1, backgroundColor: print.rule, marginBottom: 22 },
+  runRule: {
+    height: RUN.rule,
+    backgroundColor: print.rule,
+    marginBottom: RUN.after,
+  },
   table: { marginBottom: GAP, lineHeight: `${LINE}pt` },
   tTitle: { ...label, marginBottom: 6, textTransform: 'uppercase' },
   continued: { color: print.muted, letterSpacing: 0 },
@@ -246,10 +225,10 @@ function LineRows({
           <Text style={s.cQty}>
             {formatQuantity(li.unit, li.quantity ?? 0)}
           </Text>
-          <Text style={s.cRate}>{money(li.unitPrice, currency)}</Text>
+          <Text style={s.cRate}>{formatCurrency(li.unitPrice, currency)}</Text>
         </>
       )}
-      <Text style={s.cAmt}>{money(li.amount, currency)}</Text>
+      <Text style={s.cAmt}>{formatCurrency(li.amount, currency)}</Text>
     </View>
   ));
 }
@@ -297,7 +276,9 @@ function Info({ data }: { data: Data }) {
       </View>
       <View style={s.due}>
         <Text style={s.label}>AMOUNT DUE</Text>
-        <Text style={s.amount}>{money(data.total, data.currency)}</Text>
+        <Text style={s.amount}>
+          {formatCurrency(data.total, data.currency)}
+        </Text>
       </View>
     </View>
   );
@@ -407,7 +388,7 @@ const totals: TotalsStyles = {
   value: {},
   grand: s.grand,
   grandLabel: {},
-  grandValue: { color: accent },
+  grandValue: { color: print.accent },
   terms: s.terms,
 };
 
@@ -415,13 +396,12 @@ export const modern: Template = {
   page: s.page,
   voidMark: s.voidMark,
   footer: s.footer,
-  rowsPerPage: rowsPerPage({
-    top: M.top,
-    bottom: M.bottom,
-    header: RUN,
+  margin: M,
+  detail: {
+    header: RUN.title + RUN.gap + RUN.rule + RUN.after,
     tableGap: GAP,
     row: 2 * ROW.padY + LINE + ROW.rule,
-  }),
+  },
   First,
   Detail,
 };

@@ -12,15 +12,10 @@ import {
   type WeekRow,
 } from '@stint/core';
 import type { InvoiceTemplate } from '@stint/schema';
-import { print } from '@stint/design-tokens';
 
 export type Style = Parameters<typeof StyleSheet.create>[0][string];
 
-/** The brand mark on paper: each template spends it in the few places its
- *  design names. */
-export const accent = print.accent;
-
-interface InvoicePdfData {
+export interface Data {
   invoiceNumber: string;
   status: string;
   issueDate: string;
@@ -56,7 +51,6 @@ interface InvoicePdfData {
   }>;
   /** Frozen payment snapshot from the invoice; null when none was set. */
   payment?: {
-    title: string | null;
     fields: Array<{ label: string; value: string }>;
     intermediary: Array<{ label: string; value: string }>;
     link: { label: string; url: string } | null;
@@ -67,23 +61,34 @@ interface InvoicePdfData {
   template: InvoiceTemplate;
 }
 
-export type Data = InvoicePdfData;
 export type LineItem = Data['lineItems'][number];
 export type Payment = NonNullable<Data['payment']>;
 
 /**
- * One template: its page, its first page's content and its detail pages'.
- * The document shell around it draws what every template shares — the VOID
- * mark, the footer and where the detail pages break — so none can drop one.
+ * One template: its margins and faces, its first page's content and its
+ * detail pages'. The document shell around it places what every template
+ * shares — the margins, the VOID mark, the footer and where the detail pages
+ * break — so none can drop one or get its geometry wrong.
  */
 export interface Template {
-  /** Margins, font and color for every page. */
+  margin: { top: number; right: number; bottom: number; left: number };
+  /**
+   * The body's font, size and color. Never a line height: react-pdf
+   * re-resolves the page-number Text's styles on every page and multiplies a
+   * line height inherited from the page by the font size each time, in any
+   * unit, until the footer is drawn far above the page. Each section sets
+   * its own.
+   */
   page: Style;
-  /** The VOID mark's face; the shell places it. */
+  /** The VOID mark's face and the footer's; the shell places both. */
   voidMark: Style;
   footer: Style;
-  /** One-line rows a detail page holds; `paginateSchedules` breaks on it. */
-  rowsPerPage: number;
+  /**
+   * A detail page's heights, in points, from which the shell derives how many
+   * rows it holds: the running header with the space under it, the gap under
+   * each table, and one one-line row.
+   */
+  detail: { header: number; tableGap: number; row: number };
   First: (p: { data: Data }) => ReactNode;
   Detail: (p: { data: Data; blocks: DetailBlock[] }) => ReactNode;
 }
@@ -96,21 +101,14 @@ export const PAGE_SIZE = { width: 612, height: 792 };
  * and total one row each, but not the gap under it, so the gap is reserved
  * for every table a page can hold.
  */
-export function rowsPerPage(g: {
-  top: number;
-  bottom: number;
-  /** The running header, with the space under it. */
-  header: number;
-  tableGap: number;
-  row: number;
-}) {
+export function rowsPerPage(t: Template) {
   return Math.floor(
     (PAGE_SIZE.height -
-      g.top -
-      g.bottom -
-      g.header -
-      SCHEDULE_KINDS.length * g.tableGap) /
-      g.row,
+      t.margin.top -
+      t.margin.bottom -
+      t.detail.header -
+      SCHEDULE_KINDS.length * t.detail.tableGap) /
+      t.detail.row,
   );
 }
 
@@ -133,9 +131,6 @@ export const period = (data: Data) =>
   data.periodStart && data.periodEnd
     ? `${date(data.periodStart)} – ${date(data.periodEnd)}`
     : null;
-
-export const money = (n: number | null, currency: string) =>
-  formatCurrency(n, currency);
 
 /** Multi-line text without relying on newlines surviving layout. */
 export function Lines({
@@ -176,15 +171,18 @@ function totalRows(data: Data) {
   if (services.length > 0 || expenses.length === 0)
     rows.push({
       label: expenses.length > 0 ? 'Services' : 'Subtotal',
-      value: money(data.subtotal, cur),
+      value: formatCurrency(data.subtotal, cur),
     });
   if (data.taxRate > 0)
     rows.push({
       label: `Tax (${data.taxRate}%)`,
-      value: money(data.taxAmount, cur),
+      value: formatCurrency(data.taxAmount, cur),
     });
   if (expenses.length > 0)
-    rows.push({ label: 'Expenses', value: money(data.expensesSubtotal, cur) });
+    rows.push({
+      label: 'Expenses',
+      value: formatCurrency(data.expensesSubtotal, cur),
+    });
   return rows;
 }
 
@@ -221,7 +219,9 @@ export function TotalsView({
       ))}
       <View style={s.grand}>
         <Text style={s.grandLabel}>{label}</Text>
-        <Text style={s.grandValue}>{money(data.total, data.currency)}</Text>
+        <Text style={s.grandValue}>
+          {formatCurrency(data.total, data.currency)}
+        </Text>
       </View>
       {data.paymentTerms ? (
         <Text style={s.terms}>{data.paymentTerms}</Text>
@@ -262,7 +262,6 @@ export function PaymentView({
   );
   return (
     <View style={s.box} wrap={false}>
-      {/* Never the profile's name: that is the contractor's label in Stint. */}
       <Text style={s.title}>Payment details</Text>
       {grid(payment.fields, s.grid)}
       {payment.intermediary.length > 0
@@ -279,7 +278,7 @@ export function PaymentView({
 }
 
 /** The slots a template styles in a supporting-detail table. */
-export interface ScheduleStyles {
+interface ScheduleStyles {
   table: Style;
   title: Style;
   continued: Style;
@@ -294,7 +293,7 @@ export interface ScheduleStyles {
 }
 
 /** Hours only: a schedule shows how the time was spent, never what it cost. */
-export function ScheduleView({
+function ScheduleView({
   block,
   s,
   mark,
@@ -374,7 +373,7 @@ function ScheduleCells({
 }
 
 /** The running header over every detail page. */
-export const runMeta = (data: Data) =>
+const runMeta = (data: Data) =>
   `${data.invoiceNumber} · ${data.client.name} · ${date(data.periodStart)} – ${date(data.periodEnd)}`;
 
 /** The style keys Modern, Classic and Creative share, so each passes its

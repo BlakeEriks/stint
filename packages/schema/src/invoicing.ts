@@ -205,7 +205,6 @@ export const CreateInvoice = InvoicePreviewRequest.extend({
 
 /** The frozen snapshot stored on an invoice. */
 const PaymentDetailsSnapshot = z.object({
-  title: z.string().nullable(),
   fields: z.array(z.object({ label: z.string(), value: z.string() })),
   intermediary: z.array(z.object({ label: z.string(), value: z.string() })),
   link: z.object({ label: z.string(), url: z.string() }).nullable(),
