@@ -29,7 +29,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           At `sm` and up the PAGE does not scroll and the content column
           scrolls inside itself. On a phone the whole page scrolls and the
           timer is `sticky`, so it stays reachable on a viewport that is
-          mostly keyboard once the task input has focus.
+          mostly keyboard once the task input has focus. The header and the
+          nav are pinned to its top for the same reason (`AppHeader`).
 
           `bg-surface-base` is the GROUND and runs unbroken behind everything:
           the header, the rail and the dock are painted straight onto it, so
@@ -71,7 +72,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             which is where it has always rendered: after the scroller, never
             inside it, so `sticky` still pins it to a phone viewport. */}
           <div
-            className="flex min-h-0 flex-1 flex-col gap-4 px-3 pb-3 sm:px-4 sm:pb-4
+            className="flex min-h-0 flex-1 flex-col gap-4 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-4 sm:pb-4
                      lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)_auto]
                      xl:grid-cols-[12rem_minmax(0,1fr)_286px] xl:has-[[data-workspace]]:grid-cols-[12rem_minmax(0,1fr)_44px]"
           >
@@ -90,9 +91,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
               `sticky` to a phone viewport: it sits after the scroller rather
               than inside it, which is what makes `sticky` pin rather than
-              scroll away, and the negative margin lets the fill reach the
-              window's edges there. */}
-            <div className="sticky bottom-0 z-20 -mx-3 px-3 sm:static sm:-mx-4 sm:px-4 lg:col-start-2 lg:row-start-2 lg:mx-0 lg:px-0 xl:col-start-2">
+              scroll away. It pins off the bottom edge by the row's own
+              bottom padding, home indicator included, so the bar floats by
+              the same gap mid-scroll as at the end of the page. */}
+            <div className="sticky bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-20 sm:static lg:col-start-2 lg:row-start-2 xl:col-start-2">
               <TimerDock />
             </div>
           </div>

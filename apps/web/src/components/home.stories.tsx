@@ -77,28 +77,50 @@ export const Light: Story = { ...light };
  *  Earned, the week's bar and the month count the session so far. */
 export const Running: Story = { ...desktop, parameters: account('running') };
 
-/** On a phone the page scrolls under the pinned timer bar, and nothing under
- *  it shows through. */
+/** The fill as painted: 255 is opaque, whatever color syntax it computes to. */
+function alpha(el: Element) {
+  const paint = document.createElement('canvas').getContext('2d');
+  if (!paint) throw new Error('No 2d canvas');
+  paint.fillStyle = getComputedStyle(el).backgroundColor;
+  paint.fillRect(0, 0, 1, 1);
+  return paint.getImageData(0, 0, 1, 1).data[3];
+}
+
+async function scrollTo(top: number) {
+  window.scrollTo(0, top);
+  await new Promise(requestAnimationFrame);
+}
+
+/** On a phone the page scrolls between a pinned header and a floating timer
+ *  bar, and nothing under either shows through, in either theme. */
 export const RunningPhoneScrolled: Story = {
   ...phone,
   parameters: account('running'),
   play: async ({ canvasElement }) => {
-    const bar = await within(canvasElement).findByRole('region', {
-      name: 'Timer',
-    });
+    const page = within(canvasElement);
+    const bar = await page.findByRole('region', { name: 'Timer' });
     await within(bar).findByRole('button', { name: 'Stop timer' });
-    window.scrollTo(0, document.documentElement.scrollHeight / 2);
-    // The fill as painted: 255 is opaque, whatever color syntax it computes to.
-    const paint = document.createElement('canvas').getContext('2d');
-    if (!paint) throw new Error('No 2d canvas');
-    paint.fillStyle = getComputedStyle(bar).backgroundColor;
-    paint.fillRect(0, 0, 1, 1);
-    await expect(paint.getImageData(0, 0, 1, 1).data[3]).toBe(255);
+    const header = canvasElement.querySelector('header') as HTMLElement;
+    const nav = page.getByRole('navigation', { name: 'Sections' });
+    const gap = () => window.innerHeight - bar.getBoundingClientRect().bottom;
+
+    await scrollTo(document.documentElement.scrollHeight / 2);
+    await expect(header.getBoundingClientRect().top).toBe(0);
+    await expect(nav.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      header.getBoundingClientRect().bottom,
+    );
+    await expect(nav.getBoundingClientRect().bottom).toBeLessThan(120);
+    const html = document.documentElement;
+    for (const theme of ['light', 'dark']) {
+      html.dataset.theme = theme;
+      for (const el of [header, nav, bar]) await expect(alpha(el)).toBe(255);
+    }
+    // Floating mid-scroll, by the gap it has at the end of the page.
+    const floating = gap();
+    await expect(floating).toBeGreaterThanOrEqual(12);
+    await scrollTo(html.scrollHeight);
+    await expect(Math.abs(gap() - floating)).toBeLessThanOrEqual(1);
   },
-};
-export const RunningPhoneScrolledLight: Story = {
-  ...RunningPhoneScrolled,
-  globals: { ...phone.globals, theme: 'light' },
 };
 
 /** A Today row is a summary line: pressing it starts nothing. */

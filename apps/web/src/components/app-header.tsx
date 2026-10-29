@@ -12,10 +12,15 @@ import { Wordmark } from './wordmark';
  * Painted straight onto the ground — no surface and no rule beneath it. Space
  * is what separates it from the panel, so the only edge in the frame is the
  * panel's own.
+ *
+ * Below `sm` the page scrolls, so the header is pinned to the top with the
+ * nav beneath it (`Nav`), filled with the ground it is painted on so nothing
+ * shows through. Its height is fixed there (`h-13`) so the nav knows where
+ * to pin, and `globals.css` scroll-pads `<html>` clear of the two.
  */
 export function AppHeader() {
   return (
-    <header className="flex flex-none items-center justify-between gap-3 px-3 py-2 sm:px-4">
+    <header className="sticky top-0 z-30 flex h-13 flex-none items-center justify-between gap-3 bg-surface-base px-3 py-2 sm:static sm:h-auto sm:px-4">
       <Link
         href="/"
         aria-label="Stint — home"
