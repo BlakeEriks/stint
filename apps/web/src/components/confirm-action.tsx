@@ -19,8 +19,8 @@ export const confirmRow =
  * slot and the row (`confirmRow`) hides its other controls until Keep, so
  * nothing moves.
  *
- * The pressed button unmounts or goes inert as the confirm replaces it, so
- * focus is handed over explicitly. Otherwise a keyboard or screen-reader user
+ * The pressed button unmounts or hides as the confirm replaces it, so focus
+ * is handed over explicitly. Otherwise a keyboard or screen-reader user
  * lands on the page body. Keep hands it back.
  */
 export function ConfirmAction({
@@ -63,6 +63,14 @@ export function ConfirmAction({
     (asking ? confirm : trigger).current?.focus();
   }, [asking]);
 
+  /* A press that stops pending while this is still mounted failed: a success
+     removes it. The row comes back, so nothing covers the error. */
+  const wasPending = useRef(pending);
+  useEffect(() => {
+    if (wasPending.current && !pending) setAsking(false);
+    wasPending.current = pending;
+  }, [pending]);
+
   const first = (
     <Button
       ref={trigger}
@@ -70,8 +78,6 @@ export function ConfirmAction({
       variant="ghost"
       size={ariaLabel ? 'icon' : 'default'}
       aria-label={ariaLabel}
-      aria-hidden={asking || undefined}
-      inert={asking}
       className={cn(
         'text-danger hover:bg-danger-muted hover:text-danger',
         asking && 'invisible',
