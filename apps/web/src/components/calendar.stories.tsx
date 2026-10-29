@@ -111,28 +111,42 @@ export const Running: Story = { ...desktop, parameters: account('running') };
  */
 function pointerReveals(el: Element) {
   const found: string[] = [];
-  const walk = (rules: CSSRuleList, touch: boolean) => {
-    for (const rule of Array.from(rules)) {
-      if (rule instanceof CSSMediaRule)
-        walk(rule.cssRules, touch || /hover:\s*none/.test(rule.conditionText));
-      else if (rule instanceof CSSGroupingRule) walk(rule.cssRules, touch);
-      else if (rule instanceof CSSStyleRule && rule.style.opacity) {
-        const bare = rule.selectorText.replaceAll(':hover', '');
-        const hover = bare !== rule.selectorText;
-        if ((hover || touch) && safeMatches(el, bare))
-          found.push(rule.selectorText);
-      }
-    }
-  };
   for (const sheet of Array.from(el.ownerDocument.styleSheets)) {
-    try {
-      walk(sheet.cssRules, false);
-    } catch (e) {
-      // A cross-origin sheet has no readable rules, and styles nothing here.
-      if (!(e instanceof DOMException)) throw e;
+    for (const [rule, touch] of styleRules(readable(sheet))) {
+      const bare = rule.selectorText.replaceAll(':hover', '');
+      const pointer = touch || bare !== rule.selectorText;
+      if (rule.style.opacity && pointer && safeMatches(el, bare))
+        found.push(rule.selectorText);
     }
   }
   return found;
+}
+
+/** Each style rule in `rules`, and whether it sits in a no-hover block. */
+function* styleRules(
+  rules: CSSRuleList | [],
+  touch = false,
+): Generator<[CSSStyleRule, boolean]> {
+  for (const rule of Array.from(rules)) {
+    if (rule instanceof CSSStyleRule) yield [rule, touch];
+    else if (rule instanceof CSSGroupingRule) {
+      const none =
+        rule instanceof CSSMediaRule &&
+        /hover:\s*none/.test(rule.conditionText);
+      yield* styleRules(rule.cssRules, touch || none);
+    }
+  }
+}
+
+/** A sheet's rules, or none for a cross-origin sheet, which styles nothing
+    here and refuses to be read. */
+function readable(sheet: CSSStyleSheet): CSSRuleList | [] {
+  try {
+    return sheet.cssRules;
+  } catch (e) {
+    if (e instanceof DOMException) return [];
+    throw e;
+  }
 }
 
 function safeMatches(el: Element, selector: string) {
