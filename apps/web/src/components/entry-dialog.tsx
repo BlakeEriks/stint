@@ -12,8 +12,6 @@ import {
   addDays,
   localDateKey,
   localDateTimeToInstant,
-  startOfLocalDay,
-  startOfLocalDayOffset,
 } from '@stint/core';
 import { Check, Loader2, Trash2 } from 'lucide-react';
 import {
@@ -52,18 +50,10 @@ interface Draft {
   /** Set once the user changes Billable, after which a project leaves it be. */
   billableTouched: boolean;
   invoicedElsewhere: boolean;
+  /** What the strip draws: the last times with every field filled in, so
+      clearing one to retype it leaves the block where it was. */
+  drawn: { startedAt: Date; endedAt: Date };
 }
-
-const EMPTY: Draft = {
-  taskName: '',
-  projectId: null,
-  date: '',
-  start: '',
-  end: '',
-  billable: true,
-  billableTouched: false,
-  invoicedElsewhere: false,
-};
 
 /**
  * Create, edit or delete a completed time entry.
@@ -90,8 +80,9 @@ export function EntryDialog({
   /** Omitted for a new entry. */
   existing?: TimeEntry;
   /**
-   * Starting times for a new entry, from clicking a time on the calendar.
-   * Ignored when `existing` is set — an edit opens on its own times.
+   * The times a new entry opens on, from where it was drawn or clicked.
+   * Adding needs one: with neither this nor `existing` the dialog draws
+   * nothing. Ignored when `existing` is set, which opens on its own times.
    */
   seed?: { startedAt: string; endedAt: string };
   /**
@@ -112,7 +103,7 @@ export function EntryDialog({
   /** Overridable so a test can pin a zone; production always uses the real one. */
   tz?: string;
 }) {
-  const [draft, setDraft] = useState<Draft>(EMPTY);
+  const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Reset each time it opens, so a canceled edit cannot leak into the next.
@@ -121,21 +112,25 @@ export function EntryDialog({
     setError(null);
 
     const opened = existing ?? seed;
-    const from = opened ? new Date(opened.startedAt) : new Date();
+    if (!opened) return;
+    const startedAt = new Date(opened.startedAt);
+    // A running entry never opens here; its end would be now.
+    const endedAt = new Date(opened.endedAt ?? Date.now());
     setDraft({
       taskName: existing?.taskName ?? '',
       projectId: existing?.projectId ?? null,
-      date: localDateKey(from, tz),
-      start: localTime(from, tz),
-      end: opened?.endedAt ? localTime(new Date(opened.endedAt), tz) : '',
+      date: localDateKey(startedAt, tz),
+      start: localTime(startedAt, tz),
+      end: localTime(endedAt, tz),
       billable: existing?.isBillable ?? true,
       billableTouched: false,
       invoicedElsewhere: existing?.invoicedElsewhere ?? false,
+      drawn: { startedAt, endedAt },
     });
   }, [open, existing, seed, tz]);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
-    setDraft((d) => ({ ...d, [key]: value }));
+    setDraft((d) => d && redrawn({ ...d, [key]: value }, tz));
 
   /* A new entry takes the project's billable default, as a started timer
      does. An entry that exists keeps the flag the user saved, and a box the
@@ -176,13 +171,13 @@ export function EntryDialog({
   };
 
   const body = () => {
-    const { startedAt, endedAt } = draftInstants(draft, tz);
+    const { startedAt, endedAt } = draftInstants(draft!, tz);
     return {
-      taskName: draft.taskName.trim(),
-      projectId: draft.projectId,
+      taskName: draft!.taskName.trim(),
+      projectId: draft!.projectId,
       startedAt: startedAt.toISOString(),
       endedAt: endedAt.toISOString(),
-      isBillable: draft.billable,
+      isBillable: draft!.billable,
     };
   };
 
@@ -191,8 +186,8 @@ export function EntryDialog({
     mutationFn: async () =>
       api.updateEntry(existing!.id, {
         ...body(),
-        ...(draft.invoicedElsewhere !== existing!.invoicedElsewhere && {
-          invoicedElsewhere: draft.invoicedElsewhere,
+        ...(draft!.invoicedElsewhere !== existing!.invoicedElsewhere && {
+          invoicedElsewhere: draft!.invoicedElsewhere,
         }),
       }),
     onError: failWith('Could not save this entry.'),
@@ -242,13 +237,8 @@ export function EntryDialog({
   const locked = existing?.invoiceId != null;
   const busy = save.isPending || remove.isPending;
 
-  /* EDITING ONLY. Adjusting is a correction to times that already exist: the
-     gesture answers "this started at 9, not 9:30", which is a question a new
-     entry has not asked yet. On Add the fields are the whole job, and a strip
-     drawn from a default would invite dragging the times into place instead
-     of typing the two the user already knows. */
   const colors = useProjectColors();
-  const drawn = existing ? strip(draft, tz) : null;
+  if (!draft) return null;
 
   return (
     <Dialog
@@ -281,14 +271,16 @@ export function EntryDialog({
             <TaskSuggest
               value={draft.taskName}
               onChange={(name, rowProject) => {
-                setDraft((d) =>
-                  /* A fill, never an overwrite: a project already chosen is
-                     the user's answer to which client this is billed to, and
-                     a row used under another one must not move the work
-                     there. */
-                  rowProject && !d.projectId
-                    ? withProject({ ...d, taskName: name }, rowProject)
-                    : { ...d, taskName: name },
+                /* A fill, never an overwrite: a project already chosen is
+                   the user's answer to which client this is billed to, and
+                   a row used under another one must not move the work
+                   there. */
+                setDraft(
+                  (d) =>
+                    d &&
+                    (rowProject && !d.projectId
+                      ? withProject({ ...d, taskName: name }, rowProject)
+                      : { ...d, taskName: name }),
                 );
               }}
               projectId={draft.projectId}
@@ -320,7 +312,7 @@ export function EntryDialog({
               id="entry-project"
               projects={projects}
               value={draft.projectId}
-              onChange={(id) => setDraft((d) => withProject(d, id))}
+              onChange={(id) => setDraft((d) => d && withProject(d, id))}
               disabled={locked}
               autoFocus={focus === 'project'}
               /* This is already a dialog, and Radix mounts no dialog inside
@@ -333,36 +325,37 @@ export function EntryDialog({
           {/* The strip and the two time fields below are ONE value with two
               controls: a drag rewrites the fields on every pointer move, and
               typing a time redraws the block. */}
-          {drawn ? (
-            <div className="flex flex-col gap-1.5">
-              {/* A caption, not a label: the scrubber it heads is
-                  `aria-hidden`, so there is no control for a `<label>` to
-                  name. `asChild` keeps the styling and drops the element —
-                  the classes are `Label`'s own, so it is unchanged to look
-                  at. */}
-              <Label asChild className={LABEL}>
-                <span>Adjust</span>
-              </Label>
-              <EntryScrubber
-                startedAt={drawn.startedAt}
-                endedAt={drawn.endedAt}
-                dayStart={drawn.dayStart}
-                dayEnd={drawn.dayEnd}
-                color={
-                  draft.projectId ? colors.get(draft.projectId) : undefined
-                }
-                disabled={locked}
-                tz={tz}
-                onChange={({ startedAt, endedAt }) =>
-                  setDraft((d) => ({
-                    ...d,
-                    start: localTime(startedAt, tz),
-                    end: localTime(endedAt, tz),
-                  }))
-                }
-              />
-            </div>
-          ) : null}
+          <div className="flex flex-col gap-1.5">
+            {/* A caption, not a label: the scrubber it heads is
+                `aria-hidden`, so there is no control for a `<label>` to
+                name. `asChild` keeps the styling and drops the element —
+                the classes are `Label`'s own, so it is unchanged to look
+                at. */}
+            <Label asChild className={LABEL}>
+              <span>Adjust</span>
+            </Label>
+            <EntryScrubber
+              startedAt={draft.drawn.startedAt}
+              endedAt={draft.drawn.endedAt}
+              color={draft.projectId ? colors.get(draft.projectId) : undefined}
+              disabled={locked}
+              tz={tz}
+              /* The date too: a drag past midnight either way moves the
+                 day the entry starts on. */
+              onChange={({ startedAt, endedAt }) =>
+                setDraft(
+                  (d) =>
+                    d && {
+                      ...d,
+                      date: localDateKey(startedAt, tz),
+                      start: localTime(startedAt, tz),
+                      end: localTime(endedAt, tz),
+                      drawn: { startedAt, endedAt },
+                    },
+                )
+              }
+            />
+          </div>
 
           <EntryTimes draft={draft} disabled={locked} set={set} />
 
@@ -373,7 +366,7 @@ export function EntryDialog({
               checked={draft.billable}
               onChange={(e) => {
                 const billable = e.target.checked;
-                setDraft((d) => ({ ...d, billable, billableTouched: true }));
+                setDraft((d) => d && { ...d, billable, billableTouched: true });
               }}
               className="size-4 accent-[var(--text-muted)]"
             />
@@ -442,19 +435,11 @@ function draftInstants({ date, start, end }: Draft, tz: string) {
   return { startedAt, endedAt };
 }
 
-/**
- * What the scrubber draws, or `null` to hide it: an incomplete draft has
- * nothing to draw, and the strip spans one day, so an overnight entry hides
- * rather than drawing something false. The fields keep the truth and the
- * description explains the rule.
- */
-function strip(draft: Draft, tz: string) {
-  if (!draft.date || !draft.start || !draft.end) return null;
-  const { startedAt, endedAt } = draftInstants(draft, tz);
-  const dayStart = startOfLocalDay(startedAt, tz);
-  const dayEnd = startOfLocalDayOffset(dayStart, tz, -1);
-  if (endedAt >= dayEnd) return null;
-  return { startedAt, endedAt, dayStart, dayEnd };
+/** The draft with its strip redrawn from the fields, once all three hold
+    a value. */
+function redrawn(draft: Draft, tz: string): Draft {
+  if (!draft.date || !draft.start || !draft.end) return draft;
+  return { ...draft, drawn: draftInstants(draft, tz) };
 }
 
 function description(locked: boolean, invoiceNumber: string | undefined) {

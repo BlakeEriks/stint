@@ -42,29 +42,34 @@ export const Edit: Story = {
 };
 export const EditPhone: Story = { ...phone };
 
-/** A new entry: no strip, and the task field suggests. */
-export const Add: Story = { ...desktop, args: { existing: undefined } };
+/** Drawn or clicked on a grid: that time, prefilled, and the strip to
+    adjust it, as on an edit. */
+const drawn = {
+  startedAt: '2026-09-17T20:00:00.000Z',
+  endedAt: '2026-09-17T21:00:00.000Z',
+};
 
-/** Opened from a time on the calendar: that hour, prefilled. */
-export const AddFromCalendar: Story = {
+export const Add: Story = {
   ...desktop,
-  args: {
-    existing: undefined,
-    seed: {
-      startedAt: '2026-09-17T20:00:00.000Z',
-      endedAt: '2026-09-17T21:00:00.000Z',
-    },
+  args: { existing: undefined, seed: drawn },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(await page.findByTestId('entry-scrubber')).toBeVisible();
+    await expect(page.getByLabelText('Start')).toHaveValue('16:00');
   },
 };
 
-/** On an issued invoice: read-only, the handles gone, and the invoice to
-    void named. It's on an invoice, so it can't be billed elsewhere too. */
+/** On an issued invoice: read-only, the strip drawn without its handles,
+    and the invoice to void named. It's on an invoice, so it can't be
+    billed elsewhere too. */
 export const Locked: Story = {
   ...desktop,
   args: { existing: on(13) },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await expect(await page.findByText(/billed on STINT-0013/)).toBeVisible();
+    await expect(page.getByTestId('entry-scrubber')).toBeVisible();
+    await expect(page.queryByTestId('scrubber-handle-start')).toBeNull();
     await expect(
       page.queryByRole('checkbox', { name: 'Billed elsewhere' }),
     ).toBeNull();
@@ -138,7 +143,7 @@ export const Saving: Story = {
   },
 };
 
-/** An end before the start is the next morning: the strip steps aside. */
+/** 10 PM to 2 AM: the strip runs past midnight to draw it whole. */
 export const Overnight: Story = {
   ...desktop,
   args: {
@@ -149,12 +154,17 @@ export const Overnight: Story = {
       durationSeconds: 4 * 3600,
     },
   },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(await page.findByTestId('entry-scrubber')).toBeVisible();
+    await expect(page.getByText('12am')).toBeInTheDocument();
+  },
 };
 
 /** A new entry's task field suggests, and the list overlays the fields. */
 export const Suggestions: Story = {
   ...desktop,
-  args: { existing: undefined },
+  args: { existing: undefined, seed: drawn },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.type(

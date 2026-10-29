@@ -5,7 +5,7 @@ import {
   formatLocalTime,
   instantAt,
   movedTo,
-  resized,
+  resizedWithinDay,
   snapMs,
   windowFor,
 } from '@stint/core';
@@ -35,8 +35,6 @@ type Mode = 'move' | 'start' | 'end';
 export function EntryScrubber({
   startedAt,
   endedAt,
-  dayStart,
-  dayEnd,
   color,
   disabled = false,
   onChange,
@@ -44,9 +42,6 @@ export function EntryScrubber({
 }: {
   startedAt: Date;
   endedAt: Date;
-  /** The local day the entry sits in, so the span is DST-correct. */
-  dayStart: Date;
-  dayEnd: Date;
   /** The client's color, or null for internal work. */
   color?: string | null;
   disabled?: boolean;
@@ -69,8 +64,7 @@ export function EntryScrubber({
      and otherwise recomputed — which is how a TYPED time re-crops the strip,
      the one other moment it is safe, no pointer being held. */
   const frozen = useRef<{ from: Date; to: Date } | null>(null);
-  const view =
-    frozen.current ?? windowFor(startedAt, endedAt, dayStart, dayEnd);
+  const view = frozen.current ?? windowFor(startedAt, endedAt, tz);
 
   const span = view.to.getTime() - view.from.getTime();
   const pct = (at: Date) => ((at.getTime() - view.from.getTime()) / span) * 100;
@@ -136,7 +130,9 @@ export function EntryScrubber({
       return;
     }
 
-    onChange(resized(d.fromStart, d.fromEnd, d.mode, at(event.clientX)));
+    onChange(
+      resizedWithinDay(d.fromStart, d.fromEnd, d.mode, at(event.clientX), tz),
+    );
   };
 
   const finish = (event: React.PointerEvent) => {

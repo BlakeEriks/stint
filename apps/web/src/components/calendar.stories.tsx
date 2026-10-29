@@ -103,6 +103,66 @@ export const Light: Story = { ...light };
 /** A running block grows to now and refuses a drag. */
 export const Running: Story = { ...desktop, parameters: account('running') };
 
+/**
+ * The stylesheet rules that would give `el` an opacity under a pointer: a
+ * `:hover` rule that matches it once the `:hover` is dropped, or any rule in
+ * a no-hover (touch) media block. A play's hover is synthetic and never
+ * applies `:hover`, so the rules themselves are what it can check.
+ */
+function pointerReveals(el: Element) {
+  const found: string[] = [];
+  const walk = (rules: CSSRuleList, touch: boolean) => {
+    for (const rule of Array.from(rules)) {
+      if (rule instanceof CSSMediaRule)
+        walk(rule.cssRules, touch || /hover:\s*none/.test(rule.conditionText));
+      else if (rule instanceof CSSGroupingRule) walk(rule.cssRules, touch);
+      else if (rule instanceof CSSStyleRule && rule.style.opacity) {
+        const bare = rule.selectorText.replaceAll(':hover', '');
+        const hover = bare !== rule.selectorText;
+        if ((hover || touch) && safeMatches(el, bare))
+          found.push(rule.selectorText);
+      }
+    }
+  };
+  for (const sheet of Array.from(el.ownerDocument.styleSheets)) {
+    try {
+      walk(sheet.cssRules, false);
+    } catch (e) {
+      // A cross-origin sheet has no readable rules, and styles nothing here.
+      if (!(e instanceof DOMException)) throw e;
+    }
+  }
+  return found;
+}
+
+function safeMatches(el: Element, selector: string) {
+  try {
+    return el.matches(selector);
+  } catch (e) {
+    if (e instanceof DOMException) return false;
+    throw e;
+  }
+}
+
+/** A day heading's "+" is the keyboard's way into Add: hidden under a
+    pointer or a touch, which draw on the grid instead, and shown on focus. */
+export const AddFromKeyboard: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = await calendar(canvasElement);
+    const [add] = await page.findAllByRole('button', {
+      name: /^Add an entry on/,
+    });
+    const el = add as HTMLElement;
+
+    await expect(getComputedStyle(el).opacity).toBe('0');
+    await expect(pointerReveals(el)).toEqual([]);
+
+    el.focus({ focusVisible: true } as FocusOptions);
+    await waitFor(() => expect(getComputedStyle(el).opacity).toBe('1'));
+  },
+};
+
 /** Nothing logged: the grid still offers a time to click. */
 export const Empty: Story = {
   ...desktop,

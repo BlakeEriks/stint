@@ -75,12 +75,19 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
+/** Adding opens on a drawn or clicked time: 09:00–10:00 in New York. */
+const SEED = {
+  startedAt: '2026-09-11T13:00:00.000Z',
+  endedAt: '2026-09-11T14:00:00.000Z',
+};
+
 const open = (existing?: TimeEntry) =>
   render(
     <EntryDialog
       open
       onOpenChange={() => {}}
       existing={existing}
+      seed={existing ? undefined : SEED}
       projects={PROJECTS}
       tz={TZ}
     />,
@@ -398,8 +405,6 @@ describe('EntryDialog', () => {
       screen.getByRole('checkbox', { name: 'Billable' }),
     ).not.toBeChecked();
 
-    await user.type(screen.getByLabelText('Start'), '09:00');
-    await user.type(screen.getByLabelText('End'), '10:00');
     await user.click(screen.getByRole('button', { name: 'Add entry' }));
 
     await waitFor(() =>
@@ -419,8 +424,6 @@ describe('EntryDialog', () => {
     await user.click(
       await screen.findByRole('menuitemradio', { name: /Acme Redesign/ }),
     );
-    await user.type(screen.getByLabelText('Start'), '09:00');
-    await user.type(screen.getByLabelText('End'), '10:00');
     await user.click(screen.getByRole('button', { name: 'Add entry' }));
 
     await waitFor(() =>
@@ -449,8 +452,6 @@ describe('EntryDialog', () => {
     open(); // no existing entry
 
     await user.type(screen.getByLabelText('Task'), 'Manual');
-    await user.type(screen.getByLabelText('Start'), '09:00');
-    await user.type(screen.getByLabelText('End'), '10:00');
     await user.click(screen.getByRole('button', { name: 'Add entry' }));
 
     await waitFor(() => expect(calls.length).toBeGreaterThan(0));
@@ -634,6 +635,77 @@ describe('EntryDialog', () => {
          grew can sit further along a window that grew with it, so position
          alone does not say the redraw happened. */
       expect(Number.parseFloat(blockEl().style.width)).toBeGreaterThan(before);
+    });
+
+    it('draws on Add as on Edit', async () => {
+      serve();
+      open();
+
+      expect(
+        await screen.findByRole('heading', { name: 'Add entry' }),
+      ).toBeInTheDocument();
+      expect(screen.getByTestId('entry-scrubber')).toBeInTheDocument();
+    });
+
+    it('draws an overnight entry', async () => {
+      serve();
+      open(
+        entry({
+          // 22:00 on the 11th to 02:00 on the 12th, New York.
+          startedAt: '2026-09-12T02:00:00.000Z',
+          endedAt: '2026-09-12T06:00:00.000Z',
+        }),
+      );
+
+      expect(await screen.findByTestId('entry-scrubber')).toBeInTheDocument();
+    });
+
+    /** A press at `from` and a release at `to`, as fractions of the strip. */
+    function dragFraction(target: HTMLElement, to: number, from = to) {
+      const el = strip();
+      fireEvent.pointerDown(target, {
+        clientX: from * BOX.width,
+        pointerId: 1,
+      });
+      fireEvent.pointerMove(el, { clientX: to * BOX.width, pointerId: 1 });
+      fireEvent.pointerUp(el, { clientX: to * BOX.width, pointerId: 1 });
+    }
+
+    it('moves the date when a drag carries the entry past midnight', async () => {
+      serve();
+      // 22:00–23:00 on the 11th; the strip spans 20:00–01:00.
+      open(
+        entry({
+          startedAt: '2026-09-12T02:00:00.000Z',
+          endedAt: '2026-09-12T03:00:00.000Z',
+        }),
+      );
+      await waitFor(() => screen.getByLabelText('End'));
+
+      // Grabbed at 22:00 and let go at 00:00.
+      dragFraction(blockEl(), 4 / 5, 2 / 5);
+
+      expect(screen.getByLabelText('Date')).toHaveValue('2026-09-12');
+      expect(screen.getByLabelText('Start')).toHaveValue('00:00');
+      expect(screen.getByLabelText('End')).toHaveValue('01:00');
+    });
+
+    it('moves the date back when the start is dragged before midnight', async () => {
+      serve();
+      // 00:30–01:30 on the 12th; the strip spans 22:30–03:30.
+      open(
+        entry({
+          startedAt: '2026-09-12T04:30:00.000Z',
+          endedAt: '2026-09-12T05:30:00.000Z',
+        }),
+      );
+      await waitFor(() => screen.getByLabelText('End'));
+
+      dragFraction(screen.getByTestId('scrubber-handle-start'), 0.5 / 5);
+
+      expect(screen.getByLabelText('Date')).toHaveValue('2026-09-11');
+      expect(screen.getByLabelText('Start')).toHaveValue('23:00');
+      expect(screen.getByLabelText('End')).toHaveValue('01:30');
     });
   });
 });

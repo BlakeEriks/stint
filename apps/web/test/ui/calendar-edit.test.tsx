@@ -177,9 +177,8 @@ describe('creating an entry by clicking a time', () => {
     expect(srv.writes()).toEqual([]);
   });
 
-  /* Clicking a time is a pointer-only gesture, so without this the whole
-     create path is unreachable by keyboard. The heading's button is also the
-     discoverable one: clicking empty grid is faster but invisible until tried. */
+  /* Drawing or clicking a time is a pointer-only gesture, so without this
+     the whole create path is unreachable by keyboard. */
   it('offers a keyboard path to add an entry on each day', async () => {
     const srv = serve([]);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });

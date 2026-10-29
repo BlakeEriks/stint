@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { EntryList } from '@/components/entry-list';
@@ -70,5 +70,26 @@ describe('EntryList', () => {
        earned nothing and then takes it back a moment later. */
     await screen.findByText('2h');
     expect(screen.queryByText(/^\$/)).toBeNull();
+  });
+
+  it('opens Add on the hour up to the last quarter hour, not blank', async () => {
+    vi.setSystemTime(new Date('2026-09-11T12:07:00.000Z'));
+    serve([entry()]);
+    renderList();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add' }));
+
+    const local = (iso: string) =>
+      new Intl.DateTimeFormat('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+      }).format(new Date(iso));
+    expect(await screen.findByLabelText('Start')).toHaveValue(
+      local('2026-09-11T11:00:00.000Z'),
+    );
+    expect(screen.getByLabelText('End')).toHaveValue(
+      local('2026-09-11T12:00:00.000Z'),
+    );
   });
 });
