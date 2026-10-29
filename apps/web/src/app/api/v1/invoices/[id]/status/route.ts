@@ -3,7 +3,7 @@ import { handle, ApiError, isCheckViolation, refused } from '@/lib/errors';
 import { paidAtRefusal, refusals } from '@stint/core';
 import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
-import { sendDraft } from '@/lib/invoicing';
+import { sendDraft } from '@/lib/drafts';
 import { INVOICE_COLUMNS, toInvoice, type InvoiceRow } from '@/lib/rows';
 import { InvoiceReadQuery, UpdateInvoiceStatus } from '@stint/schema';
 
