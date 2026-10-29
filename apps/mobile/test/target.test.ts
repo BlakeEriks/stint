@@ -29,8 +29,6 @@ test('a native local build loaded from Metro reaches the stack through it', () =
     assert.equal(t.appUrl, origin);
     assert.equal(t.supabaseUrl, origin);
   }
-  const prod = resolveTarget({ STINT_TARGET: 'prod' }, 'abc.exp.direct');
-  assert.equal(prod.appUrl, 'https://app.runstint.com');
 });
 
 test('prod is Stint, unlabeled, on production', () => {

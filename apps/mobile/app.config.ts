@@ -72,7 +72,6 @@ const config: ExpoConfig = {
     env,
     push: target.push,
     sentryDsn: target.name === 'prod' ? process.env.SENTRY_DSN : undefined,
-    appleTeamId: process.env.APPLE_TEAM_ID,
     ...(process.env.EAS_PROJECT_ID
       ? { eas: { projectId: process.env.EAS_PROJECT_ID } }
       : {}),

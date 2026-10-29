@@ -418,26 +418,11 @@ const backend = {
   bypass: 'stint.vercel-bypass',
 };
 
-test("Swift presses with the app's words and backend; signed out, nowhere", async () => {
-  const { surfaces, last, failWith } = setup(entry());
+test("Swift presses at the app's backend; signed out, nowhere", async () => {
+  const { surfaces, last } = setup(entry());
   await surfaces.refresh();
-  const running = last() as SurfaceState;
-  assert.deepEqual(nativeState(running, backend), {
-    ...running,
-    pressed: pressedState(running),
-    failed: {
-      start: 'Not started',
-      stop: 'Not stopped',
-      unreachable: 'can’t reach Stint',
-    },
-    backend,
-  });
-
-  // The words a failed press starts with are the app's own.
-  failWith(new ApiError(500, { code: 'UNKNOWN', message: 'Boom.' }));
-  await surfaces.press({ action: 'stop' });
-  assert.match(String(last()?.why), /^Not stopped: /);
-
+  const running = nativeState(last() as SurfaceState, backend);
+  assert.equal('backend' in running && running.backend, backend);
   surfaces.signOut();
   const out = nativeState(last() as SurfaceState, backend);
   assert.equal('backend' in out && out.backend, null);

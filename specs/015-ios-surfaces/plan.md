@@ -72,6 +72,15 @@ apps/mobile/eas.json                         # the `simulator` profile
 docs/mobile.md                               # Outside the app
 ```
 
+## What it removes
+
+- `APPLE_TEAM_ID`'s explicit keychain group in `src/storage.ts` and
+  `extra.appleTeamId`: an item lands in the app's first keychain group, the
+  shared one, signed with any team or none.
+- The `aps-environment` entitlement on iOS, which nothing used.
+- No test: the surfaces' tests cover JS, which Android and iOS share, and
+  iOS adds one case each where its behavior is new.
+
 ## Complexity Tracking
 
 | Violation | Why needed | Simpler alternative rejected because |
