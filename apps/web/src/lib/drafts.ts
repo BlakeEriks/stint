@@ -1,11 +1,14 @@
+/**
+ * Drafts: everything that reads live data — the client, settings, entries and
+ * expenses — to price an invoice that has not been sent. An issued invoice is
+ * read by `issued.ts`, which reads nothing here.
+ */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ApiError, dbCode, PG, refused } from './errors';
 import {
   CLIENT_COLUMNS,
-  INVOICE_COLUMNS,
   LINE_ITEM_COLUMNS,
   PAYMENT_PROFILE_COLUMNS,
-  toInvoice,
   toLineItem,
   toPaymentProfile,
   type ClientRow,
@@ -14,7 +17,6 @@ import {
   type PaymentProfileRow,
 } from './rows';
 import { selectAll } from './select-all';
-import { entitlement } from './billing';
 import {
   billableExpenses,
   billingWindow,
@@ -22,7 +24,6 @@ import {
   attachedSchedules,
   buildLineItems,
   buildSchedules,
-  documentOpens,
   draftSnapshot,
   localDateKey,
   newLines,
@@ -140,19 +141,20 @@ async function loadBillableExpenses(
   db: SupabaseClient,
   opts: { clientId: string; draft: OpenDraft; openDrafts: OpenDraft[] },
 ): Promise<Array<ExpenseInput & { recurring: boolean }>> {
-  const { data, error } = await db
-    .from('expenses')
-    .select(
-      'id, recurring, spent_on, description, amount, invoice_id, created_at',
-    )
-    .eq('client_id', opts.clientId)
-    .is('invoice_id', null)
-    .order('spent_on', { ascending: true })
-    .order('created_at', { ascending: true });
-  if (error) throw error;
+  const rows = await selectAll(() =>
+    db
+      .from('expenses')
+      .select(
+        'id, recurring, spent_on, description, amount, invoice_id, created_at',
+      )
+      .eq('client_id', opts.clientId)
+      .is('invoice_id', null)
+      .order('spent_on', { ascending: true })
+      .order('created_at', { ascending: true }),
+  );
 
   return billableExpenses(
-    (data ?? []).map((r) => ({
+    rows.map((r) => ({
       id: r.id as string,
       recurring: r.recurring as boolean,
       spentOn: r.spent_on as string | null,
@@ -246,92 +248,6 @@ export async function loadPaymentProfile(
     clientProfileId,
     defaultProfileId: defaultProfile?.id ?? null,
   });
-}
-
-/**
- * Assembles everything the detail and the PDF show. An issued invoice's
- * lines are FROZEN: re-downloading it a year later must produce the same
- * document even if rates have since changed. A draft's are derived from its
- * period's work as it is now.
- */
-export async function loadPdfData(
-  db: SupabaseClient,
-  invoiceId: string,
-  requestTz?: string,
-) {
-  const { data: stored, error } = await db
-    .from('invoices')
-    .select(INVOICE_COLUMNS)
-    .eq('id', invoiceId)
-    .maybeSingle();
-
-  if (error) throw error;
-  if (!stored) throw new ApiError('ENTRY_NOT_FOUND', 'Invoice not found');
-  const row = stored as InvoiceRow;
-
-  const [billing, draft] = await Promise.all([
-    entitlement(db),
-    deriveDraft(db, row, requestTz),
-  ]);
-  const canDownload = documentOpens(
-    billing.available,
-    billing.plan,
-    row.issued_subscription_status,
-  );
-  const invoice = toInvoice(draft?.row ?? row);
-  const lineItems = draft
-    ? draft.lines.map(
-        ({ description, unit, quantity, unitPrice, amount, spentOn }) => ({
-          description,
-          unit,
-          quantity,
-          unitPrice,
-          amount,
-          spentOn: spentOn ?? null,
-        }),
-      )
-    : (
-        await selectAll(() =>
-          db
-            .from('invoice_line_items')
-            .select(LINE_ITEM_COLUMNS)
-            .eq('invoice_id', invoiceId)
-            .order('sort_order', { ascending: true }),
-        )
-      ).map((r) => {
-        const { id: _, sortOrder: __, ...line } = toLineItem(r as LineItemRow);
-        return line;
-      });
-
-  return {
-    invoice,
-    canDownload,
-    draft,
-    pdfData: {
-      invoiceNumber: invoice.invoiceNumber,
-      status: invoice.status,
-      issueDate: invoice.issueDate,
-      dueDate: invoice.dueDate,
-      periodStart: invoice.periodStart,
-      periodEnd: invoice.periodEnd,
-      currency: invoice.currency,
-      subtotal: invoice.subtotal ?? 0,
-      taxRate: invoice.taxRate ?? 0,
-      taxAmount: invoice.taxAmount ?? 0,
-      expensesSubtotal: invoice.expensesSubtotal ?? 0,
-      total: invoice.total ?? 0,
-      notes: invoice.notes,
-      paymentTerms: invoice.paymentTerms,
-      reference: invoice.reference,
-      // The FROZEN snapshots, never a live lookup: a re-downloaded invoice
-      // must show the details the client was actually given.
-      business: invoice.business,
-      client: invoice.billTo,
-      lineItems,
-      payment: invoice.paymentDetails ?? null,
-      supportingDetail: invoice.supportingDetail,
-    },
-  };
 }
 
 /** Which of a draft's PDF and Mark sent refuse it as it stands. */

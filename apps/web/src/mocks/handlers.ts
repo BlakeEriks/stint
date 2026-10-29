@@ -177,7 +177,7 @@ const listed = ({
   ...invoice
 }: StoredInvoice) => invoice;
 
-/** `lib/invoicing.ts`'s `sendDraft`: the draft as its period stands at
+/** `lib/drafts.ts`'s `sendDraft`: the draft as its period stands at
  *  `sentAt`, priced, dated, claimed and sent. */
 function sendDraft(
   db: Db,
