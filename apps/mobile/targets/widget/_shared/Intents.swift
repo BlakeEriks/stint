@@ -1,6 +1,6 @@
 import AppIntents
 #if canImport(StintSurfaces)
-  import StintSurfaces
+  internal import StintSurfaces
 #endif
 
 // In the app and the widget extension (`@bacons/apple-targets`' `_shared`):
