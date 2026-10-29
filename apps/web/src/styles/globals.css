@@ -48,6 +48,15 @@
     color-scheme: dark;
   }
 
+  /* Below `sm` the page scrolls between the pinned header and nav (92.5px)
+     and the floating timer bar (112.5px idle, gap included), so an anchor
+     or a focused field lands clear of both. */
+  @media (width < 40rem) {
+    html {
+      scroll-padding: 6rem 0 8rem;
+    }
+  }
+
   /* The ground the cards float on, so it is the RECESSED surface — cards
      use --bg-primary and sit above it. Reversing these makes every panel
      read as a hole rather than a card. */
