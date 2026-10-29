@@ -1,4 +1,5 @@
 import type { ExpoConfig } from 'expo/config';
+import { type ConfigPlugin, withEntitlementsPlist } from 'expo/config-plugins';
 import { resolveIdentity } from './src/target.ts';
 
 /**
@@ -17,6 +18,17 @@ const target = resolveIdentity(env);
 // Generated from the tokens (`packages/design-tokens/src/generate.js`).
 const icon = `./assets/icon${target.name === 'prod' ? '' : '-dev'}.png`;
 
+/**
+ * The iPhone registers for no push until #471, and a free Apple ID's
+ * Personal Team can't sign the entitlement `expo-notifications` adds, which
+ * would stop the build installing at all.
+ */
+const withoutPushOnIos: ConfigPlugin = (config) =>
+  withEntitlementsPlist(config, (c) => {
+    delete c.modResults['aps-environment'];
+    return c;
+  });
+
 const config: ExpoConfig = {
   name: target.appName,
   slug: 'stint',
@@ -28,10 +40,17 @@ const config: ExpoConfig = {
   ios: {
     bundleIdentifier: target.appId,
     supportsTablet: false,
-    // The group a widget reads the session from (`storage.ts`).
+    // The group the widgets read what to draw from, which
+    // `targets/widget/expo-target.config.json` names too. The app's keychain
+    // items land in it, the first of the list. The one capability a free
+    // Apple ID's build relies on: without it, the widgets say "Open Stint".
     entitlements: {
       'keychain-access-groups': ['$(AppIdentifierPrefix)dev.stint.shared'],
     },
+    infoPlist: { NSSupportsLiveActivities: true },
+    ...(process.env.APPLE_TEAM_ID
+      ? { appleTeamId: process.env.APPLE_TEAM_ID }
+      : {}),
   },
   android: {
     package: target.appId,
@@ -44,6 +63,8 @@ const config: ExpoConfig = {
     'expo-secure-store',
     'expo-font',
     'expo-notifications',
+    // The widgets, Live Activity and control in `targets/`.
+    '@bacons/apple-targets',
     ...sentry(),
   ],
   ...updates(),
@@ -59,7 +80,8 @@ const config: ExpoConfig = {
   ...(process.env.EXPO_OWNER ? { owner: process.env.EXPO_OWNER } : {}),
 };
 
-export default config;
+// Applied before the plugins above, so it runs after expo-notifications'.
+export default withoutPushOnIos(config);
 
 /**
  * The preview build is a development build: it opens a PR's update from the

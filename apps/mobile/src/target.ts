@@ -56,9 +56,19 @@ export function resolveIdentity(env: Env): Identity {
   return identities[name as TargetName];
 }
 
-export function resolveTarget(env: Env): Target {
+/**
+ * `devServer`: the Metro that served a native local build's JS, as
+ * `host:port`, or a tunnel's host. That build asks Metro for the API and
+ * sign-in, which `metro.config.cjs` passes to the web server and Supabase,
+ * so a phone on the LAN or EAS Simulator reaches the builder's stack.
+ */
+export function resolveTarget(env: Env, devServer?: string): Target {
   const identity = resolveIdentity(env);
   const { name } = identity;
+  if (name === 'local' && devServer) {
+    const metro = `${/:\d+$/.test(devServer) ? 'http' : 'https'}://${devServer}`;
+    return { ...resolveTarget(env), appUrl: metro, supabaseUrl: metro };
+  }
   if (name === 'local')
     return {
       ...identity,
