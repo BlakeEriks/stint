@@ -22,7 +22,8 @@ cd apps/mobile && STINT_APP_URL=http://localhost:<web port> pnpm web --port 8085
 
 Metro passes `/api/v1` to the web server (`metro.config.cjs`), so the page
 asks its own origin. Sign in as the seeded account: the code is in the
-email Mailpit caught. The native app needs a phone: see Preview builds.
+email Mailpit caught. The native app runs on a phone (see Preview builds)
+or, on iPhone, in Xcode's Simulator, as the next paragraph says.
 
 **The iPhone's native code is seen in Xcode's Simulator**, with
 `npx expo run:ios`. Without Xcode, `eas build --platform ios --profile

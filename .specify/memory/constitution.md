@@ -72,15 +72,16 @@ delete, money) shows a pending state on the control instead. Never neither.
 
 Every write goes through one mechanism per platform —
 `useOptimisticMutation` (`packages/client/src/mutations.ts`), which the
-web and phone apps share, and its `pressOnce` for a phone surface with no
+web and phone apps share, and its `pressOnce` for an Android surface with no
 screen, or the
-`Optimistic` protocol's `press` (`apps/macos/Sources/Stint/Shared/Optimistic.swift`)
+`Optimistic` protocol's `press` (`apps/macos/Sources/Stint/Shared/Optimistic.swift`),
+which the macOS app and the iPhone's surfaces outside the app share
 — which gives both the same rules: overlapping presses let the latest win,
 a timer's presses reach the server in press order, a silent server fails a
 prediction after 10s, and a late answer refetches. A pending press has no
 bound, because "try again" on a write that landed could make it twice.
 `scripts/check-mutation-usage.mjs` fails a web or phone file that imports
-`useMutation` or `MutationObserver`, with no opt-out; on macOS the PR checklist asks.
+`useMutation` or `MutationObserver`, with no opt-out; for Swift the PR checklist asks.
 
 The server stays the truth (Principle III): its answer to the last press,
 refetched or included with the write, replaces every prediction. A rejection takes the prediction back and says
@@ -139,4 +140,4 @@ change, the plausible design that breaks it, and why no check catches that
 in time. The version follows semver: MAJOR removes or redefines a principle,
 MINOR adds one, PATCH rewords. The reasoning goes in the PR.
 
-**Version**: 8.3.1 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-10-29
+**Version**: 8.3.2 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-10-29
