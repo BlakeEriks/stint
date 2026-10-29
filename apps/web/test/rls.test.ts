@@ -385,6 +385,38 @@ test('a phone cannot be registered to, changed on or removed from another user',
   );
 });
 
+/** Whether Realtime lets `userId` join `topic`: it sets the topic and asks
+ *  whether the user's select on `realtime.messages` sees a row. */
+async function mayJoin(userId: string, topic: string) {
+  const client = await tenant.connect();
+  try {
+    await client.query('begin');
+    await client.query(`set local request.jwt.claim.sub = '${userId}'`);
+    await client.query(`select set_config('realtime.topic', $1, true)`, [
+      topic,
+    ]);
+    const { rows } = await client.query(
+      'select count(*)::int n from realtime.messages',
+    );
+    return rows[0].n > 0;
+  } finally {
+    await client.query('rollback');
+    client.release();
+  }
+}
+
+test('a user joins only their own timer topic', async () => {
+  await admin.query('delete from realtime.messages');
+  await admin.query(
+    `insert into realtime.messages (topic, extension) values ($1, 'broadcast')`,
+    [`user:${ALICE}`],
+  );
+  assert.equal(await mayJoin(ALICE, `user:${ALICE}`), true);
+  assert.equal(await mayJoin(BOB, `user:${ALICE}`), false);
+  assert.equal(await mayJoin(ALICE, `user:${BOB}`), false);
+  await admin.query('delete from realtime.messages');
+});
+
 test('sent feedback cannot be changed or deleted, even by its sender', async () => {
   await seedFeedback();
 

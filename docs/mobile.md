@@ -78,7 +78,7 @@ the phone registers its FCM token (`POST /api/v1/push-devices`), with no
 permission prompt, and unregisters it on sign-out. The server pushes a data
 message on every change to the running timer (`docs/api.md`, Push
 devices); the app refetches the timer unless one of its own presses is in
-flight (`src/push.ts`). It also redraws [the timer outside the
+flight (`onTimerChanged` in `packages/client/src/query-keys.ts`). It also redraws [the timer outside the
 app](#outside-the-app), even with the app closed. The iPhone waits on APNs (#471).
 
 Preview and production builds need `GOOGLE_SERVICES_JSON`, an EAS file

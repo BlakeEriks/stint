@@ -34,6 +34,10 @@ import { EntryScrubber } from '@/components/entry-scrubber';
 import { useProjectColors } from '@/lib/client/use-project-colors';
 import { api, ApiError, type Project, type TimeEntry } from '@/lib/client/api';
 import { timeZone } from '@/lib/client/use-timer';
+import {
+  predictCreatedEntry,
+  type CreatedEntry,
+} from '@/lib/client/predict-entry';
 
 const LABEL = 'type-label text-subtle';
 
@@ -157,10 +161,10 @@ export function EntryDialog({
   const failWith = (fallback: string) => (e: Error) =>
     setError(e instanceof ApiError ? e.message : fallback);
 
-  /* Pending, not predicted: the server decides whether an entry is valid (an
+  /* An edit waits on the server: it decides whether the change is valid (an
      overlap, a billed lock), and a form that closed at once would lose what
-     was typed when it said no. The button answers the press instead, and the
-     reason shows here. `stats` is in the refetch too: editing an entry
+     was typed when it said no. The button shows the press is pending, and
+     the reason shows here. `stats` is in the refetch too: editing an entry
      changes the unbilled total, and giving a loose entry a project is what
      clears its inbox row. */
   const formPress = {
@@ -171,28 +175,52 @@ export function EntryDialog({
     onSuccess: settle,
   };
 
+  const body = () => {
+    const { startedAt, endedAt } = draftInstants(draft, tz);
+    return {
+      taskName: draft.taskName.trim(),
+      projectId: draft.projectId,
+      startedAt: startedAt.toISOString(),
+      endedAt: endedAt.toISOString(),
+      isBillable: draft.billable,
+    };
+  };
+
   const save = useOptimisticMutation({
     ...formPress,
-    mutationFn: async () => {
-      const { startedAt, endedAt } = draftInstants(draft, tz);
-      const body = {
-        taskName: draft.taskName.trim(),
-        projectId: draft.projectId,
-        startedAt: startedAt.toISOString(),
-        endedAt: endedAt.toISOString(),
-        isBillable: draft.billable,
-      };
-
-      return existing
-        ? api.updateEntry(existing.id, {
-            ...body,
-            ...(draft.invoicedElsewhere !== existing.invoicedElsewhere && {
-              invoicedElsewhere: draft.invoicedElsewhere,
-            }),
-          })
-        : api.createEntry({ id: uuidv7(), ...body });
-    },
+    mutationFn: async () =>
+      api.updateEntry(existing!.id, {
+        ...body(),
+        ...(draft.invoicedElsewhere !== existing!.invoicedElsewhere && {
+          invoicedElsewhere: draft.invoicedElsewhere,
+        }),
+      }),
     onError: failWith('Could not save this entry.'),
+  });
+
+  /* A new entry is predicted instead: the form closes on the press and the
+     block shows on the grid at once, drawn as not yet saved until the
+     answer (`DayColumn`). Nothing it holds is refused by the form itself, so
+     a refusal or a silent server takes the block back and the app-wide
+     notice says why. */
+  const create = useOptimisticMutation<CreatedEntry, TimeEntry, unknown>({
+    queryKey: () => keys.entries(),
+    invalidate: (qc, _entry, settled) => invalidateEntryData(qc, settled),
+    movesHome: true,
+    mutationKey: keys.createsEntry(),
+    /* Drawing it again would be a second entry if the first lands late. */
+    timeoutMessage:
+      'The server hasn’t confirmed this entry yet. It will appear if it saved.',
+    mutationFn: (entry) => api.createEntry(entry),
+    predict: (current, entry, key) =>
+      predictCreatedEntry(current, entry, key, tz),
+    alsoPredict: [
+      {
+        queryKey: keys.calendar(),
+        predict: (current, entry, key) =>
+          predictCreatedEntry(current, entry, key, tz),
+      },
+    ],
   });
 
   const remove = useOptimisticMutation({
@@ -240,7 +268,9 @@ export function EntryDialog({
           onSubmit={(e) => {
             e.preventDefault();
             setError(null);
-            save.mutate();
+            if (existing) return save.mutate();
+            create.mutate({ id: uuidv7(), ...body() });
+            onOpenChange(false);
           }}
           className="flex flex-col gap-4"
         >

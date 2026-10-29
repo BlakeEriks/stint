@@ -637,3 +637,47 @@ describe('EntryDialog', () => {
     });
   });
 });
+
+describe('adding an entry', () => {
+  /* Predicted: the form closes on the press and the block stands in for
+     the answer. */
+  it('closes on the press, before the server answers', async () => {
+    const posts: unknown[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          posts.push(JSON.parse(String(init.body)));
+          return new Promise<Response>(() => {});
+        }
+        return new Response(
+          JSON.stringify(
+            String(url).includes('task-names') ? { taskNames: [] } : {},
+          ),
+          { status: 200 },
+        );
+      }),
+    );
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <EntryDialog
+        open
+        onOpenChange={onOpenChange}
+        seed={{
+          startedAt: '2026-09-11T13:00:00.000Z',
+          endedAt: '2026-09-11T14:00:00.000Z',
+        }}
+        projects={PROJECTS}
+        tz={TZ}
+      />,
+      { wrapper },
+    );
+
+    await user.type(screen.getByLabelText('Task'), 'Drawn');
+    await user.click(screen.getByRole('button', { name: 'Add entry' }));
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    await waitFor(() => expect(posts).toHaveLength(1));
+  });
+});
