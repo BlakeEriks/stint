@@ -1,8 +1,3 @@
-/**
- * Drafts: everything that reads live data — the client, settings, entries and
- * expenses — to price an invoice that has not been sent. An issued invoice is
- * read by `issued.ts`, which reads nothing here.
- */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ApiError, dbCode, PG, refused } from './errors';
 import {
