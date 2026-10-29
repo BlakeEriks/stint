@@ -6,11 +6,9 @@ import {
   draftSnapshot,
   lateEntries,
   newLines,
-  UNBILLED_DUE_DAYS,
   unbilledDue,
   snapshotChanged,
 } from '../src/live-draft.ts';
-import { addDays as addDaysTo } from '../src/calendar.ts';
 
 const hour = (description: string, quantity: number, amount: number) => ({
   description,
@@ -229,194 +227,148 @@ test('draftDates: sending keeps the dates its last PDF printed', () => {
   });
 });
 
-// On Oct 3, Northwind bills monthly and Acme has no schedule.
-const TODAY = '2026-10-03';
-const clients = [
-  { id: 'c1', name: 'Northwind', schedule: { period: 'monthly' as const } },
-  { id: 'c2', name: 'Acme', schedule: null },
-];
+/* unbilledDue(): on Oct 3 unless a row says otherwise, Northwind (c1) bills
+   monthly and Acme (c2) has no schedule. Each row reads
+   "client ids since from..to [one] seconds". */
 const work = (id: string, startedAt: string, clientId = 'c1', hours = 1) =>
   entry({ id, startedAt, clientId, durationSeconds: hours * 3600 });
-const due = (
-  entries: ReturnType<typeof entry>[],
-  invoiceRows: Parameters<typeof unbilledDue>[0]['invoices'] = [],
-  today = TODAY,
-) =>
-  unbilledDue(
-    { clients, entries, invoices: invoiceRows },
-    today,
-    'America/Chicago',
-  );
-
-test('a scheduled client with work in its last ended period is due for that period', () => {
-  assert.deepEqual(due([work('e1', '2026-09-20T15:00:00Z', 'c1', 2)]), [
-    {
-      clientId: 'c1',
-      clientName: 'Northwind',
-      entryIds: ['e1'],
-      seconds: 7200,
-      since: '2026-09-20',
-      periodStart: '2026-09-01',
-      periodEnd: '2026-09-30',
-      onePeriod: true,
-    },
-  ]);
+const inv = (
+  status: string,
+  periodStart: string,
+  periodEnd: string,
+  clientId = 'c1',
+) => ({ clientId, status, periodStart, periodEnd });
+const sep = (status: string) => inv(status, '2026-09-01', '2026-09-30');
+const NW_SEP = 'Northwind e1 since 2026-09-20 2026-09-01..2026-09-30 one 3600';
+const acme = (today: string) => ({
+  entries: [work('e1', '2026-10-10T15:00:00Z', 'c2')],
+  today,
 });
 
-test('work from every ended period is due, in one row spanning them', () => {
-  assert.deepEqual(
-    due([
+const DUE: {
+  name: string;
+  entries: ReturnType<typeof entry>[];
+  invoices?: ReturnType<typeof inv>[];
+  today?: string;
+  due: string[];
+}[] = [
+  {
+    name: 'the last ended period',
+    entries: [work('e1', '2026-09-20T15:00:00Z', 'c1', 2)],
+    due: ['Northwind e1 since 2026-09-20 2026-09-01..2026-09-30 one 7200'],
+  },
+  {
+    name: 'every ended period in one row, not the open one',
+    entries: [
       work('e1', '2026-08-03T15:00:00Z'),
       work('e2', '2026-09-20T15:00:00Z'),
-      // The open period has not ended.
       work('e3', '2026-10-01T15:00:00Z'),
-    ]),
-    [
-      {
-        clientId: 'c1',
-        clientName: 'Northwind',
-        entryIds: ['e1', 'e2'],
-        seconds: 7200,
-        since: '2026-08-03',
-        periodStart: '2026-08-01',
-        periodEnd: '2026-09-30',
-        onePeriod: false,
-      },
     ],
-  );
-});
-
-test('Create invoice spans only the oldest run of adjacent due periods', () => {
-  assert.deepEqual(
-    due(
-      [
-        work('e1', '2026-07-20T15:00:00Z'),
-        work('e2', '2026-08-20T15:00:00Z'),
-        work('e4', '2026-10-20T15:00:00Z'),
-      ],
-      [
-        {
-          clientId: 'c1',
-          status: 'sent',
-          periodStart: '2026-09-01',
-          periodEnd: '2026-09-30',
-        },
-      ],
-      '2026-11-03',
-    ).map(({ entryIds, since, periodStart, periodEnd, onePeriod }) => ({
-      entryIds,
-      since,
-      periodStart,
-      periodEnd,
-      onePeriod,
-    })),
-    [
-      {
-        entryIds: ['e1', 'e2', 'e4'],
-        since: '2026-07-20',
-        periodStart: '2026-07-01',
-        periodEnd: '2026-08-31',
-        onePeriod: false,
-      },
+    due: ['Northwind e1,e2 since 2026-08-03 2026-08-01..2026-09-30 7200'],
+  },
+  {
+    name: 'the link spans the oldest adjacent periods, not an invoiced gap',
+    entries: [
+      work('e1', '2026-07-20T15:00:00Z'),
+      work('e2', '2026-08-20T15:00:00Z'),
+      work('e4', '2026-10-20T15:00:00Z'),
     ],
-  );
-});
-
-test('for an unscheduled client, the run stops at an invoice between the work', () => {
-  const [row] = due(
-    [
+    invoices: [sep('sent')],
+    today: '2026-11-03',
+    due: ['Northwind e1,e2,e4 since 2026-07-20 2026-07-01..2026-08-31 10800'],
+  },
+  {
+    name: 'unscheduled, the link stops at an invoice between the days',
+    entries: [
       work('e1', '2026-07-10T15:00:00Z', 'c2'),
       work('e2', '2026-07-12T15:00:00Z', 'c2'),
       work('e3', '2026-08-20T15:00:00Z', 'c2'),
     ],
-    [
-      {
-        clientId: 'c2',
-        status: 'draft',
-        periodStart: '2026-08-01',
-        periodEnd: '2026-08-15',
-      },
-    ],
-    '2026-10-03',
-  );
-  assert.deepEqual(
-    [row?.periodStart, row?.periodEnd, row?.entryIds.length],
-    ['2026-07-10', '2026-07-12', 3],
-  );
-});
-
-test(`unscheduled work is due once it is more than ${UNBILLED_DUE_DAYS} days old`, () => {
-  assert.equal(UNBILLED_DUE_DAYS, 30);
-  const at = (daysAgo: number) =>
-    due(
-      [work('e1', '2026-10-10T15:00:00Z', 'c2')],
-      [],
-      addDaysTo('2026-10-10', daysAgo),
-    );
-  assert.deepEqual(at(29), []);
-  assert.deepEqual(at(30), []);
-  assert.deepEqual(at(31), [
-    {
-      clientId: 'c2',
-      clientName: 'Acme',
-      entryIds: ['e1'],
-      seconds: 3600,
-      since: '2026-10-10',
-      periodStart: '2026-10-10',
-      periodEnd: '2026-10-10',
-      onePeriod: false,
-    },
-  ]);
-});
-
-test('non-billable work, and work of no client, is never due', () => {
-  assert.deepEqual(
-    due([
+    invoices: [inv('draft', '2026-08-01', '2026-08-15', 'c2')],
+    due: ['Acme e1,e2,e3 since 2026-07-10 2026-07-10..2026-07-12 10800'],
+  },
+  { name: 'unscheduled at 29 days', ...acme('2026-11-08'), due: [] },
+  { name: 'unscheduled at 30 days', ...acme('2026-11-09'), due: [] },
+  {
+    name: 'unscheduled at 31 days',
+    ...acme('2026-11-10'),
+    due: ['Acme e1 since 2026-10-10 2026-10-10..2026-10-10 3600'],
+  },
+  {
+    name: 'non-billable work, and work of no client',
+    entries: [
       entry({ startedAt: '2026-09-20T15:00:00Z', isBillable: false }),
       entry({ startedAt: '2026-09-20T15:00:00Z', clientId: null }),
-    ]),
-    [],
-  );
-});
+    ],
+    due: [],
+  },
+  {
+    name: "dated in the user's zone: 03:00 UTC Oct 1 is Sep 30",
+    entries: [work('e1', '2026-10-01T03:00:00Z')],
+    due: ['Northwind e1 since 2026-09-30 2026-09-01..2026-09-30 one 3600'],
+  },
+  ...['draft', 'sent', 'paid'].map((status) => ({
+    name: `inside a ${status} invoice`,
+    entries: [work('e1', '2026-09-20T15:00:00Z')],
+    invoices: [sep(status)],
+    due: [],
+  })),
+  {
+    name: 'inside a void invoice',
+    entries: [work('e1', '2026-09-20T15:00:00Z')],
+    invoices: [sep('void')],
+    due: [NW_SEP],
+  },
+  {
+    name: "inside another client's invoice",
+    entries: [work('e1', '2026-09-20T15:00:00Z')],
+    invoices: [inv('paid', '2026-09-01', '2026-09-30', 'c2')],
+    due: [NW_SEP],
+  },
+  {
+    name: 'beside an invoice, not inside it',
+    entries: [work('e1', '2026-09-20T15:00:00Z')],
+    invoices: [inv('paid', '2026-09-01', '2026-09-15')],
+    due: [NW_SEP],
+  },
+  {
+    name: "an entry inside a sent period is lateEntries()' alone",
+    entries: [entry({})],
+    invoices: [inv('sent', '2026-09-16', '2026-09-30')],
+    due: [],
+  },
+  {
+    name: 'one row per client, oldest work first',
+    entries: [
+      work('e1', '2026-08-20T15:00:00Z', 'c1'),
+      work('e2', '2026-08-25T15:00:00Z', 'c2'),
+    ],
+    due: [
+      'Northwind e1 since 2026-08-20 2026-08-01..2026-08-31 one 3600',
+      'Acme e2 since 2026-08-25 2026-08-25..2026-08-25 3600',
+    ],
+  },
+];
 
-test('work is dated in the user zone', () => {
-  // 03:00 UTC on Oct 1 is still Sep 30 in Chicago.
-  assert.equal(due([work('e1', '2026-10-01T03:00:00Z')]).length, 1);
-});
-
-test('work inside any invoice but a void one is not due', () => {
-  const inv = (status: string, periodStart: string, periodEnd: string) => ({
-    clientId: 'c1',
-    status,
-    periodStart,
-    periodEnd,
+for (const row of DUE)
+  test(`work past due to bill: ${row.name}`, () => {
+    const rows = unbilledDue(
+      {
+        clients: [
+          { id: 'c1', name: 'Northwind', schedule: { period: 'monthly' } },
+          { id: 'c2', name: 'Acme', schedule: null },
+        ],
+        entries: row.entries,
+        invoices: row.invoices ?? [],
+      },
+      row.today ?? '2026-10-03',
+      'America/Chicago',
+    );
+    assert.deepEqual(
+      rows.map(
+        (r) =>
+          `${r.clientName} ${r.entryIds.join(',')} since ${r.since} ${r.periodStart}..${r.periodEnd}${r.onePeriod ? ' one' : ''} ${r.seconds}`,
+      ),
+      row.due,
+    );
   });
-  const e = [work('e1', '2026-09-20T15:00:00Z')];
-  for (const status of ['draft', 'sent', 'paid'])
-    assert.deepEqual(due(e, [inv(status, '2026-09-01', '2026-09-30')]), []);
-  assert.equal(due(e, [inv('void', '2026-09-01', '2026-09-30')]).length, 1);
-  // Another client's invoice, or one beside the work, covers nothing.
-  assert.equal(
-    due(e, [{ ...inv('paid', '2026-09-01', '2026-09-30'), clientId: 'c2' }])
-      .length,
-    1,
-  );
-  assert.equal(due(e, [inv('paid', '2026-09-01', '2026-09-15')]).length, 1);
-});
-
-test('an entry the late row flags is never due as well', () => {
-  const sent = [{ ...invoices[0]!, status: 'sent' }];
-  const late = entry({});
-  assert.equal(lateEntries([late], invoices, 'America/Chicago').length, 1);
-  assert.deepEqual(due([late], sent), []);
-});
-
-test('each client due gets one row, oldest work first', () => {
-  assert.deepEqual(
-    due([
-      work('e1', '2026-09-20T15:00:00Z', 'c1'),
-      work('e2', '2026-08-20T15:00:00Z', 'c2'),
-    ]).map((r) => r.clientName),
-    ['Acme', 'Northwind'],
-  );
-});

@@ -3795,7 +3795,9 @@ test('unbilled work dated in a sent period is late; billed, unbillable or voided
   assert.deepEqual(await late(), []);
 });
 
-test('work in an ended period is due until an invoice covers it or it is billed elsewhere', async () => {
+/* The due rule's cases are core's table (`live-draft.test.ts`); this holds
+   what the route adds: the rows it loads, and Billed elsewhere clearing it. */
+test('/stats lists work past due to bill, from the clients, entries and drafts it loads', async () => {
   const r = await live();
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
   const { POST: elsewhere } = await import(
@@ -3824,15 +3826,9 @@ test('work in an ended period is due until an invoice covers it or it is billed 
   };
   assert.deepEqual(await due(), [row]);
 
-  const inv = await json(
-    await r.create(req('/invoices', { clientId: CLIENT, ...period })),
-  );
-  assert.equal(inv.status, 201, JSON.stringify(inv.body));
-  assert.deepEqual(await due(), [], 'a draft covers it');
-
-  await send(inv.body.id);
-  await r.setStatus(req('/s', { status: 'void' }, 'PATCH'), at(inv.body.id));
-  assert.deepEqual(await due(), [row], 'a void one does not');
+  await pool.query(`update clients set archived_at = now()`);
+  assert.deepEqual(await due(), [], 'an archived client is never due');
+  await pool.query(`update clients set archived_at = null`);
 
   const mark = (invoicedElsewhere: boolean) =>
     elsewhere(
@@ -3843,10 +3839,13 @@ test('work in an ended period is due until an invoice covers it or it is billed 
     );
   assert.equal((await mark(true)).status, 200);
   assert.deepEqual(await due(), [], 'billed elsewhere clears it');
-
   await mark(false);
-  await pool.query(`update clients set archived_at = now()`);
-  assert.deepEqual(await due(), [], 'nor is an archived client due');
+
+  const draft = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...period })),
+  );
+  assert.equal(draft.status, 201, JSON.stringify(draft.body));
+  assert.deepEqual(await due(), [], 'a draft it loads covers it');
 });
 
 test('a draft is stale by its period end, at the total its work comes to now', async () => {
