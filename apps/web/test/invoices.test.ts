@@ -4199,3 +4199,49 @@ for (const [what, change] of [
     assert.equal(sent.status, 200, JSON.stringify(sent.body));
     if ('dueDate' in change) assert.equal(sent.body.dueDate, change.dueDate);
   });
+
+/* A draft downloaded before snapshots kept what the PDF printed: nothing
+   could edit it then, so its own columns are what that PDF printed, and the
+   backfill writes them into its snapshot. */
+test('a draft downloaded before edits existed holds Mark sent after an edit, once backfilled', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  const body = { clientId: CLIENT, ...PERIOD, notes: 'Thanks' };
+  const inv = await json(await r.create(req('/invoices', body)));
+  await r.pdf(req('/pdf?tz=UTC'), at(inv.body.id));
+  await pool.query(
+    `update invoices set downloaded_snapshot = downloaded_snapshot - 'printed'
+      where id = $1`,
+    [inv.body.id],
+  );
+
+  const { readFileSync } = await import('node:fs');
+  await pool.query(
+    readFileSync(
+      new URL(
+        '../../../supabase/migrations/20261029122450_backfill_printed_snapshot.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
+  const untouched = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
+  );
+  assert.equal(
+    untouched.body.changedSinceDownload,
+    null,
+    'the backfill changes nothing the draft shows',
+  );
+
+  await edit(inv.body.id, { ...body, notes: 'Thanks again' });
+  const refused = await json(
+    await r.setStatus(
+      req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
+      at(inv.body.id),
+    ),
+  );
+  assert.equal(refused.status, 409);
+  assert.equal(refused.body.code, 'DRAFT_CHANGED');
+  assert.deepEqual(refused.body.details.edited, ['notes']);
+});
