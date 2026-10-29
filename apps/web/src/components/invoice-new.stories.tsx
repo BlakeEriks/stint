@@ -517,6 +517,22 @@ export const WithReference: Story = {
   },
 };
 
+/** A note prints on this invoice, and the card shows it at once. */
+export const WithNotes: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await userEvent.type(
+      page.getByLabelText('Notes'),
+      'Thanks for a great month.',
+    );
+    await expect(
+      card(page).getByText('Thanks for a great month.'),
+    ).toBeVisible();
+  },
+};
+
 /** No reference, no Reference row (US4 scenario 2). */
 export const NoReference: Story = {
   ...desktop,

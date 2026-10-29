@@ -8,6 +8,15 @@ import {
   uuid,
 } from './primitives.ts';
 
+/** How an invoice looks; what it says is the same in each. */
+export const InvoiceTemplate = z.enum([
+  'standard',
+  'modern',
+  'classic',
+  'creative',
+]);
+export type InvoiceTemplate = z.infer<typeof InvoiceTemplate>;
+
 export const GroupingMode = z.enum([
   'summary',
   'entry',
@@ -196,7 +205,6 @@ export const CreateInvoice = InvoicePreviewRequest.extend({
 
 /** The frozen snapshot stored on an invoice. */
 const PaymentDetailsSnapshot = z.object({
-  title: z.string().nullable(),
   fields: z.array(z.object({ label: z.string(), value: z.string() })),
   intermediary: z.array(z.object({ label: z.string(), value: z.string() })),
   link: z.object({ label: z.string(), url: z.string() }).nullable(),
@@ -237,6 +245,8 @@ export const Invoice = z.object({
   summaryText: z.string().nullable(),
   /** The PO, contract or SOW, printed under the service period. */
   reference: z.string().nullable(),
+  /** Frozen when sent; null while a draft, which follows the setting. */
+  template: InvoiceTemplate.nullable(),
   /** The ticked schedules, frozen when sent like the lines. */
   supportingDetail: Schedules.nullable(),
   /** The payment block as rendered at generation. Editing a profile later

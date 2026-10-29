@@ -152,15 +152,6 @@ test('a payment link is surfaced separately with a default label', () => {
   assert.equal(bare!.link!.label, 'Pay online');
 });
 
-test('the profile name becomes a title, except when generic', () => {
-  assert.equal(
-    buildPaymentDetails({ ...us, name: 'USD ACH' })!.title,
-    'USD ACH',
-  );
-  assert.equal(buildPaymentDetails({ ...us, name: 'Default' })!.title, null);
-  assert.equal(buildPaymentDetails({ ...us, name: undefined })!.title, null);
-});
-
 // ── resolution ─────────────────────────────────────────────────────
 const profiles = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
 

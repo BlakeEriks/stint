@@ -9,6 +9,7 @@ const session: Session = {
   refreshToken: 'r',
   expiresAt: 0,
   email: 'pr-4@preview.test',
+  userId: 'user-4',
 };
 
 /** An auth whose listeners fire on sign-in and sign-out, as `createAuth`'s do. */
@@ -42,9 +43,25 @@ test('a stored session is shown as it is', async () => {
     preview: null,
     show: (s) => shown.push(s),
     clear: () => {},
+    identify: () => {},
   });
   await flush();
   assert.deepEqual(shown, [session]);
+});
+
+test('crash reports name the user by id from launch, and no one after sign-out', async () => {
+  const named: Array<string | null> = [];
+  const auth = fakeAuth(session, async () => {});
+  startSession({
+    auth,
+    preview: null,
+    show: () => {},
+    clear: () => {},
+    identify: (id) => named.push(id),
+  });
+  await flush();
+  auth.emit(null);
+  assert.deepEqual(named, ['user-4', null]);
 });
 
 test('no session, no preview: sign-in', async () => {
@@ -54,6 +71,7 @@ test('no session, no preview: sign-in', async () => {
     preview: null,
     show: (s) => shown.push(s),
     clear: () => {},
+    identify: () => {},
   });
   await flush();
   assert.deepEqual(shown, [null]);
@@ -67,6 +85,7 @@ test("a preview build signs in as its PR's account on launch", async () => {
     preview: { email: 'pr-4@preview.test', password: 'pw' },
     show: (s) => shown.push(s),
     clear: () => {},
+    identify: () => {},
   });
   await flush();
   assert.deepEqual(auth.signedInWith, ['pr-4@preview.test']);
@@ -86,6 +105,7 @@ test('a preview account not seeded yet falls back to sign-in', async () => {
       preview: { email: 'pr-4@preview.test', password: 'pw' },
       show: (s) => shown.push(s),
       clear: () => {},
+      identify: () => {},
     });
     await flush();
     assert.deepEqual(shown, [null]);
@@ -95,7 +115,13 @@ test('a preview account not seeded yet falls back to sign-in', async () => {
 test("sign-out clears the cache, so the next account never sees the last one's", async () => {
   let cleared = 0;
   const auth = fakeAuth(session, async () => {});
-  startSession({ auth, preview: null, show: () => {}, clear: () => cleared++ });
+  startSession({
+    auth,
+    preview: null,
+    show: () => {},
+    clear: () => cleared++,
+    identify: () => {},
+  });
   await flush();
   auth.emit(session);
   assert.equal(cleared, 0);
@@ -111,6 +137,7 @@ test('the returned function stops listening', async () => {
     preview: null,
     show: () => {},
     clear: () => cleared++,
+    identify: () => {},
   });
   stop();
   auth.emit(null);

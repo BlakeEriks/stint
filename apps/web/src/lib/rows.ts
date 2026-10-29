@@ -12,6 +12,7 @@ import type {
   GroupingMode,
   Invoice,
   InvoiceStatus,
+  InvoiceTemplate,
   PaymentProfile,
   Schedules,
   Settings,
@@ -208,12 +209,13 @@ export interface SettingsRow {
   logo_url: string | null;
   payment_terms_days: number;
   invoice_number_prefix: string;
+  invoice_template: InvoiceTemplate;
   next_invoice_number: number;
   welcomed_at: string | null;
 }
 
 export const SETTINGS_COLUMNS = columns<SettingsRow>()(
-  'default_hourly_rate, currency, week_starts_on, time_format, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, payment_terms_days, invoice_number_prefix, next_invoice_number, welcomed_at',
+  'default_hourly_rate, currency, week_starts_on, time_format, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, payment_terms_days, invoice_number_prefix, invoice_template, next_invoice_number, welcomed_at',
 );
 
 export function toSettings(r: SettingsRow) {
@@ -230,6 +232,7 @@ export function toSettings(r: SettingsRow) {
     logoUrl: r.logo_url,
     paymentTermsDays: r.payment_terms_days,
     invoiceNumberPrefix: r.invoice_number_prefix,
+    invoiceTemplate: r.invoice_template,
     nextInvoiceNumber: r.next_invoice_number,
     welcomedAt: r.welcomed_at,
   };
@@ -316,6 +319,7 @@ export interface InvoiceRow {
   grouping_mode: z.infer<typeof GroupingMode>;
   summary_text: string | null;
   reference: string | null;
+  template: InvoiceTemplate;
   supporting_detail: z.infer<typeof Schedules> | null;
   payment_details: PaymentDetails;
   business_name: string | null;
@@ -337,7 +341,7 @@ export interface InvoiceRow {
 }
 
 export const INVOICE_COLUMNS = columns<InvoiceRow>()(
-  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency, notes, payment_terms, grouping_mode, summary_text, reference, supporting_detail, payment_details, business_name, business_address, business_email, logo_url, client_name, client_email, client_address, sent_at, paid_at, created_at, issued_subscription_status, tz, excluded_expense_ids, downloaded_snapshot',
+  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency, notes, payment_terms, grouping_mode, summary_text, reference, template, supporting_detail, payment_details, business_name, business_address, business_email, logo_url, client_name, client_email, client_address, sent_at, paid_at, created_at, issued_subscription_status, tz, excluded_expense_ids, downloaded_snapshot',
 );
 
 export function toInvoice(r: InvoiceRow) {
@@ -362,6 +366,8 @@ export function toInvoice(r: InvoiceRow) {
     groupingMode: r.grouping_mode,
     summaryText: r.summary_text,
     reference: r.reference,
+    // A draft follows the setting; its column is written when it is sent.
+    template: r.status === 'draft' ? null : r.template,
     supportingDetail: r.supporting_detail,
     paymentDetails: r.payment_details ?? null,
     business: {
@@ -511,6 +517,7 @@ export const SETTINGS_FIELDS = {
   logoUrl: 'logo_url',
   paymentTermsDays: 'payment_terms_days',
   invoiceNumberPrefix: 'invoice_number_prefix',
+  invoiceTemplate: 'invoice_template',
   nextInvoiceNumber: 'next_invoice_number',
   welcomedAt: 'welcomed_at',
 } as const;

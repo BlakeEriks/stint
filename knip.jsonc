@@ -6,7 +6,8 @@
     // MSW's service worker, loaded by URL from Storybook's static dir.
     "apps/web/.storybook/public/mockServiceWorker.js"
   ],
-  "ignoreBinaries": ["dev", "pkill"],
+  // Poppler's, which `sample:invoice` needs installed (docs/local-dev.md).
+  "ignoreBinaries": ["dev", "pkill", "pdftoppm", "pdftotext"],
   // The hygiene scan runs jscpd's binary by path.
   "ignoreDependencies": ["jscpd"],
   "workspaces": {
