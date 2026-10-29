@@ -176,7 +176,6 @@ function Loaded({
               label={`Delete ${invoice.invoiceNumber} for good`}
               pendingLabel="Deleting…"
               takesRow
-              consequence="Its work stays unbilled."
               pending={remove.isPending}
               onConfirm={() => remove.mutate()}
             >

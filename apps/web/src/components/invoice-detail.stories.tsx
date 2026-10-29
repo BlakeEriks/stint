@@ -284,7 +284,6 @@ export const ConfirmDelete: Story = {
     await expect(
       page.getByRole('button', { name: 'Delete STINT-0015 for good' }),
     ).toBeVisible();
-    await expect(page.getByText('Its work stays unbilled.')).toBeVisible();
     // The confirm takes the row, hiding the rest, rather than wrapping it.
     await expect(page.queryByRole('button', { name: 'Mark sent' })).toBeNull();
     await expect(below(page)).toBe(before);
