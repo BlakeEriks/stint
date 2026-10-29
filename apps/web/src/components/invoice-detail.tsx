@@ -106,6 +106,12 @@ export function InvoiceDetail({ id }: { id: string }) {
   /* What the server rendered until hydration, as `Listing` does. A list row
      has no lines, so only the invoice itself makes the actions live. */
   const shown = useHydrated() ? query.data : undefined;
+  /* Kept until data arrives, as `Listing` keeps its message: asked again, a
+     failed query is pending with no error, and a draft's actions would flash
+     over "no longer exists". */
+  const [failed, setFailed] = useState(false);
+  const gone = query.data === undefined && (query.error != null || failed);
+  if (gone !== failed) setFailed(gone);
   const changed =
     shown?.status === 'draft' && !downloaded
       ? shown.changedSinceDownload
@@ -113,7 +119,7 @@ export function InvoiceDetail({ id }: { id: string }) {
 
   return (
     <DetailPage back="/invoices" label="Invoices">
-      {shown !== undefined || query.error == null ? (
+      {!gone ? (
         <Header
           invoice={shown}
           ready={shown?.lineItems !== undefined}
@@ -202,7 +208,9 @@ function Header({
 
   return (
     <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-      <div className="flex min-w-0 items-center gap-2.5">
+      {/* A button's height before the number lands, so its arrival moves
+          nothing when the row wraps. */}
+      <div className="flex min-h-9 min-w-0 items-center gap-2.5">
         {invoice ? (
           <>
             <h1 className="truncate type-title text-strong">{number}</h1>

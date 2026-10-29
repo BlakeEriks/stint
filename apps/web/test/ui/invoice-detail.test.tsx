@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -129,6 +129,44 @@ describe('InvoiceDetail', () => {
     expect(screen.getByText('Acme Corp')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Mark paid' })).toBeVisible();
     expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  /* A refetch of a query that failed with no data puts it back to pending
+     with no error, which must not draw a draft's actions over the 404. */
+  it('shows no actions over a missing invoice while it is asked again', async () => {
+    const fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            code: 'ENTRY_NOT_FOUND',
+            message: 'Invoice not found',
+          }),
+          { status: 404 },
+        ),
+    );
+    vi.stubGlobal('fetch', fetch);
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+    });
+    render(
+      <QueryClientProvider client={qc}>
+        <InvoiceDetail id="inv-1" />
+      </QueryClientProvider>,
+    );
+    expect(
+      await screen.findByText('That invoice no longer exists.'),
+    ).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Delete draft' })).toBeNull();
+
+    fetch.mockImplementation(() => new Promise(() => {}));
+    await act(async () => {
+      void qc.refetchQueries({ queryKey: keys.invoice('inv-1') });
+      // React Query tells its readers on the next tick.
+      await new Promise((r) => setTimeout(r, 10));
+    });
+    expect(qc.getQueryState(keys.invoice('inv-1'))?.error).toBeNull();
+    expect(screen.getByText('That invoice no longer exists.')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Delete draft' })).toBeNull();
   });
 
   /**

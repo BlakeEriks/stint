@@ -1,6 +1,8 @@
 import type { Decorator, Meta, StoryObj } from '@storybook/nextjs-vite';
 import { useQuery } from '@tanstack/react-query';
+import { http } from 'msw';
 import { api } from '@/lib/client/api';
+import { handlers } from '@/mocks/handlers';
 import { addDays } from '@stint/core';
 import { keys } from '@stint/client';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
@@ -56,6 +58,49 @@ export const Draft: Story = {
   },
 };
 export const DraftPhone: Story = { ...phone };
+
+/* The invoice answers only when the play says, so it can measure the
+   actions before and after. */
+let arrive = () => {};
+const held = {
+  msw: {
+    handlers: {
+      invoice: http.get(handlers.invoice.info.path, async (info) => {
+        await new Promise<void>((done) => {
+          arrive = done;
+        });
+        const answer = await handlers.invoice.run({
+          request: info.request,
+          requestId: info.requestId,
+        });
+        return answer?.response;
+      }),
+    },
+  },
+};
+
+/** A cold load where the row wraps: the title arriving beside the actions
+    moves nothing. */
+export const ColdLoadPhone: Story = {
+  ...phone,
+  parameters: held,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const top = () =>
+      page.getByRole('button', { name: 'Delete draft' }).getBoundingClientRect()
+        .top;
+    await expectWaiting(within(canvasElement), [
+      'Delete draft',
+      'Mark sent',
+      'Download PDF',
+    ]);
+    const before = top();
+    arrive();
+    await page.findByRole('link', { name: 'Download PDF' });
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(top()).toBe(before);
+  },
+};
 
 /* The draft as the server sends it once work landed after its PDF. */
 const changed = paying((db) => {
