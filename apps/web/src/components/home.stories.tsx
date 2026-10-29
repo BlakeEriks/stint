@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { localDateKey } from '@stint/core';
 import { account } from '@/mocks/db';
-import { entry, ids } from '@/mocks/fixtures';
+import { entry, id, ids } from '@/mocks/fixtures';
 import { ZONE } from '@/mocks/time.mts';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import {
@@ -190,7 +190,7 @@ const blockedDraft = account((db) => {
   if (!draft) return;
   draft.periodEnd = '2026-01-31';
   draft.unratedEntries = [
-    { id: 'unrated-1', taskName: 'Kickoff', startedAt: '2026-01-05T15:00:00Z' },
+    { id: id(9002), taskName: 'Kickoff', startedAt: '2026-01-05T15:00:00Z' },
   ];
 });
 

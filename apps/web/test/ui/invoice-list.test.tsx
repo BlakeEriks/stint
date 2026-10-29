@@ -3,6 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import { keys } from '@stint/client';
+import { InvoiceDetail } from '@/components/invoice-detail';
 import { InvoiceList } from '@/components/invoice-list';
 import type { Invoice } from '@/lib/client/api';
 import { localDateKey, localDateTimeToInstant } from '@stint/core';
@@ -11,6 +13,7 @@ const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 const search = { value: new URLSearchParams() };
 vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
   useSearchParams: () => search.value,
   usePathname: () => '/invoices',
 }));
@@ -75,6 +78,19 @@ function wrapper({ children }: { children: ReactNode }) {
   });
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
+
+/** An invoice as its own route answers, lines and all. */
+const detailOf = (i: Invoice | undefined) => ({
+  ...i,
+  billTo: { name: 'Northwind', email: null, address: null },
+  business: { name: 'Sam', address: null, email: null, logoUrl: null },
+  lineItems: [],
+  canDownload: true,
+  changedSinceDownload: null,
+  unratedEntries: [],
+  dueBeforeIssue: { download: false, send: false },
+  refuses: { download: false, send: false },
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -262,5 +278,119 @@ describe('InvoiceList', () => {
       expect(screen.getByText(/Nothing open/)).toBeInTheDocument(),
     );
     expect(screen.queryByText(/No invoices yet/)).toBeNull();
+  });
+
+  /* Once the list paints, each draft and open invoice is fetched in full,
+     so opening one shows it with its actions live; a finished one waits. */
+  it('prefetches drafts and open invoices, never paid ones', async () => {
+    const list = [
+      invoice({ id: 'i1', invoiceNumber: 'STINT-0001', status: 'draft' }),
+      invoice({ id: 'i2', invoiceNumber: 'STINT-0002', status: 'sent' }),
+      invoice({ id: 'i3', invoiceNumber: 'STINT-0003', status: 'paid' }),
+    ];
+    const fetched: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const path = String(url).replace('/api/v1', '');
+        if (path.startsWith('/clients'))
+          return new Response(
+            JSON.stringify({ clients: [{ id: 'c1', name: 'Northwind' }] }),
+          );
+        const one = path.match(/^\/invoices\/(i\d)/)?.[1];
+        if (one) {
+          fetched.push(one);
+          return new Response(
+            JSON.stringify(detailOf(list.find((i) => i.id === one))),
+          );
+        }
+        return new Response(JSON.stringify({ invoices: list }));
+      }),
+    );
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+    });
+    const { unmount } = render(
+      <QueryClientProvider client={qc}>
+        <InvoiceList />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(fetched.sort()).toEqual(['i1', 'i2']));
+    unmount();
+
+    for (const [id, action] of [
+      ['i1', 'Mark sent'],
+      ['i2', 'Mark paid'],
+    ] as const) {
+      const page = render(
+        <QueryClientProvider client={qc}>
+          <InvoiceDetail id={id} />
+        </QueryClientProvider>,
+      );
+      expect(screen.queryByRole('status')).toBeNull();
+      expect(screen.getByRole('button', { name: action })).toBeEnabled();
+      expect(screen.getByRole('link', { name: 'Download PDF' })).toBeVisible();
+      page.unmount();
+    }
+    expect(fetched).not.toContain('i3');
+  });
+
+  /* Paid from its row, a prefetched invoice opens as the row now says, not
+     as the copy fetched while it was still sent. */
+  it('opens an invoice paid from its row as paid', async () => {
+    let status: Invoice['status'] = 'sent';
+    let detailAnswers = true;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const path = String(url).replace('/api/v1', '');
+        if (init?.method && init.method !== 'GET') {
+          status = 'paid';
+          return new Response('{}');
+        }
+        if (path.startsWith('/clients'))
+          return new Response(
+            JSON.stringify({ clients: [{ id: 'c1', name: 'Northwind' }] }),
+          );
+        if (path.startsWith('/invoices/i1')) {
+          if (!detailAnswers) return new Promise<Response>(() => {});
+          return new Response(JSON.stringify(detailOf(invoice({ status }))));
+        }
+        return new Response(
+          JSON.stringify({ invoices: [invoice({ status })] }),
+        );
+      }),
+    );
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+    });
+    const user = userEvent.setup();
+    const { unmount } = render(
+      <QueryClientProvider client={qc}>
+        <InvoiceList />
+      </QueryClientProvider>,
+    );
+    await waitFor(() =>
+      expect(qc.getQueryData(keys.invoice('i1'))).toBeDefined(),
+    );
+    await user.click(
+      await screen.findByRole('button', { name: 'Mark STINT-0001 paid' }),
+    );
+    await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: /Mark STINT-0001 paid/ }),
+      ).toBeNull(),
+    );
+    unmount();
+
+    detailAnswers = false;
+    render(
+      <QueryClientProvider client={qc}>
+        <InvoiceDetail id="i1" />
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByRole('button', { name: 'Mark paid' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Void' })).toBeDisabled();
   });
 });
