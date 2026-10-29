@@ -49,7 +49,8 @@ beforeEach(async () => {
     `update user_settings set default_hourly_rate=100, currency='USD',
      invoice_number_prefix='INV-', next_invoice_number=1,
      payment_terms_days=30, legacy_payment_terms=null, business_name='Sam Rivera',
-     business_email='sam@test', invoice_template='standard'
+     business_email='sam@test', invoice_template='standard',
+     billing_time_zone=null
      where user_id=$1`,
     [USER],
   );
@@ -3983,4 +3984,119 @@ test('a draft generated beside an earlier open one keeps its total on its first 
     await r.detail(req('/invoices/x?tz=UTC'), at(august.body.id)),
   );
   assert.equal(aug.body.total, 190);
+});
+
+// ── billing time zone ──────────────────────────────────────────────
+/** Generates an invoice from a device in `device`, returning its entry ids
+ *  and the zone it stored. */
+async function generateFrom(
+  device: string,
+  period: { periodStart: string; periodEnd: string } = PERIOD,
+) {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const res = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...period, tz: device })),
+  );
+  assert.equal(res.status, 201, JSON.stringify(res.body));
+  const { rows } = await pool.query('select tz from invoices where id=$1', [
+    res.body.id,
+  ]);
+  return {
+    id: res.body.id as string,
+    issueDate: res.body.issueDate as string,
+    entryIds: (res.body.lineItems as { entryIds: string[] }[])
+      .flatMap((l) => l.entryIds)
+      .sort(),
+    tz: rows[0].tz as string,
+  };
+}
+
+const billIn = (zone: string | null) =>
+  pool.query('update user_settings set billing_time_zone=$1 where user_id=$2', [
+    zone,
+    USER,
+  ]);
+
+/* The issue's case: work at 11:30 PM Sep 30 Pacific is Oct 1 in Lisbon, so
+   an invoice read in the device's zone left it out of September there and
+   out of October back home. */
+test('an invoice covers the same entries wherever it is generated', async () => {
+  await billIn('America/Los_Angeles');
+  await seedEntry({ id: E(1), start: '2026-10-01T06:30:00Z' }); // Sep 30, 11:30 PM PDT
+  await seedEntry({ id: E(2), start: '2026-09-01T06:30:00Z' }); // Aug 31, 11:30 PM PDT
+
+  const lisbon = await generateFrom('Europe/Lisbon');
+  assert.deepEqual(lisbon.entryIds, [E(1)]);
+  assert.equal(lisbon.tz, 'America/Los_Angeles');
+
+  await pool.query('delete from invoices');
+  const home = await generateFrom('America/Los_Angeles');
+  assert.deepEqual(home.entryIds, lisbon.entryIds);
+});
+
+test('a billing period across a DST change loses and repeats no hour', async () => {
+  await billIn('America/Los_Angeles');
+  // Clocks went back on Nov 1, 2026: the month starts in PDT, ends in PST.
+  await seedEntry({ id: E(1), start: '2026-11-01T06:30:00Z' }); // Oct 31, 11:30 PM PDT
+  await seedEntry({ id: E(2), start: '2026-11-01T07:30:00Z' }); // Nov 1, 12:30 AM PDT
+  await seedEntry({ id: E(3), start: '2026-12-01T07:30:00Z' }); // Nov 30, 11:30 PM PST
+  await seedEntry({ id: E(4), start: '2026-12-01T08:30:00Z' }); // Dec 1, 12:30 AM PST
+
+  const november = await generateFrom('Europe/Lisbon', {
+    periodStart: '2026-11-01',
+    periodEnd: '2026-11-30',
+  });
+  assert.deepEqual(november.entryIds, [E(2), E(3)]);
+});
+
+test("a client's own zone wins over the account's, and the issue date is read in it", async () => {
+  await billIn('America/Los_Angeles');
+  await pool.query(
+    `update clients set billing_time_zone='America/New_York' where id=$1`,
+    [CLIENT],
+  );
+  await seedEntry({ id: E(1), start: '2026-10-01T04:30:00Z' }); // Oct 1 in New York, Sep 30 in LA
+
+  const oct = await generateFrom('Europe/Lisbon', OCTOBER);
+  assert.equal(oct.tz, 'America/New_York');
+  assert.deepEqual(oct.entryIds, [E(1)]);
+
+  const { localDateKey } = await import('@stint/core');
+  assert.equal(oct.issueDate, localDateKey(new Date(), 'America/New_York'));
+});
+
+test('a draft keeps the zone it was generated in when the zone changes', async () => {
+  const { GET: list } = await import('../src/app/api/v1/invoices/route.ts');
+  await billIn('America/Los_Angeles');
+  await seedEntry({ id: E(1), start: '2026-10-01T06:30:00Z' }); // Sep 30, 11:30 PM PDT
+  await generateFrom('Europe/Lisbon');
+
+  await billIn('Europe/Lisbon');
+  const res = await json(await list(req('/invoices?tz=Europe/Lisbon')));
+  assert.equal(res.body.invoices[0].total, 150);
+});
+
+test('an account with no billing zone reads the device zone, as before', async () => {
+  await seedEntry({ id: E(1), start: '2026-10-01T06:30:00Z' }); // Oct 1 in Lisbon
+  const lisbon = await generateFrom('Europe/Lisbon', OCTOBER);
+  assert.equal(lisbon.tz, 'Europe/Lisbon');
+  assert.deepEqual(lisbon.entryIds, [E(1)]);
+});
+
+test('the preview reads the same zone the invoice will', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  await billIn('America/Los_Angeles');
+  await seedEntry({ id: E(1), start: '2026-10-01T06:30:00Z' });
+  const res = await json(
+    await preview(
+      req('/invoices/preview', {
+        clientId: CLIENT,
+        ...PERIOD,
+        tz: 'Europe/Lisbon',
+      }),
+    ),
+  );
+  assert.equal(res.body.entryCount, 1);
 });

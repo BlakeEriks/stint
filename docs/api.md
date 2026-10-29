@@ -177,8 +177,9 @@ Mark sent would refuse it now, and the Inbox offers only the others. The one row
 stored answer instead — `duration_ok` on an entry of unusual length — so it
 cannot return every day once answered. `unprojected` is one row per entry,
 oldest first; `strangeDurations` one per stopped entry of implausible length;
-`lateEntries` one per unbilled billable entry dated, in `tz`, inside a sent or
-paid invoice's period for its client, naming that invoice.
+`lateEntries` one per unbilled billable entry dated, in that invoice's zone
+(else `tz`), inside a sent or paid invoice's period for its client, naming
+that invoice.
 The long threshold defaults to 12 hours, which is how a timer left running
 overnight reaches the inbox; the short one defaults to null. `overlaps` is one
 per pair of entries sharing a minute or more (`MIN_OVERLAP_SECONDS` in
@@ -262,6 +263,11 @@ without an anchor, or an anchor on a calendar period, is `422`.
 `paymentTermsDays` is whole days from issue to due, 0 to 365: required in
 settings (default 30), and nullable on a client, where null uses the
 user's. Anything else is `422`.
+
+`billingTimeZone` is the IANA zone a client's invoices read their period,
+issue date and due date in, nullable on both: a client's null uses the
+account's, and the account's null uses the device's `tz`. Anything but an
+IANA zone is `422`.
 
 **Money is cents.** Every rate and amount is validated as a non-negative
 multiple of `0.01`, so `10.005` is a `422` rather than a silently rounded
@@ -465,7 +471,9 @@ zone dates each row and names the file, but every record is in the file
 whatever the zone, so a wrong zone shifts dates rather than dropping work.
 
 **The invoicing routes reject an invalid one instead.** `POST /invoices/preview`
-and `POST /invoices` resolve the billing period in `tz`. `GET /invoices`,
+and `POST /invoices` resolve the billing period in the client's
+`billingTimeZone`, else the account's, else `tz` (`billingZone` in
+`@stint/core`), and a new draft stores that zone. `GET /invoices`,
 `GET /invoices/:id`, `/pdf` and `/status` derive a draft in it when the draft
 has no zone, and sending dates the invoice on that zone's day. The zone decides
 which entries are billed — falling back to UTC there would move the boundary

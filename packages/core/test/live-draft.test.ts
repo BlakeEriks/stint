@@ -131,6 +131,14 @@ test('work outside the period, for another client, or not billable is not late',
   );
 });
 
+test("work is late by the sent invoice's own zone, not the reader's", () => {
+  // 02:00 UTC on Oct 1 is Sep 30 in Chicago, where the invoice was sent.
+  const sent = [{ ...invoices[0]!, tz: 'America/Chicago' }];
+  const late = entry({ startedAt: '2026-10-01T02:00:00Z' });
+  assert.equal(lateEntries([late], sent, 'Europe/Lisbon').length, 1);
+  assert.equal(lateEntries([late], invoices, 'Europe/Lisbon').length, 0);
+});
+
 test('late work is listed oldest first', () => {
   const rows = lateEntries(
     [

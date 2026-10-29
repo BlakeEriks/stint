@@ -16,6 +16,7 @@ import { selectAll } from './select-all';
 import {
   billableExpenses,
   billingWindow,
+  billingZone,
   isBillableEntry,
   attachedSchedules,
   buildLineItems,
@@ -170,6 +171,7 @@ export interface InvoiceSettings {
   invoiceNumberPrefix: string;
   businessName: string | null;
   businessEmail: string | null;
+  billingTimeZone: string | null;
 }
 
 /**
@@ -203,7 +205,7 @@ async function loadSettings(db: SupabaseClient): Promise<InvoiceSettings> {
   const { data, error } = await db
     .from('user_settings')
     .select(
-      'default_hourly_rate, currency, payment_terms_days, invoice_number_prefix, business_name, business_email',
+      'default_hourly_rate, currency, payment_terms_days, invoice_number_prefix, business_name, business_email, billing_time_zone',
     )
     .maybeSingle();
 
@@ -217,6 +219,7 @@ async function loadSettings(db: SupabaseClient): Promise<InvoiceSettings> {
     invoiceNumberPrefix: (data.invoice_number_prefix as string) ?? 'INV-',
     businessName: data.business_name ?? null,
     businessEmail: data.business_email ?? null,
+    billingTimeZone: data.billing_time_zone ?? null,
   };
 }
 
@@ -295,7 +298,9 @@ export async function computeInvoice(
     clientId: string;
     periodStart: string;
     periodEnd: string;
-    tz: string;
+    /** A draft's own zone. A new invoice has none, and reads the client's
+        billing zone (`billingZone`), else the device's. */
+    tz: string | { device: string };
     groupingMode: GroupingMode;
     summaryText?: string;
     manualLines: ManualLine[];
@@ -315,12 +320,20 @@ export async function computeInvoice(
       .eq('status', 'draft'),
   ]);
   if (open.error) throw open.error;
+  const tz =
+    typeof opts.tz === 'string'
+      ? opts.tz
+      : billingZone(
+          { billingTimeZone: client.billing_time_zone },
+          settings,
+          opts.tz.device,
+        );
   const [entries, expenses] = await Promise.all([
     loadBillableEntries(db, {
       clientId: opts.clientId,
       periodStart: opts.periodStart,
       periodEnd: opts.periodEnd,
-      tz: opts.tz,
+      tz,
       userDefaultRate: settings.defaultHourlyRate,
       clientRate:
         client.hourly_rate == null ? null : Number(client.hourly_rate),
@@ -344,12 +357,14 @@ export async function computeInvoice(
     groupingMode: opts.groupingMode,
     summaryText: opts.summaryText,
     taxRate: client.tax_rate == null ? 0 : Number(client.tax_rate),
-    tz: opts.tz,
+    tz,
     manualLines: opts.manualLines,
     expenses,
   });
 
   return {
+    /** The zone the invoice's period and dates are read in. */
+    tz,
     client,
     settings,
     entries,
@@ -358,7 +373,7 @@ export async function computeInvoice(
     // change what the client was sent.
     supportingDetail: pickSchedules(
       buildSchedules(entries, {
-        tz: opts.tz,
+        tz,
         periodStart: opts.periodStart,
         periodEnd: opts.periodEnd,
       }),

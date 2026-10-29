@@ -4,6 +4,7 @@ import {
   boolParam,
   currency,
   hexColor,
+  ianaZone,
   iso,
   money,
   termsDays,
@@ -40,6 +41,9 @@ export const Client = z.object({
   billingSchedule: BillingSchedule.nullable().optional(),
   /** Overrides the user's payment terms; null uses them. */
   paymentTermsDays: termsDays.nullable().optional(),
+  /** The zone this client's invoices read their dates in; null uses the
+   *  account's. */
+  billingTimeZone: ianaZone.nullable().optional(),
   archivedAt: iso.nullable().optional(),
 });
 export const CreateClient = Client.omit({ id: true, archivedAt: true }).extend({

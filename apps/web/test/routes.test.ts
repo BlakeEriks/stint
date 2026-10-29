@@ -1102,6 +1102,51 @@ test('a client payment terms round-trip, and are null until set', async () => {
   }
 });
 
+/* A client's zone decides which days its invoices cover: a field the schema
+   or the column list dropped would put it back on the account's. */
+test("a client's billing time zone round-trips, and is null until set", async () => {
+  const { POST: createClient } = await import(
+    '../src/app/api/v1/clients/route.ts'
+  );
+  const { PATCH } = await import('../src/app/api/v1/clients/[id]/route.ts');
+
+  const plain = await json(
+    await createClient(req('/clients', { name: 'Northwind' })),
+  );
+  assert.equal(plain.body.billingTimeZone, null);
+
+  const own = await json(
+    await createClient(
+      req('/clients', { name: 'Contoso', billingTimeZone: 'America/New_York' }),
+    ),
+  );
+  assert.equal(own.body.billingTimeZone, 'America/New_York');
+
+  const renamed = await json(
+    await PATCH(
+      patchReq('/clients/x', { name: 'Contoso Ltd' }),
+      ctx(own.body.id),
+    ),
+  );
+  assert.equal(renamed.body.billingTimeZone, 'America/New_York', 'omitted');
+
+  const cleared = await json(
+    await PATCH(
+      patchReq('/clients/x', { billingTimeZone: null }),
+      ctx(own.body.id),
+    ),
+  );
+  assert.equal(cleared.body.billingTimeZone, null);
+
+  const refused = await json(
+    await PATCH(
+      patchReq('/clients/x', { billingTimeZone: 'Pacific Time' }),
+      ctx(own.body.id),
+    ),
+  );
+  assert.equal(refused.status, 422);
+});
+
 /* Which payment profile a client's invoices carry: a field the route's schema
    must name, or Zod strips it and the write is silently lost. */
 test('a client can be pointed at a payment profile, on create and on patch', async () => {
@@ -1713,6 +1758,21 @@ test('the user payment terms are whole days from 0 to 365', async () => {
       String(bad),
     );
   }
+});
+
+test("the account's billing time zone is an IANA zone, or null", async () => {
+  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
+  const set = (body: object) =>
+    patch(req('/settings', body, 'PATCH')).then(json);
+
+  const saved = await set({ billingTimeZone: 'America/Chicago' });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.billingTimeZone, 'America/Chicago');
+  assert.equal(
+    (await set({ billingTimeZone: null })).body.billingTimeZone,
+    null,
+  );
+  assert.equal((await set({ billingTimeZone: 'Central' })).status, 422);
 });
 
 /* Old terms the migration couldn't read became 30 days; the Inbox shows

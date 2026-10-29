@@ -32,6 +32,7 @@ const CLIENTS = [
     color: null,
     paymentProfileId: null,
     paymentTermsDays: null as number | null,
+    billingTimeZone: null as string | null,
     archivedAt: null,
   },
 ];
@@ -43,6 +44,7 @@ const SETTINGS = {
   invoiceNumberPrefix: 'STINT-',
   nextInvoiceNumber: 16,
   paymentTermsDays: 30,
+  billingTimeZone: null as string | null,
 };
 
 /** The settings served; a test changes the payment terms. */
@@ -260,6 +262,7 @@ beforeEach(() => {
   hold = null;
   settings = SETTINGS;
   CLIENTS[0]!.paymentTermsDays = null;
+  CLIENTS[0]!.billingTimeZone = null;
   holdSettings = null;
   invoices = [];
   holdInvoices = null;
@@ -422,6 +425,31 @@ describe('NewInvoice', () => {
     await ready(user);
     expect(screen.getByLabelText('Due')).toHaveValue(
       addDays(localDateKey(new Date(), tz), 10),
+    );
+  });
+
+  /* Kiritimati is 25 hours ahead of Pago Pago, so their dates always
+     differ: whichever Due shows names the zone it was read in. */
+  it("dates the invoice on the billing zone's calendar, not the device's", async () => {
+    serve();
+    settings = { ...SETTINGS, billingTimeZone: 'Pacific/Pago_Pago' };
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await ready(user);
+    expect(screen.getByLabelText('Due')).toHaveValue(
+      addDays(localDateKey(new Date(), 'Pacific/Pago_Pago'), 30),
+    );
+  });
+
+  it("dates it on the client's own zone over the account's", async () => {
+    serve();
+    settings = { ...SETTINGS, billingTimeZone: 'Pacific/Pago_Pago' };
+    CLIENTS[0]!.billingTimeZone = 'Pacific/Kiritimati';
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await ready(user);
+    expect(screen.getByLabelText('Due')).toHaveValue(
+      addDays(localDateKey(new Date(), 'Pacific/Kiritimati'), 30),
     );
   });
 

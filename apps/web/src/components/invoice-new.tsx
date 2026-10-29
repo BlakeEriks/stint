@@ -34,6 +34,7 @@ import {
   addDays,
   BILLING_PERIOD_LABELS,
   buildPaymentDetails,
+  billingZone,
   defaultInvoicePeriod,
   attachedSchedules,
   formatCurrency,
@@ -356,7 +357,7 @@ function Form() {
   const [draft, setDraft] = useState<Draft>(EMPTY);
   /* Read once: a form left open past midnight keeps the dates it showed
      rather than moving them to the next period unseen. */
-  const [issued] = useState(() => localDateKey(new Date(), tz));
+  const [opened] = useState(() => new Date());
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
@@ -369,6 +370,8 @@ function Form() {
     queryFn: () => api.settings(),
   });
   const noSender = missingBusiness(settings);
+  // Today on the client's billing calendar, as the server dates it.
+  const issued = localDateKey(opened, billingZone(client, settings, tz));
   const { template, choose } = useTemplateChoice();
   const profiles =
     useQuery({
