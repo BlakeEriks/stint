@@ -67,6 +67,28 @@ describe('TemplatePicker', () => {
     expect(sent).toEqual([{ invoiceTemplate: 'classic' }]);
   });
 
+  it('Preview chooses nothing; Use in the preview does', async () => {
+    const user = userEvent.setup();
+    const sent: unknown[] = [];
+    setup((body) => {
+      sent.push(body);
+      return new Promise(() => {}); // never answers
+    });
+
+    await user.click(
+      screen.getAllByRole('button', { name: 'Preview Modern' })[0]!,
+    );
+
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(sent).toEqual([]);
+
+    await user.click(screen.getByRole('button', { name: 'Use Modern' }));
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(checked('settings')).toEqual(['modern']);
+    expect(sent).toEqual([{ invoiceTemplate: 'modern' }]);
+  });
+
   it('a refused save puts the saved template back', async () => {
     const user = userEvent.setup();
     setup(

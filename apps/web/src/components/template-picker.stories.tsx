@@ -34,3 +34,21 @@ export const Cards: Story = {
 };
 
 export const Mini: Story = { render: () => <Live size="mini" /> };
+
+/** Preview shows the template's sample page without choosing it; Use chooses. */
+export const Preview: Story = {
+  render: () => <Live size="card" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Preview Creative' }),
+    );
+    const dialog = within(document.body).getByRole('dialog');
+    await expect(
+      within(dialog).getByRole('img', { name: /Creative/ }),
+    ).toBeVisible();
+    await expect(
+      within(dialog).getByRole('button', { name: 'Use Creative' }),
+    ).toBeVisible();
+  },
+};

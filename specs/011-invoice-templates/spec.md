@@ -47,7 +47,8 @@ its title marked "(continued)".
   with its quantity and rate as a muted phrase and a dotted leader to its
   amount, under accent small-capital labels for services and expenses. The
   accent marks the rule, those labels and the balance due. No frame,
-  ornaments or boxes.
+  ornaments or boxes. Issued, due, period and reference sit in two columns,
+  labels and values each flush left.
 - **Creative**: Space Grotesk with IBM Plex Mono figures. A composition of
   an outlined circle, a filled square, an outlined triangle and an accent
   dot off the top corner; the invoice number runs up the left edge; the
@@ -58,16 +59,18 @@ its title marked "(continued)".
   dashed ticket stub.
 - **Settings**: an "Invoice template" section between Business identity and
   Invoice numbering. Four cards in a radio group, each a thumbnail of the
-  invoice in that template with its name and a line on what it is; the
-  chosen card is edged in the accent with a check. A press selects at once
+  invoice in that template with its name, a line on what it is, and
+  Preview; the chosen card is edged in the accent with a check. Preview
+  opens the sample's first page at full size in a dialog, without choosing
+  it; its "Use <template>" button chooses it. A press selects at once
   and saves. A refused save returns the selection to the saved template,
   and the app-wide notice says why.
 - **New invoice**: a Template field, last in the form: the same four
-  templates as small thumbnails in a radio group, with a hint that it
+  templates as small thumbnails in a radio group, each with Preview, and a hint that it
   changes the template for every draft, here and in Settings. The preview
   beside the form is unchanged: it shows what the invoice says, not its
   look. A user's own invoice in a template is the PDF, the paid document;
-  the thumbnails draw a sample invoice.
+  the thumbnails and previews are page 1 of a sample invoice's PDF.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -178,8 +181,9 @@ appears, and no row is cut off or split across a page break.
 - **FR-005**: Every template MUST use the app's accent color, in the places
   the Design section names and nowhere else.
 - **FR-006**: Users MUST be able to choose the template in Settings and on
-  New invoice, from a thumbnail of each template. Both MUST read and write
-  the one account setting.
+  New invoice, from a thumbnail of each template, and to preview each at
+  full size without choosing it. Both MUST read and write the one account
+  setting.
 - **FR-007**: The invoice preview, on New invoice and an invoice's page,
   MUST stay as it is: what the invoice says, not its template. Only the PDF
   shows a user's own invoice in a template.

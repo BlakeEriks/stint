@@ -1,7 +1,7 @@
 /**
  * Renders a sample invoice in each template to `docs/design/samples/`, and
- * its first page to the template picker's thumbnail (needs poppler's
- * `pdftoppm`), so a thumbnail is the PDF it previews.
+ * its first page to the template picker's thumbnail and preview (needs
+ * poppler's `pdftoppm`), so what the picker shows is the PDF.
  *
  * The sample is committed so the current look can be reviewed without running
  * anything, and regenerated from this script so it can never drift from the
@@ -166,14 +166,14 @@ for (const template of ['standard', 'modern', 'classic', 'creative']) {
   const outFile = resolve(outDir, `invoice-${template}.pdf`);
   writeFileSync(outFile, bytes);
   console.log(`wrote ${outFile} (${bytes.length} bytes)`);
-  // 400px wide: twice the widest card the picker draws.
+  // Twice the page's width in points, sharp in the full-size preview.
   execFileSync('pdftoppm', [
     '-png',
     '-singlefile',
     '-f',
     '1',
     '-scale-to-x',
-    '400',
+    '1224',
     '-scale-to-y',
     '-1',
     outFile,

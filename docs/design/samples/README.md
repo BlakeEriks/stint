@@ -6,7 +6,7 @@ without running anything.
 | File | Source | Regenerate |
 |---|---|---|
 | `invoice-<template>.pdf`, one per template | `apps/web/src/lib/invoice-templates/` | `pnpm --filter @stint/web sample:invoice` |
-| `apps/web/src/components/template-thumbs/<template>.png`, page 1 of each, the template picker's thumbnails | the PDF above, through poppler's `pdftoppm` | the same |
+| `apps/web/src/components/template-thumbs/<template>.png`, page 1 of each, the template picker's thumbnails and previews | the PDF above, through poppler's `pdftoppm` | the same |
 
 These are generated, never hand-edited. Regenerate after changing a template
 so the sample cannot drift from what the product actually produces.
