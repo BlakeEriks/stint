@@ -14,8 +14,8 @@
 
 ## Where a template shows before the PDF
 
-- **Decision**: only in the thumbnails, which draw a sample invoice in each
-  template in HTML, with the same faces loaded through `next/font/local`. The
+- **Decision**: only in the thumbnails, page 1 of each template's sample
+  PDF rendered to PNG by `pnpm sample:invoice` and committed. The
   invoice preview stays as it is: what the invoice says, not its look.
 - **Rationale**: the real PDF is the paid product; the PDF route refuses free
   accounts. A user's own invoice drawn in a template on screen would give the
@@ -23,7 +23,8 @@
   template to keep in step with the PDF.
 - **Alternatives**: the preview drawn in the template (gives the look away,
   and doubles the drawing at full size, supporting detail included); the PDF
-  rendered in the browser (leaks the paid document itself).
+  rendered in the browser (leaks the paid document itself); thumbnails
+  drawn in HTML (a second copy of every look, free to drift from the PDF).
 
 ## Fonts in the PDF
 

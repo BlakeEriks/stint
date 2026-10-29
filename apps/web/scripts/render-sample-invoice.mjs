@@ -1,5 +1,7 @@
 /**
- * Renders a sample invoice in each template to `docs/design/samples/`.
+ * Renders a sample invoice in each template to `docs/design/samples/`, and
+ * its first page to the template picker's thumbnail (needs poppler's
+ * `pdftoppm`), so a thumbnail is the PDF it previews.
  *
  * The sample is committed so the current look can be reviewed without running
  * anything, and regenerated from this script so it can never drift from the
@@ -20,6 +22,7 @@ import { pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const webRoot = resolve(here, '..');
@@ -155,6 +158,7 @@ export const SAMPLE = {
 };
 
 const outDir = resolve(repoRoot, 'docs/design/samples');
+const thumbDir = resolve(webRoot, 'src/components/template-thumbs');
 mkdirSync(outDir, { recursive: true });
 
 for (const template of ['standard', 'modern', 'classic', 'creative']) {
@@ -162,4 +166,17 @@ for (const template of ['standard', 'modern', 'classic', 'creative']) {
   const outFile = resolve(outDir, `invoice-${template}.pdf`);
   writeFileSync(outFile, bytes);
   console.log(`wrote ${outFile} (${bytes.length} bytes)`);
+  // 400px wide: twice the widest card the picker draws.
+  execFileSync('pdftoppm', [
+    '-png',
+    '-singlefile',
+    '-f',
+    '1',
+    '-scale-to-x',
+    '400',
+    '-scale-to-y',
+    '-1',
+    outFile,
+    resolve(thumbDir, template),
+  ]);
 }

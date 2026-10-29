@@ -8,7 +8,6 @@ Tests come first where a regression is silent (Constitution V).
 ## Phase 1: Setup
 
 - [x] T001 [P] Add TTF files for Outfit (300, 400, 500, 600), EB Garamond (400, 400 italic), Space Grotesk (400, 500, 700) and IBM Plex Mono (400, 500, 600) with their OFL to `apps/web/src/fonts/pdf/`
-- [x] T002 [P] Add latin woff2 files for the same faces to `apps/web/src/fonts/` and declare them in `apps/web/src/app/fonts.ts` with `next/font/local`, `preload: false`, each exposing a CSS variable
 - [x] T003 Trace `apps/web/src/fonts/pdf/**` into the PDF route with `outputFileTracingIncludes` in `apps/web/next.config.ts`
 
 ## Phase 2: Foundational
@@ -27,7 +26,7 @@ Tests come first where a regression is silent (Constitution V).
 - [x] T010 [P] [US1] `apps/web/src/lib/invoice-templates/classic.tsx` per design/invoice.html (synthetic small capitals: uppercase at 80% size)
 - [x] T011 [P] [US1] `apps/web/src/lib/invoice-templates/creative.tsx` per design/invoice.html (lines grouped time / fixed fees / expenses; empty kinds omitted)
 - [x] T012 [US1] `loadPdfData` in `apps/web/src/lib/invoicing.ts` resolves `template = invoice.template ?? settings.invoiceTemplate`; `recordDownload` stores it in `downloaded_snapshot`
-- [x] T013 [US1] `apps/web/src/components/invoice-paper.tsx` draws a sample invoice in each template in HTML for the thumbnails; a story per template in `invoice-paper.stories.tsx`
+- [x] T013 [US1] `apps/web/scripts/render-sample-invoice.mjs` renders page 1 of each sample PDF to `apps/web/src/components/template-thumbs/<template>.png`
 - [x] T014 [US1] ui test `apps/web/test/ui/template-picker.test.tsx`: a press selects at once; a rejection restores the saved template and shows why
 - [x] T015 [US1] `useTemplateChoice()` over `useOptimisticMutation` and `TemplatePicker` (cards and mini sizes) in `apps/web/src/components/template-picker.tsx`, with stories
 - [x] T016 [US1] Invoice template section in `apps/web/src/components/settings-page.tsx` between Business identity and Invoice numbering

@@ -92,8 +92,6 @@ separate: a role says how text is set, not what it means.
 Need something the scale lacks? Add a role, with a reason — `pnpm check:type`
 runs in CI and rejects anything off it. A typo'd role compiles to **no CSS, no
 warning, exit 0**, which is why it is a check rather than a convention.
-It skips vendored `components/ui/` and `invoice-paper.tsx`, which sets each
-invoice template's own printed type rather than a role.
 
 `Foundations/Type` in Storybook sets every role in itself.
 
@@ -139,7 +137,7 @@ title is `type-title`, once.
 region is space and a rule (`border-edge-subtle`, stopping at the inset), and
 a record is a plain row. The one exception is the invoice as printed: the
 sheet of paper in `InvoicePreviewCard`, on New invoice and an invoice's page,
-and the same sheet drawn small in each choice of `TemplatePicker`.
+and each template's first printed page, small, in `TemplatePicker`.
 
 **A region that scrolls itself takes focus, only where it scrolls:** its
 `tabIndex` is `useScrollerFocus()` (`apps/web/src/lib/client/use-scroller-focus.ts`).

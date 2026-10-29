@@ -16,7 +16,6 @@
  *
  * `src/components/ui/**` is exempt: it holds vendored shadcn, policed by
  * shadcn-detox.mjs instead, and the hand-written `Kbd`, which passes anyway.
- * So is `invoice-paper.tsx`, which draws the PDF's type, not the app's.
  *
  * Swift files get the macOS app's version of the rule: a view names a
  * `TypeRole`, and only the generated `Tokens.swift` builds a font from a size.
@@ -83,15 +82,7 @@ const BANNED_SWIFT = [
 const patterns = process.argv.slice(2);
 const files = patterns
   .flatMap((p) => globSync(p, { cwd: here + '/..' }))
-  /* `invoice-paper.tsx` draws the printed invoice: its type is each
-     template's own, mirroring `lib/invoice-templates/`, not a role in the
-     app's scale. */
-  .filter(
-    (f) =>
-      !f.includes('components/ui/') &&
-      !f.endsWith('Tokens.swift') &&
-      !f.endsWith('components/invoice-paper.tsx'),
-  )
+  .filter((f) => !f.includes('components/ui/') && !f.endsWith('Tokens.swift'))
   .map((f) => join(here, '..', f));
 
 let bad = 0;

@@ -13,15 +13,15 @@ template; each template supplies its fonts, page geometry and section
 components, and the shell keeps every shared rule (VOID, supporting-detail
 pagination, footer). A draft renders in the current setting; `send_draft`
 freezes `invoices.template` from the PDF the client was given, else the
-setting. The thumbnails in Settings and on New invoice draw a sample
-invoice in each template in HTML; the invoice preview is unchanged.
+setting. The thumbnails in Settings and on New invoice are page 1 of each
+template's sample PDF, rendered to PNG; the invoice preview is unchanged.
 
 ## Technical Context
 
 **Language/Version**: TypeScript 5.x on Node 22; SQL (Postgres 15)
 
 **Primary Dependencies**: Next.js 16 route handlers, `@react-pdf/renderer` 4.9
-(`Font.register` for the new faces), `next/font/local`, Zod in
+(`Font.register` for the new faces), Zod in
 `@stint/schema`, TanStack Query
 
 **Storage**: Supabase Postgres; two columns, no table
@@ -84,16 +84,14 @@ apps/web/src/lib/invoice-templates/
   shared.tsx  fonts.ts                             # helpers; Font.register, once, from bundled TTFs
   standard.tsx  modern.tsx  classic.tsx  creative.tsx
 apps/web/src/fonts/pdf/*.ttf + OFL.txt             # Outfit, EB Garamond, Space Grotesk, IBM Plex Mono
-apps/web/src/fonts/*.woff2                         # the same faces for the thumbnails
-apps/web/src/app/fonts.ts                          # next/font/local, preload: false
 apps/web/next.config.ts                            # outputFileTracingIncludes for the PDF route
 apps/web/src/lib/invoicing.ts                      # template in pdfData, snapshot, sendDraft
 apps/web/src/app/api/v1/settings/route.ts          # invoice_template read and write
-apps/web/src/components/invoice-paper.tsx          # a sample invoice on paper, one look per template
+apps/web/src/components/template-thumbs/*.png     # page 1 of each sample PDF
 apps/web/src/components/template-picker.tsx        # radio group of thumbnails, two sizes
 apps/web/src/components/settings-page.tsx          # Invoice template section
 apps/web/src/components/invoice-new.tsx            # Template field
-apps/web/scripts/render-sample-invoice.mjs         # one sample PDF per template
+apps/web/scripts/render-sample-invoice.mjs         # one sample PDF and thumbnail per template
 apps/web/test/routes.test.ts, invoices.test.ts, ui/template-picker.test.tsx
 ```
 

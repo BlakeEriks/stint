@@ -4,7 +4,11 @@ import { useQuery } from '@tanstack/react-query';
 import { keys, useOptimisticMutation } from '@stint/client';
 import type { InvoiceTemplate } from '@stint/schema';
 import { api, type Settings } from '@/lib/client/api';
-import { InvoicePaper, type PaperInvoice } from './invoice-paper';
+import Image, { type StaticImageData } from 'next/image';
+import standard from './template-thumbs/standard.png';
+import modern from './template-thumbs/modern.png';
+import classic from './template-thumbs/classic.png';
+import creative from './template-thumbs/creative.png';
 
 const TEMPLATES: Array<{
   id: InvoiceTemplate;
@@ -51,86 +55,14 @@ export function useTemplateChoice() {
   return { template, choose: (t: InvoiceTemplate) => choose.mutate(t) };
 }
 
-/** What every thumbnail draws: one invoice, so they compare like for like. */
-export const SAMPLE: PaperInvoice = {
-  number: 'INV-0015',
-  issued: '2026-10-01',
-  due: '2026-10-31',
-  period: { start: '2026-09-01', end: '2026-09-30' },
-  reference: 'ICA dated Aug 5, 2026 · Exhibit A SOW',
-  business: {
-    name: 'Sam Rivera',
-    address: '1200 Pine St, Suite 4\nSeattle, WA 98101',
-    email: 'billing@samrivera.test',
-  },
-  client: {
-    name: 'Northwind Trading',
-    address: '400 Market St\nSan Francisco, CA 94105',
-    email: 'ap@northwind.test',
-  },
-  lines: [
-    {
-      description: 'Warehouse dashboard',
-      unit: 'hour',
-      quantity: 32.5,
-      unitPrice: 150,
-      amount: 4875,
-    },
-    {
-      description: 'Rush: peak season fixes',
-      unit: 'hour',
-      quantity: 12,
-      unitPrice: 195,
-      amount: 2340,
-    },
-    {
-      description: 'Monthly retainer',
-      unit: 'fixed',
-      quantity: 1,
-      unitPrice: 500,
-      amount: 500,
-    },
-    {
-      description: 'Hosting, September',
-      unit: 'expense',
-      quantity: 1,
-      unitPrice: 84,
-      amount: 84,
-      spentOn: '2026-09-12',
-    },
-  ],
-  subtotal: 7715,
-  taxRate: 0,
-  taxAmount: 0,
-  expensesSubtotal: 84,
-  total: 7799,
-  currency: 'USD',
-  terms: 'Net 30',
-  payment: {
-    title: 'Business checking',
-    fields: [
-      { label: 'Bank', value: 'First Federal Bank' },
-      { label: 'Account holder', value: 'Sam Rivera' },
-      { label: 'Routing number', value: '011000015' },
-      { label: 'Account number', value: '000123456789' },
-    ],
-    intermediary: [],
-    link: null,
-    notes: null,
-  },
-  notes: 'Thank you for the work this month.',
+/* Page 1 of each template's sample PDF, rendered by `pnpm sample:invoice`:
+   the thumbnail is the invoice, so the two cannot drift. */
+const THUMBS: Record<InvoiceTemplate, StaticImageData> = {
+  standard,
+  modern,
+  classic,
+  creative,
 };
-
-function Thumb({ template }: { template: InvoiceTemplate }) {
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none aspect-[612/792] overflow-hidden rounded-sm shadow-card"
-    >
-      <InvoicePaper template={template} invoice={SAMPLE} />
-    </div>
-  );
-}
 
 /**
  * The four templates as a radio group of thumbnails: cards with a line on
@@ -166,7 +98,14 @@ export function TemplatePicker({
                 : 'border-edge-default hover:bg-surface-hover'
             } ${card ? 'gap-2 bg-surface-elevated p-2' : 'gap-1 p-1'}`}
           >
-            <Thumb template={t.id} />
+            <Image
+              src={THUMBS[t.id]}
+              alt=""
+              // The rendered size, which Vitest's image import doesn't carry.
+              width={400}
+              height={518}
+              className="h-auto w-full rounded-sm shadow-card"
+            />
             <span
               className={`${card ? 'type-control' : 'type-meta text-center'} ${on ? 'text-strong' : 'text-muted'}`}
             >
