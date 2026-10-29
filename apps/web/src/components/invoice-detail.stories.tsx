@@ -53,6 +53,10 @@ export const Draft: Story = {
       page.getByText('Amount due').nextElementSibling,
     ).toHaveTextContent('$2,787.60');
     await expect(page.queryByText(/supporting detail/)).toBeNull();
+    await expect(page.getByRole('link', { name: 'Edit' })).toHaveAttribute(
+      'href',
+      `/invoices/${invoice(15)}/edit`,
+    );
   },
 };
 export const DraftPhone: Story = { ...phone };
@@ -182,7 +186,7 @@ export const DraftChangedPastDue: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     await expect(
-      await page.findByText(/Delete this draft and generate it again/),
+      await page.findByText(/Edit this draft to give it a later due date/),
     ).toBeVisible();
     await expect(
       page.queryByText('Changed since you downloaded it'),

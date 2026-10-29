@@ -60,6 +60,9 @@ export const InvoicePreviewRequest = z.object({
    * include sent back from a preview. They keep waiting for a later invoice.
    */
   excludedExpenseIds: z.array(uuid).max(200).default([]),
+  /** The draft being edited, which is priced as itself among the client's
+   *  open drafts, so it keeps the expenses it shows. */
+  draftId: uuid.optional(),
 });
 
 /** A table of supporting detail: hours by project, by week or by date. */
@@ -167,33 +170,47 @@ export type ManualLine = z.infer<
   typeof InvoicePreviewRequest
 >['manualLines'][number];
 
+/** What editing a draft opens with that the draft as read doesn't say. */
+export const DraftChoices = z.object({
+  /** The due date typed; null follows the terms. */
+  dueDate: z.iso.date().nullable(),
+  excludedExpenseIds: z.array(uuid),
+  /** Its charges. */
+  manualLines: z.array(z.object({ description: z.string(), amount: money })),
+});
+
 /** One flag each for a draft's PDF and its Mark sent. */
 export const DraftActions = z.object({
   download: z.boolean(),
   send: z.boolean(),
 });
 
-export const CreateInvoice = InvoicePreviewRequest.extend({
-  /** Typed by the user. Absent, it follows the terms from the day the draft
-   *  is sent, which is also its issue date. */
-  dueDate: z.iso.date().optional(),
-  notes: z.string().max(2000).optional(),
-  /** The PO, contract or SOW the client matches the invoice to. */
-  reference: z
-    .string()
-    .trim()
-    .max(200)
-    .optional()
-    .transform((r) => r || undefined),
-  /** The payment details to freeze; absent is the client's, else the
-   *  default. */
-  paymentProfileId: uuid.optional(),
-  /** The supporting detail to attach, with `summary` only. */
-  schedules: z
-    .array(ScheduleKind)
-    .refine((k) => new Set(k).size === k.length, 'Each schedule once')
-    .default([]),
+/** What Generate sends, and what an edit of a draft sends again: the same
+ *  choices, with the draft's own client. */
+export const CreateInvoice = InvoicePreviewRequest.omit({
+  draftId: true,
 })
+  .extend({
+    /** Typed by the user. Absent, it follows the terms from the day the draft
+     *  is sent, which is also its issue date. */
+    dueDate: z.iso.date().optional(),
+    notes: z.string().max(2000).optional(),
+    /** The PO, contract or SOW the client matches the invoice to. */
+    reference: z
+      .string()
+      .trim()
+      .max(200)
+      .optional()
+      .transform((r) => r || undefined),
+    /** The payment details to freeze; absent is the client's, else the
+     *  default. */
+    paymentProfileId: uuid.optional(),
+    /** The supporting detail to attach, with `summary` only. */
+    schedules: z
+      .array(ScheduleKind)
+      .refine((k) => new Set(k).size === k.length, 'Each schedule once')
+      .default([]),
+  })
   .refine((b) => b.groupingMode !== 'summary' || b.summaryText !== '', {
     message: 'A summary line needs its text',
     path: ['summaryText'],
@@ -293,4 +310,5 @@ export type Invoice = z.infer<typeof Invoice>;
 export type InvoiceLineItem = z.infer<typeof InvoiceLineItem>;
 export type ComputedLineItem = z.infer<typeof ComputedLineItem>;
 export type DraftChange = z.infer<typeof DraftChange>;
+export type DraftChoices = z.infer<typeof DraftChoices>;
 export type UnratedEntry = z.infer<typeof UnratedEntry>;

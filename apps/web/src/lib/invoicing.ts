@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { InvoiceTemplate } from '@stint/schema';
 import { ApiError, dbCode, PG, refused } from './errors';
 import {
@@ -366,6 +366,18 @@ export async function loadPdfData(
   };
 }
 
+/** One open draft per client and date, which `create_invoice` and
+ *  `update_draft` hold: two would both show the same work. */
+export function draftOverlaps(error: PostgrestError | null) {
+  if (dbCode(error) !== 'DRAFT_OVERLAPS') return;
+  const open = JSON.parse(error!.details) as { invoiceNumber: string };
+  throw new ApiError(
+    'DRAFT_OVERLAPS',
+    `${open.invoiceNumber} is a draft for these dates already. Open it, or start after it.`,
+    open,
+  );
+}
+
 /** Which of a draft's PDF and Mark sent refuse it as it stands. */
 export function draftRefusals(d: {
   unratedEntries: unknown[];
@@ -382,7 +394,7 @@ export function draftRefusals(d: {
 export function dueBeforeIssueError(issueDate: string, dueDate: string) {
   return new ApiError(
     'VALIDATION_FAILED',
-    `The due date typed for this draft, ${dueDate}, is before its issue date, ${issueDate}. Delete the draft and generate it again with a later one.`,
+    `The due date typed for this draft, ${dueDate}, is before its issue date, ${issueDate}. Edit the draft to give it a later one.`,
     { field: 'dueDate' },
   );
 }
@@ -518,6 +530,7 @@ export async function deriveDraft(
 ) {
   if (row.status !== 'draft') return null;
   const tz = row.tz ?? requestTz ?? 'UTC';
+  const manualLines = await loadManualLines(db, row.id);
 
   const computed = await computeInvoice(db, {
     clientId: row.client_id,
@@ -526,7 +539,7 @@ export async function deriveDraft(
     tz,
     groupingMode: row.grouping_mode,
     summaryText: row.summary_text ?? undefined,
-    manualLines: await loadManualLines(db, row.id),
+    manualLines,
     excludedExpenseIds: row.excluded_expense_ids,
     schedules: attachedSchedules(row.supporting_detail),
     draftId: row.id,
@@ -579,6 +592,13 @@ export async function deriveDraft(
     /** How it moved since its last PDF; null when it hasn't, or never had
      *  one. */
     change,
+    /** What an edit opens with that the row as read doesn't say: the due
+     *  date typed, else null, the expenses left off, and the charges. */
+    choices: {
+      dueDate: row.due_date,
+      excludedExpenseIds: row.excluded_expense_ids,
+      manualLines,
+    },
   };
 }
 

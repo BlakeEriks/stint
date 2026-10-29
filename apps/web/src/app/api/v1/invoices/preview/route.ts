@@ -42,6 +42,7 @@ export const POST = handle(async (req: Request) => {
     manualLines: body.manualLines,
     excludedExpenseIds: body.excludedExpenseIds,
     schedules: [],
+    draftId: body.draftId,
   });
 
   const toBill = entries

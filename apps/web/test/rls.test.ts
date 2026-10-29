@@ -931,3 +931,27 @@ test('send_draft reaches only the caller’s own drafts', async () => {
 
   await assert.rejects(() => asAlice(send), /is sent and cannot be sent/);
 });
+
+/* `update_draft` runs as the caller too: another user's draft is out of its
+   reach, and a sent invoice isn't a draft to edit. */
+test('update_draft reaches only the caller’s own drafts', async () => {
+  const edit = `select update_draft($1, '{"period_start": "2026-09-01", "period_end": "2026-09-30", "grouping_mode": "entry", "notes": "Edited", "tz": "UTC", "manual_lines": []}'::jsonb)`;
+  const notes = async () =>
+    (
+      await admin.query(`select notes from invoices where id = $1`, [
+        ALICE_INVOICE,
+      ])
+    ).rows[0].notes;
+
+  await issueAliceInvoice('draft');
+  await assert.rejects(() => asUser(BOB, edit, [ALICE_INVOICE]), /not found/);
+  assert.equal(await notes(), null, 'another user cannot edit it');
+
+  await asAlice(edit);
+  assert.equal(await notes(), 'Edited', 'the owner edits it');
+
+  await admin.query(`update invoices set status = 'sent' where id = $1`, [
+    ALICE_INVOICE,
+  ]);
+  await assert.rejects(() => asAlice(edit), /is sent and cannot be edited/);
+});

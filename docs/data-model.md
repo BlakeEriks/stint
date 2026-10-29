@@ -166,7 +166,8 @@ invoice took, or one marked billed elsewhere, meanwhile raises
 `ENTRY_ALREADY_INVOICED`, an expense another invoice took
 `EXPENSE_ALREADY_INVOICED`, and either rolls it all back.
 
-`payment_details` (JSONB) freezes the rendered bank details at generation, for
+`payment_details` (JSONB) freezes the rendered bank details at generation, or
+at an edit that picks other details, for
 the same reason rates freeze: editing a profile must never alter an invoice
 already sent. `supporting_detail` (JSONB) holds the hours-by-project, -week
 and -date tables printed from page 2. A draft's are derived with its lines;
@@ -200,6 +201,13 @@ exists. One open draft per client and date: after the number's allocation
 has taken the user's counter row lock, it raises `DRAFT_OVERLAPS` for a draft
 over any of the period, so of two concurrent Generates the second fails and
 rolls back, never using up a number.
+
+**An edit is one transaction too.** `update_draft()` rewrites a draft's
+choices and replaces its charges, keeping its number and client; it refuses
+anything but a draft. It takes the same counter row lock before its
+`DRAFT_OVERLAPS` check, which skips the draft itself, so an edit and a
+Generate onto the same dates can't both land. Without new payment details
+it keeps the ones the draft has.
 
 ### `expenses`
 A cost the contractor paid that a client reimburses. It has an amount and no
@@ -423,8 +431,8 @@ hold; this list is the record of *what* must.
 - Voiding releases what the invoice billed in the same statement.
 - Rates are frozen onto line items when an invoice is sent: changing a
   client's rate later leaves an issued invoice at its original total.
-- `send_draft` runs as the caller and refuses anything but the caller's own
-  draft.
+- `send_draft` and `update_draft` run as the caller and refuse anything but
+  the caller's own draft.
 - Editing or deleting an expense billed to a **non-draft** invoice is
   rejected, and voiding releases it.
 - A send that loses a race for an expense writes nothing.

@@ -138,6 +138,49 @@ const EMPTY: Draft = {
   paymentProfileId: '',
 };
 
+/** A draft as `GET /invoices/:id` answers it, which an edit opens. */
+type Edited = Awaited<ReturnType<typeof api.invoice>>;
+
+/** Payment details compared by content: Postgres stores them as jsonb,
+ *  which keeps no key order. */
+const canonical = (v: unknown) =>
+  JSON.stringify(v, (_, x) =>
+    x && typeof x === 'object' && !Array.isArray(x)
+      ? Object.fromEntries(Object.entries(x).sort())
+      : x,
+  );
+
+/** The form as the draft left it. Its payment details are the profile that
+ *  renders them still, else '' to keep them as they were frozen. */
+function draftOf(inv: Edited, profiles: PaymentProfile[]): Draft {
+  const summary = inv.groupingMode === 'summary';
+  const frozen = canonical(inv.paymentDetails);
+  return {
+    clientId: inv.clientId,
+    periodStart: inv.periodStart,
+    periodEnd: inv.periodEnd,
+    dueDate: inv.choices?.dueDate ?? null,
+    reference: inv.reference ?? '',
+    notes: inv.notes ?? '',
+    groupingMode: inv.groupingMode,
+    // Left to carry, as on New invoice, should a summary be picked.
+    summaryText: summary ? (inv.summaryText ?? '') : null,
+    schedules: summary ? attachedSchedules(inv.supportingDetail) : null,
+    charges: (inv.choices?.manualLines ?? []).map((l) => ({
+      ...l,
+      key: crypto.randomUUID(),
+    })),
+    excludedExpenseIds: inv.choices?.excludedExpenseIds ?? [],
+    paymentProfileId:
+      profiles.find(
+        (p) =>
+          canonical(
+            buildPaymentDetails(p, { invoiceNumber: inv.invoiceNumber }),
+          ) === frozen,
+      )?.id ?? '',
+  };
+}
+
 /** The period the user set, else the client's default for `today`. */
 function periodOf(
   draft: Draft,
@@ -349,11 +392,57 @@ export function NewInvoice() {
   );
 }
 
-function Form() {
+/** New invoice, opened on a draft: every field but the client, which it
+ *  keeps. Saving keeps its number. */
+export function EditInvoice({ id }: { id: string }) {
+  const invoice = useQuery({
+    queryKey: keys.invoice(id),
+    queryFn: () => api.invoice(id),
+  });
+  const clients = useQuery({
+    queryKey: keys.clients(),
+    queryFn: () => api.clients(),
+  });
+  const settings = useQuery({
+    queryKey: keys.settings(),
+    queryFn: () => api.settings(),
+  });
+  const profiles = useQuery({
+    queryKey: keys.paymentProfiles(),
+    queryFn: () => api.paymentProfiles(),
+  });
+  return (
+    <DetailPage back={`/invoices/${id}`} label="Invoice" workspace fills>
+      <Listing
+        query={[invoice, clients, settings, profiles]}
+        missing="That invoice no longer exists."
+      >
+        {([inv, , , p]) =>
+          inv.status === 'draft' ? (
+            <Form editing={inv} initial={draftOf(inv, p.paymentProfiles)} />
+          ) : (
+            <p className="type-body text-muted">
+              {inv.invoiceNumber} is {inv.status}, and only a draft can be
+              edited.
+            </p>
+          )
+        }
+      </Listing>
+    </DetailPage>
+  );
+}
+
+function Form({
+  editing,
+  initial = EMPTY,
+}: {
+  editing?: Edited;
+  initial?: Draft;
+}) {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const [draft, setDraft] = useState<Draft>(EMPTY);
+  const [draft, setDraft] = useState<Draft>(initial);
   /* Read once: a form left open past midnight keeps the dates it showed
      rather than moving them to the next period unseen. */
   const [issued] = useState(() => localDateKey(new Date(), tz));
@@ -405,11 +494,14 @@ function Form() {
     excludedExpenseIds: draft.excludedExpenseIds,
   };
   const { preview, current, updating } = useLivePreview(
-    billed,
+    // Priced as itself, so it keeps the expenses it shows.
+    { ...billed, draftId: editing?.id },
     draft.clientId !== '',
   );
 
-  const { number, termsDue } = fromSettings(settings, issued, client);
+  const terms = fromSettings(settings, issued, client);
+  const number = editing?.invoiceNumber ?? terms.number;
+  const { termsDue } = terms;
   const due = draft.dueDate ?? termsDue;
   const earlyDue = due !== '' && due < issued;
 
@@ -424,8 +516,8 @@ function Form() {
         qc.invalidateQueries({ queryKey: keys.expenses() }),
         invalidateEntryData(qc),
       ]),
-    mutationFn: () =>
-      api.createInvoice({
+    mutationFn: () => {
+      const choices = {
         ...billed,
         schedules,
         // Only a typed one: otherwise the terms date it from the day it is
@@ -433,9 +525,14 @@ function Form() {
         dueDate: draft.dueDate ?? undefined,
         reference: draft.reference.trim() || undefined,
         notes: draft.notes.trim() || undefined,
-        // The profile the card shows, frozen as it is now.
+        // The profile the card shows, frozen as it is now; none keeps a
+        // draft's.
         paymentProfileId: profile?.id,
-      }),
+      };
+      return editing
+        ? api.updateDraft(editing.id, choices)
+        : api.createInvoice(choices);
+    },
     onSuccess: (invoice) => {
       router.push(`/invoices/${invoice.id}`);
     },
@@ -504,13 +601,19 @@ function Form() {
     set('paymentProfileId', p.id);
   };
 
-  const profile =
-    profiles.find((p) => p.id === draft.paymentProfileId) ??
-    resolvePaymentProfile(profiles, {
-      clientProfileId: client?.paymentProfileId,
-      defaultProfileId: profiles.find((p) => p.isDefault)?.id,
-    });
-  const payment = buildPaymentDetails(profile, { invoiceNumber: number });
+  /* A draft whose details no profile renders now keeps them until another
+     is picked. */
+  const keeps = editing !== undefined && draft.paymentProfileId === '';
+  const profile = keeps
+    ? null
+    : (profiles.find((p) => p.id === draft.paymentProfileId) ??
+      resolvePaymentProfile(profiles, {
+        clientProfileId: client?.paymentProfileId,
+        defaultProfileId: profiles.find((p) => p.isDefault)?.id,
+      }));
+  const payment = keeps
+    ? (editing?.paymentDetails ?? null)
+    : buildPaymentDetails(profile, { invoiceNumber: number });
 
   /* One open draft per client and date: the server refuses another, so the
      form says which draft holds these dates before Generate is pressed. */
@@ -523,6 +626,7 @@ function Form() {
     }).data?.invoices ?? [];
   const covering = openDrafts.find(
     (i) =>
+      i.id !== editing?.id &&
       periodStart !== '' &&
       periodEnd !== '' &&
       i.periodStart <= periodEnd &&
@@ -552,7 +656,7 @@ function Form() {
       <div className="@container/new xl:flex xl:min-h-0 xl:flex-1 xl:flex-col">
         <div className="sticky top-0 z-10 flex items-center justify-between gap-4 bg-surface-primary pt-1 pb-3.5 xl:static">
           <h1 className="type-title whitespace-nowrap text-strong">
-            New invoice
+            {editing ? `Edit ${editing.invoiceNumber}` : 'New invoice'}
           </h1>
           <Button
             type="button"
@@ -560,7 +664,7 @@ function Form() {
             onClick={() => generate.mutate()}
             disabled={!canGenerate || markElsewhere.isPending}
           >
-            {generate.isPending ? 'Generating…' : 'Generate invoice'}
+            {pressLabel(editing !== undefined, generate.isPending)}
           </Button>
         </div>
         {marked ? (
@@ -604,8 +708,10 @@ function Form() {
                   ) : undefined
                 }
               >
+                {/* A draft keeps its client: another is a new invoice. */}
                 <ClientPicker
                   id="inv-client"
+                  disabled={editing !== undefined}
                   clients={clients}
                   value={draft.clientId || null}
                   // Another client brings its own payment details.
@@ -678,7 +784,9 @@ function Form() {
                   maxLength={200}
                 />
               </Field>
-              <NumberLine number={number} settings={settings} />
+              {editing ? null : (
+                <NumberLine number={number} settings={settings} />
+              )}
             </div>
 
             <Field label="Show time as" htmlFor="inv-group">
@@ -723,6 +831,7 @@ function Form() {
                 value={profile}
                 onChange={(id) => set('paymentProfileId', id)}
                 onNew={() => setNewProfileOpen(true)}
+                kept={keeps && payment !== null}
               />
             </Field>
 
@@ -774,7 +883,11 @@ function Form() {
               payment={payment}
               schedules={schedules}
               updating={updating}
-              footnote="Generating assigns a number and locks these entries."
+              footnote={
+                editing
+                  ? 'Saving keeps its number.'
+                  : 'Generating assigns a number and locks these entries.'
+              }
               entryAction={
                 <Button
                   type="button"
@@ -878,6 +991,11 @@ function MarkedToast({
     </PortalToast>
   );
 }
+
+const pressLabel = (editing: boolean, pending: boolean) => {
+  if (editing) return pending ? 'Saving…' : 'Save draft';
+  return pending ? 'Generating…' : 'Generate invoice';
+};
 
 /** What Bill to will lack, said; null when it has both. */
 function missingDetails(client: Pick<Client, 'address' | 'email'>) {
@@ -1179,11 +1297,14 @@ function PaymentPicker({
   value,
   onChange,
   onNew,
+  kept = false,
 }: {
   profiles: PaymentProfile[];
   value: PaymentProfile | null;
   onChange: (id: string) => void;
   onNew: () => void;
+  /** A draft's details no profile renders now, kept as they were. */
+  kept?: boolean;
 }) {
   return (
     <DropdownMenu>
@@ -1192,7 +1313,9 @@ function PaymentPicker({
         className={`${inputClass} flex items-center justify-between gap-2 text-left
                     focus:border-edge-focus focus:ring-[3px] focus:ring-edge-focus`}
       >
-        <span className="truncate">{value?.name ?? 'None'}</span>
+        <span className="truncate">
+          {value?.name ?? (kept ? 'As generated' : 'None')}
+        </span>
         <ChevronDown
           aria-hidden
           className="size-4 flex-none text-muted opacity-60"
