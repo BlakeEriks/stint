@@ -72,7 +72,9 @@ money.
 One row per user, auto-created by a trigger on `auth.users` insert. Holds the
 global rate fallback, display preferences, the invoice
 identity block (business name, address, logo), `payment_terms_days`
-(0–365, default 30), the invoice number sequence, and the entry-length thresholds
+(0–365, default 30), the invoice number sequence, `invoice_template`
+(`standard`, `modern`, `classic` or `creative`, default `standard`: the one
+drafts render in), and the entry-length thresholds
 (`min_entry_seconds`, `max_entry_hours`).
 
 **`legacy_payment_terms` is free text the move to days couldn't read**,
@@ -151,12 +153,15 @@ left off). `payment_terms` keeps its terms (`Net N`, or `Due on receipt`) from
 the client's days, else the user's, as Generate found them. Its time and
 expense lines, totals, issue date and, unless typed, due date are computed on
 every read and written by nothing; no entry or expense points at a draft.
-`downloaded_snapshot` is what its PDF last showed, dates included, which
-sending keeps; it is the one column a read writes. Mark sent refuses with
+`downloaded_snapshot` is what its PDF last showed, and the one column a read
+writes; sending keeps its dates and its template. Mark sent refuses with
 `DRAFT_CHANGED` while the draft differs from it. **Mark sent is
 `send_draft()`**: it writes the lines and totals the route computed, claims
 the entries and one-off expenses, sets `issue_date`, `due_date` and the
-`payment_terms` they make (the last PDF's, else the send date's), and sends, in one transaction. An entry another
+`payment_terms` they make (the last PDF's, else the send date's), freezes
+`template` (the last PDF's, else the setting's), and sends, in one
+transaction. A draft's `template` means nothing; it renders in the
+setting. An entry another
 invoice took, or one marked billed elsewhere, meanwhile raises
 `ENTRY_ALREADY_INVOICED`, an expense another invoice took
 `EXPENSE_ALREADY_INVOICED`, and either rolls it all back.
@@ -234,6 +239,12 @@ insert and delete its own rows; a new token is a new row, so there is no
 update grant. A token can sit under two accounts when a sign-out didn't
 reach the server, which leaks nothing: the push carries no data. It goes
 with the account (`on delete cascade`).
+
+### `realtime.messages`
+Realtime's own table, where the browsers hear of a timer change. One
+policy, `join_own_user_topic`, lets `authenticated` join only the private
+topic `user:<its id>`; there is no insert policy, since only the server
+broadcasts, as the secret key.
 
 ### `subscriptions`
 A mirror of the user's Stripe subscription, one row per user, keyed on
@@ -445,6 +456,7 @@ alone must still contain the query.
 | Changing or deleting sent feedback, even your own | refused by the grant |
 | Writing any subscription, your own included | refused by the grant |
 | Registering a phone to another user, or changing a registered one | rejected by `WITH CHECK`, refused by the grant |
+| Joining another user's Realtime topic | no row, so refused |
 | Claiming or changing the plan an invoice was generated on | overwritten at insert, refused on update |
 | An expense filed under another user's client | rejected by `expense_client_same_owner` |
 | An invoice billed to another user's client | rejected by `invoice_client_same_owner` |

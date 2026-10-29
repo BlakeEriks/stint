@@ -41,8 +41,6 @@ export interface PaymentField {
 }
 
 export interface PaymentDetails {
-  /** The profile's name, e.g. "USD wire". Omitted when it adds nothing. */
-  title: string | null;
   fields: PaymentField[];
   intermediary: PaymentField[];
   link: { label: string; url: string } | null;
@@ -146,12 +144,6 @@ export function buildPaymentDetails(
   }
 
   return {
-    // A single generic profile name adds no information next to the
-    // section heading.
-    title:
-      has(profile.name) && profile.name.trim().toLowerCase() !== 'default'
-        ? profile.name.trim()
-        : null,
     fields,
     intermediary,
     link,

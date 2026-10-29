@@ -12,14 +12,6 @@ import { api, type CalendarDay, type TimeEntry } from './api';
 import { timeZone as tz } from './use-timer';
 import { keys } from '@stint/client';
 
-/**
- * Pixels per hour, in every view that draws a day — the calendar's two and
- * the dock's column — so an hour is one size everywhere and the window
- * decides how tall the grid is rather than how tall an hour is. 44px keeps a
- * 30-minute entry at the touch target.
- */
-export const PX_PER_HOUR = 44;
-
 export interface PositionedEntry {
   entry: TimeEntry;
   /** Fraction of the day, 0–1, so the grid can be any height. */

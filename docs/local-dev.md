@@ -9,7 +9,8 @@ and `pnpm dev` talks to it. The hosted project is for deploys; see
 
 Install a container runtime. Docker Desktop works; so do OrbStack, colima,
 Podman, and Rancher Desktop. `pnpm hygiene` and `/copyedit` also need Vale:
-`brew install vale`. A whole-repo `pnpm hygiene` also needs a signed-in `gh`. `/standards-review`, which `/work-issues` and `/speckit-implement` both run,
+`brew install vale`. `pnpm --filter @stint/web sample:invoice` needs
+poppler's `pdftoppm`: `brew install poppler`. A whole-repo `pnpm hygiene` also needs a signed-in `gh`. `/standards-review`, which `/work-issues` and `/speckit-implement` both run,
 reviews with an official plugin:
 `claude plugin install pr-review-toolkit@claude-plugins-official --scope project`.
 
@@ -33,7 +34,8 @@ Billing stays hidden locally until Stripe **test-mode** keys are added here
 too: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` and `STRIPE_WEBHOOK_SECRET` (from
 `stripe listen --forward-to localhost:3100/api/v1/billing/webhook`), plus
 `SUPABASE_SECRET_KEY` from `supabase status`, which the webhook writes
-with. With the three Stripe keys set, the invoice gate is on
+with. The same key is what the server broadcasts timer changes with, so
+without it a web tab sees another client's change only when it polls. With the three Stripe keys set, the invoice gate is on
 too: a free account's invoice PDF answers `402 PAYMENT_REQUIRED`, and the
 invoice screen offers Subscribe in place of Download PDF.
 
@@ -257,16 +259,16 @@ the query.
 
 ## What is not running
 
-`dev:up` passes `-x` a list of nine services — realtime, storage, imgproxy,
-edge runtime, logflare, vector, supavisor, Studio and postgres-meta. The app
-touches none of them: its Supabase surface is `.from()`, one `.rpc()`, and
-auth. That matters in practice: the full stack wants ~7GB of RAM, and this
-subset runs in about **540MB**.
+`dev:up` passes `-x` a list of eight services — storage, imgproxy, edge
+runtime, logflare, vector, supavisor, Studio and postgres-meta. The app
+touches none of them: its Supabase surface is `.from()`, one `.rpc()`, auth,
+and Realtime, which tells the web app of a timer change. That matters in
+practice: the full stack wants ~7GB of RAM.
 
 **Studio is excluded by that list, not by `config.toml`** — `[studio] enabled`
 is `true` while the container is simply never started, so `:54323` refuses the
 connection. `pnpm dev:up:studio` keeps Studio and postgres-meta and excludes
-the other seven. To add a service back for good, take it off `dev:up`'s list.
+the other six. To add a service back for good, take it off `dev:up`'s list.
 
 ## Keeping local and production honest
 
