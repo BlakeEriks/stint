@@ -94,6 +94,10 @@ export const Blank: Story = {
     const prompt = region.getByText(/^Choose a client to see/);
     await expect(prompt).toBeVisible();
     await expect(prompt.closest('.rounded-lg')).toBeNull();
+    // No client, no format yet: nothing to fault.
+    await expect(
+      within(canvasElement).queryByText('Give the summary line its text.'),
+    ).toBeNull();
   },
 };
 export const Phone: Story = { ...phone };
@@ -358,14 +362,14 @@ export const Updating: Story = {
     stalls: 1,
     msw: {
       handlers: {
-        // The play's By task never answers; every other preview does.
+        // The play's By project never answers; every other preview does.
         previewInvoice: http.post(
           handlers.previewInvoice.info.path,
           async (info) => {
             const body = (await info.request.clone().json()) as {
               groupingMode?: string;
             };
-            if (body.groupingMode === 'task') await delay('infinite');
+            if (body.groupingMode === 'project') await delay('infinite');
             // `resolver` is protected in msw's types, and public at runtime.
             const real = handlers.previewInvoice as unknown as {
               resolver: (i: typeof info) => Promise<Response>;
@@ -379,7 +383,7 @@ export const Updating: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
-    await pickGrouping(page, /By task/);
+    await pickGrouping(page, /By project/);
     await expect(await page.findByText('Updating…')).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Generate invoice' }),
@@ -743,6 +747,78 @@ export const FromLastInvoice: Story = {
       page.getByRole('checkbox', { name: 'Hours by project' }),
     ).not.toBeChecked();
     await settled(page);
+  },
+};
+
+/** The client's last invoice was by task under a PO, so this one opens by
+    task under that PO. */
+export const FromLastByTask: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      const last = db.invoices
+        .filter((i) => i.clientId === ids.northwind && i.status !== 'void')
+        .sort(
+          (a, b) => b.sequenceNo - a.sequenceNo,
+        )[0] as Db['invoices'][number];
+      last.reference = 'PO 4471';
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    await expect(
+      page.getByRole('button', { name: 'Show time as' }),
+    ).toHaveTextContent('By task');
+    await expect(page.getByLabelText('Reference')).toHaveValue('PO 4471');
+    await expect(card(page).getByText('PO 4471')).toBeVisible();
+  },
+};
+
+/** Until the client's invoices answer, its format is unknown, so neither
+    the grouping nor a summary line shows, rather than one that flips. */
+export const FormatLoading: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...stalled('invoices'),
+    // The last invoice and the open drafts both read the list.
+    stalls: 2,
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    // Past the 400ms the form takes to settle.
+    await new Promise((r) => setTimeout(r, 600));
+    await expect(
+      page.queryByRole('button', { name: 'Show time as' }),
+    ).toBeNull();
+    await expect(page.queryByLabelText(/Summary line/)).toBeNull();
+    await expect(
+      page.queryByText('Give the summary line its text.'),
+    ).toBeNull();
+    await expect(
+      page.getByRole('button', { name: 'Generate invoice' }),
+    ).toBeDisabled();
+  },
+};
+
+/** A client never invoiced opens on one summary line, waiting for its
+    text. */
+export const FirstInvoice: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      db.invoices = db.invoices.filter((i) => i.clientId !== ids.northwind);
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(await page.findByLabelText(/Summary line/)).toHaveValue('');
+    await expect(
+      page.getByRole('button', { name: 'Show time as' }),
+    ).toHaveTextContent('One summary line');
   },
 };
 
