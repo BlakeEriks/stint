@@ -96,10 +96,12 @@ interface IssuedPeriod {
   clientId: string;
   periodStart: string;
   periodEnd: string;
+  /** The zone it was billed in; absent reads `tz`. */
+  tz?: string | null;
 }
 
-/** Unbilled billable entries dated, in `tz`, inside a sent or paid
- *  invoice's period for their client; oldest first. */
+/** Unbilled billable entries dated inside a sent or paid invoice's period
+ *  for their client, read in that invoice's zone, else `tz`; oldest first. */
 export function lateEntries(
   entries: LateCandidate[],
   invoices: IssuedPeriod[],
@@ -108,13 +110,14 @@ export function lateEntries(
   return entries
     .filter((e) => e.isBillable && e.clientId)
     .flatMap((e) => {
-      const day = localDateKey(new Date(e.startedAt), tz);
-      const invoice = invoices.find(
-        (i) =>
+      const invoice = invoices.find((i) => {
+        const day = localDateKey(new Date(e.startedAt), i.tz ?? tz);
+        return (
           i.clientId === e.clientId &&
           i.periodStart <= day &&
-          day <= i.periodEnd,
-      );
+          day <= i.periodEnd
+        );
+      });
       return invoice
         ? [
             {

@@ -12,6 +12,8 @@ import { parseRate, RateInput, UnitInput } from './rate-input';
 import { SaveIndicator } from './save-indicator';
 import { useAutosave } from '@/lib/client/use-autosave';
 import { TemplatePicker, useTemplateChoice } from './template-picker';
+import { ZoneSelect, zoneLabel } from './zone-select';
+import { timeZone } from '@/lib/client/use-timer';
 import {
   api,
   ApiError,
@@ -103,7 +105,7 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
 
       <Section
         title="Billing defaults"
-        description="Used when a client or project has no rate."
+        description="Used when a client or project has none of its own."
         aside={<SaveIndicator state={billing.state} />}
       >
         <div className="flex flex-wrap gap-4">
@@ -168,6 +170,19 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
             />
           </Field>
         </div>
+
+        <Field
+          label="Billing time zone"
+          htmlFor="billing-zone"
+          hint="Invoices read their dates in it, wherever you are."
+        >
+          <ZoneSelect
+            id="billing-zone"
+            value={form.billingTimeZone}
+            onChange={(zone) => setBilling('billingTimeZone', zone)}
+            unset={`Not set: this device's, ${zoneLabel(timeZone)}`}
+          />
+        </Field>
       </Section>
 
       <Section

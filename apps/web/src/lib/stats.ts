@@ -236,7 +236,7 @@ export async function readStats(
        holds. */
     db
       .from('invoices')
-      .select('id, invoice_number, client_id, period_start, period_end')
+      .select('id, invoice_number, client_id, period_start, period_end, tz')
       .in('status', ['sent', 'paid']),
   ]);
 
@@ -405,6 +405,7 @@ export async function readStats(
           clientId: i.client_id as string,
           periodStart: i.period_start as string,
           periodEnd: i.period_end as string,
+          tz: i.tz as string | null,
         })),
         tz,
       ).map((e) => ({ ...e, clientName: clientNames.get(e.clientId) ?? null })),

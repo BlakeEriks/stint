@@ -3,8 +3,23 @@ import assert from 'node:assert/strict';
 import {
   billableExpenses,
   billingWindow,
+  billingZone,
   isBillableEntry,
 } from '../src/billable.ts';
+
+const device = 'Europe/Lisbon';
+const account = { billingTimeZone: 'America/Los_Angeles' };
+const unset = { billingTimeZone: null };
+for (const [client, acct, zone] of [
+  [{ billingTimeZone: 'America/New_York' }, account, 'America/New_York'],
+  [unset, account, 'America/Los_Angeles'],
+  [undefined, account, 'America/Los_Angeles'],
+  [undefined, unset, device],
+  [undefined, undefined, device],
+] as const)
+  test(`an invoice reads its client's zone, else the account's, else the device's: ${zone}`, () => {
+    assert.equal(billingZone(client, acct, device), zone);
+  });
 
 test('a period of local dates covers its first day to the start of the day after its last', () => {
   const w = billingWindow('2026-03-01', '2026-03-31', 'America/New_York');

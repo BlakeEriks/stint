@@ -32,11 +32,11 @@ export const POST = handle(async (req: Request) => {
     );
   }
 
-  const { client, settings, entries, totals } = await computeInvoice(db, {
+  const { client, settings, entries, totals, tz } = await computeInvoice(db, {
     clientId: body.clientId,
     periodStart: body.periodStart,
     periodEnd: body.periodEnd,
-    tz: body.tz,
+    tz: { device: body.tz },
     groupingMode: body.groupingMode,
     summaryText: body.summaryText,
     manualLines: body.manualLines,
@@ -76,7 +76,7 @@ export const POST = handle(async (req: Request) => {
     schedules:
       body.groupingMode === 'summary'
         ? buildSchedules(entries, {
-            tz: body.tz,
+            tz,
             periodStart: body.periodStart,
             periodEnd: body.periodEnd,
           })

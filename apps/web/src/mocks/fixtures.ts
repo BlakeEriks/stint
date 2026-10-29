@@ -130,6 +130,7 @@ export const settings = (): Settings => ({
   businessEmail: 'billing@samrivera.test',
   logoUrl: null,
   paymentTermsDays: 30,
+  billingTimeZone: ZONE,
   invoiceNumberPrefix: 'STINT-',
   invoiceTemplate: 'standard',
   nextInvoiceNumber: 16,
@@ -146,6 +147,7 @@ const client = (c: Partial<Client> & Pick<Client, 'id' | 'name'>): Client => ({
   paymentProfileId: null,
   billingSchedule: null,
   paymentTermsDays: null,
+  billingTimeZone: null,
   archivedAt: null,
   ...c,
 });

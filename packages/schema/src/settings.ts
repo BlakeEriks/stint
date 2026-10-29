@@ -1,7 +1,14 @@
 import { SUBSCRIPTION_STATUSES } from '@stint/core';
 import { z } from 'zod';
 import { InvoiceTemplate } from './invoicing.ts';
-import { currency, iso, money, termsDays, uuid } from './primitives.ts';
+import {
+  currency,
+  ianaZone,
+  iso,
+  money,
+  termsDays,
+  uuid,
+} from './primitives.ts';
 
 // ── settings ───────────────────────────────────────────────────────
 /** Well under the integer column's limit, which `allocate_invoice_number()`
@@ -29,6 +36,9 @@ export const Settings = z.object({
   businessEmail: z.email().nullable(),
   logoUrl: z.url().nullable(),
   paymentTermsDays: termsDays,
+  /** The zone invoices read their dates in when the client has none of its
+   *  own; null uses the device's. */
+  billingTimeZone: ianaZone.nullable(),
   invoiceNumberPrefix: z.string().max(20),
   /** The template drafts render in; a sent invoice keeps its own. */
   invoiceTemplate: InvoiceTemplate,

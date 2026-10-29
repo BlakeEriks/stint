@@ -132,11 +132,12 @@ export interface ClientRow {
   billing_period: BillingPeriod | null;
   period_anchor: string | null;
   payment_terms_days: number | null;
+  billing_time_zone: string | null;
   archived_at: string | null;
 }
 
 export const CLIENT_COLUMNS = columns<ClientRow>()(
-  'id, name, email, address, hourly_rate, tax_rate, currency, color, payment_profile_id, billing_period, period_anchor, payment_terms_days, archived_at',
+  'id, name, email, address, hourly_rate, tax_rate, currency, color, payment_profile_id, billing_period, period_anchor, payment_terms_days, billing_time_zone, archived_at',
 );
 
 /** The schedule is one value on the wire and two columns, written together
@@ -166,6 +167,7 @@ export function toClient(r: ClientRow) {
     paymentProfileId: r.payment_profile_id,
     billingSchedule: toBillingSchedule(r),
     paymentTermsDays: r.payment_terms_days,
+    billingTimeZone: r.billing_time_zone,
     archivedAt: r.archived_at,
   };
 }
@@ -208,6 +210,7 @@ export interface SettingsRow {
   business_email: string | null;
   logo_url: string | null;
   payment_terms_days: number;
+  billing_time_zone: string | null;
   invoice_number_prefix: string;
   invoice_template: InvoiceTemplate;
   next_invoice_number: number;
@@ -215,7 +218,7 @@ export interface SettingsRow {
 }
 
 export const SETTINGS_COLUMNS = columns<SettingsRow>()(
-  'default_hourly_rate, currency, week_starts_on, time_format, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, payment_terms_days, invoice_number_prefix, invoice_template, next_invoice_number, welcomed_at',
+  'default_hourly_rate, currency, week_starts_on, time_format, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, payment_terms_days, billing_time_zone, invoice_number_prefix, invoice_template, next_invoice_number, welcomed_at',
 );
 
 export function toSettings(r: SettingsRow) {
@@ -231,6 +234,7 @@ export function toSettings(r: SettingsRow) {
     businessEmail: r.business_email,
     logoUrl: r.logo_url,
     paymentTermsDays: r.payment_terms_days,
+    billingTimeZone: r.billing_time_zone,
     invoiceNumberPrefix: r.invoice_number_prefix,
     invoiceTemplate: r.invoice_template,
     nextInvoiceNumber: r.next_invoice_number,
@@ -495,6 +499,7 @@ export const CLIENT_FIELDS = {
   color: 'color',
   paymentProfileId: 'payment_profile_id',
   paymentTermsDays: 'payment_terms_days',
+  billingTimeZone: 'billing_time_zone',
 } as const;
 
 export const PROJECT_FIELDS = {
@@ -516,6 +521,7 @@ export const SETTINGS_FIELDS = {
   businessEmail: 'business_email',
   logoUrl: 'logo_url',
   paymentTermsDays: 'payment_terms_days',
+  billingTimeZone: 'billing_time_zone',
   invoiceNumberPrefix: 'invoice_number_prefix',
   invoiceTemplate: 'invoice_template',
   nextInvoiceNumber: 'next_invoice_number',

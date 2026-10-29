@@ -46,7 +46,11 @@ const scenarios: Record<
   // A first sign-in: the welcome dialog has not been seen, and nothing is set.
   new: (db) => {
     scenarios.empty(db);
-    Object.assign(db.settings, { defaultHourlyRate: null, welcomedAt: null });
+    Object.assign(db.settings, {
+      defaultHourlyRate: null,
+      billingTimeZone: null,
+      welcomedAt: null,
+    });
   },
 };
 

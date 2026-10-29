@@ -32,6 +32,7 @@ const CLIENTS = [
     color: null,
     paymentProfileId: null,
     paymentTermsDays: null as number | null,
+    billingTimeZone: null as string | null,
     archivedAt: null,
   },
 ];
@@ -43,6 +44,7 @@ const SETTINGS = {
   invoiceNumberPrefix: 'STINT-',
   nextInvoiceNumber: 16,
   paymentTermsDays: 30,
+  billingTimeZone: null as string | null,
 };
 
 /** The settings served; a test changes the payment terms. */
@@ -260,6 +262,7 @@ beforeEach(() => {
   hold = null;
   settings = SETTINGS;
   CLIENTS[0]!.paymentTermsDays = null;
+  CLIENTS[0]!.billingTimeZone = null;
   holdSettings = null;
   invoices = [];
   holdInvoices = null;
@@ -422,6 +425,20 @@ describe('NewInvoice', () => {
     await ready(user);
     expect(screen.getByLabelText('Due')).toHaveValue(
       addDays(localDateKey(new Date(), tz), 10),
+    );
+  });
+
+  /* Kiritimati is 25 hours ahead of Pago Pago, so their dates always
+     differ, and the device is rarely on Kiritimati's. */
+  it("dates the invoice on the client's billing zone, not the account's or the device's", async () => {
+    serve();
+    settings = { ...SETTINGS, billingTimeZone: 'Pacific/Pago_Pago' };
+    CLIENTS[0]!.billingTimeZone = 'Pacific/Kiritimati';
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await ready(user);
+    expect(screen.getByLabelText('Due')).toHaveValue(
+      addDays(localDateKey(new Date(), 'Pacific/Kiritimati'), 30),
     );
   });
 

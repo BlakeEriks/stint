@@ -72,7 +72,7 @@ money.
 One row per user, auto-created by a trigger on `auth.users` insert. Holds the
 global rate fallback, display preferences, the invoice
 identity block (business name, address, logo), `payment_terms_days`
-(0–365, default 30), the invoice number sequence, `invoice_template`
+(0–365, default 30), `billing_time_zone`, the invoice number sequence, `invoice_template`
 (`standard`, `modern`, `classic` or `creative`, default `standard`: the one
 drafts render in), and the entry-length thresholds
 (`min_entry_seconds`, `max_entry_hours`).
@@ -85,6 +85,11 @@ test.
 **`welcomed_at` is null until the welcome dialog is finished or skipped**,
 and null is what shows it. The signup trigger leaves it null; every account
 that existed before the dialog was backfilled as welcomed.
+
+**`billing_time_zone` is the IANA zone invoices read their dates in** when
+the client has none of its own. The welcome dialog sets it to the device's
+zone; accounts that predate it took their newest invoice's `tz`. Null, on an
+account with neither, uses the device's zone.
 
 **`max_entry_hours` defaults to 12; `min_entry_seconds` to null.** The long
 side is how a timer left running overnight reaches the inbox once it is
@@ -109,7 +114,7 @@ weekly and biweekly count from `period_anchor`, which the
 `billing_period_anchor` check requires for them and refuses for the others.
 A new invoice's period defaults from it, and one off the schedule is hinted
 at, never refused. `payment_terms_days` overrides the user's; null uses
-theirs.
+theirs. `billing_time_zone` overrides the account's the same way.
 
 ### `projects`
 `client_id` is **nullable** — that is how internal/unbilled work is modeled.

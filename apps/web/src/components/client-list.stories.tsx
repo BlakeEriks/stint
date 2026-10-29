@@ -401,6 +401,29 @@ export const ClientPaymentTerms: Story = {
   },
 };
 
+/** A client follows the account's billing zone, which its first item names,
+    until it is given its own; once saved, the dialog opens on it. */
+export const ClientBillingZone: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    let dialog = await editNorthwind(page);
+    const field = () =>
+      dialog.getByRole('combobox', { name: /Billing time zone/ });
+    await expect(field()).toHaveTextContent('Your default: America/New York');
+    await userEvent.click(field());
+    await userEvent.click(
+      await page.findByRole('option', { name: 'America/Los Angeles' }),
+    );
+    await saveDialog(page, dialog);
+    await waitFor(async () => {
+      if (page.queryByRole('dialog')) await userEvent.keyboard('{Escape}');
+      dialog = await editNorthwind(page);
+      await expect(field()).toHaveTextContent('America/Los Angeles');
+    });
+  },
+};
+
 /** An archived client bills nothing new, so its row names no schedule,
     as it names no rate. */
 export const ArchivedClientSchedule: Story = {

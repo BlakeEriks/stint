@@ -17,6 +17,7 @@ import {
   invoicesCsv,
   measured,
   formatInvoiceNumber,
+  billingZone,
   localDateKey,
   paymentTermsText,
   pickSchedules,
@@ -107,10 +108,17 @@ const highestInvoice = (db: Db) =>
     undefined,
   );
 
+const zoneOf = (db: Db, input: { clientId: string; tz?: string }) =>
+  billingZone(
+    db.clients.find((c) => c.id === input.clientId),
+    db.settings,
+    input.tz ?? ZONE,
+  );
+
 function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
   const seq = db.settings.nextInvoiceNumber;
   db.settings.nextInvoiceNumber += 1;
-  const issueDate = localDateKey(db.now, input.tz);
+  const issueDate = localDateKey(db.now, zoneOf(db, input));
   const days =
     db.clients.find((c) => c.id === preview.clientId)?.paymentTermsDays ??
     db.settings.paymentTermsDays;
@@ -635,6 +643,7 @@ export const handlers = {
       paymentProfileId: null,
       billingSchedule: null,
       paymentTermsDays: null,
+      billingTimeZone: null,
       archivedAt: null,
       ...(await body<Partial<Client>>(request)),
     };
@@ -704,7 +713,8 @@ export const handlers = {
 
   previewInvoice: http.post(`${API}/invoices/preview`, async ({ request }) => {
     const input = await body<PreviewRequest>(request);
-    const preview = invoicePreview(getDb(), input, input.tz ?? ZONE);
+    const db = getDb();
+    const preview = invoicePreview(db, input, zoneOf(db, input));
     return preview
       ? ok(schema.InvoicePreview, preview)
       : fail('ENTRY_NOT_FOUND');
@@ -714,9 +724,10 @@ export const handlers = {
     const db = getDb();
     const input = await parse(request, schema.CreateInvoice);
     if (input instanceof Response) return input;
-    const asked = invoiceRequestRefusal(input, localDateKey(db.now, input.tz));
+    const tz = zoneOf(db, input);
+    const asked = invoiceRequestRefusal(input, localDateKey(db.now, tz));
     if (asked) return refuse(asked);
-    const preview = invoicePreview(db, input, input.tz);
+    const preview = invoicePreview(db, input, tz);
     if (!preview) return missing('Client');
     const priced = pricedInvoiceRefusal(preview, input);
     if (priced) return refuse(priced);
@@ -1081,6 +1092,7 @@ export const handlers = {
         paymentProfileId: null,
         billingSchedule: null,
         paymentTermsDays: null,
+        billingTimeZone: null,
         archivedAt: null,
       });
     for (const p of preview.newProjects)

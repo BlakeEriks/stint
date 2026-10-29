@@ -171,6 +171,42 @@ export const PaymentTermsDays: Story = {
   },
 };
 
+/** The account's billing zone, which every client without its own bills
+    in: a pick saves on its own. */
+export const BillingZone: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const field = await page.findByRole('combobox', {
+      name: /Billing time zone/,
+    });
+    await expect(field).toHaveTextContent('America/New York');
+    await userEvent.click(field);
+    await userEvent.click(
+      await page.findByRole('option', { name: 'America/Chicago' }),
+    );
+    await expect(
+      await page.findByLabelText('Saved', {}, { timeout: 3000 }),
+    ).toBeVisible();
+  },
+};
+
+/** An account from before billing zones, with no invoice to take one from:
+    the field says invoices read the device's zone until one is picked. */
+export const BillingZoneUnset: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    db.settings.billingTimeZone = null;
+  }),
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByRole('combobox', {
+        name: /Billing time zone/,
+      }),
+    ).toHaveTextContent(/^Not set: this device's/);
+  },
+};
+
 /** Past the ceiling is refused the same way: the field says why and shows
     the number the next invoice takes. */
 export const NextNumberCeiling: Story = {
