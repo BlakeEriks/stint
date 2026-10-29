@@ -285,9 +285,10 @@ rate. `0` is a real rate, distinct from `null`, which means "fall back".
 | `GET` | `/invoices/:id/pdf` | A draft is derived first and its render recorded for Mark sent to compare; one with an unrated entry is `400 NO_RATE_CONFIGURED`, and one whose typed due date is before its issue date `422 VALIDATION_FAILED`. Streams `application/pdf` in the invoice's `template`, or for a draft the setting's, which its recorded render keeps, from the line items, `business`, `billTo` and payment details, then the frozen `supportingDetail` from page 2, in hours. `?download=1` for `attachment` rather than an inline preview. Both are the paid tier: `402 PAYMENT_REQUIRED` unless billing is not set up, the caller pays, or the invoice was generated while they paid. Previewing and generating stay free. |
 | `PATCH` | `/invoices/:id/status` | `{ status, sentAt?, paidAt? }`. Also how an invoice is marked sent: `send_draft` writes a draft's lines and totals as they stand, claims its entries and one-off expenses, dates it as its last PDF printed, else `issueDate` the send date in its zone and `dueDate` by its terms unless one was typed, freezes its `template` as its last PDF's, else the setting's, and sends it, in one transaction — `400 NO_RATE_CONFIGURED` if an entry has no rate, `422 VALIDATION_FAILED` if it has no lines, no zone (its own or `?tz`), or a typed due date before its issue date (`{ field: 'dueDate' }`), `409 DRAFT_CHANGED` with `{ hours, total }` if it moved since its PDF was last rendered (one never rendered sends), `409 ENTRY_ALREADY_INVOICED` if another invoice took one of its entries or expenses at the same moment. `422 VALIDATION_FAILED` on a transition the table below forbids, or if `paidAt` is later than now or earlier than the invoice's `sentAt`; `409 INVOICE_STATUS_CHANGED` if another request changed the status since this one read it. |
 
-A draft is derived in the zone stored when it was generated. `?tz` matters
-only for a draft without one: reads use it, else UTC, and sending needs it and
-stores it. On `GET /invoices`, `GET /invoices/:id`, `/pdf` and `/status`, an
+A draft is derived in the zone stored when it was generated. A draft without
+one is read in the client's or account's `billingTimeZone`, else `?tz`, else
+UTC. Sending it refuses when the UTC fallback is all it has, and stores the
+zone it used. On `GET /invoices`, `GET /invoices/:id`, `/pdf` and `/status`, an
 invalid `tz` is `422 VALIDATION_FAILED`.
 
 **A one-off expense shows on one open draft**: of the client's drafts that

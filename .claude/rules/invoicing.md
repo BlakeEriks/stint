@@ -28,7 +28,7 @@ zone, else the account's (`billingZone`), with `tz` only the fallback for an
 account that has none. Preview, generation,
 `GET /invoices`, `GET /invoices/:id`, `/pdf` and `/status` return 422 for
 one, the reads included, since each derives a draft. An omitted one defaults
-to UTC, except that sending a draft with no zone of its own refuses.
+to UTC, except that sending a draft with no zone at all refuses.
 
 ### Rules that must not regress
 

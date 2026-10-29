@@ -298,9 +298,9 @@ export async function computeInvoice(
     clientId: string;
     periodStart: string;
     periodEnd: string;
-    /** A draft's own zone. A new invoice has none, and reads the client's
-        billing zone (`billingZone`), else the device's. */
-    tz: string | { device: string };
+    /** A draft's own zone. A new invoice has none, and reads `billingZone`;
+        with no device zone either, it is refused. */
+    tz: string | { device: string | undefined };
     groupingMode: GroupingMode;
     summaryText?: string;
     manualLines: ManualLine[];
@@ -328,6 +328,11 @@ export async function computeInvoice(
           settings,
           opts.tz.device,
         );
+  if (!tz)
+    throw new ApiError(
+      'VALIDATION_FAILED',
+      'Sending a draft needs the time zone its dates are read in (`tz`).',
+    );
   const [entries, expenses] = await Promise.all([
     loadBillableEntries(db, {
       clientId: opts.clientId,
@@ -416,22 +421,27 @@ async function loadManualLines(db: SupabaseClient, invoiceId: string) {
  * made on New invoice; null for an invoice that isn't a draft. Writes
  * nothing. A draft is dated as if sent today: sending dates it.
  *
- * A draft with no zone of its own is read in the request's, else UTC.
+ * A draft with no zone of its own, generated before drafts stored one, is
+ * read in `billingZone`, falling back to the request's, else UTC.
  */
 export async function deriveDraft(
   db: SupabaseClient,
   row: InvoiceRow,
   requestTz: string | undefined,
-  issueDate?: string,
+  send?: {
+    /** The date it is issued on, else the day of `at` in its zone. */
+    issueDate?: string;
+    at: Date;
+  },
 ) {
   if (row.status !== 'draft') return null;
-  const tz = row.tz ?? requestTz ?? 'UTC';
 
   const computed = await computeInvoice(db, {
     clientId: row.client_id,
     periodStart: row.period_start,
     periodEnd: row.period_end,
-    tz,
+    // Sending refuses a draft with no zone at all; a read takes UTC.
+    tz: row.tz ?? { device: send ? requestTz : (requestTz ?? 'UTC') },
     groupingMode: row.grouping_mode,
     summaryText: row.summary_text ?? undefined,
     manualLines: await loadManualLines(db, row.id),
@@ -439,13 +449,13 @@ export async function deriveDraft(
     schedules: attachedSchedules(row.supporting_detail),
     draftId: row.id,
   });
-  const { totals } = computed;
+  const { totals, tz } = computed;
   const {
     issueDate: issued,
     dueDate: due,
     sent,
   } = draftDates({
-    issueDate: issueDate ?? localDateKey(new Date(), tz),
+    issueDate: send?.issueDate ?? localDateKey(send?.at ?? new Date(), tz),
     dueDate: row.due_date,
     paymentTerms: row.payment_terms,
     defaultTermsDays: computed.settings.paymentTermsDays,
@@ -534,20 +544,12 @@ export async function sendDraft(
   requestTz: string | undefined,
   sentAt: string,
 ): Promise<InvoiceRow> {
-  const tz = row.tz ?? requestTz;
-  if (!tz)
-    throw new ApiError(
-      'VALIDATION_FAILED',
-      'Sending a draft needs the time zone its dates are read in (`tz`).',
-    );
   const printed = row.downloaded_snapshot;
-  const draft = (await deriveDraft(
-    db,
-    row,
-    tz,
-    printed?.issueDate ?? localDateKey(new Date(sentAt), tz),
-  ))!;
-  const { totals } = draft.computed;
+  const draft = (await deriveDraft(db, row, requestTz, {
+    issueDate: printed?.issueDate,
+    at: new Date(sentAt),
+  }))!;
+  const { totals, tz } = draft.computed;
 
   // Unpriced work first: a draft of nothing but it isn't empty.
   if (totals.unratedEntryIds.length > 0)

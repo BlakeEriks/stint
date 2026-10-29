@@ -4050,6 +4050,28 @@ test("a client's own zone wins over the account's, and the issue date is read in
   assert.equal(oct.issueDate, localDateKey(new Date(), 'America/New_York'));
 });
 
+/* Drafts generated before drafts stored a zone have none: read in the
+   device's, they kept the gap this closes. */
+test('a draft with no zone of its own is read and sent in the billing zone', async () => {
+  const r = await live();
+  await billIn('America/Los_Angeles');
+  await seedEntry({ id: E(1), start: '2026-10-01T06:30:00Z' }); // Sep 30, 11:30 PM PDT
+  const { id } = await generateFrom('America/Los_Angeles');
+  await pool.query('update invoices set tz = null');
+
+  const read = await json(await r.list(req('/invoices?tz=Europe/Lisbon')));
+  assert.equal(read.body.invoices[0].total, 150);
+  const sent = await json(
+    await r.setStatus(
+      req('/s?tz=Europe/Lisbon', { status: 'sent' }, 'PATCH'),
+      at(id),
+    ),
+  );
+  assert.equal(sent.status, 200, JSON.stringify(sent.body));
+  const { rows } = await pool.query('select tz from invoices');
+  assert.deepEqual(rows, [{ tz: 'America/Los_Angeles' }]);
+});
+
 test('the preview reads the same zone the invoice will', async () => {
   const { POST: preview } = await import(
     '../src/app/api/v1/invoices/preview/route.ts'

@@ -108,8 +108,6 @@ const highestInvoice = (db: Db) =>
     undefined,
   );
 
-/** `computeInvoice`'s zone: the client's, else the account's, else the
- *  device's. */
 const zoneOf = (db: Db, input: { clientId: string; tz?: string }) =>
   billingZone(
     db.clients.find((c) => c.id === input.clientId),

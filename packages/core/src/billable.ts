@@ -13,11 +13,11 @@ import { assignExpenses, type OpenDraft } from './live-draft.ts';
  * traveller's device zone would move work near midnight between invoices,
  * so it is only the fallback for an account that has never set one.
  */
-export function billingZone(
+export function billingZone<Device extends string | undefined>(
   client: { billingTimeZone?: string | null } | null | undefined,
   account: { billingTimeZone?: string | null } | null | undefined,
-  device: string,
-): string {
+  device: Device,
+): string | Device {
   return client?.billingTimeZone ?? account?.billingTimeZone ?? device;
 }
 
