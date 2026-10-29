@@ -28,7 +28,7 @@ const SLOT_LABEL_PX = Math.ceil(type.meta.size * 1.25) + 2;
 /**
  * One day of entries, and where they get corrected: a block opens the editor,
  * dragging it or an end adjusts its times, and pressing on empty grid draws a
- * new entry, or a one-hour one where a click lands.
+ * new entry, or the `clickMinutes` block where a click lands.
  *
  * `/calendar` draws seven of these and the dock's Today one, so the gestures
  * are the same wherever a day is drawn.

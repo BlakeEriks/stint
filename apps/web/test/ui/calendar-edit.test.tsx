@@ -243,8 +243,8 @@ describe('creating an entry by clicking a time', () => {
     });
 
     await screen.findByRole('heading', { name: 'Add entry' });
-    // Times render in the viewer's zone, so assert the shape and the one-hour
-    // default rather than a wall clock the test environment decides.
+    // Times render in the viewer's zone, so assert the shape rather than a
+    // wall clock the test environment decides.
     const start = (screen.getByLabelText('Start') as HTMLInputElement).value;
     const end = (screen.getByLabelText('End') as HTMLInputElement).value;
     expect(start).toMatch(/^\d\d:\d\d$/);
