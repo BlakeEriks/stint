@@ -19,6 +19,14 @@ default on the account, and every invoice for that client reads its dates
 in it, wherever the user is. The owner chose this design over carrying the
 last invoice's zone forward (issue comment, 2026-10-29).
 
+## Clarifications
+
+### Session 2026-10-29
+
+- Q: When a zone changes, does an open draft follow it? → A: No: a draft keeps the zone it was generated in until it is sent, as it keeps its period, so a change moves no draft's work (decided autonomously).
+- Q: Does the invoice or its PDF print the zone? → A: No: the client reads dates, and their zone is the one the contract bills in (decided autonomously).
+- Q: Which zone does a request made before an account has one use? → A: The device's, as every invoice does today, so nothing changes for that account until a zone is picked (decided autonomously).
+
 ## Design
 
 No design review (decided autonomously): each change is one field in a form
