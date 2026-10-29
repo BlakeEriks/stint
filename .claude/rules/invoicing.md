@@ -1,7 +1,8 @@
 ---
 paths:
   - "apps/web/src/app/api/v1/invoices/**"
-  - "apps/web/src/lib/invoicing.ts"
+  - "apps/web/src/lib/drafts.ts"
+  - "apps/web/src/lib/issued.ts"
   - "packages/core/src/invoice.ts"
   - "packages/core/src/payment.ts"
   - "apps/web/src/lib/invoice-pdf.tsx"
@@ -12,10 +13,14 @@ paths:
 
 Line-item construction lives in `packages/core/src/invoice.ts` — pure, so the
 preview a user approves and the invoice that issues are built by identical
-code. Routes in `apps/web/src/app/api/v1/invoices/`; shared loaders in
-`apps/web/src/lib/invoicing.ts`, which reads rows through `rows.ts` like
-everything else. `formatCurrency` and `formatHours` are in core for the same
-reason: the preview and the PDF render one number one way.
+code. Routes in `apps/web/src/app/api/v1/invoices/`. Their loaders split
+along the draft/issued line, and read rows through `rows.ts` like everything
+else: `apps/web/src/lib/drafts.ts` reads live data to price a draft, and
+`apps/web/src/lib/issued.ts` prints a non-draft from its `invoices` row and
+line items alone, so a live lookup for what it prints is out of place. Its one
+other read, `entitlement()`, decides only whether the PDF opens.
+`formatCurrency` and `formatHours` are in core for the same reason: the
+preview and the PDF render one number one way.
 
 **An invalid `tz` is rejected rather than swallowed here.** The period is local
 dates, so the zone decides which entries are billed. Preview, generation,

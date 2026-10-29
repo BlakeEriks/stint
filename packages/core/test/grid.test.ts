@@ -6,6 +6,14 @@ import {
   movedTo,
   resized,
   windowFor,
+  drawnRange,
+  zoomed,
+  fillPxPerHour,
+  clickMinutes,
+  hourMarks,
+  hourStep,
+  MIN_PX_PER_HOUR,
+  MAX_PX_PER_HOUR,
   SNAP_MINUTES,
   MIN_ENTRY_MINUTES,
 } from '../src/grid.ts';
@@ -288,4 +296,145 @@ test('the window holds its width across a spring-forward boundary', () => {
   // hour rather than drifting by the missing hour.
   assert.equal(clock(w.from, 'America/New_York'), '08:00');
   assert.equal(clock(w.to, 'America/New_York'), '13:00');
+});
+
+test('a drawn range snaps both ends and reads the same in either direction', () => {
+  const { start, end } = column('2026-09-09T12:00:00Z', 'UTC');
+  const at = (h: number, m: number) => (h * 60 + m) / 1440;
+
+  const down = drawnRange(at(17, 7), at(17, 58), start, end);
+  assert.equal(clock(down.startedAt, 'UTC'), '17:00');
+  assert.equal(clock(down.endedAt, 'UTC'), '18:00');
+
+  const up = drawnRange(at(17, 58), at(17, 7), start, end);
+  assert.deepEqual(up, down);
+});
+
+test('a drawn range is never shorter than the shortest entry, even at midnight', () => {
+  const { start, end } = column('2026-09-09T12:00:00Z', 'UTC');
+
+  const short = drawnRange(0.5, 0.5, start, end);
+  assert.equal(
+    short.endedAt.getTime() - short.startedAt.getTime(),
+    MIN_ENTRY_MINUTES * MIN,
+  );
+
+  const last = drawnRange(1, 1, start, end);
+  assert.equal(last.endedAt.getTime(), end.getTime());
+  assert.equal(
+    last.endedAt.getTime() - last.startedAt.getTime(),
+    MIN_ENTRY_MINUTES * MIN,
+  );
+});
+
+test('a drawn range on a 23-hour day lands on the wall clock drawn', () => {
+  const tz = 'America/New_York';
+  const { start, end } = column('2026-03-08T12:00:00Z', tz);
+  const span = end.getTime() - start.getTime();
+  // 17:00 local is 16 elapsed hours on a spring-forward day.
+  const f = (elapsedHours: number) => (elapsedHours * 3_600_000) / span;
+
+  const r = drawnRange(f(16), f(17), start, end);
+  assert.equal(clock(r.startedAt, tz), '17:00');
+  assert.equal(clock(r.endedAt, tz), '18:00');
+});
+
+test('zoom scales by the wheel delta, in and out, inside its limits', () => {
+  assert.ok(zoomed(44, -10) > 44);
+  assert.ok(zoomed(44, 10) < 44);
+  assert.equal(zoomed(44, 0), 44);
+  // In then out by the same delta comes back to where it started.
+  assert.ok(Math.abs(zoomed(zoomed(44, -10), 10) - 44) < 1e-9);
+  assert.equal(zoomed(MAX_PX_PER_HOUR, -100), MAX_PX_PER_HOUR);
+  assert.equal(zoomed(MIN_PX_PER_HOUR, 100), MIN_PX_PER_HOUR);
+});
+
+test('one mouse-wheel notch is capped, so it never jumps a whole range', () => {
+  assert.equal(zoomed(44, -1000), zoomed(44, -100));
+  assert.ok(zoomed(44, -1000) < 2 * 44);
+});
+
+test('the label step widens as hours shrink and narrows as they grow', () => {
+  assert.equal(hourStep(44, 132), 3);
+  assert.equal(hourStep(88, 132), 2);
+  assert.equal(hourStep(176, 132), 1);
+  assert.equal(hourStep(22, 132), 6);
+  assert.equal(hourStep(44, 44), 1);
+  assert.equal(hourStep(22, 44), 2);
+});
+
+test('zoom out stops where the day still fills its scroll area', () => {
+  // A 24-hour week in a 720px area: 30px an hour fills it exactly.
+  assert.equal(fillPxPerHour(720, 24), 30);
+  assert.equal(zoomed(30, 100, fillPxPerHour(720, 24)), 30);
+  // A level stored below it starts from it rather than from below.
+  assert.equal(zoomed(22, 0, 30), 30);
+  // Zooming in is unaffected.
+  assert.ok(zoomed(30, -50, 30) > 30);
+});
+
+test('the fill floor never drops below the least zoom or tops the most', () => {
+  assert.equal(fillPxPerHour(200, 24), MIN_PX_PER_HOUR);
+  assert.equal(fillPxPerHour(0, 24), MIN_PX_PER_HOUR);
+  assert.equal(fillPxPerHour(5000, 10), MAX_PX_PER_HOUR);
+  assert.equal(fillPxPerHour(720, 0), MIN_PX_PER_HOUR);
+});
+
+test('a click makes the shortest block its label fits, across the zoom range', () => {
+  const label = 17;
+  assert.equal(clickMinutes(MIN_PX_PER_HOUR, label), 60); // 22px an hour
+  assert.equal(clickMinutes(33, label), 60);
+  assert.equal(clickMinutes(44, label), 30); // the default
+  assert.equal(clickMinutes(67, label), 30);
+  assert.equal(clickMinutes(68, label), 15);
+  assert.equal(clickMinutes(MAX_PX_PER_HOUR, label), 15);
+  // Shorter than the label even at an hour: still an hour.
+  assert.equal(clickMinutes(10, label), 60);
+});
+
+test('a click draws its length from where it landed, inside the day', () => {
+  const { start, end } = column('2026-09-09T12:00:00Z', 'UTC');
+  const at = (9 * 60 + 7) / 1440;
+
+  const r = drawnRange(at, at, start, end, 30);
+  assert.equal(clock(r.startedAt, 'UTC'), '09:00');
+  assert.equal(clock(r.endedAt, 'UTC'), '09:30');
+
+  const last = drawnRange(1, 1, start, end, 60);
+  assert.equal(last.endedAt.getTime(), end.getTime());
+  assert.equal(last.endedAt.getTime() - last.startedAt.getTime(), 60 * MIN);
+});
+
+test('hour marks fall on the step across an ordinary day, ends included', () => {
+  const { start, end } = column('2026-09-09T12:00:00Z', 'America/New_York');
+  const marks = hourMarks(start, end, 3, 'America/New_York');
+  assert.deepEqual(
+    marks.map((m) => m.hour),
+    [0, 3, 6, 9, 12, 15, 18, 21, 0],
+  );
+  assert.equal(marks[1]?.pct, 12.5);
+  assert.equal(marks.at(-1)?.pct, 100);
+});
+
+/* A 25-hour day repeats 01:00. Counting elapsed hours as wall hours would
+   label 02:00 as "03" and end the day on "01". */
+test('hour marks on a fall-back day name the hour the clock reads', () => {
+  const tz = 'America/New_York';
+  const { start, end } = column('2026-11-01T12:00:00Z', tz);
+  const marks = hourMarks(start, end, 3, tz);
+  assert.deepEqual(
+    marks.map((m) => m.hour),
+    [0, 3, 6, 9, 12, 15, 18, 21, 0],
+  );
+  // 03:00 is four elapsed hours into the 25.
+  assert.equal(marks[1]?.pct, (4 / 25) * 100);
+  assert.equal(marks.at(-1)?.pct, 100);
+});
+
+test('hour marks on a spring-forward day skip the hour that never was', () => {
+  const tz = 'America/New_York';
+  const { start, end } = column('2026-03-08T12:00:00Z', tz);
+  const hours = hourMarks(start, end, 1, tz).map((m) => m.hour);
+  assert.equal(hours.length, 24);
+  assert.ok(!hours.includes(2));
 });

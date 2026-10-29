@@ -2943,6 +2943,23 @@ test('an invoice bills every entry in its period, past a thousand', async () => 
   assert.equal(res.body.total, 15015);
 });
 
+test('an invoice bills every expense in its period, past a thousand', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  await pool.query(
+    `insert into expenses (user_id,client_id,spent_on,description,amount)
+     select $1, $2, '2026-09-12', 'Postage', 1 from generate_series(1, 1001)`,
+    [USER, CLIENT],
+  );
+
+  const res = await json(
+    await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.body.expensesSubtotal, 1001);
+});
+
 test('an issued invoice reads back every line, past a thousand', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   const { GET: detail } = await import(
