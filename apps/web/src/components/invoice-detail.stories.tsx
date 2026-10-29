@@ -254,6 +254,10 @@ export const BillingNotSetUp: Story = {
   },
 };
 
+/** Where the invoice starts, below the header a confirm must not grow. */
+const below = (page: ReturnType<typeof within>) =>
+  page.getByText('Amount due').getBoundingClientRect().y;
+
 /** The first press of a destructive pair only asks; the second names it. */
 const press =
   (first: string, then?: string) =>
@@ -266,12 +270,22 @@ const press =
 export const ConfirmDelete: Story = {
   ...desktop,
   play: async (ctx) => {
+    const page = within(ctx.canvasElement);
+    await page.findByText('Amount due');
+    const before = below(page);
     await press('Delete draft')(ctx);
     await expect(
-      within(ctx.canvasElement).getByRole('button', {
-        name: 'Delete STINT-0015 for good',
-      }),
+      page.getByRole('button', { name: 'Delete STINT-0015 for good' }),
     ).toBeVisible();
+    await expect(page.getByText('Its work stays unbilled.')).toBeVisible();
+    // The confirm takes the row, hiding the rest, rather than wrapping it.
+    await expect(page.queryByRole('button', { name: 'Mark sent' })).toBeNull();
+    await expect(below(page)).toBe(before);
+    // Keep hands focus back to the trigger, which must be visible by then.
+    await userEvent.click(page.getByRole('button', { name: 'Keep' }));
+    await expect(
+      page.getByRole('button', { name: 'Delete draft' }),
+    ).toHaveFocus();
   },
 };
 
@@ -292,12 +306,15 @@ export const ConfirmVoid: Story = {
   ...desktop,
   args: { id: invoice(14) },
   play: async (ctx) => {
+    const page = within(ctx.canvasElement);
+    await page.findByText('Amount due');
+    const before = below(page);
     await press('Void')(ctx);
     await expect(
-      within(ctx.canvasElement).getByRole('button', {
-        name: 'Void STINT-0014',
-      }),
+      page.getByRole('button', { name: 'Void STINT-0014' }),
     ).toBeVisible();
+    await expect(page.queryByRole('button', { name: 'Mark paid' })).toBeNull();
+    await expect(below(page)).toBe(before);
   },
 };
 

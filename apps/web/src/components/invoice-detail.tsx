@@ -16,7 +16,7 @@ import {
 import { useMarkPaid } from '@/lib/client/use-mark-paid';
 import { Ban, DollarSign, Download, Lock, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ConfirmAction } from './confirm-action';
+import { ConfirmAction, confirmRow } from './confirm-action';
 import { shortDate, StatusBadge } from './invoice-bits';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
@@ -168,13 +168,14 @@ function Loaded({
           <StatusBadge status={invoice.status} />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className={`flex flex-wrap items-center gap-2 ${confirmRow}`}>
           {/* Deleting removes the draft and voiding can't be undone, so each
               asks first. */}
           {isDraft ? (
             <ConfirmAction
               label={`Delete ${invoice.invoiceNumber} for good`}
               pendingLabel="Deleting…"
+              takesRow
               consequence="Its work stays unbilled."
               pending={remove.isPending}
               onConfirm={() => remove.mutate()}
@@ -188,6 +189,7 @@ function Loaded({
             <ConfirmAction
               label={`Void ${invoice.invoiceNumber}`}
               pendingLabel="Voiding…"
+              takesRow
               consequence="The number stays on record, and this invoice can't be reissued."
               pending={setStatus.isPending}
               onConfirm={() => setStatus.mutate({ status: 'void' })}

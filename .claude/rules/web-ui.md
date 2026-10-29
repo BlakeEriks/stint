@@ -178,7 +178,8 @@ second line or an `Add…` item is a `DropdownMenu`. Put a component in
   `aria-hidden`. An `aria-label` holds the visible text, in order, so saying
   what is on screen presses it (WCAG 2.5.3): `Mark paid, STINT-0001`.
 - **A destructive action is quiet until it is the confirm**: a ghost in
-  `text-danger`, then `destructive` spelling the consequence out, in place.
+  `text-danger`, then `destructive` spelling the consequence out, in place
+  and moving nothing: where the pair would wrap its row, it takes the row.
   Destructive means it removes something saved; dropping a line from a form
   not yet submitted (a charge on a new invoice) acts at once.
   In a dialog footer the first step is a trash icon alone, pushed away with
