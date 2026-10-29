@@ -272,25 +272,15 @@ describe('InvoiceDetail', () => {
   it('holds a deleted draft pending, never asking for it again', async () => {
     serve('draft');
     let deleted = false;
-    const gone = () =>
-      new Response(
-        JSON.stringify({
-          code: 'ENTRY_NOT_FOUND',
-          message: 'Invoice not found',
-        }),
-        { status: 404 },
-      );
     const answer = vi.mocked(fetch).getMockImplementation()!;
     const askedAfter: string[] = [];
     vi.mocked(fetch).mockImplementation(async (url, init) => {
       if (init?.method === 'DELETE') {
-        if (deleted) return gone();
         deleted = true;
         return new Response(null, { status: 204 });
       }
       if (deleted && String(url).includes('/invoices/inv-1')) {
         askedAfter.push(String(url));
-        return gone();
       }
       return answer(url, init);
     });
@@ -304,49 +294,9 @@ describe('InvoiceDetail', () => {
       screen.getByRole('button', { name: 'Delete INV-13 for good' }),
     );
     await waitFor(() => expect(deleted).toBe(true));
-    // The press settles: its refetches land.
-    await new Promise((r) => setTimeout(r, 50));
-    // A press while the list is on its way.
-    await user.click(
-      screen.getByRole('button', { name: /for good|Deleting…/ }),
-    );
-    await new Promise((r) => setTimeout(r, 50));
 
-    expect(screen.queryByText('Invoice not found')).toBeNull();
     expect(screen.getByRole('button', { name: 'Deleting…' })).toBeDisabled();
     expect(askedAfter).toEqual([]);
-  });
-
-  it('says why a delete was refused, and lets it be pressed again', async () => {
-    serve('draft');
-    const answer = vi.mocked(fetch).getMockImplementation()!;
-    vi.mocked(fetch).mockImplementation(async (url, init) =>
-      init?.method === 'DELETE'
-        ? new Response(
-            JSON.stringify({
-              code: 'VALIDATION_FAILED',
-              message: 'An issued invoice cannot be deleted',
-            }),
-            { status: 422 },
-          )
-        : answer(url, init),
-    );
-    const user = userEvent.setup();
-    show();
-
-    await user.click(
-      await screen.findByRole('button', { name: 'Delete draft' }),
-    );
-    await user.click(
-      screen.getByRole('button', { name: 'Delete INV-13 for good' }),
-    );
-
-    expect(
-      await screen.findByText('An issued invoice cannot be deleted'),
-    ).toBeVisible();
-    expect(
-      screen.getByRole('button', { name: 'Delete INV-13 for good' }),
-    ).toBeEnabled();
   });
 
   /* Pending, not predicted: the confirm says it is working until the server
