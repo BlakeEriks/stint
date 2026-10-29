@@ -84,7 +84,8 @@ autonomously) In iOS's sizes, in the app's tokens, dark and light:
 - **Live Activity, lock screen**: the medium widget's row with Stop only,
   since it exists only while a timer runs.
 - **Dynamic Island**: compact, the project's dot leading and the clock
-  trailing; minimal, the clock; expanded, the lock screen's row.
+  trailing; minimal, the dot, since a clock doesn't fit; expanded, the lock
+  screen's row.
 - **Control Center**: one toggle named Stint, on while a timer runs; its
   value line is the running task, or "Start: <task>" when stopped.
 

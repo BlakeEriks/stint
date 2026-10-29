@@ -24,6 +24,13 @@ Metro passes `/api/v1` to the web server (`metro.config.cjs`), so the page
 asks its own origin. Sign in as the seeded account: the code is in the
 email Mailpit caught. The native app needs a phone: see Preview builds.
 
+**The iPhone's native code is seen on EAS Simulator**, which needs no Xcode
+(the `eas-simulator` skill). `eas build --platform ios --profile simulator`
+builds Stint Local for it, unsigned. Loaded from Metro, a native Stint Local
+asks Metro for `/api/v1` and `/auth/v1` too, which it passes to the web
+server and Supabase, so it reaches the builder's stack through Metro's
+tunnel.
+
 | Suite | Command |
 | --- | --- |
 | Session, requests, backends | `pnpm --filter @stint/mobile test` |
@@ -64,8 +71,8 @@ test data. The answer to a leak is rotating the bypass in Vercel
 The macOS app's emailed six-digit code (`docs/macos.md`, Sign-in), over
 `fetch` to GoTrue. **The session lives in secure storage**: the Keychain on
 iOS, Keystore-encrypted storage on Android, one entry per backend host. On
-iOS it uses the `dev.stint.shared` keychain access group once
-`APPLE_TEAM_ID` is set, so the widgets can read it.
+iOS, a press outside the app refreshes it in Swift and stores the result; a
+refresh in the app reads the stored session first and takes that one.
 
 **Only GoTrue rejecting the refresh token signs out.** Offline, a timeout,
 a 5xx or a rate limit keeps the session, and the screen says Stint can't be
@@ -130,6 +137,30 @@ Android 16 promotes it, and shows its clock in the status bar.
 A local build has no push, so its surfaces follow only the app's own reads
 and presses. The module is native code: a change to it needs a new build,
 not an update.
+
+**On iPhone, the same state draws a Live Activity** on the lock screen and
+in the Dynamic Island, home screen widgets in Android's two layouts, two lock
+screen widgets, and a Control Center control on iOS 18. Siri and Shortcuts
+know Start and Stop, so the Action button runs one. All need iOS 17; the app
+runs from 16.4 without them. `specs/015-ios-surfaces/spec.md`, Design, is
+their look, and `targets/widget` their SwiftUI, added to the build by
+`@bacons/apple-targets`.
+
+**A press runs in the app, in Swift.** Each intent is a `LiveActivityIntent`,
+which iOS runs in the app, launched in the background with no scene, where
+React Native doesn't start. So `modules/stint-surfaces/ios` presses itself:
+it draws `pressed` at once, calls `/api/v1` with the app's session, and
+draws the answer, or the state before with JS's words for the failure. The
+app's JS refetches the timer when it next runs. The widget extension only
+reads what the module stored, the keychain item `dev.stint.surfaces`. Until
+#471, a timer started on another client reaches the iPhone's surfaces only
+when the app next opens.
+
+**A free Apple ID can sign it.** The build relies on keychain sharing alone:
+no app group, no Siri capability, and no push entitlement, which
+`app.config.ts` removes. Where keychain sharing isn't signed, the widgets
+and the control say "Open Stint", and the Live Activity, Siri and Shortcuts
+still work.
 
 ## Crash reporting
 

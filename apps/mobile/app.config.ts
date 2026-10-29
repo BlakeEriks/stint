@@ -19,9 +19,9 @@ const target = resolveIdentity(env);
 const icon = `./assets/icon${target.name === 'prod' ? '' : '-dev'}.png`;
 
 /**
- * The iPhone registers for no push until #471, and a free Apple ID's
- * Personal Team can't sign the entitlement `expo-notifications` adds, which
- * would stop the build installing at all.
+ * The iPhone registers for no push yet, and a free Apple ID's Personal
+ * Team can't sign the entitlement `expo-notifications` adds, which would
+ * stop the build installing at all.
  */
 const withoutPushOnIos: ConfigPlugin = (config) =>
   withEntitlementsPlist(config, (c) => {
