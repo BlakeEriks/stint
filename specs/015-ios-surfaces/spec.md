@@ -35,10 +35,10 @@ nothing here may need push; updates from other clients through APNs are
   that can't be pressed misses the issue's point.)
 - Q: How does a widget show a rejected press? → A: As on Android: what the
   server holds, with the reason on the line under the task, until the next
-  press or app read. When the server's refusal says what it holds (a timer
-  already running, none running), the surface shows that; otherwise it
-  shows what it showed before the press. (decided autonomously: Principle
-  VI's rule, said on the surface that pressed.)
+  press or app read. A Stop the server refuses because none is running
+  shows stopped, which is what it holds; any other refusal shows what the
+  surface showed before the press. (decided autonomously: Principle VI's
+  rule, said on the surface that pressed.)
 - Q: Where does a press run, with the app closed? → A: In the app, which
   iOS starts in the background for it, never in the widget's own process.
   The app's session is then the only one that calls the server, and the
@@ -183,8 +183,7 @@ tap stops a running timer or starts the task Start would begin.
   the app and web can name later.
 - A timer started or stopped on another client with the app closed: no
   surface knows until the app is next opened (#471 brings push). A press
-  made meanwhile gets the server's conflict, and shows what the server
-  holds.
+  made meanwhile gets the server's conflict, and says so.
 - iOS ends a Live Activity after 8 hours. The app starts it again the next
   time it opens on a running timer.
 - Offline: each surface shows the last state it knew, its clock counting
