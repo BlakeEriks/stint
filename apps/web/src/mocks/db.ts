@@ -31,7 +31,10 @@ const scenarios: Record<
   // A new account: settings and nothing else.
   empty: (db) => {
     Object.assign(db, {
-      settings: { ...settings(), nextInvoiceNumber: 1 },
+      settings: {
+        ...settings(),
+        nextInvoiceNumber: 1,
+      },
       clients: [],
       projects: [],
       entries: [],

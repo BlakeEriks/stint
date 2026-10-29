@@ -12,14 +12,15 @@ final class TimerModel: Optimistic {
     /// Nil until the first fetch; the row omits the number rather than
     /// showing a zero that would read as "earned nothing".
     private(set) var stats: Stats?
-    /// The last five names worked on, newest first. The running one is the
+    /// The last fifteen names worked on, newest first, so a task from last
+    /// week is still one click away. The running one is the
     /// readout, not a row, and is dropped here rather than at fetch time,
     /// since the readout reconciles more often than the list.
     var recent: [TaskName] {
         let running = running?.taskName.lowercased()
         return Array(taskNames.filter { $0.id != running }.prefix(Self.recentCount))
     }
-    private static let recentCount = 5
+    private static let recentCount = 15
     private var taskNames: [TaskName] = []
     private(set) var clients: [Client] = []
     private(set) var projects: [Project] = []

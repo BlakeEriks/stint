@@ -14,6 +14,8 @@ const env = {
   STINT_PREVIEW_PR: process.env.STINT_PREVIEW_PR,
 };
 const target = resolveIdentity(env);
+// Generated from the tokens (`packages/design-tokens/src/generate.js`).
+const icon = `./assets/icon${target.name === 'prod' ? '' : '-dev'}.png`;
 
 const config: ExpoConfig = {
   name: target.appName,
@@ -22,6 +24,7 @@ const config: ExpoConfig = {
   version: '0.1.0',
   orientation: 'portrait',
   userInterfaceStyle: 'automatic',
+  icon,
   ios: {
     bundleIdentifier: target.appId,
     supportsTablet: false,
@@ -32,14 +35,22 @@ const config: ExpoConfig = {
   },
   android: {
     package: target.appId,
+    // Opaque, so it hides the adaptive icon's background layer.
+    adaptiveIcon: { foregroundImage: icon },
     // Copied here by an EAS build hook (scripts/google-services.mjs).
     ...(target.push ? { googleServicesFile: './google-services.json' } : {}),
   },
-  plugins: ['expo-secure-store', 'expo-font', 'expo-notifications'],
+  plugins: [
+    'expo-secure-store',
+    'expo-font',
+    'expo-notifications',
+    ...sentry(),
+  ],
   ...updates(),
   extra: {
     env,
     push: target.push,
+    sentryDsn: target.name === 'prod' ? process.env.SENTRY_DSN : undefined,
     appleTeamId: process.env.APPLE_TEAM_ID,
     ...(process.env.EAS_PROJECT_ID
       ? { eas: { projectId: process.env.EAS_PROJECT_ID } }
@@ -63,4 +74,23 @@ function updates(): Pick<ExpoConfig, 'updates' | 'runtimeVersion'> {
     updates: { url: `https://u.expo.dev/${projectId}` },
     runtimeVersion: { policy: 'fingerprint' },
   };
+}
+
+/**
+ * The build uploads source maps and debug symbols when EAS holds
+ * `SENTRY_AUTH_TOKEN`; without it the build still passes, and stacks stay
+ * minified.
+ */
+function sentry(): NonNullable<ExpoConfig['plugins']> {
+  if (target.name !== 'prod') return [];
+  return [
+    [
+      '@sentry/react-native',
+      {
+        organization: 'stint-i5',
+        project: 'stint-mobile',
+        disableAutoUpload: !process.env.SENTRY_AUTH_TOKEN,
+      },
+    ],
+  ];
 }

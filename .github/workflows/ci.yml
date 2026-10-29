@@ -58,19 +58,23 @@ jobs:
       # Generated token files must match tokens.json. A hand-edit to one of
       # them fails here rather than drifting silently across three clients.
       #
-      # The diff names the three generated files that are COMMITTED. Most of
+      # The diff names the generated files that are COMMITTED. Most of
       # the generator's output lands in packages/design-tokens/dist/, which is
       # gitignored — diffing that path can only ever report nothing, so the
-      # check that pointed there passed on a tampered file. These three are
+      # check that pointed there passed on a tampered file. These are
       # written outside dist/ precisely because their consumers (SwiftPM,
       # Next's icon convention, a docs page opened from disk) cannot read an
-      # ignored directory; being tracked is what makes them checkable.
+      # ignored directory; being tracked is what makes them checkable. The
+      # phone icons' PNGs are left out: they follow their SVGs only where
+      # the SVG changed (generate.js).
       - name: Design tokens are up to date
         run: |
           pnpm tokens
           git diff --exit-code \
             apps/macos/Sources/Stint/Tokens.swift \
             apps/web/src/app/icon.svg \
+            apps/mobile/assets/icon.svg \
+            apps/mobile/assets/icon-dev.svg \
             docs/design/_mockup.css
 
       # Guards white-on-accent (1.37:1) and the AA floors, and re-derives both

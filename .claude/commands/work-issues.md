@@ -208,8 +208,8 @@ opened or updated, which are `ready-for-qa`, what is `needs-input` and its
 question, and anything that failed.
 
 Only under `/loop`: wake again in 15 minutes while an open PR's CI is still
-running, and in 60 while the cap's worth of PRs is open and issues are left to pick,
-so a merge frees a slot without a restart. Pass the same `/loop` prompt
-back — never a hand-written one, which would skip step 0. Without `/loop`,
-schedule nothing. Otherwise end the loop: what needs the reviewer is found by
-label, and the loop starts again after the reply.
+running. Pass the same `/loop` prompt back — never a hand-written one, which
+would skip step 0. Without `/loop`, schedule nothing. Otherwise end the loop,
+the cap's worth of open PRs included: hourly wakes there only poll the
+reviewer's queue. What needs the reviewer is found by label, and the loop
+starts again after their merges or reply.

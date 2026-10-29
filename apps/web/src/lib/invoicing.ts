@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ApiError, dbCode, PG } from './errors';
+import { ApiError, dbCode, PG, refused } from './errors';
 import {
   CLIENT_COLUMNS,
   INVOICE_COLUMNS,
@@ -30,7 +30,9 @@ import {
   resolvePaymentProfile,
   snapshotChanged,
   startOfLocalDate,
-  termsDays,
+  draftDates,
+  nothingToSend,
+  unratedRefusal,
 } from '@stint/core';
 import type {
   BillableEntry,
@@ -351,16 +353,6 @@ export async function loadPdfData(
   };
 }
 
-/** What an unrated entry costs: the invoice can't be priced, so it isn't
- *  generated, rendered or sent. */
-export function unratedError(ids: string[]) {
-  return new ApiError(
-    'NO_RATE_CONFIGURED',
-    `${ids.length} billable entr${ids.length === 1 ? 'y has' : 'ies have'} no rate. Set a rate on the entry, project, client, or in settings.`,
-    { unratedEntryIds: ids },
-  );
-}
-
 /** Which of a draft's PDF and Mark sent refuse it as it stands. */
 export function draftRefusals(d: {
   unratedEntries: unknown[];
@@ -380,17 +372,6 @@ export function dueBeforeIssueError(issueDate: string, dueDate: string) {
     `The due date typed for this draft, ${dueDate}, is before its issue date, ${issueDate}. Delete the draft and generate it again with a later one.`,
     { field: 'dueDate' },
   );
-}
-
-/** The dates Mark sent gives a draft: its last PDF's, else these. */
-function sentDates(
-  printed: InvoiceRow['downloaded_snapshot'],
-  issueDate: string,
-  dueDate: string,
-) {
-  return printed?.issueDate
-    ? { issueDate: printed.issueDate, dueDate: printed.dueDate ?? dueDate }
-    : { issueDate, dueDate };
 }
 
 /** The id a draft not yet generated takes among the open drafts. */
@@ -538,15 +519,18 @@ export async function deriveDraft(
     draftId: row.id,
   });
   const { totals } = computed;
-  const issued = issueDate ?? localDateKey(new Date(), tz);
-  const due =
-    row.due_date ??
-    addDays(
-      issued,
-      termsDays(row.payment_terms) ?? computed.settings.paymentTermsDays,
-    );
+  const {
+    issueDate: issued,
+    dueDate: due,
+    sent,
+  } = draftDates({
+    issueDate: issueDate ?? localDateKey(new Date(), tz),
+    dueDate: row.due_date,
+    paymentTerms: row.payment_terms,
+    defaultTermsDays: computed.settings.paymentTermsDays,
+    printed: row.downloaded_snapshot,
+  });
   const unrated = new Set(totals.unratedEntryIds);
-  const sent = sentDates(row.downloaded_snapshot, issued, due);
   const change = snapshotChanged(
     row.downloaded_snapshot,
     draftSnapshot(totals.lineItems, totals.total),
@@ -640,12 +624,8 @@ export async function sendDraft(
 
   // Unpriced work first: a draft of nothing but it isn't empty.
   if (totals.unratedEntryIds.length > 0)
-    throw unratedError(totals.unratedEntryIds);
-  if (draft.lines.length === 0)
-    throw new ApiError(
-      'VALIDATION_FAILED',
-      'Nothing to send: no unbilled, billable time in this period, no unbilled expenses, and no charges added',
-    );
+    throw refused(unratedRefusal(totals.unratedEntryIds));
+  if (draft.lines.length === 0) throw refused(nothingToSend);
   if (draft.change)
     throw new ApiError(
       'DRAFT_CHANGED',

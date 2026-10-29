@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { test } from 'node:test';
 
 // app.config.ts reads the environment as it loads, so each case loads a fresh copy.
@@ -59,3 +60,44 @@ test('preview and production builds read Firebase from one fixed path; local has
   assert.equal(local.android.googleServicesFile, undefined);
   assert.equal(local.extra.push, false);
 });
+
+test('only a production build has the plain icon, so Stint Preview and Stint Local never pass for it', async () => {
+  const icons = async (STINT_TARGET: string) => {
+    const config = await load({ ...project, STINT_TARGET });
+    const files = [config.icon, config.android.adaptiveIcon.foregroundImage];
+    for (const file of files)
+      assert.ok(existsSync(new URL(`../${file}`, import.meta.url)), file);
+    return files;
+  };
+  const prod = await icons('prod');
+  for (const STINT_TARGET of ['preview', 'local'])
+    assert.notDeepEqual(await icons(STINT_TARGET), prod);
+});
+
+const sentry = { SENTRY_DSN: 'https://key@o1.ingest.us.sentry.io/2' };
+
+test('only a production build reports to Sentry', async () => {
+  const prod = await load({ ...project, ...sentry, STINT_TARGET: 'prod' });
+  assert.equal(prod.extra.sentryDsn, sentry.SENTRY_DSN);
+  assert.ok(sentryPlugin(prod));
+  for (const STINT_TARGET of ['preview', 'local']) {
+    const config = await load({ ...project, ...sentry, STINT_TARGET });
+    assert.equal(config.extra.sentryDsn, undefined);
+    assert.equal(sentryPlugin(config), undefined);
+  }
+});
+
+test('a production build uploads its symbols only when it holds the token', async () => {
+  const env = { ...project, ...sentry, STINT_TARGET: 'prod' };
+  const without = await load(env);
+  assert.equal(sentryPlugin(without)?.[1].disableAutoUpload, true);
+  const withToken = await load({ ...env, SENTRY_AUTH_TOKEN: 'sntrys_x' });
+  assert.equal(sentryPlugin(withToken)?.[1].disableAutoUpload, false);
+});
+
+function sentryPlugin(config: { plugins: unknown[] }) {
+  return config.plugins.find(
+    (p): p is [string, Record<string, unknown>] =>
+      Array.isArray(p) && p[0] === '@sentry/react-native',
+  );
+}
