@@ -2,7 +2,7 @@ import Foundation
 
 /// The one way the macOS app writes (Constitution VI), and the iPhone's
 /// presses outside its app (`apps/mobile/modules/stint-surfaces/ios`, which
-/// compiles this directory), the same rules as `useOptimisticMutation` on
+/// links these files), the same rules as `useOptimisticMutation` on
 /// the web. Every press answers in the same frame:
 ///
 /// - **Predicted**: `apply` changes published state before anything is

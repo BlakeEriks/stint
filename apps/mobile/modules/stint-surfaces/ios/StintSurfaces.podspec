@@ -14,8 +14,9 @@ Pod::Spec.new do |s|
 
   s.dependency 'ExpoModulesCore'
 
-  # `Shared` links the macOS app's `Optimistic` and `uuidv7`: one
-  # implementation of Constitution VI's rules in Swift.
-  s.source_files = '*.swift', 'Shared/*.swift'
+  # `Optimistic.swift` and `UUIDv7.swift` link the macOS app's
+  # (`apps/macos/Sources/Stint/Shared`): one implementation of
+  # Constitution VI's rules in Swift.
+  s.source_files = '*.swift'
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
 end

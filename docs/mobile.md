@@ -149,8 +149,8 @@ their look, and `targets/widget` their SwiftUI, added to the build by
 **A press runs in the app, in Swift.** Each intent is a `LiveActivityIntent`,
 which iOS runs in the app, launched in the background with no scene, where
 React Native doesn't start. So `modules/stint-surfaces/ios` presses itself,
-through the macOS app's `Optimistic`, compiling
-`apps/macos/Sources/Stint/Shared` through a symlink. It draws `pressed` at
+through the macOS app's `Optimistic`, symlinking the files of
+`apps/macos/Sources/Stint/Shared`. It draws `pressed` at
 once, calls `/api/v1` with the app's session, and once the last press
 settles, draws the timer the server holds, with JS's words for a failure.
 The app's JS refetches the timer when it next runs. The widget extension
