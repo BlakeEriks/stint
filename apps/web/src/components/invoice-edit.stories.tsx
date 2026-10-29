@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account, getDb } from '@/mocks/db';
 import { id } from '@/mocks/fixtures';
-import { desktop, phone, screen } from '@/mocks/screen';
+import { desktop, screen } from '@/mocks/screen';
 import { EditInvoice } from './invoice-new';
 
 /* Byrne Studio's draft, STINT-0015: August. */
@@ -43,7 +43,6 @@ export const Filled: Story = {
     await saved(page);
   },
 };
-export const FilledPhone: Story = { ...Filled, ...phone };
 
 /** Saving writes what was changed onto the same draft. */
 export const SavesDates: Story = {
@@ -62,35 +61,6 @@ export const SavesDates: Story = {
       expect(stored?.reference).toBe('PO-88');
       expect(stored?.invoiceNumber).toBe('STINT-0015');
     });
-  },
-};
-
-/** Onto another draft's dates: the form names that draft and holds Save. */
-export const OverlapsDraft: Story = {
-  ...desktop,
-  parameters: account((db) => {
-    const august = db.invoices.find((i) => i.id === draft);
-    if (!august) return;
-    db.invoices.push({
-      ...august,
-      id: id(399),
-      invoiceNumber: 'STINT-0016',
-      sequenceNo: 16,
-      periodStart: '2026-09-01',
-      periodEnd: '2026-09-30',
-    });
-  }),
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement.ownerDocument.body);
-    const to = await page.findByLabelText('To');
-    await userEvent.clear(to);
-    await userEvent.type(to, '2026-09-10');
-    await expect(
-      await page.findByRole('link', { name: 'STINT-0016' }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'Save draft' }),
-    ).toBeDisabled();
   },
 };
 

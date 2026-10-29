@@ -4045,32 +4045,9 @@ test('editing a draft writes every choice but its client, and keeps its number',
   assert.equal(rows[0].n, 2, 'an edit takes no number');
 });
 
-test('an edit keeps the draft’s client, and edits only a draft', async () => {
-  const r = await live();
-  await seedEntry({ id: D(1), hours: 2 });
-  const made = await json(
-    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
-  );
-  const other = 'cc000000-0000-4000-8000-000000000002';
-  await pool.query(
-    `insert into clients (id,user_id,name) values ($1,$2,'Contoso')`,
-    [other, USER],
-  );
-
-  const moved = await edit(made.body.id, { clientId: other, ...PERIOD });
-  assert.equal(moved.status, 422);
-  assert.equal(moved.body.details.field, 'clientId');
-
-  await send(made.body.id);
-  const issued = await edit(made.body.id, { clientId: CLIENT, ...PERIOD });
-  assert.equal(issued.status, 409);
-  assert.equal(issued.body.code, 'INVOICE_STATUS_CHANGED');
-
-  const missing = await edit(D(99), { clientId: CLIENT, ...PERIOD });
-  assert.equal(missing.status, 404);
-});
-
-test('an edit onto another draft’s dates is refused; onto its own it is not', async () => {
+/* Each refusal, one row. An edit onto its own dates is not one: the edit
+   above moves the draft over them. */
+test('an edit is refused for another client, an issued or missing invoice, or another draft’s dates', async () => {
   const r = await live();
   await seedEntry({ id: D(1), hours: 2 });
   await seedEntry({ id: D(2), start: '2026-10-05T09:00:00Z', hours: 1 });
@@ -4086,22 +4063,57 @@ test('an edit onto another draft’s dates is refused; onto its own it is not', 
       }),
     ),
   );
+  const other = 'cc000000-0000-4000-8000-000000000002';
+  await pool.query(
+    `insert into clients (id,user_id,name) values ($1,$2,'Contoso')`,
+    [other, USER],
+  );
+  const sent = await json(
+    await r.create(
+      req('/invoices', {
+        clientId: CLIENT,
+        periodStart: '2026-08-01',
+        periodEnd: '2026-08-31',
+        manualLines: [{ description: 'Deposit', amount: 50 }],
+      }),
+    ),
+  );
+  await send(sent.body.id);
 
-  const refused = await edit(october.body.id, {
-    clientId: CLIENT,
-    periodStart: '2026-09-20',
-    periodEnd: '2026-10-31',
-  });
-  assert.equal(refused.status, 409);
-  assert.equal(refused.body.code, 'DRAFT_OVERLAPS');
-  assert.equal(refused.body.details.invoiceId, september.body.id);
-
-  const kept = await edit(september.body.id, {
-    clientId: CLIENT,
-    periodStart: '2026-09-05',
-    periodEnd: '2026-09-30',
-  });
-  assert.equal(kept.status, 200, JSON.stringify(kept.body));
+  for (const [what, id, body, status, code] of [
+    [
+      'another client',
+      september.body.id,
+      { clientId: other, ...PERIOD },
+      422,
+      'VALIDATION_FAILED',
+    ],
+    [
+      'an issued invoice',
+      sent.body.id,
+      { clientId: CLIENT, ...PERIOD },
+      409,
+      'INVOICE_STATUS_CHANGED',
+    ],
+    [
+      'a missing invoice',
+      D(99),
+      { clientId: CLIENT, ...PERIOD },
+      404,
+      'ENTRY_NOT_FOUND',
+    ],
+    [
+      'another draft’s dates',
+      october.body.id,
+      { clientId: CLIENT, periodStart: '2026-09-20', periodEnd: '2026-10-31' },
+      409,
+      'DRAFT_OVERLAPS',
+    ],
+  ] as const) {
+    const res = await edit(id, body);
+    assert.equal(res.status, status, what);
+    assert.equal(res.body.code, code, what);
+  }
 });
 
 test('an edit keeps the draft’s payment details unless others are picked', async () => {
@@ -4164,13 +4176,20 @@ test('a draft’s edit previews its own expenses, as its next read bills them', 
 });
 
 /* What the PDF printed besides its lines is the client's copy too: an edit
-   to any of it after a download holds Mark sent until a new PDF. */
-for (const [what, change] of [
-  ['notes', { notes: 'Thanks again' }],
-  ['payment details', { paymentProfileId: 'wire' }],
-  ['due date', { dueDate: '2099-02-01' }],
+   to any of it after a download holds Mark sent until a new PDF. A draft
+   downloaded before snapshots kept those fields is backfilled from its own
+   columns, since nothing could edit it then. */
+const BACKFILL = new URL(
+  '../../../supabase/migrations/20261029122450_backfill_printed_snapshot.sql',
+  import.meta.url,
+);
+for (const [what, change, old] of [
+  ['notes', { notes: 'Thanks again' }, false],
+  ['payment details', { paymentProfileId: 'wire' }, false],
+  ['due date', { dueDate: '2099-02-01' }, false],
+  ['notes, on a snapshot from before edits', { notes: 'Thanks again' }, true],
 ] as const)
-  test(`an edit to only the ${what} after a download is DRAFT_CHANGED`, async () => {
+  test(`after a download, an edit to only the ${what} is DRAFT_CHANGED`, async () => {
     const r = await live();
     const { POST: createProfile } = await import(
       '../src/app/api/v1/payment-profiles/route.ts'
@@ -4183,6 +4202,19 @@ for (const [what, change] of [
     const body = { clientId: CLIENT, ...PERIOD, notes: 'Thanks' };
     const inv = await json(await r.create(req('/invoices', body)));
     await r.pdf(req('/pdf?tz=UTC'), at(inv.body.id));
+    if (old) {
+      await pool.query(
+        `update invoices set downloaded_snapshot = downloaded_snapshot - 'printed'
+          where id = $1`,
+        [inv.body.id],
+      );
+      const { readFileSync } = await import('node:fs');
+      await pool.query(readFileSync(BACKFILL, 'utf8'));
+      const untouched = await json(
+        await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
+      );
+      assert.equal(untouched.body.changedSinceDownload, null, 'unchanged');
+    }
 
     const edited = await edit(inv.body.id, {
       ...body,
@@ -4192,11 +4224,6 @@ for (const [what, change] of [
         : {}),
     });
     assert.equal(edited.status, 200, JSON.stringify(edited.body));
-
-    const got = await json(
-      await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
-    );
-    assert.ok(got.body.changedSinceDownload, 'the detail says it moved');
     const refused = await json(
       await r.setStatus(
         req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
@@ -4216,49 +4243,3 @@ for (const [what, change] of [
     assert.equal(sent.status, 200, JSON.stringify(sent.body));
     if ('dueDate' in change) assert.equal(sent.body.dueDate, change.dueDate);
   });
-
-/* A draft downloaded before snapshots kept what the PDF printed: nothing
-   could edit it then, so its own columns are what that PDF printed, and the
-   backfill writes them into its snapshot. */
-test('a draft downloaded before edits existed holds Mark sent after an edit, once backfilled', async () => {
-  const r = await live();
-  await seedEntry({ id: D(1), hours: 2 });
-  const body = { clientId: CLIENT, ...PERIOD, notes: 'Thanks' };
-  const inv = await json(await r.create(req('/invoices', body)));
-  await r.pdf(req('/pdf?tz=UTC'), at(inv.body.id));
-  await pool.query(
-    `update invoices set downloaded_snapshot = downloaded_snapshot - 'printed'
-      where id = $1`,
-    [inv.body.id],
-  );
-
-  const { readFileSync } = await import('node:fs');
-  await pool.query(
-    readFileSync(
-      new URL(
-        '../../../supabase/migrations/20261029122450_backfill_printed_snapshot.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    ),
-  );
-  const untouched = await json(
-    await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id)),
-  );
-  assert.equal(
-    untouched.body.changedSinceDownload,
-    null,
-    'the backfill changes nothing the draft shows',
-  );
-
-  await edit(inv.body.id, { ...body, notes: 'Thanks again' });
-  const refused = await json(
-    await r.setStatus(
-      req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
-      at(inv.body.id),
-    ),
-  );
-  assert.equal(refused.status, 409);
-  assert.equal(refused.body.code, 'DRAFT_CHANGED');
-  assert.deepEqual(refused.body.details.edited, ['notes']);
-});

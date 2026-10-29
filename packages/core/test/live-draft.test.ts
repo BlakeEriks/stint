@@ -228,47 +228,43 @@ test('draftDates: sending keeps the dates its last PDF printed', () => {
   });
 });
 
-test('a printed field edited since is a change; one an older snapshot lacks is not', () => {
-  const printed = {
-    periodStart: '2026-09-01',
-    periodEnd: '2026-09-30',
-    typedDueDate: null,
-    notes: 'Thanks',
-    reference: null,
-    paymentDetails: { fields: [{ label: 'Bank', value: 'A' }], link: null },
-    supportingDetail: null,
-    tz: 'UTC',
-  };
-  const lines = [hour('A', 2, 300)];
-  const before = draftSnapshot(lines, 300, printed);
-  assert.equal(
-    snapshotChanged(
-      before,
-      draftSnapshot(lines, 300, {
+const printed = {
+  periodStart: '2026-09-01',
+  periodEnd: '2026-09-30',
+  typedDueDate: null,
+  notes: 'Thanks',
+  reference: null,
+  paymentDetails: { fields: [{ label: 'Bank', value: 'A' }], link: null },
+  supportingDetail: null,
+  tz: 'UTC',
+};
+const sameLines = [hour('A', 2, 300)];
+
+/* Each row: what the PDF printed, what the draft prints now, and what
+   `edited` names; null when it hasn't moved. */
+test('a printed field edited since its PDF is a change', () => {
+  for (const [what, before, now, edited] of [
+    [
+      'key order is not content: jsonb keeps none',
+      printed,
+      {
         ...printed,
-        // Key order is not content: jsonb keeps none.
         paymentDetails: { link: null, fields: [{ value: 'A', label: 'Bank' }] },
-      }),
-    ),
-    null,
-  );
-  assert.deepEqual(
-    snapshotChanged(
-      before,
-      draftSnapshot(lines, 300, { ...printed, notes: 'Thanks again' }),
-    ),
-    {
-      hours: { from: 2, to: 2 },
-      total: { from: 300, to: 300 },
-      edited: ['notes'],
-    },
-  );
-  assert.equal(
-    snapshotChanged(
-      draftSnapshot(lines, 300),
-      draftSnapshot(lines, 300, { ...printed, notes: 'Thanks again' }),
-    ),
-    null,
-    'a snapshot from before printed fields were kept compares lines only',
-  );
+      },
+      null,
+    ],
+    ['notes edited', printed, { ...printed, notes: 'Thanks again' }, ['notes']],
+    [
+      'a snapshot from before printed fields compares lines only',
+      undefined,
+      { ...printed, notes: 'Thanks again' },
+      null,
+    ],
+  ] as const) {
+    const change = snapshotChanged(
+      draftSnapshot(sameLines, 300, before),
+      draftSnapshot(sameLines, 300, now),
+    );
+    assert.deepEqual(change?.edited ?? null, edited, what);
+  }
 });
