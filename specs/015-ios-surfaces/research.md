@@ -52,6 +52,6 @@
 - **Decision**: A native Stint Local loaded from Metro asks Metro's own
   origin for `/api/v1` and `/auth/v1`, which `metro.config.cjs` passes to
   the web server and to Supabase.
-- **Rationale**: EAS Simulator runs in Expo's cloud and reaches the
-  builder's machine only through Metro's tunnel; a phone on the LAN gets
-  the same.
+- **Rationale**: A phone sideloaded from Xcode reaches the builder's
+  machine over the LAN, where Metro already is; `localhost` there is the
+  phone.

@@ -28,4 +28,4 @@ Tests come first in each phase (Constitution V).
 
 - [x] T012 Stint Local through Metro: apps/mobile/src/config.ts, apps/mobile/src/target.ts, apps/mobile/metro.config.cjs, with tests in apps/mobile/test/target.test.ts
 - [x] T013 docs/mobile.md (Outside the app, Running it), via doc-drift
-- [ ] T014 `pnpm verify:static`; mobile tests and typecheck; an EAS simulator build seen on EAS Simulator
+- [ ] T014 `pnpm verify:static`; mobile tests and typecheck; an EAS simulator build compiles; the owner's Xcode run sees it

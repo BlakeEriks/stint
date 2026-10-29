@@ -57,10 +57,10 @@ nothing here may need push; updates from other clients through APNs are
   and the medium row on the home screen; on the lock screen, a rectangle
   with the clock and task, and a circle with the button. (decided
   autonomously: the owner chose both layouts on Android.)
-- Q: How is it verified without Xcode? → A: In an EAS Build simulator build,
-  run on EAS Simulator against the builder's local stack, which Metro passes
-  through. The owner installs it on a real iPhone later. (the owner's
-  decision on #464)
+- Q: How is it verified? → A: An EAS Build simulator build shows it
+  compiles without Xcode; the owner runs it in Xcode's Simulator, then
+  sideloads it to an iPhone with a free Apple ID, against the local stack,
+  which Metro passes through. (the owner's decision on #464)
 
 ## Design
 
