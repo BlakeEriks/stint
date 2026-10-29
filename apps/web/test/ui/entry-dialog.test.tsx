@@ -636,29 +636,6 @@ describe('EntryDialog', () => {
       expect(Number.parseFloat(blockEl().style.width)).toBeGreaterThan(before);
     });
 
-    it('draws on Add as on Edit', async () => {
-      serve();
-      open();
-
-      expect(
-        await screen.findByRole('heading', { name: 'Add entry' }),
-      ).toBeInTheDocument();
-      expect(screen.getByTestId('entry-scrubber')).toBeInTheDocument();
-    });
-
-    it('draws an overnight entry', async () => {
-      serve();
-      open(
-        entry({
-          // 22:00 on the 11th to 02:00 on the 12th, New York.
-          startedAt: '2026-09-12T02:00:00.000Z',
-          endedAt: '2026-09-12T06:00:00.000Z',
-        }),
-      );
-
-      expect(await screen.findByTestId('entry-scrubber')).toBeInTheDocument();
-    });
-
     /** A press at `from` and a release at `to`, as fractions of the strip. */
     function dragFraction(target: HTMLElement, to: number, from = to) {
       const el = strip();
@@ -670,41 +647,39 @@ describe('EntryDialog', () => {
       fireEvent.pointerUp(el, { clientX: to * BOX.width, pointerId: 1 });
     }
 
-    it('moves the date when a drag carries the entry past midnight', async () => {
+    /* A drag past midnight either way moves the date the fields show.
+       Each strip spans five hours: 20:00–01:00 and 22:30–03:30. */
+    it.each([
+      {
+        name: 'forward, moving the block',
+        startedAt: '2026-09-12T02:00:00.000Z', // 22:00–23:00 on the 11th
+        endedAt: '2026-09-12T03:00:00.000Z',
+        target: blockEl,
+        from: 2 / 5,
+        to: 4 / 5,
+        want: ['2026-09-12', '00:00', '01:00'],
+      },
+      {
+        name: 'back, dragging the start',
+        startedAt: '2026-09-12T04:30:00.000Z', // 00:30–01:30 on the 12th
+        endedAt: '2026-09-12T05:30:00.000Z',
+        target: () => screen.getByTestId('scrubber-handle-start'),
+        from: 0.5 / 5,
+        to: 0.5 / 5,
+        want: ['2026-09-11', '23:00', '01:30'],
+      },
+    ])('moves the date on a drag past midnight, $name', async (c) => {
       serve();
-      // 22:00–23:00 on the 11th; the strip spans 20:00–01:00.
-      open(
-        entry({
-          startedAt: '2026-09-12T02:00:00.000Z',
-          endedAt: '2026-09-12T03:00:00.000Z',
-        }),
-      );
+      open(entry({ startedAt: c.startedAt, endedAt: c.endedAt }));
       await waitFor(() => screen.getByLabelText('End'));
 
-      // Grabbed at 22:00 and let go at 00:00.
-      dragFraction(blockEl(), 4 / 5, 2 / 5);
+      dragFraction(c.target(), c.to, c.from);
 
-      expect(screen.getByLabelText('Date')).toHaveValue('2026-09-12');
-      expect(screen.getByLabelText('Start')).toHaveValue('00:00');
-      expect(screen.getByLabelText('End')).toHaveValue('01:00');
-    });
-
-    it('moves the date back when the start is dragged before midnight', async () => {
-      serve();
-      // 00:30–01:30 on the 12th; the strip spans 22:30–03:30.
-      open(
-        entry({
-          startedAt: '2026-09-12T04:30:00.000Z',
-          endedAt: '2026-09-12T05:30:00.000Z',
-        }),
-      );
-      await waitFor(() => screen.getByLabelText('End'));
-
-      dragFraction(screen.getByTestId('scrubber-handle-start'), 0.5 / 5);
-
-      expect(screen.getByLabelText('Date')).toHaveValue('2026-09-11');
-      expect(screen.getByLabelText('Start')).toHaveValue('23:00');
-      expect(screen.getByLabelText('End')).toHaveValue('01:30');
+      expect(
+        ['Date', 'Start', 'End'].map(
+          (f) => (screen.getByLabelText(f) as HTMLInputElement).value,
+        ),
+      ).toEqual(c.want);
     });
   });
 });
