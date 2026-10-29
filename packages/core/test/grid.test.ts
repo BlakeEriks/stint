@@ -6,6 +6,7 @@ import {
   movedTo,
   resized,
   resizedWithinDay,
+  movedByDays,
   windowFor,
   drawnRange,
   zoomed,
@@ -360,6 +361,79 @@ test('a dialog resize stops short of a day', () => {
       edge,
       new Date(to),
       tz,
+    );
+    assert.deepEqual(
+      [out.startedAt.toISOString(), out.endedAt.toISOString()],
+      [new Date(start).toISOString(), new Date(end).toISOString()],
+      name,
+    );
+  }
+});
+
+/**
+ * A week-view drag across columns: the entry lands on the new day at the
+ * wall clock it had, DST between or not, overnight entries as one block.
+ * Each row: name, start, end, days moved, then the new start and end, all
+ * in New York.
+ */
+const ACROSS_DAYS = [
+  [
+    'a day later',
+    '2026-09-09T13:00:00Z', // Wed 09:00
+    '2026-09-09T15:00:00Z', // Wed 11:00
+    1,
+    '2026-09-10T13:00:00Z',
+    '2026-09-10T15:00:00Z',
+  ],
+  [
+    'two days back',
+    '2026-09-09T13:00:00Z',
+    '2026-09-09T15:00:00Z',
+    -2,
+    '2026-09-07T13:00:00Z',
+    '2026-09-07T15:00:00Z',
+  ],
+  [
+    'overnight, as one block',
+    '2026-09-10T02:00:00Z', // Wed 22:00
+    '2026-09-10T06:00:00Z', // Thu 02:00
+    1,
+    '2026-09-11T02:00:00Z',
+    '2026-09-11T06:00:00Z',
+  ],
+  [
+    'onto a fall back, by the wall clock',
+    '2026-10-31T13:00:00Z', // Sat 09:00 EDT
+    '2026-10-31T15:00:00Z', // Sat 11:00 EDT
+    1,
+    '2026-11-01T14:00:00Z', // Sun 09:00 EST
+    '2026-11-01T16:00:00Z',
+  ],
+  [
+    'across a spring forward, overnight',
+    '2026-03-07T04:00:00Z', // Fri 23:00 EST
+    '2026-03-07T08:00:00Z', // Sat 03:00 EST
+    1,
+    '2026-03-08T04:00:00Z', // Sat 23:00 EST
+    '2026-03-08T07:00:00Z', // Sun 03:00 EDT: the skipped hour is gone
+  ],
+  [
+    'into a skipped hour, keeping its length',
+    '2026-03-07T06:45:00Z', // Sat 01:45 EST
+    '2026-03-07T07:00:00Z', // Sat 02:00 EST
+    1,
+    '2026-03-08T06:45:00Z', // Sun 01:45 EST
+    '2026-03-08T07:00:00Z', // 02:00 does not exist; 15 minutes on
+  ],
+] as const;
+
+test('a move across days keeps the wall clock', () => {
+  for (const [name, startedAt, endedAt, days, start, end] of ACROSS_DAYS) {
+    const out = movedByDays(
+      new Date(startedAt),
+      new Date(endedAt),
+      days,
+      'America/New_York',
     );
     assert.deepEqual(
       [out.startedAt.toISOString(), out.endedAt.toISOString()],

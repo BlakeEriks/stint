@@ -80,6 +80,27 @@ export function movedTo(
 }
 
 /**
+ * Move an entry `days` later (or earlier, negative), keeping its wall clock:
+ * 09:00–11:00 lands on 09:00–11:00 whatever DST did between, which is what
+ * the user sees in the column they dropped it on. An overnight entry moves
+ * both ends, so it stays one block. An end that a skipped hour would put
+ * within `MIN_ENTRY_MINUTES` of the start keeps the elapsed length instead.
+ */
+export function movedByDays(
+  startedAt: Date,
+  endedAt: Date,
+  days: number,
+  tz: string,
+): { startedAt: Date; endedAt: Date } {
+  if (days === 0) return { startedAt, endedAt };
+  const start = sameWallTime(startedAt, days, tz);
+  const end = sameWallTime(endedAt, days, tz);
+  if (end.getTime() - start.getTime() < MIN_ENTRY_MINUTES * 60_000)
+    return movedTo(startedAt, endedAt, start);
+  return { startedAt: start, endedAt: end };
+}
+
+/**
  * Resize an entry by moving one edge, refusing to invert it.
  *
  * Dragging the bottom edge above the top is not an overnight shift — the
