@@ -6,7 +6,7 @@ import { keys, useOptimisticMutation } from '@stint/client';
 import type { InvoiceTemplate } from '@stint/schema';
 import { api, type Settings } from '@/lib/client/api';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
-import Image, { type StaticImageData } from 'next/image';
+import Image, { type ImageProps } from 'next/image';
 import standard from './template-thumbs/standard.png';
 import modern from './template-thumbs/modern.png';
 import classic from './template-thumbs/classic.png';
@@ -68,7 +68,7 @@ export function useTemplateChoice() {
 
 /* Page 1 of each template's sample PDF, rendered by `pnpm sample:invoice`:
    the thumbnail and preview are the invoice, so they cannot drift. */
-const THUMBS: Record<InvoiceTemplate, StaticImageData> = {
+const THUMBS: Record<InvoiceTemplate, ImageProps['src']> = {
   standard,
   modern,
   classic,
