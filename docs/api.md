@@ -355,6 +355,11 @@ fails the write that caused it; a 429, a 5xx or a network failure is retried
 once, a token FCM calls `UNREGISTERED` is deleted, and any other failure goes
 to Sentry. Without `FCM_SERVICE_ACCOUNT` nothing is sent.
 
+The same change is broadcast to the user's signed-in browsers, through
+Realtime's broadcast endpoint, on the private topic `user:<id>` with an
+empty payload: the web app refetches `/summary`. A failed broadcast goes to
+Sentry, and without `SUPABASE_SECRET_KEY` nothing is broadcast.
+
 | Method | Path | Notes |
 |---|---|---|
 | `POST` | `/push-devices` | `{ token, platform }` → `204`, the same when already registered. `platform` is `android`; iPhone is #471. `422` for an empty token or one over 4,096 characters. |
