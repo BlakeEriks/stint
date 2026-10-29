@@ -24,12 +24,13 @@ Metro passes `/api/v1` to the web server (`metro.config.cjs`), so the page
 asks its own origin. Sign in as the seeded account: the code is in the
 email Mailpit caught. The native app needs a phone: see Preview builds.
 
-**The iPhone's native code is seen on EAS Simulator**, which needs no Xcode
-(the `eas-simulator` skill). `eas build --platform ios --profile simulator`
-builds Stint Local for it, unsigned. Loaded from Metro, a native Stint Local
-asks Metro for `/api/v1` and `/auth/v1` too, which it passes to the web
-server and Supabase, so it reaches the builder's stack through Metro's
-tunnel.
+**The iPhone's native code is seen in Xcode's Simulator**, with
+`npx expo run:ios`. Without Xcode, `eas build --platform ios --profile
+simulator` builds Stint Local for a simulator in Expo's cloud, unsigned,
+which shows it compiles. Loaded from Metro, a native Stint Local asks Metro
+for `/api/v1` and `/auth/v1` too, which it passes to the web server and
+Supabase, so a simulator or a phone on the LAN reaches the builder's
+stack.
 
 | Suite | Command |
 | --- | --- |
