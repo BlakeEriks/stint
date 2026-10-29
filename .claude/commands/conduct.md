@@ -32,6 +32,12 @@ onto the PR in the same step: a marked comment (`/work-issues`) quoting it
 word for word under "Owner feedback, given in Claude Code". The PR keeps the
 record; the marker keeps step 0 from treating it as new feedback.
 
+**"Final review <n>"** runs `/standards-review final <n>` here, and its
+findings go to that PR's builder as a round, like feedback. Recommend it
+when `/work-issues` does: once a PR's rounds have churned enough since its
+last final review that leftovers are likely (`.claude/commands/work-issues.md`,
+A round).
+
 ## Status
 
 "What's going on?" is answered from three places, never from memory:
