@@ -29,9 +29,9 @@ import {
   invalidateProjects,
   useRestoreProject,
 } from '@/lib/client/use-restore-project';
-import { RateInput, parseRate } from './rate-input';
+import { RateInput, isValidRate, parseRate } from './rate-input';
 import { Field } from './field';
-import { useMissing } from '@/lib/client/use-missing';
+import { useMissing, type Missing } from '@/lib/client/use-missing';
 
 /**
  * A dialog rather than a page: a project is four fields, and it is created
@@ -64,9 +64,7 @@ export function ProjectDialog({
   const [hourlyRate, setHourlyRate] = useState('');
   const [billable, setBillable] = useState(true);
   const [addingClient, setAddingClient] = useState(false);
-  const check = useMissing({
-    'project-name': name.trim() === '' ? 'Name the project.' : undefined,
-  });
+  const check = useMissing(missingIn(name, hourlyRate));
 
   // Reset each time it opens, so a canceled edit does not leak into the
   // next one.
@@ -197,20 +195,19 @@ export function ProjectDialog({
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="project-rate" className={LABEL}>
-              Hourly rate
-            </Label>
+          <Field
+            label="Hourly rate"
+            htmlFor="project-rate"
+            hint="Defaults to the client's rate."
+            error={check.error('project-rate')}
+          >
             <RateInput
               id="project-rate"
               value={hourlyRate}
               onChange={(e) => setHourlyRate(e.target.value)}
               placeholder="150.00"
             />
-            <p className="type-support text-subtle">
-              Defaults to the client's rate.
-            </p>
-          </div>
+          </Field>
 
           <label className="flex items-center gap-2.5 type-control text-primary">
             <input
@@ -263,3 +260,14 @@ export function ProjectDialog({
 }
 
 const LABEL = 'type-label text-subtle';
+
+const missingIn = (name: string, rateText: string): Missing => {
+  const rate = parseRate(rateText);
+  return {
+    'project-name': name.trim() === '' ? 'Name the project.' : undefined,
+    'project-rate':
+      rate === null || isValidRate(rate)
+        ? undefined
+        : 'Enter a rate of zero or more, to the cent, or leave it blank.',
+  };
+};

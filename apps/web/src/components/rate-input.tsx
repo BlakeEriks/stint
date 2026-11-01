@@ -71,11 +71,16 @@ export function UnitInput({
 
 /**
  * A rate as typed: null when blank, NaN when not a number. A form refuses a
- * negative or NaN rate before any request, so the server never sees one.
+ * rate `isValidRate` rejects before any request, so the server never sees one.
  */
 export function parseRate(text: string): number | null {
   return text.trim() === '' ? null : Number(text);
 }
 
+/** Zero or more, in whole cents: what the server's `money` accepts. The
+    tolerance absorbs float error, as in 1.15 * 100. */
 export const isValidRate = (rate: number | null): rate is number =>
-  rate !== null && Number.isFinite(rate) && rate >= 0;
+  rate !== null &&
+  Number.isFinite(rate) &&
+  rate >= 0 &&
+  Math.abs(rate * 100 - Math.round(rate * 100)) < 1e-6;

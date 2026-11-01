@@ -1214,7 +1214,10 @@ export const DetailsSaveFails: Story = {
       form.getByRole('textbox', { name: /Business name/ }),
       'Sam Rivera Consulting',
     );
-    await userEvent.type(form.getByRole('textbox', { name: /Email/ }), 'sam@x');
+    await userEvent.type(
+      form.getByRole('textbox', { name: /Email/ }),
+      'sam@lakeline.test',
+    );
     await userEvent.click(form.getByRole('button', { name: 'Save' }));
     await expect(await form.findByText('Enter a valid email.')).toBeVisible();
     await expect(

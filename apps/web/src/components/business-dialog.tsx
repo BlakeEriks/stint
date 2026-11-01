@@ -14,6 +14,9 @@ import { SettingsDialog } from './settings-dialog';
 export const missingBusiness = (s: Settings | undefined) =>
   s !== undefined && (!s.businessName?.trim() || !s.businessEmail?.trim());
 
+/* A shape check only; the server's `z.email()` is the full rule. */
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 /**
  * Who the invoice is from, asked on New invoice rather than sending the
  * user to Settings.
@@ -38,7 +41,11 @@ function BusinessDialog({
         'biz-dialog-name':
           name.trim() === '' ? 'Enter your business name.' : undefined,
         'biz-dialog-email':
-          email.trim() === '' ? 'Enter your email.' : undefined,
+          email.trim() === ''
+            ? 'Enter your email.'
+            : EMAIL.test(email.trim())
+              ? undefined
+              : 'Enter an email like you@example.com.',
       }}
       patch={() => ({
         businessName: name.trim(),

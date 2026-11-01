@@ -244,5 +244,5 @@ const missingClient = (name: string, rate: number | null): Missing => ({
   'welcome-client-rate':
     rate === null || isValidRate(rate)
       ? undefined
-      : 'Enter a rate of zero or more, or leave it blank.',
+      : 'Enter a rate of zero or more, to the cent, or leave it blank.',
 });
