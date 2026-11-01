@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { useSearchParams } from '@storybook/nextjs-vite/navigation.mock';
 import { delay, http } from 'msw';
+import { useEffect, useReducer } from 'react';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import type { Db } from '@/mocks/fixtures';
@@ -13,6 +15,7 @@ import {
   screen,
   skipping,
   stalled,
+  tablet,
   wide,
 } from '@/mocks/screen';
 import { NewInvoice } from './invoice-new';
@@ -211,6 +214,51 @@ export const FromInboxLink: Story = {
     await expect(page.getByLabelText('From')).toHaveValue('2026-09-01');
     await expect(page.getByLabelText('To')).toHaveValue('2026-09-15');
     await settled(page);
+  },
+};
+
+let address = new URLSearchParams();
+
+/** The Inbox stays reachable on this page, so its row is pressed here: the
+    address changes under an open form, and the form takes the link. */
+export const PressedFromTheInbox: Story = {
+  ...tablet,
+  parameters: scheduled(ids.northwind, { period: 'semimonthly' }),
+  beforeEach: () => {
+    address = new URLSearchParams();
+    useSearchParams.mockImplementation(() => address as never);
+  },
+  /* Storybook's Link goes nowhere, so a press on it changes the address the
+     way the app would. */
+  render: function Render() {
+    const [, rerender] = useReducer((n: number) => n + 1, 0);
+    useEffect(() => {
+      const follow = (e: MouseEvent) => {
+        const href = (e.target as Element).closest('a')?.getAttribute('href');
+        if (!href?.startsWith('/invoices/new?')) return;
+        e.preventDefault();
+        address = new URLSearchParams(href.split('?')[1]);
+        rerender();
+      };
+      document.addEventListener('click', follow, true);
+      return () => document.removeEventListener('click', follow, true);
+    }, []);
+    return <NewInvoice />;
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const row = (
+      await page.findByText('Sep 1 – 15 is ready to invoice')
+    ).closest('[data-tone]') as HTMLElement;
+    await userEvent.click(
+      within(row).getByRole('link', { name: 'Northwind Trading' }),
+    );
+    await waitFor(() =>
+      expect(page.getByLabelText('To')).toHaveValue('2026-09-15'),
+    );
+    await expect(
+      page.getByRole('button', { name: 'Client' }),
+    ).toHaveTextContent('Northwind');
   },
 };
 

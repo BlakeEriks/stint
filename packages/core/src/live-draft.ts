@@ -150,9 +150,9 @@ interface DueInputs {
 
 /**
  * Clients ready to invoice, one row each by name: those with a schedule whose
- * most recent ended period holds billable work. Work inside an invoice that
- * isn't void is never due: a draft will bill it, and one inside a sent or paid
- * period is `lateEntries()`' row, so no entry is flagged twice.
+ * most recent ended period holds billable work and overlaps no invoice that
+ * isn't void. An overlapping draft would refuse that period, and a sent or
+ * paid one holds `lateEntries()`' work.
  */
 export function unbilledDue(
   { clients, entries, invoices }: DueInputs,
@@ -163,19 +163,21 @@ export function unbilledDue(
     .flatMap((c) => {
       if (!c.schedule) return [];
       const period = lastEndedPeriod(today, c.schedule);
-      const inside = (day: string, p: typeof period) =>
-        p.periodStart <= day && day <= p.periodEnd;
-      const covered = (day: string) =>
-        invoices.some(
-          (i) => i.clientId === c.id && i.status !== 'void' && inside(day, i),
-        );
+      const invoiced = invoices.some(
+        (i) =>
+          i.clientId === c.id &&
+          i.status !== 'void' &&
+          i.periodStart <= period.periodEnd &&
+          period.periodStart <= i.periodEnd,
+      );
+      if (invoiced) return [];
       const work = entries.filter((e) => {
         const day = localDateKey(new Date(e.startedAt), tz);
         return (
           e.isBillable &&
           e.clientId === c.id &&
-          inside(day, period) &&
-          !covered(day)
+          period.periodStart <= day &&
+          day <= period.periodEnd
         );
       });
       if (work.length === 0) return [];

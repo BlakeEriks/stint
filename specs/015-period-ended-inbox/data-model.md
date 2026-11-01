@@ -5,5 +5,5 @@ Nothing stored. `attention.unbilledDue` is derived per request, one row per clie
 | Field | Type | From |
 | --- | --- | --- |
 | `clientId`, `clientName` | uuid, string | an active client with a schedule |
-| `seconds` | integer | its billable, finished entries in that period, on no invoice, not billed elsewhere, inside no non-void invoice's period |
-| `periodStart`, `periodEnd` | `YYYY-MM-DD` | the schedule's most recent ended period |
+| `seconds` | integer | its billable, finished entries in that period, on no invoice, not billed elsewhere |
+| `periodStart`, `periodEnd` | `YYYY-MM-DD` | the schedule's most recent ended period, overlapping no non-void invoice |

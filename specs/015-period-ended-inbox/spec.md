@@ -29,7 +29,7 @@ nothing leaves the app: the row is derived when the Inbox is read.
 - Q: Which clients and periods? → A: Only a client with a billing schedule, and only its most recent ended period. (reviewer)
 - Q: How does the row read? → A: "<Client> · <hours> · October is ready to invoice"; another schedule names its dates. (reviewer)
 - Q: How is it answered? → A: Its link opens New invoice with that client and period. There is no other answer: the row clears when an invoice covers the period or when the next period ends. (reviewer)
-- Q: What covers work? → A: Any draft, sent or paid invoice for that client whose period holds its day. A void one doesn't. Work inside a sent or paid period is already the late-entry row's, so no entry is in both rows. (reviewer)
+- Q: What stops the row? → A: Any draft, sent or paid invoice for that client overlapping the period, even over part of it; a void one doesn't. Work beside a partial invoice is then flagged nowhere, and the link is never refused over a draft or pulled over a sent invoice's late entries. No entry is in both this row and the late-entry row. (reviewer)
 - Q: Does the row keep a Create invoice button? → A: No: the row's title is its link, as on the Inbox's other rows, and a button beside it would go to the same place. (decided autonomously)
 
 ## Design
@@ -61,13 +61,11 @@ month; see the row; follow it to New invoice.
 2. **Given** the row, **When** she follows its link, **Then** New invoice
    opens with the client and period, and nothing is created until she
    creates it.
-3. **Given** an invoice that isn't void now holds that work, **Then** the
-   row is gone; voided, it is back.
+3. **Given** an invoice that isn't void overlaps the period, even in part,
+   **Then** the row is gone; voided, it is back.
 4. **Given** the next period ends, **Then** the row no longer counts the
    earlier period's work.
-5. **Given** work inside a sent invoice's period, **Then** only the
-   late-entry row names it.
-6. **Given** non-billable work, a client with no schedule, an archived
+5. **Given** non-billable work, a client with no schedule, an archived
    client, or work only in a period not yet ended, **Then** there is no row.
 
 ### Edge Cases
@@ -82,11 +80,10 @@ month; see the row; follow it to New invoice.
 ### Functional Requirements
 
 - **FR-001**: The Inbox MUST show one row per active client with a billing
-  schedule whose most recent ended period holds billable, finished work on no
-  invoice and not billed elsewhere.
-- **FR-002**: Work dated, in the user's zone, inside a draft, sent or paid
-  invoice's period for its client MUST NOT count; work inside a sent or paid
-  one stays the late-entry row's alone.
+  schedule whose most recent ended period holds billable, finished work, dated
+  in the user's zone, on no invoice and not billed elsewhere.
+- **FR-002**: A draft, sent or paid invoice for the client overlapping that
+  period, even in part, MUST mean no row.
 - **FR-003**: The row MUST name the client, the work's time and "<period> is
   ready to invoice".
 - **FR-004**: The row's link MUST open New invoice with the client and

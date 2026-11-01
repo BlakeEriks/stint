@@ -298,16 +298,22 @@ const DUE: {
     due: [NW_SEP],
   },
   {
-    name: 'beside an invoice, not inside it',
+    name: 'an invoice over part of the period, the work beside it',
     entries: [work(IN_SEP)],
     invoices: [inv('paid', '2026-09-01', '2026-09-15')],
-    due: [NW_SEP],
+    due: [],
   },
   {
-    name: "an entry inside a sent period is lateEntries()' alone",
-    entries: [entry({})],
-    invoices: [inv('sent', '2026-09-16', '2026-09-30')],
+    name: "an invoice sharing only the period's last day",
+    entries: [work(IN_SEP)],
+    invoices: [inv('draft', '2026-09-30', '2026-10-15')],
     due: [],
+  },
+  {
+    name: 'an invoice ending the day before the period',
+    entries: [work(IN_SEP)],
+    invoices: [inv('sent', '2026-08-01', '2026-08-31')],
+    due: [NW_SEP],
   },
 ];
 

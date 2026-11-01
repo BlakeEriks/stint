@@ -7,7 +7,8 @@
 ## Summary
 
 `GET /stats` gains `attention.unbilledDue`, one row per active client with a
-schedule whose most recent ended period holds unbilled billable work. A pure
+schedule whose most recent ended period holds unbilled billable work and
+overlaps no non-void invoice. A pure
 `unbilledDue()` in `@stint/core`, using `lastEndedPeriod()`, decides it from
 rows `readStats` already loads, plus one small read of the active clients'
 schedules. The Inbox renders it as a neutral card after stale drafts, linking
@@ -36,7 +37,7 @@ first draft. No migration.
 | II. Logic written twice has a parity test | No | One implementation, in core; `/stats` and the mock both call it. |
 | III. Every client through `/api/v1` | Yes | The row comes from `GET /stats`. |
 | IV. `packages/core` does no I/O | Yes | `unbilledDue()` takes rows and returns rows. |
-| V. Tests first where a regression is silent | Yes | Core: one table of the rule's cases. Route: the row's shape, archived clients, a draft covering it. UI: what New invoice ignores, the count. Stories: each reading, and New invoice opened from the link. |
+| V. Tests first where a regression is silent | Yes | Core: one table of the rule's cases. Route: the row's shape, archived clients, a draft covering it. UI: what New invoice ignores. Stories: each reading, the count, New invoice opened from the link, and a row pressed on New invoice. |
 | VI. Every press answers in the same frame | Yes | The row's only press is a link. |
 | VII. A feature names what it removes | Yes | It removes nothing that exists. The rescope cut rows for unscheduled clients and `UNBILLED_DUE_DAYS`, rows across several periods, "unbilled since", the run-joining, and Billed elsewhere on this row with its batching and pending state. |
 

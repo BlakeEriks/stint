@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { Inbox, inboxCount } from '@/components/inbox';
+import { Inbox } from '@/components/inbox';
 import { MutationNotice } from '@/components/mutation-notice';
 import type { Stats } from '@/lib/client/api';
 
@@ -90,20 +90,6 @@ const overdue = {
 };
 
 afterEach(() => vi.unstubAllGlobals());
-
-const due = {
-  clientId: 'c1',
-  clientName: 'Northwind',
-  seconds: 54000,
-  periodStart: '2026-09-01',
-  periodEnd: '2026-09-30',
-};
-
-describe('A client ready to invoice', () => {
-  it('counts in the header', () => {
-    expect(inboxCount(stats({ unbilledDue: [due] }).attention)).toBe(1);
-  });
-});
 
 describe('Inbox', () => {
   it('names the invoice in every action, even where the label is generic', () => {

@@ -354,6 +354,9 @@ function useSettled<T>(value: T, ms: number): T {
  * server's current answer.
  */
 export function NewInvoice() {
+  /* Keyed by the link: the Inbox stays reachable here, so a row pressed on
+     this page changes the address and must open its own draft. */
+  const params = useSearchParams();
   /* The form paints once, its client list, terms and payment profiles in
      place; what a chosen client then loads fills in as it is asked for. The
      back link is the frame, so it stands while they load. */
@@ -371,20 +374,21 @@ export function NewInvoice() {
   });
   return (
     <DetailPage back="/invoices" label="Invoices" workspace fills>
-      <Listing query={[clients, settings, profiles]}>{() => <Form />}</Listing>
+      <Listing query={[clients, settings, profiles]}>
+        {() => <Form key={params.toString()} link={params} />}
+      </Listing>
     </DetailPage>
   );
 }
 
-function Form() {
+function Form({ link }: { link: URLSearchParams }) {
   const router = useRouter();
   const qc = useQueryClient();
-  const params = useSearchParams();
 
   const clients =
     useQuery({ queryKey: keys.clients(), queryFn: () => api.clients() }).data
       ?.clients ?? [];
-  const [draft, setDraft] = useState(() => linkedDraft(params, clients));
+  const [draft, setDraft] = useState(() => linkedDraft(link, clients));
   /* Read once: a form left open past midnight keeps the dates it showed
      rather than moving them to the next period unseen. */
   const [issued] = useState(() => localDateKey(new Date(), tz));

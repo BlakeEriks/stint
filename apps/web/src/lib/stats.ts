@@ -240,7 +240,7 @@ export async function readStats(
        holds. */
     db
       .from('invoices')
-      .select('id, invoice_number, client_id, status, period_start, period_end')
+      .select('id, invoice_number, client_id, period_start, period_end')
       .in('status', ['sent', 'paid']),
 
     /* For clients ready to invoice: each one's schedule. */
@@ -340,6 +340,21 @@ export async function readStats(
   );
   const clientOfProject = (projectId: string | null) =>
     projectId ? (clientOf.get(projectId) ?? null) : null;
+  const uninvoicedEntries = overlapCandidates.map((r) => ({
+    id: r.id,
+    taskName: r.task_name,
+    startedAt: new Date(r.started_at).toISOString(),
+    durationSeconds: r.duration_seconds,
+    isBillable: r.is_billable,
+    clientId: clientOfProject(r.project_id),
+  }));
+  const issued = (issuedPeriods.data ?? []).map((i) => ({
+    id: i.id as string,
+    invoiceNumber: i.invoice_number as string,
+    clientId: i.client_id as string,
+    periodStart: i.period_start as string,
+    periodEnd: i.period_end as string,
+  }));
   const week = buildWeek(
     (weekDays.data ?? []) as DayRow[],
     Array.from({ length: 7 }, (_, i) => addDays(weekStartKey, i)),
@@ -403,24 +418,10 @@ export async function readStats(
         todayKey,
         localDateKey(startOfLocalDayOffset(now, tz, STALE_DRAFT_DAYS), tz),
       ),
-      lateEntries: lateEntries(
-        overlapCandidates.map((r) => ({
-          id: r.id,
-          taskName: r.task_name,
-          startedAt: new Date(r.started_at).toISOString(),
-          durationSeconds: r.duration_seconds,
-          isBillable: r.is_billable,
-          clientId: clientOfProject(r.project_id),
-        })),
-        (issuedPeriods.data ?? []).map((i) => ({
-          id: i.id as string,
-          invoiceNumber: i.invoice_number as string,
-          clientId: i.client_id as string,
-          periodStart: i.period_start as string,
-          periodEnd: i.period_end as string,
-        })),
-        tz,
-      ).map((e) => ({ ...e, clientName: clientNames.get(e.clientId) ?? null })),
+      lateEntries: lateEntries(uninvoicedEntries, issued, tz).map((e) => ({
+        ...e,
+        clientName: clientNames.get(e.clientId) ?? null,
+      })),
       unbilledDue: unbilledDue(
         {
           clients: ((activeClients.data ?? []) as ClientRow[]).map((c) => ({
@@ -428,22 +429,16 @@ export async function readStats(
             name: c.name,
             schedule: toBillingSchedule(c),
           })),
-          entries: overlapCandidates.map((r) => ({
-            id: r.id,
-            startedAt: new Date(r.started_at).toISOString(),
-            durationSeconds: r.duration_seconds,
-            isBillable: r.is_billable,
-            clientId: clientOfProject(r.project_id),
-          })),
+          entries: uninvoicedEntries,
           invoices: [
-            ...((invoices.data ?? []) as StoredInvoiceRow[]),
-            ...((issuedPeriods.data ?? []) as StoredInvoiceRow[]),
-          ].map((i) => ({
-            clientId: i.client_id,
-            status: i.status,
-            periodStart: i.period_start,
-            periodEnd: i.period_end,
-          })),
+            ...((invoices.data ?? []) as StoredInvoiceRow[]).map((i) => ({
+              clientId: i.client_id,
+              status: i.status,
+              periodStart: i.period_start,
+              periodEnd: i.period_end,
+            })),
+            ...issued.map((i) => ({ ...i, status: 'issued' })),
+          ],
         },
         todayKey,
         tz,

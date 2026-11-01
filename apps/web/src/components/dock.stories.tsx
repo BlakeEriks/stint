@@ -170,6 +170,10 @@ export const PeriodDue: Story = {
       'href',
       `/invoices/new?client=${ids.northwind}&from=2026-09-01&to=2026-09-15`,
     );
+    const inbox = page.getByRole('region', { name: 'Inbox' });
+    await expect(inbox.querySelector('header')).toHaveTextContent(
+      String(within(inbox).getAllByRole('listitem').length),
+    );
   },
 };
 

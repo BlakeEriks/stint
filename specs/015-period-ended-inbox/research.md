@@ -8,8 +8,9 @@
 
 ## Which work counts
 
-- **Decision**: per client, `lastEndedPeriod()` of its schedule. An entry counts when its day is in that period and inside no non-void invoice for the client.
-- **Rationale**: the owner's review: one period, one client, one row, and a row that clears by itself when the next period ends. Covering by the day leaves `lateEntries()` every entry inside a sent or paid period, so no entry is in two rows.
+- **Decision**: per client, `lastEndedPeriod()` of its schedule. No row when a non-void invoice for the client overlaps that period; otherwise the entries dated in it count.
+- **Rationale**: the owner's review: one period, one client, one row, and a row that clears by itself when the next period ends. Over a partial invoice the link would be refused by a draft or pull in a sent invoice's late entries.
+- **Alternatives**: covering per entry keeps work beside a partial invoice flagged, but sends the link where New invoice refuses it.
 
 ## The link
 
