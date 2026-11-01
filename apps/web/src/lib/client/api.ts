@@ -110,6 +110,23 @@ export type ComputedLineItem = Res<schema.ComputedLineItem>;
 export type InvoiceLineItem = Res<schema.InvoiceLineItem>;
 export type UnratedEntry = Res<schema.UnratedEntry>;
 export type DraftChange = Res<schema.DraftChange>;
+export type DraftChoices = Res<schema.DraftChoices>;
+/** What Generate sends, and an edit of a draft sends again. */
+export interface InvoiceChoices {
+  clientId: string;
+  periodStart: string;
+  periodEnd: string;
+  groupingMode?: GroupingMode;
+  summaryText?: string;
+  tz?: string;
+  manualLines?: ManualLine[];
+  excludedExpenseIds?: string[];
+  schedules?: ScheduleKind[];
+  reference?: string;
+  paymentProfileId?: string;
+  dueDate?: string;
+  notes?: string;
+}
 
 /** Everything a project is created or edited with. */
 export type ProjectInput = Partial<Omit<Project, 'id' | 'archivedAt'>> &
@@ -316,6 +333,8 @@ export const api = {
         unratedEntries: UnratedEntry[];
         dueBeforeIssue: { download: boolean; send: boolean };
         refuses: { download: boolean; send: boolean };
+        /** A draft's, for editing it; null once issued. */
+        choices: DraftChoices | null;
       }
     >('GET', `/invoices/${id}?${zone()}`),
 
@@ -329,28 +348,25 @@ export const api = {
     tz?: string;
     manualLines?: ManualLine[];
     excludedExpenseIds?: string[];
+    /** The draft being edited. */
+    draftId?: string;
   }) => request<InvoicePreview>('POST', '/invoices/preview', body),
 
   /** Allocates the number and creates the draft, which bills its period's
    *  work until it is sent. */
-  createInvoice: (body: {
-    clientId: string;
-    periodStart: string;
-    periodEnd: string;
-    groupingMode?: GroupingMode;
-    summaryText?: string;
-    tz?: string;
-    manualLines?: ManualLine[];
-    excludedExpenseIds?: string[];
-    schedules?: ScheduleKind[];
-    reference?: string;
-    paymentProfileId?: string;
-    dueDate?: string;
-    notes?: string;
-  }) =>
+  createInvoice: (body: InvoiceChoices) =>
     request<Invoice & { lineItems: ComputedLineItem[]; entryCount: number }>(
       'POST',
       '/invoices',
+      body,
+    ),
+
+  /** Drafts only: every choice Generate took, but its client, which it
+   *  keeps. Without `paymentProfileId` it keeps its payment details. */
+  updateDraft: (id: string, body: InvoiceChoices) =>
+    request<Invoice & { lineItems: ComputedLineItem[] }>(
+      'PATCH',
+      `/invoices/${id}`,
       body,
     ),
 
