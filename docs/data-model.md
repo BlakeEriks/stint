@@ -145,7 +145,8 @@ reference falls back rather than rendering nothing.
 Line items are **denormalized on purpose**. An issued invoice is an immutable
 financial record, not a live view over time entries.
 
-**A draft is the user's choices; its lines are derived on read** (#452). It
+**A draft is the user's choices and the work it holds (`draft_id`); its
+lines are priced on read** (#452, #596). It
 stores grouping, summary text, reference, notes, a typed due date,
 payment details, the supporting-detail kinds, its `fixed` lines, `tz` (the
 zone its period's dates are read in) and `excluded_expense_ids` (the expenses
@@ -316,7 +317,8 @@ name becomes the invoice line description, so editing it after issue changes
 what the client was told they were billed for, even when the money is
 unchanged.
 
-No entry or expense points at a draft, so only sent work is locked.
+Work a draft holds points at it through `draft_id`, which locks nothing;
+only `invoice_id`, set when it is sent, locks work.
 **Detaching** an entry (`invoice_id → null`) stays allowed, so a voided
 invoice can release its entries.
 

@@ -287,8 +287,8 @@ rate. `0` is a real rate, distinct from `null`, which means "fall back".
 
 A draft is priced in the zone stored when it was generated. `?tz` matters
 only for a draft without one: reads use it, else UTC, and sending needs it and
-stores it. On `GET /invoices`, `GET /invoices/:id`, `/pdf` and `/status`, an
-invalid `tz` is `422 VALIDATION_FAILED`.
+stores it. On `GET /invoices`, `GET /invoices/:id`, `/pdf`, `/status` and `POST
+/invoices/:id/work`, an invalid `tz` is `422 VALIDATION_FAILED`.
 
 **A draft holds its work.** Building one (`POST /invoices`, `PATCH
 /invoices/:id`, `POST /invoices/:id/work`) holds its period's billable work
