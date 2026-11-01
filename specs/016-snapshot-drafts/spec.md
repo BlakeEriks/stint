@@ -1,4 +1,4 @@
-Closes #596, #583, #591
+Closes #596, #591
 
 # Feature Specification: A draft changes only when you change it
 
