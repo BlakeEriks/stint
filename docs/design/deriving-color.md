@@ -105,7 +105,7 @@ curve, which is what lets the floor stay where the contrast math wants it.
 
 **A text ground is any surface text is set on**: the four planes, `hover` (a
 calendar block's fill, a hovered row), `accent-muted` (a running block) and
-`warning-muted` (a draft's line added since its PDF). Text is judged against
+`warning-muted` (the phone app's notice). Text is judged against
 the worst of them — the nearest to the ink, `hover` or a tint — because the card is only where dialogs and menus sit; the
 panel and its rows are other steps. `active` is left out: it is only a
 pointer's press on a block.

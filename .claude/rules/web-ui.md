@@ -285,5 +285,6 @@ into. Absent, the list is simply not offered and the field still works. Do not
 clears the approved preview and hides Generate. Tested, and the test was
 verified to fail when the invalidation is removed.
 
-**Any entry with an `invoiceId` is locked**: a draft claims its work only
-when it is sent, so only an issued invoice sets one.
+**Any entry with an `invoiceId` is locked**: a draft only holds its work
+(`draft_id`, which locks nothing) and bills it when sent, so only an issued
+invoice sets one.
