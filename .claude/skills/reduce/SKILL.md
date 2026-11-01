@@ -53,7 +53,7 @@ see a dynamic import or a string-keyed lookup.
 A reduction that needs a behavior change, such as dropping a state, a
 setting or a code path a user can see, is a cut, not a refactor (Beck,
 *Tidy First?*). Make it after the refactors, in its own commit, with a test
-of the new behavior. Nobody is asked first: the PR's **Needs you** names
+of the new behavior. Nobody is asked first: the PR's **Decisions made** names
 the cut and what a user loses, and the reviewer decides at review.
 
 ## 4. Comments

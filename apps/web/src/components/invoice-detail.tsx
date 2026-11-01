@@ -14,9 +14,17 @@ import {
   invalidateEntryData,
 } from '@stint/client';
 import { useMarkPaid } from '@/lib/client/use-mark-paid';
-import { Ban, DollarSign, Download, Lock, Send, Trash2 } from 'lucide-react';
+import {
+  Ban,
+  DollarSign,
+  Download,
+  Lock,
+  Pencil,
+  Send,
+  Trash2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ConfirmAction } from './confirm-action';
+import { ConfirmAction, confirmRow } from './confirm-action';
 import { shortDate, StatusBadge } from './invoice-bits';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
@@ -175,14 +183,14 @@ function Loaded({
           <StatusBadge status={invoice.status} />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className={`flex flex-wrap items-center gap-2 ${confirmRow}`}>
           {/* Deleting removes the draft and voiding can't be undone, so each
               asks first. */}
           {isDraft ? (
             <ConfirmAction
               label={`Delete ${invoice.invoiceNumber} for good`}
               pendingLabel="Deleting…"
-              consequence="Its work stays unbilled."
+              takesRow
               // Deleted, it stays pending until the list arrives.
               pending={remove.isPending || remove.isSuccess}
               onConfirm={() => remove.mutate()}
@@ -192,11 +200,21 @@ function Loaded({
             </ConfirmAction>
           ) : null}
 
+          {/* "Edit", not "Edit draft": the row stays on the title's line. */}
+          {isDraft ? (
+            <Button asChild>
+              <Link href={`/invoices/${invoice.id}/edit`}>
+                <Pencil aria-hidden strokeWidth={1.75} />
+                Edit
+              </Link>
+            </Button>
+          ) : null}
+
           {!isVoid && !isDraft ? (
             <ConfirmAction
               label={`Void ${invoice.invoiceNumber}`}
               pendingLabel="Voiding…"
-              consequence="The number stays on record, and this invoice can't be reissued."
+              takesRow
               pending={setStatus.isPending}
               onConfirm={() => setStatus.mutate({ status: 'void' })}
             >
@@ -360,6 +378,16 @@ function Changed({
   currency: string;
 }) {
   const added = change.hours.to - change.hours.from;
+  if (change.total.from === change.total.to && change.edited.length)
+    return (
+      <div role="status" className={NOTICE}>
+        <p className="type-body text-strong">Edited since you downloaded it</p>
+        <p className="type-support text-muted">
+          Its {change.edited.join(', ')} changed. Download the new PDF to mark
+          it sent.
+        </p>
+      </div>
+    );
   return (
     <div role="status" className={NOTICE}>
       <p className="type-body text-strong">Changed since you downloaded it</p>
@@ -425,7 +453,7 @@ function DueBeforeIssue({
       <p className="type-support text-muted">
         {downloaded
           ? `The due date you typed, ${shortDate(due)}, is before today, so it can’t be downloaded again. Send the PDF you downloaded, then mark it sent.`
-          : `The due date you typed, ${shortDate(due)}, is before today’s issue date, ${shortDate(issued)}, so it can’t be downloaded or sent. Delete this draft and generate it again with a later due date.`}
+          : `The due date you typed, ${shortDate(due)}, is before today’s issue date, ${shortDate(issued)}, so it can’t be downloaded or sent. Edit this draft to give it a later due date.`}
       </p>
     </div>
   );
