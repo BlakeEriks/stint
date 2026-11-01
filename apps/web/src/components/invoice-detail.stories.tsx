@@ -1,8 +1,6 @@
 import type { Decorator, Meta, StoryObj } from '@storybook/nextjs-vite';
 import { useQuery } from '@tanstack/react-query';
-import { delay, http } from 'msw';
 import { api } from '@/lib/client/api';
-import { handlers } from '@/mocks/handlers';
 import { addDays } from '@stint/core';
 import { keys } from '@stint/client';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
@@ -69,59 +67,6 @@ export const Draft: Story = {
   },
 };
 export const DraftPhone: Story = { ...phone };
-
-/* The `invoice` handler with one invoice answering only once `wait`
-   settles. The rest answer at once: the dock's Inbox prefetches them. */
-const waitingOn = (which: string, wait: () => Promise<unknown>) => ({
-  invoice: http.get(handlers.invoice.info.path, async (info) => {
-    if (info.params.id === which) await wait();
-    const answer = await handlers.invoice.run({
-      request: info.request,
-      requestId: info.requestId,
-    });
-    return answer?.response;
-  }),
-});
-
-/** As `stalled('invoice')`, for this invoice only. */
-const stalledOn = (which: string) => ({
-  stalls: 1,
-  msw: { handlers: waitingOn(which, () => delay('infinite')) },
-});
-
-/* The invoice answers only when the play says, so it can measure the
-   actions before and after. */
-let arrive = () => {};
-const held = {
-  msw: {
-    handlers: waitingOn(
-      invoice(15),
-      () =>
-        new Promise<void>((done) => {
-          arrive = done;
-        }),
-    ),
-  },
-};
-
-/** A cold load where the row wraps: the title arriving beside the actions
-    moves nothing. */
-export const ColdLoadPhone: Story = {
-  ...phone,
-  parameters: held,
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
-    const top = () =>
-      page.getByRole('button', { name: 'Delete draft' }).getBoundingClientRect()
-        .top;
-    await page.findByRole('button', { name: 'Delete draft' });
-    const before = top();
-    arrive();
-    await page.findByRole('link', { name: 'Download PDF' });
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    await expect(top()).toBe(before);
-  },
-};
 
 /* The draft as the server sends it once work landed after its PDF. */
 const changed = paying((db) => {
@@ -202,7 +147,7 @@ const unrated = paying((db) => {
 });
 
 /** Work with no rate shows on the draft by name, and neither the PDF nor
-    Mark sent opens until it has one. */
+    Mark sent is offered until it has one. */
 export const DraftUnrated: Story = {
   ...desktop,
   parameters: unrated,
@@ -214,9 +159,6 @@ export const DraftUnrated: Story = {
       page.getByRole('button', { name: 'Mark sent' }),
     ).toBeDisabled();
     await expect(page.queryByRole('link', { name: 'Download PDF' })).toBeNull();
-    await expect(
-      page.getByRole('button', { name: 'Download PDF' }),
-    ).toBeDisabled();
   },
 };
 
@@ -364,10 +306,7 @@ const press =
   (first: string, then?: string) =>
   async ({ canvasElement }: { canvasElement: HTMLElement }) => {
     const page = within(canvasElement);
-    // Each action is on screen at once, and pressable once the invoice is.
-    const button = await page.findByRole('button', { name: first });
-    await waitFor(() => expect(button).toBeEnabled());
-    await userEvent.click(button);
+    await userEvent.click(await page.findByRole('button', { name: first }));
     if (then) await userEvent.click(page.getByRole('button', { name: then }));
   };
 
@@ -564,7 +503,7 @@ export const OpenedFromList: Story = {
   args: { id: invoice(14) },
   decorators: [fromTheList],
   parameters: {
-    ...stalledOn(invoice(14)),
+    ...stalled('invoice'),
     /* The card dims until its lines land; axe reads the half opacity as low
        contrast. */
     a11y: skipping('color-contrast'),
@@ -577,36 +516,22 @@ export const OpenedFromList: Story = {
     await expect(page.getByText('Updating…')).toBeVisible();
     await expect(page.queryByText('Loading…')).toBeNull();
     await expect(page.queryByText('Amount due')).toBeNull();
-    /* The row's status picks the actions; they wait, disabled, for the
-       invoice, which alone says whether the PDF opens. */
-    await expectWaiting(page, ['Void', 'Mark paid', 'Download PDF']);
+    /* The lists don't say whether the PDF opens, so neither action shows
+       yet rather than one that turns into the other. */
+    await expect(page.queryByRole('link', { name: /Download PDF/ })).toBeNull();
     await expect(page.queryByRole('link', { name: /Subscribe/ })).toBeNull();
   },
 };
 
-/** Each action is on screen and disabled, and nothing links yet. */
-async function expectWaiting(page: ReturnType<typeof within>, names: string[]) {
-  for (const name of names) {
-    await expect(page.getByRole('button', { name })).toBeDisabled();
-  }
-  await expect(page.queryByRole('link', { name: /Download PDF/ })).toBeNull();
-}
-
-/** On its way from a pasted link: one quiet word where it will be, under a
-    draft's actions, disabled, since the status isn't known yet. */
+/** On its way: one quiet word where it will be, and none of it until all of
+ *  it has arrived. */
 export const Loading: Story = {
   ...desktop,
-  parameters: stalledOn(invoice(15)),
+  parameters: stalled('invoice'),
   play: async ({ canvasElement }) => {
     const region = within(canvasElement.querySelector('main') as HTMLElement);
     await expect(await region.findByRole('status')).toHaveTextContent(
       'Loading',
     );
-    await expectWaiting(region, [
-      'Delete draft',
-      'Edit',
-      'Mark sent',
-      'Download PDF',
-    ]);
   },
 };

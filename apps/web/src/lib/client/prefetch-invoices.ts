@@ -4,7 +4,7 @@ import { keys } from '@stint/client';
 import { api, type InvoiceStatus } from './api';
 
 /** One invoice in full, as its page reads it, so a prefetch fills that read. */
-export const invoiceQuery = (id: string) => ({
+const invoiceQuery = (id: string) => ({
   queryKey: keys.invoice(id),
   queryFn: () => api.invoice(id),
 });
