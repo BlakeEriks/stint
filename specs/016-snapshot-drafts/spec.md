@@ -24,19 +24,23 @@ this?" from that form.
 ### Session 2026-11-01
 
 - Q: When does a draft take its work, so two drafts never bill the same
-  entry? → A: When it is built. Building is Generate today, and every save of
-  the form under #583. The draft holds those entries and one-off expenses, so
-  no other draft offers them. Sending locks them, as today. (decided
-  autonomously: this was Stint's model before #467, and it is how Harvest and
-  FreshBooks treat time on a draft invoice.)
-- Q: What happens to work a draft holds when the owner edits, deletes, or
-  unbills that entry? → A: The draft's lines follow the edit, at the moment
-  of the edit. Editing an entry is the owner changing the draft. A draft that
-  kept the old hours would send an invoice that disagrees with its own
-  entries. (decided autonomously)
-- Q: Does a rate change move a draft? → A: No. The draft keeps the rates it
-  was built at. Its next build prices at the rates in force then. (decided
+  entry? → A: When it is built: created, saved from its edit screen, or by
+  Add to draft. Building holds the period's unheld work for the draft, so no
+  other draft offers it. Holding is not billing: the work stays unbilled
+  everywhere else in the app until Mark sent bills and locks it, as today.
+  (decided autonomously: this was Stint's model before #467, and it is how
+  Harvest and FreshBooks treat time on a draft invoice.)
+- Q: Are a draft's lines stored, or priced from the work it holds? → A:
+  Priced on each read from the work it holds and the owner's choices, never
+  from its period. New work never joins on its own, and an edit the owner
+  makes to that work (hours, project, rate, non-billable, billed elsewhere,
+  deleted) shows on the draft at once. Storing the lines instead would make
+  every entry, expense and rate write rebuild the drafts it touches, and a
+  missed path would send lines that disagree with their entries. (decided
   autonomously)
+- Q: Does saving the edit screen take new work? → A: Yes. Saving is a build:
+  the form's preview shows the whole period's work before the press, so
+  nothing joins unseen. (decided autonomously)
 - Q: Does a client keep at most one open draft per date? → A: No. That rule
   existed because two drafts over one date would both show its work. A draft
   that holds its work cannot, so the rule and its warning on New invoice are
@@ -47,17 +51,24 @@ this?" from that form.
   and due dates, else the day it is sent, as today. The PDF is still what the
   client holds. No check that the PDF is current remains. (decided
   autonomously)
+- Q: Does #583's one-screen, self-saving form ship in this PR? → A: No. It
+  ships next, stacked on this branch. This PR keeps today's New invoice,
+  edit and detail screens and gives the detail screen the design's notice,
+  header and confirmation. User Story 4 is that next PR. (decided
+  autonomously: the form rewrite is as large as the rest together, and each
+  half stands alone.)
 
 ## Design
 
 [draft.html](design/draft.html)
 
-- **One screen**: New invoice and a draft are the same page: the form on
+- **One screen** (User Story 4, the next PR): New invoice and a draft are the same page: the form on
   the left, the invoice on the right; stacked on a phone.
-- **No client yet**: titled New invoice, only the Client picker, no actions.
+- **No client yet** (User Story 4): titled New invoice, only the Client picker, no actions.
   The hint says picking a client starts the draft and it saves as you go.
-- **Saved**: titled with the draft's number, the Draft badge and a quiet
-  "Saved". Actions: Discard draft (danger ghost), Mark sent, Download PDF
+- **Saved**: titled with the draft's number and the Draft badge; User
+  Story 4 adds a quiet "Saved" and names Delete draft "Discard draft".
+  Actions: Delete draft (danger ghost), Edit, Mark sent, Download PDF
   (primary). The hint says it holds the work it shows.
 - **New work**: a notice under the hint, above the invoice, edged in the
   warning color: "2 new entries, 2.50h, in this period", its amount, and that
@@ -87,7 +98,8 @@ its lines, hours and total unchanged.
    **Then** the draft's lines, hours and total are unchanged on every read and
    on its PDF.
 2. **Given** a draft, **When** the client's or project's rate changes,
-   **Then** the draft's lines are unchanged.
+   **Then** the draft's lines price its work at the new rate: the owner
+   changed it.
 3. **Given** a draft holding an entry, **When** the owner edits that entry's
    hours, task or project, **Then** the draft's lines show the edit.
 4. **Given** a draft holding an entry, **When** the owner deletes it, marks it
@@ -213,7 +225,9 @@ mark one entry billed elsewhere from its dialog and see it leave the draft.
 - A draft built while an entry ran: the entry is new work once it stops.
 - An entry on a draft moved to a date outside the draft's period stays on the
   draft. The owner moved it; the draft follows its edit.
-- An entry on a draft moved to another client's project leaves the draft.
+- An entry on a draft moved to another client's project leaves the draft,
+  and is new work for that client's drafts.
+- Saving the edit screen with new dates releases held work outside them.
 - A draft whose work is all deleted still opens, with its charges, or nothing
   to bill. It is never deleted on its own.
 - A voided invoice releases its work, as today; it is then new work for any
@@ -226,25 +240,26 @@ mark one entry billed elsewhere from its dialog and see it leave the draft.
 
 ### Functional Requirements
 
-- **FR-001**: A draft MUST store its lines and hold the entries and one-off
-  expenses they bill. A read, a PDF and Mark sent MUST use what it stores,
-  never recompute it from its period.
-- **FR-002**: Building a draft (creating it, saving its form, adding new
-  work) MUST compute its lines from its choices, the work it holds, and its
-  period's unheld billable work, as the preview does. It MUST then hold that
-  work, in one transaction.
-- **FR-003**: Work held by one invoice MUST NOT be offered to or built into
-  another.
-- **FR-004**: An edit, delete, non-billable or billed-elsewhere mark to an
-  entry a draft holds MUST rebuild that draft's lines from the work it still
-  holds, in the same write. A rate change MUST NOT rebuild a draft.
+- **FR-001**: A draft MUST hold the entries and one-off expenses it was
+  built with. A read, a PDF and Mark sent MUST price only that work and the
+  owner's choices, never its period's unheld work.
+- **FR-002**: Building a draft (creating it, saving its edit screen, Add to
+  draft) MUST take its period's billable work that no other draft holds, as
+  the preview shows it, and hold it in the same transaction that writes the
+  draft. Saving with new dates MUST release held work outside them.
+- **FR-003**: Work one draft holds MUST NOT be offered to or built into
+  another. Holding MUST NOT change whether the work reads as billed anywhere
+  else.
+- **FR-004**: An edit the owner makes to held work (hours, project, rate,
+  non-billable, billed elsewhere, deleted) MUST show on the draft's next read.
+  Moving an entry or expense to another client MUST release it.
 - **FR-005**: A draft MUST show its period's unheld billable work — ended
   entries, and one-off expenses dated on or before its end that it didn't
   leave off — as one notice with the count, hours and amount. The notice MUST
   have one action that adds all of it (FR-002).
 - **FR-006**: Mark sent MUST confirm before it commits, naming the number of
-  entries it locks and the total. Confirmed, it MUST send exactly the stored
-  lines, locking the held work as a sent invoice does today.
+  entries it locks and the total. Confirmed, it MUST send exactly the lines the
+  draft showed, locking the held work as a sent invoice does today.
 - **FR-007**: Mark sent MUST NOT depend on whether the latest PDF was
   downloaded. The "changed since you downloaded it" banner, its disabled
   Mark sent, and `DRAFT_CHANGED` MUST be removed.
@@ -252,13 +267,14 @@ mark one entry billed elsewhere from its dialog and see it leave the draft.
   is sent, as today.
 - **FR-009**: The one-open-draft-per-date rule (`DRAFT_OVERLAPS`) and its
   warning on New invoice MUST be removed.
-- **FR-010**: Picking a client on New invoice MUST create the draft; each
-  later change MUST save it (FR-002) and show "Saved". New invoice and a
+- **FR-010** (User Story 4, the next PR): Picking a client on New invoice
+  MUST create the draft; each later change MUST save it (FR-002) and show
+  "Saved". New invoice and a
   draft's edit MUST be one screen. Generate MUST be removed.
-- **FR-011**: An untouched draft MUST be replaced when its client changes. A
+- **FR-011** (User Story 4): An untouched draft MUST be replaced when its client changes. A
   draft the owner typed in MUST never be deleted except by Discard draft or
   Delete draft.
-- **FR-012**: A draft MUST be allowed to hold nothing; Download PDF and Mark
+- **FR-012** (User Story 4): A draft MUST be allowed to hold nothing; Download PDF and Mark
   sent MUST refuse it, as today.
 - **FR-013**: "Already billed this?" MUST be removed from the form, with its
   undo notice. `POST /entries/invoiced-elsewhere` MUST be removed if nothing
@@ -268,7 +284,7 @@ mark one entry billed elsewhere from its dialog and see it leave the draft.
 
 ### Removes (Constitution VII)
 
-- Deriving a draft's lines on every read (`deriveDraft`'s computation) and
+- Pricing a draft from its period's unheld work on every read, and
   assigning unbilled expenses among open drafts on read (`assignExpenses`).
 - The download snapshot's comparison: `snapshotChanged`, `newLines`, the
   tinted new lines, `changedSinceDownload`, `DRAFT_CHANGED`, the "Changed
@@ -276,16 +292,16 @@ mark one entry billed elsewhere from its dialog and see it leave the draft.
   the disabled Mark sent. Only the printed dates stay (FR-008).
 - The one-open-draft-per-date rule, its check in `create_invoice` and
   `update_draft`, and New invoice's "A draft already covers" warning.
-- The Generate step, and New invoice and edit as two modes.
+- The Generate step, and New invoice and edit as two modes (User Story 4).
 - "Already billed this?" on the form, its undo notice and `marked` state,
   and `POST /entries/invoiced-elsewhere` if nothing else calls it.
 - The tests and stories that assert each of these.
 
 ### Key Entities
 
-- **Draft**: a client, a period, a number, the owner's choices, its stored
-  lines, and the work it holds. It changes only when the owner builds it or
-  edits work it holds.
+- **Draft**: a client, a period, a number, the owner's choices, and the work
+  it holds. It changes only when the owner builds it, edits it, or edits
+  the work or rates it holds.
 - **New work**: a client's billable work in a draft's period that no invoice
   holds. It is computed on read and never stored.
 - **Sent invoice**: unchanged. Its lines, rates and details are frozen, and
@@ -295,13 +311,13 @@ mark one entry billed elsewhere from its dialog and see it leave the draft.
 
 ### Measurable Outcomes
 
-- **SC-001**: No entry or rate change the owner makes outside a draft's own
-  work changes any draft's total.
+- **SC-001**: No entry or expense logged after a draft was built changes
+  its total until the owner adds it.
 - **SC-002**: The owner adds every piece of new work in a period with one
   press.
 - **SC-003**: Mark sent is never disabled because of a download.
-- **SC-004**: Leaving or refreshing New invoice after picking a client loses
-  no choice the owner made.
+- **SC-004** (User Story 4): Leaving or refreshing New invoice after picking
+  a client loses no choice the owner made.
 
 ## Assumptions
 
