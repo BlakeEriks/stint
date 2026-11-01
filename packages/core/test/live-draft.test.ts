@@ -235,6 +235,18 @@ const DUE: {
     due: [NW_SEP],
   },
   {
+    name: "a sent invoice sharing only the period's last day",
+    entries: [work(IN_SEP)],
+    invoices: [inv('2026-09-30', '2026-10-15')],
+    due: [],
+  },
+  {
+    name: "a sent invoice sharing only the period's first day",
+    entries: [work(IN_SEP)],
+    invoices: [inv('2026-08-15', '2026-09-01')],
+    due: [],
+  },
+  {
     name: "a draft sharing only the period's last day",
     entries: [work(IN_SEP)],
     invoices: [draft('2026-09-30', '2026-10-15')],
