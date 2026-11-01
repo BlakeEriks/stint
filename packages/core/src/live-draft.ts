@@ -111,15 +111,32 @@ interface DueInputs {
   clients: { id: string; name: string; schedule: BillingSchedule | null }[];
   /** Finished entries on no invoice and not billed elsewhere. */
   entries: Omit<LateCandidate, 'taskName'>[];
-  /** The user's non-void invoices: callers leave the void ones out. */
-  invoices: { clientId: string; periodStart: string; periodEnd: string }[];
+  /** The user's non-void invoices: callers leave the void ones out. A
+   *  draft says so in `status`; without one, an invoice is issued. */
+  invoices: {
+    clientId: string;
+    periodStart: string;
+    periodEnd: string;
+    status?: string;
+  }[];
+}
+
+type Period = { periodStart: string; periodEnd: string };
+
+/** Whether an invoice takes the period off the list. A sent or paid one over
+ *  any of it holds `lateEntries()`' work. A draft only when it spans it: a
+ *  draft offers only its own period's work as new work, and two drafts may
+ *  share dates, so the rest of the period would surface nowhere else. */
+function covers(i: DueInputs['invoices'][number], period: Period) {
+  return i.status === 'draft'
+    ? i.periodStart <= period.periodStart && period.periodEnd <= i.periodEnd
+    : i.periodStart <= period.periodEnd && period.periodStart <= i.periodEnd;
 }
 
 /**
  * Clients ready to invoice, one row each by name: those with a schedule whose
- * most recent ended period holds billable work and overlaps none of
- * `invoices`: a draft over it is already that invoice, and a sent or paid
- * one holds `lateEntries()`' work.
+ * most recent ended period holds billable work and none of `invoices`
+ * `covers()`.
  */
 export function unbilledDue(
   { clients, entries, invoices }: DueInputs,
@@ -131,10 +148,7 @@ export function unbilledDue(
       if (!c.schedule) return [];
       const period = lastEndedPeriod(today, c.schedule);
       const invoiced = invoices.some(
-        (i) =>
-          i.clientId === c.id &&
-          i.periodStart <= period.periodEnd &&
-          period.periodStart <= i.periodEnd,
+        (i) => i.clientId === c.id && covers(i, period),
       );
       if (invoiced) return [];
       const work = entries.filter((e) => {

@@ -156,11 +156,14 @@ test('draftDates: sending keeps the dates its last PDF printed', () => {
    "client from..to seconds". */
 const work = (startedAt: string, clientId = 'c1', hours = 1) =>
   entry({ startedAt, clientId, durationSeconds: hours * 3600 });
-const inv = (periodStart: string, periodEnd: string, clientId = 'c1') => ({
-  clientId,
-  periodStart,
-  periodEnd,
-});
+const inv = (
+  periodStart: string,
+  periodEnd: string,
+  clientId = 'c1',
+  status = 'sent',
+) => ({ clientId, periodStart, periodEnd, status });
+const draft = (periodStart: string, periodEnd: string) =>
+  inv(periodStart, periodEnd, 'c1', 'draft');
 const NW_SEP = 'Northwind 2026-09-01..2026-09-30 3600';
 const IN_SEP = '2026-09-20T15:00:00Z';
 
@@ -214,16 +217,28 @@ const DUE: {
     due: [NW_SEP],
   },
   {
-    name: 'an invoice over part of the period, the work beside it',
+    name: 'a sent invoice over part of the period, the work beside it',
     entries: [work(IN_SEP)],
     invoices: [inv('2026-09-01', '2026-09-15')],
     due: [],
   },
   {
-    name: "an invoice sharing only the period's last day",
+    name: 'a draft over the whole period',
     entries: [work(IN_SEP)],
-    invoices: [inv('2026-09-30', '2026-10-15')],
+    invoices: [draft('2026-08-25', '2026-10-05')],
     due: [],
+  },
+  {
+    name: 'a draft over part of the period, the work beside it',
+    entries: [work(IN_SEP)],
+    invoices: [draft('2026-09-01', '2026-09-15')],
+    due: [NW_SEP],
+  },
+  {
+    name: "a draft sharing only the period's last day",
+    entries: [work(IN_SEP)],
+    invoices: [draft('2026-09-30', '2026-10-15')],
+    due: [NW_SEP],
   },
   {
     name: 'an invoice ending the day before the period',
@@ -238,10 +253,10 @@ const DUE: {
     due: [NW_SEP],
   },
   {
-    name: "an invoice sharing only the period's first day",
+    name: "a draft sharing only the period's first day",
     entries: [work(IN_SEP)],
-    invoices: [inv('2026-08-15', '2026-09-01')],
-    due: [],
+    invoices: [draft('2026-08-15', '2026-09-01')],
+    due: [NW_SEP],
   },
 ];
 

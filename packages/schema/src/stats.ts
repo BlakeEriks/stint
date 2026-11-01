@@ -257,8 +257,8 @@ export const Stats = z.object({
       }),
     ),
     /** Clients ready to invoice (`unbilledDue` in `@stint/core`): the most
-     *  recent ended period of the client's schedule holds billable work and
-     *  overlaps no invoice but a void one. `seconds` is that work; New invoice
+     *  recent ended period of the client's schedule holds billable work, overlaps
+     *  no sent or paid invoice, and no draft spans it. `seconds` is that work; New invoice
      *  opens with the period. */
     unbilledDue: z.array(
       z.object({

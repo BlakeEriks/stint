@@ -432,6 +432,7 @@ export async function readStats(
           entries: uninvoicedEntries,
           invoices: [
             ...((invoices.data ?? []) as StoredInvoiceRow[]).map((i) => ({
+              status: i.status,
               clientId: i.client_id,
               periodStart: i.period_start,
               periodEnd: i.period_end,

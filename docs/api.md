@@ -179,8 +179,9 @@ oldest first; `strangeDurations` one per stopped entry of implausible length;
 `lateEntries` one per unbilled billable entry dated, in `tz`, inside a sent or
 paid invoice's period for its client, naming that invoice;
 `unbilledDue` one per active client with a billing schedule whose most
-recent ended period holds billable work and overlaps no invoice but a void
-one, with that work's `seconds`, dated in `tz`, and the period as
+recent ended period holds billable work, overlaps no sent or paid invoice,
+and lies inside no draft's period (a draft offers only its own period's work),
+with that work's `seconds`, dated in `tz`, and the period as
 `periodStart`..`periodEnd`. No entry is in both it and `lateEntries`.
 The long threshold defaults to 12 hours, which is how a timer left running
 overnight reaches the inbox; the short one defaults to null. `overlaps` is one
