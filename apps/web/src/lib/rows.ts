@@ -4,7 +4,7 @@ import {
   planOf,
   type BillingPeriod,
   type BillingSchedule,
-  type DraftSnapshot,
+  type PrintedDates,
   type SubscriptionStatus,
 } from '@stint/core';
 import type {
@@ -337,7 +337,7 @@ export interface InvoiceRow {
    *  never sent to a client. */
   tz: string | null;
   excluded_expense_ids: string[];
-  downloaded_snapshot: DraftSnapshot | null;
+  downloaded_snapshot: PrintedDates | null;
 }
 
 export const INVOICE_COLUMNS = columns<InvoiceRow>()(

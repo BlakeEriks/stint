@@ -287,7 +287,7 @@ export async function readStats(
   ];
 
   const unbilledRows = (unbilled.data ?? []) as UnbilledRow[];
-  // A draft's total is its period's work now.
+  // A draft's total is the work it holds, priced now.
   const invoiceRows: InvoiceRow[] = await Promise.all(
     ((invoices.data ?? []) as StoredInvoiceRow[]).map(async (stored) => {
       const draft = await deriveDraft(db, stored, tz);

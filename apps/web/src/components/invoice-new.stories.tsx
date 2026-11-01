@@ -248,36 +248,6 @@ export const NoScheduleNoHint: Story = {
   },
 };
 
-/** Byrne's August draft is open, so a period reaching into August says
-    which draft holds those dates and Generate waits. */
-export const OverlapsDraft: Story = {
-  ...desktop,
-  parameters: menuOpen,
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement.ownerDocument.body);
-    await userEvent.click(await page.findByRole('button', { name: 'Client' }));
-    await userEvent.click(
-      await page.findByRole('menuitemradio', { name: /Byrne/ }),
-    );
-    await waitFor(() => expect(page.queryByRole('menu')).toBeNull());
-    await userEvent.clear(page.getByLabelText('From'));
-    await userEvent.type(page.getByLabelText('From'), '2026-08-20');
-    await expect(
-      await page.findByText(
-        (_, el) =>
-          el?.tagName === 'P' &&
-          /^A draft already covers Aug 1.*for Byrne Studio: STINT-0015\./.test(
-            el.textContent ?? '',
-          ),
-      ),
-    ).toBeVisible();
-    await expect(page.getByRole('link', { name: 'STINT-0015' })).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'Generate invoice' }),
-    ).toBeDisabled();
-  },
-};
-
 /** A client chosen: the card is the invoice as the PDF prints it, and
     follows the form without a Preview button (US3 scenario 1). What
     generating does reads under the card, not on it. Northwind has an address
@@ -299,39 +269,6 @@ export const ClientChosen: Story = {
   },
 };
 export const ClientChosenPhone: Story = { ...ClientChosen, ...phone };
-
-/** Work already billed from another tool: "Already billed this?", beside the
-    preview's entry count, marks the time the card shows, the card keeps only the expenses, and the toast offers
-    Undo (US1 scenarios 1–2). */
-export const BilledElsewhere: Story = {
-  ...desktop,
-  play: async ({ canvasElement }) => {
-    const page = await chooseNorthwind(canvasElement);
-    await settled(page);
-    await userEvent.click(
-      page.getByRole('button', { name: 'Already billed this?' }),
-    );
-    await expect(
-      await page.findByText(/entries marked billed elsewhere/),
-    ).toBeVisible();
-    await expect(await page.findByText('0 entries')).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'Already billed this?' }),
-    ).toBeDisabled();
-  },
-};
-
-/** Undo puts exactly that work back on the card (US1 scenario 3). */
-export const BilledElsewhereUndone: Story = {
-  ...desktop,
-  play: async (ctx) => {
-    await BilledElsewhere.play?.(ctx);
-    const page = within(ctx.canvasElement.ownerDocument.body);
-    await userEvent.click(page.getByRole('button', { name: 'Undo' }));
-    await expect(await page.findByText('15 entries')).toBeVisible();
-    await expect(page.queryByText(/marked billed elsewhere/)).toBeNull();
-  },
-};
 
 /** The screen is a workspace: the dock folds to a strip, so at 2xl the
     preview is 700px beside the form (it was ~430px beside the dock). */

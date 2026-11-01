@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
 import {
   useQuery,
   useQueryClient,
@@ -18,8 +17,10 @@ import {
   Ban,
   DollarSign,
   Download,
+  Loader2,
   Lock,
   Pencil,
+  Plus,
   Send,
   Trash2,
 } from 'lucide-react';
@@ -39,7 +40,7 @@ import { timeZone as tz } from '@/lib/client/use-timer';
 import {
   api,
   ApiError,
-  type DraftChange,
+  type NewWork,
   type Invoice,
   type InvoiceStatus,
   type InvoiceLineItem,
@@ -50,9 +51,10 @@ import { DetailPage, Listing } from './page';
 /** An invoice; the lines, and whether its PDF opens, are absent until they
     load. */
 type Shown = Invoice & {
-  lineItems?: (InvoiceLineItem & { isNew?: boolean })[];
+  lineItems?: InvoiceLineItem[];
   canDownload?: boolean;
-  changedSinceDownload?: DraftChange | null;
+  entryCount?: number | null;
+  newWork?: NewWork | null;
   unratedEntries?: UnratedEntry[];
   dueBeforeIssue?: { download: boolean; send: boolean };
   refuses?: { download: boolean; send: boolean };
@@ -103,6 +105,11 @@ export function InvoiceDetail({ id }: { id: string }) {
       api.updateInvoiceStatus(id, args),
   });
 
+  const addWork = useOptimisticMutation({
+    ...invoicePress,
+    mutationFn: () => api.addDraftWork(id),
+  });
+
   const remove = useOptimisticMutation({
     ...invoicePress,
     invalidate: (qc: QueryClient) => refresh(qc, id),
@@ -119,18 +126,21 @@ export function InvoiceDetail({ id }: { id: string }) {
           <Loaded
             data={data}
             onDownload={() =>
-              /* The download is a navigation the page can't await, and it is
-                 what records the copy the client gets; the server's answer
-                 replaces the change once the PDF has rendered. */
+              /* The download is a navigation the page can't await, and it
+                 records the dates the client's copy printed, which Mark sent
+                 keeps; the server's answer arrives once it has rendered. */
               setTimeout(
                 () => qc.invalidateQueries({ queryKey: keys.invoice(id) }),
                 1500,
               )
             }
             setStatus={setStatus}
+            addWork={addWork}
             remove={remove}
             markPaid={markPaid}
-            error={remove.error ?? setStatus.error ?? markPaid.error}
+            error={
+              remove.error ?? setStatus.error ?? addWork.error ?? markPaid.error
+            }
           />
         )}
       </Listing>
@@ -143,6 +153,7 @@ function Loaded({
   data: invoice,
   onDownload,
   setStatus,
+  addWork,
   remove,
   markPaid,
   error,
@@ -154,6 +165,7 @@ function Loaded({
     isPending: boolean;
     reset: () => void;
   };
+  addWork: { mutate: () => void; isPending: boolean };
   remove: { mutate: () => void; isPending: boolean; isSuccess: boolean };
   markPaid: ReturnType<typeof useMarkPaid>;
   /* Picked ONCE by the caller. Re-evaluating `a ?? b` for the check and again
@@ -163,11 +175,6 @@ function Loaded({
 }) {
   const isDraft = invoice.status === 'draft';
   const isVoid = invoice.status === 'void';
-  /* A draft that moved since its PDF was rendered holds Mark sent until the
-     client's copy is the one Stint keeps; pressing Download releases it here,
-     and the server, which recorded the render, has the last word. */
-  const [downloaded, setDownloaded] = useState(false);
-  const changed = isDraft && !downloaded ? invoice.changedSinceDownload : null;
   const unrated = invoice.unratedEntries ?? [];
   const refuses = invoice.refuses ?? { download: false, send: false };
 
@@ -223,14 +230,22 @@ function Loaded({
             </ConfirmAction>
           ) : null}
 
+          {/* Sending locks its entries for good, so it says how many and
+              for how much before it does. */}
           {isDraft ? (
-            <Button
-              onClick={() => setStatus.mutate({ status: 'sent' })}
-              disabled={setStatus.isPending || changed != null || refuses.send}
+            <ConfirmAction
+              tone="primary"
+              label={`Lock ${entries(invoice.entryCount ?? 0)} · ${formatCurrency(invoice.total ?? 0, invoice.currency)}`}
+              pendingLabel="Marking sent…"
+              keepLabel="Keep as draft"
+              takesRow
+              pending={setStatus.isPending}
+              disabled={refuses.send || invoice.entryCount == null}
+              onConfirm={() => setStatus.mutate({ status: 'sent' })}
             >
               <Send aria-hidden strokeWidth={1.75} />
               Mark sent
-            </Button>
+            </ConfirmAction>
           ) : null}
 
           {invoice.status === 'sent' ? (
@@ -258,10 +273,7 @@ function Loaded({
             <Button asChild>
               <a
                 href={api.invoicePdfUrl(invoice.id, true)}
-                onClick={() => {
-                  setDownloaded(true);
-                  onDownload();
-                }}
+                onClick={onDownload}
               >
                 <Download aria-hidden strokeWidth={1.75} />
                 Download PDF
@@ -280,15 +292,18 @@ function Loaded({
       </header>
       <Notices
         invoice={invoice}
-        // A new PDF it can't have is no remedy.
-        changed={refuses.download ? null : changed}
         unrated={unrated}
+        addWork={addWork}
         error={error}
       />
 
       <InvoicePreviewCard
         heading={false}
-        preview={{ ...invoice, schedules: invoice.supportingDetail }}
+        preview={{
+          ...invoice,
+          entryCount: undefined,
+          schedules: invoice.supportingDetail,
+        }}
         client={invoice.billTo}
         business={invoice.business}
         number={invoice.invoiceNumber}
@@ -311,12 +326,9 @@ function Loaded({
   );
 }
 
-function statusHint(
-  status: InvoiceStatus,
-  period: { periodStart: string; periodEnd: string },
-): string | null {
+function statusHint(status: InvoiceStatus): string | null {
   if (status === 'draft')
-    return `It keeps collecting ${shortDate(period.periodStart)} – ${shortDate(period.periodEnd)} until you mark it sent. Download it, send it from your own address, then mark it sent.`;
+    return 'It holds the work it shows. Download it, send it from your own address, then mark it sent.';
   if (status === 'void') return 'Voided. Its entries can be billed again.';
   return null;
 }
@@ -324,23 +336,25 @@ function statusHint(
 /** Where the invoice stands, and what holds it, under the title. */
 function Notices({
   invoice,
-  changed,
   unrated,
+  addWork,
   error,
 }: {
   invoice: Shown;
-  changed: DraftChange | null | undefined;
   unrated: UnratedEntry[];
+  addWork: { mutate: () => void; isPending: boolean };
   error: unknown;
 }) {
-  const hint = changed
-    ? 'Download the new PDF, send it from your own address, then mark it sent.'
-    : statusHint(invoice.status, invoice);
+  const hint = statusHint(invoice.status);
   return (
     <div className="flex flex-col gap-1 pt-1 pb-6">
       {hint ? <p className="type-support text-muted">{hint}</p> : null}
-      {changed ? (
-        <Changed change={changed} currency={invoice.currency} />
+      {invoice.status === 'draft' && invoice.newWork ? (
+        <NewWorkNotice
+          work={invoice.newWork}
+          currency={invoice.currency}
+          addWork={addWork}
+        />
       ) : null}
       {unrated.length > 0 ? <Unrated entries={unrated} /> : null}
       {invoice.dueBeforeIssue?.download ? (
@@ -367,44 +381,49 @@ function Notices({
 const NOTICE =
   'mt-3 flex flex-col gap-0.5 rounded-md border border-edge-default border-l-[3px] border-l-warning bg-surface-elevated px-3.5 py-3';
 
-/** What moved since the PDF the client may already hold. No button: the
-    header's Download PDF is the one action, and this says why Mark sent
-    waits for it. */
-function Changed({
-  change,
+const entries = (n: number) => `${n} entr${n === 1 ? 'y' : 'ies'}`;
+
+/** Work dated in the draft's period that it doesn't hold. It joins only when
+    the owner adds it (Constitution I), all of it in one press. */
+function NewWorkNotice({
+  work,
   currency,
+  addWork,
 }: {
-  change: DraftChange;
+  work: NewWork;
   currency: string;
+  addWork: { mutate: () => void; isPending: boolean };
 }) {
-  const added = change.hours.to - change.hours.from;
-  if (change.total.from === change.total.to && change.edited.length)
-    return (
-      <div role="status" className={NOTICE}>
-        <p className="type-body text-strong">Edited since you downloaded it</p>
+  const what = [
+    work.entries
+      ? `${work.entries} new entr${work.entries === 1 ? 'y' : 'ies'}, ${formatHours(work.hours)}h`
+      : '',
+    work.expenses
+      ? `${work.expenses} new expense${work.expenses === 1 ? '' : 's'}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' and ');
+  return (
+    <div
+      role="status"
+      className={`${NOTICE} flex-row flex-wrap items-center justify-between gap-x-4 gap-y-2.5`}
+    >
+      <div className="flex flex-col gap-0.5">
+        <p className="type-body text-strong">{what}, in this period</p>
         <p className="type-support text-muted">
-          Its {change.edited.join(', ')} changed. Download the new PDF to mark
-          it sent.
+          Logged since you built it · {formatCurrency(work.amount, currency)}.
+          They stay off unless you add them.
         </p>
       </div>
-    );
-  return (
-    <div role="status" className={NOTICE}>
-      <p className="type-body text-strong">Changed since you downloaded it</p>
-      <p className="type-support text-muted">
-        {added === 0
-          ? 'Its lines changed'
-          : `${formatHours(Math.abs(added))}h ${added > 0 ? 'added' : 'removed'}`}{' '}
-        · total{' '}
-        <s className="text-subtle">
-          {formatCurrency(change.total.from, currency)}
-        </s>{' '}
-        →{' '}
-        <span className="text-strong">
-          {formatCurrency(change.total.to, currency)}
-        </span>
-        . Download the new PDF to mark it sent.
-      </p>
+      <Button onClick={() => addWork.mutate()} disabled={addWork.isPending}>
+        {addWork.isPending ? (
+          <Loader2 aria-hidden className="animate-spin" />
+        ) : (
+          <Plus aria-hidden strokeWidth={1.75} />
+        )}
+        {addWork.isPending ? 'Adding…' : 'Add to draft'}
+      </Button>
     </div>
   );
 }

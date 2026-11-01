@@ -109,7 +109,7 @@ export type InvoiceStatus = z.infer<typeof schema.InvoiceStatus>;
 export type ComputedLineItem = Res<schema.ComputedLineItem>;
 export type InvoiceLineItem = Res<schema.InvoiceLineItem>;
 export type UnratedEntry = Res<schema.UnratedEntry>;
-export type DraftChange = Res<schema.DraftChange>;
+export type NewWork = Res<schema.NewWork>;
 export type DraftChoices = Res<schema.DraftChoices>;
 /** What Generate sends, and an edit of a draft sends again. */
 export interface InvoiceChoices {
@@ -225,13 +225,6 @@ export const api = {
     >,
   ) => request<TimeEntry>('PATCH', `/entries/${id}`, body),
 
-  /** Sets or clears billed elsewhere on `ids`; answers with the ones it
-   *  changed, which is what an Undo sends back. */
-  markInvoicedElsewhere: (body: {
-    ids: string[];
-    invoicedElsewhere: boolean;
-  }) => request<{ ids: string[] }>('POST', '/entries/invoiced-elsewhere', body),
-
   deleteEntry: (id: string) => request<void>('DELETE', `/entries/${id}`),
 
   /**
@@ -326,17 +319,23 @@ export const api = {
   invoice: (id: string) =>
     request<
       Invoice & {
-        /** `isNew`: on a draft, a line its last PDF didn't have. */
-        lineItems: (InvoiceLineItem & { isNew: boolean })[];
+        lineItems: InvoiceLineItem[];
         canDownload: boolean;
-        changedSinceDownload: DraftChange | null;
         unratedEntries: UnratedEntry[];
         dueBeforeIssue: { download: boolean; send: boolean };
         refuses: { download: boolean; send: boolean };
         /** A draft's, for editing it; null once issued. */
         choices: DraftChoices | null;
+        /** A draft's: the entries Mark sent locks. */
+        entryCount: number | null;
+        /** A draft's: the work in its period it doesn't hold. */
+        newWork: NewWork | null;
       }
     >('GET', `/invoices/${id}?${zone()}`),
+
+  /** Add to draft: it holds the work in its period it doesn't yet. */
+  addDraftWork: (id: string) =>
+    request<void>('POST', `/invoices/${id}/work?${zone()}`),
 
   /** No side effects — this is what the user approves before generating. */
   previewInvoice: (body: {
@@ -352,7 +351,7 @@ export const api = {
     draftId?: string;
   }) => request<InvoicePreview>('POST', '/invoices/preview', body),
 
-  /** Allocates the number and creates the draft, which bills its period's
+  /** Allocates the number and creates the draft, which holds its period's
    *  work until it is sent. */
   createInvoice: (body: InvoiceChoices) =>
     request<Invoice & { lineItems: ComputedLineItem[]; entryCount: number }>(
@@ -376,7 +375,7 @@ export const api = {
   ) =>
     request<Invoice>(
       'PATCH',
-      // A draft is sent as its period's work stands, read in its zone.
+      // A draft is sent as the work it holds stands, read in its zone.
       `/invoices/${id}/status${body.status === 'sent' ? `?${zone()}` : ''}`,
       body,
     ),

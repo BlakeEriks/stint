@@ -492,28 +492,53 @@ export function expenseView(db: Db, e: Expense): Expense {
   };
 }
 
-/** `loadBillableExpenses`: the client's expenses the draft bills, among
-    its open drafts. */
-function draftExpenses(db: Db, body: PreviewRequest) {
-  const openDrafts = db.invoices
-    .filter((i) => i.clientId === body.clientId && i.status === 'draft')
-    .map((i) => ({
-      id: i.id,
-      periodEnd: i.periodEnd,
-      excludedExpenseIds: i.excludedExpenseIds ?? [],
-    }));
-  return billableExpenses(
-    db.expenses.filter((e) => e.clientId === body.clientId),
-    {
-      id: body.draftId ?? 'new',
-      periodEnd: body.periodEnd,
-      excludedExpenseIds: body.excludedExpenseIds ?? [],
-    },
-    openDrafts,
+/** The open draft holding each one-off: the fake keeps no `draft_id`, so it
+    gives each to the draft the backfill would (`backfill_draft_work.sql`),
+    the earliest-ending one that covers its date and didn't leave it off. */
+function holder(db: Db, e: Expense) {
+  if (e.recurring || e.invoiceId) return null;
+  const drafts = db.invoices
+    .filter(
+      (i) =>
+        i.clientId === e.clientId &&
+        i.status === 'draft' &&
+        i.periodEnd >= e.spentOn! &&
+        !(i.excludedExpenseIds ?? []).includes(e.id),
+    )
+    .sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
+  return drafts[0]?.id ?? null;
+}
+
+/** The open draft holding an entry, by the same rule: the first whose
+    period, read in `tz`, it started in. */
+function entryHolder(db: Db, e: TimeEntry, clientId: string, tz: string) {
+  return (
+    db.invoices.find(
+      (i) =>
+        i.clientId === clientId &&
+        i.status === 'draft' &&
+        isBillableEntry(e, billingWindow(i.periodStart, i.periodEnd, tz)),
+    )?.id ?? null
   );
 }
 
-/** `POST /invoices/preview`: the client's unbilled work in the period. */
+/** `loadBillableExpenses` for a build: what no other draft holds. */
+function draftExpenses(db: Db, body: PreviewRequest) {
+  return billableExpenses(
+    db.expenses
+      .filter((e) => e.clientId === body.clientId)
+      .map((e) => ({ ...e, draftId: holder(db, e) })),
+    {
+      id: body.draftId,
+      periodEnd: body.periodEnd,
+      excludedExpenseIds: body.excludedExpenseIds ?? [],
+    },
+    false,
+  );
+}
+
+/** `POST /invoices/preview`: the client's work in the period that no other
+    draft holds. */
 export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
   const client = db.clients.find((c) => c.id === body.clientId);
   if (!client) return undefined;
@@ -521,7 +546,9 @@ export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
   const entries = db.entries
     .filter(
       (e) =>
-        clientOf(db, e.projectId) === client.id && isBillableEntry(e, window),
+        clientOf(db, e.projectId) === client.id &&
+        isBillableEntry(e, window) &&
+        [null, body.draftId].includes(entryHolder(db, e, client.id, tz)),
     )
     // `loadBillableEntries` reads them oldest first, which orders a line's entries.
     .sort((a, b) => at(a.startedAt) - at(b.startedAt));

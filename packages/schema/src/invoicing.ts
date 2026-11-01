@@ -124,15 +124,12 @@ export const ComputedLineItem = InvoiceLineItem.extend({
   expenseId: uuid.optional(),
 });
 
-const Change = z.object({ from: z.number(), to: z.number() });
-
-/** How a draft moved since its PDF was last rendered: what Mark sent's
- *  `DRAFT_CHANGED` carries, and the detail's `changedSinceDownload`. */
-export const DraftChange = z.object({
-  hours: Change,
-  total: Change,
-  /** What else it printed that was edited since, by name. */
-  edited: z.array(z.string()),
+/** The work in a draft's period it doesn't hold: what Add to draft adds. */
+export const NewWork = z.object({
+  entries: z.number().int(),
+  expenses: z.number().int(),
+  hours: z.number(),
+  amount: z.number(),
 });
 
 /** A billable entry on a draft that no rate prices: the draft shows without
@@ -292,7 +289,7 @@ export const Invoice = z.object({
   createdAt: iso,
 });
 
-/** A draft is derived on every read, in the zone its period's dates are
+/** A draft is priced on every read, in the zone its period's dates are
  *  read in; a draft with no zone of its own takes the read's, else UTC. */
 export const InvoiceReadQuery = z.object({ tz: ianaZone.optional() });
 
@@ -314,6 +311,6 @@ export type InvoicePreview = z.infer<typeof InvoicePreview>;
 export type Invoice = z.infer<typeof Invoice>;
 export type InvoiceLineItem = z.infer<typeof InvoiceLineItem>;
 export type ComputedLineItem = z.infer<typeof ComputedLineItem>;
-export type DraftChange = z.infer<typeof DraftChange>;
+export type NewWork = z.infer<typeof NewWork>;
 export type DraftChoices = z.infer<typeof DraftChoices>;
 export type UnratedEntry = z.infer<typeof UnratedEntry>;

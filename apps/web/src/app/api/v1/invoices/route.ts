@@ -5,7 +5,6 @@ import { parseBody, parseQuery } from '@/lib/validate';
 import {
   computeInvoice,
   deriveDraft,
-  draftOverlaps,
   loadPaymentProfile,
   requireSender,
 } from '@/lib/drafts';
@@ -37,7 +36,7 @@ export const GET = handle(async (req: Request) => {
   const { data, error } = await query;
   if (error) throw error;
 
-  // A draft's total is its period's work now.
+  // A draft's total is the work it holds, priced now.
   const invoices = await Promise.all(
     ((data ?? []) as InvoiceRow[]).map(async (r) =>
       toInvoice((await deriveDraft(db, r, q.tz))?.row ?? r),
@@ -54,13 +53,12 @@ export const GET = handle(async (req: Request) => {
  *      expenses (never trusting a preview the client may have cached).
  *   2. Refuse if any billable entry has no resolvable rate.
  *   3. Write the draft's choices and its charges through `create_invoice`,
- *      in one transaction with the gapless number. A draft claims its work
- *      only when sent.
+ *      in one transaction with the gapless number, holding the work it
+ *      built so no other draft offers it. It is billed only when sent.
  *
  * One transaction is the point of step 3. Allocating a number is not
  * undoable, so a failure after a separate allocation left a gap in a
- * sequence promised to have none — and a draft another Generate made over
- * the same dates meanwhile is exactly such a failure.
+ * sequence promised to have none.
  */
 export const POST = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
@@ -120,10 +118,11 @@ export const POST = handle(async (req: Request) => {
       tz: body.tz,
       excluded_expense_ids: body.excludedExpenseIds,
       manual_lines: body.manualLines,
+      entry_ids: computed.heldEntryIds,
+      expense_ids: computed.expenseIds,
     },
   });
 
-  draftOverlaps(error);
   if (error) throw error;
 
   const row = (Array.isArray(data) ? data[0] : data) as InvoiceRow;

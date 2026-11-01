@@ -38,7 +38,6 @@ export const Filled: Story = {
     await expect(page.getByLabelText('From')).toHaveValue('2026-08-01');
     await expect(page.getByLabelText('To')).toHaveValue('2026-08-31');
     await expect(page.queryByText(/^Numbered/)).toBeNull();
-    await expect(page.queryByText(/A draft already covers/)).toBeNull();
     await expect(page.getByText('Saving keeps its number.')).toBeVisible();
     await saved(page);
   },
