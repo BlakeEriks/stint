@@ -54,9 +54,9 @@ export function instantAt(
  * Move an entry so it starts at `start`, keeping its duration.
  *
  * The end is derived by adding the original elapsed milliseconds, not by
- * re-deriving a wall-clock time: a two-hour block dragged across a DST
- * boundary is still two hours of billable work, and re-deriving would make it
- * one or three.
+ * re-deriving a wall-clock time: a two-hour block dragged within a day that
+ * crosses a DST boundary is still two hours of billable work. A move to another
+ * day is `movedByDays`, which keeps the wall clock instead.
  */
 export function movedTo(
   startedAt: Date,
@@ -70,8 +70,10 @@ export function movedTo(
 /**
  * Move an entry `days` later (or earlier, negative), keeping its wall clock:
  * 09:00–11:00 lands on 09:00–11:00 whatever DST did between, which is what
- * the user sees in the column they dropped it on. An overnight entry moves
- * both ends, so it stays one block. An end that a skipped hour would put
+ * the user sees in the column they dropped it on. So an entry dropped across a
+ * DST change bills the hours its new times span: 23:00–03:00 over a spring
+ * forward is three, as the block the user placed shows. An overnight entry
+ * moves both ends, so it stays one block. An end that a skipped hour would put
  * within `MIN_ENTRY_MINUTES` of the start keeps the elapsed length instead.
  */
 export function movedByDays(

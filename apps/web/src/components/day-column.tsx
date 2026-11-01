@@ -90,7 +90,8 @@ export function HourGutter({
  * new entry, or the `clickMinutes` block where a click lands.
  *
  * `/calendar` draws seven of these and the dock's Today one, so the gestures
- * are the same wherever a day is drawn.
+ * are the same wherever a day is drawn, except that a move can go sideways to
+ * another day only where there is one: `/calendar`'s week.
  */
 export function DayColumn({
   positioned,

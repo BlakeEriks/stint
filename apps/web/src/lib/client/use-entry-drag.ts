@@ -18,8 +18,8 @@ import {
 import { timeZone as tz } from './use-timer';
 
 // A block is fixed where the mistake is noticed, so the gesture that writes is
-// made deliberate rather than removed: a threshold and a snap, and a move never
-// re-derives a value it was only asked to move.
+// made deliberate rather than removed: a threshold and a snap. A move within a
+// day keeps the elapsed length; a move to another day keeps the wall clock.
 
 /** What the pointer is doing to a block. */
 export type DragMode = 'move' | 'start' | 'end';
