@@ -199,7 +199,7 @@ function Row({
           <Button
             type="button"
             size="xs"
-            aria-label={`Mark ${invoice.invoiceNumber} paid`}
+            aria-label={`Mark paid, ${invoice.invoiceNumber}`}
             disabled={busy}
             onClick={onMarkPaid}
           >
