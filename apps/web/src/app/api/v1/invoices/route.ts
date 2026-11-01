@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import { handle, ApiError, dbCode, refused } from '@/lib/errors';
+import { handle, refused } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import {
   computeInvoice,
   deriveDraft,
+  draftOverlaps,
   loadPaymentProfile,
   requireSender,
 } from '@/lib/drafts';
@@ -122,16 +123,7 @@ export const POST = handle(async (req: Request) => {
     },
   });
 
-  /* One open draft per client and date, which `create_invoice` holds: two
-     would both show the same work. */
-  if (dbCode(error) === 'DRAFT_OVERLAPS') {
-    const open = JSON.parse(error!.details) as { invoiceNumber: string };
-    throw new ApiError(
-      'DRAFT_OVERLAPS',
-      `${open.invoiceNumber} is a draft for these dates already. Open it, or start after it.`,
-      open,
-    );
-  }
+  draftOverlaps(error);
   if (error) throw error;
 
   const row = (Array.isArray(data) ? data[0] : data) as InvoiceRow;

@@ -3,10 +3,17 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client/api';
 import { addDays } from '@stint/core';
 import { keys } from '@stint/client';
-import { expect, userEvent, within } from 'storybook/test';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import { type Db, id } from '@/mocks/fixtures';
-import { desktop, phone, screen, skipping, stalled } from '@/mocks/screen';
+import {
+  desktop,
+  failing,
+  phone,
+  screen,
+  skipping,
+  stalled,
+} from '@/mocks/screen';
 import { InvoiceDetail } from './invoice-detail';
 
 /* Each status offers its own actions: a draft is deleted or sent, an issued
@@ -53,6 +60,10 @@ export const Draft: Story = {
       page.getByText('Amount due').nextElementSibling,
     ).toHaveTextContent('$2,787.60');
     await expect(page.queryByText(/supporting detail/)).toBeNull();
+    await expect(page.getByRole('link', { name: 'Edit' })).toHaveAttribute(
+      'href',
+      `/invoices/${invoice(15)}/edit`,
+    );
   },
 };
 export const DraftPhone: Story = { ...phone };
@@ -64,6 +75,7 @@ const changed = paying((db) => {
   draft.changedSinceDownload = {
     hours: { from: 18.4, to: 20.9 },
     total: { from: 2512.6, to: 2787.6 },
+    edited: [],
   };
   const line = draft.lineItems[0];
   if (line) line.isNew = true;
@@ -90,6 +102,36 @@ export const DraftChanged: Story = {
   },
 };
 export const DraftChangedPhone: Story = { ...phone, parameters: changed };
+
+/* The draft as the server sends it once its notes were edited after its
+   PDF: the lines are the same. */
+const edited = paying((db) => {
+  const draft = db.invoices.find((i) => i.id === invoice(15));
+  if (!draft) return;
+  draft.changedSinceDownload = {
+    hours: { from: 20.9, to: 20.9 },
+    total: { from: 2787.6, to: 2787.6 },
+    edited: ['notes'],
+  };
+});
+
+/** Only its notes were edited since the PDF: the banner names them, not
+    the lines, and Mark sent waits for the new PDF. */
+export const DraftEdited: Story = {
+  ...desktop,
+  parameters: edited,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByText('Edited since you downloaded it'),
+    ).toBeVisible();
+    await expect(page.getByText(/^Its notes changed\./)).toBeVisible();
+    await expect(page.queryByText(/Its lines changed/)).toBeNull();
+    await expect(
+      page.getByRole('button', { name: 'Mark sent' }),
+    ).toBeDisabled();
+  },
+};
 
 /* The draft as the server sends it with work no rate prices. */
 const unrated = paying((db) => {
@@ -170,6 +212,7 @@ const changedPastDue = paying((db) => {
   draft.changedSinceDownload = {
     hours: { from: 18.4, to: 20.9 },
     total: { from: 2512.6, to: 2787.6 },
+    edited: [],
   };
   draft.dueBeforeIssue = { download: true, send: true };
 });
@@ -182,7 +225,7 @@ export const DraftChangedPastDue: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     await expect(
-      await page.findByText(/Delete this draft and generate it again/),
+      await page.findByText(/Edit this draft to give it a later due date/),
     ).toBeVisible();
     await expect(
       page.queryByText('Changed since you downloaded it'),
@@ -254,6 +297,10 @@ export const BillingNotSetUp: Story = {
   },
 };
 
+/** Where the invoice starts, below the header a confirm must not grow. */
+const below = (page: ReturnType<typeof within>) =>
+  page.getByText('Amount due').getBoundingClientRect().y;
+
 /** The first press of a destructive pair only asks; the second names it. */
 const press =
   (first: string, then?: string) =>
@@ -266,12 +313,15 @@ const press =
 export const ConfirmDelete: Story = {
   ...desktop,
   play: async (ctx) => {
+    const page = within(ctx.canvasElement);
+    await page.findByText('Amount due');
+    const before = below(page);
     await press('Delete draft')(ctx);
     await expect(
-      within(ctx.canvasElement).getByRole('button', {
-        name: 'Delete STINT-0015 for good',
-      }),
+      page.getByRole('button', { name: 'Delete STINT-0015 for good' }),
     ).toBeVisible();
+    // The confirm takes the row rather than wrapping it.
+    await expect(below(page)).toBe(before);
   },
 };
 
@@ -312,6 +362,21 @@ export const Voiding: Story = {
         name: 'Voiding…',
       }),
     ).toBeDisabled();
+  },
+};
+
+/** A refused void hands the row back, beside why it failed. */
+export const VoidRefusedPhone: Story = {
+  ...phone,
+  args: { id: invoice(14) },
+  parameters: failing('updateInvoiceStatus'),
+  play: async (ctx) => {
+    const page = within(ctx.canvasElement);
+    await press('Void', 'Void STINT-0014')(ctx);
+    await page.findByRole('alert');
+    await expect(
+      await page.findByRole('button', { name: 'Void' }),
+    ).toBeVisible();
   },
 };
 

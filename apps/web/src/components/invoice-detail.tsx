@@ -14,9 +14,17 @@ import {
   invalidateEntryData,
 } from '@stint/client';
 import { useMarkPaid } from '@/lib/client/use-mark-paid';
-import { Ban, DollarSign, Download, Lock, Send, Trash2 } from 'lucide-react';
+import {
+  Ban,
+  DollarSign,
+  Download,
+  Lock,
+  Pencil,
+  Send,
+  Trash2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ConfirmAction } from './confirm-action';
+import { ConfirmAction, confirmRow } from './confirm-action';
 import { shortDate, StatusBadge } from './invoice-bits';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
@@ -70,17 +78,23 @@ export function InvoiceDetail({ id }: { id: string }) {
 
   /* Voiding releases the entries and expenses and deleting a draft frees
      them, so every view of that work moves with the invoice. */
+  const refresh = (qc: QueryClient, deleted?: string) =>
+    Promise.all([
+      /* A deleted draft is not asked for again: it answers 404, "Invoice not
+         found", on a page still waiting on the list. */
+      qc.invalidateQueries({
+        queryKey: keys.invoices(),
+        predicate: (q) => deleted === undefined || q.queryKey[1] !== deleted,
+      }),
+      qc.invalidateQueries({ queryKey: keys.expenses() }),
+      invalidateEntryData(qc),
+    ]);
   /* Pending, not predicted: issuing assigns the number, and voiding or
      deleting can't be taken back. The page says what was refused. */
   const invoicePress = {
     queryKey: () => keys.invoices(),
     inline: true,
-    invalidate: (qc: QueryClient) =>
-      Promise.all([
-        qc.invalidateQueries({ queryKey: keys.invoices() }),
-        qc.invalidateQueries({ queryKey: keys.expenses() }),
-        invalidateEntryData(qc),
-      ]),
+    invalidate: (qc: QueryClient) => refresh(qc),
   };
 
   const setStatus = useOptimisticMutation({
@@ -91,6 +105,7 @@ export function InvoiceDetail({ id }: { id: string }) {
 
   const remove = useOptimisticMutation({
     ...invoicePress,
+    invalidate: (qc: QueryClient) => refresh(qc, id),
     mutationFn: () => api.deleteInvoice(id),
     onSuccess: () => router.push('/invoices'),
   });
@@ -139,7 +154,7 @@ function Loaded({
     isPending: boolean;
     reset: () => void;
   };
-  remove: { mutate: () => void; isPending: boolean };
+  remove: { mutate: () => void; isPending: boolean; isSuccess: boolean };
   markPaid: ReturnType<typeof useMarkPaid>;
   /* Picked ONCE by the caller. Re-evaluating `a ?? b` for the check and again
      for the message could type-check a stale error while printing a different
@@ -168,15 +183,16 @@ function Loaded({
           <StatusBadge status={invoice.status} />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className={`flex flex-wrap items-center gap-2 ${confirmRow}`}>
           {/* Deleting removes the draft and voiding can't be undone, so each
               asks first. */}
           {isDraft ? (
             <ConfirmAction
               label={`Delete ${invoice.invoiceNumber} for good`}
               pendingLabel="Deleting…"
-              consequence="Its work stays unbilled."
-              pending={remove.isPending}
+              takesRow
+              // Deleted, it stays pending until the list arrives.
+              pending={remove.isPending || remove.isSuccess}
               onConfirm={() => remove.mutate()}
             >
               <Trash2 aria-hidden strokeWidth={1.75} />
@@ -184,11 +200,21 @@ function Loaded({
             </ConfirmAction>
           ) : null}
 
+          {/* "Edit", not "Edit draft": the row stays on the title's line. */}
+          {isDraft ? (
+            <Button asChild>
+              <Link href={`/invoices/${invoice.id}/edit`}>
+                <Pencil aria-hidden strokeWidth={1.75} />
+                Edit
+              </Link>
+            </Button>
+          ) : null}
+
           {!isVoid && !isDraft ? (
             <ConfirmAction
               label={`Void ${invoice.invoiceNumber}`}
               pendingLabel="Voiding…"
-              consequence="The number stays on record, and this invoice can't be reissued."
+              takesRow
               pending={setStatus.isPending}
               onConfirm={() => setStatus.mutate({ status: 'void' })}
             >
@@ -352,6 +378,16 @@ function Changed({
   currency: string;
 }) {
   const added = change.hours.to - change.hours.from;
+  if (change.total.from === change.total.to && change.edited.length)
+    return (
+      <div role="status" className={NOTICE}>
+        <p className="type-body text-strong">Edited since you downloaded it</p>
+        <p className="type-support text-muted">
+          Its {change.edited.join(', ')} changed. Download the new PDF to mark
+          it sent.
+        </p>
+      </div>
+    );
   return (
     <div role="status" className={NOTICE}>
       <p className="type-body text-strong">Changed since you downloaded it</p>
@@ -417,7 +453,7 @@ function DueBeforeIssue({
       <p className="type-support text-muted">
         {downloaded
           ? `The due date you typed, ${shortDate(due)}, is before today, so it can’t be downloaded again. Send the PDF you downloaded, then mark it sent.`
-          : `The due date you typed, ${shortDate(due)}, is before today’s issue date, ${shortDate(issued)}, so it can’t be downloaded or sent. Delete this draft and generate it again with a later due date.`}
+          : `The due date you typed, ${shortDate(due)}, is before today’s issue date, ${shortDate(issued)}, so it can’t be downloaded or sent. Edit this draft to give it a later due date.`}
       </p>
     </div>
   );
