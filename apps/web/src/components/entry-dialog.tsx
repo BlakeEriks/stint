@@ -29,8 +29,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TaskSuggest } from '@/components/task-suggest';
 import { ProjectPicker } from '@/components/project-picker';
-import { EntryScrubber } from '@/components/entry-scrubber';
-import { useProjectColors } from '@/lib/client/use-project-colors';
 import { api, ApiError, type Project, type TimeEntry } from '@/lib/client/api';
 import { timeZone } from '@/lib/client/use-timer';
 import {
@@ -51,9 +49,6 @@ interface Draft {
   /** Set once the user changes Billable, after which a project leaves it be. */
   billableTouched: boolean;
   invoicedElsewhere: boolean;
-  /** What the strip draws: the last times with every field filled in, so
-      clearing one to retype it leaves the block where it was. */
-  drawn: { startedAt: Date; endedAt: Date };
 }
 
 /** An entry to edit, or the times a new one opens on: never neither, so
@@ -119,7 +114,7 @@ export function EntryDialog({
   }, [open, existing, seed, tz]);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
-    setDraft((d) => redrawn({ ...d, [key]: value }, tz));
+    setDraft((d) => ({ ...d, [key]: value }));
 
   /* A new entry takes the project's billable default, as a started timer
      does. An entry that exists keeps the flag the user saved, and a box the
@@ -226,8 +221,6 @@ export function EntryDialog({
   const locked = existing?.invoiceId != null;
   const busy = save.isPending || remove.isPending;
 
-  const colors = useProjectColors();
-
   return (
     <Dialog
       open={open}
@@ -308,38 +301,6 @@ export function EntryDialog({
             />
           </div>
 
-          {/* The strip and the two time fields below are ONE value with two
-              controls: a drag rewrites the fields on every pointer move, and
-              typing a time redraws the block. */}
-          <div className="flex flex-col gap-1.5">
-            {/* A caption, not a label: the scrubber it heads is
-                `aria-hidden`, so there is no control for a `<label>` to
-                name. `asChild` keeps the styling and drops the element —
-                the classes are `Label`'s own, so it is unchanged to look
-                at. */}
-            <Label asChild className={LABEL}>
-              <span>Adjust</span>
-            </Label>
-            <EntryScrubber
-              startedAt={draft.drawn.startedAt}
-              endedAt={draft.drawn.endedAt}
-              color={draft.projectId ? colors.get(draft.projectId) : undefined}
-              disabled={locked}
-              tz={tz}
-              /* The date too: a drag past midnight either way moves the
-                 day the entry starts on. */
-              onChange={({ startedAt, endedAt }) =>
-                setDraft((d) => ({
-                  ...d,
-                  date: localDateKey(startedAt, tz),
-                  start: localTimeKey(startedAt, tz),
-                  end: localTimeKey(endedAt, tz),
-                  drawn: { startedAt, endedAt },
-                }))
-              }
-            />
-          </div>
-
           <EntryTimes draft={draft} disabled={locked} set={set} />
 
           <label className="flex items-center gap-2.5 type-control text-primary">
@@ -403,7 +364,6 @@ function opening({ existing, seed }: Opens, tz: string): Draft {
     billable: existing?.isBillable ?? true,
     billableTouched: false,
     invoicedElsewhere: existing?.invoicedElsewhere ?? false,
-    drawn: { startedAt, endedAt },
   };
 }
 
@@ -420,13 +380,6 @@ function draftInstants({ date, start, end }: Draft, tz: string) {
       ? localDateTimeToInstant(addDays(date, 1), end, tz)
       : sameDay;
   return { startedAt, endedAt };
-}
-
-/** The draft with its strip redrawn from the fields, once all three hold
-    a value. */
-function redrawn(draft: Draft, tz: string): Draft {
-  if (!draft.date || !draft.start || !draft.end) return draft;
-  return { ...draft, drawn: draftInstants(draft, tz) };
 }
 
 function description(locked: boolean, invoiceNumber: string | undefined) {
