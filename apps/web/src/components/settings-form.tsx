@@ -12,8 +12,7 @@ import { parseRate, RateInput, UnitInput } from './rate-input';
 import { SaveIndicator } from './save-indicator';
 import { useAutosave } from '@/lib/client/use-autosave';
 import { TemplatePicker, useTemplateChoice } from './template-picker';
-import { ZoneSelect, zoneLabel } from './zone-select';
-import { timeZone } from '@/lib/client/use-timer';
+import { ZoneSelect } from './zone-select';
 import {
   api,
   ApiError,
@@ -180,7 +179,7 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
             id="billing-zone"
             value={form.billingTimeZone}
             onChange={(zone) => setBilling('billingTimeZone', zone)}
-            unset={`Not set: this device's, ${zoneLabel(timeZone)}`}
+            unset="Not set"
           />
         </Field>
       </Section>

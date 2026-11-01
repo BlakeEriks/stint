@@ -20,7 +20,7 @@ late-entry row reads each sent invoice's own zone.
 
 **Language/Version**: TypeScript, Next.js route handlers, React 19; SQL migrations
 
-**Primary Dependencies**: `isValidTimeZone`, `localDateKey`, `billingWindow` in `@stint/core`; Zod in `@stint/schema`; `Intl.supportedValuesOf('timeZone')` for the picker
+**Primary Dependencies**: `isValidTimeZone`, `localDateKey`, `billingWindow` in `@stint/core`; Zod in `@stint/schema`; `Intl.supportedValuesOf('timeZone')` and a new `Combobox` (shadcn's Popover + Command, adding `cmdk`) for the picker
 
 **Storage**: Supabase Postgres: one column on `user_settings`, a backfill
 
@@ -70,7 +70,7 @@ apps/web/src/lib/rows.ts              settings mapping
 apps/web/src/lib/drafts.ts            computeInvoice resolves the zone
 apps/web/src/app/api/v1/invoices/     route.ts, preview/route.ts, [id]/route.ts use it
 apps/web/src/lib/stats.ts             late entries in each invoice's zone
-apps/web/src/components/              zone-select (new), settings-form, welcome-dialog, invoice-new
+apps/web/src/components/              ui/combobox, ui/popover, ui/command (new), zone-select (new), settings-form, welcome-dialog, invoice-new
 apps/web/src/mocks/                   fixtures, handlers
 docs/api.md, docs/data-model.md
 ```

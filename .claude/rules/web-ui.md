@@ -162,8 +162,9 @@ a different order, and the ones that drifted were rebuilt:
 | A key to press | `Kbd` |
 | A short choice in a section's heading row | `SegmentedControl` |
 
-A choice in a form or dialog field is a `Select`; a row carrying a swatch, a
-second line or an `Add…` item is a `DropdownMenu`. Put a component in
+A choice in a form or dialog field is a `Select`; one too long to scan, such
+as a time zone, is a `Combobox` (`ui/combobox.tsx`), which searches; a row
+carrying a swatch, a second line or an `Add…` item is a `DropdownMenu`. Put a component in
 `components/` when a second screen needs it, not in anticipation of one.
 
 **Conventions every screen keeps:**

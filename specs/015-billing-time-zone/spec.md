@@ -31,8 +31,8 @@ on the account (PR #580, 2026-11-01).
 ## Design
 
 No design review (decided autonomously): the change is one field in a form
-that already exists, a time zone picker in Settings' Billing defaults, built
-from the select the app already uses. The screen has no choice of layout or
+that already exists, a time zone picker in Settings' Billing defaults, a
+searchable `Combobox` following shadcn/ui's pattern. The screen has no choice of layout or
 hierarchy. Its stories show every state.
 
 ## User Scenarios & Testing *(mandatory)*
@@ -175,7 +175,8 @@ Nothing a user had is lost: no client zone ever shipped.
 ## Assumptions
 
 - The zone list is the browser's IANA zones (decided autonomously): every
-  zone, labeled by its IANA name, so a user finds their city.
+  zone, labeled by its IANA name, searched by any part of it, so a user
+  finds their city.
 - An unset account zone after the backfill falls back to the device's zone
   rather than a guessed one (decided autonomously): a guess would move
   work between invoices unseen (Principle I).

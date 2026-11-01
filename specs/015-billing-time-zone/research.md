@@ -19,9 +19,9 @@
 
 ## The picker
 
-- **Decision**: The app's `Select`, listing `Intl.supportedValuesOf('timeZone')` by IANA name, with a first item for the fallback.
-- **Rationale**: Typeahead on the select finds a city; no new dependency.
-- **Alternatives considered**: A searchable combobox (a new component for one field).
+- **Decision**: A reusable `Combobox` in `components/ui`, shadcn/ui's pattern (Popover + Command over `cmdk`), listing `Intl.supportedValuesOf('timeZone')` by IANA name under a search field, capped at 18rem, with a first "Not set" item that saves null.
+- **Rationale**: About 400 zones in a `Select` that only jumps by first letters is unusable (the owner's review, PR #580). `Combobox` is the app's answer for any long choice, not a one-off; `cmdk` is a dependency, not a service, so no fixed cost.
+- **Alternatives considered**: The app's `Select` (the first build: no search, no cap); `DropdownMenu` (for actions, not a field's value).
 
 ## Late entries
 

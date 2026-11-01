@@ -29,7 +29,7 @@ Tests come first in each phase (Constitution V).
 ## Phase 4: User Story 2 — The account sets a default billing zone (P2)
 
 - [x] T014 [US2] Route tests first in apps/web/test/routes.test.ts: settings `billingTimeZone` round-trips, null clears, a bad zone is 422
-- [x] T015 [US2] apps/web/src/components/zone-select.tsx: the zone picker with a fallback item
+- [x] T015 [US2] apps/web/src/components/zone-select.tsx: the zone picker with a "Not set" item, over `Combobox` (apps/web/src/components/ui/combobox.tsx, shadcn's Popover + Command), whose stories assert search, no match, the 18rem cap, the checked option and a keyboard pick
 - [x] T016 [US2] apps/web/src/components/settings-form.tsx: Billing time zone in Billing defaults
 - [x] T017 [US2] apps/web/src/components/welcome-dialog.tsx: every way out sets an unset zone to the device's
 - [x] T018 [US2] Stories: Settings with a zone and with none set; welcome dialog's stamp
