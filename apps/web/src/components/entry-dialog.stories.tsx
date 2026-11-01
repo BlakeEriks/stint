@@ -16,8 +16,7 @@ const today = account.entries.find(
   (e) => e.taskName === 'Pairing on the ingest job' && !e.invoiceId,
 );
 
-/** Every entry is edited here: from the calendar, the dock, the inbox, and
-    the timer bar's Adjust. */
+/** Every entry is edited here: from the calendar, the dock and the inbox. */
 const meta = {
   title: 'Parts/EntryDialog',
   component: EntryDialog,
