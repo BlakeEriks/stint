@@ -3257,6 +3257,25 @@ test('an entry moved to another client leaves its draft', async () => {
   assert.equal(got.body.total, 300);
 });
 
+test('a project moved to another client takes its held entries out of the draft', async () => {
+  const r = await live();
+  await seedEntry({ id: D(1), hours: 2 });
+  await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD }));
+  await pool.query(
+    `insert into clients (id, user_id, name) values ($1, $2, 'Other')`,
+    [D(90), USER],
+  );
+  await pool.query('update projects set client_id = $1 where id = $2', [
+    D(90),
+    PROJECT,
+  ]);
+  const { rows } = await pool.query(
+    'select draft_id from time_entries where id = $1',
+    [D(1)],
+  );
+  assert.equal(rows[0].draft_id, null, 'free for the other client’s drafts');
+});
+
 test('reading a draft writes nothing', async () => {
   const r = await live();
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');

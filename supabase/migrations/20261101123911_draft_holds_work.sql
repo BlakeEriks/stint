@@ -42,6 +42,23 @@ end $$;
 create trigger t_entries_release_moved before update on time_entries
   for each row execute function release_moved_entry();
 
+-- A project moved to another client takes its entries with it, so the ones a
+-- draft of the old client holds leave that draft the same way. Expenses
+-- carry no project.
+create function release_moved_project() returns trigger
+language plpgsql as $$
+begin
+  update time_entries e set draft_id = null
+    from invoices i
+   where e.project_id = new.id
+     and i.id = e.draft_id
+     and i.client_id is distinct from new.client_id;
+  return null;
+end $$;
+create trigger t_projects_release_moved after update of client_id on projects
+  for each row when (new.client_id is distinct from old.client_id)
+  execute function release_moved_project();
+
 create function release_moved_expense() returns trigger
 language plpgsql as $$
 begin
