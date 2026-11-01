@@ -207,12 +207,23 @@ draft. Without new payment details it keeps the ones the draft has.
 
 **A draft holds work through `draft_id`**, on `time_entries` and `expenses`:
 null, or the open draft holding it, referenced **with `user_id`**
-(`time_entries_draft_same_owner`, `expenses_draft_same_owner`), and set null
-when the draft is deleted. One column is one draft, so two drafts never show
-the same work and a client may have drafts over the same dates. Holding is
-not billing: `invoice_id` alone says billed. Moving an entry's project or an
-expense's client to another client clears it (`release_moved_entry`,
-`release_moved_expense`).
+(`time_entries_draft_same_owner`, `expenses_draft_same_owner`). One column is
+one draft, so two drafts never show the same work and a client may have
+drafts over the same dates. Holding is not billing: `invoice_id` alone says
+billed. It is cleared when:
+
+- the draft is deleted (the key's `on delete set null`);
+- it is sent: `send_draft` lets go of everything the draft held, billed or
+  not;
+- an edit rebuilds it: `update_draft` lets go of what the new build left
+  out;
+- the work moves to another client: an entry's project
+  (`release_moved_entry`), the whole project (`release_moved_project`, for
+  each of its entries), or an expense's client (`release_moved_expense`).
+
+An entry made non-billable or marked billed elsewhere stays held but is
+priced on no draft; `send_draft` then lets go of it. A deleted entry is
+simply gone.
 
 ### `expenses`
 A cost the contractor paid that a client reimburses. It has an amount and no
@@ -329,7 +340,7 @@ exception. An edit to unbilled work shows on the next read of any draft.
 ### Work invoiced elsewhere
 `time_entries.invoiced_elsewhere` marks work already billed from another tool:
 history an import brought in, or an entry the user marks in the entry
-dialog. One a draft holds leaves it. It counts as **earned** and is never **unbilled**:
+dialog. One a draft holds stays held but leaves its lines. It counts as **earned** and is never **unbilled**:
 `unbilled_by_client`, invoice generation and the inbox's uninvoiced rows all
 skip it. It is a flag, not an invoice, so it takes no number and appears in
 no invoice list, and the entry stays editable. `entry_billed_once` refuses

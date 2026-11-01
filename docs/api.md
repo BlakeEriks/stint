@@ -294,8 +294,11 @@ stores it. On `GET /invoices`, `GET /invoices/:id`, `/pdf`, `/status` and `POST
 /invoices/:id`, `POST /invoices/:id/work`) holds its period's billable work
 and one-off expenses that no other draft holds, so two drafts never show the
 same work, and work logged later joins only when the owner adds it. Holding
-is not billing: held work still reads as unbilled everywhere else. Moving an
-entry or expense to another client lets go of it.
+is not billing: held work still reads as unbilled everywhere else. A draft
+lets go of its work when it is deleted or sent, when an edit's build leaves
+it out, and when the work moves to another client, whether an entry's
+project, a whole project, or an expense's client moves
+([data model](data-model.md#invoices--invoice_line_items)).
 
 **Status transitions are constrained:** draft→sent/void, sent→paid/void,
 paid→void. `void` is terminal, and setting a status to its current value is a
