@@ -48,6 +48,26 @@ this?" from that form.
   client holds. No check that the PDF is current remains. (decided
   autonomously)
 
+## Design
+
+[draft.html](design/draft.html)
+
+- **One screen**: New invoice and a draft are the same page: the form on
+  the left, the invoice on the right; stacked on a phone.
+- **No client yet**: titled New invoice, only the Client picker, no actions.
+  The hint says picking a client starts the draft and it saves as you go.
+- **Saved**: titled with the draft's number, the Draft badge and a quiet
+  "Saved". Actions: Discard draft (danger ghost), Mark sent, Download PDF
+  (primary). The hint says it holds the work it shows.
+- **New work**: a notice under the hint, above the invoice, edged in the
+  warning color: "2 new entries, 2.50h, in this period", its amount, and that
+  they stay off unless added. Its one button, Add to draft, adds all of it.
+- **Mark sent asking**: the action row becomes "Lock 14 entries · $4,155.00"
+  (primary) and "Keep as draft"; the hint says marking it sent locks its
+  entries.
+- **Nothing to bill**: the invoice says nothing to bill in its period yet;
+  Mark sent and Download PDF are disabled.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - A draft holds what you built (Priority: P1)
