@@ -70,17 +70,23 @@ export function InvoiceDetail({ id }: { id: string }) {
 
   /* Voiding releases the entries and expenses and deleting a draft frees
      them, so every view of that work moves with the invoice. */
+  const refresh = (qc: QueryClient, deleted?: string) =>
+    Promise.all([
+      /* A deleted draft is not asked for again: it answers 404, "Invoice not
+         found", on a page still waiting on the list. */
+      qc.invalidateQueries({
+        queryKey: keys.invoices(),
+        predicate: (q) => deleted === undefined || q.queryKey[1] !== deleted,
+      }),
+      qc.invalidateQueries({ queryKey: keys.expenses() }),
+      invalidateEntryData(qc),
+    ]);
   /* Pending, not predicted: issuing assigns the number, and voiding or
      deleting can't be taken back. The page says what was refused. */
   const invoicePress = {
     queryKey: () => keys.invoices(),
     inline: true,
-    invalidate: (qc: QueryClient) =>
-      Promise.all([
-        qc.invalidateQueries({ queryKey: keys.invoices() }),
-        qc.invalidateQueries({ queryKey: keys.expenses() }),
-        invalidateEntryData(qc),
-      ]),
+    invalidate: (qc: QueryClient) => refresh(qc),
   };
 
   const setStatus = useOptimisticMutation({
@@ -91,6 +97,7 @@ export function InvoiceDetail({ id }: { id: string }) {
 
   const remove = useOptimisticMutation({
     ...invoicePress,
+    invalidate: (qc: QueryClient) => refresh(qc, id),
     mutationFn: () => api.deleteInvoice(id),
     onSuccess: () => router.push('/invoices'),
   });
@@ -139,7 +146,7 @@ function Loaded({
     isPending: boolean;
     reset: () => void;
   };
-  remove: { mutate: () => void; isPending: boolean };
+  remove: { mutate: () => void; isPending: boolean; isSuccess: boolean };
   markPaid: ReturnType<typeof useMarkPaid>;
   /* Picked ONCE by the caller. Re-evaluating `a ?? b` for the check and again
      for the message could type-check a stale error while printing a different
@@ -176,7 +183,8 @@ function Loaded({
               label={`Delete ${invoice.invoiceNumber} for good`}
               pendingLabel="Deleting…"
               consequence="Its work stays unbilled."
-              pending={remove.isPending}
+              // Deleted, it stays pending until the list arrives.
+              pending={remove.isPending || remove.isSuccess}
               onConfirm={() => remove.mutate()}
             >
               <Trash2 aria-hidden strokeWidth={1.75} />
