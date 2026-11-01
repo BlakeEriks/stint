@@ -16,8 +16,7 @@ const today = account.entries.find(
   (e) => e.taskName === 'Pairing on the ingest job' && !e.invoiceId,
 );
 
-/** Every entry is edited here: from the calendar, the dock, the inbox, and
-    the timer bar's Adjust. The strip and the time fields are one value. */
+/** Every entry is edited here: from the calendar, the dock and the inbox. */
 const meta = {
   title: 'Parts/EntryDialog',
   component: EntryDialog,
@@ -42,23 +41,23 @@ export const Edit: Story = {
 };
 export const EditPhone: Story = { ...phone };
 
-/** A new entry: no strip, and the task field suggests. */
-export const Add: Story = { ...desktop, args: { existing: undefined } };
+/** Drawn or clicked on a grid: that time, prefilled. */
+const drawn = {
+  startedAt: '2026-09-17T20:00:00.000Z',
+  endedAt: '2026-09-17T21:00:00.000Z',
+};
 
-/** Opened from a time on the calendar: that hour, prefilled. */
-export const AddFromCalendar: Story = {
+export const Add: Story = {
   ...desktop,
-  args: {
-    existing: undefined,
-    seed: {
-      startedAt: '2026-09-17T20:00:00.000Z',
-      endedAt: '2026-09-17T21:00:00.000Z',
-    },
+  args: { existing: undefined, seed: drawn },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(await page.findByLabelText('Start')).toHaveValue('16:00');
   },
 };
 
-/** On an issued invoice: read-only, the handles gone, and the invoice to
-    void named. It's on an invoice, so it can't be billed elsewhere too. */
+/** On an issued invoice: read-only, and the invoice to void named. It's on
+    an invoice, so it can't be billed elsewhere too. */
 export const Locked: Story = {
   ...desktop,
   args: { existing: on(13) },
@@ -138,23 +137,10 @@ export const Saving: Story = {
   },
 };
 
-/** An end before the start is the next morning: the strip steps aside. */
-export const Overnight: Story = {
-  ...desktop,
-  args: {
-    existing: today && {
-      ...today,
-      startedAt: '2026-09-17T02:00:00.000Z',
-      endedAt: '2026-09-17T06:00:00.000Z',
-      durationSeconds: 4 * 3600,
-    },
-  },
-};
-
 /** A new entry's task field suggests, and the list overlays the fields. */
 export const Suggestions: Story = {
   ...desktop,
-  args: { existing: undefined },
+  args: { existing: undefined, seed: drawn },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.type(

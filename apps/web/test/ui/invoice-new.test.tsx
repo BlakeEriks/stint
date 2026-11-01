@@ -10,12 +10,13 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { addDays, localDateKey } from '@stint/core';
-import { NewInvoice } from '@/components/invoice-new';
+import { linkedDraft, NewInvoice } from '@/components/invoice-new';
 
 const push = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, back: vi.fn() }),
   usePathname: () => '/invoices/new',
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -146,8 +147,19 @@ const WITH_EXPENSE = {
   total: 574,
 };
 
+/** An earlier invoice of every entry, which most tests open on. */
+const EARLIER = {
+  id: 'inv-0',
+  clientId: 'c1',
+  status: 'paid',
+  groupingMode: 'entry',
+  summaryText: null,
+  supportingDetail: null,
+  reference: null,
+};
+
 /** The client's invoices, newest first, as the list serves them. */
-let invoices: unknown[] = [];
+let invoices: unknown[] = [EARLIER];
 /** A held invoice list: a test answers it after the form has settled. */
 let holdInvoices: Promise<void> | null = null;
 
@@ -262,7 +274,7 @@ beforeEach(() => {
   settings = SETTINGS;
   CLIENTS[0]!.paymentTermsDays = null;
   holdSettings = null;
-  invoices = [];
+  invoices = [EARLIER];
   holdInvoices = null;
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -658,17 +670,23 @@ describe('NewInvoice — from the client’s last invoice', () => {
     );
   });
 
-  it('opens every entry when the last invoice was not a summary', async () => {
-    invoices = [sent(null)];
+  // What it shows is the FromLastByTask story's; this is what it sends.
+  it('sends the last invoice’s grouping and reference, whatever it was', async () => {
+    invoices = [
+      { ...sent(null), groupingMode: 'task', reference: 'SOW 12' },
+      sent('Consulting'),
+    ];
     serve();
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
 
     await ready(user);
-    expect(
-      screen.getByRole('button', { name: 'Show time as' }),
-    ).toHaveTextContent('Every entry');
-    expect(screen.queryByLabelText(/Summary line/)).toBeNull();
+    expect(previews().every((p) => p.body.groupingMode === 'task')).toBe(true);
+    await user.click(generate());
+    await waitFor(() => expect(push).toHaveBeenCalled());
+    const made = bodies.find((b) => b.path.endsWith('/invoices'))!.body;
+    expect(made.groupingMode).toBe('task');
+    expect(made.reference).toBe('SOW 12');
   });
 });
 
@@ -912,5 +930,31 @@ describe('NewInvoice — expenses, charges and payment details', () => {
     expect(
       bodies.find((b) => b.path.endsWith('/invoices'))!.body.paymentProfileId,
     ).toBe('pp2');
+  });
+});
+
+describe('A link to New invoice', () => {
+  const link = (q: string) => linkedDraft(new URLSearchParams(q), CLIENTS);
+
+  it('ignores a client it does not know, and dates that are not a period', () => {
+    expect(link('client=nope&from=2026-09-01&to=2026-09-30')).toMatchObject({
+      clientId: '',
+    });
+    for (const q of [
+      'client=c1&from=2026-09-30&to=2026-09-01',
+      'client=c1&from=2026-09-01',
+      'client=c1&from=Sept&to=2026-09-30',
+      'client=c1&from=2026-02-30&to=2026-03-01',
+    ])
+      expect(link(q)).toMatchObject({
+        clientId: 'c1',
+        periodStart: null,
+        periodEnd: null,
+      });
+    expect(link('')).toMatchObject({
+      clientId: '',
+      periodStart: null,
+      periodEnd: null,
+    });
   });
 });

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { shortDate } from './invoice-bits';
 import {
@@ -104,13 +104,13 @@ interface Draft {
   /** `null` until the user picks one, so it follows the payment terms the
    *  invoice prints. */
   dueDate: string | null;
-  /** The PO, contract or SOW. It decides no line, so it never asks the
-   *  server again. */
-  reference: string;
   /** Printed on this invoice only; blank prints nothing. */
   notes: string;
-  /* These three are `null` until the user sets them, so they follow the
+  /* These four are `null` until the user sets them, so they follow the
      client's last invoice. */
+  /** The PO, contract or SOW. It decides no line, so it never asks the
+   *  server again. */
+  reference: string | null;
   groupingMode: GroupingMode | null;
   /** The one line's text with `summary`. */
   summaryText: string | null;
@@ -129,7 +129,7 @@ const EMPTY: Draft = {
   periodStart: null,
   periodEnd: null,
   dueDate: null,
-  reference: '',
+  reference: null,
   notes: '',
   groupingMode: null,
   summaryText: null,
@@ -138,6 +138,33 @@ const EMPTY: Draft = {
   excludedExpenseIds: [],
   paymentProfileId: '',
 };
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const isDate = (d: string | null): d is string =>
+  d !== null &&
+  DATE.test(d) &&
+  new Date(`${d}T00:00:00Z`).toISOString().startsWith(d);
+
+/**
+ * The draft a link opens with: `?client=…&from=…&to=…`, as the Inbox's row
+ * for a client ready to invoice sends. A client not in `clients`,
+ * or dates that aren't a period, are left out, so the form opens as usual.
+ */
+export function linkedDraft(
+  params: URLSearchParams,
+  clients: Pick<Client, 'id'>[],
+): Draft {
+  const client = params.get('client');
+  const from = params.get('from');
+  const to = params.get('to');
+  const period = isDate(from) && isDate(to) && from <= to;
+  return {
+    ...EMPTY,
+    clientId: clients.some((c) => c.id === client) ? client! : '',
+    periodStart: period ? from : null,
+    periodEnd: period ? to : null,
+  };
+}
 
 /** A draft as `GET /invoices/:id` answers it, which an edit opens. */
 type Edited = Awaited<ReturnType<typeof api.invoice>>;
@@ -219,16 +246,15 @@ function ScheduleHint({
   );
 }
 
-/** What a client's last invoice carries into the next: a summary's text and
- *  attachments, so a monthly invoice isn't retyped. */
-const carriedFrom = (last: Invoice | undefined) =>
-  last?.groupingMode === 'summary'
-    ? {
-        groupingMode: last.groupingMode,
-        summaryText: last.summaryText ?? '',
-        schedules: attachedSchedules(last.supportingDetail),
-      }
-    : { groupingMode: 'entry' as const, summaryText: '', schedules: [] };
+/** What a client's last invoice carries into the next, so a monthly invoice
+ *  isn't retyped. A first invoice is one summary line: itemizing is the
+ *  exception. */
+const carriedFrom = (last: Invoice | undefined) => ({
+  groupingMode: last?.groupingMode ?? 'summary',
+  summaryText: last?.summaryText ?? '',
+  schedules: attachedSchedules(last?.supportingDetail ?? null),
+  reference: last?.reference ?? '',
+});
 
 /** `key` `'new'` adds the charge; any other replaces the charge it names. */
 const putCharge = (
@@ -256,6 +282,7 @@ function useCarried(draft: Draft) {
     lastPending: lastInvoice.isPending,
     groupingMode,
     summaryText: draft.summaryText ?? carried.summaryText,
+    reference: draft.reference ?? carried.reference,
     schedules:
       groupingMode === 'summary' ? (draft.schedules ?? carried.schedules) : [],
   };
@@ -371,6 +398,9 @@ function useSettled<T>(value: T, ms: number): T {
  * server's current answer.
  */
 export function NewInvoice() {
+  /* Keyed by the link: the Inbox stays reachable here, so a row pressed on
+     this page changes the address and must open its own draft. */
+  const params = useSearchParams();
   /* The form paints once, its client list, terms and payment profiles in
      place; what a chosen client then loads fills in as it is asked for. The
      back link is the frame, so it stands while they load. */
@@ -388,7 +418,14 @@ export function NewInvoice() {
   });
   return (
     <DetailPage back="/invoices" label="Invoices" workspace fills>
-      <Listing query={[clients, settings, profiles]}>{() => <Form />}</Listing>
+      <Listing query={[clients, settings, profiles]}>
+        {([c]) => (
+          <Form
+            key={params.toString()}
+            initial={linkedDraft(params, c.clients)}
+          />
+        )}
+      </Listing>
     </DetailPage>
   );
 }
@@ -468,7 +505,7 @@ function Form({
       queryFn: () => api.paymentProfiles(),
     }).data?.paymentProfiles ?? [];
 
-  const { lastPending, groupingMode, summaryText, schedules } =
+  const { lastPending, groupingMode, summaryText, schedules, reference } =
     useCarried(draft);
   const { periodStart, periodEnd } = periodOf(draft, client, issued);
   const waiting = useWaitingExpenses(draft.clientId, periodEnd);
@@ -526,7 +563,7 @@ function Form({
         // Only a typed one: otherwise the terms date it from the day it is
         // sent.
         dueDate: draft.dueDate ?? undefined,
-        reference: draft.reference.trim() || undefined,
+        reference: reference.trim() || undefined,
         notes: draft.notes.trim() || undefined,
         // The profile the card shows, frozen as it is now; none keeps a
         // draft's.
@@ -781,7 +818,7 @@ function Form({
               <Field label="Reference" htmlFor="inv-reference">
                 <Input
                   id="inv-reference"
-                  value={draft.reference}
+                  value={reference}
                   onChange={(e) => set('reference', e.target.value)}
                   placeholder="PO number, contract or SOW"
                   maxLength={200}
@@ -792,19 +829,25 @@ function Form({
               )}
             </div>
 
-            <Field label="Show time as" htmlFor="inv-group">
-              <GroupingPicker
-                value={groupingMode}
-                onChange={(mode) => set('groupingMode', mode)}
-              />
-              {groupingMode === 'summary' ? (
-                <SummaryLineField
-                  value={summaryText}
-                  missing={noSummaryText}
-                  onChange={(v) => set('summaryText', v)}
+            {/* Shown once the client's last invoice says its format, so a
+                carried grouping never flips in after a default. */}
+            {lastPending ? null : (
+              <Field label="Show time as" htmlFor="inv-group">
+                <GroupingPicker
+                  value={groupingMode}
+                  onChange={(mode) => set('groupingMode', mode)}
                 />
-              ) : null}
-            </Field>
+                {groupingMode === 'summary' ? (
+                  <SummaryLineField
+                    value={summaryText}
+                    missing={
+                      noSummaryText && draft.clientId !== '' && !lastPending
+                    }
+                    onChange={(v) => set('summaryText', v)}
+                  />
+                ) : null}
+              </Field>
+            )}
 
             {client ? (
               <Field label="Expenses">
@@ -855,7 +898,7 @@ function Form({
 
             {/* Only a summary has detail to support: every other grouping
                 already breaks the time down on the invoice. */}
-            {groupingMode === 'summary' ? (
+            {!lastPending && groupingMode === 'summary' ? (
               <ScheduleChecklist
                 value={schedules}
                 onChange={(v) => set('schedules', v)}
@@ -881,7 +924,7 @@ function Form({
               number={number}
               issued={issued}
               due={due}
-              reference={draft.reference.trim()}
+              reference={reference.trim()}
               notes={draft.notes.trim()}
               payment={payment}
               schedules={schedules}

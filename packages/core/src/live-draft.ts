@@ -5,6 +5,7 @@
  * sent is surfaced rather than billed on whichever invoice comes next.
  */
 
+import { type BillingSchedule, lastEndedPeriod } from './billing-period.ts';
 import { addDays, localDateKey } from './calendar.ts';
 import { hundredths, type LineItem, termsDays } from './invoice.ts';
 
@@ -192,6 +193,59 @@ export function lateEntries(
         : [];
     })
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+}
+
+interface DueInputs {
+  /** The user's active clients; `schedule` null when none is set. */
+  clients: { id: string; name: string; schedule: BillingSchedule | null }[];
+  /** Finished entries on no invoice and not billed elsewhere. */
+  entries: Omit<LateCandidate, 'taskName'>[];
+  /** The user's non-void invoices: callers leave the void ones out. */
+  invoices: { clientId: string; periodStart: string; periodEnd: string }[];
+}
+
+/**
+ * Clients ready to invoice, one row each by name: those with a schedule whose
+ * most recent ended period holds billable work and overlaps none of
+ * `invoices`. An overlapping draft would refuse that period, and a sent or
+ * paid one holds `lateEntries()`' work.
+ */
+export function unbilledDue(
+  { clients, entries, invoices }: DueInputs,
+  today: string,
+  tz: string,
+) {
+  return clients
+    .flatMap((c) => {
+      if (!c.schedule) return [];
+      const period = lastEndedPeriod(today, c.schedule);
+      const invoiced = invoices.some(
+        (i) =>
+          i.clientId === c.id &&
+          i.periodStart <= period.periodEnd &&
+          period.periodStart <= i.periodEnd,
+      );
+      if (invoiced) return [];
+      const work = entries.filter((e) => {
+        const day = localDateKey(new Date(e.startedAt), tz);
+        return (
+          e.isBillable &&
+          e.clientId === c.id &&
+          period.periodStart <= day &&
+          day <= period.periodEnd
+        );
+      });
+      if (work.length === 0) return [];
+      return [
+        {
+          clientId: c.id,
+          clientName: c.name,
+          seconds: work.reduce((t, e) => t + e.durationSeconds, 0),
+          ...period,
+        },
+      ];
+    })
+    .sort((a, b) => a.clientName.localeCompare(b.clientName));
 }
 
 export interface OpenDraft {

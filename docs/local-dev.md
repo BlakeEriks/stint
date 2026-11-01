@@ -220,9 +220,10 @@ of bank details (the default, and the one Meridian Labs points at), and two
 expenses waiting on Northwind's next invoice, one recurring.
 
 **It creates the inbox rows that cannot be produced by using the app for ten
-minutes**: an overdue invoice needs 37 days to elapse, a stale draft 7. The
+minutes**: an overdue invoice needs 37 days to elapse, a stale draft 7, a client ready to
+invoice a billing period's end. The
 script backdates them instead. The table in the comment on
-`OVERDUE_DAYS` in `scripts/seed-account.mjs` lists the four conditions and the thresholds each
+`OVERDUE_DAYS` in `scripts/seed-account.mjs` lists the five conditions and the thresholds each
 is checked against — and it overshoots each one, so the seed never sits on a
 boundary a timezone could round the wrong way. The default-rate row is the
 one it leaves out, since the seed sets a rate: `--scenario first-signin`

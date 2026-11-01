@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePrefetchInvoices } from '@/lib/client/prefetch-invoices';
 import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useMarkPaid } from '@/lib/client/use-mark-paid';
@@ -41,6 +42,7 @@ export function InvoiceList() {
     queryFn: () => api.invoices(),
     select: (r) => r.invoices,
   });
+  usePrefetchInvoices(query.data);
   const clientQuery = useQuery({
     queryKey: keys.clients({ archived: true }),
     queryFn: () => api.clients({ includeArchived: true }),
