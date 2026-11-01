@@ -8,7 +8,14 @@ import { keys } from '@stint/client';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import { type Db, id } from '@/mocks/fixtures';
-import { desktop, phone, screen, skipping, stalled } from '@/mocks/screen';
+import {
+  desktop,
+  failing,
+  phone,
+  screen,
+  skipping,
+  stalled,
+} from '@/mocks/screen';
 import { InvoiceDetail } from './invoice-detail';
 
 /* Each status offers its own actions: a draft is deleted or sent, an issued
@@ -312,6 +319,10 @@ export const BillingNotSetUp: Story = {
   },
 };
 
+/** Where the invoice starts, below the header a confirm must not grow. */
+const below = (page: ReturnType<typeof within>) =>
+  page.getByText('Amount due').getBoundingClientRect().y;
+
 /** The first press of a destructive pair only asks; the second names it. */
 const press =
   (first: string, then?: string) =>
@@ -327,12 +338,15 @@ const press =
 export const ConfirmDelete: Story = {
   ...desktop,
   play: async (ctx) => {
+    const page = within(ctx.canvasElement);
+    await page.findByText('Amount due');
+    const before = below(page);
     await press('Delete draft')(ctx);
     await expect(
-      within(ctx.canvasElement).getByRole('button', {
-        name: 'Delete STINT-0015 for good',
-      }),
+      page.getByRole('button', { name: 'Delete STINT-0015 for good' }),
     ).toBeVisible();
+    // The confirm takes the row rather than wrapping it.
+    await expect(below(page)).toBe(before);
   },
 };
 
@@ -373,6 +387,21 @@ export const Voiding: Story = {
         name: 'Voiding…',
       }),
     ).toBeDisabled();
+  },
+};
+
+/** A refused void hands the row back, beside why it failed. */
+export const VoidRefusedPhone: Story = {
+  ...phone,
+  args: { id: invoice(14) },
+  parameters: failing('updateInvoiceStatus'),
+  play: async (ctx) => {
+    const page = within(ctx.canvasElement);
+    await press('Void', 'Void STINT-0014')(ctx);
+    await page.findByRole('alert');
+    await expect(
+      await page.findByRole('button', { name: 'Void' }),
+    ).toBeVisible();
   },
 };
 

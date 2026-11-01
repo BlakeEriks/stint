@@ -253,9 +253,7 @@ describe('InvoiceDetail', () => {
     show();
 
     await user.click(await screen.findByRole('button', { name: 'Void' }));
-    const confirm = screen.getByRole('button', { name: 'Void INV-13' });
-    expect(confirm).toHaveFocus();
-    expect(confirm).toHaveAccessibleDescription(/can't be reissued/);
+    expect(screen.getByRole('button', { name: 'Void INV-13' })).toHaveFocus();
 
     await user.click(screen.getByRole('button', { name: 'Keep' }));
     expect(screen.getByRole('button', { name: 'Void' })).toHaveFocus();

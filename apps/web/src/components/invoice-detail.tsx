@@ -16,7 +16,7 @@ import {
 import { useMarkPaid } from '@/lib/client/use-mark-paid';
 import { Ban, DollarSign, Download, Lock, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ConfirmAction } from './confirm-action';
+import { ConfirmAction, confirmRow } from './confirm-action';
 import { shortDate, StatusBadge } from './invoice-bits';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
@@ -226,14 +226,14 @@ function Header({
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className={`flex flex-wrap items-center gap-2 ${confirmRow}`}>
         {/* Deleting removes the draft and voiding can't be undone, so each
             asks first. */}
         {isDraft ? (
           <ConfirmAction
             label={`Delete ${number} for good`}
             pendingLabel="Deleting…"
-            consequence="Its work stays unbilled."
+            takesRow
             // Deleted, it stays pending until the list arrives.
             pending={remove.isPending || remove.isSuccess}
             disabled={!ready}
@@ -248,7 +248,7 @@ function Header({
           <ConfirmAction
             label={`Void ${number}`}
             pendingLabel="Voiding…"
-            consequence="The number stays on record, and this invoice can't be reissued."
+            takesRow
             pending={setStatus.isPending}
             disabled={!ready}
             onConfirm={() => setStatus.mutate({ status: 'void' })}
