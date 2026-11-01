@@ -229,9 +229,9 @@ test('draftDates: sending keeps the dates its last PDF printed', () => {
 
 /* unbilledDue(): on Oct 3 unless a row says otherwise, Northwind (c1) bills
    monthly and Acme (c2) has no schedule. Each row reads
-   "client ids since from..to [one] seconds". */
-const work = (id: string, startedAt: string, clientId = 'c1', hours = 1) =>
-  entry({ id, startedAt, clientId, durationSeconds: hours * 3600 });
+   "client from..to seconds". */
+const work = (startedAt: string, clientId = 'c1', hours = 1) =>
+  entry({ startedAt, clientId, durationSeconds: hours * 3600 });
 const inv = (
   status: string,
   periodStart: string,
@@ -239,11 +239,8 @@ const inv = (
   clientId = 'c1',
 ) => ({ clientId, status, periodStart, periodEnd });
 const sep = (status: string) => inv(status, '2026-09-01', '2026-09-30');
-const NW_SEP = 'Northwind e1 since 2026-09-20 2026-09-01..2026-09-30 one 3600';
-const acme = (today: string) => ({
-  entries: [work('e1', '2026-10-10T15:00:00Z', 'c2')],
-  today,
-});
+const NW_SEP = 'Northwind 2026-09-01..2026-09-30 3600';
+const IN_SEP = '2026-09-20T15:00:00Z';
 
 const DUE: {
   name: string;
@@ -253,81 +250,56 @@ const DUE: {
   due: string[];
 }[] = [
   {
-    name: 'the last ended period',
-    entries: [work('e1', '2026-09-20T15:00:00Z', 'c1', 2)],
-    due: ['Northwind e1 since 2026-09-20 2026-09-01..2026-09-30 one 7200'],
+    name: 'the most recent ended period, its work added up',
+    entries: [work(IN_SEP, 'c1', 2), work('2026-09-21T15:00:00Z')],
+    due: ['Northwind 2026-09-01..2026-09-30 10800'],
   },
   {
-    name: 'every ended period in one row, not the open one',
-    entries: [
-      work('e1', '2026-08-03T15:00:00Z'),
-      work('e2', '2026-09-20T15:00:00Z'),
-      work('e3', '2026-10-01T15:00:00Z'),
-    ],
-    due: ['Northwind e1,e2 since 2026-08-03 2026-08-01..2026-09-30 7200'],
+    name: 'not an earlier period, nor the open one',
+    entries: [work('2026-08-20T15:00:00Z'), work('2026-10-01T15:00:00Z')],
+    due: [],
   },
   {
-    name: 'the link spans the oldest adjacent periods, not an invoiced gap',
-    entries: [
-      work('e1', '2026-07-20T15:00:00Z'),
-      work('e2', '2026-08-20T15:00:00Z'),
-      work('e4', '2026-10-20T15:00:00Z'),
-    ],
-    invoices: [sep('sent')],
+    name: 'gone once the next period ends',
+    entries: [work(IN_SEP)],
     today: '2026-11-03',
-    due: ['Northwind e1,e2,e4 since 2026-07-20 2026-07-01..2026-08-31 10800'],
+    due: [],
   },
-  {
-    name: 'unscheduled, the link stops at an invoice between the days',
-    entries: [
-      work('e1', '2026-07-10T15:00:00Z', 'c2'),
-      work('e2', '2026-07-12T15:00:00Z', 'c2'),
-      work('e3', '2026-08-20T15:00:00Z', 'c2'),
-    ],
-    invoices: [inv('draft', '2026-08-01', '2026-08-15', 'c2')],
-    due: ['Acme e1,e2,e3 since 2026-07-10 2026-07-10..2026-07-12 10800'],
-  },
-  { name: 'unscheduled at 29 days', ...acme('2026-11-08'), due: [] },
-  { name: 'unscheduled at 30 days', ...acme('2026-11-09'), due: [] },
-  {
-    name: 'unscheduled at 31 days',
-    ...acme('2026-11-10'),
-    due: ['Acme e1 since 2026-10-10 2026-10-10..2026-10-10 3600'],
-  },
+  { name: 'a client with no schedule', entries: [work(IN_SEP, 'c2')], due: [] },
   {
     name: 'non-billable work, and work of no client',
     entries: [
-      entry({ startedAt: '2026-09-20T15:00:00Z', isBillable: false }),
-      entry({ startedAt: '2026-09-20T15:00:00Z', clientId: null }),
+      entry({ startedAt: IN_SEP, isBillable: false }),
+      entry({ startedAt: IN_SEP, clientId: null }),
     ],
     due: [],
   },
   {
     name: "dated in the user's zone: 03:00 UTC Oct 1 is Sep 30",
-    entries: [work('e1', '2026-10-01T03:00:00Z')],
-    due: ['Northwind e1 since 2026-09-30 2026-09-01..2026-09-30 one 3600'],
+    entries: [work('2026-10-01T03:00:00Z')],
+    due: [NW_SEP],
   },
   ...['draft', 'sent', 'paid'].map((status) => ({
     name: `inside a ${status} invoice`,
-    entries: [work('e1', '2026-09-20T15:00:00Z')],
+    entries: [work(IN_SEP)],
     invoices: [sep(status)],
     due: [],
   })),
   {
     name: 'inside a void invoice',
-    entries: [work('e1', '2026-09-20T15:00:00Z')],
+    entries: [work(IN_SEP)],
     invoices: [sep('void')],
     due: [NW_SEP],
   },
   {
     name: "inside another client's invoice",
-    entries: [work('e1', '2026-09-20T15:00:00Z')],
+    entries: [work(IN_SEP)],
     invoices: [inv('paid', '2026-09-01', '2026-09-30', 'c2')],
     due: [NW_SEP],
   },
   {
     name: 'beside an invoice, not inside it',
-    entries: [work('e1', '2026-09-20T15:00:00Z')],
+    entries: [work(IN_SEP)],
     invoices: [inv('paid', '2026-09-01', '2026-09-15')],
     due: [NW_SEP],
   },
@@ -337,21 +309,10 @@ const DUE: {
     invoices: [inv('sent', '2026-09-16', '2026-09-30')],
     due: [],
   },
-  {
-    name: 'one row per client, oldest work first',
-    entries: [
-      work('e1', '2026-08-20T15:00:00Z', 'c1'),
-      work('e2', '2026-08-25T15:00:00Z', 'c2'),
-    ],
-    due: [
-      'Northwind e1 since 2026-08-20 2026-08-01..2026-08-31 one 3600',
-      'Acme e2 since 2026-08-25 2026-08-25..2026-08-25 3600',
-    ],
-  },
 ];
 
 for (const row of DUE)
-  test(`work past due to bill: ${row.name}`, () => {
+  test(`ready to invoice: ${row.name}`, () => {
     const rows = unbilledDue(
       {
         clients: [
@@ -366,8 +327,7 @@ for (const row of DUE)
     );
     assert.deepEqual(
       rows.map(
-        (r) =>
-          `${r.clientName} ${r.entryIds.join(',')} since ${r.since} ${r.periodStart}..${r.periodEnd}${r.onePeriod ? ' one' : ''} ${r.seconds}`,
+        (r) => `${r.clientName} ${r.periodStart}..${r.periodEnd} ${r.seconds}`,
       ),
       row.due,
     );

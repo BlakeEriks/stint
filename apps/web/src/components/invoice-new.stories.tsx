@@ -191,7 +191,7 @@ export const WeeklyDefaults: Story = {
   },
 };
 
-/** Opened from the Inbox's row for a period that ended with no invoice:
+/** Opened from the Inbox's row for a client ready to invoice:
     the client and period are filled in, and nothing is made yet. */
 export const FromInboxLink: Story = {
   ...desktop,

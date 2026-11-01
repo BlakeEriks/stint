@@ -146,7 +146,7 @@ const isDate = (d: string | null): d is string =>
 
 /**
  * The draft a link opens with: `?client=…&from=…&to=…`, as the Inbox's row
- * for a period that ended with no invoice sends. A client not in `clients`,
+ * for a client ready to invoice sends. A client not in `clients`,
  * or dates that aren't a period, are left out, so the form opens as usual.
  */
 export function linkedDraft(

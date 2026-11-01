@@ -20,11 +20,9 @@ import {
   Check,
   DollarSign,
   Download,
-  FilePlus,
   FolderInput,
   Inbox as InboxIcon,
   Pencil,
-  ReceiptText,
   Send,
 } from 'lucide-react';
 import {
@@ -150,23 +148,6 @@ export function Inbox({ stats }: { stats: Stats }) {
       return invalidateEntryData(qc);
     },
   });
-
-  /* Pending, not predicted: it can mark hundreds of entries, and undoing
-     that is one entry dialog at a time. The button says it is marking, and
-     the row leaves on the server's answer. A wrong billable flag is fixed on
-     the entry, not answered here. */
-  const markElsewhere = useOptimisticMutation({
-    queryKey: () => keys.stats(),
-    mutationFn: ({ ids }: { id: string; ids: string[] }) =>
-      api.markAllInvoicedElsewhere(ids),
-    invalidate: async (qc, { id }) => {
-      await exit.mark(id);
-      return invalidateEntryData(qc);
-    },
-  });
-  const marking = markElsewhere.isPending
-    ? markElsewhere.variables?.id
-    : undefined;
 
   /* Deduped against Home's identical query, so the one screen rendering both
      makes no second request. */
@@ -374,8 +355,6 @@ export function Inbox({ stats }: { stats: Stats }) {
                   leave(id);
                   confirmLength.mutate(id);
                 }}
-                onElsewhere={markElsewhere.mutate}
-                marking={marking}
                 exiting={exit.exiting.has(r.id)}
                 ref={exit.register(r.id)}
               />
@@ -408,9 +387,6 @@ type Handlers = {
   onStatus: (v: { id: string; status: InvoiceStatus }) => void;
   onOpen: (v: { id: string; focus: 'task' | 'project' }) => void;
   onConfirm: (id: string) => void;
-  onElsewhere: (v: { id: string; ids: string[] }) => void;
-  /** The row whose Billed elsewhere is waiting on the server. */
-  marking?: string;
 };
 
 type ItemProps = Omit<React.ComponentProps<typeof Item>, 'exiting' | 'ref'>;
@@ -447,7 +423,7 @@ function itemFor(r: ItemRow, h: Handlers): ItemProps {
         refuses: r.row.refuses,
       });
     case 'due':
-      return dueItem(r.row, h);
+      return dueItem(r.row);
     case 'unprojected':
       return unprojectedItem(r.row, h);
     case 'overlap':
@@ -508,52 +484,21 @@ function invoiceItem(
   };
 }
 
-/* A chore, not money late, so neutral. Create invoice fills in New invoice
-   and creates nothing: the user makes the draft, so it is numbered then.
-   One period is named; work across several says how far back it goes. */
-function dueItem(d: Attention['unbilledDue'][number], h: Handlers): ItemProps {
-  const id = `due:${d.clientId}`;
-  const href = `/invoices/new?${new URLSearchParams({
-    client: d.clientId,
-    from: d.periodStart,
-    to: d.periodEnd,
-  })}`;
+/* A chore, not money late, so neutral. The link fills in New invoice and
+   creates nothing: the user makes the draft, so it is numbered then. */
+function dueItem(d: Attention['unbilledDue'][number]): ItemProps {
   return {
-    href,
+    href: `/invoices/new?${new URLSearchParams({
+      client: d.clientId,
+      from: d.periodStart,
+      to: d.periodEnd,
+    })}`,
     label: d.clientName,
-    detail: d.onePeriod
-      ? `${periodName(d.periodStart, d.periodEnd)} ended with no invoice`
-      : `unbilled since ${shortDay(d.since)}`,
+    detail: `${periodName(d.periodStart, d.periodEnd)} is ready to invoice`,
     value: formatCompact(d.seconds),
     tone: 'neutral',
-    actions: (
-      <>
-        <Action
-          label="Create invoice"
-          context={d.clientName}
-          icon={<FilePlus aria-hidden />}
-          href={href}
-          navigates
-        />
-        <Action
-          label={h.marking === id ? 'Marking…' : 'Billed elsewhere'}
-          context={d.clientName}
-          icon={<ReceiptText aria-hidden />}
-          onClick={() => h.onElsewhere({ id, ids: d.entryIds })}
-          disabled={h.marking === id}
-        />
-      </>
-    ),
   };
 }
-
-/** `YYYY-MM-DD` as "Aug 1". */
-const shortDay = (d: string) =>
-  new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'UTC',
-  }).format(new Date(`${d}T00:00:00Z`));
 
 /** A calendar month by its name, any other period by its dates:
  *  "Oct 1 – 15", "Sep 28 – Oct 4". */
@@ -564,11 +509,12 @@ function periodName(start: string, end: string) {
     );
   if (isPeriod({ period: 'monthly' }, start, end))
     return date(start, { month: 'long' });
+  const short = { month: 'short', day: 'numeric' } as const;
   const to =
     start.slice(0, 7) === end.slice(0, 7)
       ? date(end, { day: 'numeric' })
-      : shortDay(end);
-  return `${shortDay(start)} – ${to}`;
+      : date(end, short);
+  return `${date(start, short)} – ${to}`;
 }
 
 function entryItem(
@@ -847,27 +793,15 @@ function Action({
   icon,
   onClick,
   href,
-  navigates,
-  disabled,
 }: {
   label: string;
   context: string;
   icon: React.ReactNode;
   onClick?: () => void;
-  disabled?: boolean;
-  /** A file to download, or with `navigates` a page in the app. */
   href?: string;
-  navigates?: boolean;
 }) {
   const ariaLabel = `${label}, ${context}`;
-  return navigates && href ? (
-    <Button asChild size="xs">
-      <Link href={href} aria-label={ariaLabel}>
-        {icon}
-        {label}
-      </Link>
-    </Button>
-  ) : href ? (
+  return href ? (
     <Button asChild size="xs">
       <a href={href} aria-label={ariaLabel} download>
         {icon}
@@ -875,13 +809,7 @@ function Action({
       </a>
     </Button>
   ) : (
-    <Button
-      type="button"
-      size="xs"
-      aria-label={ariaLabel}
-      onClick={onClick}
-      disabled={disabled}
-    >
+    <Button type="button" size="xs" aria-label={ariaLabel} onClick={onClick}>
       {icon}
       {label}
     </Button>

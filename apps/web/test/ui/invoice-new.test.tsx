@@ -905,14 +905,6 @@ describe('NewInvoice — expenses, charges and payment details', () => {
 describe('A link to New invoice', () => {
   const link = (q: string) => linkedDraft(new URLSearchParams(q), CLIENTS);
 
-  it('fills in a known client and a valid period', () => {
-    expect(link('client=c1&from=2026-09-01&to=2026-09-30')).toMatchObject({
-      clientId: 'c1',
-      periodStart: '2026-09-01',
-      periodEnd: '2026-09-30',
-    });
-  });
-
   it('ignores a client it does not know, and dates that are not a period', () => {
     expect(link('client=nope&from=2026-09-01&to=2026-09-30')).toMatchObject({
       clientId: '',

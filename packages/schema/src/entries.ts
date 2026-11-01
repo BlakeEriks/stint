@@ -55,12 +55,9 @@ export const UpdateTimeEntry = z.object({
   invoicedElsewhere: z.boolean().optional(),
 });
 
-/** The most ids one `POST /entries/invoiced-elsewhere` takes. */
-export const MARK_IDS_MAX = 1000;
-
 /** `POST /entries/invoiced-elsewhere`: the entries a press names, by id. */
 export const MarkInvoicedElsewhere = z.object({
-  ids: z.array(uuid).min(1).max(MARK_IDS_MAX),
+  ids: z.array(uuid).min(1).max(1000),
   invoicedElsewhere: z.boolean(),
 });
 

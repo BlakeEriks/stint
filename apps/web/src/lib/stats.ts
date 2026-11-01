@@ -243,8 +243,7 @@ export async function readStats(
       .select('id, invoice_number, client_id, status, period_start, period_end')
       .in('status', ['sent', 'paid']),
 
-    /* For work past due to bill: each client's schedule, which says when
-       its work is due. */
+    /* For clients ready to invoice: each one's schedule. */
     db
       .from('clients')
       .select('id, name, billing_period, period_anchor')

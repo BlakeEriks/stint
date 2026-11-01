@@ -94,15 +94,12 @@ afterEach(() => vi.unstubAllGlobals());
 const due = {
   clientId: 'c1',
   clientName: 'Northwind',
-  entryIds: ['e1'],
   seconds: 54000,
-  since: '2026-09-04',
   periodStart: '2026-09-01',
   periodEnd: '2026-09-30',
-  onePeriod: true,
 };
 
-describe('Work past due to bill', () => {
+describe('A client ready to invoice', () => {
   it('counts in the header', () => {
     expect(inboxCount(stats({ unbilledDue: [due] }).attention)).toBe(1);
   });

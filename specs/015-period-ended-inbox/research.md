@@ -1,4 +1,4 @@
-# Research: Say in the Inbox when billable work is past due to bill
+# Research: Say in the Inbox when a client is ready to invoice
 
 ## Where the rule lives
 
@@ -6,13 +6,12 @@
 - **Rationale**: Principle IV, and one implementation for the route and the stories.
 - **Alternatives**: a SQL function would put the period rule in a second language, which Principle II then charges a parity test for.
 
-## Which work is due, and what covers it
+## Which work counts
 
-- **Decision**: per entry. Due when its period has ended (scheduled) or it is more than 30 days old (unscheduled); covered when a non-void invoice for the client holds its day. Grouped into one row per client.
-- **Rationale**: the owner's review: a missed period stays until answered, and one row per client. Covering by the day, not by the period, leaves `lateEntries()` every entry inside a sent or paid period, so no entry is in two rows.
-- **Alternatives**: only the last ended period drops a missed one silently.
+- **Decision**: per client, `lastEndedPeriod()` of its schedule. An entry counts when its day is in that period and inside no non-void invoice for the client.
+- **Rationale**: the owner's review: one period, one client, one row, and a row that clears by itself when the next period ends. Covering by the day leaves `lateEntries()` every entry inside a sent or paid period, so no entry is in two rows.
 
-## The answers
+## The link
 
-- **Decision**: Create invoice links to `?client&from&to`, read once into New invoice's first draft. Billed elsewhere posts the row's `entryIds` to the existing `POST /entries/invoiced-elsewhere`, `MARK_IDS_MAX` at a time, in pending mode.
-- **Rationale**: both reuse what exists. Marking can cover hundreds of entries and is undone one dialog at a time, so Principle VI asks for a pending state rather than a prediction. Create invoice opens only the oldest run of due work: spanning an invoice, New invoice would refuse over a draft (`DRAFT_OVERLAPS`) or sweep in late entries over a sent period.
+- **Decision**: `?client&from&to`, read once into New invoice's first draft.
+- **Rationale**: it reuses the form; the user makes the draft, so nothing is numbered or written from the Inbox.
