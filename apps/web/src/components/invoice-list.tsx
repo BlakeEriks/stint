@@ -191,23 +191,24 @@ function Row({
         {formatCurrency(invoice.total, invoice.currency)}
       </span>
 
-      {/* Nothing destructive here either — voiding stays on the invoice. */}
-      {onMarkPaid ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          aria-label={`Mark ${invoice.invoiceNumber} paid`}
-          disabled={busy}
-          onClick={onMarkPaid}
-        >
-          {/* A currency glyph, not a check: the check commits a form. */}
-          <DollarSign aria-hidden />
-          <span className="hidden sm:inline">Paid</span>
-        </Button>
-      ) : (
-        <span className="w-6 flex-none" aria-hidden />
-      )}
+      {/* Nothing destructive here either — voiding stays on the invoice.
+          One width with or without the button, so every row's total lines
+          up. */}
+      <span className="flex w-7 flex-none justify-end sm:w-24">
+        {onMarkPaid ? (
+          <Button
+            type="button"
+            size="xs"
+            aria-label={`Mark ${invoice.invoiceNumber} paid`}
+            disabled={busy}
+            onClick={onMarkPaid}
+          >
+            {/* A currency glyph, not a check: the check commits a form. */}
+            <DollarSign aria-hidden />
+            <span className="hidden sm:inline">Mark paid</span>
+          </Button>
+        ) : null}
+      </span>
     </div>
   );
 }
