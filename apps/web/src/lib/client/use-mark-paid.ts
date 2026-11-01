@@ -6,6 +6,7 @@ import {
   invalidateEntryData,
   keys,
 } from '@stint/client';
+import { forgetInvoice } from './prefetch-invoices';
 import { useDialog } from './use-dialog';
 
 /**
@@ -25,12 +26,14 @@ export function useMarkPaid() {
       api.updateInvoiceStatus(args.id, { status: 'paid', paidAt: args.paidAt }),
     /* A paid invoice's expenses leave the client's card, and its money
        moves from outstanding to earned. */
-    invalidate: (qc) =>
-      Promise.all([
+    invalidate: (qc, { id }) => {
+      forgetInvoice(qc, id);
+      return Promise.all([
         qc.invalidateQueries({ queryKey: keys.invoices() }),
         qc.invalidateQueries({ queryKey: keys.expenses() }),
         invalidateEntryData(qc),
-      ]),
+      ]);
+    },
     onSuccess: () => paying.onOpenChange(false),
   });
 
