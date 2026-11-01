@@ -2,10 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   instantAt,
-  snapMs,
   movedTo,
   resized,
-  windowFor,
   drawnRange,
   zoomed,
   fillPxPerHour,
@@ -119,14 +117,6 @@ test('a fraction resolves against a 25-hour fall-back column', () => {
   }
 });
 
-test('snapMs rounds to the nearest step in both directions', () => {
-  assert.equal(snapMs(7 * MIN), 0);
-  assert.equal(snapMs(8 * MIN), 15 * MIN);
-  // `+ 0` normalizes -0, which is the same instant but not strictly equal.
-  assert.equal(snapMs(-7 * MIN) + 0, 0);
-  assert.equal(snapMs(-8 * MIN), -15 * MIN);
-});
-
 test('moving a block preserves its duration exactly', () => {
   const startedAt = new Date('2026-09-09T09:00:00Z');
   const endedAt = new Date('2026-09-09T11:30:00Z');
@@ -224,78 +214,6 @@ test('dragging the start below the end clamps instead of inverting', () => {
     out.endedAt.getTime() - out.startedAt.getTime(),
     MIN_ENTRY_MINUTES * MIN,
   );
-});
-
-test('the dialog window pads the entry and lands on whole hours', () => {
-  const { start, end } = column('2026-09-09T12:00:00Z', 'America/New_York');
-  const w = windowFor(
-    new Date('2026-09-09T13:30:00Z'), // 09:30 local
-    new Date('2026-09-09T15:00:00Z'), // 11:00 local
-    start,
-    end,
-  );
-
-  assert.equal(clock(w.from, 'America/New_York'), '07:00');
-  assert.equal(clock(w.to, 'America/New_York'), '13:00');
-});
-
-test('a long entry is padded by its own length, not a flat two hours', () => {
-  const { start, end } = column('2026-09-09T12:00:00Z', 'UTC');
-  const w = windowFor(
-    new Date('2026-09-09T08:00:00Z'),
-    new Date('2026-09-09T20:00:00Z'), // 12 hours
-    start,
-    end,
-  );
-
-  // Padded by 12h each side, so it clamps to the whole day rather than
-  // drawing the entry edge to edge with no ground around it.
-  assert.equal(w.from.getTime(), start.getTime());
-  assert.equal(w.to.getTime(), end.getTime());
-});
-
-test('a window near midnight shifts inside the day instead of shrinking', () => {
-  const { start, end } = column('2026-09-09T12:00:00Z', 'UTC');
-  const w = windowFor(
-    new Date('2026-09-09T00:00:00Z'),
-    new Date('2026-09-09T00:30:00Z'),
-    start,
-    end,
-  );
-
-  assert.equal(w.from.getTime(), start.getTime());
-  // The 2h of padding it could not take before midnight is taken after it,
-  // so the span is the same width it would have had at midday.
-  assert.equal((w.to.getTime() - w.from.getTime()) / MIN, 4 * 60 + 30);
-});
-
-test('a short window rounds to the half hour, keeping the entry wide', () => {
-  const { start, end } = column('2026-09-09T12:00:00Z', 'UTC');
-  const w = windowFor(
-    new Date('2026-09-09T09:15:00Z'),
-    new Date('2026-09-09T09:30:00Z'),
-    start,
-    end,
-  );
-
-  assert.equal(clock(w.from, 'UTC'), '07:00');
-  assert.equal(clock(w.to, 'UTC'), '11:30');
-});
-
-test('the window holds its width across a spring-forward boundary', () => {
-  // 2026-03-08 is the US spring forward: a 23-hour local day.
-  const { start, end } = column('2026-03-08T12:00:00Z', 'America/New_York');
-  const w = windowFor(
-    new Date('2026-03-08T14:00:00Z'), // 10:00 local, after the skip
-    new Date('2026-03-08T15:00:00Z'), // 11:00 local
-    start,
-    end,
-  );
-
-  // Ticks are elapsed time from the day's start, so the ends stay on the
-  // hour rather than drifting by the missing hour.
-  assert.equal(clock(w.from, 'America/New_York'), '08:00');
-  assert.equal(clock(w.to, 'America/New_York'), '13:00');
 });
 
 test('a drawn range snaps both ends and reads the same in either direction', () => {

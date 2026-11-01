@@ -103,6 +103,95 @@ export const Light: Story = { ...light };
 /** A running block grows to now and refuses a drag. */
 export const Running: Story = { ...desktop, parameters: account('running') };
 
+/**
+ * The stylesheet rules that would give `el` an opacity under a pointer: a
+ * `:hover` rule that matches it once the `:hover` is dropped, or any rule in
+ * a no-hover (touch) media block. A play's hover is synthetic and never
+ * applies `:hover`, so the rules themselves are what it can check.
+ */
+function pointerReveals(el: Element) {
+  const found: string[] = [];
+  for (const sheet of Array.from(el.ownerDocument.styleSheets)) {
+    for (const [rule, touch] of styleRules(readable(sheet))) {
+      const bare = rule.selectorText.replaceAll(':hover', '');
+      const pointer = touch || bare !== rule.selectorText;
+      if (rule.style.opacity && pointer && safeMatches(el, bare))
+        found.push(rule.selectorText);
+    }
+  }
+  return found;
+}
+
+/** Each style rule in `rules`, and whether it sits in a no-hover block. */
+function* styleRules(
+  rules: CSSRuleList | [],
+  touch = false,
+): Generator<[CSSStyleRule, boolean]> {
+  for (const rule of Array.from(rules)) {
+    if (rule instanceof CSSStyleRule) yield [rule, touch];
+    else if (rule instanceof CSSGroupingRule) {
+      const none =
+        rule instanceof CSSMediaRule &&
+        /hover:\s*none/.test(rule.conditionText);
+      yield* styleRules(rule.cssRules, touch || none);
+    }
+  }
+}
+
+/** A sheet's rules, or none for a cross-origin sheet, which styles nothing
+    here and refuses to be read. */
+function readable(sheet: CSSStyleSheet): CSSRuleList | [] {
+  try {
+    return sheet.cssRules;
+  } catch (e) {
+    if (e instanceof DOMException) return [];
+    throw e;
+  }
+}
+
+function safeMatches(el: Element, selector: string) {
+  try {
+    return el.matches(selector);
+  } catch (e) {
+    if (e instanceof DOMException) return false;
+    throw e;
+  }
+}
+
+/** A day heading's "+" is the keyboard's way into Add: hidden under a
+    pointer or a touch, which draw on the grid instead, and shown on focus. */
+export const AddFromKeyboard: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = await calendar(canvasElement);
+    const [add] = await page.findAllByRole('button', {
+      name: /^Add an entry on/,
+    });
+    const el = add as HTMLElement;
+
+    await expect(getComputedStyle(el).opacity).toBe('0');
+    await expect(pointerReveals(el)).toEqual([]);
+
+    // Nor can a pointer hit it: a click on its spot opens nothing.
+    const box = el.getBoundingClientRect();
+    const x = box.left + box.width / 2;
+    const y = box.top + box.height / 2;
+    const hit = el.ownerDocument.elementFromPoint(x, y) as HTMLElement;
+    await expect(el.contains(hit)).toBe(false);
+    await userEvent.pointer({
+      target: hit,
+      coords: { clientX: x, clientY: y },
+      keys: '[MouseLeft]',
+    });
+    await expect(
+      within(canvasElement.ownerDocument.body).queryByRole('dialog'),
+    ).toBeNull();
+
+    el.focus({ focusVisible: true } as FocusOptions);
+    await waitFor(() => expect(getComputedStyle(el).opacity).toBe('1'));
+  },
+};
+
 /** Nothing logged: the grid still offers a time to click. */
 export const Empty: Story = {
   ...desktop,
