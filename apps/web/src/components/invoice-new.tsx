@@ -1040,12 +1040,10 @@ const pressLabel = (editing: boolean, pending: boolean) => {
   return pending ? 'Generating…' : 'Generate invoice';
 };
 
-/** What Bill to will lack, said; null when it has both. */
+/** Said when Bill to would print the client's name alone. Either line is
+    enough: a client billed by email needs no street address. */
 function missingDetails(client: Pick<Client, 'address' | 'email'>) {
-  if (client.address && client.email) return null;
-  if (client.address) return 'No email';
-  if (client.email) return 'No address';
-  return 'No address or email';
+  return client.address || client.email ? null : 'No email or Bill to';
 }
 
 /**

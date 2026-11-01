@@ -1015,14 +1015,14 @@ export const EditingExpense: Story = {
 };
 export const EditingExpensePhone: Story = { ...EditingExpense, ...phone };
 
-/** A client with no address or email: the Client field says so and offers
-    Edit client; the card stays the invoice as printed. */
+/** A client with neither an email nor a Bill to: the Client field says so
+    and offers Edit client; the card stays the invoice as printed. */
 export const ClientMissingDetails: Story = {
   ...desktop,
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const page = await chooseMeridian(canvasElement);
-    await expect(await page.findByText(/No address or email/)).toBeVisible();
+    await expect(await page.findByText(/No email or Bill to/)).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Edit client' }),
     ).toBeVisible();
@@ -1058,7 +1058,8 @@ export const EditingClient: Story = {
     await expect(
       await card(page).findByText(/ap@meridian\.test/),
     ).toBeVisible();
-    await expect(page.getByText(/^No address ·/)).toBeVisible();
+    // An email alone is enough: the notice goes.
+    await expect(page.queryByText(/^No email or Bill to/)).toBeNull();
     await expect(page.getByLabelText(/Reference/)).toHaveValue('PO-7');
   },
 };
