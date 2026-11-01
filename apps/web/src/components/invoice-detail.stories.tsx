@@ -60,6 +60,10 @@ export const Draft: Story = {
       page.getByText('Amount due').nextElementSibling,
     ).toHaveTextContent('$2,787.60');
     await expect(page.queryByText(/supporting detail/)).toBeNull();
+    await expect(page.getByRole('link', { name: 'Edit' })).toHaveAttribute(
+      'href',
+      `/invoices/${invoice(15)}/edit`,
+    );
   },
 };
 export const DraftPhone: Story = { ...phone };
@@ -71,6 +75,7 @@ const changed = paying((db) => {
   draft.changedSinceDownload = {
     hours: { from: 18.4, to: 20.9 },
     total: { from: 2512.6, to: 2787.6 },
+    edited: [],
   };
   const line = draft.lineItems[0];
   if (line) line.isNew = true;
@@ -97,6 +102,36 @@ export const DraftChanged: Story = {
   },
 };
 export const DraftChangedPhone: Story = { ...phone, parameters: changed };
+
+/* The draft as the server sends it once its notes were edited after its
+   PDF: the lines are the same. */
+const edited = paying((db) => {
+  const draft = db.invoices.find((i) => i.id === invoice(15));
+  if (!draft) return;
+  draft.changedSinceDownload = {
+    hours: { from: 20.9, to: 20.9 },
+    total: { from: 2787.6, to: 2787.6 },
+    edited: ['notes'],
+  };
+});
+
+/** Only its notes were edited since the PDF: the banner names them, not
+    the lines, and Mark sent waits for the new PDF. */
+export const DraftEdited: Story = {
+  ...desktop,
+  parameters: edited,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByText('Edited since you downloaded it'),
+    ).toBeVisible();
+    await expect(page.getByText(/^Its notes changed\./)).toBeVisible();
+    await expect(page.queryByText(/Its lines changed/)).toBeNull();
+    await expect(
+      page.getByRole('button', { name: 'Mark sent' }),
+    ).toBeDisabled();
+  },
+};
 
 /* The draft as the server sends it with work no rate prices. */
 const unrated = paying((db) => {
@@ -177,6 +212,7 @@ const changedPastDue = paying((db) => {
   draft.changedSinceDownload = {
     hours: { from: 18.4, to: 20.9 },
     total: { from: 2512.6, to: 2787.6 },
+    edited: [],
   };
   draft.dueBeforeIssue = { download: true, send: true };
 });
@@ -189,7 +225,7 @@ export const DraftChangedPastDue: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     await expect(
-      await page.findByText(/Delete this draft and generate it again/),
+      await page.findByText(/Edit this draft to give it a later due date/),
     ).toBeVisible();
     await expect(
       page.queryByText('Changed since you downloaded it'),
