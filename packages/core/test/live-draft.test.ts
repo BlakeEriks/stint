@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { draftDates, lateEntries, newWork } from '../src/live-draft.ts';
+import {
+  draftDates,
+  lateEntries,
+  newWork,
+  unbilledDue,
+} from '../src/live-draft.ts';
 
 const built = (id: string, durationSeconds: number, isBillable = true) => ({
   id,
@@ -145,3 +150,119 @@ test('draftDates: sending keeps the dates its last PDF printed', () => {
     dueDate: '2026-10-17',
   });
 });
+
+/* unbilledDue(): on Oct 3 unless a row says otherwise, Northwind (c1) bills
+   monthly and Acme (c2) has no schedule. Each row reads
+   "client from..to seconds". */
+const work = (startedAt: string, clientId = 'c1', hours = 1) =>
+  entry({ startedAt, clientId, durationSeconds: hours * 3600 });
+const inv = (periodStart: string, periodEnd: string, clientId = 'c1') => ({
+  clientId,
+  periodStart,
+  periodEnd,
+});
+const NW_SEP = 'Northwind 2026-09-01..2026-09-30 3600';
+const IN_SEP = '2026-09-20T15:00:00Z';
+
+const DUE: {
+  name: string;
+  entries: ReturnType<typeof entry>[];
+  invoices?: ReturnType<typeof inv>[];
+  today?: string;
+  due: string[];
+}[] = [
+  {
+    name: 'the most recent ended period, its work added up',
+    entries: [work(IN_SEP, 'c1', 2), work('2026-09-21T15:00:00Z')],
+    due: ['Northwind 2026-09-01..2026-09-30 10800'],
+  },
+  {
+    name: 'not an earlier period, nor the open one',
+    entries: [work('2026-08-20T15:00:00Z'), work('2026-10-01T15:00:00Z')],
+    due: [],
+  },
+  {
+    name: 'gone once the next period ends',
+    entries: [work(IN_SEP)],
+    today: '2026-11-03',
+    due: [],
+  },
+  { name: 'a client with no schedule', entries: [work(IN_SEP, 'c2')], due: [] },
+  {
+    name: 'non-billable work, and work of no client',
+    entries: [
+      entry({ startedAt: IN_SEP, isBillable: false }),
+      entry({ startedAt: IN_SEP, clientId: null }),
+    ],
+    due: [],
+  },
+  {
+    name: "dated in the user's zone: 03:00 UTC Oct 1 is Sep 30",
+    entries: [work('2026-10-01T03:00:00Z')],
+    due: [NW_SEP],
+  },
+  {
+    name: 'an invoice over the whole period',
+    entries: [work(IN_SEP)],
+    invoices: [inv('2026-09-01', '2026-09-30')],
+    due: [],
+  },
+  {
+    name: "inside another client's invoice",
+    entries: [work(IN_SEP)],
+    invoices: [inv('2026-09-01', '2026-09-30', 'c2')],
+    due: [NW_SEP],
+  },
+  {
+    name: 'an invoice over part of the period, the work beside it',
+    entries: [work(IN_SEP)],
+    invoices: [inv('2026-09-01', '2026-09-15')],
+    due: [],
+  },
+  {
+    name: "an invoice sharing only the period's last day",
+    entries: [work(IN_SEP)],
+    invoices: [inv('2026-09-30', '2026-10-15')],
+    due: [],
+  },
+  {
+    name: 'an invoice ending the day before the period',
+    entries: [work(IN_SEP)],
+    invoices: [inv('2026-08-01', '2026-08-31')],
+    due: [NW_SEP],
+  },
+  {
+    name: 'an invoice starting the day after the period',
+    entries: [work(IN_SEP)],
+    invoices: [inv('2026-10-01', '2026-10-15')],
+    due: [NW_SEP],
+  },
+  {
+    name: "an invoice sharing only the period's first day",
+    entries: [work(IN_SEP)],
+    invoices: [inv('2026-08-15', '2026-09-01')],
+    due: [],
+  },
+];
+
+for (const row of DUE)
+  test(`ready to invoice: ${row.name}`, () => {
+    const rows = unbilledDue(
+      {
+        clients: [
+          { id: 'c1', name: 'Northwind', schedule: { period: 'monthly' } },
+          { id: 'c2', name: 'Acme', schedule: null },
+        ],
+        entries: row.entries,
+        invoices: row.invoices ?? [],
+      },
+      row.today ?? '2026-10-03',
+      'America/Chicago',
+    );
+    assert.deepEqual(
+      rows.map(
+        (r) => `${r.clientName} ${r.periodStart}..${r.periodEnd} ${r.seconds}`,
+      ),
+      row.due,
+    );
+  });

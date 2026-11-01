@@ -18,7 +18,7 @@
  *
  * **Every inbox scenario is represented**, because the inbox is the hardest
  * surface to exercise by hand: each row needs a condition that takes days to
- * arrive naturally. The table above `OVERDUE_DAYS` lists the four conditions.
+ * arrive naturally. The table above `OVERDUE_DAYS` lists the five conditions.
  * The exception is the default-rate row, which a seeded account never shows:
  * `--scenario first-signin` leaves a new signup's settings, with no rate and
  * the welcome dialog not yet seen.
@@ -111,6 +111,8 @@ const CLIENTS = [
     // Its own payment details, so the picker has a client profile to prefer.
     profile: 'savings',
     rate: null, // inherits the user default — worth seeing resolved
+    // No seeded invoice is Meridian's, so its ended month is ready to invoice.
+    billingPeriod: 'monthly',
     color: '#C58AF9',
     projects: [{ name: 'Data pipeline audit', rate: null }],
   },
@@ -133,6 +135,8 @@ const INTERNAL = 'Admin and invoicing';
  * | Overdue invoice     | `sent`, `due_date` more than 7 days past     |
  * | Stale draft         | `draft`, period ended more than 7 days ago   |
  * | Unprojected entries | ended, billable, unbilled, no project        |
+ * | Ready to invoice    | scheduled client, unbilled work in its last  |
+ * |                     | ended period, no invoice overlapping it      |
  *
  * The inbox is the one surface that is genuinely hard to exercise by hand:
  * every row needs a condition that takes days of real time to arrive.
@@ -364,8 +368,9 @@ try {
       rows: [{ id: clientId }],
     } = await db.query(
       `insert into clients
-         (user_id, name, email, address, hourly_rate, currency, color, payment_profile_id)
-       values ($1, $2, $3, $4, $5, 'USD', $6, $7) returning id`,
+         (user_id, name, email, address, hourly_rate, currency, color,
+          payment_profile_id, billing_period)
+       values ($1, $2, $3, $4, $5, 'USD', $6, $7, $8) returning id`,
       [
         userId,
         client.name,
@@ -374,6 +379,7 @@ try {
         client.rate,
         client.color,
         client.profile ? profiles[client.profile] : null,
+        client.billingPeriod ?? null,
       ],
     );
     clientIds.push(clientId);
@@ -540,6 +546,25 @@ try {
     );
     entries += 1;
   }
+
+  /* Ready to invoice: Meridian's work in last month, which the fortnight above
+     misses later in a month. The 15th is inside that month in any zone, and
+     at 19:00, at least 14 days back, it is clear of every other entry. */
+  const lastMonth = new Date();
+  lastMonth.setMonth(lastMonth.getMonth() - 1, 15);
+  lastMonth.setHours(19, 0, 0, 0);
+  await db.query(
+    `insert into time_entries
+       (id, user_id, project_id, task_name, started_at, ended_at, is_billable)
+     values (gen_random_uuid(), $1, $2, 'Seeded: last month''s audit', $3, $4, true)`,
+    [
+      userId,
+      projectIds.at(-1),
+      lastMonth.toISOString(),
+      new Date(lastMonth.getTime() + 2 * 3_600_000).toISOString(),
+    ],
+  );
+  entries += 1;
 
   /* A timer left running overnight and stopped the next morning: past
      `max_entry_hours`, so the inbox asks whether its length is right. 18:00
@@ -757,6 +782,7 @@ try {
   console.log('    overdue invoice    yes');
   console.log('    stale draft        yes');
   console.log(`    unprojected work   yes (${unprojected.length} entries)`);
+  console.log('    ready to invoice   yes (Meridian Labs, last month)');
   if (scenario) console.log(`\n  Then left as: ${scenario}`);
   if (created) {
     console.log(

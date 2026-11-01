@@ -3,8 +3,10 @@ import { selectAll } from '@/lib/select-all';
 import { loadBilledSpans } from '@/lib/billed-spans';
 import { deriveDraft, draftRefusals } from '@/lib/drafts';
 import {
+  type ClientRow,
   INVOICE_COLUMNS,
   type InvoiceRow as StoredInvoiceRow,
+  toBillingSchedule,
 } from '@/lib/rows';
 import {
   addDays,
@@ -44,6 +46,7 @@ import {
   type UnbilledRow,
   type UnprojectedRow,
   lateEntries,
+  unbilledDue,
 } from '@stint/core';
 
 /**
@@ -106,6 +109,7 @@ export async function readStats(
     collectedRows,
     weekEntries,
     issuedPeriods,
+    activeClients,
   ] = await Promise.all([
     /* `p_now` on every rollup: a running entry is measured at the same
        instant the windows are cut at. */
@@ -238,6 +242,12 @@ export async function readStats(
       .from('invoices')
       .select('id, invoice_number, client_id, period_start, period_end')
       .in('status', ['sent', 'paid']),
+
+    /* For clients ready to invoice: each one's schedule. */
+    db
+      .from('clients')
+      .select('id, name, billing_period, period_anchor')
+      .is('archived_at', null),
   ]);
 
   for (const r of [
@@ -250,6 +260,7 @@ export async function readStats(
     projectRows,
     collectedRows,
     issuedPeriods,
+    activeClients,
   ]) {
     if (r.error) throw r.error;
   }
@@ -327,6 +338,23 @@ export async function readStats(
       (p.client_id as string | null) ?? null,
     ]),
   );
+  const clientOfProject = (projectId: string | null) =>
+    projectId ? (clientOf.get(projectId) ?? null) : null;
+  const uninvoicedEntries = overlapCandidates.map((r) => ({
+    id: r.id,
+    taskName: r.task_name,
+    startedAt: new Date(r.started_at).toISOString(),
+    durationSeconds: r.duration_seconds,
+    isBillable: r.is_billable,
+    clientId: clientOfProject(r.project_id),
+  }));
+  const issued = (issuedPeriods.data ?? []).map((i) => ({
+    id: i.id as string,
+    invoiceNumber: i.invoice_number as string,
+    clientId: i.client_id as string,
+    periodStart: i.period_start as string,
+    periodEnd: i.period_end as string,
+  }));
   const week = buildWeek(
     (weekDays.data ?? []) as DayRow[],
     Array.from({ length: 7 }, (_, i) => addDays(weekStartKey, i)),
@@ -390,24 +418,30 @@ export async function readStats(
         todayKey,
         localDateKey(startOfLocalDayOffset(now, tz, STALE_DRAFT_DAYS), tz),
       ),
-      lateEntries: lateEntries(
-        overlapCandidates.map((r) => ({
-          id: r.id,
-          taskName: r.task_name,
-          startedAt: new Date(r.started_at).toISOString(),
-          durationSeconds: r.duration_seconds,
-          isBillable: r.is_billable,
-          clientId: r.project_id ? (clientOf.get(r.project_id) ?? null) : null,
-        })),
-        (issuedPeriods.data ?? []).map((i) => ({
-          id: i.id as string,
-          invoiceNumber: i.invoice_number as string,
-          clientId: i.client_id as string,
-          periodStart: i.period_start as string,
-          periodEnd: i.period_end as string,
-        })),
+      lateEntries: lateEntries(uninvoicedEntries, issued, tz).map((e) => ({
+        ...e,
+        clientName: clientNames.get(e.clientId) ?? null,
+      })),
+      unbilledDue: unbilledDue(
+        {
+          clients: ((activeClients.data ?? []) as ClientRow[]).map((c) => ({
+            id: c.id,
+            name: c.name,
+            schedule: toBillingSchedule(c),
+          })),
+          entries: uninvoicedEntries,
+          invoices: [
+            ...((invoices.data ?? []) as StoredInvoiceRow[]).map((i) => ({
+              clientId: i.client_id,
+              periodStart: i.period_start,
+              periodEnd: i.period_end,
+            })),
+            ...issued,
+          ],
+        },
+        todayKey,
         tz,
-      ).map((e) => ({ ...e, clientName: clientNames.get(e.clientId) ?? null })),
+      ),
       unprojected: buildUnprojected(unprojected),
       strangeDurations: buildStrangeDurations(
         durationCandidates,

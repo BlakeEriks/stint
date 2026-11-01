@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   keepPreviousData,
   useQuery,
@@ -133,6 +133,33 @@ const EMPTY: Draft = {
   excludedExpenseIds: [],
   paymentProfileId: '',
 };
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const isDate = (d: string | null): d is string =>
+  d !== null &&
+  DATE.test(d) &&
+  new Date(`${d}T00:00:00Z`).toISOString().startsWith(d);
+
+/**
+ * The draft a link opens with: `?client=…&from=…&to=…`, as the Inbox's row
+ * for a client ready to invoice sends. A client not in `clients`,
+ * or dates that aren't a period, are left out, so the form opens as usual.
+ */
+export function linkedDraft(
+  params: URLSearchParams,
+  clients: Pick<Client, 'id'>[],
+): Draft {
+  const client = params.get('client');
+  const from = params.get('from');
+  const to = params.get('to');
+  const period = isDate(from) && isDate(to) && from <= to;
+  return {
+    ...EMPTY,
+    clientId: clients.some((c) => c.id === client) ? client! : '',
+    periodStart: period ? from : null,
+    periodEnd: period ? to : null,
+  };
+}
 
 /** A draft as `GET /invoices/:id` answers it, which an edit opens. */
 type Edited = Awaited<ReturnType<typeof api.invoice>>;
@@ -366,6 +393,9 @@ function useSettled<T>(value: T, ms: number): T {
  * server's current answer.
  */
 export function NewInvoice() {
+  /* Keyed by the link: the Inbox stays reachable here, so a row pressed on
+     this page changes the address and must open its own draft. */
+  const params = useSearchParams();
   /* The form paints once, its client list, terms and payment profiles in
      place; what a chosen client then loads fills in as it is asked for. The
      back link is the frame, so it stands while they load. */
@@ -383,7 +413,14 @@ export function NewInvoice() {
   });
   return (
     <DetailPage back="/invoices" label="Invoices" workspace fills>
-      <Listing query={[clients, settings, profiles]}>{() => <Form />}</Listing>
+      <Listing query={[clients, settings, profiles]}>
+        {([c]) => (
+          <Form
+            key={params.toString()}
+            initial={linkedDraft(params, c.clients)}
+          />
+        )}
+      </Listing>
     </DetailPage>
   );
 }
