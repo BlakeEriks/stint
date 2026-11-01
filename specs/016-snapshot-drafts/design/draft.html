@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Snapshot drafts · design review · round 1</title>
+<title>Snapshot drafts · the draft</title>
 <style>
 /* GENERATED from tokens.json — do not edit by hand. Run `pnpm tokens`. */
 /* The palette for docs/design mockups. Token names are the RAW ones
@@ -376,16 +376,11 @@ button { font: inherit; color: inherit; }
 .line .n { display: flex; flex-direction: column; min-width: 0; }
 .line small { color: var(--text-subtle); }
 .total { display: flex; justify-content: space-between; align-items: baseline; padding-top: 12px; color: var(--text-strong); }
-.pending { margin-top: 14px; border: 1px dashed var(--border-default); border-radius: 8px; padding: 10px 12px; }
-.pending .ph { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 12px; }
-.pending .ph span { color: var(--text-muted); }
-.pending .line { color: var(--text-muted); border-bottom-color: transparent; padding: 6px 0; }
 .empty-lines { color: var(--text-subtle); padding: 18px 0; }
 </style>
 </head>
 <body>
 <div class="bar type-control">
-  <div class="seg" id="variant"></div>
   <div class="seg" id="state"></div>
   <div class="seg" id="size"><button data-v="desktop" aria-pressed="true">Desktop</button><button data-v="phone">Phone</button></div>
   <div class="seg" id="theme"><button data-v="dark" aria-pressed="true">Dark</button><button data-v="light">Light</button></div>
@@ -399,15 +394,7 @@ button { font: inherit; color: inherit; }
   </div>
 </div>
 <script>
-const s = { variant: 'a', state: 'saved', size: 'desktop', theme: 'dark' };
-const VARIANTS = [
-  ['a', 'A · Notice above'],
-  ['b', 'B · Under the lines'],
-];
-const CAPTIONS = {
-  a: '<b>A · Notice above.</b> Best at being seen: new work is the first thing under the header. Costs: it pushes the invoice down and names the work only as a count.',
-  b: '<b>B · Under the lines.</b> Best at showing exactly what joins, where it would land. Costs: on a long invoice it sits below the fold until you scroll.',
-};
+const s = { state: 'saved', size: 'desktop', theme: 'dark' };
 const STATES = [
   ['new', 'New invoice, no client'],
   ['saved', 'Saved, up to date'],
@@ -430,20 +417,13 @@ function form(client) {
   </div>`;
 }
 
-function pendingBlock() {
-  return `<div class="pending"><div class="ph"><span class="type-support">Not on it · logged in this period since you built it</span><button class="btn">Add 2 entries</button></div>
-    ${line('Warehouse dashboard · Oct 9', 'Fix pallet scan totals', '1.50h', '$225.00')}
-    ${line('Warehouse dashboard · Oct 14', 'Review with ops', '1.00h', '$150.00')}</div>`;
-}
-
 function paper() {
   if (s.state === 'nothing')
     return `<div class="paper"><div class="meta type-support"><span>Northwind Trading</span><span>Oct 1 – Oct 15, 2026</span></div><p class="empty-lines type-support">Nothing to bill in Oct 1 – 15 yet. Change the dates, or add a charge.</p><div class="total type-heading"><span>Total</span><span class="type-amount-hero">$0.00</span></div></div>`;
   return `<div class="paper"><div class="meta type-support"><span>Northwind Trading</span><span>Oct 1 – Oct 15, 2026</span><span>Due Nov 14, 2026</span></div>
     ${line('Warehouse dashboard', '12 entries · $150.00/h', '22.50h', '$3,375.00')}
     ${line('Rush: peak season fixes', '2 entries · $195.00/h', '4.00h', '$780.00')}
-    <div class="total type-heading"><span>Total</span><span class="type-amount-hero">$4,155.00</span></div>
-    ${s.variant === 'b' && s.state === 'work' ? pendingBlock() : ''}</div>`;
+    <div class="total type-heading"><span>Total</span><span class="type-amount-hero">$4,155.00</span></div></div>`;
 }
 
 function actions() {
@@ -463,14 +443,14 @@ function hint() {
 function render() {
   document.documentElement.dataset.theme = s.theme;
   document.body.classList.toggle('phone', s.size === 'phone');
-  document.getElementById('caption').innerHTML = CAPTIONS[s.variant];
-  for (const [id, list] of [['variant', VARIANTS], ['state', STATES]])
+  document.getElementById('caption').innerHTML = 'New work in the draft\'s period is offered above the invoice; nothing joins it until you add it.';
+  for (const [id, list] of [['state', STATES]])
     document.getElementById(id).innerHTML = list.map(([v, l]) => `<button data-v="${v}" aria-pressed="${v === s[id]}">${l}</button>`).join('');
   const isNew = s.state === 'new';
   const title = isNew
     ? `<span class="type-title" style="color:var(--text-strong)">New invoice</span>`
     : `<div class="title"><span class="type-title">STINT-0042</span><span class="badge type-badge">Draft</span><span class="saved type-support">Saved</span></div>`;
-  const notice = s.variant === 'a' && s.state === 'work'
+  const notice = s.state === 'work'
     ? `<div class="notice"><div class="what"><b class="type-body">2 new entries, 2.50h, in this period</b><span class="type-support">Logged since you built it · $375.00. They stay off unless you add them.</span></div><button class="btn type-control">Add to draft</button></div>`
     : '';
   document.getElementById('panel').innerHTML = `<div class="back type-support">← Invoices</div>
@@ -478,7 +458,7 @@ function render() {
     <p class="hint type-support">${hint()}</p>${notice}
     <div class="work">${form(!isNew)}${isNew ? '' : paper()}</div>`;
 }
-for (const id of ['variant', 'state', 'size', 'theme'])
+for (const id of ['state', 'size', 'theme'])
   document.getElementById(id).addEventListener('click', (e) => {
     const v = e.target.dataset.v; if (!v) return;
     s[id] = v;
