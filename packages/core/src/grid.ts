@@ -8,6 +8,13 @@
  * a 24-hour constant. Every function here takes the column's real span.
  */
 
+import {
+  addDays,
+  localDateKey,
+  localDateTimeToInstant,
+  localTimeKey,
+} from './calendar.ts';
+
 /**
  * Adjusting billable time by dragging resolves to the quarter hour.
  *
@@ -47,9 +54,9 @@ export function instantAt(
  * Move an entry so it starts at `start`, keeping its duration.
  *
  * The end is derived by adding the original elapsed milliseconds, not by
- * re-deriving a wall-clock time: a two-hour block dragged across a DST
- * boundary is still two hours of billable work, and re-deriving would make it
- * one or three.
+ * re-deriving a wall-clock time: a two-hour block dragged within a day that
+ * crosses a DST boundary is still two hours of billable work. A move to another
+ * day is `movedByDays`, which keeps the wall clock instead.
  */
 export function movedTo(
   startedAt: Date,
@@ -58,6 +65,29 @@ export function movedTo(
 ): { startedAt: Date; endedAt: Date } {
   const duration = endedAt.getTime() - startedAt.getTime();
   return { startedAt: start, endedAt: new Date(start.getTime() + duration) };
+}
+
+/**
+ * Move an entry `days` later (or earlier, negative), keeping its wall clock:
+ * 09:00–11:00 lands on 09:00–11:00 whatever DST did between, which is what
+ * the user sees in the column they dropped it on. So an entry dropped across a
+ * DST change bills the hours its new times span: 23:00–03:00 over a spring
+ * forward is three, as the block the user placed shows. An overnight entry
+ * moves both ends, so it stays one block. An end that a skipped hour would put
+ * within `MIN_ENTRY_MINUTES` of the start keeps the elapsed length instead.
+ */
+export function movedByDays(
+  startedAt: Date,
+  endedAt: Date,
+  days: number,
+  tz: string,
+): { startedAt: Date; endedAt: Date } {
+  if (days === 0) return { startedAt, endedAt };
+  const start = sameWallTime(startedAt, days, tz);
+  const end = sameWallTime(endedAt, days, tz);
+  if (end.getTime() - start.getTime() < MIN_ENTRY_MINUTES * 60_000)
+    return movedTo(startedAt, endedAt, start);
+  return { startedAt: start, endedAt: end };
 }
 
 /**
@@ -194,6 +224,15 @@ export function hourMarks(
       marks.push({ hour, pct: ((t - from.getTime()) / span) * 100 });
   }
   return marks;
+}
+
+/** The instant `days` later in `tz` whose wall clock reads as `at`'s does. */
+function sameWallTime(at: Date, days: number, tz: string): Date {
+  return localDateTimeToInstant(
+    addDays(localDateKey(at, tz), days),
+    localTimeKey(at, tz),
+    tz,
+  );
 }
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
