@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
@@ -27,7 +27,6 @@ export function ConfirmAction({
   children,
   label,
   pendingLabel,
-  consequence,
   pending,
   disabled,
   onConfirm,
@@ -39,8 +38,6 @@ export function ConfirmAction({
   children: ReactNode;
   label: string;
   pendingLabel: string;
-  /** One line floating under the confirm. */
-  consequence?: string;
   pending: boolean;
   disabled?: boolean;
   onConfirm: () => void;
@@ -52,7 +49,6 @@ export function ConfirmAction({
   const trigger = useRef<HTMLButtonElement>(null);
   const confirm = useRef<HTMLButtonElement>(null);
   const swapped = useRef(false);
-  const describedBy = useId();
 
   useEffect(() => {
     // Not on mount: only a swap moves focus.
@@ -64,7 +60,7 @@ export function ConfirmAction({
   }, [asking]);
 
   /* A press that stops pending while this is still mounted failed: a success
-     removes it. The row comes back, so nothing covers the error. */
+     removes it. The row comes back beside the error. */
   const wasPending = useRef(pending);
   useEffect(() => {
     if (wasPending.current && !pending) setAsking(false);
@@ -98,14 +94,13 @@ export function ConfirmAction({
       className={cn(
         'flex items-center gap-2',
         // No insets: drawn where the trigger sits, over the row it hid.
-        takesRow ? 'absolute' : cn('relative', className),
+        takesRow ? 'absolute' : className,
       )}
     >
       <Button
         ref={confirm}
         type="button"
         variant="destructive"
-        aria-describedby={consequence ? describedBy : undefined}
         disabled={pending}
         onClick={onConfirm}
       >
@@ -120,15 +115,6 @@ export function ConfirmAction({
       >
         Keep
       </Button>
-      {/* Floats under the pair: a line of its own would wrap the row. */}
-      {consequence ? (
-        <span
-          id={describedBy}
-          className="absolute top-full left-0 z-10 mt-1.5 w-max max-w-xs rounded-md border bg-surface-elevated px-2.5 py-1.5 type-support text-muted shadow-md"
-        >
-          {consequence}
-        </span>
-      ) : null}
     </span>
   ) : null;
   if (!takesRow) return pair;

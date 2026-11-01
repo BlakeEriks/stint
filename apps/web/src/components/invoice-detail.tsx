@@ -189,7 +189,6 @@ function Loaded({
               label={`Void ${invoice.invoiceNumber}`}
               pendingLabel="Voiding…"
               takesRow
-              consequence="The number stays on record, and this invoice can't be reissued."
               pending={setStatus.isPending}
               onConfirm={() => setStatus.mutate({ status: 'void' })}
             >

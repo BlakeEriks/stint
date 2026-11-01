@@ -329,23 +329,18 @@ export const Voiding: Story = {
   },
 };
 
-/** A refused void hands the row back, so nothing covers why it failed. */
+/** A refused void hands the row back, beside why it failed. */
 export const VoidRefusedPhone: Story = {
   ...phone,
   args: { id: invoice(14) },
   parameters: failing('updateInvoiceStatus'),
   play: async (ctx) => {
+    const page = within(ctx.canvasElement);
     await press('Void', 'Void STINT-0014')(ctx);
-    const alert = await within(ctx.canvasElement).findByRole('alert');
-    // Nothing floats over it: the point at its center is the alert's own.
-    const { x, y, width, height } = alert.getBoundingClientRect();
-    await waitFor(() =>
-      expect(
-        alert.contains(
-          document.elementFromPoint(x + width / 2, y + height / 2),
-        ),
-      ).toBe(true),
-    );
+    await page.findByRole('alert');
+    await expect(
+      await page.findByRole('button', { name: 'Void' }),
+    ).toBeVisible();
   },
 };
 
