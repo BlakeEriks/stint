@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field } from './field';
+import { useMissing } from '@/lib/client/use-missing';
 import { timeZone } from '@/lib/client/use-timer';
 
 /**
@@ -48,22 +49,36 @@ export function MarkPaidDialog({
   const [date, setDate] = useState('');
   const [today, setToday] = useState('');
 
+  const sentAtDate = sentAt ? new Date(sentAt) : null;
+  const sentDateKey = sentAtDate
+    ? localDateKey(sentAtDate, timeZone)
+    : undefined;
+
+  /* The form skips the browser's checks, whose bubble never reaches a
+     phone, so the field's `min` and `max` are asked here. Date keys sort
+     as strings. */
+  const check = useMissing({
+    'paid-at': !date
+      ? 'Pick the day the payment arrived.'
+      : date > today
+        ? 'Pick today or earlier.'
+        : sentDateKey && date < sentDateKey
+          ? 'Pick a day on or after it was sent.'
+          : undefined,
+  });
+
   // Reset to today each time it opens, so a previous pick cannot linger.
   useEffect(() => {
     if (!open) return;
     const key = localDateKey(new Date(), timeZone);
     setDate(key);
     setToday(key);
-  }, [open]);
-
-  const sentAtDate = sentAt ? new Date(sentAt) : null;
-  const sentDateKey = sentAtDate
-    ? localDateKey(sentAtDate, timeZone)
-    : undefined;
+    check.reset();
+  }, [open, check.reset]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!date) return;
+    if (!check.passes()) return;
     if (date === today) {
       onConfirm(undefined);
       return;
@@ -83,7 +98,7 @@ export function MarkPaidDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <form onSubmit={submit} className="flex flex-col gap-4">
+        <form onSubmit={submit} noValidate className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>Mark paid</DialogTitle>
             <DialogDescription>
@@ -91,7 +106,11 @@ export function MarkPaidDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <Field label="Date paid" htmlFor="paid-at">
+          <Field
+            label="Date paid"
+            htmlFor="paid-at"
+            error={check.error('paid-at')}
+          >
             <Input
               id="paid-at"
               type="date"
@@ -117,7 +136,7 @@ export function MarkPaidDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" variant="accent" disabled={pending || !date}>
+            <Button type="submit" variant="accent" disabled={pending}>
               {pending ? (
                 <Loader2 aria-hidden className="animate-spin" />
               ) : (

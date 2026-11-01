@@ -34,16 +34,26 @@ function BusinessDialog({
       onOpenChange={onOpenChange}
       title="Who is this invoice from?"
       description="Your name and email go at the top of every invoice. Saved to Settings, so you're asked once."
-      ready={name.trim() !== '' && email.trim() !== ''}
+      missing={{
+        'biz-dialog-name':
+          name.trim() === '' ? 'Enter your business name.' : undefined,
+        'biz-dialog-email':
+          email.trim() === '' ? 'Enter your email.' : undefined,
+      }}
       patch={() => ({
         businessName: name.trim(),
         businessEmail: email.trim(),
         businessAddress: address.trim() || null,
       })}
     >
-      {(pending) => (
+      {(pending, error) => (
         <>
-          <Field label="Business name" htmlFor="biz-dialog-name" required>
+          <Field
+            label="Business name"
+            htmlFor="biz-dialog-name"
+            required
+            error={error('biz-dialog-name')}
+          >
             <Input
               id="biz-dialog-name"
               autoFocus
@@ -53,7 +63,12 @@ function BusinessDialog({
               onChange={(e) => setName(e.target.value)}
             />
           </Field>
-          <Field label="Email" htmlFor="biz-dialog-email" required>
+          <Field
+            label="Email"
+            htmlFor="biz-dialog-email"
+            required
+            error={error('biz-dialog-email')}
+          >
             <Input
               id="biz-dialog-email"
               type="email"

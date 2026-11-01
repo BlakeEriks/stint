@@ -28,6 +28,7 @@ import {
   type PaymentProfile,
   type PaymentProfileInput,
 } from '@/lib/client/api';
+import { useMissing, type Missing } from '@/lib/client/use-missing';
 
 type Draft = Partial<PaymentProfile> & { name: string };
 
@@ -39,6 +40,20 @@ const EMPTY: Draft = { name: '', accountType: 'checking' };
  * its own, mapped back to null on the way into the draft.
  */
 const UNSET = 'unset';
+
+/* The server refuses a bad routing number too; checked here so the field
+   itself says why. */
+const missingIn = (draft: Draft): Missing => {
+  const routing = draft.routingNumber ?? '';
+  return {
+    'pp-name':
+      draft.name.trim() === '' ? 'Give these details a label.' : undefined,
+    'pp-routing':
+      routing.trim() !== '' && !validateRoutingNumber(routing)
+        ? 'Not a valid routing number. Check its 9 digits with your bank.'
+        : undefined,
+  };
+};
 
 /**
  * Bank details.
@@ -61,17 +76,17 @@ export function PaymentProfileDialog({
 }) {
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [showInternational, setShowInternational] = useState(false);
-  const [badRouting, setBadRouting] = useState(false);
+  const check = useMissing(missingIn(draft));
 
   useEffect(() => {
     if (!open) return;
     setDraft(existing ? { ...existing } : EMPTY);
-    setBadRouting(false);
+    check.reset();
     // Open the section if the profile already uses any of it.
     setShowInternational(
       Boolean(existing?.iban || existing?.swiftBic || existing?.localCode),
     );
-  }, [open, existing]);
+  }, [open, existing, check.reset]);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
@@ -93,16 +108,12 @@ export function PaymentProfileDialog({
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!check.passes()) return;
     const blank = (v: unknown) =>
       typeof v === 'string' && v.trim() === '' ? null : v;
     const body = Object.fromEntries(
       Object.entries(draft).map(([k, v]) => [k, blank(v)]),
     ) as PaymentProfileInput;
-    /* The server refuses it too; checked here so the field itself says why. */
-    if (body.routingNumber && !validateRoutingNumber(body.routingNumber)) {
-      setBadRouting(true);
-      return;
-    }
     save.mutate({ ...body, name: draft.name.trim() });
   };
 
@@ -118,12 +129,13 @@ export function PaymentProfileDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={submit} className="flex flex-col gap-4">
+        <form onSubmit={submit} noValidate className="flex flex-col gap-4">
           <Field
             label="Label"
             htmlFor="pp-name"
             required
             hint="Only you see this."
+            error={check.error('pp-name')}
           >
             <Input
               id="pp-name"
@@ -171,20 +183,13 @@ export function PaymentProfileDialog({
               label="Routing number"
               htmlFor="pp-routing"
               hint="ACH / ABA, 9 digits."
-              error={
-                badRouting
-                  ? 'Not a valid routing number. Check its 9 digits with your bank.'
-                  : undefined
-              }
+              error={check.error('pp-routing')}
               className="flex-1 basis-44"
             >
               <Input
                 id="pp-routing"
                 value={draft.routingNumber ?? ''}
-                onChange={(e) => {
-                  set('routingNumber', e.target.value);
-                  setBadRouting(false);
-                }}
+                onChange={(e) => set('routingNumber', e.target.value)}
                 inputMode="numeric"
               />
             </Field>
@@ -406,11 +411,7 @@ export function PaymentProfileDialog({
             {/* Icon plus label, like every other action in the app. The
                 glyph is `aria-hidden`, so the accessible name is the label
                 alone. */}
-            <Button
-              type="submit"
-              variant="accent"
-              disabled={save.isPending || draft.name.trim() === ''}
-            >
+            <Button type="submit" variant="accent" disabled={save.isPending}>
               {save.isPending ? (
                 <Loader2 aria-hidden className="animate-spin" />
               ) : (
