@@ -53,8 +53,14 @@ export function Nav() {
       /* `h-full`, not `h-dvh`: the frame is now a column with the timer
          docked beneath, so the rail fills its own row rather than the
          viewport — at `h-dvh` it would run under the bar by the bar's own
-         height. The version sits below, in the bar's row — see `Version`. */
-      className="flex flex-none flex-col gap-1 lg:col-start-1 lg:row-start-1 lg:h-full lg:w-48 lg:pt-4"
+         height. The version sits below, in the bar's row — see `Version`.
+
+         Below `sm` it is pinned under the header (`AppHeader`'s `h-13`) on
+         the same ground, reaching the window's edges, with `pb-2` of ground
+         beneath so content never scrolls flush against the items. The
+         ground, not `elevated`: the active item's `elevated/55` pill would
+         vanish on it. */
+      className="sticky top-13 z-30 -mx-3 -mb-2 flex flex-none flex-col gap-1 bg-surface-base px-3 pb-2 sm:static sm:mx-0 sm:mb-0 sm:bg-transparent sm:px-0 sm:pb-0 lg:col-start-1 lg:row-start-1 lg:h-full lg:w-48 lg:pt-4"
     >
       {/* Only this scrolls: horizontally on a phone, vertically in the rail if
           the list ever outgrows a short window.
