@@ -37,7 +37,7 @@ first draft. No migration.
 | II. Logic written twice has a parity test | No | One implementation, in core; `/stats` and the mock both call it. |
 | III. Every client through `/api/v1` | Yes | The row comes from `GET /stats`. |
 | IV. `packages/core` does no I/O | Yes | `unbilledDue()` takes rows and returns rows. |
-| V. Tests first where a regression is silent | Yes | Core: one table of the rule's cases. Route: the row's shape, archived clients, a draft covering it. UI: what New invoice ignores. Stories: each reading, the count, New invoice opened from the link, and a row pressed on New invoice. |
+| V. Tests first where a regression is silent | Yes | Core: one table of the rule's cases. Route: the row's shape, archived clients, a draft and a paid invoice stopping it, a void one bringing it back, since the queries are what leave void out. UI: what New invoice ignores. Stories: each reading, the count, New invoice opened from the link, and a row pressed on New invoice. |
 | VI. Every press answers in the same frame | Yes | The row's only press is a link. |
 | VII. A feature names what it removes | Yes | It removes nothing that exists. The rescope cut rows for unscheduled clients and `UNBILLED_DUE_DAYS`, rows across several periods, "unbilled since", the run-joining, and Billed elsewhere on this row with its batching and pending state. |
 

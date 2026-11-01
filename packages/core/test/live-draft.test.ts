@@ -232,13 +232,11 @@ test('draftDates: sending keeps the dates its last PDF printed', () => {
    "client from..to seconds". */
 const work = (startedAt: string, clientId = 'c1', hours = 1) =>
   entry({ startedAt, clientId, durationSeconds: hours * 3600 });
-const inv = (
-  status: string,
-  periodStart: string,
-  periodEnd: string,
-  clientId = 'c1',
-) => ({ clientId, status, periodStart, periodEnd });
-const sep = (status: string) => inv(status, '2026-09-01', '2026-09-30');
+const inv = (periodStart: string, periodEnd: string, clientId = 'c1') => ({
+  clientId,
+  periodStart,
+  periodEnd,
+});
 const NW_SEP = 'Northwind 2026-09-01..2026-09-30 3600';
 const IN_SEP = '2026-09-20T15:00:00Z';
 
@@ -279,41 +277,47 @@ const DUE: {
     entries: [work('2026-10-01T03:00:00Z')],
     due: [NW_SEP],
   },
-  ...['draft', 'sent', 'paid'].map((status) => ({
-    name: `inside a ${status} invoice`,
-    entries: [work(IN_SEP)],
-    invoices: [sep(status)],
-    due: [],
-  })),
   {
-    name: 'inside a void invoice',
+    name: 'an invoice over the whole period',
     entries: [work(IN_SEP)],
-    invoices: [sep('void')],
-    due: [NW_SEP],
+    invoices: [inv('2026-09-01', '2026-09-30')],
+    due: [],
   },
   {
     name: "inside another client's invoice",
     entries: [work(IN_SEP)],
-    invoices: [inv('paid', '2026-09-01', '2026-09-30', 'c2')],
+    invoices: [inv('2026-09-01', '2026-09-30', 'c2')],
     due: [NW_SEP],
   },
   {
     name: 'an invoice over part of the period, the work beside it',
     entries: [work(IN_SEP)],
-    invoices: [inv('paid', '2026-09-01', '2026-09-15')],
+    invoices: [inv('2026-09-01', '2026-09-15')],
     due: [],
   },
   {
     name: "an invoice sharing only the period's last day",
     entries: [work(IN_SEP)],
-    invoices: [inv('draft', '2026-09-30', '2026-10-15')],
+    invoices: [inv('2026-09-30', '2026-10-15')],
     due: [],
   },
   {
     name: 'an invoice ending the day before the period',
     entries: [work(IN_SEP)],
-    invoices: [inv('sent', '2026-08-01', '2026-08-31')],
+    invoices: [inv('2026-08-01', '2026-08-31')],
     due: [NW_SEP],
+  },
+  {
+    name: 'an invoice starting the day after the period',
+    entries: [work(IN_SEP)],
+    invoices: [inv('2026-10-01', '2026-10-15')],
+    due: [NW_SEP],
+  },
+  {
+    name: "an invoice sharing only the period's first day",
+    entries: [work(IN_SEP)],
+    invoices: [inv('2026-08-15', '2026-09-01')],
+    due: [],
   },
 ];
 

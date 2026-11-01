@@ -140,18 +140,14 @@ interface DueInputs {
   clients: { id: string; name: string; schedule: BillingSchedule | null }[];
   /** Finished entries on no invoice and not billed elsewhere. */
   entries: Omit<LateCandidate, 'taskName'>[];
-  invoices: {
-    clientId: string;
-    status: string;
-    periodStart: string;
-    periodEnd: string;
-  }[];
+  /** The user's non-void invoices: callers leave the void ones out. */
+  invoices: { clientId: string; periodStart: string; periodEnd: string }[];
 }
 
 /**
  * Clients ready to invoice, one row each by name: those with a schedule whose
- * most recent ended period holds billable work and overlaps no invoice that
- * isn't void. An overlapping draft would refuse that period, and a sent or
+ * most recent ended period holds billable work and overlaps none of
+ * `invoices`. An overlapping draft would refuse that period, and a sent or
  * paid one holds `lateEntries()`' work.
  */
 export function unbilledDue(
@@ -166,7 +162,6 @@ export function unbilledDue(
       const invoiced = invoices.some(
         (i) =>
           i.clientId === c.id &&
-          i.status !== 'void' &&
           i.periodStart <= period.periodEnd &&
           period.periodStart <= i.periodEnd,
       );

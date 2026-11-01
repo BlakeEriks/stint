@@ -3800,6 +3800,9 @@ test('unbilled work dated in a sent period is late; billed, unbillable or voided
 test('/stats lists clients ready to invoice, from the clients, entries and drafts it loads', async () => {
   const r = await live();
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const { PATCH: setStatus } = await import(
+    '../src/app/api/v1/invoices/[id]/status/route.ts'
+  );
   const { lastEndedPeriod, localDateKey, addDays } = await import(
     '@stint/core'
   );
@@ -3812,9 +3815,13 @@ test('/stats lists clients ready to invoice, from the clients, entries and draft
 
   const due = async () =>
     (await json(await stats(req('/stats?tz=UTC')))).body.attention.unbilledDue;
-  assert.deepEqual(await due(), [
-    { clientId: CLIENT, clientName: 'Northwind', seconds: 7200, ...period },
-  ]);
+  const row = {
+    clientId: CLIENT,
+    clientName: 'Northwind',
+    seconds: 7200,
+    ...period,
+  };
+  assert.deepEqual(await due(), [row]);
 
   await pool.query(`update clients set archived_at = now()`);
   assert.deepEqual(await due(), [], 'an archived client is never due');
@@ -3825,6 +3832,24 @@ test('/stats lists clients ready to invoice, from the clients, entries and draft
   );
   assert.equal(draft.status, 201, JSON.stringify(draft.body));
   assert.deepEqual(await due(), [], 'a draft it loads covers it');
+
+  const setTo = async (id: string, status: string) => {
+    const res = await setStatus(req('/s', { status }, 'PATCH'), {
+      params: Promise.resolve({ id }),
+    });
+    assert.equal(res.status, 200);
+  };
+  await setTo(draft.body.id, 'sent');
+  await setTo(draft.body.id, 'void');
+  assert.deepEqual(await due(), [row], 'voiding brings it back');
+
+  const billed = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...period })),
+  );
+  await setTo(billed.body.id, 'sent');
+  await setTo(billed.body.id, 'paid');
+  await seedEntry({ id: D(2), start: `${day}T15:00:00Z`, hours: 1 });
+  assert.deepEqual(await due(), [], 'a paid invoice stops it');
 });
 
 test('a draft is stale by its period end, at the total its work comes to now', async () => {

@@ -433,11 +433,10 @@ export async function readStats(
           invoices: [
             ...((invoices.data ?? []) as StoredInvoiceRow[]).map((i) => ({
               clientId: i.client_id,
-              status: i.status,
               periodStart: i.period_start,
               periodEnd: i.period_end,
             })),
-            ...issued.map((i) => ({ ...i, status: 'issued' })),
+            ...issued,
           ],
         },
         todayKey,

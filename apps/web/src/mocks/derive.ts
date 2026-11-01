@@ -392,7 +392,7 @@ export function stats(db: Db, tz: string) {
               clientId:
                 db.projects.find((p) => p.id === e.projectId)?.clientId ?? null,
             })),
-          invoices: db.invoices,
+          invoices: db.invoices.filter((i) => i.status !== 'void'),
         },
         todayKey,
         tz,
