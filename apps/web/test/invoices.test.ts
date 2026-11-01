@@ -4035,11 +4035,12 @@ test('an invoice covers the same entries wherever it is generated', async () => 
   assert.deepEqual(home.entryIds, lisbon.entryIds);
 });
 
-test('the issue date is read in the billing zone, not the device’s', async () => {
+test('the period and issue date are read in the billing zone, not the device’s', async () => {
   await billIn('America/New_York');
-  await seedEntry({ id: E(1), start: '2026-10-01T04:30:00Z' }); // Oct 1 in New York, Sep 30 in LA
+  // Oct 1 in New York, Sep 30 on the Los Angeles device.
+  await seedEntry({ id: E(1), start: '2026-10-01T04:30:00Z' });
 
-  const oct = await generateFrom('Europe/Lisbon', OCTOBER);
+  const oct = await generateFrom('America/Los_Angeles', OCTOBER);
   assert.equal(oct.tz, 'America/New_York');
   assert.deepEqual(oct.entryIds, [E(1)]);
 
