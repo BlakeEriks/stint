@@ -484,8 +484,8 @@ new or edited draft stores that zone. `GET /invoices`,
 has no zone, and sending dates the invoice on that zone's day. The zone decides
 which entries are billed — falling back to UTC there would move the boundary
 by hours and put the wrong work on an invoice. An **omitted** `tz` defaults to
-UTC on the two `POST`s and the reads, so a client that means a local period
-must send one; sending a zone-less draft without one is refused.
+UTC only on an account with no `billingTimeZone`, so a client there that means
+a local period must send one; sending a zone-less draft without one is refused.
 
 Day and week boundaries are computed by `@stint/core/calendar`, which resolves the
 offset **at the candidate instant** rather than the current one. Using the
