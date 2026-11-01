@@ -344,7 +344,7 @@ export const RateInvalid: Story = {
       '-5',
     );
     await expect(
-      await page.findByText('A rate is a number, zero or more.'),
+      await page.findByText('Enter a rate of zero or more, to the cent.'),
     ).toBeVisible();
     await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
   },

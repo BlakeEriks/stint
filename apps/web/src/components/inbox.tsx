@@ -321,7 +321,7 @@ export function Inbox({ stats }: { stats: Stats }) {
                   const rate = parseRate(text);
                   return isValidRate(rate) ? rate : null;
                 }}
-                invalid="A rate is a number, zero or more."
+                invalid="Enter a rate of zero or more, to the cent."
                 onSubmit={(defaultHourlyRate) => {
                   leave(r.id);
                   answer.mutate({ id: r.id, patch: { defaultHourlyRate } });
