@@ -182,7 +182,9 @@ export const BillingZone: Story = {
     });
     await expect(field).toHaveTextContent('America/New York');
     await userEvent.click(field);
-    await userEvent.keyboard('chicago{Enter}');
+    await userEvent.click(
+      await page.findByRole('option', { name: 'America/Chicago' }),
+    );
     await expect(
       await page.findByLabelText('Saved', {}, { timeout: 3000 }),
     ).toBeVisible();

@@ -48,17 +48,6 @@ const open = async (el: HTMLElement) => {
   return body(el).findByRole('listbox');
 };
 
-/** The field's label names the trigger, which shows the saved value. */
-export const Closed: Story = {
-  play: async ({ canvasElement }) => {
-    await expect(trigger(canvasElement)).toHaveTextContent('America/New York');
-    await expect(trigger(canvasElement)).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
-  },
-};
-
 /** A saved value the list lacks still shows as itself. */
 export const SavedValueNotListed: Story = {
   args: { value: 'Mars/Olympus_Mons' },
@@ -67,10 +56,19 @@ export const SavedValueNotListed: Story = {
   },
 };
 
-/** Open, the search has focus and the saved option is checked. */
+/** Open, the trigger says so, the search has focus and the saved option
+    is checked. */
 export const Open: Story = {
   play: async ({ canvasElement }) => {
+    await expect(trigger(canvasElement)).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
     await open(canvasElement);
+    await expect(trigger(canvasElement)).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
     const page = body(canvasElement);
     await expect(
       page.getByRole('combobox', { name: 'Search time zones' }),
@@ -82,14 +80,17 @@ export const Open: Story = {
   },
 };
 
-/** Typing filters the list to what matches. */
+/** Typing filters the list to what matches, by label or by IANA name. */
 export const Filtered: Story = {
   play: async ({ canvasElement }) => {
     const list = await open(canvasElement);
-    await userEvent.keyboard('los ang');
-    const shown = within(list).getAllByRole('option');
-    await expect(shown).toHaveLength(1);
-    await expect(shown[0]).toHaveTextContent('America/Los Angeles');
+    for (const search of ['los ang', 'america/los_angeles']) {
+      await userEvent.clear(body(canvasElement).getByRole('combobox', { name: 'Search time zones' }));
+      await userEvent.keyboard(search);
+      const shown = within(list).getAllByRole('option');
+      await expect(shown).toHaveLength(1);
+      await expect(shown[0]).toHaveTextContent('America/Los Angeles');
+    }
   },
 };
 
@@ -120,10 +121,15 @@ export const KeyboardPick: Story = {
     trigger(canvasElement).focus();
     await userEvent.keyboard('{Enter}');
     await body(canvasElement).findByRole('listbox');
-    await userEvent.keyboard('chicago');
-    await userEvent.keyboard('{ArrowDown}{ArrowUp}{Enter}');
-    await expect(args.onChange).toHaveBeenCalledWith('America/Chicago');
-    await expect(trigger(canvasElement)).toHaveTextContent('America/Chicago');
+    // Two match: New York, then North Dakota's New Salem.
+    await userEvent.keyboard('new');
+    await userEvent.keyboard('{ArrowDown}{ArrowUp}{ArrowDown}{Enter}');
+    await expect(args.onChange).toHaveBeenCalledWith(
+      'America/North_Dakota/New_Salem',
+    );
+    await expect(trigger(canvasElement)).toHaveTextContent(
+      'America/North Dakota/New Salem',
+    );
     await expect(trigger(canvasElement)).toHaveFocus();
 
     await userEvent.keyboard('{Enter}');

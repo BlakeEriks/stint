@@ -4,10 +4,8 @@
  * A long choice you search: shadcn/ui's Combobox pattern
  * (ui.shadcn.com/docs/components/combobox), a Popover holding a Command,
  * composed from the vendored `popover.tsx` and `command.tsx` as `select.tsx`
- * vendors shadcn's Select. `Select` only jumps by first letters, with no
- * filter and no list cap; `DropdownMenu` is for actions, not a field's
- * value. cmdk supplies the filtering, the arrow keys and Enter; Radix's
- * Popover supplies Escape and focus return.
+ * vendors shadcn's Select. cmdk supplies the filtering, the arrow keys and
+ * Enter; Radix's Popover supplies Escape and focus return.
  */
 import { useState } from 'react';
 import { CheckIcon, ChevronDownIcon } from 'lucide-react';
@@ -70,19 +68,29 @@ export function Combobox({
         id={id}
         role="combobox"
         aria-expanded={open}
-        className={cn(inputClass, 'flex items-center justify-between gap-2')}
+        // Open, the trigger keeps its focus look and the chevron flips, so
+        // the pressed control answers as well as the list.
+        className={cn(
+          inputClass,
+          'group flex items-center justify-between gap-2',
+          'aria-expanded:border-edge-focus aria-expanded:ring-[3px] aria-expanded:ring-edge-focus',
+        )}
       >
         <span className="truncate">{chosen}</span>
-        <ChevronDownIcon aria-hidden className="size-4 shrink-0 opacity-50" />
+        <ChevronDownIcon
+          aria-hidden
+          className="size-4 shrink-0 opacity-50 transition-transform duration-150 group-aria-expanded:rotate-180 motion-reduce:transition-none"
+        />
       </PopoverTrigger>
       <PopoverContent
         className="w-(--radix-popover-trigger-width) min-w-56 p-0"
         align="start"
+        // The popover is a dialog, which axe requires be named.
         aria-label={searchLabel}
       >
         <Command defaultValue={current} label={searchLabel} filter={contains}>
           <CommandInput placeholder={`${searchLabel}…`} />
-          <CommandList className="max-h-72">
+          <CommandList>
             {/* A listbox needs an option, so the empty state is one a
                 screen reader reads and nobody can pick. */}
             <CommandEmpty>
@@ -95,7 +103,7 @@ export function Combobox({
                 <CommandItem
                   key={o.value}
                   value={o.value}
-                  keywords={[o.label]}
+                  keywords={[o.label, o.value]}
                   aria-checked={o.value === current}
                   onSelect={() => {
                     onChange(o.value === UNSET ? null : o.value);
