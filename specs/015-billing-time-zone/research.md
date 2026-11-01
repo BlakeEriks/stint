@@ -3,7 +3,7 @@
 ## Where the zone is resolved
 
 - **Decision**: `billingZone(account, device)` in `@stint/core`, called by `computeInvoice` on the server and by New invoice.
-- **Rationale**: One rule both sides and #548 import, so none can drift. `computeInvoice` already loads settings, so the server costs no query.
+- **Rationale**: One rule both sides and the Inbox's ready-to-invoice row (#548) import, so none can drift. `computeInvoice` already loads settings, so the server costs no query.
 - **Alternatives considered**: Resolving in each route (three copies); a SQL function (the zone is never needed in SQL).
 
 ## One zone, on the account

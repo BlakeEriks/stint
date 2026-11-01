@@ -1,4 +1,5 @@
 import {
+  billingZone,
   addDays,
   billableExpenses,
   billingWindow,
@@ -394,8 +395,8 @@ export function stats(db: Db, tz: string) {
             })),
           invoices: db.invoices.filter((i) => i.status !== 'void'),
         },
-        todayKey,
-        tz,
+        localDateKey(now, billingZone(db.settings, tz)),
+        billingZone(db.settings, tz),
       ),
       unprojected: buildUnprojected(unprojected),
       strangeDurations: buildStrangeDurations(

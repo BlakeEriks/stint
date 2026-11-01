@@ -10,7 +10,7 @@ One nullable IANA zone column, `user_settings.billing_time_zone`. One pure
 rule in `@stint/core`, `billingZone(account, device)`, picks the account's,
 else the device's: the server calls it when it previews, generates or edits
 an invoice, and New invoice calls it for the issue date and the suggested
-period it shows. #548 adopts the same function. A draft
+period it shows, and the Inbox's ready-to-invoice row (#548) reads it too. A draft
 still stores the zone it was generated in (`invoices.tz`) and keeps it until
 sent. A backfill migration sets each account's zone from its newest
 invoice; the welcome dialog sets an unset one to the device's. The Inbox's

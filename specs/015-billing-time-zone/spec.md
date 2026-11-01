@@ -137,6 +137,9 @@ it kept; generate an invoice and see the period read in it.
 - **FR-009**: Closing the welcome dialog MUST set an unset account zone to
   the device's.
 - **FR-010**: Existing accounts MUST take the zone of their newest invoice.
+- **FR-011**: The Inbox's ready-to-invoice row (#548) MUST read today and
+  its entries' dates in the billing zone, as the invoice it suggests would,
+  so no entry is in both it and the late-entry row.
 
 ### Key Entities
 
@@ -176,6 +179,4 @@ Nothing a user had is lost: no client zone ever shipped.
 - An unset account zone after the backfill falls back to the device's zone
   rather than a guessed one (decided autonomously): a guess would move
   work between invoices unseen (Principle I).
-- The Inbox's past-due row is #548's, not yet merged; it adopts the shared
-  rule there.
 - The macOS and phone apps create no invoices, so they change nothing.

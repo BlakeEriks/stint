@@ -39,6 +39,8 @@ Tests come first in each phase (Constitution V).
 - [x] T019 Remove the per-client zone: `clients.billing_time_zone` from the migration, `Client.billingTimeZone`, the clients route, the client dialog field and story, the macOS fixture key, the client step of `billingZone`, and their tests
 - [x] T020 `PATCH /invoices/:id` (#571) resolves the zone with `billingZone()`, in the route and the mock; route test first: an edit from another zone keeps the draft in the billing zone
 
+- [x] T021 The Inbox's ready-to-invoice row (#548) reads today and its entries in `billingZone()`, in apps/web/src/lib/stats.ts and the fake's apps/web/src/mocks/derive.ts; route test first in apps/web/test/invoices.test.ts
+
 ## Phase 6: Polish
 
 - [x] T022 docs/api.md and docs/data-model.md: the field and how an invoice's zone is picked

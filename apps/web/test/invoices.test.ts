@@ -3854,6 +3854,34 @@ test('/stats lists clients ready to invoice, from the clients, entries and draft
   assert.deepEqual(await due(), [], 'a paid invoice stops it');
 });
 
+/* The evening after the period in UTC is its last day in Los Angeles: read
+   in the device's zone, the row would miss work its invoice bills. */
+test('/stats reads clients ready to invoice in the billing zone', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const { lastEndedPeriod, localDateKey, addDays } = await import(
+    '@stint/core'
+  );
+  await pool.query(
+    `update user_settings set billing_time_zone='America/Los_Angeles' where user_id=$1`,
+    [USER],
+  );
+  const period = lastEndedPeriod(
+    localDateKey(new Date(), 'America/Los_Angeles'),
+    { period: 'monthly' },
+  );
+  await pool.query(`update clients set billing_period = 'monthly'`);
+  await seedEntry({
+    id: D(1),
+    start: `${addDays(period.periodEnd, 1)}T03:00:00Z`,
+    hours: 1,
+  });
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(res.body.attention.unbilledDue, [
+    { clientId: CLIENT, clientName: 'Northwind', seconds: 3600, ...period },
+  ]);
+});
+
 test('a draft is stale by its period end, at the total its work comes to now', async () => {
   const r = await live();
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
