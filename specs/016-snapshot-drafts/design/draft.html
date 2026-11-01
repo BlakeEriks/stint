@@ -376,6 +376,10 @@ button { font: inherit; color: inherit; }
 .line .n { display: flex; flex-direction: column; min-width: 0; }
 .line small { color: var(--text-subtle); }
 .total { display: flex; justify-content: space-between; align-items: baseline; padding-top: 12px; color: var(--text-strong); }
+.panel { position: relative; }
+.scrim { position: absolute; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.dialog { background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: 12px; box-shadow: var(--shadow-float); padding: 20px; max-width: 400px; width: 100%; display: flex; flex-direction: column; gap: 10px; color: var(--text-strong); }
+.dialog p { color: var(--text-muted); }
 .empty-lines { color: var(--text-subtle); padding: 18px 0; }
 </style>
 </head>
@@ -428,15 +432,12 @@ function paper() {
 
 function actions() {
   if (s.state === 'new') return '';
-  if (s.state === 'asking')
-    return `<div class="actions type-control"><button class="btn accent">Lock 14 entries · $4,155.00</button><button class="btn ghost">Keep as draft</button></div>`;
   const off = s.state === 'nothing' ? 'disabled' : '';
   return `<div class="actions type-control"><button class="btn danger">Discard draft</button><button class="btn" ${off}>Mark sent</button><button class="btn accent" ${off}>Download PDF</button></div>`;
 }
 
 function hint() {
   if (s.state === 'new') return 'Pick a client and Stint starts the draft. It saves as you go.';
-  if (s.state === 'asking') return 'Marking it sent locks its 14 entries, and the invoice stays as it is. Send the PDF from your own address first.';
   return 'It holds the work it shows. Download it, send it from your own address, then mark it sent.';
 }
 
@@ -456,7 +457,13 @@ function render() {
   document.getElementById('panel').innerHTML = `<div class="back type-support">← Invoices</div>
     <div class="head">${title}${actions()}</div>
     <p class="hint type-support">${hint()}</p>${notice}
-    <div class="work">${form(!isNew)}${isNew ? '' : paper()}</div>`;
+    <div class="work">${form(!isNew)}${isNew ? '' : paper()}</div>${s.state === 'asking' ? dialog() : ''}`;
+}
+
+function dialog() {
+  return `<div class="scrim"><div class="dialog" role="dialog"><b class="type-heading">Mark STINT-0042 sent</b>
+    <p class="type-support">Lock 14 entries · $4,155.00. The invoice stays as it is.</p>
+    <div class="actions type-control" style="justify-content:flex-end"><button class="btn ghost">Keep as draft</button><button class="btn accent">Lock</button></div></div></div>`;
 }
 for (const id of ['state', 'size', 'theme'])
   document.getElementById(id).addEventListener('click', (e) => {

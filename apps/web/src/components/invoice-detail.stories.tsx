@@ -99,21 +99,47 @@ const fourteen = paying((db) => {
   if (draft) draft.entryCount = 14;
 });
 
-/** Mark sent asks first, naming what it locks; Keep as draft takes it
-    back. A download changed since doesn't hold it. */
+/** Mark sent asks in a dialog that names what it locks; Keep as draft
+    takes it back. A download since doesn't hold it. */
 export const MarkSentAsks: Story = {
   ...desktop,
   parameters: fourteen,
   play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
     await userEvent.click(
       await page.findByRole('button', { name: 'Mark sent' }),
     );
+    const dialog = within(await page.findByRole('dialog'));
     await expect(
-      page.getByRole('button', { name: 'Lock 14 entries · $2,787.60' }),
+      dialog.getByText(
+        'Lock 14 entries · $2,787.60. The invoice stays as it is.',
+      ),
     ).toBeVisible();
-    await userEvent.click(page.getByRole('button', { name: 'Keep as draft' }));
-    await expect(page.getByRole('button', { name: 'Mark sent' })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Lock' })).toBeEnabled();
+    await userEvent.click(
+      dialog.getByRole('button', { name: 'Keep as draft' }),
+    );
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+  },
+};
+
+/* Mark sent's answer never comes. */
+const sendStalls = stalled('updateInvoiceStatus');
+
+/** Locking waits on the server: the confirm says so and the dialog stays. */
+export const MarkSentLocking: Story = {
+  ...desktop,
+  parameters: { ...fourteen, ...sendStalls },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Mark sent' }),
+    );
+    const dialog = within(await page.findByRole('dialog'));
+    await userEvent.click(dialog.getByRole('button', { name: 'Lock' }));
+    await expect(
+      await dialog.findByRole('button', { name: 'Locking…' }),
+    ).toBeDisabled();
   },
 };
 

@@ -73,9 +73,12 @@ this?" from that form.
 - **New work**: a notice under the hint, above the invoice, edged in the
   warning color: "2 new entries, 2.50h, in this period", its amount, and that
   they stay off unless added. Its one button, Add to draft, adds all of it.
-- **Mark sent asking**: the action row becomes "Lock 14 entries · $4,155.00"
-  (primary) and "Keep as draft"; the hint says marking it sent locks its
-  entries.
+- **Mark sent asking**: a dialog, titled "Mark STINT-0042 sent", says what
+  changes: "Lock 14 entries · $4,155.00. The invoice stays as it is." Its
+  buttons are Keep as draft and Lock (primary). Lock shows "Locking…" while
+  the server decides, and a refusal shows inside the dialog. The dialog is
+  the shared `ConfirmDialog`, which Delete and Void move to in their own
+  issue (the owner's answer on #596).
 - **Nothing to bill**: the invoice says nothing to bill in its period yet;
   Mark sent and Download PDF are disabled.
 
@@ -158,14 +161,17 @@ read-only.
 **Acceptance Scenarios**:
 
 1. **Given** a draft of 14 entries totaling $3,150.00, **When** Mark sent is
-   pressed, **Then** it asks to lock 14 entries at $3,150.00, with a way to
-   keep it a draft.
-2. **Given** the confirmation, **When** it is confirmed, **Then** the invoice
+   pressed, **Then** a dialog asks to lock 14 entries at $3,150.00, with a
+   way to keep it a draft.
+2. **Given** that dialog, **When** Lock is pressed, **Then** it shows a
+   pending state until the server answers, and a refusal shows in the
+   dialog.
+3. **Given** the confirmation, **When** it is confirmed, **Then** the invoice
    is sent with exactly the draft's lines, and the entries it bills are
    read-only.
-3. **Given** a draft edited after its PDF was downloaded, **Then** Mark sent
+4. **Given** a draft edited after its PDF was downloaded, **Then** Mark sent
    is not disabled and no banner says it changed.
-4. **Given** a draft with unpriced work or nothing to bill, **Then** Mark
+5. **Given** a draft with unpriced work or nothing to bill, **Then** Mark
    sent is refused for that reason, as today.
 
 ---
@@ -257,8 +263,9 @@ mark one entry billed elsewhere from its dialog and see it leave the draft.
   entries, and one-off expenses dated on or before its end that it didn't
   leave off — as one notice with the count, hours and amount. The notice MUST
   have one action that adds all of it (FR-002).
-- **FR-006**: Mark sent MUST confirm before it commits, naming the number of
-  entries it locks and the total. Confirmed, it MUST send exactly the lines the
+- **FR-006**: Mark sent MUST confirm in a dialog before it commits, naming
+  the number of entries it locks and the total; its confirm MUST show a
+  pending state, and a refusal MUST show in the dialog. Confirmed, it MUST send exactly the lines the
   draft showed, locking the held work as a sent invoice does today.
 - **FR-007**: Mark sent MUST NOT depend on whether the latest PDF was
   downloaded. The "changed since you downloaded it" banner, its disabled

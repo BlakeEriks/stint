@@ -1,4 +1,4 @@
-import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { InvoiceTemplate } from '@stint/schema';
 import { ApiError, dbCode, PG, refused } from './errors';
 import {

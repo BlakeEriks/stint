@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   useQuery,
@@ -26,6 +27,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConfirmAction, confirmRow } from './confirm-action';
+import { ConfirmDialog } from './confirm-dialog';
 import { shortDate, StatusBadge } from './invoice-bits';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
@@ -164,6 +166,7 @@ function Loaded({
     mutate: (args: { status: InvoiceStatus }) => void;
     isPending: boolean;
     reset: () => void;
+    error: unknown;
   };
   addWork: { mutate: () => void; isPending: boolean };
   remove: { mutate: () => void; isPending: boolean; isSuccess: boolean };
@@ -230,22 +233,12 @@ function Loaded({
             </ConfirmAction>
           ) : null}
 
-          {/* Sending locks its entries for good, so it says how many and
-              for how much before it does. */}
           {isDraft ? (
-            <ConfirmAction
-              tone="primary"
-              label={`Lock ${entries(invoice.entryCount ?? 0)} · ${formatCurrency(invoice.total ?? 0, invoice.currency)}`}
-              pendingLabel="Marking sent…"
-              keepLabel="Keep as draft"
-              takesRow
-              pending={setStatus.isPending}
-              disabled={refuses.send || invoice.entryCount == null}
-              onConfirm={() => setStatus.mutate({ status: 'sent' })}
-            >
-              <Send aria-hidden strokeWidth={1.75} />
-              Mark sent
-            </ConfirmAction>
+            <MarkSent
+              invoice={invoice}
+              setStatus={setStatus}
+              disabled={refuses.send}
+            />
           ) : null}
 
           {invoice.status === 'sent' ? (
@@ -322,6 +315,54 @@ function Loaded({
       />
 
       <MarkPaidDialog {...markPaid.dialog} />
+    </>
+  );
+}
+
+/** Mark sent, and the dialog it asks in. Sending locks the entries for
+    good, so it says how many and for how much before it does. */
+function MarkSent({
+  invoice,
+  setStatus,
+  disabled,
+}: {
+  invoice: Shown;
+  setStatus: {
+    mutate: (args: { status: InvoiceStatus }) => void;
+    isPending: boolean;
+    reset: () => void;
+    error: unknown;
+  };
+  disabled: boolean;
+}) {
+  const [asking, setAsking] = useState(false);
+  return (
+    <>
+      <Button
+        onClick={() => {
+          // A refusal from an earlier press must not read as this one's.
+          setStatus.reset();
+          setAsking(true);
+        }}
+        disabled={disabled || invoice.entryCount == null}
+      >
+        <Send aria-hidden strokeWidth={1.75} />
+        Mark sent
+      </Button>
+      {/* Sent, the draft and this go with it. */}
+      <ConfirmDialog
+        open={asking}
+        onOpenChange={setAsking}
+        title={`Mark ${invoice.invoiceNumber} sent`}
+        description={`Lock ${entries(invoice.entryCount ?? 0)} · ${formatCurrency(invoice.total ?? 0, invoice.currency)}. The invoice stays as it is.`}
+        confirmLabel="Lock"
+        pendingLabel="Locking…"
+        icon={<Lock aria-hidden strokeWidth={1.75} />}
+        keepLabel="Keep as draft"
+        pending={setStatus.isPending}
+        error={setStatus.error}
+        onConfirm={() => setStatus.mutate({ status: 'sent' })}
+      />
     </>
   );
 }

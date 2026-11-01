@@ -703,6 +703,24 @@ try {
           total,
         ],
       );
+    /* A draft holds the work it was built with, as `POST /invoices` holds
+       it: here, its period's. */
+    if (inv.status === 'draft')
+      await db.query(
+        `update time_entries e set draft_id = $1
+           from projects p
+          where p.id = e.project_id and p.client_id = $2 and e.user_id = $3
+            and e.invoice_id is null and not e.invoiced_elsewhere
+            and e.ended_at is not null
+            and e.started_at >= $4::date and e.started_at < $5::date + 1`,
+        [
+          invoiceId,
+          firstClientId,
+          userId,
+          periodStart.toISOString().slice(0, 10),
+          periodEnd.toISOString().slice(0, 10),
+        ],
+      );
     /* Issued once its line is written: `guard_issued_line_item` refuses a
        line on a sent invoice, and paid is reached through sent. */
     for (const status of { draft: [], sent: ['sent'], paid: ['sent', 'paid'] }[

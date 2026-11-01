@@ -13,9 +13,7 @@ export const confirmRow =
 /**
  * A destructive action in two presses (`.claude/rules/web-ui.md`): a quiet red
  * ghost that only asks, then a filled `destructive` naming what goes, with a
- * ghost Keep beside it. `tone="primary"` is the same two presses for one
- * that locks rather than destroys, such as Mark sent: a plain button that
- * asks, then the accent naming what it locks. In place rather than a modal: a confirm modal is
+ * ghost Keep beside it. In place rather than a modal: a confirm modal is
  * dismissed unread, and the entry dialog would stack one dialog on another.
  * Where the pair would wrap its row, `takesRow` draws it over the trigger's
  * slot and the row (`confirmRow`) hides its other controls until Keep, so
@@ -34,8 +32,6 @@ export function ConfirmAction({
   onConfirm,
   className,
   takesRow,
-  tone = 'danger',
-  keepLabel = 'Keep',
   'aria-label': ariaLabel,
 }: {
   /** The first step's content: a glyph, and its label unless icon-only. */
@@ -47,8 +43,6 @@ export function ConfirmAction({
   onConfirm: () => void;
   className?: string;
   takesRow?: boolean;
-  tone?: 'danger' | 'primary';
-  keepLabel?: string;
   'aria-label'?: string;
 }) {
   const [asking, setAsking] = useState(false);
@@ -77,12 +71,11 @@ export function ConfirmAction({
     <Button
       ref={trigger}
       type="button"
-      variant={tone === 'danger' ? 'ghost' : 'default'}
+      variant="ghost"
       size={ariaLabel ? 'icon' : 'default'}
       aria-label={ariaLabel}
       className={cn(
-        tone === 'danger' &&
-          'text-danger hover:bg-danger-muted hover:text-danger',
+        'text-danger hover:bg-danger-muted hover:text-danger',
         asking && 'invisible',
         // A visibility transition would hold it hidden as Keep focuses it.
         takesRow && 'transition-none',
@@ -107,7 +100,7 @@ export function ConfirmAction({
       <Button
         ref={confirm}
         type="button"
-        variant={tone === 'danger' ? 'destructive' : 'accent'}
+        variant="destructive"
         disabled={pending}
         onClick={onConfirm}
       >
@@ -120,7 +113,7 @@ export function ConfirmAction({
         disabled={pending}
         onClick={() => setAsking(false)}
       >
-        {keepLabel}
+        Keep
       </Button>
     </span>
   ) : null;

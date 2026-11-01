@@ -5,7 +5,6 @@ import { useDialog } from '@/lib/client/use-dialog';
 import { useRouter } from 'next/navigation';
 import {
   keepPreviousData,
-  type QueryClient,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
