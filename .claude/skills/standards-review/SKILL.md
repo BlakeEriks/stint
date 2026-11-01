@@ -19,9 +19,11 @@ brief, filling in the range and the checkout:
 > constitution (`.specify/memory/constitution.md`) and the
 > `.claude/rules/` its files load: `comments.md` for every added or changed
 > comment, `changes.md` for special cases, copied mechanisms and new debt,
-> and Constitution V for its tests. Report in one paragraph each finding
-> you are confident in, with file:line, the failure and the fix; a
-> comment's fix is usually cutting it.
+> and Constitution V for its tests, flagging any that pass without the
+> change, repeat another layer, or could be a row in an existing table.
+> Report in one paragraph each finding you are confident in, with
+> file:line, the failure and the fix; a comment's fix is usually cutting
+> it.
 
 Then check each finding against the code. Fix the findings that hold, in a
 commit of their own, and say which you left and why. If the fix is not small

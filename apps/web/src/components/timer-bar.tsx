@@ -45,8 +45,11 @@ export function TimerBar({
       /* A quiet fill rather than a plane of its own: at `xl` the bar sits
          under the panel at the panel's width, and at full opacity it would
          read as a second panel competing with the one being read. No shadow
-         and no border for the same reason — the frame has one edge. */
-      className="flex flex-none flex-col rounded-xl bg-surface-primary/55"
+         and no border for the same reason — the frame has one edge.
+
+         Below `sm` the page scrolls under the pinned bar, so it is opaque
+         there, one plane above the panel it covers. */
+      className="flex flex-none flex-col rounded-xl bg-surface-elevated sm:bg-surface-primary/55"
       aria-label="Timer"
     >
       {/* Identity holds the left edge, the readout the right, so the clock

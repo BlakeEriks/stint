@@ -52,6 +52,10 @@ money, a write, a route, a policy, sign-in, and the logic in
 | A screen, and each state a user can see | its `*.stories.tsx`, one story per acceptance scenario |
 | Sign-in and invoicing, end to end | `apps/web/e2e` |
 
+One test per regression, at the cheapest layer that catches it. A behavior
+a lower suite or a story already asserts gets no second test; extend its
+table before adding a case.
+
 A bug fix starts with the test that reproduces it, in its code's suite. How
 one screen looks is reproduced by its story, which CI renders in a real
 browser. jsdom asserts only the design rules every screen keeps, since a
@@ -94,6 +98,8 @@ tests it makes unnecessary, and removes them in the same feature, or says
 why none.
 A test is unnecessary once another suite asserts the same behavior: a new
 story replaces the jsdom test that checked its state.
+A test that asserts copy, an unchanged path, or what another suite asserts
+is cut in the PR that finds it.
 A new state, setting or mode justifies itself against what is already
 there: one an existing state covers is cut in the spec, not built.
 Nobody waits to retire something a user sees: the PR names the cut, and
@@ -133,4 +139,4 @@ change, the plausible design that breaks it, and why no check catches that
 in time. The version follows semver: MAJOR removes or redefines a principle,
 MINOR adds one, PATCH rewords. The reasoning goes in the PR.
 
-**Version**: 8.2.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-10-28
+**Version**: 8.3.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-10-29

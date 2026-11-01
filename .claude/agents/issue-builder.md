@@ -185,7 +185,8 @@ Commit, unpushed, and report back. A check that cannot pass without the reviewer
 ## Fixes
 
 Feedback, doc drift or a failed check on an open PR: fix it on its branch,
-with the tests Constitution V asks for, verify as above, commit unpushed, and report back — push and
+with the tests Constitution V asks for, no more: stop when each regression
+has one test. Verify as above, commit unpushed, and report back — push and
 comment only on `ship`, as for a new PR.
 
 **Conflicts with `main`:** `git merge origin/main` into the branch — never rebase,

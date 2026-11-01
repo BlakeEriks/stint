@@ -22,7 +22,9 @@ issue naming what points to it and the design you'd move to.
 **Tests follow Constitution V.** Before writing one, name the regression it
 guards that nobody would see. A change to how a screen looks or reads has
 none: its story is the test, with a `play` that fails without the change,
-and no jsdom test asserts it.
+and no jsdom test asserts it. A case of the same function is one more row in
+its table, not a new test: a `test.each` under Vitest, a `for` loop under
+`node --test`. A test that passes without the change is cut.
 
 **Leave no new debt.** Before verifying, run `pnpm hygiene` on each file the
 change touched. A finding in code the change wrote is reduced now, by
