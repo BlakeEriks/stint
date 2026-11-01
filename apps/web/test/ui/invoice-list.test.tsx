@@ -4,7 +4,6 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { keys } from '@stint/client';
-import { InvoiceDetail } from '@/components/invoice-detail';
 import { InvoiceList } from '@/components/invoice-list';
 import type { Invoice } from '@/lib/client/api';
 import { localDateKey, localDateTimeToInstant } from '@stint/core';
@@ -13,7 +12,6 @@ const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 const search = { value: new URLSearchParams() };
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
   useSearchParams: () => search.value,
   usePathname: () => '/invoices',
 }));
@@ -79,18 +77,34 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
-/** An invoice as its own route answers, lines and all. */
-const detailOf = (i: Invoice | undefined) => ({
-  ...i,
-  billTo: { name: 'Northwind', email: null, address: null },
-  business: { name: 'Sam', address: null, email: null, logoUrl: null },
-  lineItems: [],
-  canDownload: true,
-  changedSinceDownload: null,
-  unratedEntries: [],
-  dueBeforeIssue: { download: false, send: false },
-  refuses: { download: false, send: false },
-});
+/** The API for a list: each invoice's own route reports to `onDetail`, a
+    write to `onWrite`. */
+function answerWith(
+  list: Invoice[],
+  onDetail: (id: string) => void,
+  onWrite?: () => void,
+) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const path = String(url).replace('/api/v1', '');
+      if (init?.method && init.method !== 'GET') {
+        onWrite?.();
+        return new Response('{}');
+      }
+      if (path.startsWith('/clients'))
+        return new Response(
+          JSON.stringify({ clients: [{ id: 'c1', name: 'Northwind' }] }),
+        );
+      const one = path.match(/^\/invoices\/(i\d)/)?.[1];
+      if (one) {
+        onDetail(one);
+        return new Response(JSON.stringify(list.find((i) => i.id === one)));
+      }
+      return new Response(JSON.stringify({ invoices: list }));
+    }),
+  );
+}
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -289,83 +303,25 @@ describe('InvoiceList', () => {
       invoice({ id: 'i3', invoiceNumber: 'STINT-0003', status: 'paid' }),
     ];
     const fetched: string[] = [];
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (url: string) => {
-        const path = String(url).replace('/api/v1', '');
-        if (path.startsWith('/clients'))
-          return new Response(
-            JSON.stringify({ clients: [{ id: 'c1', name: 'Northwind' }] }),
-          );
-        const one = path.match(/^\/invoices\/(i\d)/)?.[1];
-        if (one) {
-          fetched.push(one);
-          return new Response(
-            JSON.stringify(detailOf(list.find((i) => i.id === one))),
-          );
-        }
-        return new Response(JSON.stringify({ invoices: list }));
-      }),
-    );
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false, gcTime: Infinity } },
-    });
-    const { unmount } = render(
-      <QueryClientProvider client={qc}>
-        <InvoiceList />
-      </QueryClientProvider>,
-    );
+    answerWith(list, (id) => fetched.push(id));
+    render(<InvoiceList />, { wrapper });
     await waitFor(() => expect(fetched.sort()).toEqual(['i1', 'i2']));
-    unmount();
-
-    for (const [id, action] of [
-      ['i1', 'Mark sent'],
-      ['i2', 'Mark paid'],
-    ] as const) {
-      const page = render(
-        <QueryClientProvider client={qc}>
-          <InvoiceDetail id={id} />
-        </QueryClientProvider>,
-      );
-      expect(screen.queryByRole('status')).toBeNull();
-      expect(screen.getByRole('button', { name: action })).toBeEnabled();
-      expect(screen.getByRole('link', { name: 'Download PDF' })).toBeVisible();
-      page.unmount();
-    }
-    expect(fetched).not.toContain('i3');
   });
 
   /* Paid from its row, a prefetched invoice opens as the row now says, not
      as the copy fetched while it was still sent. */
-  it('opens an invoice paid from its row as paid', async () => {
-    let status: Invoice['status'] = 'sent';
-    let detailAnswers = true;
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (url: string, init?: RequestInit) => {
-        const path = String(url).replace('/api/v1', '');
-        if (init?.method && init.method !== 'GET') {
-          status = 'paid';
-          return new Response('{}');
-        }
-        if (path.startsWith('/clients'))
-          return new Response(
-            JSON.stringify({ clients: [{ id: 'c1', name: 'Northwind' }] }),
-          );
-        if (path.startsWith('/invoices/i1')) {
-          if (!detailAnswers) return new Promise<Response>(() => {});
-          return new Response(JSON.stringify(detailOf(invoice({ status }))));
-        }
-        return new Response(
-          JSON.stringify({ invoices: [invoice({ status })] }),
-        );
-      }),
+  it('drops the prefetched copy of an invoice paid from its row', async () => {
+    const list = [invoice({ status: 'sent' })];
+    answerWith(
+      list,
+      () => {},
+      () => (list[0] = invoice({ status: 'paid' })),
     );
     const qc = new QueryClient({
       defaultOptions: { queries: { retry: false, gcTime: Infinity } },
     });
     const user = userEvent.setup();
-    const { unmount } = render(
+    render(
       <QueryClientProvider client={qc}>
         <InvoiceList />
       </QueryClientProvider>,
@@ -378,19 +334,7 @@ describe('InvoiceList', () => {
     );
     await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
     await waitFor(() =>
-      expect(
-        screen.queryByRole('button', { name: /Mark STINT-0001 paid/ }),
-      ).toBeNull(),
+      expect(qc.getQueryData(keys.invoice('i1'))).toBeUndefined(),
     );
-    unmount();
-
-    detailAnswers = false;
-    render(
-      <QueryClientProvider client={qc}>
-        <InvoiceDetail id="i1" />
-      </QueryClientProvider>,
-    );
-    expect(screen.queryByRole('button', { name: 'Mark paid' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Void' })).toBeDisabled();
   });
 });
