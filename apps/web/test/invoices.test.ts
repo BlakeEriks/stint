@@ -8,6 +8,7 @@
 import { test, before, after, beforeEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
+import { refusals } from '@stint/core';
 import { makeDb } from './shim.mjs';
 import { fill } from './fill.ts';
 import { pdfText } from './pdf-text.ts';
@@ -1236,8 +1237,7 @@ test('an invoice cannot return to draft once issued', async () => {
   );
 
   assert.equal(back.status, 422);
-  assert.equal(back.body.code, 'VALIDATION_FAILED');
-  assert.equal(back.body.message, 'An invoice cannot move from sent to draft');
+  assert.deepEqual(back.body, refusals.transition('sent', 'draft'));
 });
 
 test('voiding releases the entries so they can be re-billed', async () => {
@@ -1373,7 +1373,7 @@ test('an issued invoice cannot be deleted — it must be voided', async () => {
   ).finally(() => asCaller.end());
 
   assert.equal(res.status, 422);
-  assert.match(res.body.message, /void it instead/);
+  assert.deepEqual(res.body, refusals.issuedDelete);
   const { rows } = await pool.query(
     'select invoice_id from time_entries where id = $1',
     [E(1)],
@@ -2236,7 +2236,7 @@ test('an expense under a client that is not the caller’s is “No such client�
     ),
   );
   assert.equal(res.status, 422);
-  assert.equal(res.body.message, 'No such client');
+  assert.equal(res.body.message, refusals.noSuchClient.message);
 });
 
 test('an expense is more than zero, described, and dated unless recurring', async () => {
