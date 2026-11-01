@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import {
   useOptimisticMutation,
   keys,
@@ -32,7 +31,6 @@ import { ColorPicker } from './color-picker';
 import { Field, inputClass } from './field';
 import { RateInput, parseRate } from './rate-input';
 import { api, ApiError, type Client, type ClientInput } from '@/lib/client/api';
-import { ZoneSelect, zoneLabel } from './zone-select';
 
 /**
  * Create and edit are the same form — the only difference is which request
@@ -76,11 +74,6 @@ export function ClientForm({
   );
   const termsDays = parseTermsDays(terms);
   const badTerms = terms.trim() !== '' && termsDays === null;
-  const [zone, setZone] = useState(existing?.billingTimeZone ?? null);
-  const accountZone = useQuery({
-    queryKey: keys.settings(),
-    queryFn: () => api.settings(),
-  }).data?.billingTimeZone;
 
   const save = useSaveClient(existing, onSaved);
 
@@ -97,7 +90,6 @@ export function ClientForm({
       color,
       billingSchedule: schedule,
       paymentTermsDays: termsDays,
-      billingTimeZone: zone,
     });
   };
 
@@ -191,19 +183,6 @@ export function ClientForm({
           value={terms}
           onChange={(e) => setTerms(e.target.value)}
           placeholder="30"
-        />
-      </Field>
-
-      <Field
-        label="Billing time zone"
-        htmlFor="client-zone"
-        hint="The calendar its invoices' dates are read in."
-      >
-        <ZoneSelect
-          id="client-zone"
-          value={zone}
-          onChange={setZone}
-          unset={`Your default: ${accountZone ? zoneLabel(accountZone) : "this device's"}`}
         />
       </Field>
 

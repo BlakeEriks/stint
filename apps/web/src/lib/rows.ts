@@ -132,12 +132,11 @@ export interface ClientRow {
   billing_period: BillingPeriod | null;
   period_anchor: string | null;
   payment_terms_days: number | null;
-  billing_time_zone: string | null;
   archived_at: string | null;
 }
 
 export const CLIENT_COLUMNS = columns<ClientRow>()(
-  'id, name, email, address, hourly_rate, tax_rate, currency, color, payment_profile_id, billing_period, period_anchor, payment_terms_days, billing_time_zone, archived_at',
+  'id, name, email, address, hourly_rate, tax_rate, currency, color, payment_profile_id, billing_period, period_anchor, payment_terms_days, archived_at',
 );
 
 /** The schedule is one value on the wire and two columns, written together
@@ -167,7 +166,6 @@ export function toClient(r: ClientRow) {
     paymentProfileId: r.payment_profile_id,
     billingSchedule: toBillingSchedule(r),
     paymentTermsDays: r.payment_terms_days,
-    billingTimeZone: r.billing_time_zone,
     archivedAt: r.archived_at,
   };
 }
@@ -499,7 +497,6 @@ export const CLIENT_FIELDS = {
   color: 'color',
   paymentProfileId: 'payment_profile_id',
   paymentTermsDays: 'payment_terms_days',
-  billingTimeZone: 'billing_time_zone',
 } as const;
 
 export const PROJECT_FIELDS = {

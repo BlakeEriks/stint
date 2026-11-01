@@ -108,12 +108,8 @@ const highestInvoice = (db: Db) =>
     undefined,
   );
 
-const zoneOf = (db: Db, input: { clientId: string; tz?: string }) =>
-  billingZone(
-    db.clients.find((c) => c.id === input.clientId),
-    db.settings,
-    input.tz ?? ZONE,
-  );
+const zoneOf = (db: Db, input: { tz?: string }) =>
+  billingZone(db.settings, input.tz ?? ZONE);
 
 /** What a draft takes from New invoice's choices and the preview they make,
  *  on Generate and on every edit. */
@@ -684,7 +680,6 @@ export const handlers = {
       paymentProfileId: null,
       billingSchedule: null,
       paymentTermsDays: null,
-      billingTimeZone: null,
       archivedAt: null,
       ...(await body<Partial<Client>>(request)),
     };
@@ -1173,7 +1168,6 @@ export const handlers = {
         paymentProfileId: null,
         billingSchedule: null,
         paymentTermsDays: null,
-        billingTimeZone: null,
         archivedAt: null,
       });
     for (const p of preview.newProjects)

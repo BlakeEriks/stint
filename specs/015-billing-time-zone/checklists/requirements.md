@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Each client has a billing time zone
+# Specification Quality Checklist: The account has a billing time zone
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-10-29

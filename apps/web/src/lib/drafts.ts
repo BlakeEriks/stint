@@ -336,11 +336,7 @@ export async function computeInvoice(
   const tz =
     typeof opts.tz === 'string'
       ? opts.tz
-      : billingZone(
-          { billingTimeZone: client.billing_time_zone },
-          settings,
-          opts.tz.device,
-        );
+      : billingZone(settings, opts.tz.device);
   if (!tz)
     throw new ApiError(
       'VALIDATION_FAILED',

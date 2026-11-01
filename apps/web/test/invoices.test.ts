@@ -4035,12 +4035,8 @@ test('an invoice covers the same entries wherever it is generated', async () => 
   assert.deepEqual(home.entryIds, lisbon.entryIds);
 });
 
-test("a client's own zone wins over the account's, and the issue date is read in it", async () => {
-  await billIn('America/Los_Angeles');
-  await pool.query(
-    `update clients set billing_time_zone='America/New_York' where id=$1`,
-    [CLIENT],
-  );
+test('the issue date is read in the billing zone, not the device’s', async () => {
+  await billIn('America/New_York');
   await seedEntry({ id: E(1), start: '2026-10-01T04:30:00Z' }); // Oct 1 in New York, Sep 30 in LA
 
   const oct = await generateFrom('Europe/Lisbon', OCTOBER);

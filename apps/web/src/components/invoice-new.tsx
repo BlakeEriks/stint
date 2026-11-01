@@ -459,8 +459,8 @@ function Form({
     queryFn: () => api.settings(),
   });
   const noSender = missingBusiness(settings);
-  // Today on the client's billing calendar, as the server dates it.
-  const issued = localDateKey(opened, billingZone(client, settings, tz));
+  // Today on the account's billing calendar, as the server dates it.
+  const issued = localDateKey(opened, billingZone(settings, tz));
   const { template, choose } = useTemplateChoice();
   const profiles =
     useQuery({

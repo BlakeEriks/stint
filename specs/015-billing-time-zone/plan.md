@@ -1,4 +1,4 @@
-# Implementation Plan: Each client has a billing time zone
+# Implementation Plan: The account has a billing time zone
 
 **Branch**: `billing-tz` | **Date**: 2026-10-29 | **Spec**: [spec.md](spec.md)
 
@@ -6,12 +6,11 @@
 
 ## Summary
 
-Two nullable IANA zone columns: `user_settings.billing_time_zone` and
-`clients.billing_time_zone`. One pure rule in `@stint/core`,
-`billingZone(client, account, device)`, picks the client's, else the
-account's, else the device's: the server calls it when it previews or
-generates an invoice, and New invoice calls it for the issue date and the
-suggested period it shows. #548 and #571 adopt the same function. A draft
+One nullable IANA zone column, `user_settings.billing_time_zone`. One pure
+rule in `@stint/core`, `billingZone(account, device)`, picks the account's,
+else the device's: the server calls it when it previews, generates or edits
+an invoice, and New invoice calls it for the issue date and the suggested
+period it shows. #548 adopts the same function. A draft
 still stores the zone it was generated in (`invoices.tz`) and keeps it until
 sent. A backfill migration sets each account's zone from its newest
 invoice; the welcome dialog sets an unset one to the device's. The Inbox's
@@ -23,19 +22,19 @@ late-entry row reads each sent invoice's own zone.
 
 **Primary Dependencies**: `isValidTimeZone`, `localDateKey`, `billingWindow` in `@stint/core`; Zod in `@stint/schema`; `Intl.supportedValuesOf('timeZone')` for the picker
 
-**Storage**: Supabase Postgres: one column on `user_settings`, one on `clients`, a backfill
+**Storage**: Supabase Postgres: one column on `user_settings`, a backfill
 
-**Testing**: `packages/core/test` (the rule, DST windows), `apps/web/test/invoices.test.ts` and `routes.test.ts` (private DB), `apps/web/test/ui` (New invoice's dates), Settings and client form stories
+**Testing**: `packages/core/test` (the rule, DST windows), `apps/web/test/invoices.test.ts` and `routes.test.ts` (private DB), `apps/web/test/ui` (New invoice's dates), Settings stories
 
-**Target Platform**: The web app. The macOS and phone apps create no invoices; their decoders ignore the new keys.
+**Target Platform**: The web app. The macOS and phone apps create no invoices; their decoders ignore the new key.
 
 **Project Type**: Web service and client in the existing monorepo
 
-**Performance Goals**: None new; both columns ride on reads `computeInvoice` already makes
+**Performance Goals**: None new; the column rides on reads `computeInvoice` already makes
 
 **Constraints**: Issued invoices never change; backfill separate from DDL (`.claude/rules/migrations.md`); no fixed cost
 
-**Scale/Scope**: Settings, the client dialog, the welcome dialog, New invoice, `POST /invoices`, `POST /invoices/preview`, stats' late entries
+**Scale/Scope**: Settings, the welcome dialog, New invoice, `POST /invoices`, `PATCH /invoices/:id`, `POST /invoices/preview`, stats' late entries
 
 ## Constitution Check
 
@@ -45,8 +44,8 @@ late-entry row reads each sent invoice's own zone.
 | II. Logic written twice has a parity test | No | The rule is one TypeScript function; SQL never resolves a zone. |
 | III. Every client through `/api/v1` | Yes | The server resolves the zone itself; New invoice's dates are a prediction its preview settles. |
 | IV. `packages/core` does no I/O | Yes | `billingZone()` is pure. |
-| V. Tests first where a regression is silent | Yes | Core: the rule's order; a window across a DST change. Routes: generation from Lisbon and Los Angeles bills the same entries; the client's zone wins over the account's; a draft keeps its zone; settings and client zones round-trip and refuse a bad zone; late entries read each invoice's zone. UI: New invoice's issue date in the billing zone. Stories per field state. |
-| VI. Every press answers in the same frame | Yes | Settings autosaves as today; the client dialog's Save is pending as today. |
+| V. Tests first where a regression is silent | Yes | Core: the rule's order; a window across a DST change. Routes: generation from Lisbon and Los Angeles bills the same entries; the issue date is read in the billing zone; an edit from another zone keeps it; settings' zone round-trips and refuses a bad one; late entries read each invoice's zone. UI: New invoice's issue date in the billing zone. Stories per field state. |
+| VI. Every press answers in the same frame | Yes | Settings autosaves as today. |
 
 Additional constraints: issued invoices immutable (no write to `invoices`);
 no new fixed cost.
@@ -64,14 +63,14 @@ specs/015-billing-time-zone/
 ### Source Code (repository root)
 
 ```text
-packages/core/src/billing-zone.ts     billingZone()
-packages/schema/src/                  Settings.billingTimeZone, Client.billingTimeZone
-supabase/migrations/                  add columns → backfill
-apps/web/src/lib/rows.ts              settings and client mapping
+packages/core/src/billable.ts         billingZone()
+packages/schema/src/                  Settings.billingTimeZone
+supabase/migrations/                  add column → backfill
+apps/web/src/lib/rows.ts              settings mapping
 apps/web/src/lib/drafts.ts            computeInvoice resolves the zone
-apps/web/src/app/api/v1/invoices/     route.ts, preview/route.ts use it
+apps/web/src/app/api/v1/invoices/     route.ts, preview/route.ts, [id]/route.ts use it
 apps/web/src/lib/stats.ts             late entries in each invoice's zone
-apps/web/src/components/              zone-select (new), settings-form, client-form, welcome-dialog, invoice-new
+apps/web/src/components/              zone-select (new), settings-form, welcome-dialog, invoice-new
 apps/web/src/mocks/                   fixtures, handlers
 docs/api.md, docs/data-model.md
 ```

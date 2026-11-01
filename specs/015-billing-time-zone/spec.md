@@ -1,6 +1,6 @@
 Closes #568
 
-# Feature Specification: Each client has a billing time zone
+# Feature Specification: The account has a billing time zone
 
 **Feature Branch**: `billing-tz`
 
@@ -14,10 +14,11 @@ invoice's zone to the next, so for a contractor who travels, work near
 midnight can fall in neither of two invoices: a Sep 30, 11:30 PM Pacific
 entry is Oct 1 to a September invoice generated in Lisbon, and Sep 30 to an
 October invoice generated back in Pacific time. It is then unbilled and
-dated before the current period. A client gets a billing time zone, with a
-default on the account, and every invoice for that client reads its dates
-in it, wherever the user is. The owner chose this design over carrying the
-last invoice's zone forward (issue comment, 2026-10-29).
+dated before the current period. The account gets a billing time zone, and
+every invoice reads its dates in it, wherever the user is. The owner chose
+this design over carrying the last invoice's zone forward (issue comment,
+2026-10-29), and at review cut the per-client zone it first had: one zone
+on the account (PR #580, 2026-11-01).
 
 ## Clarifications
 
@@ -29,11 +30,10 @@ last invoice's zone forward (issue comment, 2026-10-29).
 
 ## Design
 
-No design review (decided autonomously): each change is one field in a form
-that already exists, a time zone picker in Settings' invoicing section and
-in the client dialog beside payment terms, built from the select the app
-already uses. Neither screen has a choice of layout or hierarchy. Their
-stories show every state.
+No design review (decided autonomously): the change is one field in a form
+that already exists, a time zone picker in Settings' Billing defaults, built
+from the select the app already uses. The screen has no choice of layout or
+hierarchy. Its stories show every state.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -53,19 +53,19 @@ in `America/Los_Angeles`; both bill the same entries.
 
 **Acceptance Scenarios**:
 
-1. **Given** a client billed in `America/Los_Angeles` and an entry at
+1. **Given** an account billed in `America/Los_Angeles` and an entry at
    11:30 PM Sep 30 Pacific, **When** September's invoice is generated from
    `Europe/Lisbon`, **Then** the entry is on it.
-2. **Given** the same client, **When** September's invoice is generated from
+2. **Given** the same account, **When** September's invoice is generated from
    `America/Los_Angeles`, **Then** it bills exactly the entries the Lisbon
    one did.
-3. **Given** a client billed in `America/Los_Angeles`, **When** New invoice
+3. **Given** an account billed in `America/Los_Angeles`, **When** New invoice
    is opened from `Pacific/Auckland` at 9 AM Oct 1 local, which is still
    Sep 30 in Los Angeles, **Then** the issue date it shows and the period it
    suggests are those of Sep 30 in Los Angeles.
 4. **Given** a client with a billing schedule, **When** New invoice suggests
-   its last ended period, **Then** "today" is today in the client's billing
-   zone.
+   its last ended period, **Then** "today" is today in the account's
+   billing zone.
 5. **Given** a billing zone whose clocks change inside the period (DST),
    **When** the invoice is generated, **Then** the period runs from
    midnight on its first day to midnight after its last, each in that
@@ -74,23 +74,21 @@ in `America/Los_Angeles`; both bill the same entries.
 
 ---
 
-### User Story 2 - The account sets a default billing zone (Priority: P2)
+### User Story 2 - The account sets its billing zone (Priority: P2)
 
-In Settings, under invoicing, the user picks the account's billing time
-zone. Every client without one of its own bills in it.
+In Settings, under Billing defaults, the user picks the account's billing
+time zone. Every invoice reads its dates in it.
 
-**Why this priority**: Most contractors bill every client on one calendar,
+**Why this priority**: A contractor bills every client on one calendar,
 their home one; this one setting fixes story 1 for all of them.
 
 **Independent Test**: Set the account's zone in Settings, reload, and see
-it kept; generate an invoice for a client without its own zone and see the
-period read in it.
+it kept; generate an invoice and see the period read in it.
 
 **Acceptance Scenarios**:
 
 1. **Given** Settings, **When** the user picks `America/Chicago`, **Then**
-   it is kept and new invoices for clients without their own zone read
-   their dates in it.
+   it is kept and new invoices read their dates in it.
 2. **Given** a new account, **When** the welcome dialog closes by any way
    out, **Then** the account's billing zone is the zone the account was
    created in.
@@ -104,31 +102,6 @@ period read in it.
 
 ---
 
-### User Story 3 - A client bills in its own zone (Priority: P3)
-
-A client in New York is billed on New York's calendar while the rest bill on
-the account's. In the client dialog, beside payment terms, the user picks
-its zone, or leaves it on the account's default.
-
-**Why this priority**: Rarer than story 2, and only needed by a client
-whose contract reads dates in a different zone.
-
-**Independent Test**: Set one client to `America/New_York` with the account
-on `America/Los_Angeles`; generate an invoice for each client and see each
-period read in its own zone.
-
-**Acceptance Scenarios**:
-
-1. **Given** a client dialog, **When** the user picks `America/New_York`
-   and saves, **Then** it is kept, and that client's new invoices read
-   their dates in it.
-2. **Given** a client with its own zone, **When** the user sets it back to
-   the account default, **Then** its next invoice reads the account's zone.
-3. **Given** a client on the account default, **When** the dialog opens,
-   **Then** the field names the account's zone it follows.
-
----
-
 ### Edge Cases
 
 - A draft made before this feature, or before a zone was changed, keeps the
@@ -136,7 +109,7 @@ period read in its own zone.
   zone moves no draft's work.
 - A sent, paid or void invoice keeps its zone as issued.
 - The calendar, the timer, day totals and the home screen keep the device's
-  zone: billing is the client's calendar, display is the user's.
+  zone: billing is the account's calendar, display is the device's.
 - A line's date on an invoice ("Sep 30") is read in the invoice's zone, so
   it matches the period the line falls in.
 - A zone that isn't an IANA zone is refused with a message naming the
@@ -148,11 +121,9 @@ period read in its own zone.
 
 - **FR-001**: The account MUST have a billing time zone, which may be unset
   only on accounts made before this feature that have no invoice.
-- **FR-002**: A client MUST have an optional billing time zone; unset, it
-  follows the account's.
-- **FR-003**: A new invoice's zone MUST be the client's zone, else the
-  account's, else the device's; one shared rule decides it, which every
-  client and the server call.
+- **FR-002**: (Cut at review: a client has no zone of its own.)
+- **FR-003**: A new invoice's zone MUST be the account's, else the device's;
+  one shared rule decides it, which every client and the server call.
 - **FR-004**: An invoice's preview, its generation, and its New invoice
   issue date and suggested period MUST all read dates in that zone.
 - **FR-005**: A draft MUST keep the zone it was generated in until it is
@@ -161,7 +132,7 @@ period read in its own zone.
   stay in the device's zone.
 - **FR-007**: The Inbox's late-entry row MUST read an entry's date in the
   zone of the sent invoice whose period it falls in, as that invoice did.
-- **FR-008**: Settings and the client dialog MUST set the zone, refusing
+- **FR-008**: Settings MUST set the zone, refusing
   anything but an IANA zone.
 - **FR-009**: Closing the welcome dialog MUST set an unset account zone to
   the device's.
@@ -170,21 +141,33 @@ period read in its own zone.
 ### Key Entities
 
 - **Account billing time zone**: the IANA zone the account's invoices read
-  dates in by default.
-- **Client billing time zone**: an optional IANA zone that overrides the
-  account's for that client's invoices.
+  dates in.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: An invoice for a client billed in `America/Los_Angeles` covers
+- **SC-001**: An invoice for an account billed in `America/Los_Angeles` covers
   the same entries whether generated from `Europe/Lisbon` or
   `America/Los_Angeles`.
 - **SC-002**: No entry falls between two consecutive invoices for one client
   because the user travelled between them.
-- **SC-003**: The account and client zones are each set in one field, kept
-  on reload.
+- **SC-003**: The account's zone is set in one field, kept on reload.
+
+## Removes
+
+Constitution VII. The per-client billing zone was cut at review (PR #580,
+2026-11-01): the owner chose one zone on the account. The cut took out:
+
+- `clients.billing_time_zone` and `Client.billingTimeZone` on
+  `/api/v1/clients`, with its route test
+- the client dialog's Billing time zone field and its `ClientBillingZone`
+  story
+- the client step of `billingZone`, which is now `(account, device)`, and
+  the route test that a client's zone wins over the account's
+- the key in the macOS `clients.json` fixture
+
+Nothing a user had is lost: no client zone ever shipped.
 
 ## Assumptions
 

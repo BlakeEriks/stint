@@ -10,15 +10,13 @@ import {
 const device = 'Europe/Lisbon';
 const account = { billingTimeZone: 'America/Los_Angeles' };
 const unset = { billingTimeZone: null };
-for (const [client, acct, zone] of [
-  [{ billingTimeZone: 'America/New_York' }, account, 'America/New_York'],
-  [unset, account, 'America/Los_Angeles'],
-  [undefined, account, 'America/Los_Angeles'],
-  [undefined, unset, device],
-  [undefined, undefined, device],
+for (const [acct, zone] of [
+  [account, 'America/Los_Angeles'],
+  [unset, device],
+  [undefined, device],
 ] as const)
-  test(`an invoice reads its client's zone, else the account's, else the device's: ${zone}`, () => {
-    assert.equal(billingZone(client, acct, device), zone);
+  test(`an invoice reads the account's zone, else the device's: ${zone}`, () => {
+    assert.equal(billingZone(acct, device), zone);
   });
 
 test('a period of local dates covers its first day to the start of the day after its last', () => {

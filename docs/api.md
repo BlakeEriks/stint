@@ -264,10 +264,9 @@ without an anchor, or an anchor on a calendar period, is `422`.
 settings (default 30), and nullable on a client, where null uses the
 user's. Anything else is `422`.
 
-`billingTimeZone` is the IANA zone a client's invoices read their period,
-issue date and due date in, nullable on both: a client's null uses the
-account's, and the account's null uses the device's `tz`. Anything but an
-IANA zone is `422`.
+`billingTimeZone`, on settings, is the IANA zone invoices read their period,
+issue date and due date in; null uses the device's `tz`. Anything but an IANA
+zone is `422`.
 
 **Money is cents.** Every rate and amount is validated as a non-negative
 multiple of `0.01`, so `10.005` is a `422` rather than a silently rounded
@@ -284,10 +283,10 @@ rate. `0` is a real rate, distinct from `null`, which means "fall back".
 | `PATCH` | `/invoices/:id` | **Drafts only.** Edits a draft: the body is `POST /invoices`'s, checked as it is, and `clientId` must be the draft's (`422 VALIDATION_FAILED` with `{ field: 'clientId' }`). Keeps the number. `paymentProfileId` freezes those payment details; absent, the draft keeps its own. Returns the `Invoice` plus `lineItems`. `409 DRAFT_OVERLAPS` when another open draft for the client covers any of the new period; `409 INVOICE_STATUS_CHANGED` for an invoice that isn't a draft; `404` for one not found. After a download, an edit to anything the PDF printed (its period, due date, notes, reference, payment details, attachments or zone) holds Mark sent as `409 DRAFT_CHANGED` until a new PDF is downloaded. |
 | `DELETE` | `/invoices/:id` | **Drafts only** — `422 VALIDATION_FAILED` otherwise. An issued invoice must be voided, so numbering stays gapless. A draft holds no work, so there is nothing to release. |
 | `GET` | `/invoices/:id/pdf` | A draft is derived first and its render recorded for Mark sent to compare; one with an unrated entry is `400 NO_RATE_CONFIGURED`, and one whose typed due date is before its issue date `422 VALIDATION_FAILED`. Streams `application/pdf` in the invoice's `template`, or for a draft the setting's, which its recorded render keeps, from the line items, `business`, `billTo` and payment details, then the frozen `supportingDetail` from page 2, in hours. `?download=1` for `attachment` rather than an inline preview. Both are the paid tier: `402 PAYMENT_REQUIRED` unless billing is not set up, the caller pays, or the invoice was generated while they paid. Previewing and generating stay free. |
-| `PATCH` | `/invoices/:id/status` | `{ status, sentAt?, paidAt? }`. Also how an invoice is marked sent: `send_draft` writes a draft's lines and totals as they stand, claims its entries and one-off expenses, dates it as its last PDF printed, else `issueDate` the send date in its zone and `dueDate` by its terms unless one was typed, freezes its `template` as its last PDF's, else the setting's, and sends it, in one transaction — `400 NO_RATE_CONFIGURED` if an entry has no rate, `422 VALIDATION_FAILED` if it has no lines, no zone (its own, the client's or account's `billingTimeZone`, or `?tz`), or a typed due date before its issue date (`{ field: 'dueDate' }`), `409 DRAFT_CHANGED` with `{ hours, total, edited }` (`edited` always present, `[]` when only the lines moved) if its lines, or anything else the PDF printed, changed since its PDF was last rendered (one never rendered sends), `409 ENTRY_ALREADY_INVOICED` if another invoice took one of its entries or expenses at the same moment. `422 VALIDATION_FAILED` on a transition the table below forbids, or if `paidAt` is later than now or earlier than the invoice's `sentAt`; `409 INVOICE_STATUS_CHANGED` if another request changed the status since this one read it. |
+| `PATCH` | `/invoices/:id/status` | `{ status, sentAt?, paidAt? }`. Also how an invoice is marked sent: `send_draft` writes a draft's lines and totals as they stand, claims its entries and one-off expenses, dates it as its last PDF printed, else `issueDate` the send date in its zone and `dueDate` by its terms unless one was typed, freezes its `template` as its last PDF's, else the setting's, and sends it, in one transaction — `400 NO_RATE_CONFIGURED` if an entry has no rate, `422 VALIDATION_FAILED` if it has no lines, no zone (its own, the account's `billingTimeZone`, or `?tz`), or a typed due date before its issue date (`{ field: 'dueDate' }`), `409 DRAFT_CHANGED` with `{ hours, total, edited }` (`edited` always present, `[]` when only the lines moved) if its lines, or anything else the PDF printed, changed since its PDF was last rendered (one never rendered sends), `409 ENTRY_ALREADY_INVOICED` if another invoice took one of its entries or expenses at the same moment. `422 VALIDATION_FAILED` on a transition the table below forbids, or if `paidAt` is later than now or earlier than the invoice's `sentAt`; `409 INVOICE_STATUS_CHANGED` if another request changed the status since this one read it. |
 
 A draft is derived in the zone stored when it was generated. A draft without
-one is read in the client's or account's `billingTimeZone`, else `?tz`, else
+one is read in the account's `billingTimeZone`, else `?tz`, else
 UTC. Sending it refuses when the UTC fallback is all it has, and stores the
 zone it used. On `GET /invoices`, `GET /invoices/:id`, `/pdf` and `/status`, an
 invalid `tz` is `422 VALIDATION_FAILED`.
@@ -474,8 +473,8 @@ whatever the zone, so a wrong zone shifts dates rather than dropping work.
 
 **The invoicing routes reject an invalid one instead.** `POST /invoices/preview`,
 `POST /invoices` and `PATCH /invoices/:id` resolve the billing period in the
-client's `billingTimeZone`, else the account's, else `tz` (`billingZone` in
-`@stint/core`), and a new or edited draft stores that zone. `GET /invoices`,
+account's `billingTimeZone`, else `tz` (`billingZone` in `@stint/core`), and a
+new or edited draft stores that zone. `GET /invoices`,
 `GET /invoices/:id`, `/pdf` and `/status` derive a draft in it when the draft
 has no zone, and sending dates the invoice on that zone's day. The zone decides
 which entries are billed — falling back to UTC there would move the boundary

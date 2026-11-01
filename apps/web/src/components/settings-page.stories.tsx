@@ -171,8 +171,8 @@ export const PaymentTermsDays: Story = {
   },
 };
 
-/** The account's billing zone, which every client without its own bills
-    in: a pick saves on its own. */
+/** The account's billing zone, which every invoice reads its dates in: a
+    pick saves on its own. */
 export const BillingZone: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {

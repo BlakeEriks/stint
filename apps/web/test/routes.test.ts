@@ -1102,51 +1102,6 @@ test('a client payment terms round-trip, and are null until set', async () => {
   }
 });
 
-/* A client's zone decides which days its invoices cover: a field the schema
-   or the column list dropped would put it back on the account's. */
-test("a client's billing time zone round-trips, and is null until set", async () => {
-  const { POST: createClient } = await import(
-    '../src/app/api/v1/clients/route.ts'
-  );
-  const { PATCH } = await import('../src/app/api/v1/clients/[id]/route.ts');
-
-  const plain = await json(
-    await createClient(req('/clients', { name: 'Northwind' })),
-  );
-  assert.equal(plain.body.billingTimeZone, null);
-
-  const own = await json(
-    await createClient(
-      req('/clients', { name: 'Contoso', billingTimeZone: 'America/New_York' }),
-    ),
-  );
-  assert.equal(own.body.billingTimeZone, 'America/New_York');
-
-  const renamed = await json(
-    await PATCH(
-      patchReq('/clients/x', { name: 'Contoso Ltd' }),
-      ctx(own.body.id),
-    ),
-  );
-  assert.equal(renamed.body.billingTimeZone, 'America/New_York', 'omitted');
-
-  const cleared = await json(
-    await PATCH(
-      patchReq('/clients/x', { billingTimeZone: null }),
-      ctx(own.body.id),
-    ),
-  );
-  assert.equal(cleared.body.billingTimeZone, null);
-
-  const refused = await json(
-    await PATCH(
-      patchReq('/clients/x', { billingTimeZone: 'Pacific Time' }),
-      ctx(own.body.id),
-    ),
-  );
-  assert.equal(refused.status, 422);
-});
-
 /* Which payment profile a client's invoices carry: a field the route's schema
    must name, or Zod strips it and the write is silently lost. */
 test('a client can be pointed at a payment profile, on create and on patch', async () => {

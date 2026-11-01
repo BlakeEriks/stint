@@ -2,9 +2,14 @@
 
 ## Where the zone is resolved
 
-- **Decision**: `billingZone(client, account, device)` in `@stint/core`, called by `computeInvoice` on the server and by New invoice.
-- **Rationale**: One rule both sides and #548/#571 import, so none can drift. `computeInvoice` already loads the client and settings, so the server costs no query.
+- **Decision**: `billingZone(account, device)` in `@stint/core`, called by `computeInvoice` on the server and by New invoice.
+- **Rationale**: One rule both sides and #548 import, so none can drift. `computeInvoice` already loads settings, so the server costs no query.
 - **Alternatives considered**: Resolving in each route (three copies); a SQL function (the zone is never needed in SQL).
+
+## One zone, on the account
+
+- **Decision**: The account has one billing zone; a client has none of its own (the owner's call at review, PR #580).
+- **Alternatives considered**: A per-client zone overriding the account's, which the first build had; cut, see the spec's Removes.
 
 ## The account default for existing and new accounts
 
@@ -16,7 +21,7 @@
 
 - **Decision**: The app's `Select`, listing `Intl.supportedValuesOf('timeZone')` by IANA name, with a first item for the fallback.
 - **Rationale**: Typeahead on the select finds a city; no new dependency.
-- **Alternatives considered**: A searchable combobox (a new component for two fields).
+- **Alternatives considered**: A searchable combobox (a new component for one field).
 
 ## Late entries
 

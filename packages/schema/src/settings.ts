@@ -36,8 +36,7 @@ export const Settings = z.object({
   businessEmail: z.email().nullable(),
   logoUrl: z.url().nullable(),
   paymentTermsDays: termsDays,
-  /** The zone invoices read their dates in when the client has none of its
-   *  own; null uses the device's. */
+  /** The zone invoices read their dates in; null uses the device's. */
   billingTimeZone: ianaZone.nullable(),
   invoiceNumberPrefix: z.string().max(20),
   /** The template drafts render in; a sent invoice keeps its own. */
