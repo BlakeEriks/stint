@@ -42,6 +42,7 @@ function stats(attention: Partial<Stats['attention']> = {}): Stats {
       paymentTermsToCheck: null,
       overdueInvoices: [],
       staleDrafts: [],
+      unbilledDue: [],
       lateEntries: [],
       unprojected: [],
       strangeDurations: [],
