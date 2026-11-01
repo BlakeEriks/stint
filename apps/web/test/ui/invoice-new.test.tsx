@@ -402,15 +402,16 @@ describe('NewInvoice', () => {
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
     await ready(user);
+    const typed = addDays(localDateKey(new Date(), tz), 90);
     fireEvent.change(screen.getByLabelText('Due'), {
-      target: { value: '2026-12-01' },
+      target: { value: typed },
     });
 
     await user.click(generate());
 
     await waitFor(() => expect(push).toHaveBeenCalled());
     expect(bodies.find((b) => b.path.endsWith('/invoices'))!.body.dueDate).toBe(
-      '2026-12-01',
+      typed,
     );
   });
 
