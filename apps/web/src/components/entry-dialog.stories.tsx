@@ -16,8 +16,7 @@ const today = account.entries.find(
   (e) => e.taskName === 'Pairing on the ingest job' && !e.invoiceId,
 );
 
-/** Every entry is edited here: from the calendar, the dock, the inbox, and
-    the timer bar's Adjust. The strip and the time fields are one value. */
+/** Every entry is edited here: from the calendar, the dock and the inbox. */
 const meta = {
   title: 'Parts/EntryDialog',
   component: EntryDialog,
@@ -42,8 +41,7 @@ export const Edit: Story = {
 };
 export const EditPhone: Story = { ...phone };
 
-/** Drawn or clicked on a grid: that time, prefilled, and the strip to
-    adjust it, as on an edit. */
+/** Drawn or clicked on a grid: that time, prefilled. */
 const drawn = {
   startedAt: '2026-09-17T20:00:00.000Z',
   endedAt: '2026-09-17T21:00:00.000Z',
@@ -54,22 +52,18 @@ export const Add: Story = {
   args: { existing: undefined, seed: drawn },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
-    await expect(await page.findByTestId('entry-scrubber')).toBeVisible();
-    await expect(page.getByLabelText('Start')).toHaveValue('16:00');
+    await expect(await page.findByLabelText('Start')).toHaveValue('16:00');
   },
 };
 
-/** On an issued invoice: read-only, the strip drawn without its handles,
-    and the invoice to void named. It's on an invoice, so it can't be
-    billed elsewhere too. */
+/** On an issued invoice: read-only, and the invoice to void named. It's on
+    an invoice, so it can't be billed elsewhere too. */
 export const Locked: Story = {
   ...desktop,
   args: { existing: on(13) },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await expect(await page.findByText(/billed on STINT-0013/)).toBeVisible();
-    await expect(page.getByTestId('entry-scrubber')).toBeVisible();
-    await expect(page.queryByTestId('scrubber-handle-start')).toBeNull();
     await expect(
       page.queryByRole('checkbox', { name: 'Billed elsewhere' }),
     ).toBeNull();
@@ -140,24 +134,6 @@ export const Saving: Story = {
     await expect(page.getByRole('button', { name: 'Cancel' })).toBeDisabled();
     await userEvent.keyboard('{Escape}');
     await expect(args.onOpenChange).not.toHaveBeenCalled();
-  },
-};
-
-/** 10 PM to 2 AM: the strip runs past midnight to draw it whole. */
-export const Overnight: Story = {
-  ...desktop,
-  args: {
-    existing: today && {
-      ...today,
-      startedAt: '2026-09-17T02:00:00.000Z',
-      endedAt: '2026-09-17T06:00:00.000Z',
-      durationSeconds: 4 * 3600,
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement.ownerDocument.body);
-    await expect(await page.findByTestId('entry-scrubber')).toBeVisible();
-    await expect(page.getByText('12am')).toBeInTheDocument();
   },
 };
 
