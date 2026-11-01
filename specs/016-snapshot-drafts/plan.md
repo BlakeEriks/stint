@@ -1,97 +1,65 @@
-# Implementation Plan: [FEATURE]
+# Implementation Plan: A draft changes only when you change it
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
-
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
-
-**Note**: This template is filled in by the `/speckit-plan` command; its definition describes the execution workflow.
+**Branch**: `f596-snapshot-drafts` | **Date**: 2026-11-01 | **Spec**: [spec.md](spec.md)
 
 ## Summary
 
-[Extract from feature spec: primary requirement + technical approach from research]
+A draft holds the work it was built with, through a new `draft_id` on
+`time_entries` and `expenses`, and is priced on read from that work alone.
+Its period's unheld work is counted on read and offered as "new work", which
+`POST /invoices/:id/work` holds in one press. Mark sent confirms with the
+entry count and total, and no longer checks the download. The
+one-draft-per-date rule and the bulk "Already billed this?" go. User Story 4
+(#583) is the next PR, stacked on this one.
 
 ## Technical Context
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
+**Language/Version**: TypeScript 5 (Next.js route handlers, React), SQL (Postgres 15)
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]
+**Primary Dependencies**: Supabase, TanStack Query, `@stint/core`, `@stint/client`
 
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]
+**Storage**: Postgres: one DDL migration, one backfill migration
 
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
+**Testing**: `apps/web/test/invoices.test.ts` and `routes.test.ts` (real Postgres), `rls.test.ts`, `packages/core/test`, stories
 
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]
+**Target Platform**: Web only. The Mac and phone apps read no invoices.
 
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
+**Project Type**: web service + web app
 
-**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]
-
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]
-
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]
-
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Scale/Scope**: one account's drafts; a draft's read prices two work sets (held, and held plus new)
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
-
 | Principle (`.specify/memory/constitution.md`) | Applies | How the design meets it |
 | --- | --- | --- |
-| I. Never silently modifies user data | | |
-| II. Logic written twice has a parity test | | |
-| III. Every client through `/api/v1`; server owns timer truth | | |
-| IV. `packages/core` does no I/O | | |
-| V. Tests first where a regression is silent, in one suite per kind of code | | |
-| VI. Every press answers in the same frame | | |
-| VII. A feature names what it removes | | The states, settings, code paths and tests this removes, or why none |
+| I. Never silently modifies user data | Yes | The point of the feature: new work is surfaced on the draft and joins only by the owner's press. |
+| II. Logic written twice has a parity test | Yes | Which work a build takes is one TS query (`loadBillableEntries`' scopes). The backfill mirrors it once in SQL and runs once; it is checked by hand against a seeded draft, not kept as logic. |
+| III. Every client through `/api/v1` | Yes | Add to draft is `POST /invoices/:id/work`. |
+| IV. `packages/core` does no I/O | Yes | Nothing new in core does I/O. |
+| V. Tests first where a regression is silent | Yes | Route tests: a draft ignores later work; Add holds it; another draft can't take held work; Mark sent sends held work only; moving an entry to another client releases it. RLS: a cross-user `draft_id` is refused. Stories: the new-work notice and Mark sent's confirm. |
+| VI. Every press answers in the same frame | Yes | Add to draft and Mark sent are decided by the server: each shows a pending state on its control. Mark sent's first press answers at once with the confirm. |
+| VII. A feature names what it removes | Yes | The spec's Removes: the download comparison and banners, `DRAFT_CHANGED`, `DRAFT_OVERLAPS` and its warning, `assignExpenses`, the bulk invoiced-elsewhere route and its form control, and their tests and stories. |
 
-Also check the design against the constitution's Additional Constraints. A
-principle the design must break goes in Complexity Tracking.
+Additional constraints: one running timer and immutable issued invoices are
+untouched; ids stay client-generated; no new fixed cost.
 
 ## Project Structure
 
-### Documentation (this feature)
-
 ```text
-specs/[###-feature]/
-├── plan.md              # This file (/speckit-plan command output)
-├── research.md          # Phase 0 output (/speckit-plan command)
-├── data-model.md        # Phase 1 output (/speckit-plan command)
-├── quickstart.md        # Phase 1 output (/speckit-plan command)
-├── contracts/           # Phase 1 output (/speckit-plan command)
-└── tasks.md             # Phase 2 output (/speckit-tasks command - NOT created by /speckit-plan)
+specs/016-snapshot-drafts/   plan.md research.md data-model.md quickstart.md contracts/api.md tasks.md
+supabase/migrations/         <ts>_draft_holds_work.sql, <ts>_backfill_draft_work.sql
+packages/core/src/           live-draft.ts, billable.ts
+packages/schema/src/         invoicing.ts, errors.ts, entries.ts
+apps/web/src/lib/            drafts.ts, issued.ts, rows.ts, client/api.ts
+apps/web/src/app/api/v1/     invoices/**, invoices/[id]/work/route.ts (new), entries/invoiced-elsewhere (removed)
+apps/web/src/components/     invoice-detail.tsx, invoice-new.tsx, confirm-action.tsx, their stories
+apps/web/src/mocks/          fixtures.ts, handlers.ts, derive.ts
+apps/web/test/               invoices.test.ts, routes.test.ts, rls.test.ts, mocks-parity.test.ts
+docs/                        api.md, data-model.md; .claude/rules/invoicing.md
 ```
 
-### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Keep only the directories this feature touches and name the
-  files it adds or changes.
--->
-
-```text
-apps/web/src/app/api/v1/     # route handlers
-apps/web/src/components/     # screens and parts, each with *.stories.tsx
-apps/web/test/               # routes.test.ts, rls.test.ts, ui/
-apps/web/e2e/                # Playwright
-apps/macos/                  # Swift menu bar app
-packages/core/src/           # pure logic; tests in packages/core/test/
-packages/schema/src/         # Zod: the API contract
-supabase/migrations/         # schema, triggers, RLS
-```
-
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+**Structure Decision**: the existing web app and API; no new package.
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
-
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+None.
