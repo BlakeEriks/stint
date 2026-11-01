@@ -259,6 +259,7 @@ export const PressedFromTheInbox: Story = {
     await expect(
       page.getByRole('button', { name: 'Client' }),
     ).toHaveTextContent('Northwind');
+    await settled(page);
   },
 };
 
