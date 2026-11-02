@@ -18,10 +18,10 @@ import {
  *
  * The scale is the week's OWN longest day, not a notional full one: there is
  * no "full" day for a ceiling to represent. Heights stay a true ratio of
- * hours; only what 100% means changes. The 6% headroom is where the tallest
- * bar's money is printed.
+ * hours; only what 100% means changes. The 20% headroom is where the
+ * tallest bar's money is printed, so it never reaches the figure above.
  */
-const PEAK = 94;
+const PEAK = 80;
 
 /**
  * This week: a figure and seven bars.
@@ -52,7 +52,7 @@ export function Week({
     <div data-region="week" className="flex flex-col">
       <RegionHead>This week · {range(week)}</RegionHead>
 
-      <FigGroup tier="major" className="mt-6 items-start">
+      <FigGroup tier="major" className="mt-4 items-start">
         <FigLabel>Earned</FigLabel>
         <PairLine>
           <Money
@@ -67,11 +67,11 @@ export function Week({
         </PairLine>
       </FigGroup>
 
-      <div className="mt-6" role="img" aria-label={describe(week, currency)}>
+      <div className="mt-2" role="img" aria-label={describe(week, currency)}>
         {/* The bars stand on a baseline. There is no ceiling: the axis is
             unlabeled and each bar prints its own money, so every column is
             read on its own terms. */}
-        <div className="flex h-[150px] items-stretch gap-1 border-b @md:gap-4 border-edge-default">
+        <div className="flex h-[112px] items-stretch gap-1 border-b @md:gap-4 border-edge-default">
           {week.map((d) => (
             <div key={d.date} className="flex min-w-0 flex-1">
               <div className="relative mx-auto flex w-full max-w-[74px] min-h-0 flex-1 flex-col-reverse">

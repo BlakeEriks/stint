@@ -8,6 +8,7 @@ import {
   desktop,
   failing,
   light,
+  macbook,
   phone,
   screen,
   stalled,
@@ -480,27 +481,60 @@ export const Failed: Story = {
   },
 };
 
-/** Past `2xl` the frame is capped, and Home fits it whole, legend included. */
+/** The panel shows whole, legend included, with no scroll. */
+async function fitsWhole(canvasElement: HTMLElement) {
+  const legend = await waitFor(() => {
+    const found = canvasElement.querySelector('[data-legend="clients"]');
+    if (!found) throw new Error('No legend yet');
+    return found;
+  });
+  let panel = legend.parentElement;
+  while (panel && getComputedStyle(panel).overflowY !== 'auto') {
+    panel = panel.parentElement;
+  }
+  if (!panel) throw new Error('Home sits in no scrolling panel');
+  await waitFor(() => {
+    expect(panel.scrollHeight).toBeLessThanOrEqual(panel.clientHeight);
+    expect(legend.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      panel.getBoundingClientRect().bottom,
+    );
+  });
+}
+
+/** Past `2xl` the frame is capped, and Home fits it whole. */
 export const Wide: Story = {
   ...wide,
-  play: async ({ canvasElement }) => {
-    const legend = await waitFor(() => {
-      const found = canvasElement.querySelector('[data-legend="clients"]');
-      if (!found) throw new Error('No legend yet');
-      return found;
-    });
-    let panel = legend.parentElement;
-    while (panel && getComputedStyle(panel).overflowY !== 'auto') {
-      panel = panel.parentElement;
+  play: ({ canvasElement }) => fitsWhole(canvasElement),
+};
+
+/** A 13-inch MacBook shows Home whole, even with a dozen clients in the
+ *  legend: it keeps one row, and a long name gives way. */
+export const MacBook: Story = {
+  ...macbook,
+  parameters: account((db) => {
+    const today = localDateKey(db.now, ZONE);
+    const [base] = db.clients;
+    const [work] = db.projects;
+    if (!base || !work) return;
+    for (const [i, name] of [
+      'Halvorsen Engineering',
+      'Quill & Ledger',
+      'Tidewater Logistics',
+      'Bramble Health',
+      'Ostrava Partners',
+      'Pinecrest Schools',
+      'Kestrel Analytics',
+      'Larkspur Media',
+      'Copperline Freight',
+    ].entries()) {
+      const client = { ...base, id: id(700 + i), name };
+      const project = { ...work, id: id(800 + i), clientId: client.id };
+      db.clients.push(client);
+      db.projects.push(project);
+      db.entries.push(entry(9200 + i, today, `0${i}:00`, 30, project.id, name));
     }
-    if (!panel) throw new Error('Home sits in no scrolling panel');
-    await waitFor(() => {
-      expect(panel.scrollHeight).toBeLessThanOrEqual(panel.clientHeight);
-      expect(legend.getBoundingClientRect().bottom).toBeLessThanOrEqual(
-        panel.getBoundingClientRect().bottom,
-      );
-    });
-  },
+  }),
+  play: ({ canvasElement }) => fitsWhole(canvasElement),
 };
 
 /** Below `@2xl` the month stacks under the week rather than dropping out. */

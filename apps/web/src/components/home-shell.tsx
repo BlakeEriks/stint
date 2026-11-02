@@ -209,19 +209,22 @@ export function Pip({ color }: { color?: string | null }) {
 export function Legend({ hues }: { hues: Map<string, Hue> }) {
   if (hues.size === 0) return null;
 
+  /* One row however many clients: a second would push Home past one screen,
+     so a long name truncates instead, whole on hover and to a screen reader. */
   return (
     <ul
       data-legend="clients"
-      className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-edge-subtle pt-3.5"
+      className="mt-4 flex items-center gap-x-5 border-t border-edge-subtle pt-3"
     >
       {[...hues.values()].map((h) => (
         <li
           key={h.id || 'internal'}
           data-legend-key={h.id || 'internal'}
-          className="inline-flex items-center gap-[7px] type-meta text-subtle"
+          title={h.name}
+          className="inline-flex min-w-0 items-center gap-[7px] type-meta text-subtle"
         >
           <Pip color={h.color} />
-          {h.name}
+          <span className="truncate">{h.name}</span>
         </li>
       ))}
     </ul>
