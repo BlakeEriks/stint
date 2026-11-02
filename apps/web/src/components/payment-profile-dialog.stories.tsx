@@ -37,3 +37,16 @@ export const BadRoutingNumber: Story = {
     );
   },
 };
+
+/** Save with no label marks the label and moves there, whatever else is filled. */
+export const MissingLabel: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const label = await page.findByLabelText(/^Label/);
+    await userEvent.clear(label);
+    await userEvent.click(page.getByRole('button', { name: 'Save' }));
+    await expect(label).toHaveAccessibleDescription(/^Give these details/);
+    await expect(label).toHaveFocus();
+  },
+};

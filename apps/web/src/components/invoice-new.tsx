@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { shortDate } from './invoice-bits';
 import {
@@ -34,6 +34,7 @@ import {
   addDays,
   BILLING_PERIOD_LABELS,
   buildPaymentDetails,
+  billingZone,
   defaultInvoicePeriod,
   attachedSchedules,
   formatCurrency,
@@ -103,13 +104,13 @@ interface Draft {
   /** `null` until the user picks one, so it follows the payment terms the
    *  invoice prints. */
   dueDate: string | null;
-  /** The PO, contract or SOW. It decides no line, so it never asks the
-   *  server again. */
-  reference: string;
   /** Printed on this invoice only; blank prints nothing. */
   notes: string;
-  /* These three are `null` until the user sets them, so they follow the
+  /* These four are `null` until the user sets them, so they follow the
      client's last invoice. */
+  /** The PO, contract or SOW. It decides no line, so it never asks the
+   *  server again. */
+  reference: string | null;
   groupingMode: GroupingMode | null;
   /** The one line's text with `summary`. */
   summaryText: string | null;
@@ -128,7 +129,7 @@ const EMPTY: Draft = {
   periodStart: null,
   periodEnd: null,
   dueDate: null,
-  reference: '',
+  reference: null,
   notes: '',
   groupingMode: null,
   summaryText: null,
@@ -137,6 +138,76 @@ const EMPTY: Draft = {
   excludedExpenseIds: [],
   paymentProfileId: '',
 };
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const isDate = (d: string | null): d is string =>
+  d !== null &&
+  DATE.test(d) &&
+  new Date(`${d}T00:00:00Z`).toISOString().startsWith(d);
+
+/**
+ * The draft a link opens with: `?client=…&from=…&to=…`, as the Inbox's row
+ * for a client ready to invoice sends. A client not in `clients`,
+ * or dates that aren't a period, are left out, so the form opens as usual.
+ */
+export function linkedDraft(
+  params: URLSearchParams,
+  clients: Pick<Client, 'id'>[],
+): Draft {
+  const client = params.get('client');
+  const from = params.get('from');
+  const to = params.get('to');
+  const period = isDate(from) && isDate(to) && from <= to;
+  return {
+    ...EMPTY,
+    clientId: clients.some((c) => c.id === client) ? client! : '',
+    periodStart: period ? from : null,
+    periodEnd: period ? to : null,
+  };
+}
+
+/** A draft as `GET /invoices/:id` answers it, which an edit opens. */
+type Edited = Awaited<ReturnType<typeof api.invoice>>;
+
+/** Payment details compared by content: Postgres stores them as jsonb,
+ *  which keeps no key order. */
+const canonical = (v: unknown) =>
+  JSON.stringify(v, (_, x) =>
+    x && typeof x === 'object' && !Array.isArray(x)
+      ? Object.fromEntries(Object.entries(x).sort())
+      : x,
+  );
+
+/** The form as the draft left it. Its payment details are the profile that
+ *  renders them still, else '' to keep them as they were frozen. */
+function draftOf(inv: Edited, profiles: PaymentProfile[]): Draft {
+  const summary = inv.groupingMode === 'summary';
+  const frozen = canonical(inv.paymentDetails);
+  return {
+    clientId: inv.clientId,
+    periodStart: inv.periodStart,
+    periodEnd: inv.periodEnd,
+    dueDate: inv.choices?.dueDate ?? null,
+    reference: inv.reference ?? '',
+    notes: inv.notes ?? '',
+    groupingMode: inv.groupingMode,
+    // Left to carry, as on New invoice, should a summary be picked.
+    summaryText: summary ? (inv.summaryText ?? '') : null,
+    schedules: summary ? attachedSchedules(inv.supportingDetail) : null,
+    charges: (inv.choices?.manualLines ?? []).map((l) => ({
+      ...l,
+      key: crypto.randomUUID(),
+    })),
+    excludedExpenseIds: inv.choices?.excludedExpenseIds ?? [],
+    paymentProfileId:
+      profiles.find(
+        (p) =>
+          canonical(
+            buildPaymentDetails(p, { invoiceNumber: inv.invoiceNumber }),
+          ) === frozen,
+      )?.id ?? '',
+  };
+}
 
 /** The period the user set, else the client's default for `today`. */
 function periodOf(
@@ -175,16 +246,15 @@ function ScheduleHint({
   );
 }
 
-/** What a client's last invoice carries into the next: a summary's text and
- *  attachments, so a monthly invoice isn't retyped. */
-const carriedFrom = (last: Invoice | undefined) =>
-  last?.groupingMode === 'summary'
-    ? {
-        groupingMode: last.groupingMode,
-        summaryText: last.summaryText ?? '',
-        schedules: attachedSchedules(last.supportingDetail),
-      }
-    : { groupingMode: 'entry' as const, summaryText: '', schedules: [] };
+/** What a client's last invoice carries into the next, so a monthly invoice
+ *  isn't retyped. A first invoice is one summary line: itemizing is the
+ *  exception. */
+const carriedFrom = (last: Invoice | undefined) => ({
+  groupingMode: last?.groupingMode ?? 'summary',
+  summaryText: last?.summaryText ?? '',
+  schedules: attachedSchedules(last?.supportingDetail ?? null),
+  reference: last?.reference ?? '',
+});
 
 /** `key` `'new'` adds the charge; any other replaces the charge it names. */
 const putCharge = (
@@ -212,6 +282,7 @@ function useCarried(draft: Draft) {
     lastPending: lastInvoice.isPending,
     groupingMode,
     summaryText: draft.summaryText ?? carried.summaryText,
+    reference: draft.reference ?? carried.reference,
     schedules:
       groupingMode === 'summary' ? (draft.schedules ?? carried.schedules) : [],
   };
@@ -327,6 +398,9 @@ function useSettled<T>(value: T, ms: number): T {
  * server's current answer.
  */
 export function NewInvoice() {
+  /* Keyed by the link: the Inbox stays reachable here, so a row pressed on
+     this page changes the address and must open its own draft. */
+  const params = useSearchParams();
   /* The form paints once, its client list, terms and payment profiles in
      place; what a chosen client then loads fills in as it is asked for. The
      back link is the frame, so it stands while they load. */
@@ -344,19 +418,72 @@ export function NewInvoice() {
   });
   return (
     <DetailPage back="/invoices" label="Invoices" workspace fills>
-      <Listing query={[clients, settings, profiles]}>{() => <Form />}</Listing>
+      <Listing query={[clients, settings, profiles]}>
+        {([c]) => (
+          <Form
+            key={params.toString()}
+            initial={linkedDraft(params, c.clients)}
+          />
+        )}
+      </Listing>
     </DetailPage>
   );
 }
 
-function Form() {
+/** New invoice, opened on a draft: every field but the client, which it
+ *  keeps. Saving keeps its number. */
+export function EditInvoice({ id }: { id: string }) {
+  const invoice = useQuery({
+    queryKey: keys.invoice(id),
+    queryFn: () => api.invoice(id),
+  });
+  const clients = useQuery({
+    queryKey: keys.clients(),
+    queryFn: () => api.clients(),
+  });
+  const settings = useQuery({
+    queryKey: keys.settings(),
+    queryFn: () => api.settings(),
+  });
+  const profiles = useQuery({
+    queryKey: keys.paymentProfiles(),
+    queryFn: () => api.paymentProfiles(),
+  });
+  return (
+    <DetailPage back={`/invoices/${id}`} label="Invoice" workspace fills>
+      <Listing
+        query={[invoice, clients, settings, profiles]}
+        missing="That invoice no longer exists."
+      >
+        {([inv, , , p]) =>
+          inv.status === 'draft' ? (
+            <Form editing={inv} initial={draftOf(inv, p.paymentProfiles)} />
+          ) : (
+            <p className="type-body text-muted">
+              {inv.invoiceNumber} is {inv.status}, and only a draft can be
+              edited.
+            </p>
+          )
+        }
+      </Listing>
+    </DetailPage>
+  );
+}
+
+function Form({
+  editing,
+  initial = EMPTY,
+}: {
+  editing?: Edited;
+  initial?: Draft;
+}) {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const [draft, setDraft] = useState<Draft>(EMPTY);
+  const [draft, setDraft] = useState<Draft>(initial);
   /* Read once: a form left open past midnight keeps the dates it showed
      rather than moving them to the next period unseen. */
-  const [issued] = useState(() => localDateKey(new Date(), tz));
+  const [opened] = useState(() => new Date());
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
@@ -369,6 +496,8 @@ function Form() {
     queryFn: () => api.settings(),
   });
   const noSender = missingBusiness(settings);
+  // Today on the account's billing calendar, as the server dates it.
+  const issued = localDateKey(opened, billingZone(settings, tz));
   const { template, choose } = useTemplateChoice();
   const profiles =
     useQuery({
@@ -376,7 +505,7 @@ function Form() {
       queryFn: () => api.paymentProfiles(),
     }).data?.paymentProfiles ?? [];
 
-  const { lastPending, groupingMode, summaryText, schedules } =
+  const { lastPending, groupingMode, summaryText, schedules, reference } =
     useCarried(draft);
   const { periodStart, periodEnd } = periodOf(draft, client, issued);
   const waiting = useWaitingExpenses(draft.clientId, periodEnd);
@@ -405,11 +534,14 @@ function Form() {
     excludedExpenseIds: draft.excludedExpenseIds,
   };
   const { preview, current, updating } = useLivePreview(
-    billed,
+    // Priced as itself, so it keeps the expenses it shows.
+    { ...billed, draftId: editing?.id },
     draft.clientId !== '',
   );
 
-  const { number, termsDue } = fromSettings(settings, issued, client);
+  const terms = fromSettings(settings, issued, client);
+  const number = editing?.invoiceNumber ?? terms.number;
+  const { termsDue } = terms;
   const due = draft.dueDate ?? termsDue;
   const earlyDue = due !== '' && due < issued;
 
@@ -424,18 +556,23 @@ function Form() {
         qc.invalidateQueries({ queryKey: keys.expenses() }),
         invalidateEntryData(qc),
       ]),
-    mutationFn: () =>
-      api.createInvoice({
+    mutationFn: () => {
+      const choices = {
         ...billed,
         schedules,
         // Only a typed one: otherwise the terms date it from the day it is
         // sent.
         dueDate: draft.dueDate ?? undefined,
-        reference: draft.reference.trim() || undefined,
+        reference: reference.trim() || undefined,
         notes: draft.notes.trim() || undefined,
-        // The profile the card shows, frozen as it is now.
+        // The profile the card shows, frozen as it is now; none keeps a
+        // draft's.
         paymentProfileId: profile?.id,
-      }),
+      };
+      return editing
+        ? api.updateDraft(editing.id, choices)
+        : api.createInvoice(choices);
+    },
     onSuccess: (invoice) => {
       router.push(`/invoices/${invoice.id}`);
     },
@@ -504,13 +641,19 @@ function Form() {
     set('paymentProfileId', p.id);
   };
 
-  const profile =
-    profiles.find((p) => p.id === draft.paymentProfileId) ??
-    resolvePaymentProfile(profiles, {
-      clientProfileId: client?.paymentProfileId,
-      defaultProfileId: profiles.find((p) => p.isDefault)?.id,
-    });
-  const payment = buildPaymentDetails(profile, { invoiceNumber: number });
+  /* A draft whose details no profile renders now keeps them until another
+     is picked. */
+  const keeps = editing !== undefined && draft.paymentProfileId === '';
+  const profile = keeps
+    ? null
+    : (profiles.find((p) => p.id === draft.paymentProfileId) ??
+      resolvePaymentProfile(profiles, {
+        clientProfileId: client?.paymentProfileId,
+        defaultProfileId: profiles.find((p) => p.isDefault)?.id,
+      }));
+  const payment = keeps
+    ? (editing?.paymentDetails ?? null)
+    : buildPaymentDetails(profile, { invoiceNumber: number });
 
   /* One open draft per client and date: the server refuses another, so the
      form says which draft holds these dates before Generate is pressed. */
@@ -523,6 +666,7 @@ function Form() {
     }).data?.invoices ?? [];
   const covering = openDrafts.find(
     (i) =>
+      i.id !== editing?.id &&
       periodStart !== '' &&
       periodEnd !== '' &&
       i.periodStart <= periodEnd &&
@@ -552,7 +696,7 @@ function Form() {
       <div className="@container/new xl:flex xl:min-h-0 xl:flex-1 xl:flex-col">
         <div className="sticky top-0 z-10 flex items-center justify-between gap-4 bg-surface-primary pt-1 pb-3.5 xl:static">
           <h1 className="type-title whitespace-nowrap text-strong">
-            New invoice
+            {editing ? `Edit ${editing.invoiceNumber}` : 'New invoice'}
           </h1>
           <Button
             type="button"
@@ -560,7 +704,7 @@ function Form() {
             onClick={() => generate.mutate()}
             disabled={!canGenerate || markElsewhere.isPending}
           >
-            {generate.isPending ? 'Generating…' : 'Generate invoice'}
+            {pressLabel(editing !== undefined, generate.isPending)}
           </Button>
         </div>
         {marked ? (
@@ -604,8 +748,10 @@ function Form() {
                   ) : undefined
                 }
               >
+                {/* A draft keeps its client: another is a new invoice. */}
                 <ClientPicker
                   id="inv-client"
+                  disabled={editing !== undefined}
                   clients={clients}
                   value={draft.clientId || null}
                   // Another client brings its own payment details.
@@ -672,28 +818,36 @@ function Form() {
               <Field label="Reference" htmlFor="inv-reference">
                 <Input
                   id="inv-reference"
-                  value={draft.reference}
+                  value={reference}
                   onChange={(e) => set('reference', e.target.value)}
                   placeholder="PO number, contract or SOW"
                   maxLength={200}
                 />
               </Field>
-              <NumberLine number={number} settings={settings} />
+              {editing ? null : (
+                <NumberLine number={number} settings={settings} />
+              )}
             </div>
 
-            <Field label="Show time as" htmlFor="inv-group">
-              <GroupingPicker
-                value={groupingMode}
-                onChange={(mode) => set('groupingMode', mode)}
-              />
-              {groupingMode === 'summary' ? (
-                <SummaryLineField
-                  value={summaryText}
-                  missing={noSummaryText}
-                  onChange={(v) => set('summaryText', v)}
+            {/* Shown once the client's last invoice says its format, so a
+                carried grouping never flips in after a default. */}
+            {lastPending ? null : (
+              <Field label="Show time as" htmlFor="inv-group">
+                <GroupingPicker
+                  value={groupingMode}
+                  onChange={(mode) => set('groupingMode', mode)}
                 />
-              ) : null}
-            </Field>
+                {groupingMode === 'summary' ? (
+                  <SummaryLineField
+                    value={summaryText}
+                    missing={
+                      noSummaryText && draft.clientId !== '' && !lastPending
+                    }
+                    onChange={(v) => set('summaryText', v)}
+                  />
+                ) : null}
+              </Field>
+            )}
 
             {client ? (
               <Field label="Expenses">
@@ -723,6 +877,7 @@ function Form() {
                 value={profile}
                 onChange={(id) => set('paymentProfileId', id)}
                 onNew={() => setNewProfileOpen(true)}
+                kept={keeps && payment !== null}
               />
             </Field>
 
@@ -735,7 +890,7 @@ function Form() {
                 placeholder="Printed on this invoice"
                 maxLength={2000}
                 className="w-full rounded-md border border-edge-default bg-transparent px-3 py-2
-                           type-control text-strong placeholder:text-subtle outline-none
+                           type-control text-strong placeholder:text-placeholder outline-none
                            focus-visible:border-edge-focus focus-visible:ring-[3px]
                            focus-visible:ring-edge-focus"
               />
@@ -743,7 +898,7 @@ function Form() {
 
             {/* Only a summary has detail to support: every other grouping
                 already breaks the time down on the invoice. */}
-            {groupingMode === 'summary' ? (
+            {!lastPending && groupingMode === 'summary' ? (
               <ScheduleChecklist
                 value={schedules}
                 onChange={(v) => set('schedules', v)}
@@ -769,12 +924,16 @@ function Form() {
               number={number}
               issued={issued}
               due={due}
-              reference={draft.reference.trim()}
+              reference={reference.trim()}
               notes={draft.notes.trim()}
               payment={payment}
               schedules={schedules}
               updating={updating}
-              footnote="Generating assigns a number and locks these entries."
+              footnote={
+                editing
+                  ? 'Saving keeps its number.'
+                  : 'Generating assigns a number and locks these entries.'
+              }
               entryAction={
                 <Button
                   type="button"
@@ -878,6 +1037,11 @@ function MarkedToast({
     </PortalToast>
   );
 }
+
+const pressLabel = (editing: boolean, pending: boolean) => {
+  if (editing) return pending ? 'Saving…' : 'Save draft';
+  return pending ? 'Generating…' : 'Generate invoice';
+};
 
 /** What Bill to will lack, said; null when it has both. */
 function missingDetails(client: Pick<Client, 'address' | 'email'>) {
@@ -1179,11 +1343,14 @@ function PaymentPicker({
   value,
   onChange,
   onNew,
+  kept = false,
 }: {
   profiles: PaymentProfile[];
   value: PaymentProfile | null;
   onChange: (id: string) => void;
   onNew: () => void;
+  /** A draft's details no profile renders now, kept as they were. */
+  kept?: boolean;
 }) {
   return (
     <DropdownMenu>
@@ -1192,7 +1359,9 @@ function PaymentPicker({
         className={`${inputClass} flex items-center justify-between gap-2 text-left
                     focus:border-edge-focus focus:ring-[3px] focus:ring-edge-focus`}
       >
-        <span className="truncate">{value?.name ?? 'None'}</span>
+        <span className="truncate">
+          {value?.name ?? (kept ? 'As generated' : 'None')}
+        </span>
         <ChevronDown
           aria-hidden
           className="size-4 flex-none text-muted opacity-60"

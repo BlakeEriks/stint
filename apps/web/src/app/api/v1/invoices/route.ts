@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import { handle, ApiError, dbCode, refused } from '@/lib/errors';
+import { handle, refused } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import {
   computeInvoice,
   deriveDraft,
+  draftOverlaps,
   loadPaymentProfile,
   requireSender,
 } from '@/lib/drafts';
@@ -65,21 +66,21 @@ export const POST = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
   const body = await parseBody(req, CreateInvoice);
 
-  const asked = invoiceRequestRefusal(body, localDateKey(new Date(), body.tz));
-  if (asked) throw refused(asked);
-
   const computed = await computeInvoice(db, {
     clientId: body.clientId,
     periodStart: body.periodStart,
     periodEnd: body.periodEnd,
-    tz: body.tz,
+    tz: { device: body.tz },
     groupingMode: body.groupingMode,
     summaryText: body.summaryText,
     manualLines: body.manualLines,
     excludedExpenseIds: body.excludedExpenseIds,
     schedules: body.schedules,
   });
-  const { client, settings, totals } = computed;
+  const { client, settings, totals, tz } = computed;
+
+  const asked = invoiceRequestRefusal(body, localDateKey(new Date(), tz));
+  if (asked) throw refused(asked);
 
   requireSender(settings);
 
@@ -116,26 +117,17 @@ export const POST = handle(async (req: Request) => {
       supporting_detail: computed.supportingDetail,
       reference: body.reference ?? null,
       payment_details: paymentDetails,
-      tz: body.tz,
+      tz,
       excluded_expense_ids: body.excludedExpenseIds,
       manual_lines: body.manualLines,
     },
   });
 
-  /* One open draft per client and date, which `create_invoice` holds: two
-     would both show the same work. */
-  if (dbCode(error) === 'DRAFT_OVERLAPS') {
-    const open = JSON.parse(error!.details) as { invoiceNumber: string };
-    throw new ApiError(
-      'DRAFT_OVERLAPS',
-      `${open.invoiceNumber} is a draft for these dates already. Open it, or start after it.`,
-      open,
-    );
-  }
+  draftOverlaps(error);
   if (error) throw error;
 
   const row = (Array.isArray(data) ? data[0] : data) as InvoiceRow;
-  const draft = (await deriveDraft(db, row, body.tz))!;
+  const draft = (await deriveDraft(db, row, tz))!;
 
   return NextResponse.json(
     {

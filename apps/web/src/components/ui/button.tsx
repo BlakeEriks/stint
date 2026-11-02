@@ -14,7 +14,9 @@ import { Slot } from "radix-ui"
  *   is `accent`, even with the timer in view; anything else that performs
  *   something `default`; beside a confirm, or any row action, `ghost` — but a
  *   row action on a raised card (`bg-surface-elevated`) is `default`, since a
- *   borderless label there has nothing to read as a control against; the
+ *   borderless label there has nothing to read as a control against, and
+ *   so is one beside the row's own status and figures (the invoice list's
+ *   Mark paid), where a borderless label reads as one more of them; the
  *   second step of a destructive pair
  *   `destructive`. The error boundary's "Try again" stays neutral, so green
  *   still means the timer that keeps running under it.

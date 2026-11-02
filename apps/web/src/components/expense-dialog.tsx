@@ -18,6 +18,7 @@ import { Field, textareaClass } from './field';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { useOptimisticMutation, keys } from '@stint/client';
 import { api, ApiError, type Client, type Expense } from '@/lib/client/api';
+import { useMissing } from '@/lib/client/use-missing';
 
 /**
  * Adds or edits one expense for one client. The client is fixed: the dialog
@@ -50,6 +51,18 @@ export function ExpenseDialog({
   const [id, setId] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  const parsed = Number.parseFloat(amount);
+  const check = useMissing({
+    'expense-description':
+      description.trim() === '' ? 'Say what it was for.' : undefined,
+    'expense-amount':
+      Number.isFinite(parsed) && parsed > 0
+        ? undefined
+        : 'Enter an amount over zero.',
+    'expense-date':
+      recurring || spentOn !== '' ? undefined : 'Pick the day you paid it.',
+  });
+
   // Reset each time it opens, so a previous expense cannot linger.
   useEffect(() => {
     if (!open) return;
@@ -60,14 +73,8 @@ export function ExpenseDialog({
     setNote(expense?.note ?? '');
     setId(expense?.id ?? uuidv7());
     setError(null);
-  }, [open, expense]);
-
-  const parsed = Number.parseFloat(amount);
-  const valid =
-    description.trim() !== '' &&
-    Number.isFinite(parsed) &&
-    parsed > 0 &&
-    (recurring || spentOn !== '');
+    check.reset();
+  }, [open, expense, check.reset]);
 
   // Validated by the server, so the press shows pending and a refusal stays
   // in the open dialog.
@@ -121,10 +128,11 @@ export function ExpenseDialog({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!valid) return;
+            if (!check.passes()) return;
             setError(null);
             save.mutate();
           }}
+          noValidate
           className="flex flex-col gap-4"
         >
           <DialogHeader>
@@ -141,6 +149,7 @@ export function ExpenseDialog({
             htmlFor="expense-description"
             hint="Printed on the invoice."
             required
+            error={check.error('expense-description')}
           >
             <Input
               id="expense-description"
@@ -157,6 +166,7 @@ export function ExpenseDialog({
               label="Amount"
               htmlFor="expense-amount"
               required
+              error={check.error('expense-amount')}
               className="flex-1 basis-32"
             >
               <Input
@@ -174,6 +184,7 @@ export function ExpenseDialog({
                 label="Date paid"
                 htmlFor="expense-date"
                 required
+                error={check.error('expense-date')}
                 className="flex-1 basis-40"
               >
                 <Input
@@ -251,7 +262,7 @@ export function ExpenseDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" variant="accent" disabled={!valid || busy}>
+            <Button type="submit" variant="accent" disabled={busy}>
               {save.isPending ? (
                 <Loader2 aria-hidden className="animate-spin" />
               ) : null}

@@ -6,6 +6,7 @@ import {
   draftSnapshot,
   lateEntries,
   newLines,
+  unbilledDue,
   snapshotChanged,
 } from '../src/live-draft.ts';
 
@@ -55,6 +56,7 @@ test('added work is a change, with hours and totals before and after', () => {
   assert.deepEqual(snapshotChanged(before, after), {
     hours: { from: 2, to: 4.5 },
     total: { from: 300, to: 675 },
+    edited: [],
   });
 });
 
@@ -64,6 +66,7 @@ test('a renamed line with the same figures is still a change', () => {
   assert.deepEqual(snapshotChanged(before, after), {
     hours: { from: 2, to: 2 },
     total: { from: 300, to: 300 },
+    edited: [],
   });
 });
 
@@ -129,6 +132,13 @@ test('work outside the period, for another client, or not billable is not late',
     lateEntries([entry({ startedAt: '2026-10-01T12:00:00Z' })], invoices, tz),
     [],
   );
+});
+
+test("work is late by the sent invoice's own zone, not the reader's", () => {
+  // 02:00 UTC on Oct 1 is Sep 30 in Chicago, where the invoice was sent.
+  const sent = [{ ...invoices[0]!, tz: 'America/Chicago' }];
+  const late = entry({ startedAt: '2026-10-01T02:00:00Z' });
+  assert.equal(lateEntries([late], sent, 'Europe/Lisbon').length, 1);
 });
 
 test('late work is listed oldest first', () => {
@@ -224,4 +234,161 @@ test('draftDates: sending keeps the dates its last PDF printed', () => {
     issueDate: '2026-09-10',
     dueDate: '2026-10-17',
   });
+});
+
+/* unbilledDue(): on Oct 3 unless a row says otherwise, Northwind (c1) bills
+   monthly and Acme (c2) has no schedule. Each row reads
+   "client from..to seconds". */
+const work = (startedAt: string, clientId = 'c1', hours = 1) =>
+  entry({ startedAt, clientId, durationSeconds: hours * 3600 });
+const inv = (periodStart: string, periodEnd: string, clientId = 'c1') => ({
+  clientId,
+  periodStart,
+  periodEnd,
+});
+const NW_SEP = 'Northwind 2026-09-01..2026-09-30 3600';
+const IN_SEP = '2026-09-20T15:00:00Z';
+
+const DUE: {
+  name: string;
+  entries: ReturnType<typeof entry>[];
+  invoices?: ReturnType<typeof inv>[];
+  today?: string;
+  due: string[];
+}[] = [
+  {
+    name: 'the most recent ended period, its work added up',
+    entries: [work(IN_SEP, 'c1', 2), work('2026-09-21T15:00:00Z')],
+    due: ['Northwind 2026-09-01..2026-09-30 10800'],
+  },
+  {
+    name: 'not an earlier period, nor the open one',
+    entries: [work('2026-08-20T15:00:00Z'), work('2026-10-01T15:00:00Z')],
+    due: [],
+  },
+  {
+    name: 'gone once the next period ends',
+    entries: [work(IN_SEP)],
+    today: '2026-11-03',
+    due: [],
+  },
+  { name: 'a client with no schedule', entries: [work(IN_SEP, 'c2')], due: [] },
+  {
+    name: 'non-billable work, and work of no client',
+    entries: [
+      entry({ startedAt: IN_SEP, isBillable: false }),
+      entry({ startedAt: IN_SEP, clientId: null }),
+    ],
+    due: [],
+  },
+  {
+    name: "dated in the user's zone: 03:00 UTC Oct 1 is Sep 30",
+    entries: [work('2026-10-01T03:00:00Z')],
+    due: [NW_SEP],
+  },
+  {
+    name: 'an invoice over the whole period',
+    entries: [work(IN_SEP)],
+    invoices: [inv('2026-09-01', '2026-09-30')],
+    due: [],
+  },
+  {
+    name: "inside another client's invoice",
+    entries: [work(IN_SEP)],
+    invoices: [inv('2026-09-01', '2026-09-30', 'c2')],
+    due: [NW_SEP],
+  },
+  {
+    name: 'an invoice over part of the period, the work beside it',
+    entries: [work(IN_SEP)],
+    invoices: [inv('2026-09-01', '2026-09-15')],
+    due: [],
+  },
+  {
+    name: "an invoice sharing only the period's last day",
+    entries: [work(IN_SEP)],
+    invoices: [inv('2026-09-30', '2026-10-15')],
+    due: [],
+  },
+  {
+    name: 'an invoice ending the day before the period',
+    entries: [work(IN_SEP)],
+    invoices: [inv('2026-08-01', '2026-08-31')],
+    due: [NW_SEP],
+  },
+  {
+    name: 'an invoice starting the day after the period',
+    entries: [work(IN_SEP)],
+    invoices: [inv('2026-10-01', '2026-10-15')],
+    due: [NW_SEP],
+  },
+  {
+    name: "an invoice sharing only the period's first day",
+    entries: [work(IN_SEP)],
+    invoices: [inv('2026-08-15', '2026-09-01')],
+    due: [],
+  },
+];
+
+for (const row of DUE)
+  test(`ready to invoice: ${row.name}`, () => {
+    const rows = unbilledDue(
+      {
+        clients: [
+          { id: 'c1', name: 'Northwind', schedule: { period: 'monthly' } },
+          { id: 'c2', name: 'Acme', schedule: null },
+        ],
+        entries: row.entries,
+        invoices: row.invoices ?? [],
+      },
+      row.today ?? '2026-10-03',
+      'America/Chicago',
+    );
+    assert.deepEqual(
+      rows.map(
+        (r) => `${r.clientName} ${r.periodStart}..${r.periodEnd} ${r.seconds}`,
+      ),
+      row.due,
+    );
+  });
+
+const printed = {
+  periodStart: '2026-09-01',
+  periodEnd: '2026-09-30',
+  typedDueDate: null,
+  notes: 'Thanks',
+  reference: null,
+  paymentDetails: { fields: [{ label: 'Bank', value: 'A' }], link: null },
+  supportingDetail: null,
+  tz: 'UTC',
+};
+const sameLines = [hour('A', 2, 300)];
+
+/* Each row: what the PDF printed, what the draft prints now, and what
+   `edited` names; null when it hasn't moved. */
+test('a printed field edited since its PDF is a change', () => {
+  for (const [what, before, now, edited] of [
+    [
+      'key order is not content: jsonb keeps none',
+      printed,
+      {
+        ...printed,
+        paymentDetails: { link: null, fields: [{ value: 'A', label: 'Bank' }] },
+      },
+      null,
+    ],
+    ['notes edited', printed, { ...printed, notes: 'Thanks again' }, ['notes']],
+    [
+      'a snapshot from before printed fields compares lines only',
+      undefined,
+      { ...printed, notes: 'Thanks again' },
+      null,
+    ],
+  ] as const) {
+    const change = snapshotChanged(
+      draftSnapshot(sameLines, 300, before),
+      draftSnapshot(sameLines, 300, now),
+    );
+    assert.deepEqual(change?.edited ?? null, edited, what);
+  }
 });

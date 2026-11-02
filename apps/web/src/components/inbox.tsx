@@ -1,8 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef, useState } from 'react';
+import {
+  forgetInvoice,
+  usePrefetchInvoices,
+} from '@/lib/client/prefetch-invoices';
+import { useId, useRef, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
+import { useMissing } from '@/lib/client/use-missing';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   useOptimisticMutation,
@@ -13,6 +18,7 @@ import {
   documentOpens,
   formatCompact,
   formatCurrency,
+  isPeriod,
   parseTermsDays,
 } from '@stint/core';
 import {
@@ -47,6 +53,7 @@ export function inboxCount(attention: Attention) {
     (attention.paymentTermsToCheck !== null ? 1 : 0) +
     attention.overdueInvoices.length +
     attention.staleDrafts.length +
+    attention.unbilledDue.length +
     attention.lateEntries.length +
     attention.unprojected.length +
     attention.strangeDurations.length +
@@ -58,6 +65,7 @@ export function inboxCount(attention: Attention) {
 type InboxRow =
   | { id: string; kind: 'overdue'; row: Attention['overdueInvoices'][number] }
   | { id: string; kind: 'draft'; row: Attention['staleDrafts'][number] }
+  | { id: string; kind: 'due'; row: Attention['unbilledDue'][number] }
   | { id: string; kind: 'late'; row: Attention['lateEntries'][number] }
   | { id: string; kind: 'unprojected'; row: Attention['unprojected'][number] }
   | { id: string; kind: 'strange'; row: Attention['strangeDurations'][number] }
@@ -86,12 +94,20 @@ export function Inbox({ stats }: { stats: Stats }) {
   const {
     overdueInvoices,
     staleDrafts,
+    unbilledDue,
     lateEntries,
     unprojected,
     strangeDurations,
     overlaps,
   } = stats.attention;
   const queryClient = useQueryClient();
+  usePrefetchInvoices([
+    ...overdueInvoices.map((i) => ({
+      id: i.invoiceId,
+      status: 'sent' as const,
+    })),
+    ...staleDrafts.map((d) => ({ id: d.invoiceId, status: 'draft' as const })),
+  ]);
 
   const exit = useExit();
 
@@ -170,6 +186,7 @@ export function Inbox({ stats }: { stats: Stats }) {
       api.updateInvoiceStatus(id, { status }),
     invalidate: async (qc, { id }) => {
       await leaving.get(id);
+      forgetInvoice(qc, id);
       return Promise.all([
         qc.invalidateQueries({ queryKey: keys.invoices() }),
         invalidateEntryData(qc),
@@ -210,6 +227,12 @@ export function Inbox({ stats }: { stats: Stats }) {
       id: d.invoiceId,
       kind: 'draft' as const,
       row: d,
+    })),
+    /* Invoices not yet made, with the ones made and not sent. */
+    ...unbilledDue.map((p) => ({
+      id: `due:${p.clientId}`,
+      kind: 'due' as const,
+      row: p,
     })),
     /* Money no invoice holds, beside the invoices: work dated in a period
        already sent. */
@@ -299,7 +322,7 @@ export function Inbox({ stats }: { stats: Stats }) {
                   const rate = parseRate(text);
                   return isValidRate(rate) ? rate : null;
                 }}
-                invalid="A rate is a number, zero or more."
+                invalid="Enter a rate of zero or more, to the cent."
                 onSubmit={(defaultHourlyRate) => {
                   leave(r.id);
                   answer.mutate({ id: r.id, patch: { defaultHourlyRate } });
@@ -353,16 +376,18 @@ export function Inbox({ stats }: { stats: Stats }) {
         </ul>
       )}
 
-      <EntryDialog
-        open={assigning.open}
-        onOpenChange={assigning.onOpenChange}
-        existing={assigning.subject?.entry}
-        focus={assigning.subject?.focus}
-        projects={projects}
-        /* The row's id IS the entry id for both kinds that open this dialog,
+      {assigning.subject ? (
+        <EntryDialog
+          open={assigning.open}
+          onOpenChange={assigning.onOpenChange}
+          existing={assigning.subject.entry}
+          focus={assigning.subject.focus}
+          projects={projects}
+          /* The row's id IS the entry id for both kinds that open this dialog,
            so the mark lands on the row the user just answered. */
-        onSaved={exit.mark}
-      />
+          onSaved={exit.mark}
+        />
+      ) : null}
     </section>
   );
 }
@@ -394,7 +419,7 @@ function Row({
   return <Item exiting={exiting} ref={ref} {...itemFor(entry, handlers)} />;
 }
 
-/** Which `Item` a row becomes — the one place the five kinds differ. */
+/** Which `Item` a row becomes — the one place the kinds differ. */
 function itemFor(r: ItemRow, h: Handlers): ItemProps {
   switch (r.kind) {
     case 'overdue':
@@ -412,6 +437,8 @@ function itemFor(r: ItemRow, h: Handlers): ItemProps {
         status: 'sent',
         refuses: r.row.refuses,
       });
+    case 'due':
+      return dueItem(r.row);
     case 'unprojected':
       return unprojectedItem(r.row, h);
     case 'overlap':
@@ -470,6 +497,39 @@ function invoiceItem(
       </>
     ),
   };
+}
+
+/* A chore, not money late, so neutral. The link fills in New invoice and
+   creates nothing: the user makes the draft, so it is numbered then. */
+function dueItem(d: Attention['unbilledDue'][number]): ItemProps {
+  return {
+    href: `/invoices/new?${new URLSearchParams({
+      client: d.clientId,
+      from: d.periodStart,
+      to: d.periodEnd,
+    })}`,
+    label: d.clientName,
+    detail: `${periodName(d.periodStart, d.periodEnd)} is ready to invoice`,
+    value: formatCompact(d.seconds),
+    tone: 'neutral',
+  };
+}
+
+/** A calendar month by its name, any other period by its dates:
+ *  "Oct 1 – 15", "Sep 28 – Oct 4". */
+function periodName(start: string, end: string) {
+  const date = (d: string, parts: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat('en-US', { ...parts, timeZone: 'UTC' }).format(
+      new Date(`${d}T00:00:00Z`),
+    );
+  if (isPeriod({ period: 'monthly' }, start, end))
+    return date(start, { month: 'long' });
+  const short = { month: 'short', day: 'numeric' } as const;
+  const to =
+    start.slice(0, 7) === end.slice(0, 7)
+      ? date(end, { day: 'numeric' })
+      : date(end, short);
+  return `${date(start, short)} – ${to}`;
 }
 
 function entryItem(
@@ -793,7 +853,7 @@ function SettingsRow({
   input: (props: React.ComponentProps<'input'>) => React.ReactNode;
   initial: string;
   parse: (text: string) => number | null;
-  /** Said under the field while what's typed doesn't parse. */
+  /** Said under the field when Save is pressed on what doesn't parse. */
   invalid: string;
   onSubmit: (value: number) => void;
   /** The server's refusal of the last save, shown once the row is back. */
@@ -803,7 +863,9 @@ function SettingsRow({
 }) {
   const [text, setText] = useState(initial);
   const value = parse(text);
-  const shown = text !== '' && value === null ? invalid : error;
+  const id = useId();
+  const check = useMissing({ [id]: value === null ? invalid : undefined });
+  const shown = check.error(id) ?? error;
 
   return (
     <Item
@@ -814,20 +876,22 @@ function SettingsRow({
       tone="neutral"
       actions={
         <form
+          noValidate
           className="flex w-full flex-col gap-1.5"
           onSubmit={(e) => {
             e.preventDefault();
-            if (value !== null) onSubmit(value);
+            if (check.passes() && value !== null) onSubmit(value);
           }}
         >
           <div className="flex items-center gap-1.5">
             {input({
+              id,
               className: 'flex-1',
               'aria-invalid': shown ? true : undefined,
               value: text,
               onChange: (e) => setText(e.target.value),
             })}
-            <Button type="submit" size="xs" disabled={value === null}>
+            <Button type="submit" size="xs">
               Save
             </Button>
           </div>

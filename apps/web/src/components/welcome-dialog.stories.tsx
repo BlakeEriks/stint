@@ -35,32 +35,21 @@ async function toStep2(el: HTMLElement) {
   return page.findByRole('textbox', { name: 'Client name' });
 }
 
-/** Step 1, nothing typed: Next waits for a rate. */
+/** Step 1, nothing typed: Next says the rate is missing, at its field. */
 export const RateEmpty: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     await expectOpen(canvasElement, 'dialog', 'Welcome to Stint');
-    await expect(
-      body(canvasElement).getByRole('button', { name: 'Next' }),
-    ).toBeDisabled();
+    const page = body(canvasElement);
+    await userEvent.click(page.getByRole('button', { name: 'Next' }));
+    const rate = page.getByRole('spinbutton', { name: 'Default hourly rate' });
+    await expect(rate).toHaveAccessibleDescription(/^Enter your rate/);
+    await expect(rate).toHaveFocus();
+    await expect(page.getByText('Step 1 of 2')).toBeVisible();
   },
 };
 
 export const RateEmptyPhone: Story = { ...phone, play: RateEmpty.play };
-
-/** Step 1 with a rate: Next is ready. */
-export const RateFilled: Story = {
-  ...desktop,
-  play: async ({ canvasElement }) => {
-    await expectOpen(canvasElement, 'dialog', 'Welcome to Stint');
-    const page = body(canvasElement);
-    await userEvent.type(
-      await page.findByRole('spinbutton', { name: 'Default hourly rate' }),
-      '125',
-    );
-    await expect(page.getByRole('button', { name: 'Next' })).toBeEnabled();
-  },
-};
 
 /** Next saves the rate at once and moves on, so a closed tab keeps it. */
 export const NextSavesRate: Story = {
@@ -72,7 +61,8 @@ export const NextSavesRate: Story = {
   },
 };
 
-/** Step 2, no name: it can be skipped, and the rate field shows the default. */
+/** Step 2, no name: it can be skipped, the rate field shows the default, and
+    Start tracking says the name is missing. */
 export const ClientEmpty: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -84,13 +74,14 @@ export const ClientEmpty: Story = {
     await expect(
       page.getByRole('button', { name: 'Skip this step' }),
     ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'Start tracking' }),
-    ).toBeDisabled();
+    await userEvent.click(page.getByRole('button', { name: 'Start tracking' }));
+    const name = page.getByRole('textbox', { name: 'Client name' });
+    await expect(name).toHaveAccessibleDescription(/^Name the client/);
+    await expect(name).toHaveFocus();
   },
 };
 
-/** Step 2 filled: Skip gives way, and Start tracking is ready. */
+/** Step 2 filled: Skip gives way to Start tracking. */
 export const ClientFilled: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -101,9 +92,6 @@ export const ClientFilled: Story = {
     await expect(
       page.queryByRole('button', { name: 'Skip this step' }),
     ).toBeNull();
-    await expect(
-      page.getByRole('button', { name: 'Start tracking' }),
-    ).toBeEnabled();
   },
 };
 
@@ -152,7 +140,8 @@ export const Failed: Story = {
   },
 };
 
-/** "Skip for now" closes it with nothing saved, and it does not come back. */
+/** "Skip for now" closes it with no rate saved, and it does not come back.
+    Like every way out, it bills the account in the zone it was created in. */
 export const SkipForNow: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -163,6 +152,9 @@ export const SkipForNow: Story = {
     await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
     await expect(getDb().settings.defaultHourlyRate).toBeNull();
     await waitFor(() => expect(getDb().settings.welcomedAt).not.toBeNull());
+    await expect(getDb().settings.billingTimeZone).toBe(
+      Intl.DateTimeFormat().resolvedOptions().timeZone,
+    );
   },
 };
 

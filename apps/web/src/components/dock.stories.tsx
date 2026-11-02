@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { localDateKey } from '@stint/core';
 import { account } from '@/mocks/db';
-import { ids, type Db } from '@/mocks/fixtures';
+import { entry, ids, type Db } from '@/mocks/fixtures';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { desktop, expectOpen, stalled, tablet } from '@/mocks/screen';
 import { ZOOM_KEY } from '@/lib/client/use-zoom';
@@ -145,6 +145,74 @@ export const LateEntry: Story = {
   },
 };
 
+/** Northwind on `schedule`. */
+const northwindOn = (schedule: Db['clients'][number]['billingSchedule']) =>
+  account((db) => {
+    for (const c of db.clients)
+      if (c.id === ids.northwind) c.billingSchedule = schedule;
+  });
+
+/** Northwind bills twice a month, and on September 17 its first half has
+    ended with work in it and no invoice. The row opens New invoice for it. */
+export const PeriodDue: Story = {
+  ...desktop,
+  parameters: northwindOn({ period: 'semimonthly' }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const row = within(
+      (await page.findByText('Sep 1 – 15 is ready to invoice')).closest(
+        '[data-tone]',
+      ) as HTMLElement,
+    );
+    await expect(
+      row.getByRole('link', { name: 'Northwind Trading' }),
+    ).toHaveAttribute(
+      'href',
+      `/invoices/new?client=${ids.northwind}&from=2026-09-01&to=2026-09-15`,
+    );
+    const inbox = page.getByRole('region', { name: 'Inbox' });
+    await expect(inbox.querySelector('header')).toHaveTextContent(
+      String(within(inbox).getAllByRole('listitem').length),
+    );
+  },
+};
+
+/** Billed monthly, a client's whole month is named, not its dates: with
+    Meridian's August invoices voided and work left in August, August is
+    ready. */
+export const PeriodDueMonthly: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    for (const c of db.clients)
+      if (c.id === ids.meridian) c.billingSchedule = { period: 'monthly' };
+    for (const i of db.invoices)
+      if (i.clientId === ids.meridian && i.periodStart.startsWith('2026-08'))
+        i.status = 'void';
+    db.entries.push(
+      entry(990, '2026-08-20', '09:00', 120, ids.pipeline, 'August audit'),
+    );
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      await page.findByText('August is ready to invoice'),
+    ).toBeVisible();
+  },
+};
+
+/** A period across a month's end names both months: billed every two weeks
+    from August 27, the one that last ended is August 27 to September 9. */
+export const PeriodDueAcrossMonths: Story = {
+  ...desktop,
+  parameters: northwindOn({ period: 'biweekly', anchor: '2026-08-27' }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      await page.findByText('Aug 27 – Sep 9 is ready to invoice'),
+    ).toBeVisible();
+  },
+};
+
 /** Below `xl` the dock is a band that sizes to its content, with no split. */
 export const Band: Story = { ...tablet };
 
@@ -164,8 +232,36 @@ export const Clear: Story = {
   }),
 };
 
-/** A day with nothing logged yet. */
-export const EmptyDay: Story = { ...desktop, parameters: account('empty') };
+/** A day with nothing logged yet: the grid is still drawn, so a pointer
+    can draw or click a time, and a mouse over it shows the slot a press
+    would make. */
+export const EmptyDay: Story = {
+  ...desktop,
+  parameters: account('empty'),
+  play: async ({ canvasElement }) => {
+    const today = within(
+      await within(canvasElement).findByRole('region', {
+        name: "Today's entries",
+      }),
+    );
+    await expect(
+      await today.findByText(/Nothing logged yet today/),
+    ).toBeVisible();
+
+    const column = canvasElement.querySelector<HTMLElement>(
+      'section .border-l',
+    ) as HTMLElement;
+    await expect(column).toBeVisible();
+    const box = column.getBoundingClientRect();
+    await userEvent.pointer({
+      target: column,
+      coords: { clientX: box.left + 10, clientY: box.top + box.height / 2 },
+    });
+    await waitFor(() =>
+      expect(column.querySelector('[data-hover-slot]')).not.toBeNull(),
+    );
+  },
+};
 
 /** Work with no project is assigned in place, one entry at a time. */
 export const AssignProject: Story = {

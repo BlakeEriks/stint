@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { localDateKey } from '@stint/core';
 import { account } from '@/mocks/db';
-import { entry, ids } from '@/mocks/fixtures';
+import { entry, id, ids } from '@/mocks/fixtures';
 import { ZONE } from '@/mocks/time.mts';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import {
@@ -227,7 +227,6 @@ export const NoRate: Story = {
     await expect(
       rows[at + 1]?.querySelector('a[href^="/invoices/"]'),
     ).toBeNull();
-    await expect(inbox.getByRole('button', { name: 'Save' })).toBeDisabled();
   },
 };
 
@@ -236,7 +235,7 @@ const blockedDraft = account((db) => {
   if (!draft) return;
   draft.periodEnd = '2026-01-31';
   draft.unratedEntries = [
-    { id: 'unrated-1', taskName: 'Kickoff', startedAt: '2026-01-05T15:00:00Z' },
+    { id: id(9002), taskName: 'Kickoff', startedAt: '2026-01-05T15:00:00Z' },
   ];
 });
 
@@ -333,7 +332,7 @@ export const SaveRate: Story = {
   },
 };
 
-/** A negative rate is refused on the row, before any request. */
+/** Saving a negative rate is refused on the row, before any request. */
 export const RateInvalid: Story = {
   ...desktop,
   parameters: noRate,
@@ -343,10 +342,11 @@ export const RateInvalid: Story = {
       await page.findByRole('spinbutton', { name: 'Default hourly rate' }),
       '-5',
     );
+    await userEvent.click(page.getByRole('button', { name: 'Save' }));
     await expect(
-      await page.findByText('A rate is a number, zero or more.'),
+      await page.findByText('Enter a rate of zero or more, to the cent.'),
     ).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await expect(page.getByText('Set your default rate')).toBeVisible();
   },
 };
 

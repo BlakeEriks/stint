@@ -1,17 +1,21 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { useSearchParams } from '@storybook/nextjs-vite/navigation.mock';
 import { delay, http } from 'msw';
+import { useEffect, useReducer } from 'react';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import type { Db } from '@/mocks/fixtures';
 import { ids } from '@/mocks/fixtures';
 import { handlers } from '@/mocks/handlers';
 import {
+  at,
   desktop,
   menuOpen,
   phone,
   screen,
   skipping,
   stalled,
+  tablet,
   wide,
 } from '@/mocks/screen';
 import { NewInvoice } from './invoice-new';
@@ -94,6 +98,10 @@ export const Blank: Story = {
     const prompt = region.getByText(/^Choose a client to see/);
     await expect(prompt).toBeVisible();
     await expect(prompt.closest('.rounded-lg')).toBeNull();
+    // No client, no format yet: nothing to fault.
+    await expect(
+      within(canvasElement).queryByText('Give the summary line its text.'),
+    ).toBeNull();
   },
 };
 export const Phone: Story = { ...phone };
@@ -187,6 +195,75 @@ export const WeeklyDefaults: Story = {
     const page = await chooseNorthwind(canvasElement);
     await expect(page.getByLabelText('From')).toHaveValue('2026-09-07');
     await expect(page.getByLabelText('To')).toHaveValue('2026-09-13');
+  },
+};
+
+/** Opened from the Inbox's row for a client ready to invoice:
+    the client and period are filled in, and nothing is made yet. */
+export const FromInboxLink: Story = {
+  ...desktop,
+  parameters: {
+    ...at('/invoices/new', {
+      client: ids.northwind,
+      from: '2026-09-01',
+      to: '2026-09-15',
+    }),
+    ...scheduled(ids.northwind, { period: 'semimonthly' }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      await page.findByRole('button', { name: 'Client' }),
+    ).toHaveTextContent('Northwind');
+    await expect(page.getByLabelText('From')).toHaveValue('2026-09-01');
+    await expect(page.getByLabelText('To')).toHaveValue('2026-09-15');
+    await settled(page);
+  },
+};
+
+let address = new URLSearchParams();
+
+/** The Inbox stays reachable on this page, so its row is pressed here: the
+    address changes under an open form, and the form takes the link. */
+export const PressedFromTheInbox: Story = {
+  ...tablet,
+  parameters: scheduled(ids.northwind, { period: 'semimonthly' }),
+  beforeEach: () => {
+    address = new URLSearchParams();
+    useSearchParams.mockImplementation(() => address as never);
+  },
+  /* Storybook's Link goes nowhere, so a press on it changes the address the
+     way the app would. */
+  render: function Render() {
+    const [, rerender] = useReducer((n: number) => n + 1, 0);
+    useEffect(() => {
+      const follow = (e: MouseEvent) => {
+        const href = (e.target as Element).closest('a')?.getAttribute('href');
+        if (!href?.startsWith('/invoices/new?')) return;
+        e.preventDefault();
+        address = new URLSearchParams(href.split('?')[1]);
+        rerender();
+      };
+      document.addEventListener('click', follow, true);
+      return () => document.removeEventListener('click', follow, true);
+    }, []);
+    return <NewInvoice />;
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const row = (
+      await page.findByText('Sep 1 – 15 is ready to invoice')
+    ).closest('[data-tone]') as HTMLElement;
+    await userEvent.click(
+      within(row).getByRole('link', { name: 'Northwind Trading' }),
+    );
+    await waitFor(() =>
+      expect(page.getByLabelText('To')).toHaveValue('2026-09-15'),
+    );
+    await expect(
+      page.getByRole('button', { name: 'Client' }),
+    ).toHaveTextContent('Northwind');
+    await settled(page);
   },
 };
 
@@ -358,14 +435,14 @@ export const Updating: Story = {
     stalls: 1,
     msw: {
       handlers: {
-        // The play's By task never answers; every other preview does.
+        // The play's By project never answers; every other preview does.
         previewInvoice: http.post(
           handlers.previewInvoice.info.path,
           async (info) => {
             const body = (await info.request.clone().json()) as {
               groupingMode?: string;
             };
-            if (body.groupingMode === 'task') await delay('infinite');
+            if (body.groupingMode === 'project') await delay('infinite');
             // `resolver` is protected in msw's types, and public at runtime.
             const real = handlers.previewInvoice as unknown as {
               resolver: (i: typeof info) => Promise<Response>;
@@ -379,7 +456,7 @@ export const Updating: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
-    await pickGrouping(page, /By task/);
+    await pickGrouping(page, /By project/);
     await expect(await page.findByText('Updating…')).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Generate invoice' }),
@@ -746,6 +823,78 @@ export const FromLastInvoice: Story = {
   },
 };
 
+/** The client's last invoice was by task under a PO, so this one opens by
+    task under that PO. */
+export const FromLastByTask: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      const last = db.invoices
+        .filter((i) => i.clientId === ids.northwind && i.status !== 'void')
+        .sort(
+          (a, b) => b.sequenceNo - a.sequenceNo,
+        )[0] as Db['invoices'][number];
+      last.reference = 'PO 4471';
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    await expect(
+      page.getByRole('button', { name: 'Show time as' }),
+    ).toHaveTextContent('By task');
+    await expect(page.getByLabelText('Reference')).toHaveValue('PO 4471');
+    await expect(card(page).getByText('PO 4471')).toBeVisible();
+  },
+};
+
+/** Until the client's invoices answer, its format is unknown, so neither
+    the grouping nor a summary line shows, rather than one that flips. */
+export const FormatLoading: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...stalled('invoices'),
+    // The last invoice and the open drafts both read the list.
+    stalls: 2,
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    // Past the 400ms the form takes to settle.
+    await new Promise((r) => setTimeout(r, 600));
+    await expect(
+      page.queryByRole('button', { name: 'Show time as' }),
+    ).toBeNull();
+    await expect(page.queryByLabelText(/Summary line/)).toBeNull();
+    await expect(
+      page.queryByText('Give the summary line its text.'),
+    ).toBeNull();
+    await expect(
+      page.getByRole('button', { name: 'Generate invoice' }),
+    ).toBeDisabled();
+  },
+};
+
+/** A client never invoiced opens on one summary line, waiting for its
+    text. */
+export const FirstInvoice: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      db.invoices = db.invoices.filter((i) => i.clientId !== ids.northwind);
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(await page.findByLabelText(/Summary line/)).toHaveValue('');
+    await expect(
+      page.getByRole('button', { name: 'Show time as' }),
+    ).toHaveTextContent('One summary line');
+  },
+};
+
 // ── expenses ───────────────────────────────────────────────────────
 
 /** Waiting expenses land in the card under their own heading, with a date
@@ -914,8 +1063,8 @@ export const EditingClient: Story = {
   },
 };
 
-/** "+ Add a charge" asks for a description and an amount; Save waits for
-    both (US5 scenario 3). */
+/** "+ Add a charge" asks for a description and an amount; Save with
+    neither marks both and moves to the first (US5 scenario 3). */
 export const NewCharge: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -927,7 +1076,13 @@ export const NewCharge: Story = {
     const dialog = within(
       await page.findByRole('dialog', { name: 'New charge' }),
     );
-    await expect(dialog.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await userEvent.click(dialog.getByRole('button', { name: 'Save' }));
+    const description = dialog.getByRole('textbox', { name: /Description/ });
+    await expect(description).toHaveFocus();
+    await expect(description).toHaveAccessibleDescription(/^Say what/);
+    await expect(
+      dialog.getByRole('textbox', { name: /Amount/ }),
+    ).toHaveAccessibleDescription(/^Enter an amount/);
   },
 };
 export const NewChargePhone: Story = { ...NewCharge, ...phone };
@@ -1007,7 +1162,10 @@ export const AddDetails: Story = {
     });
     await waitFor(() => expect(dialog).toBeVisible());
     const form = within(dialog);
-    await expect(form.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await userEvent.click(form.getByRole('button', { name: 'Save' }));
+    await expect(
+      form.getByRole('textbox', { name: /Business name/ }),
+    ).toHaveFocus();
     await userEvent.type(
       form.getByRole('textbox', { name: /Business name/ }),
       'Sam Rivera Consulting',
@@ -1056,7 +1214,10 @@ export const DetailsSaveFails: Story = {
       form.getByRole('textbox', { name: /Business name/ }),
       'Sam Rivera Consulting',
     );
-    await userEvent.type(form.getByRole('textbox', { name: /Email/ }), 'sam@x');
+    await userEvent.type(
+      form.getByRole('textbox', { name: /Email/ }),
+      'sam@lakeline.test',
+    );
     await userEvent.click(form.getByRole('button', { name: 'Save' }));
     await expect(await form.findByText('Enter a valid email.')).toBeVisible();
     await expect(

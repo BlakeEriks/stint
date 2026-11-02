@@ -5,6 +5,7 @@
  * sent is surfaced rather than billed on whichever invoice comes next.
  */
 
+import { type BillingSchedule, lastEndedPeriod } from './billing-period.ts';
 import { addDays, localDateKey } from './calendar.ts';
 import { hundredths, type LineItem, termsDays } from './invoice.ts';
 
@@ -22,10 +23,54 @@ export interface DraftSnapshot {
   dueDate?: string | null;
   /** The template the PDF printed in, which sending keeps. */
   template?: string;
+  /** What else it printed that an edit can change; absent on a snapshot
+   *  recorded before edits existed. */
+  printed?: Printed;
 }
 
-export function draftSnapshot(lines: Line[], total: number): DraftSnapshot {
+/** A draft's choices as its PDF printed them, besides its lines. */
+export interface Printed {
+  periodStart: string;
+  periodEnd: string;
+  /** The due date typed, not the one the terms date: that moves every day. */
+  typedDueDate: string | null;
+  notes: string | null;
+  reference: string | null;
+  paymentDetails: unknown;
+  supportingDetail: unknown;
+  tz: string | null;
+}
+
+/** Each printed field in the words the draft's notice uses. */
+const PRINTED: Record<keyof Printed, string> = {
+  periodStart: 'dates',
+  periodEnd: 'dates',
+  typedDueDate: 'due date',
+  notes: 'notes',
+  reference: 'reference',
+  paymentDetails: 'payment details',
+  supportingDetail: 'attachments',
+  tz: 'time zone',
+};
+
+/** Content, not key order: Postgres stores the JSON as jsonb, which keeps
+ *  none. */
+const canonical = (v: unknown) =>
+  JSON.stringify(v, (_, x) =>
+    x && typeof x === 'object' && !Array.isArray(x)
+      ? Object.fromEntries(
+          Object.entries(x).sort(([a], [b]) => (a < b ? -1 : 1)),
+        )
+      : x,
+  );
+
+export function draftSnapshot(
+  lines: Line[],
+  total: number,
+  printed?: Printed,
+): DraftSnapshot {
   return {
+    ...(printed ? { printed } : {}),
     total,
     hours: cents(
       lines
@@ -51,17 +96,30 @@ export function snapshotChanged(
 ): {
   hours: { from: number; to: number };
   total: { from: number; to: number };
+  /** The printed fields edited since, by name. */
+  edited: string[];
 } | null {
   if (!before) return null;
   const same =
     before.total === now.total &&
     before.lines.length === now.lines.length &&
     before.lines.every((l, i) => key(l) === key(now.lines[i]!));
-  if (same) return null;
+  const edited = editedFields(before.printed, now.printed);
+  if (same && edited.length === 0) return null;
   return {
     hours: { from: before.hours, to: now.hours },
     total: { from: before.total, to: now.total },
+    edited,
   };
+}
+
+/** The printed fields that differ; a field `before` lacks is unchanged. */
+function editedFields(before: Printed | undefined, now: Printed | undefined) {
+  if (!before || !now) return [];
+  const names = (Object.keys(PRINTED) as (keyof Printed)[])
+    .filter((k) => k in before && canonical(before[k]) !== canonical(now[k]))
+    .map((k) => PRINTED[k]);
+  return [...new Set(names)];
 }
 
 /** For each line, whether `before` lacked it; each line of `before` matches
@@ -96,10 +154,12 @@ interface IssuedPeriod {
   clientId: string;
   periodStart: string;
   periodEnd: string;
+  /** The zone it was billed in; absent reads `tz`. */
+  tz?: string | null;
 }
 
-/** Unbilled billable entries dated, in `tz`, inside a sent or paid
- *  invoice's period for their client; oldest first. */
+/** Unbilled billable entries dated inside a sent or paid invoice's period
+ *  for their client, read in that invoice's zone, else `tz`; oldest first. */
 export function lateEntries(
   entries: LateCandidate[],
   invoices: IssuedPeriod[],
@@ -108,13 +168,14 @@ export function lateEntries(
   return entries
     .filter((e) => e.isBillable && e.clientId)
     .flatMap((e) => {
-      const day = localDateKey(new Date(e.startedAt), tz);
-      const invoice = invoices.find(
-        (i) =>
+      const invoice = invoices.find((i) => {
+        const day = localDateKey(new Date(e.startedAt), i.tz ?? tz);
+        return (
           i.clientId === e.clientId &&
           i.periodStart <= day &&
-          day <= i.periodEnd,
-      );
+          day <= i.periodEnd
+        );
+      });
       return invoice
         ? [
             {
@@ -132,6 +193,59 @@ export function lateEntries(
         : [];
     })
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+}
+
+interface DueInputs {
+  /** The user's active clients; `schedule` null when none is set. */
+  clients: { id: string; name: string; schedule: BillingSchedule | null }[];
+  /** Finished entries on no invoice and not billed elsewhere. */
+  entries: Omit<LateCandidate, 'taskName'>[];
+  /** The user's non-void invoices: callers leave the void ones out. */
+  invoices: { clientId: string; periodStart: string; periodEnd: string }[];
+}
+
+/**
+ * Clients ready to invoice, one row each by name: those with a schedule whose
+ * most recent ended period holds billable work and overlaps none of
+ * `invoices`. An overlapping draft would refuse that period, and a sent or
+ * paid one holds `lateEntries()`' work.
+ */
+export function unbilledDue(
+  { clients, entries, invoices }: DueInputs,
+  today: string,
+  tz: string,
+) {
+  return clients
+    .flatMap((c) => {
+      if (!c.schedule) return [];
+      const period = lastEndedPeriod(today, c.schedule);
+      const invoiced = invoices.some(
+        (i) =>
+          i.clientId === c.id &&
+          i.periodStart <= period.periodEnd &&
+          period.periodStart <= i.periodEnd,
+      );
+      if (invoiced) return [];
+      const work = entries.filter((e) => {
+        const day = localDateKey(new Date(e.startedAt), tz);
+        return (
+          e.isBillable &&
+          e.clientId === c.id &&
+          period.periodStart <= day &&
+          day <= period.periodEnd
+        );
+      });
+      if (work.length === 0) return [];
+      return [
+        {
+          clientId: c.id,
+          clientName: c.name,
+          seconds: work.reduce((t, e) => t + e.durationSeconds, 0),
+          ...period,
+        },
+      ];
+    })
+    .sort((a, b) => a.clientName.localeCompare(b.clientName));
 }
 
 export interface OpenDraft {

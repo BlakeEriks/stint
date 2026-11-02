@@ -153,6 +153,7 @@ a different order, and the ones that drifted were rebuilt:
 | A list's loading, failure and empty states | `Panel` + `Listing` |
 | A titled region with its own save state | `Section` + `useAutosave` + `SaveIndicator` |
 | A labeled control | `Field`, `Input`, `inputClass`, `textareaClass`; on a signed-out page, `elevatedInputClass` |
+| What a form still lacks, shown on Save | `useMissing()` (`lib/client/use-missing.ts`) into `Field`'s `error` |
 | Any action | `Button`, sized and varied by the tables in `ui/button.tsx` |
 | A destructive action | `ConfirmAction` |
 | An invoice's status | `StatusBadge` |
@@ -162,23 +163,32 @@ a different order, and the ones that drifted were rebuilt:
 | A key to press | `Kbd` |
 | A short choice in a section's heading row | `SegmentedControl` |
 
-A choice in a form or dialog field is a `Select`; a row carrying a swatch, a
-second line or an `Add…` item is a `DropdownMenu`. Put a component in
-`components/` when a second screen needs it, not in anticipation of one.
+A choice in a form or dialog field is a `Select`; one too long to scan, such
+as a time zone, is a `Combobox` (`ui/combobox.tsx`), which searches; a row
+carrying a swatch, a second line or an `Add…` item is a `DropdownMenu`. Put
+a component in `components/` when a second screen needs it, not in
+anticipation of one.
 
 **Conventions every screen keeps:**
 
+- **Save stays enabled while a form is incomplete**, because a disabled
+  button can't say what it waits for. Pressing it marks each missing field
+  at its `Field` and focuses the first (`useMissing()`); the form sets
+  `noValidate`, since the browser's bubble never reaches a phone. Save is
+  disabled only while its save is pending.
 - **A list filter lives in the URL** (`FilterTabs`), so the view is linkable
   and Back returns to it. A component reading `useSearchParams` needs a
   `Suspense` boundary in its `page.tsx`, or `next build` fails while
   `next dev` passes.
-- **Every action carries a visible label.** Three exceptions, each with an
-  `aria-label`: a destructive first step, a dense repeating row, and the
-  folded dock's strip, which is 44px by design. A glyph is always
+- **Every action carries a visible label.** Four exceptions, each with an
+  `aria-label`: a destructive first step, a dense repeating row, the
+  folded dock's strip, which is 44px by design, and `KeyboardAdd`, the "+"
+  that shows only on keyboard focus because a pointer draws on the grid. A glyph is always
   `aria-hidden`. An `aria-label` holds the visible text, in order, so saying
   what is on screen presses it (WCAG 2.5.3): `Mark paid, STINT-0001`.
 - **A destructive action is quiet until it is the confirm**: a ghost in
-  `text-danger`, then `destructive` spelling the consequence out, in place.
+  `text-danger`, then `destructive` naming what goes, in place
+  and moving nothing: where the pair would wrap its row, it takes the row.
   Destructive means it removes something saved; dropping a line from a form
   not yet submitted (a charge on a new invoice) acts at once.
   In a dialog footer the first step is a trash icon alone, pushed away with
@@ -253,7 +263,9 @@ disagree about the same work. A read the write's answer included
 (`include`) counts as refreshed, so it is skipped.
 
 **A query renders through `Listing`**, which owns loading, failure and empty,
-so no screen writes those branches.
+so no screen writes those branches. A grid is the exception to empty: an
+empty day still draws its grid, the only place a pointer adds an entry, so
+the calendar and Today write their own empty line beside it.
 
 **A region paints once, with all its data.** Hand `Listing` every query the
 region draws, as a tuple, and nothing of it renders until all have answered;

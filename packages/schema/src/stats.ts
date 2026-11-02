@@ -256,6 +256,19 @@ export const Stats = z.object({
         refuses: DraftActions,
       }),
     ),
+    /** Clients ready to invoice (`unbilledDue` in `@stint/core`): the most
+     *  recent ended period of the client's schedule holds billable work and
+     *  overlaps no invoice but a void one. `seconds` is that work; New invoice
+     *  opens with the period. */
+    unbilledDue: z.array(
+      z.object({
+        clientId: uuid,
+        clientName: z.string(),
+        seconds: z.number().int().nonnegative(),
+        periodStart: z.iso.date(),
+        periodEnd: z.iso.date(),
+      }),
+    ),
     /** Unbilled billable work dated inside a sent or paid invoice's period
      *  for its client, oldest first: billed nowhere until the user says. */
     lateEntries: z.array(

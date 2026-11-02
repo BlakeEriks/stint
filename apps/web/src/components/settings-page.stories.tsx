@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, spyOn, userEvent, waitFor, within } from 'storybook/test';
-import { account } from '@/mocks/db';
+import { account, getDb } from '@/mocks/db';
 import {
   desktop,
   failing,
@@ -168,6 +168,43 @@ export const PaymentTermsDays: Story = {
     await userEvent.clear(field);
     await userEvent.type(field, '400');
     await expect(page.getByText('Whole days, 0 to 365.')).toBeVisible();
+  },
+};
+
+/** The account's billing zone, which every invoice reads its dates in: a
+    zone found by search saves on its own. The list itself is Combobox's. */
+export const BillingZone: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const field = await page.findByRole('combobox', {
+      name: /Billing time zone/,
+    });
+    await expect(field).toHaveTextContent('America/New York');
+    await userEvent.click(field);
+    await userEvent.click(
+      await page.findByRole('option', { name: 'America/Chicago' }),
+    );
+    await expect(
+      await page.findByLabelText('Saved', {}, { timeout: 3000 }),
+    ).toBeVisible();
+    await expect(getDb().settings.billingTimeZone).toBe('America/Chicago');
+  },
+};
+
+/** An account from before billing zones, with no invoice to take one
+    from: the field says none is set. */
+export const BillingZoneUnset: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    db.settings.billingTimeZone = null;
+  }),
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByRole('combobox', {
+        name: /Billing time zone/,
+      }),
+    ).toHaveTextContent(/^Not set$/);
   },
 };
 

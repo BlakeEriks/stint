@@ -12,7 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { api, type Settings } from '@/lib/client/api';
+import { api, type Settings, type SettingsInput } from '@/lib/client/api';
+import { timeZone } from '@/lib/client/use-timer';
 import {
   useOptimisticMutation,
   keys,
@@ -21,14 +22,16 @@ import {
 import { useSaveClient } from './client-form';
 import { ColorPicker } from './color-picker';
 import { Field } from './field';
-import { RateInput, isValidRate, parseRate } from './rate-input';
+import { RateInput, isValidRate, missingRate, parseRate } from './rate-input';
 import { StepDialog } from './step-dialog';
+import { useMissing, type Missing } from '@/lib/client/use-missing';
 
 /**
  * A first sign-in's two questions: the default rate, then a first client.
  *
  * Open while `welcomedAt` is null. Every way out stamps it, so it shows once
- * per account, on any device.
+ * per account, on any device, and sets an unset billing zone to this
+ * device's: the zone the account was created in.
  */
 export function WelcomeDialog() {
   const router = useRouter();
@@ -63,11 +66,15 @@ export function WelcomeDialog() {
   /* Predicted, so the dialog closes on the press; a refusal brings it back. */
   const welcome = useOptimisticMutation({
     queryKey: () => keys.settings(),
-    mutationFn: (welcomedAt: string) => api.updateSettings({ welcomedAt }),
-    predict: (current: Settings | undefined, welcomedAt) =>
-      patchSettings({ welcomedAt })(current),
+    mutationFn: (patch: SettingsInput) => api.updateSettings(patch),
+    predict: (current: Settings | undefined, patch) =>
+      patchSettings(patch)(current),
   });
-  const done = () => welcome.mutate(new Date().toISOString());
+  const done = () =>
+    welcome.mutate({
+      welcomedAt: new Date().toISOString(),
+      ...(settings?.billingTimeZone == null && { billingTimeZone: timeZone }),
+    });
 
   const createClient = useSaveClient(undefined, done);
 
@@ -75,15 +82,18 @@ export function WelcomeDialog() {
   const defaultRate = settings?.defaultHourlyRate ?? null;
   const ownRate = parseRate(clientRate);
   const saving = createClient.isPending;
+  const rateCheck = useMissing(missingDefaultRate(rate));
+  const clientCheck = useMissing(missingClient(name, clientRate));
 
   return (
     <StepDialog open={settings?.welcomedAt === null} step={step} steps={2}>
       {step === 1 ? (
         <form
+          noValidate
           className="flex flex-col gap-5"
           onSubmit={(e) => {
             e.preventDefault();
-            if (!isValidRate(rate)) return;
+            if (!rateCheck.passes() || !isValidRate(rate)) return;
             saveRate.mutate(rate);
             setStep(2);
           }}
@@ -98,6 +108,7 @@ export function WelcomeDialog() {
             label="Default hourly rate"
             htmlFor="welcome-rate"
             hint="A client or project can set its own rate later."
+            error={rateCheck.error('welcome-rate')}
           >
             <RateInput
               id="welcome-rate"
@@ -116,25 +127,18 @@ export function WelcomeDialog() {
             <Button type="button" variant="ghost" onClick={done}>
               Skip for now
             </Button>
-            <Button
-              type="submit"
-              variant="accent"
-              disabled={!isValidRate(rate)}
-            >
+            <Button type="submit" variant="accent">
               Next
             </Button>
           </DialogFooter>
         </form>
       ) : (
         <form
+          noValidate
           className="flex flex-col gap-5"
           onSubmit={(e) => {
             e.preventDefault();
-            if (
-              name.trim() === '' ||
-              (ownRate !== null && !isValidRate(ownRate))
-            )
-              return;
+            if (!clientCheck.passes()) return;
             createClient.mutate({
               name: name.trim(),
               hourlyRate: ownRate,
@@ -149,7 +153,11 @@ export function WelcomeDialog() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_140px]">
-            <Field label="Client name" htmlFor="welcome-client">
+            <Field
+              label="Client name"
+              htmlFor="welcome-client"
+              error={clientCheck.error('welcome-client')}
+            >
               <Input
                 id="welcome-client"
                 autoFocus
@@ -163,6 +171,7 @@ export function WelcomeDialog() {
               label="Rate"
               htmlFor="welcome-client-rate"
               hint="Blank uses your default"
+              error={clientCheck.error('welcome-client-rate')}
             >
               <RateInput
                 id="welcome-client-rate"
@@ -211,11 +220,7 @@ export function WelcomeDialog() {
                   Skip this step
                 </Button>
               ) : null}
-              <Button
-                type="submit"
-                variant="accent"
-                disabled={name.trim() === '' || saving}
-              >
+              <Button type="submit" variant="accent" disabled={saving}>
                 {saving ? (
                   <>
                     <Loader2 aria-hidden className="animate-spin" />
@@ -232,3 +237,15 @@ export function WelcomeDialog() {
     </StepDialog>
   );
 }
+
+const missingDefaultRate = (rate: number | null): Missing => ({
+  'welcome-rate': isValidRate(rate)
+    ? undefined
+    : 'Enter your rate, or skip for now.',
+});
+
+const missingClient = (name: string, rateText: string): Missing => ({
+  'welcome-client':
+    name.trim() === '' ? 'Name the client, or skip this step.' : undefined,
+  'welcome-client-rate': missingRate(rateText),
+});

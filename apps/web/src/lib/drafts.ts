@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { InvoiceTemplate } from '@stint/schema';
 import { ApiError, dbCode, PG, refused } from './errors';
 import {
@@ -16,6 +16,7 @@ import { selectAll } from './select-all';
 import {
   billableExpenses,
   billingWindow,
+  billingZone,
   isBillableEntry,
   attachedSchedules,
   buildLineItems,
@@ -38,6 +39,7 @@ import type {
   LineItem,
   ManualLine,
   OpenDraft,
+  Printed,
   ScheduleKind,
 } from '@stint/core';
 
@@ -170,6 +172,7 @@ export interface InvoiceSettings {
   invoiceNumberPrefix: string;
   businessName: string | null;
   businessEmail: string | null;
+  billingTimeZone: string | null;
 }
 
 /**
@@ -203,7 +206,7 @@ async function loadSettings(db: SupabaseClient): Promise<InvoiceSettings> {
   const { data, error } = await db
     .from('user_settings')
     .select(
-      'default_hourly_rate, currency, payment_terms_days, invoice_number_prefix, business_name, business_email',
+      'default_hourly_rate, currency, payment_terms_days, invoice_number_prefix, business_name, business_email, billing_time_zone',
     )
     .maybeSingle();
 
@@ -217,6 +220,7 @@ async function loadSettings(db: SupabaseClient): Promise<InvoiceSettings> {
     invoiceNumberPrefix: (data.invoice_number_prefix as string) ?? 'INV-',
     businessName: data.business_name ?? null,
     businessEmail: data.business_email ?? null,
+    billingTimeZone: data.billing_time_zone ?? null,
   };
 }
 
@@ -259,6 +263,18 @@ export async function loadPaymentProfile(
   });
 }
 
+/** One open draft per client and date, which `create_invoice` and
+ *  `update_draft` hold: two would both show the same work. */
+export function draftOverlaps(error: PostgrestError | null) {
+  if (dbCode(error) !== 'DRAFT_OVERLAPS') return;
+  const open = JSON.parse(error!.details) as { invoiceNumber: string };
+  throw new ApiError(
+    'DRAFT_OVERLAPS',
+    `${open.invoiceNumber} is a draft for these dates already. Open it, or start after it.`,
+    open,
+  );
+}
+
 /** Which of a draft's PDF and Mark sent refuse it as it stands. */
 export function draftRefusals(d: {
   unratedEntries: unknown[];
@@ -275,7 +291,7 @@ export function draftRefusals(d: {
 export function dueBeforeIssueError(issueDate: string, dueDate: string) {
   return new ApiError(
     'VALIDATION_FAILED',
-    `The due date typed for this draft, ${dueDate}, is before its issue date, ${issueDate}. Delete the draft and generate it again with a later one.`,
+    `The due date typed for this draft, ${dueDate}, is before its issue date, ${issueDate}. Edit the draft to give it a later one.`,
     { field: 'dueDate' },
   );
 }
@@ -295,7 +311,9 @@ export async function computeInvoice(
     clientId: string;
     periodStart: string;
     periodEnd: string;
-    tz: string;
+    /** A draft's own zone. A new invoice has none, and reads `billingZone`;
+        with no device zone either, it is refused. */
+    tz: string | { device: string | undefined };
     groupingMode: GroupingMode;
     summaryText?: string;
     manualLines: ManualLine[];
@@ -315,12 +333,21 @@ export async function computeInvoice(
       .eq('status', 'draft'),
   ]);
   if (open.error) throw open.error;
+  const tz =
+    typeof opts.tz === 'string'
+      ? opts.tz
+      : billingZone(settings, opts.tz.device);
+  if (!tz)
+    throw new ApiError(
+      'VALIDATION_FAILED',
+      'Sending a draft needs the time zone its dates are read in (`tz`).',
+    );
   const [entries, expenses] = await Promise.all([
     loadBillableEntries(db, {
       clientId: opts.clientId,
       periodStart: opts.periodStart,
       periodEnd: opts.periodEnd,
-      tz: opts.tz,
+      tz,
       userDefaultRate: settings.defaultHourlyRate,
       clientRate:
         client.hourly_rate == null ? null : Number(client.hourly_rate),
@@ -344,12 +371,14 @@ export async function computeInvoice(
     groupingMode: opts.groupingMode,
     summaryText: opts.summaryText,
     taxRate: client.tax_rate == null ? 0 : Number(client.tax_rate),
-    tz: opts.tz,
+    tz,
     manualLines: opts.manualLines,
     expenses,
   });
 
   return {
+    /** The zone the invoice's period and dates are read in. */
+    tz,
     client,
     settings,
     entries,
@@ -358,7 +387,7 @@ export async function computeInvoice(
     // change what the client was sent.
     supportingDetail: pickSchedules(
       buildSchedules(entries, {
-        tz: opts.tz,
+        tz,
         periodStart: opts.periodStart,
         periodEnd: opts.periodEnd,
       }),
@@ -401,45 +430,64 @@ async function loadManualLines(db: SupabaseClient, invoiceId: string) {
  * made on New invoice; null for an invoice that isn't a draft. Writes
  * nothing. A draft is dated as if sent today: sending dates it.
  *
- * A draft with no zone of its own is read in the request's, else UTC.
+ * A draft with no zone of its own, generated before drafts stored one, is
+ * read in `billingZone`, falling back to the request's, else UTC.
  */
 export async function deriveDraft(
   db: SupabaseClient,
   row: InvoiceRow,
   requestTz: string | undefined,
-  issueDate?: string,
+  send?: {
+    /** The date it is issued on, else the day of `at` in its zone. */
+    issueDate?: string;
+    at: Date;
+  },
 ) {
   if (row.status !== 'draft') return null;
-  const tz = row.tz ?? requestTz ?? 'UTC';
+  const manualLines = await loadManualLines(db, row.id);
 
   const computed = await computeInvoice(db, {
     clientId: row.client_id,
     periodStart: row.period_start,
     periodEnd: row.period_end,
-    tz,
+    // Sending refuses a draft with no zone at all; a read takes UTC.
+    tz: row.tz ?? { device: send ? requestTz : (requestTz ?? 'UTC') },
     groupingMode: row.grouping_mode,
     summaryText: row.summary_text ?? undefined,
-    manualLines: await loadManualLines(db, row.id),
+    manualLines,
     excludedExpenseIds: row.excluded_expense_ids,
     schedules: attachedSchedules(row.supporting_detail),
     draftId: row.id,
   });
-  const { totals } = computed;
+  const { totals, tz } = computed;
   const {
     issueDate: issued,
     dueDate: due,
     sent,
   } = draftDates({
-    issueDate: issueDate ?? localDateKey(new Date(), tz),
+    issueDate: send?.issueDate ?? localDateKey(send?.at ?? new Date(), tz),
     dueDate: row.due_date,
     paymentTerms: row.payment_terms,
     defaultTermsDays: computed.settings.paymentTermsDays,
     printed: row.downloaded_snapshot,
   });
   const unrated = new Set(totals.unratedEntryIds);
+  /* What its PDF prints besides the lines: an edit to any of it after a
+     download is a change too, or the invoice sent would not be the client's
+     copy. */
+  const printed: Printed = {
+    periodStart: row.period_start,
+    periodEnd: row.period_end,
+    typedDueDate: row.due_date,
+    notes: row.notes,
+    reference: row.reference,
+    paymentDetails: row.payment_details,
+    supportingDetail: computed.supportingDetail,
+    tz: row.tz,
+  };
   const change = snapshotChanged(
     row.downloaded_snapshot,
-    draftSnapshot(totals.lineItems, totals.total),
+    draftSnapshot(totals.lineItems, totals.total, printed),
   );
 
   return {
@@ -472,6 +520,14 @@ export async function deriveDraft(
     /** How it moved since its last PDF; null when it hasn't, or never had
      *  one. */
     change,
+    printed,
+    /** What an edit opens with that the row as read doesn't say: the due
+     *  date typed, else null, the expenses left off, and the charges. */
+    choices: {
+      dueDate: row.due_date,
+      excludedExpenseIds: row.excluded_expense_ids,
+      manualLines,
+    },
   };
 }
 
@@ -483,7 +539,7 @@ export async function deriveDraft(
 export async function recordDownload(
   db: SupabaseClient,
   invoiceId: string,
-  lines: LineItem[],
+  draft: { lines: LineItem[]; printed: Printed },
   printed: {
     total: number;
     issueDate: string;
@@ -495,7 +551,7 @@ export async function recordDownload(
     .from('invoices')
     .update({
       downloaded_snapshot: {
-        ...draftSnapshot(lines, printed.total),
+        ...draftSnapshot(draft.lines, printed.total, draft.printed),
         issueDate: printed.issueDate,
         dueDate: printed.dueDate,
         template: printed.template,
@@ -519,20 +575,12 @@ export async function sendDraft(
   requestTz: string | undefined,
   sentAt: string,
 ): Promise<InvoiceRow> {
-  const tz = row.tz ?? requestTz;
-  if (!tz)
-    throw new ApiError(
-      'VALIDATION_FAILED',
-      'Sending a draft needs the time zone its dates are read in (`tz`).',
-    );
   const printed = row.downloaded_snapshot;
-  const draft = (await deriveDraft(
-    db,
-    row,
-    tz,
-    printed?.issueDate ?? localDateKey(new Date(sentAt), tz),
-  ))!;
-  const { totals } = draft.computed;
+  const draft = (await deriveDraft(db, row, requestTz, {
+    issueDate: printed?.issueDate,
+    at: new Date(sentAt),
+  }))!;
+  const { totals, tz } = draft.computed;
 
   // Unpriced work first: a draft of nothing but it isn't empty.
   if (totals.unratedEntryIds.length > 0)
