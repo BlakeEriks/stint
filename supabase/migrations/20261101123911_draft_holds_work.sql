@@ -26,8 +26,9 @@ alter table expenses
     on delete set null (draft_id);
 create index expenses_draft_idx on expenses (draft_id) where draft_id is not null;
 
--- Work moved to another client leaves its draft, which no longer prices it,
--- and becomes new work for the other client's drafts.
+-- An entry moved to another client leaves its draft, which no longer prices
+-- it, and becomes new work for the other client's drafts. An expense's
+-- client can't be changed through the API, so it needs no such rule.
 create function release_moved_entry() returns trigger
 language plpgsql as $$
 begin
@@ -58,17 +59,6 @@ end $$;
 create trigger t_projects_release_moved after update of client_id on projects
   for each row when (new.client_id is distinct from old.client_id)
   execute function release_moved_project();
-
-create function release_moved_expense() returns trigger
-language plpgsql as $$
-begin
-  if new.draft_id is not null and new.client_id is distinct from old.client_id then
-    new.draft_id := null;
-  end if;
-  return new;
-end $$;
-create trigger t_expenses_release_moved before update on expenses
-  for each row execute function release_moved_expense();
 
 -- Holds what the route built, of the work still unbilled and held by no
 -- other draft; work taken meanwhile is simply not held. Only a draft holds:
@@ -313,11 +303,16 @@ begin
     (l->>'spent_on')::date
   from jsonb_array_elements(p_invoice->'lines') with ordinality as t(l, ord);
 
+  -- Only what this draft still holds, under its row lock: an edit that moved
+  -- an entry to another draft since the route read it, or a billed-elsewhere
+  -- mark, refuses the send rather than billing it here.
   update time_entries
      set invoice_id = p_invoice_id
    where id = any(p_entry_ids)
      and user_id = v_invoice.user_id
-     and invoice_id is null;     -- never steal an entry another invoice claimed
+     and invoice_id is null     -- never steal an entry another invoice claimed
+     and draft_id = p_invoice_id
+     and not invoiced_elsewhere;
   get diagnostics v_attached = row_count;
   if v_attached <> cardinality(p_entry_ids) then
     raise exception '% of % entries were billed elsewhere or deleted',
@@ -329,7 +324,8 @@ begin
      set invoice_id = p_invoice_id
    where id = any(p_expense_ids)
      and user_id = v_invoice.user_id
-     and invoice_id is null;
+     and invoice_id is null
+     and draft_id = p_invoice_id;
   get diagnostics v_attached = row_count;
   if v_attached <> cardinality(p_expense_ids) then
     raise exception '% of % expenses were already on another invoice',

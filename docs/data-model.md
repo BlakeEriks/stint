@@ -222,9 +222,9 @@ billed. It is cleared when:
   not;
 - an edit rebuilds it: `update_draft` lets go of what the new build left
   out;
-- the work moves to another client: an entry's project
-  (`release_moved_entry`), the whole project (`release_moved_project`, for
-  each of its entries), or an expense's client (`release_moved_expense`).
+- an entry moves to another client: its own project
+  (`release_moved_entry`), or the whole project (`release_moved_project`,
+  for each of its entries). An expense's client can't be changed.
 
 An entry made non-billable or marked billed elsewhere stays held but is
 priced on no draft; `send_draft` then lets go of it. A deleted entry is

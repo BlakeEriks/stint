@@ -9,38 +9,76 @@ import {
 
 const built = (id: string, durationSeconds: number, isBillable = true) => ({
   id,
-  isBillable,
+  taskName: id,
+  projectId: 'p',
+  projectName: 'P',
+  startedAt: '2026-09-10T15:00:00Z',
   durationSeconds,
+  isBillable,
+  rateOverride: null,
+  projectRate: 150,
+  clientRate: null,
+  userDefaultRate: null,
+});
+const spent = (id: string, amount: number, recurring = false) => ({
+  id,
+  spentOn: '2026-09-12',
+  description: id,
+  amount,
+  recurring,
 });
 
-/* Each row: what the draft holds, what a build of its period takes, and the
-   new work it offers. */
+/* Each row: what the draft holds, what a build of its period takes, the tax
+   rate, and the new work it offers, priced on its own at $150/h. */
 test('new work is what a build takes that the draft does not hold', () => {
-  for (const [what, held, build, want] of [
+  for (const [what, held, build, taxRate, want] of [
     [
       'nothing new',
-      { entryIds: ['a'], expenseIds: [], total: 150 },
-      { entries: [built('a', 3600)], expenseIds: [], total: 150 },
+      { entryIds: ['a'], expenseIds: [] },
+      { entries: [built('a', 3600)], expenses: [] },
+      0,
       null,
     ],
     [
       'two entries and an expense',
-      { entryIds: ['a'], expenseIds: [], total: 150 },
+      { entryIds: ['a'], expenseIds: [] },
       {
         entries: [built('a', 3600), built('b', 5400), built('c', 3600)],
-        expenseIds: ['x'],
-        total: 560,
+        expenses: [spent('x', 40)],
       },
-      { entries: 2, expenses: 1, hours: 2.5, amount: 410 },
+      0,
+      { entries: 2, expenses: 1, hours: 2.5, amount: 415 },
     ],
     [
-      'a non-billable entry is not new work',
-      { entryIds: [], expenseIds: [], total: 0 },
-      { entries: [built('n', 3600, false)], expenseIds: [], total: 0 },
+      'a held entry moved out of the period leaves the amount alone',
+      { entryIds: ['a', 'moved'], expenseIds: [] },
+      { entries: [built('a', 3600), built('b', 3600)], expenses: [] },
+      0,
+      { entries: 1, expenses: 0, hours: 1, amount: 150 },
+    ],
+    [
+      'taxed as the draft is, the expense not',
+      { entryIds: [], expenseIds: [] },
+      { entries: [built('b', 3600)], expenses: [spent('x', 40)] },
+      10,
+      { entries: 1, expenses: 1, hours: 1, amount: 205 },
+    ],
+    [
+      'a non-billable entry, or a recurring expense, is not new work',
+      { entryIds: [], expenseIds: [] },
+      {
+        entries: [built('n', 3600, false)],
+        expenses: [spent('monthly', 20, true)],
+      },
+      0,
       null,
     ],
   ] as const) {
-    assert.deepEqual(newWork(held, build), want, what);
+    assert.deepEqual(
+      newWork(held, build, { taxRate, tz: 'America/Chicago' }),
+      want,
+      what,
+    );
   }
 });
 

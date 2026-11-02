@@ -260,7 +260,7 @@ mark one entry billed elsewhere from its dialog and see it leave the draft.
   else.
 - **FR-004**: An edit the owner makes to held work (hours, project, rate,
   non-billable, billed elsewhere, deleted) MUST show on the draft's next read.
-  Moving an entry or expense to another client MUST release it.
+  Moving an entry, or its project, to another client MUST release it.
 - **FR-005**: A draft MUST show its period's unheld billable work — ended
   entries, and one-off expenses dated on or before its end that it didn't
   leave off — as one notice with the count, hours and amount. The notice MUST

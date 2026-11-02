@@ -2442,7 +2442,7 @@ async function makeDraft() {
 /** `send_draft` as Mark sent calls it, billing `entries` and `expenses`. */
 function sendDraftRpc(
   id: string,
-  ids: { entries?: string[]; expenses?: string[] },
+  ids: { entries?: readonly string[]; expenses?: readonly string[] },
 ) {
   const db = (globalThis as any).__TEST_DB__;
   return db.rpc('send_draft', {
@@ -2548,6 +2548,31 @@ test('an entry deleted since it was computed rolls the send back too', async () 
   assert.equal(dbCode(error), 'ENTRY_ALREADY_INVOICED');
   await untouched(draft);
 });
+
+/* The race an edit can win: the route read what the draft held, then a save
+   moved it to another draft before `send_draft` took the draft's lock. */
+for (const [table, code, ids] of [
+  ['time_entries', 'ENTRY_ALREADY_INVOICED', { entries: [E(1)] }],
+  ['expenses', 'EXPENSE_ALREADY_INVOICED', { expenses: [X(1)] }],
+] as const)
+  test(`work another draft holds since it was computed rolls the send back: ${table}`, async () => {
+    await seedEntry({ id: E(1), hours: 2 });
+    await seedExpense({ id: X(1) });
+    const draft = await makeDraft();
+    const other = 'ff000000-0000-4000-8000-000000000008';
+    await pool.query(
+      `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,period_start,period_end)
+       values ($1,$2,$3,'INV-0800',800,'2026-09-01','2026-09-30')`,
+      [other, USER, CLIENT],
+    );
+    await pool.query(`update ${table} set draft_id = $1`, [other]);
+
+    const { error } = await sendDraftRpc(draft, ids);
+
+    const { dbCode } = await import('../src/lib/errors.ts');
+    assert.equal(dbCode(error), code);
+    await untouched(draft);
+  });
 
 // ── refusals the database names ──────────────────────────────────
 

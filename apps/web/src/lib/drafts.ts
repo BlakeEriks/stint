@@ -400,6 +400,7 @@ export async function computeInvoice(
     // One-offs only: a recurring expense is billed on every invoice and
     // stays unclaimed, to bill again on the next.
     expenseIds: expenses.filter((e) => !e.recurring).map((e) => e.id),
+    expenses,
   };
 }
 
@@ -520,13 +521,9 @@ export async function draftNewWork(db: SupabaseClient, draft: Derived) {
     {
       entryIds: draft.computed.heldEntryIds,
       expenseIds: draft.computed.expenseIds,
-      total: draft.computed.totals.total,
     },
-    {
-      entries: built.entries,
-      expenseIds: built.expenseIds,
-      total: built.totals.total,
-    },
+    built,
+    { taxRate: built.totals.taxRate, tz: draft.tz },
   );
 }
 

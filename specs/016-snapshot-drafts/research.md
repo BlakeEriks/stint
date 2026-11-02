@@ -26,8 +26,9 @@
 
 ## Leaving a client
 
-- **Decision**: a `before update` trigger clears `draft_id` when an entry's
-  `project_id` or an expense's `client_id` changes client.
+- **Decision**: triggers clear `draft_id` when an entry's `project_id`
+  changes client, or its whole project does. An expense's client can't be
+  changed through the API, so it gets none (Constitution VII).
 - **Rationale**: otherwise the moved work stays held by a draft that no
   longer prices it, and the other client's drafts never offer it.
 

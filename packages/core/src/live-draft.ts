@@ -7,9 +7,13 @@
 
 import { type BillingSchedule, lastEndedPeriod } from './billing-period.ts';
 import { addDays, localDateKey } from './calendar.ts';
-import { hundredths, termsDays } from './invoice.ts';
-
-const cents = (n: number) => Math.round(n * 100) / 100;
+import {
+  type BillableEntry,
+  buildLineItems,
+  type ExpenseInput,
+  hundredths,
+  termsDays,
+} from './invoice.ts';
 
 /** What a draft's last PDF printed that sending keeps: its dates, and the
  *  template it was drawn in. */
@@ -20,36 +24,37 @@ export interface PrintedDates {
 }
 
 /** The work a draft's period would add to it: what a build takes that the
- *  draft doesn't hold. Null when there is none. Only billable time counts:
- *  a build holds non-billable entries too, which bill nothing. */
+ *  draft doesn't hold, priced on its own at the draft's tax rate. Null when
+ *  there is none. Only billable time counts: a build holds non-billable
+ *  entries too, which bill nothing. A recurring expense is on every invoice
+ *  and never new. */
 export function newWork(
-  held: {
-    entryIds: readonly string[];
-    expenseIds: readonly string[];
-    total: number;
-  },
+  held: { entryIds: readonly string[]; expenseIds: readonly string[] },
   built: {
-    entries: readonly {
-      id: string;
-      isBillable: boolean;
-      durationSeconds: number;
-    }[];
-    expenseIds: readonly string[];
-    total: number;
+    entries: readonly BillableEntry[];
+    expenses: readonly (ExpenseInput & { recurring: boolean })[];
   },
+  pricing: { taxRate: number; tz: string },
 ) {
   const heldEntries = new Set(held.entryIds);
   const heldExpenses = new Set(held.expenseIds);
   const entries = built.entries.filter(
     (e) => e.isBillable && !heldEntries.has(e.id),
   );
-  const expenses = built.expenseIds.filter((id) => !heldExpenses.has(id));
+  const expenses = built.expenses.filter(
+    (x) => !x.recurring && !heldExpenses.has(x.id),
+  );
   if (entries.length === 0 && expenses.length === 0) return null;
   return {
     entries: entries.length,
     expenses: expenses.length,
     hours: entries.reduce((a, e) => a + hundredths(e.durationSeconds), 0) / 100,
-    amount: cents(built.total - held.total),
+    amount: buildLineItems(entries, {
+      groupingMode: 'entry',
+      taxRate: pricing.taxRate,
+      tz: pricing.tz,
+      expenses,
+    }).total,
   };
 }
 

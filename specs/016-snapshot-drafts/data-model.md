@@ -16,7 +16,7 @@ A recurring expense is never held: it bills on every invoice.
 | `update_draft(p_invoice_id, p_invoice)` | No overlap check. Releases held work not in `entry_ids` / `expense_ids`, then holds them. |
 | `hold_draft_work(p_invoice_id, p_entry_ids, p_expense_ids)` | New. Holds unbilled, unheld work for a draft. Returns how many it held. |
 | `send_draft(...)` | Also clears `draft_id` on everything the draft held. |
-| `release_moved_work()` trigger | New. Clears `draft_id` when an entry's project or an expense's client moves it to another client. |
+| `release_moved_entry()`, `release_moved_project()` triggers | New. Clear `draft_id` when an entry's project, or a whole project, moves it to another client. An expense's client can't be changed through the API, so it has no trigger. |
 
 ## Backfill
 
