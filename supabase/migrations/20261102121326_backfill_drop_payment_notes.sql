@@ -1,8 +1,8 @@
--- A draft's frozen payment details carry `notes` from before the field was
--- dropped, and its downloaded snapshot a copy of them. Choosing payment
+-- A draft's frozen payment details carry `notes` from before payment details
+-- lost the field, and its downloaded snapshot a copy of them. Choosing payment
 -- details again freezes them without it, which Mark sent would read as a
--- change since the PDF. Issued invoices keep theirs: they are frozen, and
--- nothing reads the key.
+-- change since the PDF. Issued invoices are frozen and keep the key: none has
+-- payment notes, and nothing reads it.
 --
 -- `touch_updated_at` is off for this statement: a backfill is not an edit.
 alter table invoices disable trigger t_invoices_touch;

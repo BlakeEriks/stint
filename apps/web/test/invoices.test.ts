@@ -4452,9 +4452,6 @@ for (const [what, change, old] of [
     if ('dueDate' in change) assert.equal(sent.body.dueDate, change.dueDate);
   });
 
-/* A draft downloaded while payment details carried `notes` holds a copy of
-   them; choosing the same details again freezes them without it, which is
-   no change to the PDF. */
 test('a draft frozen with payment notes, chosen again after the backfill, still sends', async () => {
   const r = await live();
   const { POST: createProfile } = await import(
