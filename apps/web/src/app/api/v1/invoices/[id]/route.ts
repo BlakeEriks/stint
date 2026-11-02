@@ -90,14 +90,11 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
       { field: 'clientId' },
     );
 
-  const asked = invoiceRequestRefusal(body, localDateKey(new Date(), body.tz));
-  if (asked) throw refused(asked);
-
   const computed = await computeInvoice(db, {
     clientId: body.clientId,
     periodStart: body.periodStart,
     periodEnd: body.periodEnd,
-    tz: body.tz,
+    tz: { device: body.tz },
     groupingMode: body.groupingMode,
     summaryText: body.summaryText,
     manualLines: body.manualLines,
@@ -105,6 +102,11 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
     schedules: body.schedules,
     draftId: id,
   });
+  const { tz } = computed;
+
+  const asked = invoiceRequestRefusal(body, localDateKey(new Date(), tz));
+  if (asked) throw refused(asked);
+
   requireSender(computed.settings);
   const priced = pricedInvoiceRefusal(computed.totals, body);
   if (priced) throw refused(priced);
@@ -129,7 +131,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
             ),
           )
         : undefined,
-      tz: body.tz,
+      tz,
       excluded_expense_ids: body.excludedExpenseIds,
       manual_lines: body.manualLines,
       entry_ids: computed.heldEntryIds,
@@ -143,7 +145,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   if (error) throw error;
 
   const row = (Array.isArray(data) ? data[0] : data) as InvoiceRow;
-  const draft = (await deriveDraft(db, row, body.tz))!;
+  const draft = (await deriveDraft(db, row, tz))!;
   return NextResponse.json({ ...toInvoice(draft.row), lineItems: draft.lines });
 });
 

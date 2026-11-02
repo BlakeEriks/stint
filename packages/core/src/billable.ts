@@ -7,6 +7,19 @@ import { addDays, startOfLocalDate } from './calendar.ts';
 import type { ExpenseInput } from './invoice.ts';
 
 /**
+ * The zone an invoice reads its period, issue date and due date in: the
+ * account's billing zone, else the device's. A traveller's device zone would
+ * move work near midnight between invoices, so it is only the fallback for an
+ * account that has never set one.
+ */
+export function billingZone<Device extends string | undefined>(
+  account: { billingTimeZone?: string | null } | null | undefined,
+  device: Device,
+): string | Device {
+  return account?.billingTimeZone ?? device;
+}
+
+/**
  * The instants a period of local dates covers: from its first day's start to
  * the start of the day after its last. A user picks "September" on a wall
  * calendar, and the invoice groups by local day, so a UTC window would drop

@@ -131,6 +131,7 @@ export const settings = (): Settings => ({
   businessEmail: 'billing@samrivera.test',
   logoUrl: null,
   paymentTermsDays: 30,
+  billingTimeZone: ZONE,
   invoiceNumberPrefix: 'STINT-',
   invoiceTemplate: 'standard',
   nextInvoiceNumber: 16,
