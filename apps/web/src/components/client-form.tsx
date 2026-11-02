@@ -29,7 +29,8 @@ import { DescribedSelectItem } from './described-select-item';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { ColorPicker } from './color-picker';
 import { Field, inputClass } from './field';
-import { RateInput, parseRate } from './rate-input';
+import { RateInput, isValidRate, parseRate } from './rate-input';
+import { EMAIL, useMissing, type Missing } from '@/lib/client/use-missing';
 import { api, ApiError, type Client, type ClientInput } from '@/lib/client/api';
 
 /**
@@ -73,12 +74,15 @@ export function ClientForm({
     existing?.paymentTermsDays != null ? String(existing.paymentTermsDays) : '',
   );
   const termsDays = parseTermsDays(terms);
-  const badTerms = terms.trim() !== '' && termsDays === null;
+  const check = useMissing(
+    missingIn({ name, email, hourlyRate, taxRate, schedule, terms }),
+  );
 
   const save = useSaveClient(existing, onSaved);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!check.passes()) return;
     save.mutate({
       name: name.trim(),
       // Empty is "unset", not empty string — the column is nullable and the
@@ -94,8 +98,13 @@ export function ClientForm({
   };
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-5">
-      <Field label="Name" htmlFor="client-name" required>
+    <form onSubmit={submit} noValidate className="flex flex-col gap-5">
+      <Field
+        label="Name"
+        htmlFor="client-name"
+        required
+        error={check.error('client-name')}
+      >
         <Input
           id="client-name"
           required
@@ -106,7 +115,11 @@ export function ClientForm({
         />
       </Field>
 
-      <Field label="Email" htmlFor="client-email">
+      <Field
+        label="Email"
+        htmlFor="client-email"
+        error={check.error('client-email')}
+      >
         <Input
           id="client-email"
           type="email"
@@ -139,6 +152,7 @@ export function ClientForm({
           label="Hourly rate"
           htmlFor="client-rate"
           hint="Defaults to your standard rate."
+          error={check.error('client-rate')}
           className="flex-1 basis-40"
         >
           <RateInput
@@ -153,6 +167,7 @@ export function ClientForm({
           label="Tax rate %"
           htmlFor="client-tax"
           hint="Usually none for US services."
+          error={check.error('client-tax')}
           className="flex-1 basis-40"
         >
           <Input
@@ -169,13 +184,17 @@ export function ClientForm({
         </Field>
       </div>
 
-      <ScheduleField value={schedule} onChange={setSchedule} />
+      <ScheduleField
+        value={schedule}
+        onChange={setSchedule}
+        error={check.error('client-anchor')}
+      />
 
       <Field
         label="Payment terms"
         htmlFor="client-terms"
         hint="Days to pay. Defaults to your terms."
-        error={badTerms ? 'Whole days, 0 to 365.' : undefined}
+        error={check.error('client-terms')}
       >
         <Input
           id="client-terms"
@@ -207,11 +226,7 @@ export function ClientForm({
         <Button type="button" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
-        <Button
-          type="submit"
-          variant="accent"
-          disabled={save.isPending || name.trim() === '' || badTerms}
-        >
+        <Button type="submit" variant="accent" disabled={save.isPending}>
           {save.isPending ? (
             <Loader2 aria-hidden className="animate-spin" />
           ) : (
@@ -228,6 +243,43 @@ export function ClientForm({
   );
 }
 
+/* In the order the form shows them, so the first missing takes focus. */
+const missingIn = (f: {
+  name: string;
+  email: string;
+  hourlyRate: string;
+  taxRate: string;
+  schedule: BillingSchedule | null;
+  terms: string;
+}): Missing => {
+  const rate = parseRate(f.hourlyRate);
+  const tax = parseRate(f.taxRate);
+  return {
+    'client-name': f.name.trim() === '' ? 'Name the client.' : undefined,
+    'client-email':
+      f.email.trim() === '' || EMAIL.test(f.email.trim())
+        ? undefined
+        : 'Enter an email like billing@acme.com.',
+    'client-rate':
+      rate === null || isValidRate(rate)
+        ? undefined
+        : 'Enter a rate of zero or more, to the cent, or leave it blank.',
+    // tax_rate is numeric(5,2): more places would be rounded on save.
+    'client-tax':
+      tax === null || (isValidRate(tax) && tax <= 100)
+        ? undefined
+        : 'Enter a percent from 0 to 100, to two places, or leave it blank.',
+    'client-anchor':
+      f.schedule && 'anchor' in f.schedule && f.schedule.anchor === ''
+        ? 'Pick the day the first period starts.'
+        : undefined,
+    'client-terms':
+      f.terms.trim() === '' || parseTermsDays(f.terms) !== null
+        ? undefined
+        : 'Whole days, 0 to 365.',
+  };
+};
+
 const NONE = 'none';
 
 /** Weekly and every two weeks count from a date one period starts on, so
@@ -235,9 +287,11 @@ const NONE = 'none';
 function ScheduleField({
   value,
   onChange,
+  error,
 }: {
   value: BillingSchedule | null;
   onChange: (value: BillingSchedule | null) => void;
+  error?: string;
 }) {
   const pick = (picked: string) => {
     const period = picked as BillingPeriod | typeof NONE;
@@ -280,6 +334,7 @@ function ScheduleField({
         <Field
           label="First period starts"
           htmlFor="client-anchor"
+          error={error}
           className="flex-1 basis-40"
         >
           <Input

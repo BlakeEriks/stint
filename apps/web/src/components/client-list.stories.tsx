@@ -273,8 +273,9 @@ export const EditProject: Story = {
   },
 };
 
-/** Add client opens a dialog, never a page; saving lists the new client
-    here, with nothing to archive yet. */
+/** Add client opens a dialog, never a page; pressing it with no name says
+    so and puts the cursor there, and saving lists the new client here,
+    with nothing to archive yet. */
 export const AddClient: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -285,8 +286,12 @@ export const AddClient: Story = {
     await expectOpen(canvasElement, 'dialog', 'New client');
     await expect(page.queryByRole('button', { name: 'Archive' })).toBeNull();
     const dialog = within(page.getByRole('dialog'));
+    const add = dialog.getByRole('button', { name: 'Add client' });
+    await userEvent.click(add);
+    await expect(dialog.getByText('Name the client.')).toBeVisible();
+    await expect(dialog.getByLabelText(/Name/)).toHaveFocus();
     await userEvent.type(dialog.getByLabelText(/Name/), 'Acme Robotics');
-    await userEvent.click(dialog.getByRole('button', { name: 'Add client' }));
+    await userEvent.click(add);
     await expect(
       await page.findByRole('heading', { name: 'Acme Robotics' }),
     ).toBeVisible();
@@ -375,7 +380,7 @@ export const ClientScheduleWeekly: Story = {
 };
 
 /** A client's own payment terms, kept once saved; empty uses the user's,
-    and anything but whole days holds Save back. */
+    and saving anything but whole days says so at the field. */
 export const ClientPaymentTerms: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -384,10 +389,9 @@ export const ClientPaymentTerms: Story = {
     const field = () => dialog.getByLabelText('Payment terms');
     await expect(field()).toHaveValue('');
     await userEvent.type(field(), '1.5');
+    await userEvent.click(dialog.getByRole('button', { name: 'Save changes' }));
     await expect(dialog.getByText('Whole days, 0 to 365.')).toBeVisible();
-    await expect(
-      dialog.getByRole('button', { name: 'Save changes' }),
-    ).toBeDisabled();
+    await expect(field()).toHaveFocus();
     await userEvent.clear(field());
     await userEvent.type(field(), '15');
     await saveDialog(page, dialog);
