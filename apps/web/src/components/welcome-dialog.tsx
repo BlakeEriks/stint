@@ -12,7 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { api, type Settings } from '@/lib/client/api';
+import { api, type Settings, type SettingsInput } from '@/lib/client/api';
+import { timeZone } from '@/lib/client/use-timer';
 import {
   useOptimisticMutation,
   keys,
@@ -28,7 +29,8 @@ import { StepDialog } from './step-dialog';
  * A first sign-in's two questions: the default rate, then a first client.
  *
  * Open while `welcomedAt` is null. Every way out stamps it, so it shows once
- * per account, on any device.
+ * per account, on any device, and sets an unset billing zone to this
+ * device's: the zone the account was created in.
  */
 export function WelcomeDialog() {
   const router = useRouter();
@@ -63,11 +65,15 @@ export function WelcomeDialog() {
   /* Predicted, so the dialog closes on the press; a refusal brings it back. */
   const welcome = useOptimisticMutation({
     queryKey: () => keys.settings(),
-    mutationFn: (welcomedAt: string) => api.updateSettings({ welcomedAt }),
-    predict: (current: Settings | undefined, welcomedAt) =>
-      patchSettings({ welcomedAt })(current),
+    mutationFn: (patch: SettingsInput) => api.updateSettings(patch),
+    predict: (current: Settings | undefined, patch) =>
+      patchSettings(patch)(current),
   });
-  const done = () => welcome.mutate(new Date().toISOString());
+  const done = () =>
+    welcome.mutate({
+      welcomedAt: new Date().toISOString(),
+      ...(settings?.billingTimeZone == null && { billingTimeZone: timeZone }),
+    });
 
   const createClient = useSaveClient(undefined, done);
 

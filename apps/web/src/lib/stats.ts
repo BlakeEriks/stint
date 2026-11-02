@@ -10,6 +10,7 @@ import {
 } from '@/lib/rows';
 import {
   addDays,
+  billingZone,
   buildAwaitingPayment,
   buildCollected,
   buildEarnedPace,
@@ -154,7 +155,7 @@ export async function readStats(
     db
       .from('user_settings')
       .select(
-        'currency, min_entry_seconds, max_entry_hours, week_starts_on, default_hourly_rate, legacy_payment_terms',
+        'currency, min_entry_seconds, max_entry_hours, week_starts_on, default_hourly_rate, legacy_payment_terms, billing_time_zone',
       )
       .maybeSingle(),
 
@@ -240,7 +241,7 @@ export async function readStats(
        holds. */
     db
       .from('invoices')
-      .select('id, invoice_number, client_id, period_start, period_end')
+      .select('id, invoice_number, client_id, period_start, period_end, tz')
       .in('status', ['sent', 'paid']),
 
     /* For clients ready to invoice: each one's schedule. */
@@ -313,6 +314,10 @@ export async function readStats(
   const clientNames = clientNamesFrom(unbilledRows);
 
   const todayKey = localDateKey(now, tz);
+  const billTz = billingZone(
+    { billingTimeZone: settings.data?.billing_time_zone },
+    tz,
+  );
 
   /* Today's earnings come out of the month's own by-day series, which is
      already loaded and already grouped on the local date. A second query for
@@ -354,6 +359,7 @@ export async function readStats(
     clientId: i.client_id as string,
     periodStart: i.period_start as string,
     periodEnd: i.period_end as string,
+    tz: i.tz as string | null,
   }));
   const week = buildWeek(
     (weekDays.data ?? []) as DayRow[],
@@ -439,8 +445,9 @@ export async function readStats(
             ...issued,
           ],
         },
-        todayKey,
-        tz,
+        // Read as its invoice will be, so no entry is both due and late.
+        localDateKey(now, billTz),
+        billTz,
       ),
       unprojected: buildUnprojected(unprojected),
       strangeDurations: buildStrangeDurations(
