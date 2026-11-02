@@ -18,7 +18,7 @@ import { requireSession } from '@/lib/auth';
 import {
   computeInvoice,
   deriveDraft,
-  draftOverlaps,
+  draftNewWork,
   draftRefusals,
   loadPaymentProfile,
   requireSender,
@@ -35,8 +35,8 @@ type Ctx = { params: Promise<{ id: string }> };
 /**
  * GET /api/v1/invoices/:id — the invoice with its line items, and whether its
  * PDF opens for the caller, so the screen knows before a press. A draft is
- * its period's work now: it names the entries it can't price, and says how
- * it moved since its PDF was last rendered.
+ * the work it holds now: it names the entries it can't price, how many
+ * entries Mark sent locks, and the work in its period it doesn't hold.
  */
 export const GET = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
@@ -53,15 +53,13 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
   return NextResponse.json({
     ...invoice,
     canDownload,
-    changedSinceDownload: draft?.change ?? null,
     unratedEntries: draft?.unratedEntries ?? [],
     dueBeforeIssue: draft?.dueBeforeIssue ?? { download: false, send: false },
     refuses: draft ? draftRefusals(draft) : { download: false, send: false },
-    choices: draft?.choices ?? null,
-    lineItems: pdfData.lineItems.map((l, i) => ({
-      ...l,
-      isNew: draft?.isNew[i] ?? false,
-    })),
+    choices: draft?.edit ?? null,
+    entryCount: draft?.computed.totals.entryCount ?? null,
+    newWork: draft ? await draftNewWork(db, draft) : null,
+    lineItems: pdfData.lineItems,
   });
 });
 
@@ -69,8 +67,8 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
  * PATCH /api/v1/invoices/:id — edits a draft: every choice Generate takes,
  * checked as Generate checks it, but its client, which it keeps. Its number
  * stays. Without `paymentProfileId` it keeps the payment details it has.
- * After a download, an edit to anything its PDF printed holds Mark sent as
- * `DRAFT_CHANGED` until a new PDF is downloaded.
+ * Saving is a build: the draft holds its period's work that no other draft
+ * holds, as the form's preview showed it, and lets go of the rest.
  */
 export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
@@ -136,9 +134,10 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
       tz,
       excluded_expense_ids: body.excludedExpenseIds,
       manual_lines: body.manualLines,
+      entry_ids: computed.heldEntryIds,
+      expense_ids: computed.expenseIds,
     },
   });
-  draftOverlaps(error);
   // Sent or deleted by another request since this one read it.
   if (dbCode(error) === 'INVOICE_STATUS_CHANGED') throw statusChanged('draft');
   if (error?.code === PG.NO_DATA_FOUND)
@@ -160,8 +159,8 @@ const statusChanged = (from: string) =>
  *
  * Only a draft can be deleted: `guard_issued_invoice_delete` refuses the
  * rest, which must be voided instead, so the numbering stays gapless and the
- * record of what was sent survives. A draft claims no work, so deleting one
- * releases nothing.
+ * record of what was sent survives. Deleting a draft lets go of the work it
+ * held (`on delete set null`).
  */
 export const DELETE = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);

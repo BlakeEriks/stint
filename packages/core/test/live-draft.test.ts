@@ -1,82 +1,85 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  assignExpenses,
   draftDates,
-  draftSnapshot,
   lateEntries,
-  newLines,
+  newWork,
   unbilledDue,
-  snapshotChanged,
 } from '../src/live-draft.ts';
 
-const hour = (description: string, quantity: number, amount: number) => ({
-  description,
-  unit: 'hour' as const,
-  quantity,
+const built = (id: string, durationSeconds: number, isBillable = true) => ({
+  id,
+  taskName: id,
+  projectId: 'p',
+  projectName: 'P',
+  startedAt: '2026-09-10T15:00:00Z',
+  durationSeconds,
+  isBillable,
+  rateOverride: null,
+  projectRate: 150,
+  clientRate: null,
+  userDefaultRate: null,
+});
+const spent = (id: string, amount: number, recurring = false) => ({
+  id,
+  spentOn: '2026-09-12',
+  description: id,
   amount,
-});
-const fee = {
-  description: 'Setup',
-  unit: 'fixed' as const,
-  quantity: 1,
-  amount: 200,
-};
-
-test('a snapshot sums the hours of time lines only', () => {
-  assert.deepEqual(
-    draftSnapshot([hour('A', 2.5, 375), hour('B', 1.25, 187.5), fee], 762.5),
-    {
-      total: 762.5,
-      hours: 3.75,
-      lines: [
-        { description: 'A', quantity: 2.5, amount: 375 },
-        { description: 'B', quantity: 1.25, amount: 187.5 },
-        { description: 'Setup', quantity: 1, amount: 200 },
-      ],
-    },
-  );
+  recurring,
 });
 
-test('a draft never rendered, or rendered as it is, has not changed', () => {
-  const now = draftSnapshot([hour('A', 2, 300)], 300);
-  assert.equal(snapshotChanged(null, now), null);
-  assert.equal(
-    snapshotChanged(now, draftSnapshot([hour('A', 2, 300)], 300)),
-    null,
-  );
-});
-
-test('added work is a change, with hours and totals before and after', () => {
-  const before = draftSnapshot([hour('A', 2, 300)], 300);
-  const after = draftSnapshot(
-    [hour('A', 2, 300), hour('A · Oct 9', 2.5, 375)],
-    675,
-  );
-  assert.deepEqual(snapshotChanged(before, after), {
-    hours: { from: 2, to: 4.5 },
-    total: { from: 300, to: 675 },
-    edited: [],
-  });
-});
-
-test('a renamed line with the same figures is still a change', () => {
-  const before = draftSnapshot([hour('A', 2, 300)], 300);
-  const after = draftSnapshot([hour('B', 2, 300)], 300);
-  assert.deepEqual(snapshotChanged(before, after), {
-    hours: { from: 2, to: 2 },
-    total: { from: 300, to: 300 },
-    edited: [],
-  });
-});
-
-test('new lines are those the snapshot did not show, counted once each', () => {
-  const before = draftSnapshot([hour('A', 2, 300)], 300);
-  assert.deepEqual(
-    newLines(before, [hour('A', 2, 300), hour('A', 2, 300), fee]),
-    [false, true, true],
-  );
-  assert.deepEqual(newLines(null, [hour('A', 2, 300)]), [false]);
+/* Each row: what the draft holds, what a build of its period takes, the tax
+   rate, and the new work it offers, priced on its own at $150/h. */
+test('new work is what a build takes that the draft does not hold', () => {
+  for (const [what, held, build, taxRate, want] of [
+    [
+      'nothing new',
+      { entryIds: ['a'], expenseIds: [] },
+      { entries: [built('a', 3600)], expenses: [] },
+      0,
+      null,
+    ],
+    [
+      'two entries and an expense',
+      { entryIds: ['a'], expenseIds: [] },
+      {
+        entries: [built('a', 3600), built('b', 5400), built('c', 3600)],
+        expenses: [spent('x', 40)],
+      },
+      0,
+      { entries: 2, expenses: 1, hours: 2.5, amount: 415 },
+    ],
+    [
+      'a held entry moved out of the period leaves the amount alone',
+      { entryIds: ['a', 'moved'], expenseIds: [] },
+      { entries: [built('a', 3600), built('b', 3600)], expenses: [] },
+      0,
+      { entries: 1, expenses: 0, hours: 1, amount: 150 },
+    ],
+    [
+      'taxed as the draft is, the expense not',
+      { entryIds: [], expenseIds: [] },
+      { entries: [built('b', 3600)], expenses: [spent('x', 40)] },
+      10,
+      { entries: 1, expenses: 1, hours: 1, amount: 205 },
+    ],
+    [
+      'a non-billable entry, or a recurring expense, is not new work',
+      { entryIds: [], expenseIds: [] },
+      {
+        entries: [built('n', 3600, false)],
+        expenses: [spent('monthly', 20, true)],
+      },
+      0,
+      null,
+    ],
+  ] as const) {
+    assert.deepEqual(
+      newWork(held, build, { taxRate, tz: 'America/Chicago' }),
+      want,
+      what,
+    );
+  }
 });
 
 const invoices = [
@@ -156,49 +159,6 @@ test('late work is listed oldest first', () => {
   );
 });
 
-const draft = (id: string, periodEnd: string, excluded: string[] = []) => ({
-  id,
-  periodEnd,
-  excludedExpenseIds: excluded,
-});
-
-test('an expense goes to the open draft whose period ends first on or after it', () => {
-  const got = assignExpenses(
-    [
-      { id: 'jul', spentOn: '2026-07-15' },
-      { id: 'aug', spentOn: '2026-08-20' },
-      { id: 'sep30', spentOn: '2026-09-30' },
-      { id: 'oct', spentOn: '2026-10-02' },
-    ],
-    [draft('S', '2026-09-30'), draft('A', '2026-08-31')],
-  );
-  assert.deepEqual(Object.fromEntries(got), {
-    jul: 'A',
-    aug: 'A',
-    sep30: 'S',
-  });
-});
-
-test('an expense an earlier draft left off goes down the chain', () => {
-  const got = assignExpenses(
-    [{ id: 'x', spentOn: '2026-08-20' }],
-    [
-      draft('A', '2026-08-31', ['x']),
-      draft('S', '2026-09-30', ['x']),
-      draft('O', '2026-10-31'),
-    ],
-  );
-  assert.deepEqual(Object.fromEntries(got), { x: 'O' });
-  assert.equal(
-    assignExpenses(
-      [{ id: 'x', spentOn: '2026-08-20' }],
-      [draft('A', '2026-08-31', ['x'])],
-    ).size,
-    0,
-    'left off every draft, it shows on none',
-  );
-});
-
 test('draftDates: due on the typed date, else after the terms, else the default', () => {
   const at = (dueDate: string | null, paymentTerms: string | null) =>
     draftDates({
@@ -220,7 +180,7 @@ test('draftDates: sending keeps the dates its last PDF printed', () => {
       dueDate: null,
       paymentTerms: 'Net 30',
       defaultTermsDays: 30,
-      printed: { total: 0, hours: 0, lines: [], ...printed },
+      printed,
     }).sent;
   assert.deepEqual(dates({}), {
     issueDate: '2026-09-17',
@@ -241,11 +201,14 @@ test('draftDates: sending keeps the dates its last PDF printed', () => {
    "client from..to seconds". */
 const work = (startedAt: string, clientId = 'c1', hours = 1) =>
   entry({ startedAt, clientId, durationSeconds: hours * 3600 });
-const inv = (periodStart: string, periodEnd: string, clientId = 'c1') => ({
-  clientId,
-  periodStart,
-  periodEnd,
-});
+const inv = (
+  periodStart: string,
+  periodEnd: string,
+  clientId = 'c1',
+  status = 'sent',
+) => ({ clientId, periodStart, periodEnd, status });
+const draft = (periodStart: string, periodEnd: string) =>
+  inv(periodStart, periodEnd, 'c1', 'draft');
 const NW_SEP = 'Northwind 2026-09-01..2026-09-30 3600';
 const IN_SEP = '2026-09-20T15:00:00Z';
 
@@ -299,16 +262,40 @@ const DUE: {
     due: [NW_SEP],
   },
   {
-    name: 'an invoice over part of the period, the work beside it',
+    name: 'a sent invoice over part of the period, the work beside it',
     entries: [work(IN_SEP)],
     invoices: [inv('2026-09-01', '2026-09-15')],
     due: [],
   },
   {
-    name: "an invoice sharing only the period's last day",
+    name: 'a draft over the whole period',
+    entries: [work(IN_SEP)],
+    invoices: [draft('2026-08-25', '2026-10-05')],
+    due: [],
+  },
+  {
+    name: 'a draft over part of the period, the work beside it',
+    entries: [work(IN_SEP)],
+    invoices: [draft('2026-09-01', '2026-09-15')],
+    due: [NW_SEP],
+  },
+  {
+    name: "a sent invoice sharing only the period's last day",
     entries: [work(IN_SEP)],
     invoices: [inv('2026-09-30', '2026-10-15')],
     due: [],
+  },
+  {
+    name: "a sent invoice sharing only the period's first day",
+    entries: [work(IN_SEP)],
+    invoices: [inv('2026-08-15', '2026-09-01')],
+    due: [],
+  },
+  {
+    name: "a draft sharing only the period's last day",
+    entries: [work(IN_SEP)],
+    invoices: [draft('2026-09-30', '2026-10-15')],
+    due: [NW_SEP],
   },
   {
     name: 'an invoice ending the day before the period',
@@ -323,10 +310,10 @@ const DUE: {
     due: [NW_SEP],
   },
   {
-    name: "an invoice sharing only the period's first day",
+    name: "a draft sharing only the period's first day",
     entries: [work(IN_SEP)],
-    invoices: [inv('2026-08-15', '2026-09-01')],
-    due: [],
+    invoices: [draft('2026-08-15', '2026-09-01')],
+    due: [NW_SEP],
   },
 ];
 
@@ -351,44 +338,3 @@ for (const row of DUE)
       row.due,
     );
   });
-
-const printed = {
-  periodStart: '2026-09-01',
-  periodEnd: '2026-09-30',
-  typedDueDate: null,
-  notes: 'Thanks',
-  reference: null,
-  paymentDetails: { fields: [{ label: 'Bank', value: 'A' }], link: null },
-  supportingDetail: null,
-  tz: 'UTC',
-};
-const sameLines = [hour('A', 2, 300)];
-
-/* Each row: what the PDF printed, what the draft prints now, and what
-   `edited` names; null when it hasn't moved. */
-test('a printed field edited since its PDF is a change', () => {
-  for (const [what, before, now, edited] of [
-    [
-      'key order is not content: jsonb keeps none',
-      printed,
-      {
-        ...printed,
-        paymentDetails: { link: null, fields: [{ value: 'A', label: 'Bank' }] },
-      },
-      null,
-    ],
-    ['notes edited', printed, { ...printed, notes: 'Thanks again' }, ['notes']],
-    [
-      'a snapshot from before printed fields compares lines only',
-      undefined,
-      { ...printed, notes: 'Thanks again' },
-      null,
-    ],
-  ] as const) {
-    const change = snapshotChanged(
-      draftSnapshot(sameLines, 300, before),
-      draftSnapshot(sameLines, 300, now),
-    );
-    assert.deepEqual(change?.edited ?? null, edited, what);
-  }
-});

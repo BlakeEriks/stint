@@ -125,7 +125,7 @@ A project has no color; it takes its client's.
 - `ended_at IS NULL` means **running**.
 - `duration_seconds` is a **generated column** — never stored independently, so
   it cannot drift from `started_at`/`ended_at`.
-- `invoice_id` set means the entry is billed.
+- `invoice_id` set means the entry is billed. `draft_id` set means an open draft holds it ([`invoices`](#invoices--invoice_line_items)), which is not billed.
 - `duration_ok` is the user's **answer** to whether this length is correct, and the
   one piece of stored judgment on an entry — `duration_seconds` beside it is
   derived. A trigger clears it whenever `started_at`/`ended_at` change, so the
@@ -150,20 +150,19 @@ reference falls back rather than rendering nothing.
 Line items are **denormalized on purpose**. An issued invoice is an immutable
 financial record, not a live view over time entries.
 
-**A draft is the user's choices; its lines are derived on read** (#452). It
+**A draft is the user's choices and the work it holds (`draft_id`); its
+lines are priced on read** (#452, #596). It
 stores grouping, summary text, reference, notes, a typed due date,
 payment details, the supporting-detail kinds, its `fixed` lines, `tz` (the
 zone its period's dates are read in) and `excluded_expense_ids` (the expenses
 left off). `payment_terms` keeps its terms (`Net N`, or `Due on receipt`) from
-the client's days, else the user's, as Generate found them. Its time and
-expense lines, totals, issue date and, unless typed, due date are computed on
-every read and written by nothing; no entry or expense points at a draft.
-`downloaded_snapshot` is what its PDF last showed (its lines, and its period,
-typed due date, notes, reference, payment details, attachments and zone), and
-the one column a read writes; sending keeps its dates and its template. Mark sent refuses with
-`DRAFT_CHANGED` while the draft differs from it. **Mark sent is
-`send_draft()`**: it writes the lines and totals the route computed, claims
-the entries and one-off expenses, sets `issue_date`, `due_date` and the
+the client's days, else the user's, as Generate found them. It holds the entries and one-off expenses it was built with
+(`time_entries.draft_id`, `expenses.draft_id`), and its time and expense
+lines, totals, issue date and, unless typed, due date are priced from them on
+every read and written by nothing. `downloaded_snapshot` is the dates and
+template its PDF last printed, and the one column a read writes; sending
+keeps them. **Mark sent is `send_draft()`**: it writes the lines and totals
+the route computed, claims the work it held and lets go of the rest, sets `issue_date`, `due_date` and the
 `payment_terms` they make (the last PDF's, else the send date's), freezes
 `template` (the last PDF's, else the setting's), and sends, in one
 transaction. A draft's `template` means nothing; it renders in the
@@ -200,20 +199,36 @@ subtotal — time and fees — and the base tax is charged on; the reimbursement
 sit in `expenses_subtotal`, never taxed, and `total = subtotal + tax_amount +
 expenses_subtotal`.
 
-**Generation is one transaction.** `create_invoice()` allocates the number
-and writes the draft and its charges; it computes nothing itself, except the
-payment reference it appends to the frozen payment block once the number
-exists. One open draft per client and date: after the number's allocation
-has taken the user's counter row lock, it raises `DRAFT_OVERLAPS` for a draft
-over any of the period, so of two concurrent Generates the second fails and
-rolls back, never using up a number.
+**Generation is one transaction.** `create_invoice()` allocates the number,
+writes the draft and its charges, and holds the work the route built; it
+computes nothing itself, except the payment reference it appends to the
+frozen payment block once the number exists.
 
 **An edit is one transaction too.** `update_draft()` rewrites a draft's
-choices and replaces its charges, keeping its number and client; it refuses
-anything but a draft. It takes the same counter row lock before its
-`DRAFT_OVERLAPS` check, which skips the draft itself, so an edit and a
-Generate onto the same dates can't both land. Without new payment details
-it keeps the ones the draft has.
+choices and replaces its charges, keeping its number and client, then holds
+the work the route built and lets go of the rest; it refuses anything but a
+draft. Without new payment details it keeps the ones the draft has.
+`hold_draft_work()` is Add to draft: it holds work no draft holds yet.
+
+**A draft holds work through `draft_id`**, on `time_entries` and `expenses`:
+null, or the open draft holding it, referenced **with `user_id`**
+(`time_entries_draft_same_owner`, `expenses_draft_same_owner`). One column is
+one draft, so two drafts never show the same work and a client may have
+drafts over the same dates. Holding is not billing: `invoice_id` alone says
+billed. It is cleared when:
+
+- the draft is deleted (the key's `on delete set null`);
+- it is sent: `send_draft` lets go of everything the draft held, billed or
+  not;
+- an edit rebuilds it: `update_draft` lets go of what the new build left
+  out;
+- an entry moves to another client: its own project
+  (`release_moved_entry`), or the whole project (`release_moved_project`,
+  for each of its entries). An expense's client can't be changed.
+
+An entry made non-billable or marked billed elsewhere stays held but is
+priced on no draft; `send_draft` then lets go of it. A deleted entry is
+simply gone.
 
 ### `expenses`
 A cost the contractor paid that a client reimburses. It has an amount and no
@@ -224,10 +239,10 @@ there is no currency column, because an expense is never converted.
 
 - `client_id` is required, and references its row **with `user_id`**, as
   `time_entries.project_id` does.
-- `invoice_id` set means billed, by a sent invoice. A one-off shows on one
-  open draft for its client: the one whose period ends first on or after its
-  date (`assignExpenses`), so one missed invoice does not strand a
-  reimbursement.
+- `invoice_id` set means billed, by a sent invoice. A one-off unbilled one
+  dated by a draft's period end, an earlier month's included, is the draft's
+  to take, so one missed invoice does not strand a reimbursement;
+  `draft_id` says which draft holds it.
 - `recurring` bills it on **every** invoice for the client instead of once: a
   subscription the client reimburses. It has no `spent_on`
   (`expense_dated`), is never attached (`recurring_never_billed`), and so is
@@ -318,18 +333,19 @@ name becomes the invoice line description, so editing it after issue changes
 what the client was told they were billed for, even when the money is
 unchanged.
 
-No entry or expense points at a draft, so only sent work is locked.
+Work a draft holds points at it through `draft_id`, which locks nothing;
+only `invoice_id`, set when it is sent, locks work.
 **Detaching** an entry (`invoice_id → null`) stays allowed, so a voided
 invoice can release its entries.
 
 `guard_billed_expense` holds the same lock on an expense, over `spent_on`,
 `description`, `amount`, `client_id` and `recurring`, with the same
-exception. An edit to unbilled work shows on the next read of any draft.
+exception. An edit shows on the next read of the draft holding that entry or expense. Unheld work moved into a draft's period shows as `newWork` until **Add to draft** (`POST /invoices/:id/work`) or a saved edit holds it.
 
 ### Work invoiced elsewhere
 `time_entries.invoiced_elsewhere` marks work already billed from another tool:
-history an import brought in, or entries the user marks on New invoice or in
-the entry dialog. It counts as **earned** and is never **unbilled**:
+history an import brought in, or an entry the user marks in the entry
+dialog. One a draft holds stays held but leaves its lines. It counts as **earned** and is never **unbilled**:
 `unbilled_by_client`, invoice generation and the inbox's uninvoiced rows all
 skip it. It is a flag, not an invoice, so it takes no number and appears in
 no invoice list, and the entry stays editable. `entry_billed_once` refuses

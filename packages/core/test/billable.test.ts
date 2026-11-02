@@ -59,6 +59,7 @@ const expense = (
     recurring?: boolean;
     spentOn?: string | null;
     invoiceId?: string | null;
+    draftId?: string | null;
   } = {},
 ) => ({
   id,
@@ -67,6 +68,7 @@ const expense = (
   description: id,
   amount: 10,
   invoiceId: null as string | null,
+  draftId: null as string | null,
   ...over,
 });
 const draft = (
@@ -87,7 +89,7 @@ test('a draft bills every recurring expense, dated its period end, less the excl
         expense('left-off', { recurring: true, spentOn: null }),
       ],
       draft('new', '2026-09-30', ['left-off']),
-      [],
+      false,
     ),
     [
       {
@@ -101,18 +103,16 @@ test('a draft bills every recurring expense, dated its period end, less the excl
   );
 });
 
-test('a one-off an earlier open draft holds is not billed again', () => {
-  const rows = [expense('aug'), expense('sep', { spentOn: '2026-09-05' })];
-  const open = [draft('A', '2026-08-31')];
-  assert.deepEqual(
-    billableExpenses(rows, draft('new', '2026-09-30'), open).map((e) => e.id),
-    ['sep'],
-  );
-  // The earlier draft, read on its own, still bills it.
-  assert.deepEqual(
-    billableExpenses(rows, draft('A', '2026-08-31'), open).map((e) => e.id),
-    ['aug'],
-  );
+test('a build takes one-offs no other draft holds; a read takes only its own', () => {
+  const rows = [
+    expense('free'),
+    expense('mine', { draftId: 'A' }),
+    expense('theirs', { draftId: 'B' }),
+  ];
+  const ids = (held: boolean) =>
+    billableExpenses(rows, draft('A', '2026-09-30'), held).map((e) => e.id);
+  assert.deepEqual(ids(false), ['free', 'mine']);
+  assert.deepEqual(ids(true), ['mine']);
 });
 
 test('a billed expense, or a one-off after the period, is not billed', () => {
@@ -124,7 +124,7 @@ test('a billed expense, or a one-off after the period, is not billed', () => {
         expense('later', { spentOn: '2026-10-02' }),
       ],
       draft('new', '2026-09-30'),
-      [],
+      false,
     ),
     [],
   );

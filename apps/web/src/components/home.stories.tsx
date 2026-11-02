@@ -289,6 +289,47 @@ export const StaleDraftDownloaded: Story = {
   },
 };
 
+const staleDraft = account((db) => {
+  const draft = db.invoices.find((i) => i.status === 'draft');
+  if (!draft) return;
+  draft.entryCount = 14;
+});
+
+/** A stale draft's Mark sent asks in the invoice page's dialog, which names
+ *  what it fixes; Keep as draft keeps the row, and Mark sent takes it away. */
+export const StaleDraftMarkSent: Story = {
+  ...desktop,
+  parameters: staleDraft,
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    const inbox = within(
+      await within(canvasElement).findByRole('region', { name: 'Inbox' }),
+    );
+    const send = await inbox.findByRole('button', { name: /^Mark sent, / });
+
+    await userEvent.click(send);
+    let dialog = within(await body.findByRole('dialog'));
+    await expect(
+      dialog.getByText(
+        'This records that you sent it. Its 14 entries, any expenses on it and its $2,787.60 total stop changing. To correct it later, void it and issue a new one.',
+      ),
+    ).toBeVisible();
+    await userEvent.click(
+      dialog.getByRole('button', { name: 'Keep as draft' }),
+    );
+    await waitFor(() => expect(body.queryByRole('dialog')).toBeNull());
+    await expect(send).toBeVisible();
+
+    await userEvent.click(send);
+    dialog = within(await body.findByRole('dialog'));
+    await userEvent.click(dialog.getByRole('button', { name: 'Mark sent' }));
+    await waitFor(() => expect(body.queryByRole('dialog')).toBeNull());
+    await waitFor(() =>
+      expect(inbox.queryByRole('button', { name: /^Mark sent, / })).toBeNull(),
+    );
+  },
+};
+
 const oldTerms = account((db) => {
   db.legacyPaymentTerms = 'Payment by check, thanks';
 });

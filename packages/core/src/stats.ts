@@ -148,6 +148,8 @@ export interface InvoiceRow {
   currency: string | null;
   period_end: string;
   refuses?: { download: boolean; send: boolean };
+  /** A draft's: the entries it holds that Mark sent locks. */
+  entry_count?: number;
 }
 
 export interface MonthRow {
@@ -390,6 +392,7 @@ export function buildStaleDrafts(
       amount: Number(i.total),
       currency: i.currency ?? fallbackCurrency,
       ageDays: daysBetweenKeys(i.period_end, todayKey),
+      entryCount: i.entry_count ?? 0,
       refuses: i.refuses ?? { download: false, send: false },
     }))
     .sort((a, b) => b.ageDays - a.ageDays);

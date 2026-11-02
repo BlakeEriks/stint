@@ -118,6 +118,8 @@ const CONSTRAINT_CODES: Record<string, Code> = {
   expense_client_same_owner: 'VALIDATION_FAILED',
   invoice_client_same_owner: 'VALIDATION_FAILED',
   project_client_same_owner: 'VALIDATION_FAILED',
+  time_entries_draft_same_owner: 'VALIDATION_FAILED',
+  expenses_draft_same_owner: 'VALIDATION_FAILED',
 };
 
 /** The API code a database refusal carries, if it is one the API names; the

@@ -561,102 +561,6 @@ const flagged = async () =>
     )
   ).rows.map((r) => r.id);
 
-test('billed elsewhere marks only the user’s finished, uninvoiced entries, and says which', async () => {
-  const { POST } = await import(
-    '../src/app/api/v1/entries/invoiced-elsewhere/route.ts'
-  );
-  await seedBilledElsewhere();
-
-  const res = await json(
-    await POST(
-      req('/entries/invoiced-elsewhere', {
-        ids: [BE(1), BE(2), BE(3), BE(4), BE(5)],
-        invoicedElsewhere: true,
-      }),
-    ),
-  );
-  assert.equal(res.status, 200);
-  assert.deepEqual([...res.body.ids].sort(), [BE(1), BE(2)]);
-  assert.deepEqual(await flagged(), [BE(1), BE(2)]);
-});
-
-test('work marked billed elsewhere leaves Unbilled and the next invoice', async () => {
-  const { POST } = await import(
-    '../src/app/api/v1/entries/invoiced-elsewhere/route.ts'
-  );
-  const { POST: preview } = await import(
-    '../src/app/api/v1/invoices/preview/route.ts'
-  );
-  const { clientId } = await seedBilledElsewhere();
-  // Unbilled counts a running timer live, so it would move under the test.
-  await pool.query('delete from time_entries where id = $1', [BE(3)]);
-  const period = {
-    clientId,
-    periodStart: '2026-09-01',
-    periodEnd: '2026-09-30',
-    tz: 'America/New_York',
-  };
-  const unbilled = async () =>
-    (
-      await pool.query(
-        'select coalesce(sum(seconds),0)::int s from unbilled_by_client($1)',
-        [USER],
-      )
-    ).rows[0].s;
-
-  const before = await json(await preview(req('/invoices/preview', period)));
-  assert.equal(before.body.entryCount, 2);
-  assert.equal(await unbilled(), 3 * 3600);
-
-  await POST(
-    req('/entries/invoiced-elsewhere', {
-      ids: [BE(1), BE(2)],
-      invoicedElsewhere: true,
-    }),
-  );
-  const after = await json(await preview(req('/invoices/preview', period)));
-  assert.equal(after.body.entryCount, 0);
-  assert.equal(await unbilled(), 0);
-});
-
-test('clearing billed elsewhere puts exactly those entries back', async () => {
-  const { POST } = await import(
-    '../src/app/api/v1/entries/invoiced-elsewhere/route.ts'
-  );
-  await seedBilledElsewhere();
-  await pool.query(
-    'update time_entries set invoiced_elsewhere = true where id = any($1)',
-    [[BE(1), BE(2), BE(5)]],
-  );
-
-  const res = await json(
-    await POST(
-      req('/entries/invoiced-elsewhere', {
-        ids: [BE(1), BE(5)],
-        invoicedElsewhere: false,
-      }),
-    ),
-  );
-  assert.deepEqual(res.body.ids, [BE(1)]);
-  assert.deepEqual(
-    await flagged(),
-    [BE(2), BE(5)],
-    'another user’s entry is not cleared',
-  );
-});
-
-test('billed elsewhere refuses an empty list', async () => {
-  const { POST } = await import(
-    '../src/app/api/v1/entries/invoiced-elsewhere/route.ts'
-  );
-  const res = await json(
-    await POST(
-      req('/entries/invoiced-elsewhere', { ids: [], invoicedElsewhere: true }),
-    ),
-  );
-  assert.equal(res.status, 422);
-});
-
 test('an entry is marked or cleared billed elsewhere by its PATCH', async () => {
   const { PATCH } = await import('../src/app/api/v1/entries/[id]/route.ts');
   await seedBilledElsewhere();
@@ -3203,7 +3107,7 @@ test('a draft is stale only after a week, and the oldest sorts first', async () 
   assert.equal(res.body.attention.staleDrafts[1].ageDays, 9);
 });
 
-test('a stale draft carries the money and the client it belongs to', async () => {
+test('a stale draft carries the money, the entries and the client it belongs to', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
   const c = '33333333-0000-4000-8000-00000000000a';
@@ -3228,12 +3132,78 @@ test('a stale draft carries the money and the client it belongs to', async () =>
              'entry','UTC')`,
     ['45444444-0000-4000-8000-000000000009', USER, c],
   );
+  await pool.query('update time_entries set draft_id = $1 where id = $2', [
+    '45444444-0000-4000-8000-000000000009',
+    S(40),
+  ]);
 
   const res = await json(await stats(req('/stats?tz=UTC')));
   const [draft] = res.body.attention.staleDrafts;
   assert.equal(draft.clientName, 'Namely');
-  assert.equal(draft.amount, 100, 'what its period’s hour comes to now');
+  assert.equal(draft.amount, 100, 'what the hour it holds comes to now');
+  assert.equal(draft.entryCount, 1, 'what Mark sent locks');
   assert.equal(draft.currency, 'USD');
+});
+
+test('the draft backfill reads a zoneless draft in the billing zone', async () => {
+  const c = '33333333-0000-4000-8000-00000000000c';
+  const p = '33333333-0000-4000-8000-0000000000c1';
+  const draft = '45444444-0000-4000-8000-00000000000c';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Zoned',100)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  await pool.query(
+    `insert into invoices
+       (id,user_id,client_id,invoice_number,sequence_no,status,period_start,
+        period_end,currency,grouping_mode)
+     values ($1,$2,$3,'INV-0010',10,'draft','2026-09-01','2026-09-30','USD',
+             'entry')`,
+    [draft, USER, c],
+  );
+  // August 31 and September 30 in Los Angeles; September 1 and October 1 in UTC.
+  for (const [id, start] of [
+    [S(41), '2026-09-01T03:00:00Z'],
+    [S(42), '2026-10-01T03:00:00Z'],
+  ])
+    await pool.query(
+      `insert into time_entries
+         (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
+       values ($1,$2,$3,'work',$4,$4::timestamptz + interval '1 hour',true)`,
+      [id, USER, p, start],
+    );
+  await pool.query(
+    `update user_settings set billing_time_zone='America/Los_Angeles' where user_id=$1`,
+    [USER],
+  );
+  try {
+    await pool.query(
+      readFileSync(
+        new URL(
+          '../../../supabase/migrations/20261101123914_backfill_draft_work.sql',
+          import.meta.url,
+        ),
+        'utf8',
+      ),
+    );
+  } finally {
+    await pool.query(
+      'update user_settings set billing_time_zone=null where user_id=$1',
+      [USER],
+    );
+  }
+  const { rows } = await pool.query(
+    'select draft_id from time_entries where project_id=$1 order by id',
+    [p],
+  );
+  assert.deepEqual(
+    rows.map((r) => r.draft_id),
+    [null, draft],
+  );
 });
 
 // ── unprojected work ───────────────────────────────────────────────

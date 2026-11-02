@@ -55,12 +55,6 @@ export const UpdateTimeEntry = z.object({
   invoicedElsewhere: z.boolean().optional(),
 });
 
-/** `POST /entries/invoiced-elsewhere`: the entries a press names, by id. */
-export const MarkInvoicedElsewhere = z.object({
-  ids: z.array(uuid).min(1).max(1000),
-  invoicedElsewhere: z.boolean(),
-});
-
 export const ListEntriesQuery = z.object({
   from: iso.optional(),
   to: iso.optional(),

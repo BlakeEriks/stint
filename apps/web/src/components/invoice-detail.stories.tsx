@@ -70,67 +70,80 @@ export const Draft: Story = {
 };
 export const DraftPhone: Story = { ...phone };
 
-/* The draft as the server sends it once work landed after its PDF. */
-const changed = paying((db) => {
+/* The draft as the server sends it once work landed in its period. */
+const newWork = paying((db) => {
   const draft = db.invoices.find((i) => i.id === invoice(15));
-  if (!draft) return;
-  draft.changedSinceDownload = {
-    hours: { from: 18.4, to: 20.9 },
-    total: { from: 2512.6, to: 2787.6 },
-    edited: [],
-  };
-  const line = draft.lineItems[0];
-  if (line) line.isNew = true;
+  if (draft)
+    draft.newWork = { entries: 2, expenses: 0, hours: 2.5, amount: 275 };
 });
 
-/** Work landed after the PDF was downloaded: the banner says what moved,
-    Mark sent waits for the new PDF, and the new line is tinted. */
-export const DraftChanged: Story = {
+/** Work logged in its period since it was built is offered, not added:
+    the total stays until Add to draft, which takes the notice away. */
+export const DraftNewWork: Story = {
   ...desktop,
-  parameters: changed,
+  parameters: newWork,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     await expect(
-      await page.findByText('Changed since you downloaded it'),
+      await page.findByText('2 new entries, 2.50h, in this period'),
     ).toBeVisible();
-    await expect(page.getByText(/2\.50h added/)).toBeVisible();
-    await expect(page.getByText('$2,512.60')).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Mark sent' }),
-    ).toBeDisabled();
-    await expect(
-      page.getByText('Type scale for the brand site').closest('tr'),
-    ).toHaveClass(/bg-warning-muted/);
+      page.getByText('Amount due').nextElementSibling,
+    ).toHaveTextContent('$2,787.60');
+    await userEvent.click(page.getByRole('button', { name: 'Add to draft' }));
+    await waitFor(() => expect(page.queryByText(/in this period$/)).toBeNull());
   },
 };
-export const DraftChangedPhone: Story = { ...phone, parameters: changed };
+export const DraftNewWorkPhone: Story = { ...phone, parameters: newWork };
 
-/* The draft as the server sends it once its notes were edited after its
-   PDF: the lines are the same. */
-const edited = paying((db) => {
+const fourteen = paying((db) => {
   const draft = db.invoices.find((i) => i.id === invoice(15));
-  if (!draft) return;
-  draft.changedSinceDownload = {
-    hours: { from: 20.9, to: 20.9 },
-    total: { from: 2787.6, to: 2787.6 },
-    edited: ['notes'],
-  };
+  if (draft) draft.entryCount = 14;
 });
 
-/** Only its notes were edited since the PDF: the banner names them, not
-    the lines, and Mark sent waits for the new PDF. */
-export const DraftEdited: Story = {
+/** Mark sent asks in a dialog that says what it fixes; Keep as draft
+    takes it back. A download since doesn't hold it. */
+export const MarkSentAsks: Story = {
   ...desktop,
-  parameters: edited,
+  parameters: fourteen,
   play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Mark sent' }),
+    );
+    const dialog = within(await page.findByRole('dialog'));
     await expect(
-      await page.findByText('Edited since you downloaded it'),
+      dialog.getByText(
+        'This records that you sent it. Its 14 entries, any expenses on it and its $2,787.60 total stop changing. To correct it later, void it and issue a new one.',
+      ),
     ).toBeVisible();
-    await expect(page.getByText(/^Its notes changed\./)).toBeVisible();
-    await expect(page.queryByText(/Its lines changed/)).toBeNull();
     await expect(
-      page.getByRole('button', { name: 'Mark sent' }),
+      dialog.getByRole('button', { name: 'Mark sent' }),
+    ).toBeEnabled();
+    await userEvent.click(
+      dialog.getByRole('button', { name: 'Keep as draft' }),
+    );
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+  },
+};
+
+/* Mark sent's answer never comes. */
+const sendStalls = stalled('updateInvoiceStatus');
+
+/** Marking sent waits on the server: the confirm says so and the dialog
+    stays. */
+export const MarkSentPending: Story = {
+  ...desktop,
+  parameters: { ...fourteen, ...sendStalls },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Mark sent' }),
+    );
+    const dialog = within(await page.findByRole('dialog'));
+    await userEvent.click(dialog.getByRole('button', { name: 'Mark sent' }));
+    await expect(
+      await dialog.findByRole('button', { name: 'Marking sent…' }),
     ).toBeDisabled();
   },
 };
@@ -204,38 +217,6 @@ export const DraftDueSinceDownload: Story = {
     ).toBeVisible();
     await expect(page.getByRole('button', { name: 'Mark sent' })).toBeEnabled();
     await expect(page.queryByRole('link', { name: 'Download PDF' })).toBeNull();
-  },
-};
-
-const changedPastDue = paying((db) => {
-  const draft = db.invoices.find((i) => i.id === invoice(15));
-  if (!draft) return;
-  draft.dueDate = addDays(draft.issueDate, -3);
-  draft.changedSinceDownload = {
-    hours: { from: 18.4, to: 20.9 },
-    total: { from: 2512.6, to: 2787.6 },
-    edited: [],
-  };
-  draft.dueBeforeIssue = { download: true, send: true };
-});
-
-/** Changed since a PDF downloaded before its typed due date: the new PDF it
-    needs is refused, so it asks for a new draft, not a download. */
-export const DraftChangedPastDue: Story = {
-  ...desktop,
-  parameters: changedPastDue,
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
-    await expect(
-      await page.findByText(/Edit this draft to give it a later due date/),
-    ).toBeVisible();
-    await expect(
-      page.queryByText('Changed since you downloaded it'),
-    ).toBeNull();
-    await expect(page.queryByText(/Download the new PDF/)).toBeNull();
-    await expect(
-      page.getByRole('button', { name: 'Mark sent' }),
-    ).toBeDisabled();
   },
 };
 

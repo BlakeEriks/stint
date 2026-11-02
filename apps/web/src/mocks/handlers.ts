@@ -47,6 +47,7 @@ import {
 } from './fixtures';
 import {
   calendar,
+  draftEntryCount,
   expenseView,
   invoicePreview,
   type PreviewRequest,
@@ -168,30 +169,6 @@ function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
   };
 }
 
-/** `create_invoice`'s and `update_draft`'s: one open draft per client and
- *  date. */
-function draftOverlaps(db: Db, input: CreateInvoice, editing?: string) {
-  const open = db.invoices.find(
-    (i) =>
-      i.id !== editing &&
-      i.clientId === input.clientId &&
-      i.status === 'draft' &&
-      i.periodStart <= input.periodEnd &&
-      i.periodEnd >= input.periodStart,
-  );
-  if (!open) return null;
-  return fail(
-    'DRAFT_OVERLAPS',
-    `${open.invoiceNumber} is a draft for these dates already. Open it, or start after it.`,
-    {
-      invoiceId: open.id,
-      invoiceNumber: open.invoiceNumber,
-      periodStart: open.periodStart,
-      periodEnd: open.periodEnd,
-    },
-  );
-}
-
 /** A preview's lines, as an invoice stores them. */
 const storedLines = (preview: Preview) =>
   preview.lineItems.map(
@@ -215,7 +192,7 @@ type StoredInvoice = Db['invoices'][number];
 /** An invoice as the list and status routes answer it. */
 const listed = ({
   lineItems: _,
-  changedSinceDownload: __,
+  newWork: __,
   unratedEntries: ___,
   dueBeforeIssue: ____,
   typedDueDate: _____,
@@ -223,8 +200,9 @@ const listed = ({
   ...invoice
 }: StoredInvoice) => invoice;
 
-/** `lib/drafts.ts`'s `sendDraft`: the draft as its period stands at
- *  `sentAt`, priced, dated, claimed and sent. */
+/** `lib/drafts.ts`'s `sendDraft`: the draft as it stands at `sentAt`,
+ *  priced, dated, claimed and sent. The fake holds no work, so a draft is
+ *  its period's. */
 function sendDraft(
   db: Db,
   invoice: StoredInvoice,
@@ -249,12 +227,6 @@ function sendDraft(
   if (preview.unratedEntryIds.length > 0)
     return refuse(unratedRefusal(preview.unratedEntryIds));
   if (preview.lineItems.length === 0) return refuse(nothingToSend);
-  if (invoice.changedSinceDownload)
-    return fail(
-      'DRAFT_CHANGED',
-      'This draft changed since you downloaded it. Download the new PDF, send that one, then mark it sent.',
-      invoice.changedSinceDownload,
-    );
   const { sent } = draftDates({
     issueDate: localDateKey(new Date(sentAt), zone),
     dueDate: typedDue(invoice),
@@ -564,27 +536,6 @@ export const handlers = {
     return ok(schema.TimeEntry, db.entries[i]);
   }),
 
-  markInvoicedElsewhere: http.post(
-    `${API}/entries/invoiced-elsewhere`,
-    async ({ request }) => {
-      const db = getDb();
-      const { ids, invoicedElsewhere } = await body<{
-        ids: string[];
-        invoicedElsewhere: boolean;
-      }>(request);
-      const changed = db.entries.filter(
-        (e) =>
-          ids.includes(e.id) &&
-          e.invoicedElsewhere !== invoicedElsewhere &&
-          (!invoicedElsewhere || (e.invoiceId === null && e.endedAt !== null)),
-      );
-      for (const e of changed) e.invoicedElsewhere = invoicedElsewhere;
-      return ok(envelopes.invoicedElsewhere, {
-        ids: changed.map((e) => e.id),
-      });
-    },
-  ),
-
   deleteEntry: http.delete(`${API}/entries/:id`, ({ params }) => {
     const db = getDb();
     const entry = byId(db.entries, params.id);
@@ -728,7 +679,7 @@ export const handlers = {
     // The fake keeps no plan per invoice: the account's plan decides.
     const { available, plan } = db.billing;
     const {
-      changedSinceDownload,
+      newWork,
       lineItems,
       unratedEntries,
       dueBeforeIssue: due,
@@ -738,9 +689,11 @@ export const handlers = {
     } = invoice;
     return ok(invoiceDetail, {
       ...rest,
-      lineItems: lineItems.map((l) => ({ ...l, isNew: l.isNew ?? false })),
+      lineItems,
       canDownload: documentOpens(available, plan, null),
-      changedSinceDownload: changedSinceDownload ?? null,
+      entryCount:
+        invoice.status === 'draft' ? draftEntryCount(db, invoice) : null,
+      newWork: newWork ?? null,
       unratedEntries: unratedEntries ?? [],
       dueBeforeIssue: due ?? dueBeforeIssue(invoice),
       refuses: mockDraftRefusals(invoice),
@@ -756,6 +709,19 @@ export const handlers = {
             }
           : null,
     });
+  }),
+
+  /* The route's Add to draft. The fake holds no work: a story sets the new
+     work it shows, and adding it takes the notice away. */
+  addDraftWork: http.post(`${API}/invoices/:id/work`, ({ params }) => {
+    const invoice = byId(getDb().invoices, params.id);
+    if (!invoice) return missing('Invoice');
+    if (invoice.status !== 'draft')
+      return fail('INVOICE_STATUS_CHANGED', 'Only a draft can take new work', {
+        from: invoice.status,
+      });
+    invoice.newWork = null;
+    return new HttpResponse(null, { status: 204 });
   }),
 
   previewInvoice: http.post(`${API}/invoices/preview`, async ({ request }) => {
@@ -784,8 +750,6 @@ export const handlers = {
         'VALIDATION_FAILED',
         'Those payment details are archived or gone. Choose others.',
       );
-    const overlap = draftOverlaps(db, input);
-    if (overlap) return overlap;
     const row = invoiceRow(db, input, preview);
     const invoice = {
       ...row,
@@ -831,8 +795,6 @@ export const handlers = {
       if (!preview) return missing('Client');
       const priced = pricedInvoiceRefusal(preview, input);
       if (priced) return refuse(priced);
-      const overlap = draftOverlaps(db, input, invoice.id);
-      if (overlap) return overlap;
       const profile = input.paymentProfileId
         ? paymentProfile(db, input.clientId, input.paymentProfileId)
         : undefined;

@@ -18,7 +18,7 @@ import type {
   InvoiceLineItem,
   UnratedEntry,
   TimeEntry,
-  DraftChange,
+  NewWork,
 } from '@/lib/client/api';
 import { businessOf } from '@/components/invoice-preview-card';
 import { ZONE } from './time.mts';
@@ -33,12 +33,13 @@ import { ZONE } from './time.mts';
  * internal work.
  */
 
-/** A draft the story says moved since its PDF was rendered carries the
- *  change and which lines are new, and one with unpriced work names it; the
- *  fake keeps no snapshot of its own and derives nothing on read. */
+/** A draft a story gives new work, or the entries Mark sent locks, carries
+ *  them, and one with unpriced work names it; the fake holds no work of its
+ *  own and derives nothing on read. */
 type StoredInvoice = Invoice & {
-  lineItems: (InvoiceLineItem & { isNew?: boolean })[];
-  changedSinceDownload?: DraftChange | null;
+  lineItems: InvoiceLineItem[];
+  newWork?: NewWork | null;
+  entryCount?: number;
   unratedEntries?: UnratedEntry[];
   /** The due date typed on New invoice, the row's `due_date`; absent, the
    *  stored `dueDate` was typed. A draft without one is due by its terms

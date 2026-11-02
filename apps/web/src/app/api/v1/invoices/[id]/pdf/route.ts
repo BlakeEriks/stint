@@ -15,10 +15,9 @@ type Ctx = { params: Promise<{ id: string }> };
 /**
  * GET /api/v1/invoices/:id/pdf
  *
- * Rendered on demand — see `loadPdfData`. A draft's render is recorded, so
- * Mark sent can tell when the client was given a copy the draft has since
- * moved past; one with an entry it can't price is refused, not rendered
- * short.
+ * Rendered on demand — see `loadPdfData`. A draft's render records the
+ * dates it printed, which Mark sent keeps; one with an entry it can't price
+ * is refused, not rendered short.
  *
  * This is how an invoice reaches a client: the user downloads it and emails
  * it themselves, from their own address. `?download=1` forces a save rather
@@ -51,7 +50,7 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
   // this handler loadable by the type-stripping test runner.
   const { renderInvoicePdf } = await import('@/lib/invoice-pdf');
   const bytes = await renderInvoicePdf(pdfData);
-  if (draft) await recordDownload(db, id, draft, pdfData);
+  if (draft) await recordDownload(db, id, pdfData);
 
   // Uint8Array is a valid BodyInit at runtime; the generic ArrayBufferLike
   // parameter in TS 5.7's lib types makes the overload miss.
