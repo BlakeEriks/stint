@@ -29,7 +29,7 @@ import {
   invalidateProjects,
   useRestoreProject,
 } from '@/lib/client/use-restore-project';
-import { RateInput, isValidRate, parseRate } from './rate-input';
+import { RateInput, missingRate, parseRate } from './rate-input';
 import { Field } from './field';
 import { useMissing, type Missing } from '@/lib/client/use-missing';
 
@@ -261,13 +261,7 @@ export function ProjectDialog({
 
 const LABEL = 'type-label text-subtle';
 
-const missingIn = (name: string, rateText: string): Missing => {
-  const rate = parseRate(rateText);
-  return {
-    'project-name': name.trim() === '' ? 'Name the project.' : undefined,
-    'project-rate':
-      rate === null || isValidRate(rate)
-        ? undefined
-        : 'Enter a rate of zero or more, to the cent, or leave it blank.',
-  };
-};
+const missingIn = (name: string, rateText: string): Missing => ({
+  'project-name': name.trim() === '' ? 'Name the project.' : undefined,
+  'project-rate': missingRate(rateText),
+});

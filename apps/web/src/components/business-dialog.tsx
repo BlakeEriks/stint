@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import type { Settings } from '@/lib/client/api';
 import { Field } from './field';
 import { SettingsDialog } from './settings-dialog';
+import { EMAIL } from '@/lib/client/use-missing';
 
 /**
  * Whether the invoice has no sender yet. The server refuses to generate one
@@ -13,9 +14,6 @@ import { SettingsDialog } from './settings-dialog';
  */
 export const missingBusiness = (s: Settings | undefined) =>
   s !== undefined && (!s.businessName?.trim() || !s.businessEmail?.trim());
-
-/* A shape check only; the server's `z.email()` is the full rule. */
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Who the invoice is from, asked on New invoice rather than sending the

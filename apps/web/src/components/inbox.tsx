@@ -5,8 +5,9 @@ import {
   forgetInvoice,
   usePrefetchInvoices,
 } from '@/lib/client/prefetch-invoices';
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
+import { useMissing } from '@/lib/client/use-missing';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   useOptimisticMutation,
@@ -852,7 +853,7 @@ function SettingsRow({
   input: (props: React.ComponentProps<'input'>) => React.ReactNode;
   initial: string;
   parse: (text: string) => number | null;
-  /** Said under the field while what's typed doesn't parse. */
+  /** Said under the field when Save is pressed on what doesn't parse. */
   invalid: string;
   onSubmit: (value: number) => void;
   /** The server's refusal of the last save, shown once the row is back. */
@@ -862,7 +863,9 @@ function SettingsRow({
 }) {
   const [text, setText] = useState(initial);
   const value = parse(text);
-  const shown = text !== '' && value === null ? invalid : error;
+  const id = useId();
+  const check = useMissing({ [id]: value === null ? invalid : undefined });
+  const shown = check.error(id) ?? error;
 
   return (
     <Item
@@ -873,20 +876,22 @@ function SettingsRow({
       tone="neutral"
       actions={
         <form
+          noValidate
           className="flex w-full flex-col gap-1.5"
           onSubmit={(e) => {
             e.preventDefault();
-            if (value !== null) onSubmit(value);
+            if (check.passes() && value !== null) onSubmit(value);
           }}
         >
           <div className="flex items-center gap-1.5">
             {input({
+              id,
               className: 'flex-1',
               'aria-invalid': shown ? true : undefined,
               value: text,
               onChange: (e) => setText(e.target.value),
             })}
-            <Button type="submit" size="xs" disabled={value === null}>
+            <Button type="submit" size="xs">
               Save
             </Button>
           </div>

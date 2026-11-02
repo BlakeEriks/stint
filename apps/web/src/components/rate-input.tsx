@@ -84,3 +84,12 @@ export const isValidRate = (rate: number | null): rate is number =>
   Number.isFinite(rate) &&
   rate >= 0 &&
   Math.abs(rate * 100 - Math.round(rate * 100)) < 1e-6;
+
+/** For `useMissing`: an optional rate field's message, if what's typed
+    isn't blank or a valid rate. */
+export const missingRate = (text: string) => {
+  const rate = parseRate(text);
+  return rate === null || isValidRate(rate)
+    ? undefined
+    : 'Enter a rate of zero or more, to the cent, or leave it blank.';
+};

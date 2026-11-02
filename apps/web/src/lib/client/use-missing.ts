@@ -8,6 +8,9 @@ import { useCallback, useState } from 'react';
  */
 export type Missing = Record<string, string | undefined>;
 
+/* A shape check only; the server's `z.email()` is the full rule. */
+export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 /**
  * Save stays enabled while a form is incomplete, because a disabled button
  * can't say what it waits for, and a tooltip never reaches a phone. The

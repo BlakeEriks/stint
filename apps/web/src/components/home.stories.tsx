@@ -227,7 +227,6 @@ export const NoRate: Story = {
     await expect(
       rows[at + 1]?.querySelector('a[href^="/invoices/"]'),
     ).toBeNull();
-    await expect(inbox.getByRole('button', { name: 'Save' })).toBeDisabled();
   },
 };
 
@@ -333,7 +332,7 @@ export const SaveRate: Story = {
   },
 };
 
-/** A negative rate is refused on the row, before any request. */
+/** Saving a negative rate is refused on the row, before any request. */
 export const RateInvalid: Story = {
   ...desktop,
   parameters: noRate,
@@ -343,10 +342,11 @@ export const RateInvalid: Story = {
       await page.findByRole('spinbutton', { name: 'Default hourly rate' }),
       '-5',
     );
+    await userEvent.click(page.getByRole('button', { name: 'Save' }));
     await expect(
       await page.findByText('Enter a rate of zero or more, to the cent.'),
     ).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await expect(page.getByText('Set your default rate')).toBeVisible();
   },
 };
 
