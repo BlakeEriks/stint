@@ -3144,6 +3144,67 @@ test('a stale draft carries the money and the client it belongs to', async () =>
   assert.equal(draft.currency, 'USD');
 });
 
+test('the draft backfill reads a zoneless draft in the billing zone', async () => {
+  const c = '33333333-0000-4000-8000-00000000000c';
+  const p = '33333333-0000-4000-8000-0000000000c1';
+  const draft = '45444444-0000-4000-8000-00000000000c';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Zoned',100)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  await pool.query(
+    `insert into invoices
+       (id,user_id,client_id,invoice_number,sequence_no,status,period_start,
+        period_end,currency,grouping_mode)
+     values ($1,$2,$3,'INV-0010',10,'draft','2026-09-01','2026-09-30','USD',
+             'entry')`,
+    [draft, USER, c],
+  );
+  // August 31 and September 30 in Los Angeles; September 1 and October 1 in UTC.
+  for (const [id, start] of [
+    [S(41), '2026-09-01T03:00:00Z'],
+    [S(42), '2026-10-01T03:00:00Z'],
+  ])
+    await pool.query(
+      `insert into time_entries
+         (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
+       values ($1,$2,$3,'work',$4,$4::timestamptz + interval '1 hour',true)`,
+      [id, USER, p, start],
+    );
+  await pool.query(
+    `update user_settings set billing_time_zone='America/Los_Angeles' where user_id=$1`,
+    [USER],
+  );
+  try {
+    await pool.query(
+      readFileSync(
+        new URL(
+          '../../../supabase/migrations/20261101123914_backfill_draft_work.sql',
+          import.meta.url,
+        ),
+        'utf8',
+      ),
+    );
+  } finally {
+    await pool.query(
+      'update user_settings set billing_time_zone=null where user_id=$1',
+      [USER],
+    );
+  }
+  const { rows } = await pool.query(
+    'select draft_id from time_entries where project_id=$1 order by id',
+    [p],
+  );
+  assert.deepEqual(
+    rows.map((r) => r.draft_id),
+    [null, draft],
+  );
+});
+
 // ── unprojected work ───────────────────────────────────────────────
 // Entries with no project cannot resolve a rate beyond the user default, so
 // they are billable work heading for an invoice that cannot be generated.
