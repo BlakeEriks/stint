@@ -128,7 +128,7 @@ export function ClientForm({
           onChange={(e) => setAddress(e.target.value)}
           placeholder={'123 Main St\nAustin, TX 78701'}
           className="w-full rounded-md border border-edge-default bg-transparent px-3 py-2
-                     type-control text-strong placeholder:text-subtle outline-none
+                     type-control text-strong placeholder:text-placeholder outline-none
                      focus-visible:border-edge-focus focus-visible:ring-[3px]
                      focus-visible:ring-edge-focus"
         />
