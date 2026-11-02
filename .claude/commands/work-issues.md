@@ -41,11 +41,11 @@ comment step 0 reads.
 
 **Labels are the loop's memory**, so nothing is worked out twice:
 
-- `ready-for-qa` (PR): ready to test and merge now — no conflict with
-  `main`, CI green (or, for the next migration PR to hold the preview
-  database, just `main` merged in: step 6), no question open, no feedback
-  unanswered. Off the
-  moment any of that stops being true.
+- `ready-for-qa` (PR): ready to test now — its Vercel preview is up, no
+  conflict with `main`, no check red but `drift`, no question open, no
+  feedback unanswered. A migration PR also waits for CI green (step 6).
+  Merging needs no label: a red required check leaves the PR `BLOCKED`. Off
+  the moment any of that stops being true.
 - `needs-input` (issue or PR): a question only the reviewer can answer, asked in a
   marked comment.
 - `blocked` (issue): waits on another PR; the marked comment names it and why.
@@ -111,8 +111,9 @@ is `reviewed`.
   2. **Feedback** — the repo owner's comment or review, newer than the last push
      and the last marked comment: remove `ready-for-qa`, then a round of
      fixes. Feedback beyond the PR's scope becomes a new issue instead.
-  3. **CI failed** (`gh pr checks <n>`): remove `ready-for-qa`. A red
-     `drift` is doc drift, step 4, not a check to fix here.
+  3. **CI failed** (`gh pr checks <n>`): remove `ready-for-qa`, since what
+     is being tested may be broken. A red `drift` is doc drift, step 4: it
+     leaves the label on and is not a check to fix here.
      - The same check red on `main`, or on another PR the same way, is not
        this PR's fault: open one `urgent` bug issue for it if none exists —
        or `needs-input`, if only the reviewer can fix it, like a paused `stint-test`
@@ -123,17 +124,20 @@ is `reviewed`.
   4. **Doc drift** — the newest comment starting `<!-- doc-drift:<sha> -->`
      names the PR's head commit (`gh pr view <n> --json headRefOid`), lists
      findings, and no marked comment is newer than its `updatedAt` — it is
-     edited on each push, so its `createdAt` is the first push's: remove
-     `ready-for-qa`, then a round of fixes.
+     edited on each push, so its `createdAt` is the first push's: a round of
+     fixes, with `ready-for-qa` left on.
   5. **Conflicts with `main`** (`gh pr view <n> --json mergeStateStatus`
      says `DIRTY`): remove `ready-for-qa`, then a round in which the builder
      merges `main` in. Review it only if the conflicts needed resolving. A PR
      merely behind `main` is fine: `main` does not require branches to be up
      to date.
-  6. **CI green and none of the above**, all checked in this pass: add
-     `ready-for-qa`, once. Only this step and `migration-handoff.yml` add
-     it — never a look at CI alone, which cannot see feedback.
-     **A migration PR holds the preview database while it is
+  6. **The preview is up and none of 1, 2, 3 or 5 holds**, all checked in
+     this pass: add `ready-for-qa`, once, without waiting for the other
+     checks. Up is `Vercel` and `preview-db` passed, the deploy and its
+     seeded account. After a ship, this runs in the same pass as the push.
+     Only this step and `migration-handoff.yml` add it — never a look at CI
+     alone, which cannot see feedback.
+     **A migration PR waits for CI green**, and holds the preview database while it is
      `ready-for-qa`** (`preview-db.yml`), so at most one has the label. A
      migration PR is one whose diff adds a migration
      (`gh pr diff <n> --name-only | grep '^supabase/migrations/'`), whatever
@@ -142,8 +146,9 @@ is `reviewed`.
      not `needs-input` one and labels it. When none has the label, as after
      a handoff that conflicted, the oldest first gets a round in which the
      builder merges `main` in, then adds the label without waiting for CI.
-  7. **CI still running:** leave it for the next pass, except the migration
-     PR that step 6 just merged `main` into to take the label.
+  7. **Preview still building**, or a migration PR's CI still running:
+     leave it for the next pass, except the migration PR that step 6 just
+     merged `main` into to take the label.
 - **Each open Dependabot PR** (`gh pr list --author app/dependabot`), the
   same steps, except:
   - 3: first `gh pr merge --disable-auto <n>`, so the fix is reviewed

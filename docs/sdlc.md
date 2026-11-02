@@ -73,7 +73,9 @@ Every PR reaches QA the same way, whether `/work-issues` built it or not:
 - **`migration` labels a PR that adds one.** The previews share one schema,
   so only one PR whose diff touches `supabase/migrations`, labeled or not,
   is `ready-for-qa` at a time; it holds the preview database.
-- **`ready-for-qa` goes on once CI is green and nothing is unanswered**: no
-  feedback, doc drift or conflict with `main` left open. The next migration
-  PR to hold the preview database is the exception: it gets the label once
-  `main` is merged in, before CI finishes (`docs/deploying.md` §3d).
+- **`ready-for-qa` goes on once the preview is up and nothing is
+  unanswered**: no feedback, conflict with `main` or red check left open,
+  save `drift`, which a round fixes while testing goes on. Merging still
+  waits for every required check. A migration PR waits for CI green, except
+  the next one to hold the preview database: it gets the label once `main`
+  is merged in, before CI finishes (`docs/deploying.md` §3d).
