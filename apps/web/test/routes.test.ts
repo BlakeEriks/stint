@@ -1186,7 +1186,6 @@ test('a new payment profile stores every detail it is given', async () => {
     paymentLinkUrl: 'https://pay.example.com/ada',
     currency: 'USD',
     feeAllocation: 'SHA',
-    notes: 'Reference the invoice number.',
   };
 
   const res = await json(

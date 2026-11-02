@@ -146,7 +146,6 @@ const s = StyleSheet.create({
     borderTopColor: print.hairline,
   },
   payLink: { marginTop: 8, color: print.accent, fontWeight: 600 },
-  payNotes: { marginTop: 8, fontSize: 8.5, color: print.muted },
   notes: {
     marginTop: 26,
     paddingTop: 14,

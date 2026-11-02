@@ -31,7 +31,6 @@ export interface PaymentProfile {
   paymentLinkUrl?: string | null;
   currency?: string | null;
   feeAllocation?: 'OUR' | 'SHA' | 'BEN' | null;
-  notes?: string | null;
 }
 
 /** A label/value pair ready to render. Only populated fields appear. */
@@ -44,7 +43,6 @@ export interface PaymentDetails {
   fields: PaymentField[];
   intermediary: PaymentField[];
   link: { label: string; url: string } | null;
-  notes: string | null;
 }
 
 const has = (v: string | null | undefined): v is string =>
@@ -134,21 +132,9 @@ export function buildPaymentDetails(
     : null;
 
   // Nothing to render: don't emit an empty section header.
-  if (
-    fields.length === 0 &&
-    intermediary.length === 0 &&
-    !link &&
-    !has(profile.notes)
-  ) {
-    return null;
-  }
+  if (fields.length === 0 && intermediary.length === 0 && !link) return null;
 
-  return {
-    fields,
-    intermediary,
-    link,
-    notes: has(profile.notes) ? profile.notes.trim() : null,
-  };
+  return { fields, intermediary, link };
 }
 
 /**

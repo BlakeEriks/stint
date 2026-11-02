@@ -263,12 +263,11 @@ export interface PaymentProfileRow {
   payment_link_url: string | null;
   currency: string | null;
   fee_allocation: z.infer<typeof PaymentProfile>['feeAllocation'];
-  notes: string | null;
   archived_at: string | null;
 }
 
 export const PAYMENT_PROFILE_COLUMNS = columns<PaymentProfileRow>()(
-  'id, name, is_default, account_holder_name, account_holder_address, bank_name, bank_address, account_number, routing_number, account_type, iban, swift_bic, local_code_label, local_code, intermediary_bank_name, intermediary_swift_bic, intermediary_account_number, payment_link_label, payment_link_url, currency, fee_allocation, notes, archived_at',
+  'id, name, is_default, account_holder_name, account_holder_address, bank_name, bank_address, account_number, routing_number, account_type, iban, swift_bic, local_code_label, local_code, intermediary_bank_name, intermediary_swift_bic, intermediary_account_number, payment_link_label, payment_link_url, currency, fee_allocation, archived_at',
 );
 
 export function toPaymentProfile(r: PaymentProfileRow) {
@@ -294,7 +293,6 @@ export function toPaymentProfile(r: PaymentProfileRow) {
     paymentLinkUrl: r.payment_link_url,
     currency: r.currency,
     feeAllocation: r.fee_allocation,
-    notes: r.notes,
     archivedAt: r.archived_at,
   };
 }
@@ -546,7 +544,6 @@ export const PAYMENT_PROFILE_FIELDS = {
   paymentLinkUrl: 'payment_link_url',
   currency: 'currency',
   feeAllocation: 'fee_allocation',
-  notes: 'notes',
 } as const;
 
 // ── subscriptions ──────────────────────────────────────────────────

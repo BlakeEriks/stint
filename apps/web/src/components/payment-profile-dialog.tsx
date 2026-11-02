@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Field, inputClass, textareaClass } from './field';
+import { Field, inputClass } from './field';
 import {
   api,
   ApiError,
@@ -238,20 +238,6 @@ export function PaymentProfileDialog({
               />
             </Field>
           </div>
-
-          <Field
-            label="Notes"
-            htmlFor="pp-notes"
-            hint="Printed under the payment block."
-          >
-            <textarea
-              id="pp-notes"
-              rows={2}
-              value={draft.notes ?? ''}
-              onChange={(e) => set('notes', e.target.value)}
-              className={textareaClass}
-            />
-          </Field>
 
           <div>
             <button

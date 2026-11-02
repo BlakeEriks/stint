@@ -467,7 +467,6 @@ export const AsPrinted: Story = {
       ],
       intermediary: [],
       link: { label: 'Pay online', url: 'https://pay.example.test/sam' },
-      notes: 'Include the invoice number in the memo.',
     };
   }),
   play: async ({ canvasElement }) => {
@@ -476,7 +475,6 @@ export const AsPrinted: Story = {
       'Net 30',
       'Payment details',
       'Pay online: https://pay.example.test/sam',
-      'Include the invoice number in the memo.',
       'Thank you for the work this month.',
     ]) {
       await expect(await page.findByText(text)).toBeVisible();

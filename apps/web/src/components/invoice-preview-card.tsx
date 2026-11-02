@@ -381,9 +381,6 @@ function Payment({ payment }: { payment: PaymentDetails }) {
           {payment.link.label}: {payment.link.url}
         </p>
       ) : null}
-      {payment.notes ? (
-        <p className="whitespace-pre-line text-muted">{payment.notes}</p>
-      ) : null}
     </div>
   );
 }
