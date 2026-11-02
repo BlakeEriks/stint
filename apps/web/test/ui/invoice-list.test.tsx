@@ -166,11 +166,11 @@ describe('InvoiceList', () => {
     /* A draft has not been sent, so there is nothing to have been paid. */
     await waitFor(() =>
       expect(
-        screen.getByRole('button', { name: 'Mark STINT-0001 paid' }),
+        screen.getByRole('button', { name: 'Mark paid, STINT-0001' }),
       ).toBeInTheDocument(),
     );
     expect(
-      screen.queryByRole('button', { name: 'Mark STINT-0002 paid' }),
+      screen.queryByRole('button', { name: 'Mark paid, STINT-0002' }),
     ).toBeNull();
   });
 
@@ -183,7 +183,7 @@ describe('InvoiceList', () => {
     render(<InvoiceList />, { wrapper });
 
     await user.click(
-      await screen.findByRole('button', { name: 'Mark STINT-0002 paid' }),
+      await screen.findByRole('button', { name: 'Mark paid, STINT-0002' }),
     );
     await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
 
@@ -205,7 +205,7 @@ describe('InvoiceList', () => {
     render(<InvoiceList />, { wrapper });
 
     await user.click(
-      await screen.findByRole('button', { name: 'Mark STINT-0001 paid' }),
+      await screen.findByRole('button', { name: 'Mark paid, STINT-0001' }),
     );
     await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
 
@@ -226,7 +226,7 @@ describe('InvoiceList', () => {
     render(<InvoiceList />, { wrapper });
 
     await user.click(
-      await screen.findByRole('button', { name: 'Mark STINT-0001 paid' }),
+      await screen.findByRole('button', { name: 'Mark paid, STINT-0001' }),
     );
 
     const dateInput = await screen.findByLabelText('Date paid');
@@ -256,7 +256,7 @@ describe('InvoiceList', () => {
     render(<InvoiceList />, { wrapper });
 
     await user.click(
-      await screen.findByRole('button', { name: 'Mark STINT-0001 paid' }),
+      await screen.findByRole('button', { name: 'Mark paid, STINT-0001' }),
     );
     await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
 
@@ -269,14 +269,14 @@ describe('InvoiceList', () => {
     render(<InvoiceList />, { wrapper });
 
     await user.click(
-      await screen.findByRole('button', { name: 'Mark STINT-0001 paid' }),
+      await screen.findByRole('button', { name: 'Mark paid, STINT-0001' }),
     );
     await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('rejected');
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     await user.click(
-      await screen.findByRole('button', { name: 'Mark STINT-0002 paid' }),
+      await screen.findByRole('button', { name: 'Mark paid, STINT-0002' }),
     );
     await screen.findByLabelText('Date paid');
     expect(screen.queryByRole('alert')).toBeNull();
@@ -330,7 +330,7 @@ describe('InvoiceList', () => {
       expect(qc.getQueryData(keys.invoice('i1'))).toBeDefined(),
     );
     await user.click(
-      await screen.findByRole('button', { name: 'Mark STINT-0001 paid' }),
+      await screen.findByRole('button', { name: 'Mark paid, STINT-0001' }),
     );
     await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
     await waitFor(() =>

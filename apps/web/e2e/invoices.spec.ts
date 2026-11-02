@@ -111,7 +111,7 @@ test.describe('invoices', () => {
        buttons is unusable with a screen reader, and clicking the wrong one
        misstates which client has paid. */
     await list(page)
-      .getByRole('button', { name: 'Mark STINT-0001 paid' })
+      .getByRole('button', { name: 'Mark paid, STINT-0001' })
       .click();
 
     // The dialog asks when the payment actually arrived; confirming the
@@ -121,7 +121,7 @@ test.describe('invoices', () => {
         r.request().method() === 'PATCH' &&
         /\/api\/v1\/invoices\/[^/]+\/status$/.test(r.url()),
     );
-    await page.getByRole('button', { name: 'Mark paid' }).click();
+    await page.getByRole('button', { name: 'Mark paid', exact: true }).click();
 
     // The row leaves the open filter because the fact changed, not because
     // the UI hid it.

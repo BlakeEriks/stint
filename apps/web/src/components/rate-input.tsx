@@ -52,7 +52,7 @@ export function UnitInput({
         </span>
       ) : null}
       <Input
-        className={`type-amount text-strong placeholder:text-subtle ${
+        className={`type-amount text-strong placeholder:text-placeholder ${
           large ? 'h-12 pr-16' : 'pr-14'
         } ${prefix ? (large ? 'pl-8' : 'pl-6') : ''}`}
         {...props}

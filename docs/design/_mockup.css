@@ -15,6 +15,7 @@
     --text-primary: #CACED7;
     --text-muted: #A0A7B4;
     --text-subtle: #8F96A4;
+    --text-placeholder: #8F96A4;
     --text-on-accent: #111316;
     --text-on-danger: #111316;
     --overlay: #05060899;
@@ -92,6 +93,7 @@
     --text-primary: #2D2A25;
     --text-muted: #565149;
     --text-subtle: #635E56;
+    --text-placeholder: #6D685F;
     --text-on-accent: #FFFFFF;
     --text-on-danger: #FFFFFF;
     --overlay: #1B1E2799;

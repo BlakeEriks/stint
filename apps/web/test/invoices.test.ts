@@ -50,7 +50,8 @@ beforeEach(async () => {
     `update user_settings set default_hourly_rate=100, currency='USD',
      invoice_number_prefix='INV-', next_invoice_number=1,
      payment_terms_days=30, legacy_payment_terms=null, business_name='Sam Rivera',
-     business_email='sam@test', invoice_template='standard'
+     business_email='sam@test', invoice_template='standard',
+     billing_time_zone=null
      where user_id=$1`,
     [USER],
   );
@@ -3853,6 +3854,34 @@ test('/stats lists clients ready to invoice, from the clients, entries and draft
   assert.deepEqual(await due(), [], 'a paid invoice stops it');
 });
 
+/* The evening after the period in UTC is its last day in Los Angeles: read
+   in the device's zone, the row would miss work its invoice bills. */
+test('/stats reads clients ready to invoice in the billing zone', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const { lastEndedPeriod, localDateKey, addDays } = await import(
+    '@stint/core'
+  );
+  await pool.query(
+    `update user_settings set billing_time_zone='America/Los_Angeles' where user_id=$1`,
+    [USER],
+  );
+  const period = lastEndedPeriod(
+    localDateKey(new Date(), 'America/Los_Angeles'),
+    { period: 'monthly' },
+  );
+  await pool.query(`update clients set billing_period = 'monthly'`);
+  await seedEntry({
+    id: D(1),
+    start: `${addDays(period.periodEnd, 1)}T03:00:00Z`,
+    hours: 1,
+  });
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(res.body.attention.unbilledDue, [
+    { clientId: CLIENT, clientName: 'Northwind', seconds: 3600, ...period },
+  ]);
+});
+
 test('a draft is stale by its period end, at the total its work comes to now', async () => {
   const r = await live();
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
@@ -4041,6 +4070,128 @@ test('a draft generated beside an earlier open one keeps its total on its first 
     await r.detail(req('/invoices/x?tz=UTC'), at(august.body.id)),
   );
   assert.equal(aug.body.total, 190);
+});
+
+// ── billing time zone ──────────────────────────────────────────────
+/** Generates an invoice from a device in `device`, returning its entry ids
+ *  and the zone it stored. */
+async function generateFrom(
+  device: string,
+  period: { periodStart: string; periodEnd: string } = PERIOD,
+) {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const res = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...period, tz: device })),
+  );
+  assert.equal(res.status, 201, JSON.stringify(res.body));
+  const { rows } = await pool.query('select tz from invoices where id=$1', [
+    res.body.id,
+  ]);
+  return {
+    id: res.body.id as string,
+    issueDate: res.body.issueDate as string,
+    entryIds: (res.body.lineItems as { entryIds: string[] }[])
+      .flatMap((l) => l.entryIds)
+      .sort(),
+    tz: rows[0].tz as string,
+  };
+}
+
+const billIn = (zone: string | null) =>
+  pool.query('update user_settings set billing_time_zone=$1 where user_id=$2', [
+    zone,
+    USER,
+  ]);
+
+/* The issue's case: work at 11:30 PM Sep 30 Pacific is Oct 1 in Lisbon, so
+   an invoice read in the device's zone left it out of September there and
+   out of October back home. */
+test('an invoice covers the same entries wherever it is generated', async () => {
+  await billIn('America/Los_Angeles');
+  await seedEntry({ id: E(1), start: '2026-10-01T06:30:00Z' }); // Sep 30, 11:30 PM PDT
+  await seedEntry({ id: E(2), start: '2026-09-01T06:30:00Z' }); // Aug 31, 11:30 PM PDT
+
+  const lisbon = await generateFrom('Europe/Lisbon');
+  assert.deepEqual(lisbon.entryIds, [E(1)]);
+  assert.equal(lisbon.tz, 'America/Los_Angeles');
+
+  await pool.query('delete from invoices');
+  const home = await generateFrom('America/Los_Angeles');
+  assert.deepEqual(home.entryIds, lisbon.entryIds);
+});
+
+test('the period and issue date are read in the billing zone, not the device’s', async () => {
+  await billIn('America/New_York');
+  // Oct 1 in New York, Sep 30 on the Los Angeles device.
+  await seedEntry({ id: E(1), start: '2026-10-01T04:30:00Z' });
+
+  const oct = await generateFrom('America/Los_Angeles', OCTOBER);
+  assert.equal(oct.tz, 'America/New_York');
+  assert.deepEqual(oct.entryIds, [E(1)]);
+
+  const { localDateKey } = await import('@stint/core');
+  assert.equal(oct.issueDate, localDateKey(new Date(), 'America/New_York'));
+});
+
+/* Drafts generated before drafts stored a zone have none: read in the
+   device's, they kept the gap this closes. */
+test('a draft with no zone of its own is read and sent in the billing zone', async () => {
+  const r = await live();
+  await billIn('America/Los_Angeles');
+  await seedEntry({ id: E(1), start: '2026-10-01T06:30:00Z' }); // Sep 30, 11:30 PM PDT
+  const { id } = await generateFrom('America/Los_Angeles');
+  await pool.query('update invoices set tz = null');
+
+  const read = await json(await r.list(req('/invoices?tz=Europe/Lisbon')));
+  assert.equal(read.body.invoices[0].total, 150);
+  const sent = await json(
+    await r.setStatus(
+      req('/s?tz=Europe/Lisbon', { status: 'sent' }, 'PATCH'),
+      at(id),
+    ),
+  );
+  assert.equal(sent.status, 200, JSON.stringify(sent.body));
+  const { rows } = await pool.query('select tz from invoices');
+  assert.deepEqual(rows, [{ tz: 'America/Los_Angeles' }]);
+});
+
+test('an edit from another zone keeps the draft in the billing zone', async () => {
+  await billIn('America/Los_Angeles');
+  await seedEntry({ id: E(1), start: '2026-10-01T06:30:00Z' }); // Sep 30, 11:30 PM PDT
+  const { id } = await generateFrom('America/Los_Angeles');
+  const { PATCH } = await import('../src/app/api/v1/invoices/[id]/route.ts');
+  const res = await json(
+    await PATCH(
+      req(
+        '/invoices/x',
+        { clientId: CLIENT, ...PERIOD, tz: 'Europe/Lisbon' },
+        'PATCH',
+      ),
+      at(id),
+    ),
+  );
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.equal(res.body.total, 150);
+  const { rows } = await pool.query('select tz from invoices');
+  assert.deepEqual(rows, [{ tz: 'America/Los_Angeles' }]);
+});
+
+test('the preview reads the same zone the invoice will', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  await billIn('America/Los_Angeles');
+  await seedEntry({ id: E(1), start: '2026-10-01T06:30:00Z' });
+  const res = await json(
+    await preview(
+      req('/invoices/preview', {
+        clientId: CLIENT,
+        ...PERIOD,
+        tz: 'Europe/Lisbon',
+      }),
+    ),
+  );
+  assert.equal(res.body.entryCount, 1);
 });
 
 // ── editing a draft ───────────────────────────────────────────────

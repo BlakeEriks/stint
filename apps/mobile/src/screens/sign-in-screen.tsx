@@ -97,7 +97,7 @@ export function SignInScreen(props: SignInScreenProps) {
             autoCorrect={false}
             autoFocus
             placeholder="you@example.com"
-            placeholderTextColor={c['text-subtle']}
+            placeholderTextColor={c['text-placeholder']}
             accessibilityLabel="Email"
             style={[text('body'), s.field, fieldColors(c, props.error)]}
           />

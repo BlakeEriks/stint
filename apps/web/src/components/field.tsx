@@ -161,7 +161,7 @@ export function Section({
 
 export const inputClass =
   'h-9 w-full rounded-md border border-edge-default bg-transparent px-3 type-control ' +
-  'text-strong placeholder:text-subtle outline-none focus-visible:border-edge-focus ' +
+  'text-strong placeholder:text-placeholder outline-none focus-visible:border-edge-focus ' +
   'focus-visible:ring-[3px] focus-visible:ring-edge-focus';
 
 /**
@@ -172,10 +172,10 @@ export const inputClass =
  */
 export const elevatedInputClass =
   'rounded-md border border-edge-control bg-surface-elevated px-3 type-control ' +
-  'text-strong placeholder:text-subtle focus:outline-none ' +
+  'text-strong placeholder:text-placeholder focus:outline-none ' +
   'focus-visible:ring-2 focus-visible:ring-edge-focus';
 
 export const textareaClass =
   'w-full rounded-md border border-edge-default bg-transparent px-3 py-2 type-control ' +
-  'text-strong placeholder:text-subtle outline-none focus-visible:border-edge-focus ' +
+  'text-strong placeholder:text-placeholder outline-none focus-visible:border-edge-focus ' +
   'focus-visible:ring-[3px] focus-visible:ring-edge-focus';
