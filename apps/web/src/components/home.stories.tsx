@@ -508,7 +508,8 @@ export const Wide: Story = {
 };
 
 /** A 13-inch MacBook shows Home whole, even with a dozen clients in the
- *  legend: it keeps one row, and a long name gives way. */
+ *  legend: it keeps one row, and the keys that don't fit fold into
+ *  `+N more`, which names them. */
 export const MacBook: Story = {
   ...macbook,
   parameters: account((db) => {
@@ -534,7 +535,14 @@ export const MacBook: Story = {
       db.entries.push(entry(9200 + i, today, `0${i}:00`, 30, project.id, name));
     }
   }),
-  play: ({ canvasElement }) => fitsWhole(canvasElement),
+  play: async ({ canvasElement }) => {
+    await fitsWhole(canvasElement);
+    const more = await within(canvasElement).findByText(/^\+\d+ more/);
+    await expect(more).toHaveAttribute(
+      'title',
+      expect.stringContaining('Copperline Freight'),
+    );
+  },
 };
 
 /** Below `@2xl` the month stacks under the week rather than dropping out. */
