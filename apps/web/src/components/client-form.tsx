@@ -126,7 +126,7 @@ export function ClientForm({
           rows={3}
           value={address}
           onChange={(e) => setAddress(e.target.value)}
-          placeholder={'Attn: John Smith\n123 Main St\nAustin, TX 78701'}
+          placeholder={BILL_TO_PLACEHOLDER}
           className="w-full rounded-md border border-edge-default bg-transparent px-3 py-2
                      type-control text-strong placeholder:text-subtle outline-none
                      focus-visible:border-edge-focus focus-visible:ring-[3px]
@@ -299,6 +299,10 @@ function ScheduleField({
  * Pending: the server validates the client, and the form stays to say what
  * it refused.
  */
+/** An Attn line belongs here too: it prints line by line under the name. */
+export const BILL_TO_PLACEHOLDER =
+  'Attn: John Smith\n123 Main St\nAustin, TX 78701';
+
 export function useSaveClient(
   existing: Client | undefined,
   onSaved: (client: Client) => void,

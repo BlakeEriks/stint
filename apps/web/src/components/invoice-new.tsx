@@ -18,7 +18,8 @@ import {
 } from '@stint/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Field, inputClass } from './field';
+import { Field, inputClass, textareaClass } from './field';
+import { BILL_TO_PLACEHOLDER } from './client-form';
 import { ClientPicker } from './client-picker';
 import {
   DropdownMenu,
@@ -64,7 +65,6 @@ import { ExpenseRow } from './expense-row';
 import { type Charge, ChargeDialog } from './charge-dialog';
 import { PaymentProfileDialog } from './payment-profile-dialog';
 import { missingBusiness, SenderNotice } from './business-dialog';
-import { ClientDialog } from './client-dialog';
 import { NumberDialog } from './number-dialog';
 import { summarize } from './payment-profiles';
 import { businessOf, InvoicePreviewCard } from './invoice-preview-card';
@@ -511,7 +511,7 @@ function Form({
   /* `'new'` adds a charge; a key, edits that one. */
   const chargeDialog = useDialog<string>();
   const [newProfileOpen, setNewProfileOpen] = useState(false);
-  const [clientOpen, setClientOpen] = useState(false);
+  const billTo = useBillTo(client);
 
   /* Only what decides the lines is sent, so a due date or a tick never asks
      the server again. */
@@ -726,25 +726,7 @@ function Form({
             {/* First on the form: it is why Generate is disabled. */}
             <SenderNotice settings={settings} />
             <div className="flex flex-col gap-4">
-              <Field
-                label="Client"
-                htmlFor="inv-client"
-                required
-                hint={
-                  client && missingDetails(client) ? (
-                    <span className="text-danger">
-                      {missingDetails(client)} ·{' '}
-                      <button
-                        type="button"
-                        onClick={() => setClientOpen(true)}
-                        className="rounded-sm underline hover:text-strong focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
-                      >
-                        Edit client
-                      </button>
-                    </span>
-                  ) : undefined
-                }
-              >
+              <Field label="Client" htmlFor="inv-client" required>
                 {/* A draft keeps its client: another is a new invoice. */}
                 <ClientPicker
                   id="inv-client"
@@ -762,6 +744,7 @@ function Form({
                   placeholder="Choose a client…"
                 />
               </Field>
+              {billTo.fields}
               <div className="flex flex-wrap gap-4">
                 <DateField
                   id="inv-from"
@@ -916,7 +899,7 @@ function Form({
             <InvoicePreviewCard
               noSender={noSender}
               preview={current}
-              client={client}
+              client={billTo.shown}
               business={businessOf(settings)}
               number={number}
               issued={issued}
@@ -980,13 +963,6 @@ function Form({
         onSave={saveCharge}
         onRemove={chargeDialog.subject !== 'new' ? removeCharge : undefined}
       />
-      {/* No Archive: the draft would keep a client the picker has dropped. */}
-      <ClientDialog
-        open={clientOpen}
-        onOpenChange={setClientOpen}
-        client={client}
-        archivable={false}
-      />
       <PaymentProfileDialog
         open={newProfileOpen}
         onOpenChange={setNewProfileOpen}
@@ -1040,10 +1016,81 @@ const pressLabel = (editing: boolean, pending: boolean) => {
   return pending ? 'Generating…' : 'Generate invoice';
 };
 
-/** Said when Bill to would print the client's name alone. Either line is
-    enough: a client billed by email needs no street address. */
-function missingDetails(client: Pick<Client, 'address' | 'email'>) {
-  return client.address || client.email ? null : 'No email or Bill to';
+/**
+ * The client's Bill to and email, edited beside the card that prints them.
+ * The card follows each keystroke; leaving a field saves it to the client,
+ * which every later invoice reads. An issued invoice keeps its own copy.
+ */
+function useBillTo(client: Client | undefined) {
+  /* What was typed, for the client it was typed on; another client shows
+     its own record. */
+  const [typed, setTyped] = useState<{
+    id: string;
+    address: string;
+    email: string;
+  }>();
+  const save = useOptimisticMutation({
+    queryKey: () => keys.clients(),
+    predict: (
+      current: { clients: Client[] } | undefined,
+      v: { id: string; address: string | null; email: string | null },
+    ) =>
+      current && {
+        ...current,
+        clients: current.clients.map((c) =>
+          c.id === v.id ? { ...c, address: v.address, email: v.email } : c,
+        ),
+      },
+    mutationFn: ({ id, ...body }) => api.updateClient(id, body),
+    // The rejection is taken back, so the fields show the record again.
+    onError: () => setTyped(undefined),
+  });
+  if (!client) return { shown: undefined, fields: null };
+
+  const value =
+    typed?.id === client.id
+      ? typed
+      : {
+          id: client.id,
+          address: client.address ?? '',
+          email: client.email ?? '',
+        };
+  const address = value.address.trim() || null;
+  const email = value.email.trim() || null;
+  const shown = { ...client, address, email };
+  const type = (k: 'address' | 'email', v: string) =>
+    setTyped({ ...value, [k]: v });
+  const commit = () => {
+    if (address !== client.address || email !== client.email)
+      save.mutate({ id: client.id, address, email });
+  };
+
+  const fields = (
+    <>
+      <Field label="Bill to" htmlFor="inv-bill-to">
+        <textarea
+          id="inv-bill-to"
+          rows={3}
+          value={value.address}
+          onChange={(e) => type('address', e.target.value)}
+          onBlur={commit}
+          placeholder={BILL_TO_PLACEHOLDER}
+          className={textareaClass}
+        />
+      </Field>
+      <Field label="Email" htmlFor="inv-email" hint="Saved to this client.">
+        <Input
+          id="inv-email"
+          type="email"
+          value={value.email}
+          onChange={(e) => type('email', e.target.value)}
+          onBlur={commit}
+          placeholder="billing@acme.com"
+        />
+      </Field>
+    </>
+  );
+  return { shown, fields };
 }
 
 /**
