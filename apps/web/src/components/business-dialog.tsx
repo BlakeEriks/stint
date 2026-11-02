@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { Settings } from '@/lib/client/api';
-import { Field } from './field';
+import { Field, textareaClass } from './field';
 import { SettingsDialog } from './settings-dialog';
 
 /**
@@ -64,12 +64,14 @@ function BusinessDialog({
             />
           </Field>
           <Field label="Address" htmlFor="biz-dialog-address">
-            <Input
+            <textarea
               id="biz-dialog-address"
-              placeholder="Street, city, state ZIP"
+              rows={3}
+              placeholder={'123 Main St\nAustin, TX 78701'}
               value={address}
               readOnly={pending}
               onChange={(e) => setAddress(e.target.value)}
+              className={textareaClass}
             />
           </Field>
         </>
