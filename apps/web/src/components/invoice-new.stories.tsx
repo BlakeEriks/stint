@@ -1000,8 +1000,8 @@ export const EditingClient: Story = {
   },
 };
 
-/** "+ Add a charge" asks for a description and an amount; Save waits for
-    both (US5 scenario 3). */
+/** "+ Add a charge" asks for a description and an amount; Save with
+    neither marks both and moves to the first (US5 scenario 3). */
 export const NewCharge: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -1013,7 +1013,13 @@ export const NewCharge: Story = {
     const dialog = within(
       await page.findByRole('dialog', { name: 'New charge' }),
     );
-    await expect(dialog.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await userEvent.click(dialog.getByRole('button', { name: 'Save' }));
+    const description = dialog.getByRole('textbox', { name: /Description/ });
+    await expect(description).toHaveFocus();
+    await expect(description).toHaveAccessibleDescription(/^Say what/);
+    await expect(
+      dialog.getByRole('textbox', { name: /Amount/ }),
+    ).toHaveAccessibleDescription(/^Enter an amount/);
   },
 };
 export const NewChargePhone: Story = { ...NewCharge, ...phone };
@@ -1093,7 +1099,10 @@ export const AddDetails: Story = {
     });
     await waitFor(() => expect(dialog).toBeVisible());
     const form = within(dialog);
-    await expect(form.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await userEvent.click(form.getByRole('button', { name: 'Save' }));
+    await expect(
+      form.getByRole('textbox', { name: /Business name/ }),
+    ).toHaveFocus();
     await userEvent.type(
       form.getByRole('textbox', { name: /Business name/ }),
       'Sam Rivera Consulting',
@@ -1142,7 +1151,10 @@ export const DetailsSaveFails: Story = {
       form.getByRole('textbox', { name: /Business name/ }),
       'Sam Rivera Consulting',
     );
-    await userEvent.type(form.getByRole('textbox', { name: /Email/ }), 'sam@x');
+    await userEvent.type(
+      form.getByRole('textbox', { name: /Email/ }),
+      'sam@lakeline.test',
+    );
     await userEvent.click(form.getByRole('button', { name: 'Save' }));
     await expect(await form.findByText('Enter a valid email.')).toBeVisible();
     await expect(

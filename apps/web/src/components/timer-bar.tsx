@@ -203,7 +203,7 @@ function IdleBar({
             aria-label="Task name"
             className="w-full rounded-lg border border-edge-default
                        bg-surface-base px-3 py-2 type-body text-strong
-                       placeholder:text-subtle focus:border-edge-focus focus:outline-none"
+                       placeholder:text-placeholder focus:border-edge-focus focus:outline-none"
           />
         )}
       </TaskSuggest>

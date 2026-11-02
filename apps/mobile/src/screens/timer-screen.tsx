@@ -293,7 +293,7 @@ function StoppedDock({
         onSubmitEditing={start}
         returnKeyType="go"
         placeholder="What are you working on?"
-        placeholderTextColor={c['text-subtle']}
+        placeholderTextColor={c['text-placeholder']}
         accessibilityLabel="Task"
         style={[
           text('body'),

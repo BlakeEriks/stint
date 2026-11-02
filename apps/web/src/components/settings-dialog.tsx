@@ -14,28 +14,34 @@ import {
 } from '@/components/ui/dialog';
 import { api, type SettingsInput } from '@/lib/client/api';
 import { useOptimisticMutation, keys } from '@stint/client';
+import { useMissing, type Missing } from '@/lib/client/use-missing';
 
 /**
  * A few Settings fields asked where they are needed, so the user never
  * leaves the screen for them. What is saved is Settings, for every screen
- * after. `children` gets whether the save is pending, to hold its fields.
+ * after. `children` gets whether the save is pending, to hold its fields,
+ * and the error for a field id, from `missing`.
  */
 export function SettingsDialog({
   onOpenChange,
   title,
   description,
-  ready,
+  missing,
   patch,
   children,
 }: {
   onOpenChange: (open: boolean) => void;
   title: string;
   description: ReactNode;
-  ready: boolean;
+  missing: Missing;
   patch: () => SettingsInput;
-  children: (pending: boolean) => ReactNode;
+  children: (
+    pending: boolean,
+    error: (id: string) => string | undefined,
+  ) => ReactNode;
 }) {
   const queryClient = useQueryClient();
+  const check = useMissing(missing);
 
   /* Pending: the server validates, and the dialog stays open to say what it
      refused. */
@@ -59,17 +65,18 @@ export function SettingsDialog({
     >
       <DialogContent>
         <form
+          noValidate
           className="flex flex-col gap-4"
           onSubmit={(e) => {
             e.preventDefault();
-            if (ready) save.mutate();
+            if (check.passes()) save.mutate();
           }}
         >
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
-          {children(save.isPending)}
+          {children(save.isPending, check.error)}
           {save.error ? (
             <p role="alert" className="type-support text-danger">
               {save.error.message}
@@ -84,11 +91,7 @@ export function SettingsDialog({
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              variant="accent"
-              disabled={!ready || save.isPending}
-            >
+            <Button type="submit" variant="accent" disabled={save.isPending}>
               {save.isPending ? (
                 <>
                   <Loader2 aria-hidden className="animate-spin" />

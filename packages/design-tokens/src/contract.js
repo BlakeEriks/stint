@@ -1,7 +1,7 @@
 /**
  * The contract's `text` block, expanded into rows shaped like `assertions`:
- * each text token on each ground it is set on, in both themes, then each
- * print ink on the paper it is set on. `fg` and `bg` are token references,
+ * each text token on each ground it is set on, in both themes, the
+ * placeholder on each ground a field is set on, then each print ink on the paper it is set on. `fg` and `bg` are token references,
  * so a row resolves like any other.
  */
 export const textAssertions = ({ semantic, contract: { text } }) => [
@@ -14,6 +14,14 @@ export const textAssertions = ({ semantic, contract: { text } }) => [
         note: `${fg} on ${on}, ${theme}`,
       })),
     ),
+  ),
+  ...['dark', 'light'].flatMap((theme) =>
+    text.placeholder.on.map((on) => ({
+      fg: semantic[theme]['text-placeholder'],
+      bg: semantic[theme][on],
+      min: text.placeholder.min,
+      note: `text-placeholder on ${on}, ${theme}`,
+    })),
   ),
   ...Object.entries(text.print.on).flatMap(([on, inks]) =>
     inks.map((fg) => ({

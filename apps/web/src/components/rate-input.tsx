@@ -52,7 +52,7 @@ export function UnitInput({
         </span>
       ) : null}
       <Input
-        className={`type-amount text-strong placeholder:text-subtle ${
+        className={`type-amount text-strong placeholder:text-placeholder ${
           large ? 'h-12 pr-16' : 'pr-14'
         } ${prefix ? (large ? 'pl-8' : 'pl-6') : ''}`}
         {...props}
@@ -71,11 +71,25 @@ export function UnitInput({
 
 /**
  * A rate as typed: null when blank, NaN when not a number. A form refuses a
- * negative or NaN rate before any request, so the server never sees one.
+ * rate `isValidRate` rejects before any request, so the server never sees one.
  */
 export function parseRate(text: string): number | null {
   return text.trim() === '' ? null : Number(text);
 }
 
+/** Zero or more, in whole cents: what the server's `money` accepts. The
+    tolerance absorbs float error, as in 1.15 * 100. */
 export const isValidRate = (rate: number | null): rate is number =>
-  rate !== null && Number.isFinite(rate) && rate >= 0;
+  rate !== null &&
+  Number.isFinite(rate) &&
+  rate >= 0 &&
+  Math.abs(rate * 100 - Math.round(rate * 100)) < 1e-6;
+
+/** For `useMissing`: an optional rate field's message, if what's typed
+    isn't blank or a valid rate. */
+export const missingRate = (text: string) => {
+  const rate = parseRate(text);
+  return rate === null || isValidRate(rate)
+    ? undefined
+    : 'Enter a rate of zero or more, to the cent, or leave it blank.';
+};

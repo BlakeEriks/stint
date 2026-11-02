@@ -851,7 +851,7 @@ describe('NewInvoice — expenses, charges and payment details', () => {
     );
   });
 
-  it('holds a charge back until it has a description and an amount', async () => {
+  it('holds a charge back until it has an amount', async () => {
     serve();
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
@@ -860,7 +860,10 @@ describe('NewInvoice — expenses, charges and payment details', () => {
     await user.click(screen.getByRole('button', { name: 'Add a charge' }));
     const dialog = await screen.findByRole('dialog', { name: 'New charge' });
     await user.type(within(dialog).getByLabelText(/Description/), 'Setup fee');
-    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled();
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(
+      screen.queryByRole('button', { name: /^Edit charge Setup fee/ }),
+    ).toBeNull();
   });
 
   it('prints the default payment details, and sends the ones chosen', async () => {
