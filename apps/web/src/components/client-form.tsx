@@ -29,7 +29,7 @@ import { DescribedSelectItem } from './described-select-item';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { ColorPicker } from './color-picker';
 import { Field, inputClass } from './field';
-import { RateInput, isValidRate, parseRate } from './rate-input';
+import { RateInput, isValidRate, missingRate, parseRate } from './rate-input';
 import { EMAIL, useMissing, type Missing } from '@/lib/client/use-missing';
 import { api, ApiError, type Client, type ClientInput } from '@/lib/client/api';
 
@@ -252,7 +252,6 @@ const missingIn = (f: {
   schedule: BillingSchedule | null;
   terms: string;
 }): Missing => {
-  const rate = parseRate(f.hourlyRate);
   const tax = parseRate(f.taxRate);
   return {
     'client-name': f.name.trim() === '' ? 'Name the client.' : undefined,
@@ -260,10 +259,7 @@ const missingIn = (f: {
       f.email.trim() === '' || EMAIL.test(f.email.trim())
         ? undefined
         : 'Enter an email like billing@acme.com.',
-    'client-rate':
-      rate === null || isValidRate(rate)
-        ? undefined
-        : 'Enter a rate of zero or more, to the cent, or leave it blank.',
+    'client-rate': missingRate(f.hourlyRate),
     // tax_rate is numeric(5,2): more places would be rounded on save.
     'client-tax':
       tax === null || (isValidRate(tax) && tax <= 100)

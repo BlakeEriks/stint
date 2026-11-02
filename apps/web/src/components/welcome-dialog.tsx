@@ -21,7 +21,7 @@ import {
 import { useSaveClient } from './client-form';
 import { ColorPicker } from './color-picker';
 import { Field } from './field';
-import { RateInput, isValidRate, parseRate } from './rate-input';
+import { RateInput, isValidRate, missingRate, parseRate } from './rate-input';
 import { StepDialog } from './step-dialog';
 import { useMissing, type Missing } from '@/lib/client/use-missing';
 
@@ -76,8 +76,8 @@ export function WelcomeDialog() {
   const defaultRate = settings?.defaultHourlyRate ?? null;
   const ownRate = parseRate(clientRate);
   const saving = createClient.isPending;
-  const rateCheck = useMissing(missingRate(rate));
-  const clientCheck = useMissing(missingClient(name, ownRate));
+  const rateCheck = useMissing(missingDefaultRate(rate));
+  const clientCheck = useMissing(missingClient(name, clientRate));
 
   return (
     <StepDialog open={settings?.welcomedAt === null} step={step} steps={2}>
@@ -232,17 +232,14 @@ export function WelcomeDialog() {
   );
 }
 
-const missingRate = (rate: number | null): Missing => ({
+const missingDefaultRate = (rate: number | null): Missing => ({
   'welcome-rate': isValidRate(rate)
     ? undefined
     : 'Enter your rate, or skip for now.',
 });
 
-const missingClient = (name: string, rate: number | null): Missing => ({
+const missingClient = (name: string, rateText: string): Missing => ({
   'welcome-client':
     name.trim() === '' ? 'Name the client, or skip this step.' : undefined,
-  'welcome-client-rate':
-    rate === null || isValidRate(rate)
-      ? undefined
-      : 'Enter a rate of zero or more, to the cent, or leave it blank.',
+  'welcome-client-rate': missingRate(rateText),
 });
