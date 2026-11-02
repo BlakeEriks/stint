@@ -462,8 +462,8 @@ function render() {
 
 function dialog() {
   return `<div class="scrim"><div class="dialog" role="dialog"><b class="type-heading">Mark STINT-0042 sent</b>
-    <p class="type-support">Lock 14 entries · $4,155.00. The invoice stays as it is.</p>
-    <div class="actions type-control" style="justify-content:flex-end"><button class="btn ghost">Keep as draft</button><button class="btn accent">Lock</button></div></div></div>`;
+    <p class="type-support">This records that you sent it. Its 14 entries, any expenses on it and its $4,155.00 total stop changing. To correct it later, void it and issue a new one.</p>
+    <div class="actions type-control" style="justify-content:flex-end"><button class="btn ghost">Keep as draft</button><button class="btn accent">Mark sent</button></div></div></div>`;
 }
 for (const id of ['state', 'size', 'theme'])
   document.getElementById(id).addEventListener('click', (e) => {

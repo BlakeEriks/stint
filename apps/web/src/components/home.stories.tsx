@@ -297,7 +297,7 @@ const staleDraft = account((db) => {
 });
 
 /** A stale draft's Mark sent asks in the invoice page's dialog, which names
- *  what it locks; Keep as draft keeps the row, and Lock takes it away. */
+ *  what it fixes; Keep as draft keeps the row, and Mark sent takes it away. */
 export const StaleDraftMarkSent: Story = {
   ...desktop,
   parameters: staleDraft,
@@ -312,7 +312,7 @@ export const StaleDraftMarkSent: Story = {
     let dialog = within(await body.findByRole('dialog'));
     await expect(
       dialog.getByText(
-        'Lock 14 entries · $2,787.60. The invoice stays as it is.',
+        'This records that you sent it. Its 14 entries, any expenses on it and its $2,787.60 total stop changing. To correct it later, void it and issue a new one.',
       ),
     ).toBeVisible();
     await userEvent.click(
@@ -323,7 +323,7 @@ export const StaleDraftMarkSent: Story = {
 
     await userEvent.click(send);
     dialog = within(await body.findByRole('dialog'));
-    await userEvent.click(dialog.getByRole('button', { name: 'Lock' }));
+    await userEvent.click(dialog.getByRole('button', { name: 'Mark sent' }));
     await waitFor(() => expect(body.queryByRole('dialog')).toBeNull());
     await waitFor(() =>
       expect(inbox.queryByRole('button', { name: /^Mark sent, / })).toBeNull(),

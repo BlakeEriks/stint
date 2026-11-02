@@ -101,7 +101,7 @@ const fourteen = paying((db) => {
   if (draft) draft.entryCount = 14;
 });
 
-/** Mark sent asks in a dialog that names what it locks; Keep as draft
+/** Mark sent asks in a dialog that says what it fixes; Keep as draft
     takes it back. A download since doesn't hold it. */
 export const MarkSentAsks: Story = {
   ...desktop,
@@ -114,10 +114,12 @@ export const MarkSentAsks: Story = {
     const dialog = within(await page.findByRole('dialog'));
     await expect(
       dialog.getByText(
-        'Lock 14 entries · $2,787.60. The invoice stays as it is.',
+        'This records that you sent it. Its 14 entries, any expenses on it and its $2,787.60 total stop changing. To correct it later, void it and issue a new one.',
       ),
     ).toBeVisible();
-    await expect(dialog.getByRole('button', { name: 'Lock' })).toBeEnabled();
+    await expect(
+      dialog.getByRole('button', { name: 'Mark sent' }),
+    ).toBeEnabled();
     await userEvent.click(
       dialog.getByRole('button', { name: 'Keep as draft' }),
     );
@@ -128,8 +130,9 @@ export const MarkSentAsks: Story = {
 /* Mark sent's answer never comes. */
 const sendStalls = stalled('updateInvoiceStatus');
 
-/** Locking waits on the server: the confirm says so and the dialog stays. */
-export const MarkSentLocking: Story = {
+/** Marking sent waits on the server: the confirm says so and the dialog
+    stays. */
+export const MarkSentPending: Story = {
   ...desktop,
   parameters: { ...fourteen, ...sendStalls },
   play: async ({ canvasElement }) => {
@@ -138,9 +141,9 @@ export const MarkSentLocking: Story = {
       await page.findByRole('button', { name: 'Mark sent' }),
     );
     const dialog = within(await page.findByRole('dialog'));
-    await userEvent.click(dialog.getByRole('button', { name: 'Lock' }));
+    await userEvent.click(dialog.getByRole('button', { name: 'Mark sent' }));
     await expect(
-      await dialog.findByRole('button', { name: 'Locking…' }),
+      await dialog.findByRole('button', { name: 'Marking sent…' }),
     ).toBeDisabled();
   },
 };

@@ -21,7 +21,7 @@
 ## Phase 4: User Story 3 — Mark sent says what it locks (P1)
 
 - [x] T010 [US3] Remove the download comparison: `snapshotChanged`, `newLines`, `changedSinceDownload`, `isNew`, `DRAFT_CHANGED`, the banners and their stories; `recordDownload` keeps the printed dates
-- [x] T011 [US3] A shared `ConfirmDialog`; Mark sent asks in it, "Lock N entries · $total. The invoice stays as it is."; `entryCount` on the draft's read; stories `MarkSentAsks`, `MarkSentLocking`
+- [x] T011 [US3] A shared `ConfirmDialog`; Mark sent asks in it, confirming with "Mark sent" and saying its N entries and $total stop changing; `entryCount` on the draft's read; stories `MarkSentAsks`, `MarkSentPending`
 
 ## Phase 5: User Story 5 — no "Already billed this?" (P3)
 

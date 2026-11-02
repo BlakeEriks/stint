@@ -37,7 +37,7 @@ one-draft-per-date rule and the bulk "Already billed this?" go. User Story 4
 | III. Every client through `/api/v1` | Yes | Add to draft is `POST /invoices/:id/work`. |
 | IV. `packages/core` does no I/O | Yes | Nothing new in core does I/O. |
 | V. Tests first where a regression is silent | Yes | Route tests: a draft ignores later work; Add holds it; another draft can't take held work; Mark sent sends held work only; moving an entry to another client releases it. RLS: a cross-user `draft_id` is refused. Stories: the new-work notice and Mark sent's confirm. |
-| VI. Every press answers in the same frame | Yes | Add to draft and Mark sent are decided by the server: each shows a pending state on its control. Mark sent's first press opens its dialog at once; Lock is pending until the server answers. |
+| VI. Every press answers in the same frame | Yes | Add to draft and Mark sent are decided by the server: each shows a pending state on its control. Mark sent's first press opens its dialog at once; its Mark sent is pending until the server answers. |
 | VII. A feature names what it removes | Yes | The spec's Removes: the download comparison and banners, `DRAFT_CHANGED`, `DRAFT_OVERLAPS` and its warning, `assignExpenses`, the bulk invoiced-elsewhere route and its form control, and their tests and stories. |
 
 Additional constraints: one running timer and immutable issued invoices are

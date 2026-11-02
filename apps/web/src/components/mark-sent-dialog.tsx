@@ -1,12 +1,13 @@
 'use client';
 
-import { Lock } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { formatCurrency } from '@stint/core';
 import { ConfirmDialog } from './confirm-dialog';
 
-/** Mark sent's question, on the invoice page and in the Inbox. Sending locks
-    the entries for good, so it says how many and for how much before it
-    does. */
+/** Mark sent's question, on the invoice page and in the Inbox. Its confirm
+    says the verb of the button that opened it, so it is plainly the same
+    press; the body says what that press fixes for good, how many entries
+    and for how much, before it does. */
 export function MarkSentDialog({
   open,
   onOpenChange,
@@ -33,10 +34,10 @@ export function MarkSentDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={`Mark ${invoice.invoiceNumber} sent`}
-      description={`Lock ${n} entr${n === 1 ? 'y' : 'ies'} · ${formatCurrency(invoice.total, invoice.currency)}. The invoice stays as it is.`}
-      confirmLabel="Lock"
-      pendingLabel="Locking…"
-      icon={<Lock aria-hidden strokeWidth={1.75} />}
+      description={`This records that you sent it. Its ${n} entr${n === 1 ? 'y' : 'ies'}, any expenses on it and its ${formatCurrency(invoice.total, invoice.currency)} total stop changing. To correct it later, void it and issue a new one.`}
+      confirmLabel="Mark sent"
+      pendingLabel="Marking sent…"
+      icon={<Send aria-hidden strokeWidth={1.75} />}
       keepLabel="Keep as draft"
       pending={pending}
       error={error}

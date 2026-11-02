@@ -74,8 +74,10 @@ this?" from that form.
   warning color: "2 new entries, 2.50h, in this period", its amount, and that
   they stay off unless added. Its one button, Add to draft, adds all of it.
 - **Mark sent asking**: a dialog, titled "Mark STINT-0042 sent", says what
-  changes: "Lock 14 entries · $4,155.00. The invoice stays as it is." Its
-  buttons are Keep as draft and Lock (primary). Lock shows "Locking…" while
+  changes: "This records that you sent it. Its 14 entries, any expenses on it
+  and its $4,155.00 total stop changing. To correct it later, void it and
+  issue a new one." Its buttons are Keep as draft and Mark sent (primary),
+  the verb of the button that opened it. Mark sent shows "Marking sent…" while
   the server decides, and a refusal shows inside the dialog. The dialog is
   the shared `ConfirmDialog`, which Delete and Void move to in their own
   issue (the owner's answer on #596).
@@ -161,7 +163,7 @@ read-only.
 **Acceptance Scenarios**:
 
 1. **Given** a draft of 14 entries totaling $3,150.00, **When** Mark sent is
-   pressed, **Then** a dialog asks to lock 14 entries at $3,150.00, with a
+   pressed, **Then** a dialog says its 14 entries and $3,150.00 total stop changing, with a
    way to keep it a draft.
 2. **Given** that dialog, **When** Lock is pressed, **Then** it shows a
    pending state until the server answers, and a refusal shows in the
