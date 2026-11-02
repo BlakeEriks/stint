@@ -340,7 +340,7 @@ invoice can release its entries.
 
 `guard_billed_expense` holds the same lock on an expense, over `spent_on`,
 `description`, `amount`, `client_id` and `recurring`, with the same
-exception. An edit to unbilled work shows on the next read of any draft.
+exception. An edit shows on the next read of the draft holding that entry or expense. Unheld work moved into a draft's period shows as `newWork` until **Add to draft** (`POST /invoices/:id/work`) or a saved edit holds it.
 
 ### Work invoiced elsewhere
 `time_entries.invoiced_elsewhere` marks work already billed from another tool:
