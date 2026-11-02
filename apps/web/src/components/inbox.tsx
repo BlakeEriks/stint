@@ -7,7 +7,11 @@ import {
 } from '@/lib/client/prefetch-invoices';
 import { useRef, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
 import {
   useOptimisticMutation,
   keys,
@@ -39,11 +43,13 @@ import {
 import { useExit } from '@/lib/client/use-exit';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { EntryDialog } from './entry-dialog';
+import { MarkSentDialog } from './mark-sent-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RateInput, isValidRate, parseRate } from './rate-input';
 
 type Attention = Stats['attention'];
+type StaleDraft = Attention['staleDrafts'][number];
 
 /** How many rows the Inbox holds: its header's count and the folded dock's. */
 export function inboxCount(attention: Attention) {
@@ -179,17 +185,29 @@ export function Inbox({ stats }: { stats: Stats }) {
   const downloads =
     !billing || documentOpens(billing.available, billing.plan, null);
 
-  const setStatus = useOptimisticMutation({
+  const statusWrite = {
     ...rowPress,
     mutationFn: ({ id, status }: { id: string; status: InvoiceStatus }) =>
       api.updateInvoiceStatus(id, { status }),
-    invalidate: async (qc, { id }) => {
+    invalidate: async (qc: QueryClient, { id }: { id: string }) => {
       await leaving.get(id);
       forgetInvoice(qc, id);
       return Promise.all([
         qc.invalidateQueries({ queryKey: keys.invoices() }),
         invalidateEntryData(qc),
       ]);
+    },
+  };
+  const setStatus = useOptimisticMutation(statusWrite);
+
+  /* Mark sent asks first, in the dialog the invoice page asks in, and the
+     row leaves only once the server has locked it. */
+  const sending = useDialog<StaleDraft>();
+  const markSent = useOptimisticMutation({
+    ...statusWrite,
+    onSuccess: (_, { id }) => {
+      sending.onOpenChange(false);
+      leave(id);
     },
   });
 
@@ -274,6 +292,7 @@ export function Inbox({ stats }: { stats: Stats }) {
   ];
 
   const count = inboxCount(stats.attention);
+  const sent = sending.subject;
 
   return (
     <section aria-label="Inbox">
@@ -362,6 +381,11 @@ export function Inbox({ stats }: { stats: Stats }) {
                   leave(v.id);
                   setStatus.mutate(v);
                 }}
+                onSend={(d) => {
+                  // A refusal from an earlier press must not read as this one's.
+                  markSent.reset();
+                  sending.show(d);
+                }}
                 onOpen={openEntry}
                 onConfirm={(id) => {
                   leave(id);
@@ -374,6 +398,19 @@ export function Inbox({ stats }: { stats: Stats }) {
           )}
         </ul>
       )}
+
+      {sent ? (
+        <MarkSentDialog
+          open={sending.open}
+          onOpenChange={sending.onOpenChange}
+          invoice={{ ...sent, total: sent.amount }}
+          pending={markSent.isPending}
+          error={markSent.error}
+          onConfirm={() =>
+            markSent.mutate({ id: sent.invoiceId, status: 'sent' })
+          }
+        />
+      ) : null}
 
       {assigning.subject ? (
         <EntryDialog
@@ -399,6 +436,7 @@ type ItemRow = Exclude<InboxRow, { kind: SettingsRowId }>;
 type Handlers = {
   downloads: boolean;
   onStatus: (v: { id: string; status: InvoiceStatus }) => void;
+  onSend: (d: StaleDraft) => void;
   onOpen: (v: { id: string; focus: 'task' | 'project' }) => void;
   onConfirm: (id: string) => void;
 };
@@ -426,6 +464,7 @@ function itemFor(r: ItemRow, h: Handlers): ItemProps {
         detail: `${r.row.daysLate} ${r.row.daysLate === 1 ? 'day' : 'days'} late`,
         tone: 'danger',
         status: 'paid',
+        onMark: () => h.onStatus({ id: r.row.invoiceId, status: 'paid' }),
       });
     case 'draft':
       return invoiceItem(r.row, h, {
@@ -434,6 +473,7 @@ function itemFor(r: ItemRow, h: Handlers): ItemProps {
           : `Draft, ${r.row.ageDays}d old`,
         tone: 'neutral',
         status: 'sent',
+        onMark: () => h.onSend(r.row),
         refuses: r.row.refuses,
       });
     case 'due':
@@ -457,15 +497,17 @@ const MARK = {
 } as const;
 
 function invoiceItem(
-  i: Attention['overdueInvoices'][number] | Attention['staleDrafts'][number],
+  i: Attention['overdueInvoices'][number] | StaleDraft,
   h: Handlers,
   {
     detail,
     tone,
     status,
+    onMark,
     refuses = { download: false, send: false },
   }: Pick<ItemProps, 'detail' | 'tone'> & {
     status: keyof typeof MARK;
+    onMark: () => void;
     refuses?: { download: boolean; send: boolean };
   },
 ): ItemProps {
@@ -482,7 +524,7 @@ function invoiceItem(
             label={MARK[status].label}
             context={i.invoiceNumber}
             icon={MARK[status].icon}
-            onClick={() => h.onStatus({ id: i.invoiceId, status })}
+            onClick={onMark}
           />
         )}
         {h.downloads && !refuses.download ? (

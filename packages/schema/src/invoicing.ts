@@ -236,10 +236,11 @@ export const InvoiceStatus = z.enum(['draft', 'sent', 'paid', 'void']);
  * An issued invoice, as the API returns it.
  *
  * Line items are NOT part of this shape: they are fetched with the detail
- * view. A draft's, its totals and its dates are derived from its period's
- * work on every read, as if sent today; once sent they are frozen, and
- * re-deriving them is the thing that must never happen — re-downloading a
- * year later has to produce the same document.
+ * view. A draft's, its totals and its dates are priced from the work it
+ * holds on every read, as if sent today; later work in its period joins only
+ * through `POST /invoices/:id/work` or a saved edit. Once sent they are
+ * frozen, and re-deriving them is the thing that must never happen —
+ * re-downloading a year later has to produce the same document.
  */
 export const Invoice = z.object({
   id: uuid,

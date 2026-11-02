@@ -3107,7 +3107,7 @@ test('a draft is stale only after a week, and the oldest sorts first', async () 
   assert.equal(res.body.attention.staleDrafts[1].ageDays, 9);
 });
 
-test('a stale draft carries the money and the client it belongs to', async () => {
+test('a stale draft carries the money, the entries and the client it belongs to', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
   const c = '33333333-0000-4000-8000-00000000000a';
@@ -3141,6 +3141,7 @@ test('a stale draft carries the money and the client it belongs to', async () =>
   const [draft] = res.body.attention.staleDrafts;
   assert.equal(draft.clientName, 'Namely');
   assert.equal(draft.amount, 100, 'what the hour it holds comes to now');
+  assert.equal(draft.entryCount, 1, 'what Mark sent locks');
   assert.equal(draft.currency, 'USD');
 });
 

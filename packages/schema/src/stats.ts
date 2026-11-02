@@ -252,6 +252,8 @@ export const Stats = z.object({
         amount: money,
         currency,
         ageDays: z.number().int(),
+        /** The entries Mark sent locks, which its dialog names. */
+        entryCount: z.number().int().nonnegative(),
         /** Whether its PDF and Mark sent would refuse it now. */
         refuses: DraftActions,
       }),

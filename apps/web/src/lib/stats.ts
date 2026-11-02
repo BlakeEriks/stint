@@ -308,6 +308,7 @@ export async function readStats(
         ...r,
         total: r.total ?? 0,
         refuses: draft ? draftRefusals(draft) : undefined,
+        entry_count: draft?.computed.totals.entryCount,
       };
     }),
   );

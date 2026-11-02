@@ -47,6 +47,7 @@ import {
 } from './fixtures';
 import {
   calendar,
+  draftEntryCount,
   expenseView,
   invoicePreview,
   type PreviewRequest,
@@ -187,22 +188,6 @@ function claimBilled(db: Db, invoiceId: string, preview: Preview) {
 }
 
 type StoredInvoice = Db['invoices'][number];
-
-/** The entries Mark sent locks: a story sets them, else the period's. */
-const draftEntryCount = (db: Db, invoice: StoredInvoice) =>
-  invoice.entryCount ??
-  invoicePreview(
-    db,
-    {
-      clientId: invoice.clientId,
-      periodStart: invoice.periodStart,
-      periodEnd: invoice.periodEnd,
-      groupingMode: invoice.groupingMode,
-      draftId: invoice.id,
-    },
-    ZONE,
-  )?.entryCount ??
-  0;
 
 /** An invoice as the list and status routes answer it. */
 const listed = ({

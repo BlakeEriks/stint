@@ -27,10 +27,10 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConfirmAction, confirmRow } from './confirm-action';
-import { ConfirmDialog } from './confirm-dialog';
 import { shortDate, StatusBadge } from './invoice-bits';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
+import { MarkSentDialog } from './mark-sent-dialog';
 import { PRICE } from './plan-section';
 import {
   attachedSchedules,
@@ -319,8 +319,7 @@ function Loaded({
   );
 }
 
-/** Mark sent, and the dialog it asks in. Sending locks the entries for
-    good, so it says how many and for how much before it does. */
+/** Mark sent, and the dialog it asks in. */
 function MarkSent({
   invoice,
   setStatus,
@@ -350,15 +349,15 @@ function MarkSent({
         Mark sent
       </Button>
       {/* Sent, the draft and this go with it. */}
-      <ConfirmDialog
+      <MarkSentDialog
         open={asking}
         onOpenChange={setAsking}
-        title={`Mark ${invoice.invoiceNumber} sent`}
-        description={`Lock ${entries(invoice.entryCount ?? 0)} · ${formatCurrency(invoice.total ?? 0, invoice.currency)}. The invoice stays as it is.`}
-        confirmLabel="Lock"
-        pendingLabel="Locking…"
-        icon={<Lock aria-hidden strokeWidth={1.75} />}
-        keepLabel="Keep as draft"
+        invoice={{
+          invoiceNumber: invoice.invoiceNumber,
+          entryCount: invoice.entryCount ?? 0,
+          total: invoice.total ?? 0,
+          currency: invoice.currency,
+        }}
         pending={setStatus.isPending}
         error={setStatus.error}
         onConfirm={() => setStatus.mutate({ status: 'sent' })}
@@ -421,8 +420,6 @@ function Notices({
 /** A draft's warning, under the hint. */
 const NOTICE =
   'mt-3 flex flex-col gap-0.5 rounded-md border border-edge-default border-l-[3px] border-l-warning bg-surface-elevated px-3.5 py-3';
-
-const entries = (n: number) => `${n} entr${n === 1 ? 'y' : 'ies'}`;
 
 /** Work dated in the draft's period that it doesn't hold. It joins only when
     the owner adds it (Constitution I), all of it in one press. */

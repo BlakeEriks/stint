@@ -177,7 +177,7 @@ const INVOICES = [
   {
     /* Stale draft: generated and then forgotten, which is the case the row
        exists to catch. A draft holds no number with a client yet, and no
-       line: it shows its period's work as it stands. */
+       line: it shows the work it holds, priced as it stands. */
     status: 'draft',
     issuedDaysAgo: STALE_DRAFT_DAYS,
   },

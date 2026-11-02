@@ -47,6 +47,7 @@ import {
 } from '@stint/core';
 import type { Expense, TimeEntry } from '@/lib/client/api';
 import { billable, type Db, mockDraftRefusals } from './fixtures';
+import { ZONE } from './time.mts';
 
 /**
  * What the routes compute, computed from the fake account. The SQL rollups
@@ -285,6 +286,7 @@ export function stats(db: Db, tz: string) {
       currency: i.currency,
       period_end: i.periodEnd,
       refuses: mockDraftRefusals(i),
+      entry_count: i.status === 'draft' ? draftEntryCount(db, i) : undefined,
     }));
 
   const candidates = db.entries
@@ -565,6 +567,22 @@ function draftExpenses(db: Db, body: PreviewRequest) {
 
 /** `POST /invoices/preview`: the client's work in the period that no other
     draft holds. */
+/** The entries Mark sent locks: a story sets them, else the period's. */
+export const draftEntryCount = (db: Db, invoice: Db['invoices'][number]) =>
+  invoice.entryCount ??
+  invoicePreview(
+    db,
+    {
+      clientId: invoice.clientId,
+      periodStart: invoice.periodStart,
+      periodEnd: invoice.periodEnd,
+      groupingMode: invoice.groupingMode,
+      draftId: invoice.id,
+    },
+    ZONE,
+  )?.entryCount ??
+  0;
+
 export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
   const client = db.clients.find((c) => c.id === body.clientId);
   if (!client) return undefined;

@@ -172,7 +172,7 @@ rows stop at the boundary.
 **`attention` is derived per request** from stored facts, with grace periods:
 an invoice is overdue at `due_date` + 7 days, a draft stale 7 days after
 its period ends. A stale draft's `refuses` (`{ download, send }`) says which of its PDF and
-Mark sent would refuse it now, and the Inbox offers only the others. The one row whose condition never clears on its own is gated by a
+Mark sent would refuse it now, and the Inbox offers only the others; its `entryCount` is how many entries Mark sent locks, which the Inbox's dialog names. The one row whose condition never clears on its own is gated by a
 stored answer instead — `duration_ok` on an entry of unusual length — so it
 cannot return every day once answered. `unprojected` is one row per entry,
 oldest first; `strangeDurations` one per stopped entry of implausible length;
