@@ -44,6 +44,7 @@ const SETTINGS = {
   invoiceNumberPrefix: 'STINT-',
   nextInvoiceNumber: 16,
   paymentTermsDays: 30,
+  billingTimeZone: null as string | null,
 };
 
 /** The settings served; a test changes the payment terms. */
@@ -435,6 +436,18 @@ describe('NewInvoice', () => {
     await ready(user);
     expect(screen.getByLabelText('Due')).toHaveValue(
       addDays(localDateKey(new Date(), tz), 10),
+    );
+  });
+
+  // The device is rarely on Kiritimati's date, 14 hours ahead of UTC.
+  it("dates the invoice on the account's billing zone, not the device's", async () => {
+    serve();
+    settings = { ...SETTINGS, billingTimeZone: 'Pacific/Kiritimati' };
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await ready(user);
+    expect(screen.getByLabelText('Due')).toHaveValue(
+      addDays(localDateKey(new Date(), 'Pacific/Kiritimati'), 30),
     );
   });
 

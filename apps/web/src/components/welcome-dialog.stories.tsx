@@ -152,7 +152,8 @@ export const Failed: Story = {
   },
 };
 
-/** "Skip for now" closes it with nothing saved, and it does not come back. */
+/** "Skip for now" closes it with no rate saved, and it does not come back.
+    Like every way out, it bills the account in the zone it was created in. */
 export const SkipForNow: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -163,6 +164,9 @@ export const SkipForNow: Story = {
     await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
     await expect(getDb().settings.defaultHourlyRate).toBeNull();
     await waitFor(() => expect(getDb().settings.welcomedAt).not.toBeNull());
+    await expect(getDb().settings.billingTimeZone).toBe(
+      Intl.DateTimeFormat().resolvedOptions().timeZone,
+    );
   },
 };
 

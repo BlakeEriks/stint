@@ -1708,6 +1708,21 @@ test('the user payment terms are whole days from 0 to 365', async () => {
   }
 });
 
+test("the account's billing time zone is an IANA zone, or null", async () => {
+  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
+  const set = (body: object) =>
+    patch(req('/settings', body, 'PATCH')).then(json);
+
+  const saved = await set({ billingTimeZone: 'America/Chicago' });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.billingTimeZone, 'America/Chicago');
+  assert.equal(
+    (await set({ billingTimeZone: null })).body.billingTimeZone,
+    null,
+  );
+  assert.equal((await set({ billingTimeZone: 'Central' })).status, 422);
+});
+
 /* Old terms the migration couldn't read became 30 days; the Inbox shows
    what was written until the user saves their terms. */
 test('stats asks about old payment terms until the user saves theirs', async () => {
