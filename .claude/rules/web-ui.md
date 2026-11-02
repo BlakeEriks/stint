@@ -153,6 +153,7 @@ a different order, and the ones that drifted were rebuilt:
 | A list's loading, failure and empty states | `Panel` + `Listing` |
 | A titled region with its own save state | `Section` + `useAutosave` + `SaveIndicator` |
 | A labeled control | `Field`, `Input`, `inputClass`, `textareaClass`; on a signed-out page, `elevatedInputClass` |
+| What a form still lacks, shown on Save | `useMissing()` (`lib/client/use-missing.ts`) into `Field`'s `error` |
 | Any action | `Button`, sized and varied by the tables in `ui/button.tsx` |
 | A destructive action | `ConfirmAction` |
 | An invoice's status | `StatusBadge` |
@@ -170,6 +171,12 @@ anticipation of one.
 
 **Conventions every screen keeps:**
 
+- **Save stays enabled while a form is incomplete**, because a disabled
+  button can't say what it waits for. Pressing it marks each missing field
+  at its `Field` and focuses the first (`useMissing()`); the form sets
+  `noValidate`, since the browser's bubble never reaches a phone. Save is
+  disabled only while its save is pending. The client form and the
+  Inbox's inline answer are the two exceptions until #607.
 - **A list filter lives in the URL** (`FilterTabs`), so the view is linkable
   and Back returns to it. A component reading `useSearchParams` needs a
   `Suspense` boundary in its `page.tsx`, or `next build` fails while

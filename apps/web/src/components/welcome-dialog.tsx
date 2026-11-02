@@ -24,6 +24,7 @@ import { ColorPicker } from './color-picker';
 import { Field } from './field';
 import { RateInput, isValidRate, parseRate } from './rate-input';
 import { StepDialog } from './step-dialog';
+import { useMissing, type Missing } from '@/lib/client/use-missing';
 
 /**
  * A first sign-in's two questions: the default rate, then a first client.
@@ -81,15 +82,18 @@ export function WelcomeDialog() {
   const defaultRate = settings?.defaultHourlyRate ?? null;
   const ownRate = parseRate(clientRate);
   const saving = createClient.isPending;
+  const rateCheck = useMissing(missingRate(rate));
+  const clientCheck = useMissing(missingClient(name, ownRate));
 
   return (
     <StepDialog open={settings?.welcomedAt === null} step={step} steps={2}>
       {step === 1 ? (
         <form
+          noValidate
           className="flex flex-col gap-5"
           onSubmit={(e) => {
             e.preventDefault();
-            if (!isValidRate(rate)) return;
+            if (!rateCheck.passes() || !isValidRate(rate)) return;
             saveRate.mutate(rate);
             setStep(2);
           }}
@@ -104,6 +108,7 @@ export function WelcomeDialog() {
             label="Default hourly rate"
             htmlFor="welcome-rate"
             hint="A client or project can set its own rate later."
+            error={rateCheck.error('welcome-rate')}
           >
             <RateInput
               id="welcome-rate"
@@ -122,25 +127,18 @@ export function WelcomeDialog() {
             <Button type="button" variant="ghost" onClick={done}>
               Skip for now
             </Button>
-            <Button
-              type="submit"
-              variant="accent"
-              disabled={!isValidRate(rate)}
-            >
+            <Button type="submit" variant="accent">
               Next
             </Button>
           </DialogFooter>
         </form>
       ) : (
         <form
+          noValidate
           className="flex flex-col gap-5"
           onSubmit={(e) => {
             e.preventDefault();
-            if (
-              name.trim() === '' ||
-              (ownRate !== null && !isValidRate(ownRate))
-            )
-              return;
+            if (!clientCheck.passes()) return;
             createClient.mutate({
               name: name.trim(),
               hourlyRate: ownRate,
@@ -155,7 +153,11 @@ export function WelcomeDialog() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_140px]">
-            <Field label="Client name" htmlFor="welcome-client">
+            <Field
+              label="Client name"
+              htmlFor="welcome-client"
+              error={clientCheck.error('welcome-client')}
+            >
               <Input
                 id="welcome-client"
                 autoFocus
@@ -169,6 +171,7 @@ export function WelcomeDialog() {
               label="Rate"
               htmlFor="welcome-client-rate"
               hint="Blank uses your default"
+              error={clientCheck.error('welcome-client-rate')}
             >
               <RateInput
                 id="welcome-client-rate"
@@ -217,11 +220,7 @@ export function WelcomeDialog() {
                   Skip this step
                 </Button>
               ) : null}
-              <Button
-                type="submit"
-                variant="accent"
-                disabled={name.trim() === '' || saving}
-              >
+              <Button type="submit" variant="accent" disabled={saving}>
                 {saving ? (
                   <>
                     <Loader2 aria-hidden className="animate-spin" />
@@ -238,3 +237,18 @@ export function WelcomeDialog() {
     </StepDialog>
   );
 }
+
+const missingRate = (rate: number | null): Missing => ({
+  'welcome-rate': isValidRate(rate)
+    ? undefined
+    : 'Enter your rate, or skip for now.',
+});
+
+const missingClient = (name: string, rate: number | null): Missing => ({
+  'welcome-client':
+    name.trim() === '' ? 'Name the client, or skip this step.' : undefined,
+  'welcome-client-rate':
+    rate === null || isValidRate(rate)
+      ? undefined
+      : 'Enter a rate of zero or more, to the cent, or leave it blank.',
+});

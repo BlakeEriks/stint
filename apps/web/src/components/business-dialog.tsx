@@ -14,6 +14,9 @@ import { SettingsDialog } from './settings-dialog';
 export const missingBusiness = (s: Settings | undefined) =>
   s !== undefined && (!s.businessName?.trim() || !s.businessEmail?.trim());
 
+/* A shape check only; the server's `z.email()` is the full rule. */
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 /**
  * Who the invoice is from, asked on New invoice rather than sending the
  * user to Settings.
@@ -34,16 +37,30 @@ function BusinessDialog({
       onOpenChange={onOpenChange}
       title="Who is this invoice from?"
       description="Your name and email go at the top of every invoice. Saved to Settings, so you're asked once."
-      ready={name.trim() !== '' && email.trim() !== ''}
+      missing={{
+        'biz-dialog-name':
+          name.trim() === '' ? 'Enter your business name.' : undefined,
+        'biz-dialog-email':
+          email.trim() === ''
+            ? 'Enter your email.'
+            : EMAIL.test(email.trim())
+              ? undefined
+              : 'Enter an email like you@example.com.',
+      }}
       patch={() => ({
         businessName: name.trim(),
         businessEmail: email.trim(),
         businessAddress: address.trim() || null,
       })}
     >
-      {(pending) => (
+      {(pending, error) => (
         <>
-          <Field label="Business name" htmlFor="biz-dialog-name" required>
+          <Field
+            label="Business name"
+            htmlFor="biz-dialog-name"
+            required
+            error={error('biz-dialog-name')}
+          >
             <Input
               id="biz-dialog-name"
               autoFocus
@@ -53,7 +70,12 @@ function BusinessDialog({
               onChange={(e) => setName(e.target.value)}
             />
           </Field>
-          <Field label="Email" htmlFor="biz-dialog-email" required>
+          <Field
+            label="Email"
+            htmlFor="biz-dialog-email"
+            required
+            error={error('biz-dialog-email')}
+          >
             <Input
               id="biz-dialog-email"
               type="email"
