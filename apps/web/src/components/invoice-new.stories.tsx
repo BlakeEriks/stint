@@ -1086,6 +1086,41 @@ export const BillToRefused: Story = {
   },
 };
 
+/** Generate pressed while a Bill to save is on its way waits for it; the
+    save is refused, so nothing is generated from the old record. */
+export const GenerateAfterRefusedBillTo: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    msw: {
+      handlers: {
+        updateClient: http.patch(handlers.updateClient.info.path, async () => {
+          await delay(300);
+          return Response.json(
+            { code: 'VALIDATION_FAILED', message: 'Enter a valid email.' },
+            { status: 422 },
+          );
+        }),
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    const before = getDb().invoices.length;
+    await userEvent.clear(page.getByLabelText('Email'));
+    await userEvent.type(page.getByLabelText('Email'), 'ap@northwind');
+    await userEvent.tab();
+    await userEvent.click(
+      page.getByRole('button', { name: 'Generate invoice' }),
+    );
+    await expect(
+      await page.findByText(/wasn't saved to the client/),
+    ).toBeVisible();
+    await expect(getDb().invoices.length).toBe(before);
+  },
+};
+
 /** "+ Add a charge" asks for a description and an amount; Save waits for
     both (US5 scenario 3). */
 export const NewCharge: Story = {

@@ -555,6 +555,16 @@ function Form({
         invalidateEntryData(qc),
       ]),
     mutationFn: () => {
+      // A Bill to save queued before this press may have been refused.
+      const saved = qc
+        .getQueryData<{ clients: Client[] }>(keys.clients())
+        ?.clients.find((c) => c.id === draft.clientId);
+      if (
+        saved &&
+        (saved.address !== billTo.shown?.address ||
+          saved.email !== billTo.shown?.email)
+      )
+        return Promise.reject(new UnsavedBillTo());
       const choices = {
         ...billed,
         schedules,
@@ -1018,6 +1028,12 @@ const pressLabel = (editing: boolean, pending: boolean) => {
   return pending ? 'Generating…' : 'Generate invoice';
 };
 
+class UnsavedBillTo extends Error {
+  constructor() {
+    super("Bill to wasn't saved to the client, so nothing was generated.");
+  }
+}
+
 /** Generate queues behind a Bill to save, so the invoice it freezes has it. */
 const BILL_TO_LANE = 'client-bill-to';
 
@@ -1175,7 +1191,7 @@ function PreviewNotices({
       ) : null}
       {error ? (
         <p role="alert" className="type-support text-danger">
-          {error instanceof ApiError
+          {error instanceof ApiError || error instanceof UnsavedBillTo
             ? error.message
             : 'Could not build this invoice.'}
         </p>
