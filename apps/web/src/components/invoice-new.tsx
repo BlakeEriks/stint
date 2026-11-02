@@ -545,6 +545,7 @@ function Form({
   const generate = useOptimisticMutation({
     queryKey: () => keys.invoices(),
     inline: true,
+    serial: BILL_TO_LANE,
     // Generation marks the entries and expenses invoiced, so they leave
     // every unbilled view.
     invalidate: (qc) =>
@@ -1016,14 +1017,16 @@ const pressLabel = (editing: boolean, pending: boolean) => {
   return pending ? 'Generating…' : 'Generate invoice';
 };
 
+/** Generate queues behind a Bill to save, so the invoice it freezes has it. */
+const BILL_TO_LANE = 'client-bill-to';
+
+type BillToField = 'address' | 'email';
+
 /**
- * The client's Bill to and email, edited beside the card that prints them.
- * The card follows each keystroke; leaving a field saves it to the client,
- * which every later invoice reads. An issued invoice keeps its own copy.
+ * Leaving a field saves it to the client, which every later invoice reads.
+ * An issued invoice keeps its own copy.
  */
 function useBillTo(client: Client | undefined) {
-  /* What was typed, for the client it was typed on; another client shows
-     its own record. */
   const [typed, setTyped] = useState<{
     id: string;
     address: string;
@@ -1031,19 +1034,19 @@ function useBillTo(client: Client | undefined) {
   }>();
   const save = useOptimisticMutation({
     queryKey: () => keys.clients(),
+    serial: BILL_TO_LANE,
     predict: (
       current: { clients: Client[] } | undefined,
-      v: { id: string; address: string | null; email: string | null },
+      v: { id: string; field: BillToField; value: string | null },
     ) =>
       current && {
         ...current,
         clients: current.clients.map((c) =>
-          c.id === v.id ? { ...c, address: v.address, email: v.email } : c,
+          c.id === v.id ? { ...c, [v.field]: v.value } : c,
         ),
       },
-    mutationFn: ({ id, ...body }) => api.updateClient(id, body),
-    // The rejection is taken back, so the fields show the record again.
-    onError: () => setTyped(undefined),
+    mutationFn: ({ id, field, value }) =>
+      api.updateClient(id, { [field]: value }),
   });
   if (!client) return { shown: undefined, fields: null };
 
@@ -1058,11 +1061,12 @@ function useBillTo(client: Client | undefined) {
   const address = value.address.trim() || null;
   const email = value.email.trim() || null;
   const shown = { ...client, address, email };
-  const type = (k: 'address' | 'email', v: string) =>
-    setTyped({ ...value, [k]: v });
-  const commit = () => {
-    if (address !== client.address || email !== client.email)
-      save.mutate({ id: client.id, address, email });
+  const type = (field: BillToField, v: string) =>
+    setTyped({ ...value, [field]: v });
+  const commit = (field: BillToField) => {
+    const next = field === 'address' ? address : email;
+    if (next !== client[field])
+      save.mutate({ id: client.id, field, value: next });
   };
 
   const fields = (
@@ -1073,18 +1077,22 @@ function useBillTo(client: Client | undefined) {
           rows={3}
           value={value.address}
           onChange={(e) => type('address', e.target.value)}
-          onBlur={commit}
+          onBlur={() => commit('address')}
           placeholder={BILL_TO_PLACEHOLDER}
           className={textareaClass}
         />
       </Field>
-      <Field label="Email" htmlFor="inv-email" hint="Saved to this client.">
+      <Field
+        label="Email"
+        htmlFor="inv-email"
+        hint="Bill to and Email are saved to this client."
+      >
         <Input
           id="inv-email"
           type="email"
           value={value.email}
           onChange={(e) => type('email', e.target.value)}
-          onBlur={commit}
+          onBlur={() => commit('email')}
           placeholder="billing@acme.com"
         />
       </Field>

@@ -295,14 +295,13 @@ function ScheduleField({
   );
 }
 
+export const BILL_TO_PLACEHOLDER =
+  'Attn: John Smith\n123 Main St\nAustin, TX 78701';
+
 /**
  * Pending: the server validates the client, and the form stays to say what
  * it refused.
  */
-/** An Attn line belongs here too: it prints line by line under the name. */
-export const BILL_TO_PLACEHOLDER =
-  'Attn: John Smith\n123 Main St\nAustin, TX 78701';
-
 export function useSaveClient(
   existing: Client | undefined,
   onSaved: (client: Client) => void,

@@ -1027,7 +1027,7 @@ export const BillToEmpty: Story = {
       expect.stringMatching(/^Attn:/),
     );
     await expect(page.getByLabelText('Email')).toHaveValue('');
-    await expect(page.getByText('Saved to this client.')).toBeVisible();
+    await expect(page.getByText(/saved to this client/)).toBeVisible();
   },
 };
 export const BillToEmptyPhone: Story = { ...BillToEmpty, ...phone };
@@ -1051,8 +1051,9 @@ export const BillToTyped: Story = {
   },
 };
 
-/** The save is refused: the app-wide notice says why, and the fields and
-    card go back to the client's record. */
+/** The save is refused: the app-wide notice says why, and what was typed
+    stays, the rejected email and Bill to typed since, to fix and leave
+    again. */
 export const BillToRefused: Story = {
   ...desktop,
   parameters: {
@@ -1071,10 +1072,11 @@ export const BillToRefused: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseMeridian(canvasElement);
     await userEvent.type(page.getByLabelText('Email'), 'ap@meridian');
-    await userEvent.tab();
+    await userEvent.click(page.getByLabelText('Bill to'));
+    await userEvent.type(page.getByLabelText('Bill to'), 'Attn: Dana Lee');
     await expect(await page.findByText('Enter a valid email.')).toBeVisible();
-    await waitFor(() => expect(page.getByLabelText('Email')).toHaveValue(''));
-    await expect(card(page).queryByText(/ap@meridian/)).toBeNull();
+    await expect(page.getByLabelText('Bill to')).toHaveValue('Attn: Dana Lee');
+    await expect(page.getByLabelText('Email')).toHaveValue('ap@meridian');
   },
 };
 
