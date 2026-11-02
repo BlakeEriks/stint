@@ -1053,7 +1053,7 @@ export const BillToTyped: Story = {
 
 /** The save is refused: the app-wide notice says why, and what was typed
     stays, the rejected email and Bill to typed since, to fix and leave
-    again. */
+    again. Generate waits until the client has them. */
 export const BillToRefused: Story = {
   ...desktop,
   parameters: {
@@ -1070,13 +1070,19 @@ export const BillToRefused: Story = {
     },
   },
   play: async ({ canvasElement }) => {
-    const page = await chooseMeridian(canvasElement);
-    await userEvent.type(page.getByLabelText('Email'), 'ap@meridian');
-    await userEvent.click(page.getByLabelText('Bill to'));
-    await userEvent.type(page.getByLabelText('Bill to'), 'Attn: Dana Lee');
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    await userEvent.clear(page.getByLabelText('Email'));
+    await userEvent.type(page.getByLabelText('Email'), 'ap@northwind');
+    const billTo = page.getByLabelText('Bill to') as HTMLTextAreaElement;
+    await userEvent.click(billTo);
+    await userEvent.type(billTo, 'Attn: Dana Lee');
     await expect(await page.findByText('Enter a valid email.')).toBeVisible();
-    await expect(page.getByLabelText('Bill to')).toHaveValue('Attn: Dana Lee');
-    await expect(page.getByLabelText('Email')).toHaveValue('ap@meridian');
+    await expect(billTo.value).toContain('Attn: Dana Lee');
+    await expect(page.getByLabelText('Email')).toHaveValue('ap@northwind');
+    await expect(
+      page.getByRole('button', { name: 'Generate invoice' }),
+    ).toBeDisabled();
   },
 };
 

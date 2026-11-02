@@ -680,6 +680,7 @@ function Form({
     hasSettings: settings !== undefined,
     hasSender: !noSender,
     generating: generate.isPending,
+    unsavedBillTo: billTo.unsaved,
     groupingMode,
     summaryText,
   });
@@ -1048,7 +1049,7 @@ function useBillTo(client: Client | undefined) {
     mutationFn: ({ id, field, value }) =>
       api.updateClient(id, { [field]: value }),
   });
-  if (!client) return { shown: undefined, fields: null };
+  if (!client) return { shown: undefined, fields: null, unsaved: false };
 
   const value =
     typed?.id === client.id
@@ -1098,7 +1099,8 @@ function useBillTo(client: Client | undefined) {
       </Field>
     </>
   );
-  return { shown, fields };
+  const unsaved = address !== client.address || email !== client.email;
+  return { shown, fields, unsaved };
 }
 
 /**
@@ -1120,6 +1122,8 @@ function generateState(s: {
   /** The server refuses an invoice with no sender; the notice says why. */
   hasSender: boolean;
   generating: boolean;
+  /** The server reads Bill to from the client, so it waits for a save. */
+  unsavedBillTo: boolean;
   groupingMode: GroupingMode;
   summaryText: string;
 }) {
@@ -1138,7 +1142,8 @@ function generateState(s: {
     s.hasSender &&
     !s.updating &&
     !s.failed &&
-    !s.generating;
+    !s.generating &&
+    !s.unsavedBillTo;
   return { canGenerate, noSummaryText };
 }
 
