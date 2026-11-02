@@ -173,8 +173,8 @@ second line or an `Add…` item is a `DropdownMenu`. Put a component in
   button can't say what it waits for. Pressing it marks each missing field
   at its `Field` and focuses the first (`useMissing()`); the form sets
   `noValidate`, since the browser's bubble never reaches a phone. Save is
-  disabled only while its save is pending. The client form is the one
-  exception until #607.
+  disabled only while its save is pending. The client form and the
+  Inbox's inline answer are the two exceptions until #607.
 - **A list filter lives in the URL** (`FilterTabs`), so the view is linkable
   and Back returns to it. A component reading `useSearchParams` needs a
   `Suspense` boundary in its `page.tsx`, or `next build` fails while
