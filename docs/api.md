@@ -482,8 +482,8 @@ whatever the zone, so a wrong zone shifts dates rather than dropping work.
 `POST /invoices` and `PATCH /invoices/:id` resolve the billing period in the
 account's `billingTimeZone`, else `tz` (`billingZone` in `@stint/core`), and a
 new or edited draft stores that zone. `GET /invoices`,
-`GET /invoices/:id`, `/pdf` and `/status` derive a draft in it when the draft
-has no zone, and sending dates the invoice on that zone's day. The zone decides
+`GET /invoices/:id`, `/pdf`, `/status` and `POST /invoices/:id/work` derive a
+draft in it when the draft has no zone, and sending dates the invoice on that zone's day. The zone decides
 which entries are billed — falling back to UTC there would move the boundary
 by hours and put the wrong work on an invoice. An **omitted** `tz` defaults to
 UTC only on an account with no `billingTimeZone`, so a client there that means
