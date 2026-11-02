@@ -1065,7 +1065,8 @@ test('frozen detail survives a project rename and a void', async () => {
   );
   const params = { params: Promise.resolve({ id: inv.body.id }) };
 
-  // Sent first: a draft follows its period's work until then.
+  // Sent first: a draft is priced only from the work it holds, and changes
+  // only through POST /invoices/:id/work or a saved edit.
   await setStatus(req('/s', { status: 'sent' }, 'PATCH'), params);
   await pool.query(`update projects set name = 'Renamed' where id = $1`, [
     PROJECT,
