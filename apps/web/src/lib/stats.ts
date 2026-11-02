@@ -299,7 +299,7 @@ export async function readStats(
   ];
 
   const unbilledRows = (unbilled.data ?? []) as UnbilledRow[];
-  // A draft's total is its period's work now.
+  // A draft's total is the work it holds, priced now.
   const invoiceRows: InvoiceRow[] = await Promise.all(
     ((invoices.data ?? []) as StoredInvoiceRow[]).map(async (stored) => {
       const draft = await deriveDraft(db, stored, tz);
@@ -308,6 +308,7 @@ export async function readStats(
         ...r,
         total: r.total ?? 0,
         refuses: draft ? draftRefusals(draft) : undefined,
+        entry_count: draft?.computed.totals.entryCount,
       };
     }),
   );
@@ -438,6 +439,7 @@ export async function readStats(
           entries: uninvoicedEntries,
           invoices: [
             ...((invoices.data ?? []) as StoredInvoiceRow[]).map((i) => ({
+              status: i.status,
               clientId: i.client_id,
               periodStart: i.period_start,
               periodEnd: i.period_end,

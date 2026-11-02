@@ -11,6 +11,7 @@
  */
 import { after, before, beforeEach, mock, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import pg from 'pg';
 import { makeDb } from './shim.mjs';
 import { addDays, localDateKey, startOfLocalDate } from '@stint/core';
@@ -153,6 +154,9 @@ async function write(db: Db) {
       client_email: i.billTo.email,
       client_address: i.billTo.address,
       created_at: i.createdAt,
+      // Where the fake reads a draft's period, so the work it holds is the
+      // work the fake prices.
+      tz: i.status === 'draft' ? ZONE : null,
     });
   // Billed while its invoice is still a draft, like entries below.
   for (const e of db.expenses)
@@ -205,7 +209,16 @@ async function write(db: Db) {
         `update invoices set status=$2, sent_at=$3, paid_at=$4 where id=$1`,
         [i.id, status, i.sentAt, i.paidAt],
       );
+  // The fake holds no work: a draft is its period's. The backfill makes
+  // each draft hold exactly that, as it did every draft when drafts began
+  // holding their work.
+  await pool.query(readFileSync(HOLD_PERIOD_WORK, 'utf8'));
 }
+
+const HOLD_PERIOD_WORK = new URL(
+  '../../../supabase/migrations/20261101123914_backfill_draft_work.sql',
+  import.meta.url,
+);
 
 /* Timestamps compared as instants: one instant is written `+00:00` by
    PostgREST and the test shim, and may be written `Z` by the fake. */
@@ -508,19 +521,6 @@ const writes: Record<string, [Scenario, (db: Db) => Write]> = {
       params: { id: id(9999) },
     }),
   ],
-  'mark several billed elsewhere': [
-    running,
-    (db) => ({
-      handler: 'markInvoicedElsewhere',
-      route: 'entries/invoiced-elsewhere',
-      method: 'POST',
-      url: '/api/v1/entries/invoiced-elsewhere',
-      body: {
-        ids: [billedOn(db, 13), id(9000), db.entries.at(-2)!.id],
-        invoicedElsewhere: true,
-      },
-    }),
-  ],
   'invoice a reversed period': [
     'seeded',
     () => ({
@@ -536,6 +536,7 @@ const writes: Record<string, [Scenario, (db: Db) => Write]> = {
       },
     }),
   ],
+  // Made, without the work and expense the open August draft holds.
   'invoice over a draft': [
     'seeded',
     () => ({
@@ -549,6 +550,7 @@ const writes: Record<string, [Scenario, (db: Db) => Write]> = {
         periodEnd: '2026-09-15',
         tz: ZONE,
       },
+      omit: ['id', 'createdAt'],
     }),
   ],
   'invoice due before today': [

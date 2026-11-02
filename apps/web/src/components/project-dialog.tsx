@@ -29,7 +29,9 @@ import {
   invalidateProjects,
   useRestoreProject,
 } from '@/lib/client/use-restore-project';
-import { RateInput, parseRate } from './rate-input';
+import { RateInput, missingRate, parseRate } from './rate-input';
+import { Field } from './field';
+import { useMissing, type Missing } from '@/lib/client/use-missing';
 
 /**
  * A dialog rather than a page: a project is four fields, and it is created
@@ -62,6 +64,7 @@ export function ProjectDialog({
   const [hourlyRate, setHourlyRate] = useState('');
   const [billable, setBillable] = useState(true);
   const [addingClient, setAddingClient] = useState(false);
+  const check = useMissing(missingIn(name, hourlyRate));
 
   // Reset each time it opens, so a canceled edit does not leak into the
   // next one.
@@ -76,7 +79,8 @@ export function ProjectDialog({
     // Reopening must never land on the client form — it is a detour, not a
     // state the dialog can be left in.
     setAddingClient(false);
-  }, [open, existing, defaultClientId]);
+    check.reset();
+  }, [open, existing, defaultClientId, check.reset]);
 
   const { data: clientData } = useQuery({
     queryKey: keys.clients(),
@@ -112,6 +116,7 @@ export function ProjectDialog({
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!check.passes()) return;
     const project: Project = {
       id: existing?.id ?? uuidv7(),
       name: name.trim(),
@@ -161,11 +166,12 @@ export function ProjectDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={submit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="project-name" className={LABEL}>
-              Name
-            </Label>
+        <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+          <Field
+            label="Name"
+            htmlFor="project-name"
+            error={check.error('project-name')}
+          >
             <Input
               id="project-name"
               required
@@ -174,7 +180,7 @@ export function ProjectDialog({
               onChange={(e) => setName(e.target.value)}
               placeholder="Website redesign"
             />
-          </div>
+          </Field>
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="project-client" className={LABEL}>
@@ -189,20 +195,19 @@ export function ProjectDialog({
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="project-rate" className={LABEL}>
-              Hourly rate
-            </Label>
+          <Field
+            label="Hourly rate"
+            htmlFor="project-rate"
+            hint="Defaults to the client's rate."
+            error={check.error('project-rate')}
+          >
             <RateInput
               id="project-rate"
               value={hourlyRate}
               onChange={(e) => setHourlyRate(e.target.value)}
               placeholder="150.00"
             />
-            <p className="type-support text-subtle">
-              Defaults to the client's rate.
-            </p>
-          </div>
+          </Field>
 
           <label className="flex items-center gap-2.5 type-control text-primary">
             <input
@@ -243,11 +248,7 @@ export function ProjectDialog({
             {/* Icon plus label, like every other action in the app. The
                 glyph is `aria-hidden`, so the accessible name is the label
                 alone. */}
-            <Button
-              type="submit"
-              variant="accent"
-              disabled={name.trim() === ''}
-            >
+            <Button type="submit" variant="accent">
               {existing ? <Check aria-hidden /> : <Plus aria-hidden />}
               {existing ? 'Save changes' : 'Add project'}
             </Button>
@@ -259,3 +260,8 @@ export function ProjectDialog({
 }
 
 const LABEL = 'type-label text-subtle';
+
+const missingIn = (name: string, rateText: string): Missing => ({
+  'project-name': name.trim() === '' ? 'Name the project.' : undefined,
+  'project-rate': missingRate(rateText),
+});

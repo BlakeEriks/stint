@@ -105,7 +105,7 @@ curve, which is what lets the floor stay where the contrast math wants it.
 
 **A text ground is any surface text is set on**: the four planes, `hover` (a
 calendar block's fill, a hovered row), `accent-muted` (a running block) and
-`warning-muted` (a draft's line added since its PDF). Text is judged against
+`warning-muted` (the phone app's notice). Text is judged against
 the worst of them — the nearest to the ink, `hover` or a tint — because the card is only where dialogs and menus sit; the
 panel and its rows are other steps. `active` is left out: it is only a
 pointer's press on a block.
@@ -252,10 +252,13 @@ ramp check exists to catch, the other way round.
 
 `pnpm tokens:validate` checks both directions:
 
-- Required pairings that **must** meet AA — every text token on every text
-  ground in both themes (`contract.text`; subtle is body copy, so AA not
-  AA-large), then control borders, focus rings, text on accent, text on
-  danger.
+- Required pairings that **must** meet AA — strong, primary, muted and
+  subtle on every text ground in both themes (`contract.text`; subtle is body
+  copy, so AA not AA-large), then control borders, focus rings, text on
+  accent, text on danger.
+- The placeholder on only the three grounds a field sits on, in both themes
+  (`contract.text.placeholder`): `bg-base`, `bg-primary` and `bg-elevated`,
+  at AA. A field is never on a darker plane.
 - The `print` ink on white paper (`contract.text.print`): ink, muted, faint
   and the accent on the ground. The payment band takes only ink and muted,
   because faint is too light for it.

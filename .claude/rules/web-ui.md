@@ -153,8 +153,10 @@ a different order, and the ones that drifted were rebuilt:
 | A list's loading, failure and empty states | `Panel` + `Listing` |
 | A titled region with its own save state | `Section` + `useAutosave` + `SaveIndicator` |
 | A labeled control | `Field`, `Input`, `inputClass`, `textareaClass`; on a signed-out page, `elevatedInputClass` |
+| What a form still lacks, shown on Save | `useMissing()` (`lib/client/use-missing.ts`) into `Field`'s `error` |
 | Any action | `Button`, sized and varied by the tables in `ui/button.tsx` |
 | A destructive action | `ConfirmAction` |
+| A press that takes many records at once and can't come back | `ConfirmDialog` |
 | An invoice's status | `StatusBadge` |
 | Money, dates, durations | `Money`, `formatCurrency`, `shortDate` — never `toLocaleString` at the call site |
 | A client's color | `useProjectColors()`, `Swatch` |
@@ -170,6 +172,11 @@ anticipation of one.
 
 **Conventions every screen keeps:**
 
+- **Save stays enabled while a form is incomplete**, because a disabled
+  button can't say what it waits for. Pressing it marks each missing field
+  at its `Field` and focuses the first (`useMissing()`); the form sets
+  `noValidate`, since the browser's bubble never reaches a phone. Save is
+  disabled only while its save is pending.
 - **A list filter lives in the URL** (`FilterTabs`), so the view is linkable
   and Back returns to it. A component reading `useSearchParams` needs a
   `Suspense` boundary in its `page.tsx`, or `next build` fails while
@@ -186,8 +193,9 @@ anticipation of one.
   Destructive means it removes something saved; dropping a line from a form
   not yet submitted (a charge on a new invoice) acts at once.
   In a dialog footer the first step is a trash icon alone, pushed away with
-  `mr-auto`. A modal confirm is only for what takes many records at once and
-  can't come back, like Delete account.
+  `mr-auto`. A modal confirm (`ConfirmDialog`) is only for what takes many records
+  at once and can't come back, like Mark sent, which locks a draft's
+  entries, and Delete account.
 - **A dialog's or form's actions run secondary, Cancel, Save**: Save
   (`accent`) at the bottom right, Cancel beside it, and a secondary action
   (Archive, Delete) pushed to the far left with `mr-auto`.
@@ -285,5 +293,6 @@ into. Absent, the list is simply not offered and the field still works. Do not
 clears the approved preview and hides Generate. Tested, and the test was
 verified to fail when the invalidation is removed.
 
-**Any entry with an `invoiceId` is locked**: a draft claims its work only
-when it is sent, so only an issued invoice sets one.
+**Any entry with an `invoiceId` is locked**: a draft only holds its work
+(`draft_id`, which locks nothing) and bills it when sent, so only an issued
+invoice sets one.

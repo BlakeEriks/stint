@@ -1,4 +1,4 @@
-import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { InvoiceTemplate } from '@stint/schema';
 import { ApiError, dbCode, PG, refused } from './errors';
 import {
@@ -21,13 +21,11 @@ import {
   attachedSchedules,
   buildLineItems,
   buildSchedules,
-  draftSnapshot,
   localDateKey,
-  newLines,
+  newWork,
   paymentTermsText,
   pickSchedules,
   resolvePaymentProfile,
-  snapshotChanged,
   draftDates,
   nothingToSend,
   unratedRefusal,
@@ -36,10 +34,7 @@ import type {
   BillableEntry,
   ExpenseInput,
   GroupingMode,
-  LineItem,
   ManualLine,
-  OpenDraft,
-  Printed,
   ScheduleKind,
 } from '@stint/core';
 
@@ -63,9 +58,10 @@ async function loadClient(
 }
 
 /**
- * The client's entries an invoice for the period bills (`isBillableEntry`),
- * carrying every rate level so the line-item builder can resolve without
- * further queries.
+ * The client's entries a draft bills, carrying every rate level so the
+ * line-item builder can resolve without further queries. `held`, the ones
+ * the draft holds, whatever their date; otherwise the ones a build takes:
+ * those the period bills (`isBillableEntry`) that no other draft holds.
  */
 async function loadBillableEntries(
   db: SupabaseClient,
@@ -76,6 +72,8 @@ async function loadBillableEntries(
     tz: string;
     userDefaultRate: number | null;
     clientRate: number | null;
+    draftId?: string;
+    held: boolean;
   },
 ): Promise<BillableEntry[]> {
   const { data: projects, error: projectError } = await db
@@ -90,8 +88,8 @@ async function loadBillableEntries(
 
   const window = billingWindow(opts.periodStart, opts.periodEnd, opts.tz);
 
-  const rows = await selectAll(() =>
-    db
+  const rows = await selectAll(() => {
+    const q = db
       .from('time_entries')
       .select(
         'id, task_name, project_id, started_at, ended_at, duration_seconds, is_billable, rate_override, invoice_id, invoiced_elsewhere',
@@ -99,23 +97,31 @@ async function loadBillableEntries(
       .in('project_id', [...byId.keys()])
       .is('invoice_id', null)
       .eq('invoiced_elsewhere', false)
-      .not('ended_at', 'is', null)
-      .gte('started_at', window.start.toISOString())
-      .lt('started_at', window.end.toISOString())
-      .order('started_at', { ascending: true }),
-  );
+      .not('ended_at', 'is', null);
+    const scoped = opts.held
+      ? q.eq('draft_id', opts.draftId!)
+      : (opts.draftId
+          ? q.or(`draft_id.is.null,draft_id.eq.${opts.draftId}`)
+          : q.is('draft_id', null)
+        )
+          .gte('started_at', window.start.toISOString())
+          .lt('started_at', window.end.toISOString());
+    return scoped.order('started_at', { ascending: true });
+  });
 
-  const billed = rows.filter((row) =>
-    isBillableEntry(
-      {
-        invoiceId: row.invoice_id as string | null,
-        invoicedElsewhere: row.invoiced_elsewhere as boolean,
-        endedAt: row.ended_at as string | null,
-        startedAt: row.started_at as string,
-      },
-      window,
-    ),
-  );
+  const billed = opts.held
+    ? rows
+    : rows.filter((row) =>
+        isBillableEntry(
+          {
+            invoiceId: row.invoice_id as string | null,
+            invoicedElsewhere: row.invoiced_elsewhere as boolean,
+            endedAt: row.ended_at as string | null,
+            startedAt: row.started_at as string,
+          },
+          window,
+        ),
+      );
   return billed.map((row) => {
     const project = byId.get(row.project_id as string);
     return {
@@ -137,13 +143,17 @@ async function loadBillableEntries(
 /** The client's expenses the draft bills (`billableExpenses`). */
 async function loadBillableExpenses(
   db: SupabaseClient,
-  opts: { clientId: string; draft: OpenDraft; openDrafts: OpenDraft[] },
+  opts: {
+    clientId: string;
+    draft: { id?: string; periodEnd: string; excludedExpenseIds: string[] };
+    held: boolean;
+  },
 ): Promise<Array<ExpenseInput & { recurring: boolean }>> {
   const rows = await selectAll(() =>
     db
       .from('expenses')
       .select(
-        'id, recurring, spent_on, description, amount, invoice_id, created_at',
+        'id, recurring, spent_on, description, amount, invoice_id, draft_id, created_at',
       )
       .eq('client_id', opts.clientId)
       .is('invoice_id', null)
@@ -159,9 +169,10 @@ async function loadBillableExpenses(
       description: r.description as string,
       amount: num(r.amount) ?? 0,
       invoiceId: r.invoice_id as string | null,
+      draftId: r.draft_id as string | null,
     })),
     opts.draft,
-    opts.openDrafts,
+    opts.held,
   );
 }
 
@@ -263,18 +274,6 @@ export async function loadPaymentProfile(
   });
 }
 
-/** One open draft per client and date, which `create_invoice` and
- *  `update_draft` hold: two would both show the same work. */
-export function draftOverlaps(error: PostgrestError | null) {
-  if (dbCode(error) !== 'DRAFT_OVERLAPS') return;
-  const open = JSON.parse(error!.details) as { invoiceNumber: string };
-  throw new ApiError(
-    'DRAFT_OVERLAPS',
-    `${open.invoiceNumber} is a draft for these dates already. Open it, or start after it.`,
-    open,
-  );
-}
-
 /** Which of a draft's PDF and Mark sent refuse it as it stands. */
 export function draftRefusals(d: {
   unratedEntries: unknown[];
@@ -296,14 +295,13 @@ export function dueBeforeIssueError(issueDate: string, dueDate: string) {
   );
 }
 
-/** The id a draft not yet generated takes among the open drafts. */
-const NEW_DRAFT = 'new';
-
 /**
  * What an invoice for a client and period bills now, priced from
  * database-resolved rates and the stored expenses, never a preview the
  * client cached: the preview, generation, every read of a draft and its
- * send all compute it here.
+ * send all compute it here. `held` prices the work the draft holds;
+ * otherwise it is a build, which takes the period's work no other draft
+ * holds.
  */
 export async function computeInvoice(
   db: SupabaseClient,
@@ -321,18 +319,14 @@ export async function computeInvoice(
     schedules: ScheduleKind[];
     /** The draft computed; absent for one not yet generated. */
     draftId?: string;
+    held?: boolean;
   },
 ) {
-  const [client, settings, open] = await Promise.all([
+  const held = opts.held ?? false;
+  const [client, settings] = await Promise.all([
     loadClient(db, opts.clientId),
     loadSettings(db),
-    db
-      .from('invoices')
-      .select('id, period_end, excluded_expense_ids')
-      .eq('client_id', opts.clientId)
-      .eq('status', 'draft'),
   ]);
-  if (open.error) throw open.error;
   const tz =
     typeof opts.tz === 'string'
       ? opts.tz
@@ -351,19 +345,17 @@ export async function computeInvoice(
       userDefaultRate: settings.defaultHourlyRate,
       clientRate:
         client.hourly_rate == null ? null : Number(client.hourly_rate),
+      draftId: opts.draftId,
+      held,
     }),
     loadBillableExpenses(db, {
       clientId: opts.clientId,
       draft: {
-        id: opts.draftId ?? NEW_DRAFT,
+        id: opts.draftId,
         periodEnd: opts.periodEnd,
         excludedExpenseIds: opts.excludedExpenseIds,
       },
-      openDrafts: (open.data ?? []).map((d) => ({
-        id: d.id as string,
-        periodEnd: d.period_end as string,
-        excludedExpenseIds: d.excluded_expense_ids as string[],
-      })),
+      held,
     }),
   ]);
 
@@ -402,9 +394,13 @@ export async function computeInvoice(
       spent_on: li.spentOn ?? null,
     })),
     entryIds: totals.lineItems.flatMap((li) => li.entryIds),
+    /** Every entry it priced, the non-billable and the unpriced too: what a
+     *  build holds. */
+    heldEntryIds: entries.map((e) => e.id),
     // One-offs only: a recurring expense is billed on every invoice and
     // stays unclaimed, to bill again on the next.
     expenseIds: expenses.filter((e) => !e.recurring).map((e) => e.id),
+    expenses,
   };
 }
 
@@ -426,7 +422,7 @@ async function loadManualLines(db: SupabaseClient, invoiceId: string) {
 }
 
 /**
- * A draft as its client and period stand now, keeping every choice the user
+ * A draft as the work it holds stands now, keeping every choice the user
  * made on New invoice; null for an invoice that isn't a draft. Writes
  * nothing. A draft is dated as if sent today: sending dates it.
  *
@@ -445,8 +441,7 @@ export async function deriveDraft(
 ) {
   if (row.status !== 'draft') return null;
   const manualLines = await loadManualLines(db, row.id);
-
-  const computed = await computeInvoice(db, {
+  const choices = {
     clientId: row.client_id,
     periodStart: row.period_start,
     periodEnd: row.period_end,
@@ -458,7 +453,9 @@ export async function deriveDraft(
     excludedExpenseIds: row.excluded_expense_ids,
     schedules: attachedSchedules(row.supporting_detail),
     draftId: row.id,
-  });
+  };
+
+  const computed = await computeInvoice(db, { ...choices, held: true });
   const { totals, tz } = computed;
   const {
     issueDate: issued,
@@ -472,27 +469,12 @@ export async function deriveDraft(
     printed: row.downloaded_snapshot,
   });
   const unrated = new Set(totals.unratedEntryIds);
-  /* What its PDF prints besides the lines: an edit to any of it after a
-     download is a change too, or the invoice sent would not be the client's
-     copy. */
-  const printed: Printed = {
-    periodStart: row.period_start,
-    periodEnd: row.period_end,
-    typedDueDate: row.due_date,
-    notes: row.notes,
-    reference: row.reference,
-    paymentDetails: row.payment_details,
-    supportingDetail: computed.supportingDetail,
-    tz: row.tz,
-  };
-  const change = snapshotChanged(
-    row.downloaded_snapshot,
-    draftSnapshot(totals.lineItems, totals.total, printed),
-  );
 
   return {
     tz,
     computed,
+    /** What a build of its period would take now: `draftNewWork` compares. */
+    choices,
     lines: totals.lineItems,
     row: {
       ...row,
@@ -509,21 +491,14 @@ export async function deriveDraft(
     sent,
     dueBeforeIssue: {
       download: due < issued,
-      // Changed since its PDF, it needs a new one, which `download` refuses.
-      send: sent.dueDate < sent.issueDate || (due < issued && change != null),
+      send: sent.dueDate < sent.issueDate,
     },
     unratedEntries: computed.entries
       .filter((e) => unrated.has(e.id))
       .map((e) => ({ id: e.id, taskName: e.taskName, startedAt: e.startedAt })),
-    /** For each line, whether its last PDF lacked it. */
-    isNew: newLines(row.downloaded_snapshot, totals.lineItems),
-    /** How it moved since its last PDF; null when it hasn't, or never had
-     *  one. */
-    change,
-    printed,
     /** What an edit opens with that the row as read doesn't say: the due
      *  date typed, else null, the expenses left off, and the charges. */
-    choices: {
+    edit: {
       dueDate: row.due_date,
       excludedExpenseIds: row.excluded_expense_ids,
       manualLines,
@@ -531,17 +506,55 @@ export async function deriveDraft(
   };
 }
 
+type Derived = NonNullable<Awaited<ReturnType<typeof deriveDraft>>>;
+
+/** A build of the draft's period: what it holds, and its period's work no
+ *  other draft holds. */
+const buildOf = (db: SupabaseClient, draft: Derived) =>
+  computeInvoice(db, draft.choices);
+
+/** The work in the draft's period it doesn't hold, which the owner may add;
+ *  null when there is none. */
+export async function draftNewWork(db: SupabaseClient, draft: Derived) {
+  const built = await buildOf(db, draft);
+  return newWork(
+    {
+      entryIds: draft.computed.heldEntryIds,
+      expenseIds: draft.computed.expenseIds,
+    },
+    built,
+    { taxRate: built.totals.taxRate, tz: draft.tz },
+  );
+}
+
+/** Add to draft: holds its period's new work. Work another draft took
+ *  meanwhile is left where it is. */
+export async function holdNewWork(db: SupabaseClient, draft: Derived) {
+  const built = await buildOf(db, draft);
+  const { error } = await db.rpc('hold_draft_work', {
+    p_invoice_id: draft.row.id,
+    p_entry_ids: built.heldEntryIds,
+    p_expense_ids: built.expenseIds,
+  });
+  // Sent or deleted by another request since this one read it.
+  if (dbCode(error) === 'INVOICE_STATUS_CHANGED')
+    throw new ApiError(
+      'INVOICE_STATUS_CHANGED',
+      'The invoice changed status since it was read',
+      { from: 'draft' },
+    );
+  if (error) throw error;
+}
+
 /**
- * Records what a draft's PDF showed, so Mark sent can tell when the client
- * was given a copy the draft has since moved past, and dates the invoice as
- * that copy does. A draft sent meanwhile keeps the snapshot it was sent with.
+ * Records the dates a draft's PDF printed and the template it was drawn in,
+ * so Mark sent dates the invoice as the copy the client was given. A draft
+ * sent meanwhile keeps what it was sent with.
  */
 export async function recordDownload(
   db: SupabaseClient,
   invoiceId: string,
-  draft: { lines: LineItem[]; printed: Printed },
   printed: {
-    total: number;
     issueDate: string;
     dueDate: string | null;
     template: InvoiceTemplate;
@@ -551,7 +564,6 @@ export async function recordDownload(
     .from('invoices')
     .update({
       downloaded_snapshot: {
-        ...draftSnapshot(draft.lines, printed.total, draft.printed),
         issueDate: printed.issueDate,
         dueDate: printed.dueDate,
         template: printed.template,
@@ -563,11 +575,10 @@ export async function recordDownload(
 }
 
 /**
- * Mark sent: the draft as it stands at `sentAt`, written, claimed, dated and
- * sent by `send_draft` in one transaction. It is dated as the PDF the client
- * was given, else on the send date. Refused when there is nothing to
- * send, no zone to read its dates in, an entry it can't price, or a change
- * since the PDF the client was given.
+ * Mark sent: the work the draft holds, as it stands at `sentAt`, written,
+ * claimed, dated and sent by `send_draft` in one transaction. It is dated as
+ * the PDF the client was given, else on the send date. Refused when there is
+ * nothing to send, no zone to read its dates in, or an entry it can't price.
  */
 export async function sendDraft(
   db: SupabaseClient,
@@ -586,12 +597,6 @@ export async function sendDraft(
   if (totals.unratedEntryIds.length > 0)
     throw refused(unratedRefusal(totals.unratedEntryIds));
   if (draft.lines.length === 0) throw refused(nothingToSend);
-  if (draft.change)
-    throw new ApiError(
-      'DRAFT_CHANGED',
-      'This draft changed since you downloaded it. Download the new PDF, send that one, then mark it sent.',
-      draft.change,
-    );
 
   const { sent } = draft;
   if (draft.dueBeforeIssue.send)

@@ -181,6 +181,18 @@ values
    400, 0, 0, 400, 'USD', 'task')
 on conflict (id) do nothing;
 
+-- The draft holds its period's work, as building it would have.
+update time_entries e
+   set draft_id = '00000000-0000-4000-8000-0000000000f2'
+  from projects p
+ where p.id = e.project_id
+   and p.client_id = '00000000-0000-4000-8000-0000000000c2'
+   and e.user_id = '00000000-0000-4000-8000-000000000001'
+   and e.invoice_id is null and not e.invoiced_elsewhere
+   and e.ended_at is not null
+   and e.started_at >= current_date - 45
+   and e.started_at < current_date - 15;
+
 -- Numbering must not collide with the seeded invoices.
 update user_settings
    set next_invoice_number = 3

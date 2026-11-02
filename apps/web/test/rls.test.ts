@@ -910,6 +910,19 @@ test('voiding releases what the invoice billed, in the same statement', async ()
   assert.deepEqual(rows[0], { entry: null, expense: null });
 });
 
+test('another user’s draft cannot hold your work', async () => {
+  await issueAliceInvoice('draft');
+
+  await assert.rejects(
+    () =>
+      asUser(BOB, `update time_entries set draft_id = $1 where id = $2`, [
+        ALICE_INVOICE,
+        '018f0000-0000-7000-8000-00000000000b',
+      ]),
+    /time_entries_draft_same_owner/,
+  );
+});
+
 test('an invoice cannot reference another user’s client', async () => {
   await seedBoth();
 

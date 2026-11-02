@@ -1,13 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { shortDate } from './invoice-bits';
 import {
   keepPreviousData,
-  type QueryClient,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
@@ -71,7 +68,6 @@ import { summarize } from './payment-profiles';
 import { businessOf, InvoicePreviewCard } from './invoice-preview-card';
 import { TemplatePicker, useTemplateChoice } from './template-picker';
 import { rowButton } from './row-button';
-import { PortalToast } from './toast';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
   {
@@ -578,41 +574,6 @@ function Form({
     },
   });
 
-  /* Every entry the card shows, by id: billed elsewhere marks exactly what
-     the user is looking at, never work logged since (Constitution I). */
-  const shownIds = current
-    ? [
-        ...new Set([
-          ...current.lineItems.flatMap((l) => l.entryIds),
-          ...current.unratedEntryIds,
-        ]),
-      ]
-    : [];
-  const [marked, setMarked] = useState<string[] | null>(null);
-  const dismissMarked = useCallback(() => setMarked(null), []);
-  const elsewherePress = {
-    queryKey: () => keys.entries(),
-    movesHome: true,
-    // The card loses or regains that work, as every unbilled view does.
-    invalidate: (qc: QueryClient) =>
-      Promise.all([
-        invalidateEntryData(qc),
-        qc.invalidateQueries({ queryKey: keys.invoicePreview() }),
-      ]),
-  };
-  const markElsewhere = useOptimisticMutation({
-    ...elsewherePress,
-    mutationFn: () =>
-      api.markInvoicedElsewhere({ ids: shownIds, invoicedElsewhere: true }),
-    onSuccess: (res) => setMarked(res.ids),
-  });
-  const undoElsewhere = useOptimisticMutation({
-    ...elsewherePress,
-    mutationFn: (ids: string[]) =>
-      api.markInvoicedElsewhere({ ids, invoicedElsewhere: false }),
-    onSuccess: () => setMarked(null),
-  });
-
   const toggleExpense = (id: string, bill: boolean) =>
     set(
       'excludedExpenseIds',
@@ -655,26 +616,7 @@ function Form({
     ? (editing?.paymentDetails ?? null)
     : buildPaymentDetails(profile, { invoiceNumber: number });
 
-  /* One open draft per client and date: the server refuses another, so the
-     form says which draft holds these dates before Generate is pressed. */
-  const openDrafts =
-    useQuery({
-      queryKey: [...keys.invoices(), 'drafts', draft.clientId],
-      queryFn: () =>
-        api.invoices({ clientId: draft.clientId, status: 'draft' }),
-      enabled: draft.clientId !== '',
-    }).data?.invoices ?? [];
-  const covering = openDrafts.find(
-    (i) =>
-      i.id !== editing?.id &&
-      periodStart !== '' &&
-      periodEnd !== '' &&
-      i.periodStart <= periodEnd &&
-      i.periodEnd >= periodStart,
-  );
-
   const { canGenerate, noSummaryText } = generateState({
-    covered: covering !== undefined,
     earlyDue,
     preview: current,
     updating,
@@ -702,19 +644,11 @@ function Form({
             type="button"
             variant="accent"
             onClick={() => generate.mutate()}
-            disabled={!canGenerate || markElsewhere.isPending}
+            disabled={!canGenerate}
           >
             {pressLabel(editing !== undefined, generate.isPending)}
           </Button>
         </div>
-        {marked ? (
-          <MarkedToast
-            count={marked.length}
-            undoing={undoElsewhere.isPending}
-            onUndo={() => undoElsewhere.mutate(marked)}
-            onDone={dismissMarked}
-          />
-        ) : null}
 
         {/* A fixed form, and the page up to a Letter page's width (816px):
             more would stretch the lines apart, not show more of them, so
@@ -801,20 +735,6 @@ function Form({
                 periodStart={periodStart}
                 periodEnd={periodEnd}
               />
-              {covering && client ? (
-                <p role="status" className="type-support text-warning">
-                  A draft already covers {shortDate(covering.periodStart)} –{' '}
-                  {shortDate(covering.periodEnd)} for {client.name}:{' '}
-                  <Link
-                    href={`/invoices/${covering.id}`}
-                    className="text-strong underline underline-offset-2"
-                  >
-                    {covering.invoiceNumber}
-                  </Link>
-                  . Start after {shortDate(covering.periodEnd)}, or open that
-                  draft.
-                </p>
-              ) : null}
               <Field label="Reference" htmlFor="inv-reference">
                 <Input
                   id="inv-reference"
@@ -890,7 +810,7 @@ function Form({
                 placeholder="Printed on this invoice"
                 maxLength={2000}
                 className="w-full rounded-md border border-edge-default bg-transparent px-3 py-2
-                           type-control text-strong placeholder:text-subtle outline-none
+                           type-control text-strong placeholder:text-placeholder outline-none
                            focus-visible:border-edge-focus focus-visible:ring-[3px]
                            focus-visible:ring-edge-focus"
               />
@@ -932,26 +852,7 @@ function Form({
               footnote={
                 editing
                   ? 'Saving keeps its number.'
-                  : 'Generating assigns a number and locks these entries.'
-              }
-              entryAction={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => markElsewhere.mutate()}
-                  disabled={
-                    shownIds.length === 0 ||
-                    updating ||
-                    preview.isError ||
-                    markElsewhere.isPending ||
-                    generate.isPending
-                  }
-                >
-                  {markElsewhere.isPending
-                    ? 'Marking…'
-                    : 'Already billed this?'}
-                </Button>
+                  : 'Generating assigns a number and holds these entries for this draft.'
               }
             >
               <PreviewNotices
@@ -999,45 +900,6 @@ function Form({
   );
 }
 
-/** How long the Undo stays offered. Past it, each entry's dialog clears it. */
-const UNDO_MS = 8000;
-
-function MarkedToast({
-  count,
-  undoing,
-  onUndo,
-  onDone,
-}: {
-  count: number;
-  undoing: boolean;
-  onUndo: () => void;
-  onDone: () => void;
-}) {
-  useEffect(() => {
-    if (undoing) return;
-    const t = setTimeout(onDone, UNDO_MS);
-    return () => clearTimeout(t);
-  }, [undoing, onDone]);
-  if (count === 0)
-    return (
-      <PortalToast>Nothing marked: that work is on an invoice now.</PortalToast>
-    );
-  return (
-    <PortalToast>
-      {count} {count === 1 ? 'entry' : 'entries'} marked billed elsewhere
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={onUndo}
-        disabled={undoing}
-      >
-        {undoing ? 'Undoing…' : 'Undo'}
-      </Button>
-    </PortalToast>
-  );
-}
-
 const pressLabel = (editing: boolean, pending: boolean) => {
   if (editing) return pending ? 'Saving…' : 'Save draft';
   return pending ? 'Generating…' : 'Generate invoice';
@@ -1056,8 +918,6 @@ function missingDetails(client: Pick<Client, 'address' | 'email'>) {
  * it waits for a current, complete answer from the server.
  */
 function generateState(s: {
-  /** An open draft for this client holds some of these dates. */
-  covered: boolean;
   /** Due is before the issue date, which the server refuses. */
   earlyDue: boolean;
   /** The server's answer for this client; `undefined` before one. */
@@ -1082,7 +942,6 @@ function generateState(s: {
     !noSummaryText;
   const canGenerate =
     complete &&
-    !s.covered &&
     !s.earlyDue &&
     s.hasSettings &&
     s.hasSender &&
