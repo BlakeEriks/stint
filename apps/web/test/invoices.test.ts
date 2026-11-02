@@ -4451,3 +4451,48 @@ for (const [what, change, old] of [
     assert.equal(sent.status, 200, JSON.stringify(sent.body));
     if ('dueDate' in change) assert.equal(sent.body.dueDate, change.dueDate);
   });
+
+/* A draft downloaded while payment details carried `notes` holds a copy of
+   them; choosing the same details again freezes them without it, which is
+   no change to the PDF. */
+test('a draft frozen with payment notes, chosen again after the backfill, still sends', async () => {
+  const r = await live();
+  const { POST: createProfile } = await import(
+    '../src/app/api/v1/payment-profiles/route.ts'
+  );
+  const ach = await json(
+    await createProfile(req('/pp', { name: 'ACH', accountNumber: '111' })),
+  );
+  await seedEntry({ id: D(1), hours: 2 });
+  const body = { clientId: CLIENT, ...PERIOD };
+  const inv = await json(await r.create(req('/invoices', body)));
+  await pool.query(
+    `update invoices set payment_details = payment_details || '{"notes": null}'
+      where id = $1`,
+    [inv.body.id],
+  );
+  await r.pdf(req('/pdf?tz=UTC'), at(inv.body.id));
+  const { readFileSync } = await import('node:fs');
+  await pool.query(
+    readFileSync(
+      new URL(
+        '../../../supabase/migrations/20261102121326_backfill_drop_payment_notes.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
+
+  const edited = await edit(inv.body.id, {
+    ...body,
+    paymentProfileId: ach.body.id,
+  });
+  assert.equal(edited.status, 200, JSON.stringify(edited.body));
+  const sent = await json(
+    await r.setStatus(
+      req('/s?tz=UTC', { status: 'sent' }, 'PATCH'),
+      at(inv.body.id),
+    ),
+  );
+  assert.equal(sent.status, 200, JSON.stringify(sent.body));
+});
