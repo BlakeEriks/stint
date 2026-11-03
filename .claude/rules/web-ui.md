@@ -156,7 +156,7 @@ a different order, and the ones that drifted were rebuilt:
 | What a form still lacks, shown on Save | `useMissing()` (`lib/client/use-missing.ts`) into `Field`'s `error` |
 | Any action | `Button`, sized and varied by the tables in `ui/button.tsx` |
 | A destructive action in a dialog's footer | `ConfirmAction` |
-| A press that takes many records at once and can't come back | `ConfirmDialog` |
+| A press that takes many records at once and can't come back: Mark sent, Void, Delete draft, Delete account | `ConfirmDialog`; `AskFirst` is a button and its `ConfirmDialog` |
 | An invoice's status | `StatusBadge` |
 | Money, dates, durations | `Money`, `formatCurrency`, `shortDate` — never `toLocaleString` at the call site |
 | A client's color | `useProjectColors()`, `Swatch` |

@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
 import {
   Dialog,
@@ -87,5 +87,53 @@ export function ConfirmDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** A button that opens its own `ConfirmDialog`. Its label and icon are the
+    confirm's, so both read as one press; `danger` draws it as a quiet red
+    ghost (`.claude/rules/web-ui.md`). */
+export function AskFirst({
+  press,
+  disabled,
+  onConfirm,
+  ...ask
+}: Omit<
+  Parameters<typeof ConfirmDialog>[0],
+  'open' | 'onOpenChange' | 'pending' | 'error'
+> & {
+  press: { isPending: boolean; reset: () => void; error: unknown };
+  disabled?: boolean;
+}) {
+  const [asking, setAsking] = useState(false);
+  return (
+    <>
+      <Button
+        type="button"
+        variant={ask.tone === 'danger' ? 'ghost' : 'default'}
+        className={
+          ask.tone === 'danger'
+            ? 'text-danger hover:bg-danger-muted hover:text-danger'
+            : undefined
+        }
+        disabled={disabled || press.isPending}
+        onClick={() => {
+          // A refusal from an earlier press must not read as this one's.
+          press.reset();
+          setAsking(true);
+        }}
+      >
+        {ask.icon}
+        {ask.confirmLabel}
+      </Button>
+      <ConfirmDialog
+        {...ask}
+        open={asking}
+        onOpenChange={setAsking}
+        pending={press.isPending}
+        error={press.error}
+        onConfirm={onConfirm}
+      />
+    </>
   );
 }

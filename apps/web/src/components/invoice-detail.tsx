@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   useQuery,
@@ -22,15 +21,14 @@ import {
   Lock,
   Pencil,
   Plus,
-  Send,
   Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ConfirmDialog } from './confirm-dialog';
+import { AskFirst } from './confirm-dialog';
 import { shortDate, StatusBadge } from './invoice-bits';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
-import { MarkSentDialog } from './mark-sent-dialog';
+import { entries, markSentAsk } from './mark-sent-dialog';
 import { PRICE } from './plan-section';
 import {
   attachedSchedules,
@@ -204,10 +202,11 @@ function Loaded({
           {isDraft ? (
             <AskFirst
               title={`Delete ${invoice.invoiceNumber}`}
-              description={`The draft and its ${total} total go for good. Its ${entries(invoice.entryCount)} and any expenses on it go back to unbilled.`}
+              description={`The draft and its ${total} total go for good. Its ${entries(invoice.entryCount ?? 0)} and any expenses on it go back to unbilled.`}
               confirmLabel="Delete draft"
               pendingLabel="Deleting…"
               icon={<Trash2 aria-hidden strokeWidth={1.75} />}
+              tone="danger"
               // Deleted, it stays pending until the list arrives.
               press={{
                 ...remove,
@@ -234,16 +233,23 @@ function Loaded({
               confirmLabel="Void"
               pendingLabel="Voiding…"
               icon={<Ban aria-hidden strokeWidth={1.75} />}
+              tone="danger"
               press={setStatus}
               onConfirm={() => setStatus.mutate({ status: 'void' })}
             />
           ) : null}
 
           {isDraft ? (
-            <MarkSent
-              invoice={invoice}
-              setStatus={setStatus}
-              disabled={refuses.send}
+            <AskFirst
+              {...markSentAsk({
+                invoiceNumber: invoice.invoiceNumber,
+                entryCount: invoice.entryCount ?? 0,
+                total: invoice.total ?? 0,
+                currency: invoice.currency,
+              })}
+              press={setStatus}
+              disabled={refuses.send || invoice.entryCount == null}
+              onConfirm={() => setStatus.mutate({ status: 'sent' })}
             />
           ) : null}
 
@@ -321,109 +327,6 @@ function Loaded({
       />
 
       <MarkPaidDialog {...markPaid.dialog} />
-    </>
-  );
-}
-
-const entries = (n: number | null | undefined) =>
-  `${n ?? 0} entr${n === 1 ? 'y' : 'ies'}`;
-
-/** Delete draft or Void: a quiet red ghost (`.claude/rules/web-ui.md`) whose
-    press can't be taken back, so it asks in a dialog that says what goes. */
-function AskFirst({
-  title,
-  description,
-  confirmLabel,
-  pendingLabel,
-  icon,
-  press,
-  onConfirm,
-}: {
-  title: string;
-  description: string;
-  confirmLabel: string;
-  pendingLabel: string;
-  icon: ReactNode;
-  press: { isPending: boolean; reset: () => void; error: unknown };
-  onConfirm: () => void;
-}) {
-  const [asking, setAsking] = useState(false);
-  return (
-    <>
-      <Button
-        type="button"
-        variant="ghost"
-        className="text-danger hover:bg-danger-muted hover:text-danger"
-        disabled={press.isPending}
-        onClick={() => {
-          // A refusal from an earlier press must not read as this one's.
-          press.reset();
-          setAsking(true);
-        }}
-      >
-        {icon}
-        {confirmLabel}
-      </Button>
-      <ConfirmDialog
-        open={asking}
-        onOpenChange={setAsking}
-        title={title}
-        description={description}
-        confirmLabel={confirmLabel}
-        pendingLabel={pendingLabel}
-        icon={icon}
-        tone="danger"
-        pending={press.isPending}
-        error={press.error}
-        onConfirm={onConfirm}
-      />
-    </>
-  );
-}
-
-/** Mark sent, and the dialog it asks in. */
-function MarkSent({
-  invoice,
-  setStatus,
-  disabled,
-}: {
-  invoice: Shown;
-  setStatus: {
-    mutate: (args: { status: InvoiceStatus }) => void;
-    isPending: boolean;
-    reset: () => void;
-    error: unknown;
-  };
-  disabled: boolean;
-}) {
-  const [asking, setAsking] = useState(false);
-  return (
-    <>
-      <Button
-        onClick={() => {
-          // A refusal from an earlier press must not read as this one's.
-          setStatus.reset();
-          setAsking(true);
-        }}
-        disabled={disabled || invoice.entryCount == null}
-      >
-        <Send aria-hidden strokeWidth={1.75} />
-        Mark sent
-      </Button>
-      {/* Sent, the draft and this go with it. */}
-      <MarkSentDialog
-        open={asking}
-        onOpenChange={setAsking}
-        invoice={{
-          invoiceNumber: invoice.invoiceNumber,
-          entryCount: invoice.entryCount ?? 0,
-          total: invoice.total ?? 0,
-          currency: invoice.currency,
-        }}
-        pending={setStatus.isPending}
-        error={setStatus.error}
-        onConfirm={() => setStatus.mutate({ status: 'sent' })}
-      />
     </>
   );
 }

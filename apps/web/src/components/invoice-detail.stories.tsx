@@ -287,7 +287,6 @@ const ask = async (canvasElement: HTMLElement, trigger: string) => {
   return within(await page.findByRole('dialog'));
 };
 
-/** Delete draft asks in a dialog that says what goes; Keep takes it back. */
 export const ConfirmDelete: Story = {
   ...desktop,
   parameters: fourteen,
@@ -346,8 +345,6 @@ export const Voiding: Story = {
   },
 };
 
-/** A refused void stays in the dialog, beside why it failed, and can be
-    pressed again. */
 export const VoidRefusedPhone: Story = {
   ...phone,
   args: { id: invoice(14) },

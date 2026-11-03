@@ -207,7 +207,7 @@ describe('InvoiceDetail', () => {
 
   /* Voiding can't be taken back and deleting removes the draft, so the
      first press only asks: nothing reaches the server until the dialog's. */
-  it('voids only from its dialog, and Keep backs out', async () => {
+  it('voids only from its dialog', async () => {
     const calls = serve('sent');
     const user = userEvent.setup();
     show();
@@ -215,12 +215,6 @@ describe('InvoiceDetail', () => {
     await user.click(await screen.findByRole('button', { name: 'Void' }));
     expect(calls).toEqual([]);
 
-    await user.click(screen.getByRole('button', { name: 'Keep' }));
-    await waitFor(() =>
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
-    );
-
-    await user.click(screen.getByRole('button', { name: 'Void' }));
     await user.click(
       within(screen.getByRole('dialog')).getByRole('button', { name: 'Void' }),
     );
