@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   useQuery,
@@ -26,7 +26,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ConfirmAction, confirmRow } from './confirm-action';
+import { ConfirmDialog } from './confirm-dialog';
 import { shortDate, StatusBadge } from './invoice-bits';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
@@ -169,7 +169,13 @@ function Loaded({
     error: unknown;
   };
   addWork: { mutate: () => void; isPending: boolean };
-  remove: { mutate: () => void; isPending: boolean; isSuccess: boolean };
+  remove: {
+    mutate: () => void;
+    isPending: boolean;
+    isSuccess: boolean;
+    reset: () => void;
+    error: unknown;
+  };
   markPaid: ReturnType<typeof useMarkPaid>;
   /* Picked ONCE by the caller. Re-evaluating `a ?? b` for the check and again
      for the message could type-check a stale error while printing a different
@@ -180,6 +186,7 @@ function Loaded({
   const isVoid = invoice.status === 'void';
   const unrated = invoice.unratedEntries ?? [];
   const refuses = invoice.refuses ?? { download: false, send: false };
+  const total = formatCurrency(invoice.total ?? 0, invoice.currency);
 
   return (
     <>
@@ -193,21 +200,21 @@ function Loaded({
           <StatusBadge status={invoice.status} />
         </div>
 
-        <div className={`flex flex-wrap items-center gap-2 ${confirmRow}`}>
-          {/* Deleting removes the draft and voiding can't be undone, so each
-              asks first. */}
+        <div className="flex flex-wrap items-center gap-2">
           {isDraft ? (
-            <ConfirmAction
-              label={`Delete ${invoice.invoiceNumber} for good`}
+            <AskFirst
+              title={`Delete ${invoice.invoiceNumber}`}
+              description={`The draft and its ${total} total go for good. Its ${entries(invoice.entryCount)} and any expenses on it go back to unbilled.`}
+              confirmLabel="Delete draft"
               pendingLabel="Deleting…"
-              takesRow
+              icon={<Trash2 aria-hidden strokeWidth={1.75} />}
               // Deleted, it stays pending until the list arrives.
-              pending={remove.isPending || remove.isSuccess}
+              press={{
+                ...remove,
+                isPending: remove.isPending || remove.isSuccess,
+              }}
               onConfirm={() => remove.mutate()}
-            >
-              <Trash2 aria-hidden strokeWidth={1.75} />
-              Delete draft
-            </ConfirmAction>
+            />
           ) : null}
 
           {/* "Edit", not "Edit draft": the row stays on the title's line. */}
@@ -221,16 +228,15 @@ function Loaded({
           ) : null}
 
           {!isVoid && !isDraft ? (
-            <ConfirmAction
-              label={`Void ${invoice.invoiceNumber}`}
+            <AskFirst
+              title={`Void ${invoice.invoiceNumber}`}
+              description={`Its ${total} is no longer owed, and its entries and expenses can be billed again. The number stays, marked void, and voiding can't be undone.`}
+              confirmLabel="Void"
               pendingLabel="Voiding…"
-              takesRow
-              pending={setStatus.isPending}
+              icon={<Ban aria-hidden strokeWidth={1.75} />}
+              press={setStatus}
               onConfirm={() => setStatus.mutate({ status: 'void' })}
-            >
-              <Ban aria-hidden strokeWidth={1.75} />
-              Void
-            </ConfirmAction>
+            />
           ) : null}
 
           {isDraft ? (
@@ -315,6 +321,62 @@ function Loaded({
       />
 
       <MarkPaidDialog {...markPaid.dialog} />
+    </>
+  );
+}
+
+const entries = (n: number | null | undefined) =>
+  `${n ?? 0} entr${n === 1 ? 'y' : 'ies'}`;
+
+/** Delete draft or Void: a quiet red ghost (`.claude/rules/web-ui.md`) whose
+    press can't be taken back, so it asks in a dialog that says what goes. */
+function AskFirst({
+  title,
+  description,
+  confirmLabel,
+  pendingLabel,
+  icon,
+  press,
+  onConfirm,
+}: {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  pendingLabel: string;
+  icon: ReactNode;
+  press: { isPending: boolean; reset: () => void; error: unknown };
+  onConfirm: () => void;
+}) {
+  const [asking, setAsking] = useState(false);
+  return (
+    <>
+      <Button
+        type="button"
+        variant="ghost"
+        className="text-danger hover:bg-danger-muted hover:text-danger"
+        disabled={press.isPending}
+        onClick={() => {
+          // A refusal from an earlier press must not read as this one's.
+          press.reset();
+          setAsking(true);
+        }}
+      >
+        {icon}
+        {confirmLabel}
+      </Button>
+      <ConfirmDialog
+        open={asking}
+        onOpenChange={setAsking}
+        title={title}
+        description={description}
+        confirmLabel={confirmLabel}
+        pendingLabel={pendingLabel}
+        icon={icon}
+        tone="danger"
+        pending={press.isPending}
+        error={press.error}
+        onConfirm={onConfirm}
+      />
     </>
   );
 }

@@ -280,56 +280,55 @@ export const BillingNotSetUp: Story = {
   },
 };
 
-/** Where the invoice starts, below the header a confirm must not grow. */
-const below = (page: ReturnType<typeof within>) =>
-  page.getByText('Amount due').getBoundingClientRect().y;
+/** Opens a confirm from the header and returns its dialog. */
+const ask = async (canvasElement: HTMLElement, trigger: string) => {
+  const page = within(canvasElement.ownerDocument.body);
+  await userEvent.click(await page.findByRole('button', { name: trigger }));
+  return within(await page.findByRole('dialog'));
+};
 
-/** The first press of a destructive pair only asks; the second names it. */
-const press =
-  (first: string, then?: string) =>
-  async ({ canvasElement }: { canvasElement: HTMLElement }) => {
-    const page = within(canvasElement);
-    await userEvent.click(await page.findByRole('button', { name: first }));
-    if (then) await userEvent.click(page.getByRole('button', { name: then }));
-  };
-
+/** Delete draft asks in a dialog that says what goes; Keep takes it back. */
 export const ConfirmDelete: Story = {
   ...desktop,
-  play: async (ctx) => {
-    const page = within(ctx.canvasElement);
-    await page.findByText('Amount due');
-    const before = below(page);
-    await press('Delete draft')(ctx);
+  parameters: fourteen,
+  play: async ({ canvasElement }) => {
+    const dialog = await ask(canvasElement, 'Delete draft');
     await expect(
-      page.getByRole('button', { name: 'Delete STINT-0015 for good' }),
+      dialog.getByText(
+        'The draft and its $2,787.60 total go for good. Its 14 entries and any expenses on it go back to unbilled.',
+      ),
     ).toBeVisible();
-    // The confirm takes the row rather than wrapping it.
-    await expect(below(page)).toBe(before);
+    await userEvent.click(dialog.getByRole('button', { name: 'Keep' }));
+    await waitFor(() =>
+      expect(
+        within(canvasElement.ownerDocument.body).queryByRole('dialog'),
+      ).toBeNull(),
+    );
   },
 };
 
 export const Deleting: Story = {
   ...desktop,
   parameters: stalled('deleteInvoice'),
-  play: async (ctx) => {
-    await press('Delete draft', 'Delete STINT-0015 for good')(ctx);
+  play: async ({ canvasElement }) => {
+    const dialog = await ask(canvasElement, 'Delete draft');
+    await userEvent.click(dialog.getByRole('button', { name: 'Delete draft' }));
     await expect(
-      await within(ctx.canvasElement).findByRole('button', {
-        name: 'Deleting…',
-      }),
+      await dialog.findByRole('button', { name: 'Deleting…' }),
     ).toBeDisabled();
+    await expect(dialog.getByRole('button', { name: 'Keep' })).toBeDisabled();
   },
 };
 
 export const ConfirmVoid: Story = {
   ...desktop,
   args: { id: invoice(14) },
-  play: async (ctx) => {
-    await press('Void')(ctx);
+  play: async ({ canvasElement }) => {
+    const dialog = await ask(canvasElement, 'Void');
     await expect(
-      within(ctx.canvasElement).getByRole('button', {
-        name: 'Void STINT-0014',
-      }),
+      dialog.getByText(
+        /is no longer owed, and its entries and expenses can be billed again/,
+      ),
     ).toBeVisible();
   },
 };
@@ -338,28 +337,26 @@ export const Voiding: Story = {
   ...desktop,
   args: { id: invoice(14) },
   parameters: stalled('updateInvoiceStatus'),
-  play: async (ctx) => {
-    await press('Void', 'Void STINT-0014')(ctx);
+  play: async ({ canvasElement }) => {
+    const dialog = await ask(canvasElement, 'Void');
+    await userEvent.click(dialog.getByRole('button', { name: 'Void' }));
     await expect(
-      await within(ctx.canvasElement).findByRole('button', {
-        name: 'Voiding…',
-      }),
+      await dialog.findByRole('button', { name: 'Voiding…' }),
     ).toBeDisabled();
   },
 };
 
-/** A refused void hands the row back, beside why it failed. */
+/** A refused void stays in the dialog, beside why it failed, and can be
+    pressed again. */
 export const VoidRefusedPhone: Story = {
   ...phone,
   args: { id: invoice(14) },
   parameters: failing('updateInvoiceStatus'),
-  play: async (ctx) => {
-    const page = within(ctx.canvasElement);
-    await press('Void', 'Void STINT-0014')(ctx);
-    await page.findByRole('alert');
-    await expect(
-      await page.findByRole('button', { name: 'Void' }),
-    ).toBeVisible();
+  play: async ({ canvasElement }) => {
+    const dialog = await ask(canvasElement, 'Void');
+    await userEvent.click(dialog.getByRole('button', { name: 'Void' }));
+    await expect(await dialog.findByRole('alert')).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Void' })).toBeEnabled();
   },
 };
 
