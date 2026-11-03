@@ -268,7 +268,7 @@ disagree about the same work. A read the write's answer included
 **A query renders through `Listing`**, which owns loading, failure and empty,
 so no screen writes those branches. A grid is the exception to empty: an
 empty day still draws its grid, the only place a pointer adds an entry, so
-the calendar and Today write their own empty line beside it.
+the calendar writes its own empty line beside it; Today shows the grid alone.
 
 **A region paints once, with all its data.** Hand `Listing` every query the
 region draws, as a tuple, and nothing of it renders until all have answered;
