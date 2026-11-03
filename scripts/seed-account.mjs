@@ -68,6 +68,20 @@ const SEED_SCENARIOS = {
       [userId, rows[0].next_invoice_number],
     );
   },
+  /* Welcomed and set up, with nothing tracked and nothing to track against:
+     Home's first-run intro. Unlike `--clear`, the welcome dialog stays out
+     of the way. Invoices first, so their entries can go. */
+  'no-data': async (userId) => {
+    for (const table of [
+      'invoices',
+      'expenses',
+      'time_entries',
+      'projects',
+      'clients',
+    ]) {
+      await db.query(`delete from ${table} where user_id = $1`, [userId]);
+    }
+  },
 };
 
 if (process.argv[2] === '--scenarios') {
