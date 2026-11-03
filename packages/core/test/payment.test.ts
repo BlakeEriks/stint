@@ -61,13 +61,6 @@ test('an empty profile renders nothing rather than an empty section', () => {
   assert.equal(buildPaymentDetails(undefined), null);
 });
 
-test('a profile with only notes still renders', () => {
-  const d = buildPaymentDetails({ notes: 'Mail checks to the address above.' });
-  assert.ok(d);
-  assert.equal(d.fields.length, 0);
-  assert.equal(d.notes, 'Mail checks to the address above.');
-});
-
 test('international fields appear only when populated', () => {
   const d = buildPaymentDetails({
     ...us,

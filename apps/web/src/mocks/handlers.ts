@@ -286,7 +286,6 @@ const EMPTY_PROFILE: Omit<PaymentProfile, 'id' | 'name' | 'isDefault'> = {
   paymentLinkUrl: null,
   currency: null,
   feeAllocation: null,
-  notes: null,
   archivedAt: null,
 };
 

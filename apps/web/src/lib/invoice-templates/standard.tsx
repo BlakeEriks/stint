@@ -168,7 +168,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 0.5,
     borderTopColor: print.rule,
   },
-  payNotes: { marginTop: 8, fontSize: 8.5, color: print.muted },
   payLink: {
     marginTop: 8,
     fontSize: 9,

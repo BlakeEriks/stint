@@ -342,7 +342,6 @@ export function seed(now: Date): Db {
         paymentLinkUrl: null,
         currency: 'USD',
         feeAllocation: null,
-        notes: null,
         archivedAt: null,
       },
       {
@@ -367,7 +366,6 @@ export function seed(now: Date): Db {
         paymentLinkUrl: null,
         currency: 'USD',
         feeAllocation: 'SHA',
-        notes: null,
         archivedAt: null,
       },
     ],

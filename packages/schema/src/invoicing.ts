@@ -227,7 +227,6 @@ const PaymentDetailsSnapshot = z.object({
   fields: z.array(z.object({ label: z.string(), value: z.string() })),
   intermediary: z.array(z.object({ label: z.string(), value: z.string() })),
   link: z.object({ label: z.string(), url: z.string() }).nullable(),
-  notes: z.string().nullable(),
 });
 
 export const InvoiceStatus = z.enum(['draft', 'sent', 'paid', 'void']);
