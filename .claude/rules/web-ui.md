@@ -210,7 +210,6 @@ anticipation of one.
   `components/row-button.ts`).
 - **A failure renders beside the thing that failed**, and a failed load is
   neutral, never red — it is a condition, and the answer is to try again.
-- **An empty state says what to do**, or what the consequence is.
 - **Archive, never delete**, wherever invoices or entries reference the
   record.
 - **A picker row is swatch, name, then the client muted.** Internal work gets
