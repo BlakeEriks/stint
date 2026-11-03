@@ -507,7 +507,9 @@ async function fitsWhole(canvasElement: HTMLElement) {
 /** Past `2xl` the frame is capped, and Home fits it whole. */
 export const Wide: Story = {
   ...wide,
-  play: ({ canvasElement }) => fitsWhole(canvasElement),
+  play: async ({ canvasElement }) => {
+    await fitsWhole(canvasElement);
+  },
 };
 
 /** A 13-inch MacBook shows Home whole, even with a dozen clients in the
