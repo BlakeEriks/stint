@@ -22,16 +22,21 @@ const WORD: Record<Exclude<SaveState, 'idle'>, string> = {
  * "did that land?" and nothing else.
  */
 export function SaveIndicator({ state }: { state: SaveState }) {
-  // Holds the widest word's room, so a save starting never rewraps the row.
+  // Holds the widest word's room, unshrunk, so a save starting never
+  // rewraps the row.
   if (state === 'idle')
     return (
       <span
         aria-hidden
-        className="invisible type-support before:content-['Not_saved']"
+        data-word={WORD.error}
+        className="invisible shrink-0 whitespace-nowrap type-support before:content-[attr(data-word)]"
       />
     );
   return (
-    <span role="status" className={`type-support ${TONE[state]}`}>
+    <span
+      role="status"
+      className={`shrink-0 whitespace-nowrap type-support ${TONE[state]}`}
+    >
       {WORD[state]}
     </span>
   );
