@@ -15,8 +15,7 @@ import {
 } from '@stint/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Field, inputClass, textareaClass } from './field';
-import { BILL_TO_PLACEHOLDER } from './client-form';
+import { ADDRESS_PLACEHOLDER, Field, inputClass, textareaClass } from './field';
 import { ClientPicker } from './client-picker';
 import {
   DropdownMenu,
@@ -983,7 +982,7 @@ function useBillTo(client: Client | undefined) {
           value={value.address}
           onChange={(e) => type('address', e.target.value)}
           onBlur={() => commit('address')}
-          placeholder={BILL_TO_PLACEHOLDER}
+          placeholder={ADDRESS_PLACEHOLDER}
           className={textareaClass}
         />
       </Field>

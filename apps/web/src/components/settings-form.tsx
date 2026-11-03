@@ -7,7 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { type Segment, SegmentedControl } from './segmented-control';
-import { Field, Section, textareaClass } from './field';
+import { ADDRESS_PLACEHOLDER, Field, Section, textareaClass } from './field';
 import { parseRate, RateInput, UnitInput } from './rate-input';
 import { SaveIndicator } from './save-indicator';
 import { useAutosave } from '@/lib/client/use-autosave';
@@ -220,7 +220,7 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
             onChange={(e) =>
               setIdentity('businessAddress', e.target.value || null)
             }
-            placeholder={'123 Main St\nAustin, TX 78701'}
+            placeholder={ADDRESS_PLACEHOLDER}
             className={textareaClass}
           />
         </Field>

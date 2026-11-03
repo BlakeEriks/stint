@@ -179,3 +179,7 @@ export const textareaClass =
   'w-full rounded-md border border-edge-default bg-transparent px-3 py-2 type-control ' +
   'text-strong placeholder:text-placeholder outline-none focus-visible:border-edge-focus ' +
   'focus-visible:ring-[3px] focus-visible:ring-edge-focus';
+
+/** Every address textarea leads with the Attn line, so users know it goes on top. */
+export const ADDRESS_PLACEHOLDER =
+  'Attn: John Smith\n123 Main St\nAustin, TX 78701';

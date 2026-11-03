@@ -28,7 +28,7 @@ import {
 import { DescribedSelectItem } from './described-select-item';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { ColorPicker } from './color-picker';
-import { Field, inputClass } from './field';
+import { ADDRESS_PLACEHOLDER, Field, inputClass } from './field';
 import { RateInput, isValidRate, missingRate, parseRate } from './rate-input';
 import { EMAIL, useMissing, type Missing } from '@/lib/client/use-missing';
 import { api, ApiError, type Client, type ClientInput } from '@/lib/client/api';
@@ -139,7 +139,7 @@ export function ClientForm({
           rows={3}
           value={address}
           onChange={(e) => setAddress(e.target.value)}
-          placeholder={BILL_TO_PLACEHOLDER}
+          placeholder={ADDRESS_PLACEHOLDER}
           className="w-full rounded-md border border-edge-default bg-transparent px-3 py-2
                      type-control text-strong placeholder:text-placeholder outline-none
                      focus-visible:border-edge-focus focus-visible:ring-[3px]
@@ -345,9 +345,6 @@ function ScheduleField({
     </div>
   );
 }
-
-export const BILL_TO_PLACEHOLDER =
-  'Attn: John Smith\n123 Main St\nAustin, TX 78701';
 
 /**
  * Pending: the server validates the client, and the form stays to say what
