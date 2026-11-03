@@ -15,7 +15,8 @@ import {
 } from '@stint/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Field, inputClass } from './field';
+import { Field, inputClass, textareaClass } from './field';
+import { BILL_TO_PLACEHOLDER } from './client-form';
 import { ClientPicker } from './client-picker';
 import {
   DropdownMenu,
@@ -62,7 +63,6 @@ import { ExpenseRow } from './expense-row';
 import { type Charge, ChargeDialog } from './charge-dialog';
 import { PaymentProfileDialog } from './payment-profile-dialog';
 import { missingBusiness, SenderNotice } from './business-dialog';
-import { ClientDialog } from './client-dialog';
 import { NumberDialog } from './number-dialog';
 import { summarize } from './payment-profiles';
 import { businessOf, InvoicePreviewCard } from './invoice-preview-card';
@@ -510,7 +510,7 @@ function Form({
   /* `'new'` adds a charge; a key, edits that one. */
   const chargeDialog = useDialog<string>();
   const [newProfileOpen, setNewProfileOpen] = useState(false);
-  const [clientOpen, setClientOpen] = useState(false);
+  const billTo = useBillTo(client);
 
   /* Only what decides the lines is sent, so a due date or a tick never asks
      the server again. */
@@ -544,6 +544,7 @@ function Form({
   const generate = useOptimisticMutation({
     queryKey: () => keys.invoices(),
     inline: true,
+    serial: BILL_TO_LANE,
     // Generation marks the entries and expenses invoiced, so they leave
     // every unbilled view.
     invalidate: (qc) =>
@@ -553,6 +554,16 @@ function Form({
         invalidateEntryData(qc),
       ]),
     mutationFn: () => {
+      // A Bill to save queued before this press may have been refused.
+      const saved = qc
+        .getQueryData<{ clients: Client[] }>(keys.clients())
+        ?.clients.find((c) => c.id === draft.clientId);
+      if (
+        saved &&
+        (saved.address !== billTo.shown?.address ||
+          saved.email !== billTo.shown?.email)
+      )
+        return Promise.reject(new UnsavedBillTo());
       const choices = {
         ...billed,
         schedules,
@@ -624,6 +635,7 @@ function Form({
     hasSettings: settings !== undefined,
     hasSender: !noSender,
     generating: generate.isPending,
+    unsavedBillTo: billTo.unsaved,
     groupingMode,
     summaryText,
   });
@@ -663,25 +675,7 @@ function Form({
             {/* First on the form: it is why Generate is disabled. */}
             <SenderNotice settings={settings} />
             <div className="flex flex-col gap-4">
-              <Field
-                label="Client"
-                htmlFor="inv-client"
-                required
-                hint={
-                  client && missingDetails(client) ? (
-                    <span className="text-danger">
-                      {missingDetails(client)} ·{' '}
-                      <button
-                        type="button"
-                        onClick={() => setClientOpen(true)}
-                        className="rounded-sm underline hover:text-strong focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
-                      >
-                        Edit client
-                      </button>
-                    </span>
-                  ) : undefined
-                }
-              >
+              <Field label="Client" htmlFor="inv-client" required>
                 {/* A draft keeps its client: another is a new invoice. */}
                 <ClientPicker
                   id="inv-client"
@@ -699,6 +693,7 @@ function Form({
                   placeholder="Choose a client…"
                 />
               </Field>
+              {billTo.fields}
               <div className="flex flex-wrap gap-4">
                 <DateField
                   id="inv-from"
@@ -839,7 +834,7 @@ function Form({
             <InvoicePreviewCard
               noSender={noSender}
               preview={current}
-              client={client}
+              client={billTo.shown}
               business={businessOf(settings)}
               number={number}
               issued={issued}
@@ -884,13 +879,6 @@ function Form({
         onSave={saveCharge}
         onRemove={chargeDialog.subject !== 'new' ? removeCharge : undefined}
       />
-      {/* No Archive: the draft would keep a client the picker has dropped. */}
-      <ClientDialog
-        open={clientOpen}
-        onOpenChange={setClientOpen}
-        client={client}
-        archivable={false}
-      />
       <PaymentProfileDialog
         open={newProfileOpen}
         onOpenChange={setNewProfileOpen}
@@ -905,12 +893,95 @@ const pressLabel = (editing: boolean, pending: boolean) => {
   return pending ? 'Generating…' : 'Generate invoice';
 };
 
-/** What Bill to will lack, said; null when it has both. */
-function missingDetails(client: Pick<Client, 'address' | 'email'>) {
-  if (client.address && client.email) return null;
-  if (client.address) return 'No email';
-  if (client.email) return 'No address';
-  return 'No address or email';
+class UnsavedBillTo extends Error {
+  constructor() {
+    super("Bill to wasn't saved to the client, so nothing was generated.");
+  }
+}
+
+/** Generate queues behind a Bill to save, so the invoice it freezes has it. */
+const BILL_TO_LANE = 'client-bill-to';
+
+type BillToField = 'address' | 'email';
+
+/**
+ * Leaving a field saves it to the client, which every later invoice reads.
+ * An issued invoice keeps its own copy.
+ */
+function useBillTo(client: Client | undefined) {
+  const [typed, setTyped] = useState<{
+    id: string;
+    address: string;
+    email: string;
+  }>();
+  const save = useOptimisticMutation({
+    queryKey: () => keys.clients(),
+    serial: BILL_TO_LANE,
+    predict: (
+      current: { clients: Client[] } | undefined,
+      v: { id: string; field: BillToField; value: string | null },
+    ) =>
+      current && {
+        ...current,
+        clients: current.clients.map((c) =>
+          c.id === v.id ? { ...c, [v.field]: v.value } : c,
+        ),
+      },
+    mutationFn: ({ id, field, value }) =>
+      api.updateClient(id, { [field]: value }),
+  });
+  if (!client) return { shown: undefined, fields: null, unsaved: false };
+
+  const value =
+    typed?.id === client.id
+      ? typed
+      : {
+          id: client.id,
+          address: client.address ?? '',
+          email: client.email ?? '',
+        };
+  const address = value.address.trim() || null;
+  const email = value.email.trim() || null;
+  const shown = { ...client, address, email };
+  const type = (field: BillToField, v: string) =>
+    setTyped({ ...value, [field]: v });
+  const commit = (field: BillToField) => {
+    const next = field === 'address' ? address : email;
+    if (next !== client[field])
+      save.mutate({ id: client.id, field, value: next });
+  };
+
+  const fields = (
+    <>
+      <Field label="Bill to" htmlFor="inv-bill-to">
+        <textarea
+          id="inv-bill-to"
+          rows={3}
+          value={value.address}
+          onChange={(e) => type('address', e.target.value)}
+          onBlur={() => commit('address')}
+          placeholder={BILL_TO_PLACEHOLDER}
+          className={textareaClass}
+        />
+      </Field>
+      <Field
+        label="Email"
+        htmlFor="inv-email"
+        hint="Bill to and Email are saved to this client."
+      >
+        <Input
+          id="inv-email"
+          type="email"
+          value={value.email}
+          onChange={(e) => type('email', e.target.value)}
+          onBlur={() => commit('email')}
+          placeholder="billing@acme.com"
+        />
+      </Field>
+    </>
+  );
+  const unsaved = address !== client.address || email !== client.email;
+  return { shown, fields, unsaved };
 }
 
 /**
@@ -930,6 +1001,8 @@ function generateState(s: {
   /** The server refuses an invoice with no sender; the notice says why. */
   hasSender: boolean;
   generating: boolean;
+  /** The server reads Bill to from the client, so it waits for a save. */
+  unsavedBillTo: boolean;
   groupingMode: GroupingMode;
   summaryText: string;
 }) {
@@ -947,7 +1020,8 @@ function generateState(s: {
     s.hasSender &&
     !s.updating &&
     !s.failed &&
-    !s.generating;
+    !s.generating &&
+    !s.unsavedBillTo;
   return { canGenerate, noSummaryText };
 }
 
@@ -979,7 +1053,7 @@ function PreviewNotices({
       ) : null}
       {error ? (
         <p role="alert" className="type-support text-danger">
-          {error instanceof ApiError
+          {error instanceof ApiError || error instanceof UnsavedBillTo
             ? error.message
             : 'Could not build this invoice.'}
         </p>

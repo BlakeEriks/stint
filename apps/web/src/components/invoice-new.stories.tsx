@@ -3,7 +3,7 @@ import { useSearchParams } from '@storybook/nextjs-vite/navigation.mock';
 import { delay, http } from 'msw';
 import { useEffect, useReducer } from 'react';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
-import { account } from '@/mocks/db';
+import { account, getDb } from '@/mocks/db';
 import type { Db } from '@/mocks/fixtures';
 import { ids } from '@/mocks/fixtures';
 import { handlers } from '@/mocks/handlers';
@@ -323,8 +323,8 @@ export const NoScheduleNoHint: Story = {
 
 /** A client chosen: the card is the invoice as the PDF prints it, and
     follows the form without a Preview button (US3 scenario 1). What
-    generating does reads under the card, not on it. Northwind has an address
-    and email, so the Client field offers no Edit client. */
+    generating does reads under the card, not on it. Northwind's Bill to and
+    email fill their fields. */
 export const ClientChosen: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -336,9 +336,8 @@ export const ClientChosen: Story = {
     await expect(footnote).toBeVisible();
     await expect(sheet(page).contains(footnote)).toBe(false);
     await expect(page.queryByRole('button', { name: 'Preview' })).toBeNull();
-    await expect(
-      page.queryByRole('button', { name: 'Edit client' }),
-    ).toBeNull();
+    await expect(page.getByLabelText('Email')).toHaveValue('ap@northwind.test');
+    await expect(page.getByLabelText('Bill to')).not.toHaveValue('');
   },
 };
 export const ClientChosenPhone: Story = { ...ClientChosen, ...phone };
@@ -952,51 +951,110 @@ export const EditingExpense: Story = {
 };
 export const EditingExpensePhone: Story = { ...EditingExpense, ...phone };
 
-/** A client with no address or email: the Client field says so and offers
-    Edit client; the card stays the invoice as printed. */
-export const ClientMissingDetails: Story = {
+/** A client with neither an email nor a Bill to: both fields are empty
+    under Client, and the card's Bill to is the name alone. */
+export const BillToEmpty: Story = {
   ...desktop,
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const page = await chooseMeridian(canvasElement);
-    await expect(await page.findByText(/No address or email/)).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'Edit client' }),
-    ).toBeVisible();
-    await expect(
-      card(page).queryByRole('button', { name: 'Edit client' }),
-    ).toBeNull();
+    await expect(page.getByLabelText('Bill to')).toHaveValue('');
+    await expect(page.getByLabelText('Bill to')).toHaveAttribute(
+      'placeholder',
+      expect.stringMatching(/^Attn:/),
+    );
+    await expect(page.getByLabelText('Email')).toHaveValue('');
+    await expect(page.getByText(/saved to this client/)).toBeVisible();
   },
 };
-export const ClientMissingDetailsPhone: Story = {
-  ...ClientMissingDetails,
-  ...phone,
-};
+export const BillToEmptyPhone: Story = { ...BillToEmpty, ...phone };
 
-/** Saving the client updates Bill to in place; the draft is kept. Archive
-    is left out here. */
-export const EditingClient: Story = {
+/** Typing an email shows it on the card at once; leaving the field saves it
+    to the client. */
+export const BillToTyped: Story = {
   ...desktop,
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const page = await chooseMeridian(canvasElement);
-    await userEvent.type(page.getByLabelText(/Reference/), 'PO-7');
-    await userEvent.click(
-      await page.findByRole('button', { name: 'Edit client' }),
+    await userEvent.type(page.getByLabelText('Email'), 'ap@meridian.test');
+    await expect(card(page).getByText(/ap@meridian\.test/)).toBeVisible();
+    await userEvent.tab();
+    await waitFor(() =>
+      expect(getDb().clients.find((c) => c.id === ids.meridian)).toMatchObject({
+        email: 'ap@meridian.test',
+        address: null,
+      }),
     );
-    const dialog = within(
-      await page.findByRole('dialog', { name: 'Edit client' }),
-    );
-    await expect(dialog.queryByRole('button', { name: 'Archive' })).toBeNull();
-    await userEvent.type(dialog.getByLabelText(/Email/), 'ap@meridian.test');
-    await userEvent.click(dialog.getByRole('button', { name: 'Save changes' }));
-    // An open dialog hides the page, the card with it, from role queries.
-    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+  },
+};
+
+/** The save is refused: the app-wide notice says why, and what was typed
+    stays, the rejected email and Bill to typed since, to fix and leave
+    again. Generate waits until the client has them. */
+export const BillToRefused: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    msw: {
+      handlers: {
+        updateClient: http.patch(handlers.updateClient.info.path, () =>
+          Response.json(
+            { code: 'VALIDATION_FAILED', message: 'Enter a valid email.' },
+            { status: 422 },
+          ),
+        ),
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    await userEvent.clear(page.getByLabelText('Email'));
+    await userEvent.type(page.getByLabelText('Email'), 'ap@northwind');
+    const billTo = page.getByLabelText('Bill to') as HTMLTextAreaElement;
+    await userEvent.click(billTo);
+    await userEvent.type(billTo, 'Attn: Dana Lee');
+    await expect(await page.findByText('Enter a valid email.')).toBeVisible();
+    await expect(billTo.value).toContain('Attn: Dana Lee');
+    await expect(page.getByLabelText('Email')).toHaveValue('ap@northwind');
     await expect(
-      await card(page).findByText(/ap@meridian\.test/),
+      page.getByRole('button', { name: 'Generate invoice' }),
+    ).toBeDisabled();
+  },
+};
+
+/** Generate pressed while a Bill to save is on its way waits for it; the
+    save is refused, so nothing is generated from the old record. */
+export const GenerateAfterRefusedBillTo: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    msw: {
+      handlers: {
+        updateClient: http.patch(handlers.updateClient.info.path, async () => {
+          await delay(300);
+          return Response.json(
+            { code: 'VALIDATION_FAILED', message: 'Enter a valid email.' },
+            { status: 422 },
+          );
+        }),
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    const before = getDb().invoices.length;
+    await userEvent.clear(page.getByLabelText('Email'));
+    await userEvent.type(page.getByLabelText('Email'), 'ap@northwind');
+    await userEvent.tab();
+    await userEvent.click(
+      page.getByRole('button', { name: 'Generate invoice' }),
+    );
+    await expect(
+      await page.findByText(/wasn't saved to the client/),
     ).toBeVisible();
-    await expect(page.getByText(/^No address ·/)).toBeVisible();
-    await expect(page.getByLabelText(/Reference/)).toHaveValue('PO-7');
+    await expect(getDb().invoices.length).toBe(before);
   },
 };
 
