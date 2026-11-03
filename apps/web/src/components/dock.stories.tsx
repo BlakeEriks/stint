@@ -232,9 +232,9 @@ export const Clear: Story = {
   }),
 };
 
-/** A day with nothing logged yet: the grid alone, no message, so a
-    pointer can draw or click a time, and a mouse over it shows the slot a
-    press would make. */
+/** A day with nothing logged yet: the grid is still drawn, so a pointer
+    can draw or click a time, and a mouse over it shows the slot a press
+    would make. */
 export const EmptyDay: Story = {
   ...desktop,
   parameters: account('empty'),

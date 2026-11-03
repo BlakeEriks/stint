@@ -112,8 +112,6 @@ export function EntryList({
         tabIndex={useScrollerFocus()}
         className="min-h-0 flex-1 overflow-y-auto"
       >
-        {/* No `empty`: a day with nothing logged draws only its grid, the
-            only place a pointer adds an entry. */}
         <Listing query={query} tight>
           {(entries) => (
             <TodayGrid
