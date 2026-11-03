@@ -1246,3 +1246,34 @@ export const DetailsSaveFails: Story = {
     ).toHaveValue('Sam Rivera Consulting');
   },
 };
+
+/** The sender on the preview opens the same dialog, filled from Settings:
+ *  correcting it reprints the preview and leaves the draft as it was. */
+export const EditSender: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    await userEvent.type(page.getByLabelText('Reference'), 'PO-7');
+    await userEvent.click(
+      card(page).getByRole('button', { name: /^Edit Sam Rivera/ }),
+    );
+    const dialog = await page.findByRole('dialog', {
+      name: 'Who is this invoice from?',
+    });
+    await waitFor(() => expect(dialog).toBeVisible());
+    const form = within(dialog);
+    const email = form.getByRole('textbox', { name: /Email/ });
+    await expect(email).toHaveValue('billing@samrivera.test');
+    await userEvent.clear(email);
+    await userEvent.type(email, 'sam@samrivera.test');
+    await userEvent.click(form.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+    await expect(
+      await card(page).findByText(/sam@samrivera\.test/),
+    ).toBeVisible();
+    await expect(page.getByLabelText('Reference')).toHaveValue('PO-7');
+  },
+};
+export const EditSenderPhone: Story = { ...EditSender, ...phone };
