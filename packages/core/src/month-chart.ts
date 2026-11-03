@@ -59,6 +59,7 @@ export function monthChart(
       month.projected == null
         ? {
             state: 'pending',
+            // A month's series holds every business day, so this index exists.
             from: (month.series[MIN_PACE_DAYS - 1] as { date: string }).date,
           }
         : { state: 'figure', amount: month.projected },
