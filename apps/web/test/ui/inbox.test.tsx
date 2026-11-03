@@ -12,6 +12,7 @@ vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
 function stats(attention: Partial<Stats['attention']> = {}): Stats {
   return {
     currency: 'USD',
+    hasEntries: true,
     unbilled: {
       total: 0,
       mixed: false,

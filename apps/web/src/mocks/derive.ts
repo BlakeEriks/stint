@@ -313,6 +313,7 @@ export function stats(db: Db, tz: string) {
 
   return {
     currency,
+    hasEntries: db.entries.length > 0,
     unbilled: buildUnbilled(rows, currency, now),
     earnedToday: byDay.get(todayKey) ?? 0,
     week,

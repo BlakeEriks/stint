@@ -1668,6 +1668,21 @@ test('stats flags an account with no default rate, and zero counts as set', asyn
   assert.equal(await flag(), true, 'clearing it asks again');
 });
 
+/* Home asks for a first entry until one exists, however old it is. */
+test('stats says whether the account has ever had an entry', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const has = async () =>
+    (await json(await stats(req('/stats?tz=UTC')))).body.hasEntries;
+
+  assert.equal(await has(), false);
+  await entryFor({
+    id: '018f0000-0000-7000-8000-00000000e001',
+    hours: 1,
+    daysAgo: 400,
+  });
+  assert.equal(await has(), true, 'outside every window it still counts');
+});
+
 /* The welcome dialog shows while `welcomedAt` is null. The signup trigger
    leaves it null, so only an account made after the migration sees it. */
 test('a new account is not yet welcomed, and welcoming it round-trips', async () => {

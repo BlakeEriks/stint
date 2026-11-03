@@ -432,6 +432,25 @@ export const Empty: Story = {
   },
 };
 
+/** No entry yet: the cards dim behind a message asking for the first, and
+ *  the first entry lifts it. */
+export const FirstEntry: Story = {
+  ...desktop,
+  parameters: account('empty'),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(await page.findByText('Add your first entry')).toBeVisible();
+    await userEvent.click(
+      await within(canvasElement.ownerDocument.body).findByRole('button', {
+        name: 'Start timer',
+      }),
+    );
+    await waitFor(() =>
+      expect(page.queryByText('Add your first entry')).toBeNull(),
+    );
+  },
+};
+
 /** Tuesday's work has no rate anywhere in its chain: a bar, and no money. */
 export const UnratedDay: Story = {
   ...desktop,

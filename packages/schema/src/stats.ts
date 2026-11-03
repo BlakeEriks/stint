@@ -135,6 +135,9 @@ export const WeekDay = z.object({
 
 export const Stats = z.object({
   currency,
+  /** Whether the account has ever had an entry, running or invoiced. Home
+   *  asks for a first one while it is false. */
+  hasEntries: z.boolean(),
   unbilled: z.object({
     /** Work done and not yet invoiced, a running timer's session so far
      *  included. Never "earned" and never "revenue". */
