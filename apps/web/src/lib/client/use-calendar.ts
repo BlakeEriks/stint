@@ -1,12 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   startOfLocalDay,
   startOfLocalWeek,
   startOfLocalDayOffset,
   localDateKey,
+  splitByLocalDay,
 } from '@stint/core';
 import { api, type CalendarDay, type TimeEntry } from './api';
 import { timeZone as tz } from './use-timer';
@@ -73,7 +74,7 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
       }),
   });
 
-  const days = useMemo(() => {
+  const served = useMemo(() => {
     const byDate = new Map((data?.days ?? []).map((d) => [d.date, d]));
     return Array.from({ length: 7 }, (_, i) => {
       const at = i === 0 ? weekStart : startOfLocalDayOffset(weekStart, tz, -i);
@@ -110,6 +111,25 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
       };
     });
   }, [data, weekStart, byDay]);
+
+  /* The server counts only stopped time; a running entry's part of each day
+     is predicted here, to the same now `/stats` reads, and ticks with it. */
+  const running = data?.days
+    .flatMap((d) => d.entries)
+    .find((e) => e.endedAt == null);
+  useSecondTick(running !== undefined);
+  const live = new Map(
+    running
+      ? splitByLocalDay(new Date(running.startedAt), appNow(), tz).map((s) => [
+          s.date,
+          s.seconds,
+        ])
+      : [],
+  );
+  const days = served.map((d) => ({
+    ...d,
+    totalSeconds: d.totalSeconds + (live.get(d.date) ?? 0),
+  }));
 
   const weekSeconds = days.reduce((sum, d) => sum + d.totalSeconds, 0);
 
@@ -154,6 +174,16 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
     prev: () => setCursorDays((d) => d - step),
     today: () => setCursorDays(0),
   };
+}
+
+/** Re-render once a second while `active`, as the timer's own clock does. */
+function useSecondTick(active: boolean) {
+  const [, force] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => force((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [active]);
 }
 
 /** Hours of padding kept either side of the worked range. */

@@ -130,6 +130,35 @@ describe('Calendar', () => {
     expect(await screen.findByText('3:00:00')).toBeInTheDocument();
   });
 
+  it('counts a running entry to now, and keeps counting', async () => {
+    // The server counts a running entry as nothing; this one started 10:00.
+    serve([
+      {
+        date: '2026-09-09',
+        totalSeconds: 3600,
+        entries: [
+          entry({
+            startedAt: '2026-09-09T07:00:00.000Z',
+            endedAt: '2026-09-09T08:00:00.000Z',
+            durationSeconds: 3600,
+          }),
+          entry({
+            id: 'run',
+            startedAt: '2026-09-09T10:00:00.000Z',
+            endedAt: null,
+            durationSeconds: null,
+          }),
+        ],
+      },
+    ]);
+    render(<Calendar />, { wrapper });
+
+    // The title's week total, 1h stopped + 2h running.
+    expect(await screen.findByText('3:00:00')).toBeInTheDocument();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(screen.getByText('3:00:05')).toBeInTheDocument();
+  });
+
   it('gives overlapping entries their own lanes so neither is hidden', async () => {
     serve([
       {
