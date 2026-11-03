@@ -113,6 +113,8 @@ Resend's free tier (100 a day) as `Stint <signin@runstint.com>`.
 5. **Authentication → Sign In / Providers → Email**: **Email OTP Length** `6`.
    A hosted project can default to 8, and the template and the panel show
    and take six digits, so a longer code is truncated and always rejected.
+   **Email OTP Expiration** `86400`, because the sign-in errors say codes
+   expire after 24 hours.
 
 The dashboard holds its own copy of the template, because `config.toml`
 points GoTrue at a local path a hosted project can't read. An edit to the
