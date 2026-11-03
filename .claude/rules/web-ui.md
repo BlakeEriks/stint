@@ -153,6 +153,7 @@ a different order, and the ones that drifted were rebuilt:
 | A list's loading, failure and empty states | `Panel` + `Listing` |
 | A titled region with its own save state | `Section` + `useAutosave` + `SaveIndicator` |
 | A labeled control | `Field`, `Input`, `inputClass`, `textareaClass`; on a signed-out page, `elevatedInputClass` |
+| Fields that belong to the field above them | `SubFields`, inside that `Field` |
 | What a form still lacks, shown on Save | `useMissing()` (`lib/client/use-missing.ts`) into `Field`'s `error` |
 | Any action | `Button`, sized and varied by the tables in `ui/button.tsx` |
 | A destructive action in a dialog's footer | `ConfirmAction` |

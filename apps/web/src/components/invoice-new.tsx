@@ -15,7 +15,7 @@ import {
 } from '@stint/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Field, inputClass, textareaClass } from './field';
+import { Field, SubFields, inputClass, textareaClass } from './field';
 import { BILL_TO_PLACEHOLDER } from './client-form';
 import { ClientPicker } from './client-picker';
 import {
@@ -720,8 +720,8 @@ function Form({
                   }
                   placeholder="Choose a client…"
                 />
+                {billTo.fields ? <SubFields>{billTo.fields}</SubFields> : null}
               </Field>
-              {billTo.fields}
               <div className="flex flex-wrap gap-4">
                 <DateField
                   id="inv-from"
@@ -1085,8 +1085,7 @@ function PreviewNotices({
   );
 }
 
-/** The one line's text, under the grouping picker on a rule of its own so it
- *  reads as part of that choice rather than a field of the invoice. */
+/** The one line's text, part of the grouping choice. */
 function SummaryLineField({
   value,
   missing,
@@ -1097,7 +1096,7 @@ function SummaryLineField({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="mt-1.5 ml-3 border-l-2 border-edge-subtle pl-3">
+    <SubFields>
       <Field
         label="Summary line"
         htmlFor="inv-summary"
@@ -1112,7 +1111,7 @@ function SummaryLineField({
           maxLength={200}
         />
       </Field>
-    </div>
+    </SubFields>
   );
 }
 
