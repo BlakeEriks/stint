@@ -152,7 +152,9 @@ export function WelcomeDialog() {
               Add your first client now, or later from Clients.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_140px]">
+          {/* Wide enough for "1000.00" beside the number spinner, which
+              sits inside the field's text box. */}
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_168px]">
             <Field
               label="Client name"
               htmlFor="welcome-client"
