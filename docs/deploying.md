@@ -460,7 +460,7 @@ real date, so pick a day in that span for the screens to show data.
   the secret `pnpm try-mac` sends so the menu bar app reaches a preview
   (`docs/macos.md`).
 
-A PR that changes the phone app also gets an EAS Update against its
+A PR labeled `android` also gets an EAS Update against its
 preview, opened in a shared Android build, from
 `.github/workflows/mobile-preview.yml`; `docs/mobile.md` has its one-time
 setup.
