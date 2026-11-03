@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { getRouter } from '@storybook/nextjs-vite/navigation.mock';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account, getDb } from '@/mocks/db';
 import { id } from '@/mocks/fixtures';
@@ -60,6 +61,34 @@ export const SavesDates: Story = {
       expect(stored?.reference).toBe('PO-88');
       expect(stored?.invoiceNumber).toBe('STINT-0015');
     });
+  },
+};
+
+/** Leaving with changes asks; Save draft saves them, then goes where the
+    link pointed. */
+export const LeavingSaves: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.type(await page.findByLabelText('Reference'), 'PO-88');
+    await saved(page);
+    await userEvent.click(
+      within(page.getByRole('navigation', { name: 'Sections' })).getByRole(
+        'link',
+        { name: 'Calendar' },
+      ),
+    );
+    const dialog = within(
+      await page.findByRole('dialog', { name: 'Save changes to STINT-0015?' }),
+    );
+    await userEvent.click(dialog.getByRole('button', { name: 'Save draft' }));
+    await waitFor(() =>
+      expect(getRouter().push).toHaveBeenCalledWith('/calendar'),
+    );
+    await expect(getRouter().push).toHaveBeenCalledTimes(1);
+    await expect(getDb().invoices.find((i) => i.id === draft)?.reference).toBe(
+      'PO-88',
+    );
   },
 };
 

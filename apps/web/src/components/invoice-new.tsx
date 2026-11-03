@@ -583,7 +583,9 @@ function Form({
         qc.invalidateQueries({ queryKey: keys.expenses() }),
         invalidateEntryData(qc),
       ]),
-    mutationFn: () => {
+    /* `to` is where a press from the leave dialog was going; the form's own
+       press opens the draft. */
+    mutationFn: (_to?: string) => {
       // A Bill to save queued before this press may have been refused.
       const saved = qc
         .getQueryData<{ clients: Client[] }>(keys.clients())
@@ -610,8 +612,8 @@ function Form({
         ? api.updateDraft(editing.id, choices)
         : api.createInvoice(choices);
     },
-    onSuccess: (invoice) => {
-      router.push(`/invoices/${invoice.id}`);
+    onSuccess: (invoice, to) => {
+      router.push(to ?? `/invoices/${invoice.id}`);
     },
   });
 
@@ -1042,7 +1044,7 @@ function LeaveDialog({
   blocked: string | null;
   canSave: boolean;
   press: {
-    mutate: () => void;
+    mutate: (to: string) => void;
     reset: () => void;
     isPending: boolean;
     error: unknown;
@@ -1083,7 +1085,9 @@ function LeaveDialog({
           if (leaving !== null) router.push(leaving);
         },
       }}
-      onConfirm={() => press.mutate()}
+      onConfirm={() => {
+        if (leaving !== null) press.mutate(leaving);
+      }}
     />
   );
 }

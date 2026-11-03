@@ -1299,7 +1299,7 @@ export const LeavingDiscards: Story = {
   },
 };
 
-/** Save draft makes the draft and opens it. */
+/** Save draft makes the draft, then goes where the link pointed. */
 export const LeavingSaves: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -1310,10 +1310,10 @@ export const LeavingSaves: Story = {
     const dialog = await asked(page);
     await userEvent.click(dialog.getByRole('button', { name: 'Save draft' }));
     await waitFor(() => expect(getDb().invoices.length).toBe(before + 1));
-    const made = getDb().invoices.at(-1)!;
     await waitFor(() =>
-      expect(getRouter().push).toHaveBeenCalledWith(`/invoices/${made.id}`),
+      expect(getRouter().push).toHaveBeenCalledWith('/calendar'),
     );
+    await expect(getRouter().push).toHaveBeenCalledTimes(1);
   },
 };
 
