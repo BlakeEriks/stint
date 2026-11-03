@@ -357,7 +357,6 @@ describe('NewInvoice', () => {
     expect(generate()).toBeDisabled();
   });
 
-  /* A half-filled form is kept as a draft; Mark sent refuses it. */
   it('generates a draft when the period holds nothing billable', async () => {
     serve({ ...PREVIEW, lineItems: [], subtotal: 0, total: 0, entryCount: 0 });
     const user = userEvent.setup();

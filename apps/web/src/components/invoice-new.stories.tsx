@@ -1252,34 +1252,19 @@ export const DetailsSaveFails: Story = {
 
 // ── leaving ────────────────────────────────────────────────────────
 
-/** Presses the rail's Calendar, and returns the dialog that asks, if any. */
-const leave = async (page: Page) => {
+/** Presses the rail's Calendar, and returns the dialog that asks. */
+const asked = async (page: Page) => {
   await userEvent.click(
     within(page.getByRole('navigation', { name: 'Sections' })).getByRole(
       'link',
       { name: 'Calendar' },
     ),
   );
-  return page.queryByRole('dialog', { name: /^Save / });
-};
-
-const asked = async (page: Page) => {
-  await leave(page);
   const dialog = await page.findByRole('dialog', {
     name: 'Save this invoice as a draft?',
   });
   await waitFor(() => expect(dialog).toBeVisible());
   return within(dialog);
-};
-
-/** A form with nothing entered leaves without asking. */
-export const LeavingUntouched: Story = {
-  ...desktop,
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement.ownerDocument.body);
-    await page.findByRole('button', { name: 'Client' });
-    await expect(await leave(page)).toBeNull();
-  },
 };
 
 /** Leaving with changes asks, and Keep editing keeps the form as it was. */

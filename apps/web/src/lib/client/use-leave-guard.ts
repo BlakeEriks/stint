@@ -8,8 +8,7 @@ import { useEffect, useState } from 'react';
  * about; a refresh or a closed tab gets the browser's own prompt. The App
  * Router has no way to block a navigation, so the hold is a click listener
  * on `document` in the capture phase, which runs before React's and so
- * before `next/link` navigates. Back and Forward are not held: holding them
- * needs a dummy history entry, which breaks Forward.
+ * before `next/link` navigates.
  */
 export function useLeaveGuard(changed: boolean) {
   const [leaving, setLeaving] = useState<string | null>(null);

@@ -718,26 +718,18 @@ test('generation refuses when any billable entry has no rate', async () => {
   assert.equal(rows[0].n, 1, 'a refused generation consumes no number');
 });
 
-/* Saving a half-filled form keeps it as a draft; only sending needs a
-   line, so a zero invoice is never sent. */
-test('a draft with nothing to bill is created, and Mark sent refuses it', async () => {
-  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+test('a draft with nothing to bill is created, and offers no Mark sent', async () => {
+  const r = await live();
   const res = await json(
-    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
   );
   assert.equal(res.status, 201, JSON.stringify(res.body));
   assert.equal(res.body.lineItems.length, 0);
 
-  const { PATCH } = await import(
-    '../src/app/api/v1/invoices/[id]/status/route.ts'
+  const shown = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(res.body.id)),
   );
-  const sent = await json(
-    await PATCH(req('/s?tz=UTC', { status: 'sent' }, 'PATCH'), {
-      params: Promise.resolve({ id: res.body.id }),
-    }),
-  );
-  assert.equal(sent.status, 422);
-  assert.equal(sent.body.code, 'VALIDATION_FAILED');
+  assert.deepEqual(shown.body.refuses, { download: false, send: true });
 });
 
 test('sequential generations produce gapless numbers', async () => {

@@ -97,9 +97,7 @@ export function invoiceRequestRefusal(
   return null;
 }
 
-/** A draft that can't be priced: work no rate prices. A draft with no lines
- *  is saved, so a half-filled form is kept; sending it is refused
- *  (`nothingToSend`). */
+/** A draft that can't be priced: work no rate prices. */
 export function pricedInvoiceRefusal(totals: { unratedEntryIds: string[] }) {
   if (totals.unratedEntryIds.length > 0)
     return unratedRefusal(totals.unratedEntryIds);

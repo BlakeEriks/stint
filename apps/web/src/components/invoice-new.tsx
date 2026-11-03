@@ -682,6 +682,7 @@ function Form({
         onStay={guard.stay}
         editing={editing}
         blocked={blocked}
+        canSave={canGenerate}
         press={generate}
       />
       {/* From `xl`, where the panel has a height of its own, nothing scrolls
@@ -1032,13 +1033,14 @@ function LeaveDialog({
   onStay,
   editing,
   blocked,
+  canSave,
   press,
 }: {
   leaving: string | null;
   onStay: () => void;
   editing: Edited | undefined;
-  /** Why the form can't be saved yet, which the dialog says. */
   blocked: string | null;
+  canSave: boolean;
   press: {
     mutate: () => void;
     reset: () => void;
@@ -1073,7 +1075,7 @@ function LeaveDialog({
       pendingLabel="Saving…"
       keepLabel="Keep editing"
       pending={press.isPending}
-      disabled={blocked !== null}
+      disabled={!canSave}
       error={press.error}
       secondary={{
         label: 'Discard',
@@ -1089,8 +1091,7 @@ function LeaveDialog({
 /**
  * Whether Generate can be pressed, and why not when the user can fix it.
  * Generating freezes what the card shows, so it waits for a current answer
- * from the server. A draft with nothing to bill is saved; Mark sent refuses
- * it.
+ * from the server.
  */
 function generateState(s: {
   hasClient: boolean;
