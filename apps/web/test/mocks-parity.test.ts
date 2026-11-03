@@ -582,6 +582,7 @@ const writes: Record<string, [Scenario, (db: Db) => Write]> = {
         periodEnd: '2026-09-15',
         tz: ZONE,
       },
+      omit: ['id', 'createdAt'],
     }),
   ],
   'invoice a client': [

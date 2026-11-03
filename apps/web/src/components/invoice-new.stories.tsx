@@ -1,5 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { useSearchParams } from '@storybook/nextjs-vite/navigation.mock';
+import {
+  getRouter,
+  useSearchParams,
+} from '@storybook/nextjs-vite/navigation.mock';
 import { delay, http } from 'msw';
 import { useEffect, useReducer } from 'react';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
@@ -1244,5 +1247,105 @@ export const DetailsSaveFails: Story = {
     await expect(
       form.getByRole('textbox', { name: /Business name/ }),
     ).toHaveValue('Sam Rivera Consulting');
+  },
+};
+
+// ── leaving ────────────────────────────────────────────────────────
+
+/** Presses the rail's Calendar, and returns the dialog that asks, if any. */
+const leave = async (page: Page) => {
+  await userEvent.click(
+    within(page.getByRole('navigation', { name: 'Sections' })).getByRole(
+      'link',
+      { name: 'Calendar' },
+    ),
+  );
+  return page.queryByRole('dialog', { name: /^Save / });
+};
+
+const asked = async (page: Page) => {
+  await leave(page);
+  const dialog = await page.findByRole('dialog', {
+    name: 'Save this invoice as a draft?',
+  });
+  await waitFor(() => expect(dialog).toBeVisible());
+  return within(dialog);
+};
+
+/** A form with nothing entered leaves without asking. */
+export const LeavingUntouched: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await page.findByRole('button', { name: 'Client' });
+    await expect(await leave(page)).toBeNull();
+  },
+};
+
+/** Leaving with changes asks, and Keep editing keeps the form as it was. */
+export const LeavingAsks: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    const dialog = await asked(page);
+    await expect(getRouter().push).not.toHaveBeenCalled();
+    await expect(dialog.getByRole('button', { name: 'Discard' })).toBeVisible();
+    await userEvent.click(dialog.getByRole('button', { name: 'Keep editing' }));
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+    await expect(
+      page.getByRole('button', { name: 'Client' }),
+    ).toHaveTextContent(/Northwind/);
+  },
+};
+
+/** Discard goes where the link pointed, and nothing is saved. */
+export const LeavingDiscards: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    const before = getDb().invoices.length;
+    const dialog = await asked(page);
+    await userEvent.click(dialog.getByRole('button', { name: 'Discard' }));
+    await expect(getRouter().push).toHaveBeenCalledWith('/calendar');
+    await expect(getDb().invoices.length).toBe(before);
+  },
+};
+
+/** Save draft makes the draft and opens it. */
+export const LeavingSaves: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    const before = getDb().invoices.length;
+    const dialog = await asked(page);
+    await userEvent.click(dialog.getByRole('button', { name: 'Save draft' }));
+    await waitFor(() => expect(getDb().invoices.length).toBe(before + 1));
+    const made = getDb().invoices.at(-1)!;
+    await waitFor(() =>
+      expect(getRouter().push).toHaveBeenCalledWith(`/invoices/${made.id}`),
+    );
+  },
+};
+
+/** A form that can't be saved yet says why, and Save draft waits. */
+export const LeavingBlocked: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await summaryFor(canvasElement, '');
+    const dialog = await asked(page);
+    await expect(
+      dialog.getByText(
+        /It can't be saved yet: give the summary line its text\./,
+      ),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole('button', { name: 'Save draft' }),
+    ).toBeDisabled();
   },
 };

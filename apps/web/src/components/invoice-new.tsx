@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
+import { useLeaveGuard } from '@/lib/client/use-leave-guard';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   keepPreviousData,
@@ -69,6 +70,7 @@ import { businessOf, InvoicePreviewCard } from './invoice-preview-card';
 import { TemplateDialog } from './template-dialog';
 import { templateName } from './template-picker';
 import { rowButton } from './row-button';
+import { ConfirmDialog } from './confirm-dialog';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
   {
@@ -573,8 +575,8 @@ function Form({
     queryKey: () => keys.invoices(),
     inline: true,
     serial: BILL_TO_LANE,
-    // Generation marks the entries and expenses invoiced, so they leave
-    // every unbilled view.
+    // The draft holds its entries and expenses, so no other draft or
+    // preview offers them.
     invalidate: (qc) =>
       Promise.all([
         qc.invalidateQueries({ queryKey: keys.invoices() }),
@@ -655,7 +657,8 @@ function Form({
     ? (editing?.paymentDetails ?? null)
     : buildPaymentDetails(profile, { invoiceNumber: number });
 
-  const { canGenerate, noSummaryText } = generateState({
+  const { canGenerate, noSummaryText, blocked } = generateState({
+    hasClient: draft.clientId !== '',
     earlyDue,
     preview: current,
     updating,
@@ -668,8 +671,19 @@ function Form({
     summaryText,
   });
 
+  const guard = useLeaveGuard(
+    JSON.stringify(draft) !== JSON.stringify(initial),
+  );
+
   return (
     <>
+      <LeaveDialog
+        leaving={guard.leaving}
+        onStay={guard.stay}
+        editing={editing}
+        blocked={blocked}
+        press={generate}
+      />
       {/* From `xl`, where the panel has a height of its own, nothing scrolls
           but the two columns: the form and the preview each scroll alone, so
           reading a long page never moves the field being typed in. Below it
@@ -1008,14 +1022,82 @@ function useBillTo(client: Client | undefined) {
 }
 
 /**
- * Whether Generate can be pressed. Generating freezes what the card shows, so
- * it waits for a current, complete answer from the server.
+ * Leaving the form with changes asks first. Nothing is saved unasked:
+ * a draft takes a number and holds its period's work, so the user decides
+ * whether one exists. Save draft is the form's own press, which opens the
+ * draft; Discard goes where the link pointed.
+ */
+function LeaveDialog({
+  leaving,
+  onStay,
+  editing,
+  blocked,
+  press,
+}: {
+  leaving: string | null;
+  onStay: () => void;
+  editing: Edited | undefined;
+  /** Why the form can't be saved yet, which the dialog says. */
+  blocked: string | null;
+  press: {
+    mutate: () => void;
+    reset: () => void;
+    isPending: boolean;
+    error: unknown;
+  };
+}) {
+  const router = useRouter();
+  const { reset } = press;
+  // A refusal from an earlier press must not read as this one's.
+  useEffect(() => {
+    if (leaving !== null) reset();
+  }, [leaving, reset]);
+  const loses = editing
+    ? 'Leaving loses your changes.'
+    : 'Leaving loses this invoice. A draft keeps it to finish later: it takes the next number and holds this work until you send or delete it.';
+  return (
+    <ConfirmDialog
+      open={leaving !== null}
+      onOpenChange={(open) => {
+        if (!open) onStay();
+      }}
+      title={
+        editing
+          ? `Save changes to ${editing.invoiceNumber}?`
+          : 'Save this invoice as a draft?'
+      }
+      description={
+        blocked ? `${loses} It can't be saved yet: ${blocked}` : loses
+      }
+      confirmLabel="Save draft"
+      pendingLabel="Saving…"
+      keepLabel="Keep editing"
+      pending={press.isPending}
+      disabled={blocked !== null}
+      error={press.error}
+      secondary={{
+        label: 'Discard',
+        onPress: () => {
+          if (leaving !== null) router.push(leaving);
+        },
+      }}
+      onConfirm={() => press.mutate()}
+    />
+  );
+}
+
+/**
+ * Whether Generate can be pressed, and why not when the user can fix it.
+ * Generating freezes what the card shows, so it waits for a current answer
+ * from the server. A draft with nothing to bill is saved; Mark sent refuses
+ * it.
  */
 function generateState(s: {
+  hasClient: boolean;
   /** Due is before the issue date, which the server refuses. */
   earlyDue: boolean;
   /** The server's answer for this client; `undefined` before one. */
-  preview: Pick<InvoicePreview, 'lineItems' | 'unratedEntryIds'> | undefined;
+  preview: Pick<InvoicePreview, 'unratedEntryIds'> | undefined;
   /** The form has changed since the answer, or the server is recomputing. */
   updating: boolean;
   failed: boolean;
@@ -1031,21 +1113,37 @@ function generateState(s: {
 }) {
   const noSummaryText =
     s.groupingMode === 'summary' && s.summaryText.trim() === '';
-  const complete =
-    s.preview !== undefined &&
-    s.preview.lineItems.length > 0 &&
-    s.preview.unratedEntryIds.length === 0 &&
-    !noSummaryText;
+  const blocked = blockedBy({ ...s, noSummaryText });
   const canGenerate =
-    complete &&
-    !s.earlyDue &&
+    blocked === null &&
+    s.preview !== undefined &&
     s.hasSettings &&
-    s.hasSender &&
     !s.updating &&
-    !s.failed &&
-    !s.generating &&
-    !s.unsavedBillTo;
-  return { canGenerate, noSummaryText };
+    !s.generating;
+  return { canGenerate, noSummaryText, blocked };
+}
+
+/** What the user must fix before the form can be saved, said after "It
+ *  can't be saved yet:"; null when only the server's answer is awaited. */
+function blockedBy(s: {
+  hasClient: boolean;
+  hasSender: boolean;
+  earlyDue: boolean;
+  failed: boolean;
+  unsavedBillTo: boolean;
+  noSummaryText: boolean;
+  preview: Pick<InvoicePreview, 'unratedEntryIds'> | undefined;
+}): string | null {
+  if (!s.hasClient) return 'choose a client.';
+  if (!s.hasSender) return 'add your business name and email.';
+  const unrated = s.preview?.unratedEntryIds.length ?? 0;
+  if (unrated > 0)
+    return `${unrated} entr${unrated === 1 ? 'y has' : 'ies have'} no rate.`;
+  if (s.noSummaryText) return 'give the summary line its text.';
+  if (s.earlyDue) return "due can't be before the issue date.";
+  if (s.failed) return "the preview couldn't be built.";
+  if (s.unsavedBillTo) return 'Bill to is still saving.';
+  return null;
 }
 
 function PreviewNotices({

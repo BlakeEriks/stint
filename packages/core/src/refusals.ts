@@ -97,21 +97,12 @@ export function invoiceRequestRefusal(
   return null;
 }
 
-/** A priced invoice that can't be generated: work it can't price, or no
- *  lines. A fee or an expense alone is a line, so a deposit before any work
- *  is an invoice. */
-export function pricedInvoiceRefusal(
-  totals: { unratedEntryIds: string[]; lineItems: unknown[] },
-  period: { periodStart: string; periodEnd: string },
-) {
+/** A draft that can't be priced: work no rate prices. A draft with no lines
+ *  is saved, so a half-filled form is kept; sending it is refused
+ *  (`nothingToSend`). */
+export function pricedInvoiceRefusal(totals: { unratedEntryIds: string[] }) {
   if (totals.unratedEntryIds.length > 0)
     return unratedRefusal(totals.unratedEntryIds);
-  if (totals.lineItems.length === 0)
-    return refusal(
-      'INVALID_PERIOD',
-      'Nothing to invoice: no unbilled, billable time in this period, no unbilled expenses, and no charges added',
-      { periodStart: period.periodStart, periodEnd: period.periodEnd },
-    );
   return null;
 }
 

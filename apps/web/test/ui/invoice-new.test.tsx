@@ -357,14 +357,15 @@ describe('NewInvoice', () => {
     expect(generate()).toBeDisabled();
   });
 
-  it('blocks generation when the period holds nothing billable', async () => {
+  /* A half-filled form is kept as a draft; Mark sent refuses it. */
+  it('generates a draft when the period holds nothing billable', async () => {
     serve({ ...PREVIEW, lineItems: [], subtotal: 0, total: 0, entryCount: 0 });
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
     await chooseClient(user);
 
     expect(await screen.findByText(/^Nothing to bill/)).toBeInTheDocument();
-    expect(generate()).toBeDisabled();
+    await waitFor(() => expect(generate()).toBeEnabled());
   });
 
   it('says why a recompute failed, and holds Generate', async () => {
