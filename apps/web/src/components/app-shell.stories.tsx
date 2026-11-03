@@ -83,6 +83,22 @@ export const RailFocus: Story = { ...light, play: ringsFit };
 /** The strip with a section focused, on a phone. */
 export const StripFocus: Story = { ...phone, play: ringsFit };
 
+/* Beside the rail, the first section's top meets the panel's top edge. */
+const railMeetsPanel: Story['play'] = async ({ canvasElement }) => {
+  const page = within(canvasElement.ownerDocument.body);
+  const nav = await page.findByRole('navigation', { name: 'Sections' });
+  const [first] = within(nav).getAllByRole('link');
+  const panel = canvasElement.ownerDocument.querySelector(
+    '[data-content-panel]',
+  );
+  await expect(first?.getBoundingClientRect().top).toBe(
+    panel?.getBoundingClientRect().top,
+  );
+};
+
+/** From `lg`, Home's top lines up with the panel's. */
+export const RailAligned: Story = { ...laptop, play: railMeetsPanel };
+
 const workspace = (
   <Page workspace>
     <h1 className="type-title text-strong">A workspace</h1>
