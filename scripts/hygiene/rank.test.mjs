@@ -78,6 +78,18 @@ describe('top', () => {
       ['a.ts', 'b.ts', 'd.ts'],
     );
   });
+
+  it('adds every orphaned test, however low it ranks', () => {
+    const files = [
+      file('a.ts', 'complexity'),
+      file('b.ts', 'complexity'),
+      file('c.test.ts', 'orphan-test'),
+    ];
+    assert.deepEqual(
+      top(files, 1).map((f) => f.path),
+      ['a.ts', 'c.test.ts'],
+    );
+  });
 });
 
 describe('rank', () => {
