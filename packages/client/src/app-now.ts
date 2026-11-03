@@ -14,7 +14,6 @@ export function appNow(): Date {
   return new Date(Date.now() + offsetMs);
 }
 
-/** Whether a tester moved today, so reads ask the server for it too. */
 export function todayMoved(): boolean {
   return offsetMs !== 0;
 }

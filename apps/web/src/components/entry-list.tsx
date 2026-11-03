@@ -1,7 +1,6 @@
 'use client';
 
 import { useDialog } from '@/lib/client/use-dialog';
-import { useQuery } from '@tanstack/react-query';
 import {
   formatCompact,
   formatCurrency,
@@ -9,16 +8,17 @@ import {
   startOfLocalDay,
 } from '@stint/core';
 import { CalendarDays } from 'lucide-react';
-import { api, type Project } from '@/lib/client/api';
+import type { Project } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { useProjectColors } from '@/lib/client/use-project-colors';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import { useEntryDrag } from '@/lib/client/use-entry-drag';
+import { useTodayEntries } from '@/lib/client/use-today-entries';
 import { EntryDialog, type Opens } from './entry-dialog';
 import { KeyboardAdd } from './keyboard-add';
 import { Listing } from './page';
 import { TodayGrid } from './today-grid';
-import { keys, appNow } from '@stint/client';
+import { appNow } from '@stint/client';
 
 /**
  * Today's entries, in the dock beneath the inbox and subordinate to it. An
@@ -54,7 +54,7 @@ export function EntryList({
   /** The dock's fixed column at `xl`, which Today's day fills. */
   fills?: boolean;
 }) {
-  const query = useDayEntries();
+  const query = useTodayEntries();
 
   /* The foot totals outside the scroller, so it reads the day off the
      query rather than the render prop below. */
@@ -187,18 +187,4 @@ function lastHour(now: Date) {
     startedAt: new Date(end - 3_600_000).toISOString(),
     endedAt: new Date(end).toISOString(),
   };
-}
-
-/**
- * Everything today, running included: a column without it has a hole at the
- * one place the eye goes. A hook of its own so the dock can gate on the same
- * query the list reads.
- */
-export function useDayEntries() {
-  const from = startOfLocalDay(appNow(), tz).toISOString();
-  return useQuery({
-    queryKey: keys.entries({ from }),
-    queryFn: () => api.entries({ from }),
-    select: (r) => r.entries,
-  });
 }

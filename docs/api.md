@@ -476,8 +476,8 @@ the same way, for the reads they include ([Including what a write changed](#incl
 
 Outside production, an `x-stint-now` header (ISO 8601) sets the instant
 `/stats` reads as of, including when a write includes it, so a tester can see
-the home screen as of another day. Writes, timers and `/summary` keep the real
-clock.
+the home screen as of another day. The server still stamps writes, runs timers
+and answers `/summary` on the real clock.
 
 `GET /exports/entries` and `GET /exports/invoices` fall back the same way. The
 zone dates each row and names the file, but every record is in the file

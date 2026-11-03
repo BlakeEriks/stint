@@ -2,7 +2,7 @@ const KEY = 'stint.today';
 
 /**
  * How far `?today=YYYY-MM-DD` moves the app's today, in whole days of ms, so
- * a preview or local build can be tested as of another day (#642). The choice
+ * a preview or local build can be tested as of another day. The choice
  * sticks for the tab's session; an empty `?today=` clears it. Production
  * never honors it.
  *
