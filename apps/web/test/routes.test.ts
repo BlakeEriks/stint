@@ -1668,8 +1668,8 @@ test('stats flags an account with no default rate, and zero counts as set', asyn
   assert.equal(await flag(), true, 'clearing it asks again');
 });
 
-/* Home asks for a first entry until one exists, however old it is. */
-test('stats says whether the account has ever had an entry', async () => {
+/* Home asks for a first entry while the account holds none, whatever its date. */
+test('stats says whether the account holds any entry', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
   const has = async () =>
     (await json(await stats(req('/stats?tz=UTC')))).body.hasEntries;

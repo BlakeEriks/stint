@@ -99,7 +99,7 @@ or one with an unreadable row, before anything is written.
 them, and the window each one runs, are in `docs/data-model.md`; what the
 screen does with them is `Screens/Home` in Storybook.
 
-`hasEntries` is whether the account has ever had an entry, in any window.
+`hasEntries` is whether the account holds any entry, running or invoiced, whatever its date.
 
 **Three figures are three stages of one pipeline, and no two may be summed** —
 any pair double-counts the same hours. `unbilled` is work done and not

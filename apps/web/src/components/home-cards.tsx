@@ -83,10 +83,7 @@ function Panel({ stats }: { stats: Stats }) {
         <Cards stats={stats} hues={hues} />
       </div>
       <div className="absolute inset-0 flex items-center justify-center bg-overlay p-6">
-        <div
-          role="status"
-          className="max-w-sm rounded-lg border border-edge-subtle bg-surface-elevated px-6 py-5 text-center"
-        >
+        <div role="status" className="max-w-sm text-center">
           <h2 className="type-heading text-strong">Add your first entry</h2>
           <p className="mt-1.5 type-body text-muted">
             Start a timer or add an entry, and Home fills in as your time
