@@ -4,6 +4,8 @@ import { brand } from '@stint/design-tokens';
 import { useEffect } from 'react';
 import { reportError } from '@/lib/client/report-error';
 
+const tm = brand.mark;
+
 /**
  * The last resort: the root layout itself failed, so this renders its own
  * `<html>` and `<body>`.
@@ -14,8 +16,6 @@ import { reportError } from '@/lib/client/report-error';
  * token's dark value. Dark unconditionally, since nothing here stamps
  * `[data-theme]`.
  */
-const tm = brand.mark;
-
 export default function GlobalError({
   error,
   reset,
