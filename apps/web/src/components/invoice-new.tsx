@@ -12,7 +12,6 @@ import {
   useOptimisticMutation,
   keys,
   invalidateEntryData,
-  appNow,
 } from '@stint/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -513,7 +512,7 @@ function Form({
   const [draft, setDraft] = useState<Draft>(initial);
   /* Read once: a form left open past midnight keeps the dates it showed
      rather than moving them to the next period unseen. */
-  const [opened] = useState(() => appNow());
+  const [opened] = useState(() => new Date());
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 

@@ -2048,7 +2048,7 @@ test('unrated work counts but adds no money', async () => {
   assert.equal(row.seconds, 7200, 'while the hours are still real');
 });
 
-test('stats reads as of x-stint-now, except in production', async () => {
+test('stats reads as of x-stint-now, on a preview or local dev only', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
   await entryFor({ id: S(30), hours: 2 }); // 2026-09-09, 00:00–02:00 UTC
 
@@ -2067,8 +2067,13 @@ test('stats reads as of x-stint-now, except in production', async () => {
       shifted.find((d: { date: string }) => d.date === '2026-09-09')?.seconds,
       7200,
     );
-    const real = (await asOf('production')).body.week;
-    assert.ok(!real.some((d: { date: string }) => d.date === '2026-09-09'));
+    for (const env of ['production', 'development']) {
+      const real = (await asOf(env)).body.week;
+      assert.ok(
+        !real.some((d: { date: string }) => d.date === '2026-09-09'),
+        env,
+      );
+    }
   } finally {
     delete process.env.VERCEL_ENV;
   }
