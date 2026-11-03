@@ -1,5 +1,6 @@
 'use client';
 
+import { brand } from '@stint/design-tokens';
 import { useEffect } from 'react';
 import { reportError } from '@/lib/client/report-error';
 
@@ -13,6 +14,8 @@ import { reportError } from '@/lib/client/report-error';
  * token's dark value. Dark unconditionally, since nothing here stamps
  * `[data-theme]`.
  */
+const tm = brand.mark;
+
 export default function GlobalError({
   error,
   reset,
@@ -55,13 +58,15 @@ export default function GlobalError({
             }}
           >
             |Stint|
-            {/* brand.mark's tmSize; hidden, so a screen reader says "Stint". */}
             <span
               aria-hidden
               style={{
-                fontSize: '0.42em',
+                display: 'inline-block',
+                fontSize: `${tm.tmSize}em`,
+                lineHeight: 1,
                 letterSpacing: 0,
-                verticalAlign: 'top',
+                verticalAlign: 'middle',
+                transform: `translateY(-${tm.tmRise / tm.tmSize}em)`,
               }}
             >
               ™

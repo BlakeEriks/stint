@@ -27,10 +27,6 @@ export function Swatch({
   );
 }
 
-/**
- * The lockup: the wordmark between its two bounds, then the ™, as the web
- * draws it from `brand.mark`. The label keeps it "Stint" to a screen reader.
- */
 export function Wordmark({ large = false }: { large?: boolean }) {
   const c = useColors();
   const role = large ? 'wordmark' : 'wordmark-small';

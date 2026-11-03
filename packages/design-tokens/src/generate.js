@@ -227,13 +227,18 @@ ${typeUtilities()}
   background: currentColor;
 }
 
-/* The ™ after the closing bound, clear of it by the bound's own gap. */
+/* The ™ after the closing bound, clear of it by the bound's own gap.
+   Generated content rather than text: a link labelled "Stint — home" around
+   the mark would otherwise show text its name lacks (WCAG 2.5.3). */
 @utility mark-tm {
   flex: none;
   font-size: calc(var(--mark-tm-size) * 1em);
   line-height: 1;
   letter-spacing: 0;
   translate: 0 calc(-1 * var(--mark-tm-rise) / var(--mark-tm-size));
+  &::before {
+    content: '™' / '';
+  }
 }
 `;
 writeFileSync(join(out, 'tokens.css'), css);

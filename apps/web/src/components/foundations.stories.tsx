@@ -1,5 +1,6 @@
 import { projectColors, type } from '@stint/design-tokens';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { expect, within } from 'storybook/test';
 import { Wordmark } from './wordmark';
 
 /**
@@ -167,4 +168,14 @@ export const Mark: Story = {
       <Wordmark size="small" />
     </div>
   ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const marks = canvasElement.querySelectorAll('.mark-tm');
+    await expect(marks).toHaveLength(2);
+    for (const tm of marks) {
+      await expect(tm).toHaveAttribute('aria-hidden');
+      await expect(getComputedStyle(tm, '::before').content).toContain('™');
+    }
+    await expect(canvas.getAllByText('Stint')).toHaveLength(2);
+  },
 };

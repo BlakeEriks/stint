@@ -152,8 +152,6 @@ struct Square: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
       HStack(alignment: .top) {
-        // The ™ at brand.mark's tmSize and tmRise (tokens.json); the label
-        // keeps it "Stint".
         HStack(alignment: .center, spacing: 1) {
           Text("STINT")
             .font(.system(size: 13, weight: .semibold, design: .monospaced))

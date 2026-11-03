@@ -3,7 +3,7 @@ import AppKit
 
 /// `|Stint|™` in one color. Geometry comes from `Tokens.Mark`, so this and
 /// the web app's `Wordmark` are one drawing; ratios of the font size, so one
-/// definition serves every placement. The label keeps it "Stint".
+/// definition serves every placement.
 struct Lockup: View {
     var role: TypeRole = .mark
     var color: Color = Tokens.Dark.textStrong
