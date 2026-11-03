@@ -105,6 +105,8 @@ public enum Tokens {
         public static let boundHeight: CGFloat = 1.05
         public static let boundGap: CGFloat = 0.18
         public static let boundRadius: CGFloat = 999
+        public static let tmSize: CGFloat = 0.42
+        public static let tmRise: CGFloat = 0.4
     }
 
     /// The type scale. A view names a role; it never assembles one.

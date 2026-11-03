@@ -152,10 +152,19 @@ struct Square: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
       HStack(alignment: .top) {
-        Text("STINT")
-          .font(.system(size: 13, weight: .semibold, design: .monospaced))
-          .tracking(1.6)
-          .foregroundStyle(p["text-subtle"])
+        // The ™ at brand.mark's tmSize and tmRise (tokens.json); the label
+        // keeps it "Stint".
+        HStack(alignment: .center, spacing: 1) {
+          Text("STINT")
+            .font(.system(size: 13, weight: .semibold, design: .monospaced))
+            .tracking(1.6)
+          Text("™")
+            .font(.system(size: 13 * 0.42, weight: .semibold, design: .monospaced))
+            .offset(y: -13 * 0.4)
+        }
+        .foregroundStyle(p["text-subtle"])
+        .accessibilityElement()
+        .accessibilityLabel("Stint")
         Spacer()
         PressButton(surface: surface, p: p)
       }

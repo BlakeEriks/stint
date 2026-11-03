@@ -13,6 +13,10 @@ const out = join(root, 'dist');
 mkdirSync(out, { recursive: true });
 
 const kebab = (s) => s.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+/* `tmSize` stays unitless: `mark-tm` scales its own font-size by it, and
+   divides `tmRise` by it to lift in the lockup's em rather than its own. */
+const markUnit = (k, v) =>
+  k === 'boundRadius' ? `${v}px` : k === 'tmSize' ? `${v}` : `${v}em`;
 
 /** Resolve "neutral.300" against the primitive tree; pass literal hex through. */
 function resolve(ref) {
@@ -166,10 +170,7 @@ ${motionVars('  ')}
   /* The mark's geometry, in em so one definition serves every size it is
      set at. No color here — the mark takes one, via currentColor. */
 ${Object.entries(tokens.brand.mark)
-  .map(
-    ([k, v]) =>
-      `  --mark-${kebab(k)}: ${k === 'boundRadius' ? `${v}px` : `${v}em`};`,
-  )
+  .map(([k, v]) => `  --mark-${kebab(k)}: ${markUnit(k, v)};`)
   .join('\n')}
 }
 
@@ -224,6 +225,15 @@ ${typeUtilities()}
   margin-inline: var(--mark-bound-gap);
   border-radius: var(--mark-bound-radius);
   background: currentColor;
+}
+
+/* The ™ after the closing bound, clear of it by the bound's own gap. */
+@utility mark-tm {
+  flex: none;
+  font-size: calc(var(--mark-tm-size) * 1em);
+  line-height: 1;
+  letter-spacing: 0;
+  translate: 0 calc(-1 * var(--mark-tm-rise) / var(--mark-tm-size));
 }
 `;
 writeFileSync(join(out, 'tokens.css'), css);
@@ -448,10 +458,7 @@ ${Object.entries(tokens.elevation.dark)
 ${motionVars('    ')}
 
 ${Object.entries(tokens.brand.mark)
-  .map(
-    ([k, v]) =>
-      `    --mark-${kebab(k)}: ${k === 'boundRadius' ? `${v}px` : `${v}em`};`,
-  )
+  .map(([k, v]) => `    --mark-${kebab(k)}: ${markUnit(k, v)};`)
   .join('\n')}
 
 ${Object.entries(tokens.primitive.project)
@@ -496,7 +503,7 @@ ${Object.entries(tokens.type.scale)
   .join('\n\n')}
 
 /* ── The mark ──────────────────────────────────────────────────────
-   \`|Stint|\` — one color, bounds included, inherited via currentColor.
+   \`|Stint|™\` — one color, bounds included, inherited via currentColor.
    Set a font-size on .mark and everything scales from it. */
 .mark {
     font-family: var(--font-mono);
@@ -517,6 +524,16 @@ ${Object.entries(tokens.type.scale)
     margin: 0 var(--mark-bound-gap);
     border-radius: var(--mark-bound-radius);
     background: currentColor;
+}
+/* \`<span class="mark">Stint<span class="mark-tm">™</span></span>\`: \`order\`
+   moves the ™ past the closing bound, which is the ::after. */
+.mark-tm {
+    order: 1;
+    flex: none;
+    font-size: calc(var(--mark-tm-size) * 1em);
+    line-height: 1;
+    letter-spacing: 0;
+    translate: 0 calc(-1 * var(--mark-tm-rise) / var(--mark-tm-size));
 }
 `;
 writeFileSync(join(out, 'mockup.css'), mockup);

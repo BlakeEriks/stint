@@ -55,6 +55,17 @@ export default function GlobalError({
             }}
           >
             |Stint|
+            {/* brand.mark's tmSize; hidden, so a screen reader says "Stint". */}
+            <span
+              aria-hidden
+              style={{
+                fontSize: '0.42em',
+                letterSpacing: 0,
+                verticalAlign: 'top',
+              }}
+            >
+              ™
+            </span>
           </div>
 
           <h1 style={{ fontSize: '24px', fontWeight: 600, margin: '0 0 8px' }}>

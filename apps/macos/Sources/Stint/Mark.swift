@@ -1,20 +1,26 @@
 import SwiftUI
 import AppKit
 
-/// `|Stint|` in one color. Geometry comes from `Tokens.Mark`, so this and
+/// `|Stint|™` in one color. Geometry comes from `Tokens.Mark`, so this and
 /// the web app's `Wordmark` are one drawing; ratios of the font size, so one
-/// definition serves every placement.
+/// definition serves every placement. The label keeps it "Stint".
 struct Lockup: View {
     var role: TypeRole = .mark
     var color: Color = Tokens.Dark.textStrong
 
     private var size: CGFloat { role.token.size }
+    /// The ™, untracked: tracking would push it off its place after the bound.
+    private var tm: Typography.Role { role.token.at(size * Tokens.Mark.tmSize, tracking: 0) }
 
     var body: some View {
         HStack(spacing: 0) {
             bound
             Text("Stint")
             bound
+            Text("™")
+                .font(tm.font)
+                .tracking(tm.tracking)
+                .offset(y: -size * Tokens.Mark.tmRise)
         }
         .font(role.font)
         .tracking(role.tracking)

@@ -6,6 +6,10 @@ import android.content.ComponentName
 import android.content.Context
 import android.os.Build
 import android.os.SystemClock
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.RelativeSizeSpan
+import android.text.style.SuperscriptSpan
 import android.view.View
 import android.widget.RemoteViews
 
@@ -25,6 +29,13 @@ class SquareWidget : AppWidgetProvider() {
 
 /** Both widget sizes, from one state, in the app's tokens. */
 object Widgets {
+  /** STINT™, the ™ at `brand.mark`'s `tmSize` and raised (tokens.json). */
+  private val wordmark =
+    SpannableString("STINT™").apply {
+      setSpan(RelativeSizeSpan(0.42f), 5, 6, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+      setSpan(SuperscriptSpan(), 5, 6, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+
   fun draw(context: Context, shown: Shown) {
     val manager = AppWidgetManager.getInstance(context)
     for ((provider, layout) in
@@ -48,6 +59,7 @@ object Widgets {
     tint.color(R.id.why, "setTextColor", "danger")
     tint.color(R.id.wordmark, "setTextColor", "text-subtle")
 
+    if (layout == R.layout.stint_widget_square) v.setTextViewText(R.id.wordmark, wordmark)
     v.setTextViewText(R.id.title, s.title)
     clock(v, s, tint)
     detail(v, s)

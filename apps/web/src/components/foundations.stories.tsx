@@ -158,8 +158,8 @@ export const Type: Story = {
   ),
 };
 
-/** `|Stint|`: the bounds are the `brand.mark` token, one drawing across the
-    web and macOS. */
+/** `|Stint|™`: the bounds and the ™ are the `brand.mark` token, one drawing
+    across the web and macOS. */
 export const Mark: Story = {
   render: () => (
     <div className="flex flex-col items-start gap-8">
