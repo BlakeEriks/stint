@@ -931,7 +931,6 @@ const BILL_TO_LANE = 'client-bill-to';
 type BillToField = 'address' | 'email';
 type BillTo = Partial<Pick<Client, BillToField>>;
 
-/** "Meridian Labs'", "Northwind Trading's". */
 const possessive = (name: string) =>
   name.endsWith('s') ? `${name}'` : `${name}'s`;
 
@@ -959,7 +958,7 @@ function useBillTo(client: Client | undefined) {
   const email = value.email.trim() || null;
   const shown = { ...client, address, email };
   const fields = (
-    // Keyed: a save left to retry belongs to the client it was typed for.
+    // Keyed so save state starts fresh per client.
     <BillToFields
       key={client.id}
       client={client}
@@ -974,8 +973,9 @@ function useBillTo(client: Client | undefined) {
 
 /**
  * Nothing else on the form saves before Generate, so the group is named for
- * the client and answers each save in place, as Settings does; a refusal
- * stays out of the app-wide notice.
+ * the client and answers each save in place, as Settings does. The app-wide
+ * notice says it too, for a refusal that lands after another client is
+ * chosen.
  */
 function BillToFields({
   client,
@@ -999,13 +999,14 @@ function BillToFields({
         ),
       },
     mutationFn: (patch) => api.updateClient(client.id, patch),
-    inline: true,
   });
   const autosave = useAutosave<BillTo>((patch) => save.mutateAsync(patch), {
     delay: 0,
   });
   const commit = (field: BillToField) => {
-    if (trimmed[field] !== client[field])
+    // After a refusal the failed value waits to be retried with the next
+    // save, so a field put back to the client's value is sent to replace it.
+    if (trimmed[field] !== client[field] || autosave.state === 'error')
       autosave.schedule({ [field]: trimmed[field] });
   };
 

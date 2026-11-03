@@ -59,9 +59,7 @@ export function Field({
 }
 
 /** Fields that belong to the field above, indented on a rule so they read as
-    part of it rather than as fields of their own. Goes inside that `Field`.
-    `title` names a group that saves to another record, `description` says
-    where, and `aside` is its `SaveIndicator`. */
+    part of it rather than as fields of their own. Goes inside that `Field`. */
 export function SubFields({
   title,
   description,

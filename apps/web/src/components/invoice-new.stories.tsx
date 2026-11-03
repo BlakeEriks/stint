@@ -1083,6 +1083,59 @@ export const BillToRefused: Story = {
   },
 };
 
+/** A refused Bill to, put back to the client's own, is not saved later with
+    the next field: the client keeps what the user left. */
+let refusedOnce = false;
+export const BillToPutBackAfterRefusal: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    msw: {
+      handlers: {
+        updateClient: http.patch(
+          handlers.updateClient.info.path,
+          async (info) => {
+            if (!refusedOnce) {
+              refusedOnce = true;
+              return Response.json(
+                { code: 'VALIDATION_FAILED', message: 'Too long.' },
+                { status: 422 },
+              );
+            }
+            const real = handlers.updateClient as unknown as {
+              resolver: (i: typeof info) => Promise<Response>;
+            };
+            return real.resolver(info);
+          },
+        ),
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    refusedOnce = false;
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    const billTo = page.getByLabelText('Bill to') as HTMLTextAreaElement;
+    const original = billTo.value;
+    await userEvent.type(billTo, ' X');
+    await userEvent.tab();
+    const group = within(
+      page.getByRole('group', { name: "Northwind Trading's billing details" }),
+    );
+    await expect(await group.findByText('Too long.')).toBeVisible();
+    await userEvent.clear(billTo);
+    await userEvent.type(billTo, original);
+    await userEvent.clear(page.getByLabelText('Email'));
+    await userEvent.type(page.getByLabelText('Email'), 'ap2@northwind.test');
+    await userEvent.tab();
+    await waitFor(() =>
+      expect(getDb().clients.find((c) => c.id === ids.northwind)).toMatchObject(
+        { address: original, email: 'ap2@northwind.test' },
+      ),
+    );
+  },
+};
+
 /** Generate pressed while a Bill to save is on its way waits for it; the
     save is refused, so nothing is generated from the old record. */
 export const GenerateAfterRefusedBillTo: Story = {
