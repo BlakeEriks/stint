@@ -12,7 +12,7 @@ import { position, workedWindow } from '@/lib/client/use-calendar';
 import type { useEntryDrag } from '@/lib/client/use-entry-drag';
 import { useZoom } from '@/lib/client/use-zoom';
 import { DayColumn, gutterMarks, HourGutter } from './day-column';
-import { appNow } from '@stint/client';
+import { appNow, useInterval } from '@stint/client';
 
 /** The least room between labeled hours: every hour at the default scale,
     since the dock is too narrow for the calendar's 3-hour step. */
@@ -125,7 +125,6 @@ export function TodayGrid({
  * which is correct — the server does not know what time it is here.
  */
 function useMinute(): boolean {
-  const [, force] = useState(0);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => setHydrated(true), []);
@@ -133,10 +132,7 @@ function useMinute(): boolean {
   /* Unconditional: the line moves whether or not a timer is running, and the
      window follows it. A tick gated on a running timer would freeze the line
      on an idle afternoon, which is the afternoon you most want it. */
-  useEffect(() => {
-    const id = setInterval(() => force((n) => n + 1), 60_000);
-    return () => clearInterval(id);
-  }, []);
+  useInterval(true, 60_000);
 
   return hydrated;
 }
