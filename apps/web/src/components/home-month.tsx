@@ -82,7 +82,6 @@ export function Month({
                 >
                   —
                 </span>
-                {/* The date says the dash is early, not broken. */}
                 <span className="type-meta text-subtle">
                   From {weekdayLabel(chart.projection.from)}
                 </span>
@@ -228,7 +227,6 @@ function Climb({
     .map((p, i) => `${i === 0 ? 'M' : 'L'}${at(p)}`)
     .join(' ');
   const { today } = plot;
-  const money = month.earned > 0;
   const area = `${line} L${at({ x: today.x, y: 0 })} L0,${PLOT_H} Z`;
   const dashed = plot.dashed
     ? `M${at(plot.dashed[0])} L${at(plot.dashed[1])}`
@@ -248,11 +246,11 @@ function Climb({
             role="img"
             aria-label={label(month, currency)}
           >
-            {plot.gridlines.map((v) => {
-              const y = PLOT_H - (v / plot.top) * PLOT_H;
+            {plot.gridlines.map(({ value }) => {
+              const y = PLOT_H - (value / plot.top) * PLOT_H;
               return (
                 <line
-                  key={v}
+                  key={value}
                   x1="0"
                   y1={y}
                   x2={PLOT_W}
@@ -319,15 +317,13 @@ function Climb({
           </svg>
 
           <div data-axis="y" className="absolute inset-y-0 -left-11 w-11">
-            {/* Nothing earned has no scale worth reading: the gridlines stay
-                so the month still has its shape, unlabeled. */}
-            {(money ? plot.gridlines : []).map((v) => (
+            {plot.gridlines.map(({ value, label }) => (
               <span
-                key={v}
-                style={{ top: `${(1 - v / plot.top) * 100}%` }}
+                key={value}
+                style={{ top: `${(1 - value / plot.top) * 100}%` }}
                 className="absolute left-0 -translate-y-1/2 type-meta whitespace-nowrap text-subtle"
               >
-                {compact(v, currency)}
+                {label == null ? null : compact(label, currency)}
               </span>
             ))}
           </div>
@@ -442,16 +438,16 @@ function label(month: Stats['month'], currency: string): string {
     : `${monthName()} earnings climbing to ${earned}`;
 }
 
-/** `Sep 1`. Built as UTC, so no zone can shift the key a day. */
+/** `Sep 1`. */
 function dayLabel(key: string | undefined): string {
   return keyLabel(key, { month: 'short', day: 'numeric' });
 }
 
-/** `Wed, Nov 4`. */
 function weekdayLabel(key: string): string {
   return keyLabel(key, { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
+/** Built as UTC, so no zone can shift the key a day. */
 function keyLabel(
   key: string | undefined,
   options: Intl.DateTimeFormatOptions,

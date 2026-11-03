@@ -70,13 +70,17 @@ const WEEK = Array.from({ length: 7 }, (_, i) => ({
   byClient: {},
 }));
 
-/** A month with no climb and no projection — again, not what is under test. */
+/** A month on its first day, before any projection — again, not what is
+ *  under test. */
 const MONTH = {
   earned: 0,
   projected: null,
-  businessDaysElapsed: 0,
+  businessDaysElapsed: 1,
   businessDaysTotal: 22,
-  series: [],
+  series: ['2026-09-01', '2026-09-02', '2026-09-03'].map((date, i) => ({
+    date,
+    actual: i === 0 ? 0 : null,
+  })),
   projection: null,
   byClient: [],
 };

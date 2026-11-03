@@ -26,11 +26,12 @@ export interface ChartPoint {
 export interface MonthPlot {
   /** The value at the plot's top, which is also the top gridline's. */
   top: number;
-  /** Gridline values, bottom to top. */
-  gridlines: number[];
+  /** Gridlines, bottom to top. `label` is null while nothing is earned: a
+   *  $0 month has no scale worth reading, only its shape. */
+  gridlines: { value: number; label: number | null }[];
   /** Cumulative earned, one point per business day up to today. Before the
-   *  month's first business day, one point at the axis's start holds what the
-   *  weekend earned, so there is always a today to mark. */
+   *  first business day, one point at the axis's start holds the weekend's
+   *  earnings. */
   solid: ChartPoint[];
   /** Today to the projected month end; null with no projection. */
   dashed: [ChartPoint, ChartPoint] | null;
@@ -58,7 +59,7 @@ export function monthChart(
       month.projected == null
         ? {
             state: 'pending',
-            from: month.series[MIN_PACE_DAYS - 1]?.date ?? '',
+            from: (month.series[MIN_PACE_DAYS - 1] as { date: string }).date,
           }
         : { state: 'figure', amount: month.projected },
     plot: monthPlot(month),
@@ -86,10 +87,10 @@ function monthPlot({
 
   return {
     top,
-    gridlines: Array.from(
-      { length: GRIDLINES },
-      (_, i) => (top / GRIDLINES) * (i + 1),
-    ),
+    gridlines: Array.from({ length: GRIDLINES }, (_, i) => {
+      const value = (top / GRIDLINES) * (i + 1);
+      return { value, label: earned > 0 ? value : null };
+    }),
     solid,
     dashed: projection
       ? [

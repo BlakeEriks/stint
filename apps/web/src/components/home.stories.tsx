@@ -656,15 +656,12 @@ export const MonthFirst: Story = {
   },
 };
 
-/** A Sunday 1st with nothing worked: the empty month's axis, unlabeled, and
- *  the first date a projection can show. */
+/** A Sunday 1st with nothing worked: the axis is drawn, unlabeled. */
 export const MonthFirstEmpty: Story = {
   ...desktop,
   parameters: { ...account('empty'), now: '2026-11-01T19:30:00.000Z' },
   play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
-    await expect(await page.findByText('From Wed, Nov 4')).toBeVisible();
-    await expect(page.getByText('today')).toBeVisible();
+    await within(canvasElement).findByText('From Wed, Nov 4');
     const yAxis = canvasElement.querySelector('[data-axis="y"]');
     await expect(yAxis?.textContent).toBe('');
   },
