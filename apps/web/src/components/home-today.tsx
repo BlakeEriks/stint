@@ -14,7 +14,7 @@ import {
   type Stats,
   type TimeEntry,
 } from '@/lib/client/api';
-import { keys } from '@stint/client';
+import { keys, appNow } from '@stint/client';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import {
   useAllProjects,
@@ -157,10 +157,10 @@ export function useTodayEntries() {
  */
 function useLocalDay(): string {
   const queryClient = useQueryClient();
-  const [day, setDay] = useState(() => localDateKey(new Date(), tz));
+  const [day, setDay] = useState(() => localDateKey(appNow(), tz));
   useEffect(() => {
     const id = setInterval(() => {
-      const next = localDateKey(new Date(), tz);
+      const next = localDateKey(appNow(), tz);
       if (next === day) return;
       setDay(next);
       void queryClient.invalidateQueries({ queryKey: keys.stats() });
@@ -233,5 +233,5 @@ function dayLabel(): string {
     weekday: 'long',
     month: 'short',
     day: 'numeric',
-  }).format(new Date());
+  }).format(appNow());
 }

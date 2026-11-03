@@ -18,7 +18,7 @@ import { EntryDialog, type Opens } from './entry-dialog';
 import { KeyboardAdd } from './keyboard-add';
 import { Listing } from './page';
 import { TodayGrid } from './today-grid';
-import { keys } from '@stint/client';
+import { keys, appNow } from '@stint/client';
 
 /**
  * Today's entries, in the dock beneath the inbox and subordinate to it. An
@@ -104,7 +104,7 @@ export function EntryList({
         <KeyboardAdd
           label="Add an entry today"
           className={earnedToday === undefined ? 'ml-auto' : ''}
-          onClick={() => editing.show({ seed: lastHour(new Date()) })}
+          onClick={() => editing.show({ seed: lastHour(appNow()) })}
         />
       </header>
 
@@ -195,7 +195,7 @@ function lastHour(now: Date) {
  * query the list reads.
  */
 export function useDayEntries() {
-  const from = startOfLocalDay(new Date(), tz).toISOString();
+  const from = startOfLocalDay(appNow(), tz).toISOString();
   return useQuery({
     queryKey: keys.entries({ from }),
     queryFn: () => api.entries({ from }),

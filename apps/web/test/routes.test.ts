@@ -2049,6 +2049,32 @@ test('unrated work counts but adds no money', async () => {
   assert.equal(row.seconds, 7200, 'while the hours are still real');
 });
 
+test('stats reads as of x-stint-now, except in production', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  await entryFor({ id: S(30), hours: 2 }); // 2026-09-09, 00:00–02:00 UTC
+
+  const asOf = (env?: string) => {
+    if (env) process.env.VERCEL_ENV = env;
+    else delete process.env.VERCEL_ENV;
+    return stats(
+      new Request('http://t/stats?tz=UTC', {
+        headers: { 'x-stint-now': '2026-09-09T15:00:00.000Z' },
+      }),
+    ).then(json);
+  };
+  try {
+    const shifted = (await asOf()).body.week;
+    assert.equal(
+      shifted.find((d: { date: string }) => d.date === '2026-09-09')?.seconds,
+      7200,
+    );
+    const real = (await asOf('production')).body.week;
+    assert.ok(!real.some((d: { date: string }) => d.date === '2026-09-09'));
+  } finally {
+    delete process.env.VERCEL_ENV;
+  }
+});
+
 test('a running timer is unbilled so far; non-billable work is not', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 

@@ -437,6 +437,12 @@ shows on the PR. Add a scenario to the seed script rather than editing
 `stint-test` by hand: a scenario is reviewed, runs in CI, and the next PR
 can ask for it too.
 
+**A preview can be tested as of another day**: `?today=2026-10-20` on any
+page sets the day the app treats as today until the tab closes, and
+`?today=` clears it. Local dev honors it too, and production never does. Writes
+and timers keep the real clock. The seed holds two weeks of work before the
+real date, so pick a day in that span for the screens to show data.
+
 - **GitHub** → Environments → **Preview** → secret `PREVIEW_DB_URL`:
   `stint-test`'s session pooler string. The direct connection is IPv6-only,
   which Actions runners cannot reach.

@@ -2,8 +2,10 @@
 
 import {
   type ApiError,
+  appNow,
   readBody,
   readFailure,
+  todayMoved,
   withInclude,
   type Include,
   type Res,
@@ -49,9 +51,13 @@ async function request<T>(
   body?: unknown,
 ): Promise<T> {
   const form = body instanceof FormData;
+  const headers: Record<string, string> = {};
+  if (body && !form) headers['content-type'] = 'application/json';
+  // The day a tester chose, which `/stats` reads as of (`lib/reads-at.ts`).
+  if (todayMoved()) headers['x-stint-now'] = appNow().toISOString();
   const res = await fetch(`/api/v1${path}`, {
     method,
-    headers: body && !form ? { 'content-type': 'application/json' } : undefined,
+    headers,
     body: form ? body : body ? JSON.stringify(body) : undefined,
   });
 

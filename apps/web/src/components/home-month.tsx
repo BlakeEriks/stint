@@ -12,6 +12,7 @@ import {
   INTERNAL,
   RegionHead,
 } from './home-shell';
+import { appNow } from '@stint/client';
 
 /** The climb's viewport, in its own units — the paths are scaled by SVG. */
 const PLOT_W = 300;
@@ -459,7 +460,5 @@ function dayLabel(key: string | undefined): string {
 
 /* Browser locale, like every other date on this screen. */
 function monthName(): string {
-  return new Intl.DateTimeFormat(undefined, { month: 'long' }).format(
-    new Date(),
-  );
+  return new Intl.DateTimeFormat(undefined, { month: 'long' }).format(appNow());
 }
