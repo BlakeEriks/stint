@@ -5,7 +5,13 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { usePressedSince, keys } from '@stint/client';
-import { api, type Stats, type TimeEntry } from '@/lib/client/api';
+import {
+  api,
+  type Client,
+  type Project,
+  type Stats,
+  type TimeEntry,
+} from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import {
   useAllProjects,
@@ -33,15 +39,19 @@ export function HomeCards() {
   });
 
   const settling = usePressedSince(stats.dataUpdatedAt);
+  const clients = useClientsQuery();
+  const projects = useAllProjects();
 
   return (
     <Settling value={settling}>
-      <Listing
-        query={[stats, useTodayEntries()]}
-        also={[useClientsQuery(), useAllProjects()]}
-      >
+      <Listing query={[stats, useTodayEntries()]} also={[clients, projects]}>
         {([data, today]) =>
-          holdsNothing(data, today.entries) ? (
+          neverTracked(
+            data,
+            today.entries,
+            clients.data?.clients,
+            projects.data?.projects,
+          ) ? (
             <FirstRun />
           ) : (
             <Panel stats={data} />
@@ -53,11 +63,21 @@ export function HomeCards() {
 }
 
 /**
- * Nothing in any window Home draws. A new account and an old one with an
- * empty week and month are one state: zeroed cards read as broken either way.
+ * A new account: no client or project ever made, archived ones included, and
+ * nothing in any window Home draws. Not the windows alone: an account with
+ * work behind it keeps its cards through an empty week and month, which say
+ * it is quiet, not new. Clients or projects that failed to load count as
+ * some, so a failure never shows the intro to an established account.
  */
-function holdsNothing(stats: Stats, today: TimeEntry[]) {
+function neverTracked(
+  stats: Stats,
+  today: TimeEntry[],
+  clients: Client[] | undefined,
+  projects: Project[] | undefined,
+) {
   return (
+    clients?.length === 0 &&
+    projects?.length === 0 &&
     today.length === 0 &&
     stats.earnedToday === 0 &&
     stats.unbilled.seconds === 0 &&
@@ -69,7 +89,6 @@ function holdsNothing(stats: Stats, today: TimeEntry[]) {
 
 /** What Home will show, and the first steps toward it. */
 function FirstRun() {
-  const noClients = useClients().size === 0;
   return (
     <section
       data-first-run
@@ -84,9 +103,7 @@ function FirstRun() {
         unbilled. Start a timer, or add time you already worked.
       </p>
       <ul className="mt-4">
-        {noClients ? (
-          <Step href="/clients">Add a client and their rate</Step>
-        ) : null}
+        <Step href="/clients">Add a client and their rate</Step>
         <Step href="/calendar">Add time on the calendar</Step>
         <Step href="/settings/import">Import your Toggl history</Step>
       </ul>

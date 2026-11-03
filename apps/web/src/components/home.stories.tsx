@@ -426,6 +426,20 @@ export const Empty: Story = {
   },
 };
 
+/** An account with clients and projects but nothing in any window: quiet,
+ *  not new, so it keeps its cards rather than the first-run intro. */
+export const QuietMonth: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    Object.assign(db, { entries: [], invoices: [], expenses: [] });
+  }),
+  play: async ({ canvasElement, loaded }) => {
+    await within(canvasElement).findByText('Unbilled');
+    await loaded.settle();
+    await expect(canvasElement.querySelector('[data-first-run]')).toBeNull();
+  },
+};
+
 /** A quiet day for an account with work behind it: the cards stay, and
  *  what is empty says so without a zeroed stand-in. */
 export const QuietDay: Story = {
