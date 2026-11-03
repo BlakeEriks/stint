@@ -12,6 +12,7 @@ import {
   INTERNAL,
   RegionHead,
 } from './home-shell';
+import { appNow } from '@stint/client';
 
 /** The climb's viewport, in its own units — the paths are scaled by SVG. */
 const PLOT_W = 300;
@@ -40,7 +41,7 @@ export function Month({
   const chart = monthChart(month);
 
   return (
-    <div className="mt-6 border-t border-edge-subtle pt-6">
+    <div className="mt-5 border-t border-edge-subtle pt-5">
       <div className="grid items-start gap-8 @2xl:grid-cols-[17.5rem_minmax(0,1fr)]">
         <div className="flex flex-col">
           <RegionHead>This month · {monthName()}</RegionHead>
@@ -49,7 +50,7 @@ export function Month({
               `unbilled.seconds` is a different window — an all-time balance
               rather than the month — so printing it here would label one
               period's hours with another's. */}
-          <FigGroup tier="hero" className="mt-6">
+          <FigGroup tier="hero" className="mt-4">
             <FigLabel>Earned</FigLabel>
             <Money
               figure="month-earned"
@@ -62,7 +63,7 @@ export function Month({
           {/* Spacing alone carries the split: Earned is the month's subject,
               the two below are readings taken from it. A rule here would read
               as a section boundary, which is not what this is. */}
-          <FigGroup tier="minor" className="mt-[26px]">
+          <FigGroup tier="minor" className="mt-3">
             <FigLabel>On track for</FigLabel>
             {chart.projection.state === 'figure' ? (
               <Money
@@ -83,7 +84,7 @@ export function Month({
             )}
           </FigGroup>
 
-          <FigGroup tier="minor" className="mt-[22px]">
+          <FigGroup tier="minor" className="mt-2.5">
             <FigLabel>Unbilled</FigLabel>
             <Money
               figure="month-unbilled"
@@ -102,7 +103,7 @@ export function Month({
               there is something to count. Never summed with unbilled: one has
               an invoice and a due date, the other can still be written off. */}
           {stats.awaitingPayment > 0 ? (
-            <p className="mt-[22px] type-meta text-subtle">
+            <p className="mt-2.5 type-meta text-subtle">
               {formatCurrency(stats.awaitingPayment, currency)} awaiting ·{' '}
               {stats.openInvoiceCount} open invoice
               {stats.openInvoiceCount === 1 ? '' : 's'}
@@ -220,7 +221,7 @@ function Climb({
       <div className="min-w-0">
         <div
           data-climb="empty"
-          className="flex min-h-[230px] items-center type-meta text-subtle"
+          className="flex h-[calc(218px+var(--grow,0px))] items-center type-meta text-subtle"
         >
           The month&apos;s climb draws once there are two days on it.
         </div>
@@ -246,7 +247,9 @@ function Climb({
   return (
     <div className="min-w-0">
       <div className="relative pr-3.5 pl-11">
-        <div className="relative min-h-[230px] w-full aspect-[16/9.2]">
+        {/* A fixed height, not an aspect ratio: with its strip and axis it
+            matches the figures beside it, so Home fits a 13-inch screen. */}
+        <div className="relative h-[calc(218px+var(--grow,0px))] w-full">
           <svg
             viewBox={`0 0 ${PLOT_W} ${PLOT_H}`}
             preserveAspectRatio="none"
@@ -459,7 +462,5 @@ function dayLabel(key: string | undefined): string {
 
 /* Browser locale, like every other date on this screen. */
 function monthName(): string {
-  return new Intl.DateTimeFormat(undefined, { month: 'long' }).format(
-    new Date(),
-  );
+  return new Intl.DateTimeFormat(undefined, { month: 'long' }).format(appNow());
 }

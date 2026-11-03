@@ -162,8 +162,8 @@ async function write(db: Db) {
   for (const e of db.expenses)
     await pool.query(
       `insert into expenses (id,user_id,client_id,recurring,spent_on,description,
-         amount,note,invoice_id)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+         amount,invoice_id)
+       values ($1,$2,$3,$4,$5,$6,$7,$8)`,
       [
         e.id,
         USER,
@@ -172,7 +172,6 @@ async function write(db: Db) {
         e.spentOn,
         e.description,
         e.amount,
-        e.note,
         e.invoiceId,
       ],
     );

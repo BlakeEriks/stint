@@ -5,6 +5,7 @@ import {
   useOptimisticMutation,
   keys,
   invalidateEntryData,
+  appNow,
 } from '@stint/client';
 import { Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -294,7 +295,7 @@ function ScheduleField({
     if (period === NONE) return onChange(null);
     if (!needsAnchor(period)) return onChange({ period });
     const anchor =
-      value && 'anchor' in value ? value.anchor : localDateKey(new Date(), tz);
+      value && 'anchor' in value ? value.anchor : localDateKey(appNow(), tz);
     onChange({ period, anchor });
   };
   return (

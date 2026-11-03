@@ -91,12 +91,23 @@ export function rank(findings, commits, skip = new Set()) {
 const MAX_REDESIGNS = 2;
 const redesign = (file) => file.findings.some((f) => f.kind === 'fixes');
 
-/** The first `n` ranked files, with at most MAX_REDESIGNS redesigns. */
+/* A dead test scores low beside code with churn, but it is cut outright, so
+   it is filed however it ranks. */
+const orphaned = (file) => file.findings.some((f) => f.kind === 'orphan-test');
+
+/**
+ * The first `n` ranked files, with at most MAX_REDESIGNS redesigns, then
+ * every file with an orphaned test that is not among them.
+ */
 export function top(files, n) {
   let redesigns = 0;
-  return files
+  const picked = files
     .filter((file) => !redesign(file) || ++redesigns <= MAX_REDESIGNS)
     .slice(0, n);
+  return [
+    ...picked,
+    ...files.filter((file) => orphaned(file) && !picked.includes(file)),
+  ];
 }
 
 /* An issue owns its file through a marker in its body. A file stays skipped
