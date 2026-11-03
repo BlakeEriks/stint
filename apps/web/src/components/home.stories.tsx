@@ -8,6 +8,8 @@ import {
   desktop,
   failing,
   light,
+  macbook,
+  macbook16,
   phone,
   screen,
   stalled,
@@ -521,26 +523,84 @@ export const Failed: Story = {
   },
 };
 
-/** Past `2xl` the frame is capped, and Home fits it whole, legend included. */
+/** The panel shows whole, legend included, with no scroll; returns the
+ *  scrolling panel. */
+async function fitsWhole(canvasElement: HTMLElement) {
+  const legend = await waitFor(() => {
+    const found = canvasElement.querySelector('[data-legend="clients"]');
+    if (!found) throw new Error('No legend yet');
+    return found;
+  });
+  let panel = legend.parentElement;
+  while (panel && getComputedStyle(panel).overflowY !== 'auto') {
+    panel = panel.parentElement;
+  }
+  if (!panel) throw new Error('Home sits in no scrolling panel');
+  await waitFor(() => {
+    expect(panel.scrollHeight).toBeLessThanOrEqual(panel.clientHeight);
+    expect(legend.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      panel.getBoundingClientRect().bottom,
+    );
+  });
+  return panel;
+}
+
+/** Past `2xl` the frame is capped, and Home fits it whole. */
 export const Wide: Story = {
   ...wide,
   play: async ({ canvasElement }) => {
-    const legend = await waitFor(() => {
-      const found = canvasElement.querySelector('[data-legend="clients"]');
-      if (!found) throw new Error('No legend yet');
-      return found;
-    });
-    let panel = legend.parentElement;
-    while (panel && getComputedStyle(panel).overflowY !== 'auto') {
-      panel = panel.parentElement;
+    await fitsWhole(canvasElement);
+  },
+};
+
+/** A 13-inch MacBook shows Home whole, even with a dozen clients in the
+ *  legend: it keeps one row, and the keys that don't fit fold into
+ *  `+N more`, which names them. */
+export const MacBook: Story = {
+  ...macbook,
+  parameters: account((db) => {
+    const today = localDateKey(db.now, ZONE);
+    const [base] = db.clients;
+    const [work] = db.projects;
+    if (!base || !work) return;
+    for (const [i, name] of [
+      'Halvorsen Engineering',
+      'Quill & Ledger',
+      'Tidewater Logistics',
+      'Bramble Health',
+      'Ostrava Partners',
+      'Pinecrest Schools',
+      'Kestrel Analytics',
+      'Larkspur Media',
+      'Copperline Freight',
+    ].entries()) {
+      const client = { ...base, id: id(700 + i), name };
+      const project = { ...work, id: id(800 + i), clientId: client.id };
+      db.clients.push(client);
+      db.projects.push(project);
+      db.entries.push(entry(9200 + i, today, `0${i}:00`, 30, project.id, name));
     }
-    if (!panel) throw new Error('Home sits in no scrolling panel');
-    await waitFor(() => {
-      expect(panel.scrollHeight).toBeLessThanOrEqual(panel.clientHeight);
-      expect(legend.getBoundingClientRect().bottom).toBeLessThanOrEqual(
-        panel.getBoundingClientRect().bottom,
-      );
-    });
+  }),
+  play: async ({ canvasElement }) => {
+    await fitsWhole(canvasElement);
+    const more = await within(canvasElement).findByText(/^\+\d+ more/);
+    await expect(more).toHaveAttribute(
+      'title',
+      expect.stringContaining('Copperline Freight'),
+    );
+  },
+};
+
+/** A 16-inch MacBook's taller frame: the charts grow until Home fills it,
+ *  rather than leaving a gap beneath the legend. */
+export const MacBook16: Story = {
+  ...macbook16,
+  play: async ({ canvasElement }) => {
+    const panel = await fitsWhole(canvasElement);
+    const content = panel.querySelector('main') as HTMLElement;
+    await expect(
+      panel.clientHeight - content.getBoundingClientRect().height,
+    ).toBeLessThan(24);
   },
 };
 

@@ -76,9 +76,15 @@ function Panel({ stats }: { stats: Stats }) {
      the window: the rail and the dock flank it and claim their space at `lg`
      and `xl`, so the panel is 780px at a 1100px window and 732px at 1440 —
      wider at the narrower window. A viewport breakpoint would collapse the
-     wide one and split the narrow one. */
+     wide one and split the narrow one.
+
+     `--grow` is what the top row's chart and the month's each gain past the
+     646px panel of a 13-inch MacBook's 790px window, half the extra apiece,
+     so a taller screen fills rather than leaving a gap. The panel is the
+     window less 144px of frame from `xl`, and less 194px inside `2xl`'s
+     card. It stops at 74px, where that card reaches its 940px ceiling. */
   return (
-    <div className="@container flex flex-col px-[18px] pt-5 pb-3.5">
+    <div className="@container flex flex-col px-[18px] pt-4 pb-3.5 xl:[--grow:clamp(0px,calc((100dvh_-_790px)/2),74px)] 2xl:[--grow:clamp(0px,calc((100dvh_-_840px)/2),74px)]">
       {/* Today takes a third of the top row and the week two thirds: today's
           content is a figure and a few short rows, and the week's chart needs
           the long axis for seven columns and their captions. The rule between
