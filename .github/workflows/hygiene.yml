@@ -1,7 +1,8 @@
 name: Hygiene
 
 # Weekly: the hygiene scan ranks files by debt × recent churn, and Claude
-# files an issue for each of the worst few that are not already filed.
+# files an issue for each of the worst few that are not already filed, and
+# for every orphaned test besides.
 # `/work-issues` picks them up like any other enhancement.
 on:
   schedule:
@@ -9,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       issues:
-        description: Most issues to file
+        description: Most issues to file, besides orphaned tests
         default: '5'
 
 concurrency:
