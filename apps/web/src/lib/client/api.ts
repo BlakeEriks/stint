@@ -142,8 +142,7 @@ export type SettingsInput = Partial<Settings>;
 export type ExpenseInput = Pick<
   Expense,
   'clientId' | 'recurring' | 'spentOn' | 'description' | 'amount'
-> &
-  Partial<Pick<Expense, 'note'>>;
+>;
 
 export type PaymentProfileInput = Partial<
   Omit<PaymentProfile, 'id' | 'archivedAt'>

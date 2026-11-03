@@ -63,7 +63,6 @@ export const POST = handle(async (req: Request) => {
       spent_on: body.spentOn ?? null,
       description: body.description,
       amount: body.amount,
-      note: body.note ?? null,
     })
     .select(EXPENSE_COLUMNS)
     .single();

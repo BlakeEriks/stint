@@ -14,7 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { ConfirmAction } from '@/components/confirm-action';
 import { Input } from '@/components/ui/input';
-import { Field, textareaClass } from './field';
+import { Field } from './field';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { useOptimisticMutation, keys } from '@stint/client';
 import { api, ApiError, type Client, type Expense } from '@/lib/client/api';
@@ -46,7 +46,6 @@ export function ExpenseDialog({
   const [amount, setAmount] = useState('');
   const [spentOn, setSpentOn] = useState('');
   const [recurring, setRecurring] = useState(false);
-  const [note, setNote] = useState('');
   /* Made once per recording, so a retried save lands on the same row. */
   const [id, setId] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +69,6 @@ export function ExpenseDialog({
     setAmount(expense ? String(expense.amount) : '');
     setSpentOn(expense?.spentOn ?? localDateKey(new Date(), tz));
     setRecurring(expense?.recurring ?? false);
-    setNote(expense?.note ?? '');
     setId(expense?.id ?? uuidv7());
     setError(null);
     check.reset();
@@ -88,7 +86,6 @@ export function ExpenseDialog({
         spentOn: recurring ? null : spentOn,
         description: description.trim(),
         amount: Math.round(parsed * 100) / 100,
-        note: note.trim() || null,
       };
       return expense
         ? api.updateExpense(expense.id, body)
@@ -214,21 +211,6 @@ export function ExpenseDialog({
               </span>
             </span>
           </label>
-
-          <Field
-            label="Note"
-            htmlFor="expense-note"
-            hint="A receipt or order number. Not printed."
-          >
-            <textarea
-              id="expense-note"
-              rows={2}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              maxLength={500}
-              className={textareaClass}
-            />
-          </Field>
 
           {error ? (
             <p role="alert" className="type-support text-danger">
