@@ -24,11 +24,11 @@ type Story = StoryObj<typeof meta>;
 export const Tabs: Story = {};
 export const TabsArchived: Story = { args: { active: 'archived' } };
 
-/** An empty list says what to do next. */
+/** An empty list says what it holds once it has data. */
 export const EmptyList: Story = {
   render: () => (
     <Panel>
-      <Empty>No clients yet. Add one to start billing.</Empty>
+      <Empty>Your clients and their rates appear here.</Empty>
     </Panel>
   ),
 };
