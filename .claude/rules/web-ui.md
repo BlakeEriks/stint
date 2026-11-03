@@ -181,6 +181,8 @@ anticipation of one.
   and Back returns to it. A component reading `useSearchParams` needs a
   `Suspense` boundary in its `page.tsx`, or `next build` fails while
   `next dev` passes.
+- **User-visible text follows `docs/voice.md`**: a label, sublabel,
+  button, dialog, error or empty state a change adds or edits.
 - **Every action carries a visible label.** Four exceptions, each with an
   `aria-label`: a destructive first step, a dense repeating row, the
   folded dock's strip, which is 44px by design, and `KeyboardAdd`, the "+"

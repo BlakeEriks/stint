@@ -118,6 +118,7 @@ Fix it following `CLAUDE.md` and the `.claude/rules/` the change touches:
 `.claude/rules/changes.md` says how a change is made, Constitution V's tests
 included. A migration found only now gets the `migration` label now. A
 redesign wider than the fix ships the fix first, then its `Redesign` issue.
+User-visible text a change adds or edits follows `docs/voice.md`.
 
 An issue that says `Fix with /reduce <path>` or `Fix with /copyedit <path>`
 is built by that skill's steps, which are already in your context.
