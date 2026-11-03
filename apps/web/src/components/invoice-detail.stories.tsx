@@ -294,7 +294,7 @@ export const ConfirmDelete: Story = {
     const dialog = await ask(canvasElement, 'Delete draft');
     await expect(
       dialog.getByText(
-        'The draft and its $2,787.60 total go for good. Its 14 entries and any expenses on it go back to unbilled.',
+        "The draft ($2,787.60) is deleted and can't be restored. Your 14 entries and any expenses are kept and can go on another invoice.",
       ),
     ).toBeVisible();
     await userEvent.click(dialog.getByRole('button', { name: 'Keep' }));
@@ -325,9 +325,7 @@ export const ConfirmVoid: Story = {
   play: async ({ canvasElement }) => {
     const dialog = await ask(canvasElement, 'Void');
     await expect(
-      dialog.getByText(
-        /is no longer owed, and its entries and expenses can be billed again/,
-      ),
+      dialog.getByText(/STINT-0014 \(\$[\d,.]+\) is no longer owed/),
     ).toBeVisible();
   },
 };

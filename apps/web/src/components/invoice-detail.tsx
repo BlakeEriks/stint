@@ -201,8 +201,8 @@ function Loaded({
         <div className="flex flex-wrap items-center gap-2">
           {isDraft ? (
             <AskFirst
-              title={`Delete ${invoice.invoiceNumber}`}
-              description={`The draft and its ${total} total go for good. Its ${entries(invoice.entryCount ?? 0)} and any expenses on it go back to unbilled.`}
+              title="Delete this draft?"
+              description={`The draft (${total}) is deleted and can't be restored. Your ${entries(invoice.entryCount ?? 0)} and any expenses are kept and can go on another invoice.`}
               confirmLabel="Delete draft"
               pendingLabel="Deleting…"
               icon={<Trash2 aria-hidden strokeWidth={1.75} />}
@@ -228,8 +228,8 @@ function Loaded({
 
           {!isVoid && !isDraft ? (
             <AskFirst
-              title={`Void ${invoice.invoiceNumber}`}
-              description={`Its ${total} is no longer owed, and its entries and expenses can be billed again. The number stays, marked void, and voiding can't be undone.`}
+              title="Void this invoice?"
+              description={`${invoice.invoiceNumber} (${total}) is no longer owed and can't be restored; it stays in your records, marked void. Your entries and expenses on it are kept and can go on another invoice.`}
               confirmLabel="Void"
               pendingLabel="Voiding…"
               icon={<Ban aria-hidden strokeWidth={1.75} />}
