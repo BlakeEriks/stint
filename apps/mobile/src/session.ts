@@ -174,7 +174,7 @@ export function createAuth({
         throw failure(
           status,
           body,
-          'That code did not work. Codes expire quickly and can only be used once.',
+          'That code did not work. Codes expire after 24 hours and can only be used once.',
         );
       await signInWithSession(body as GoTrueSession);
     },

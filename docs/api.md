@@ -345,7 +345,7 @@ by every one when `recurring`. The amount is in the client's currency.
 | Method | Path | Notes |
 |---|---|---|
 | `GET` | `/expenses` | `?clientId&status` — `status` is `open` (default: recurring, unbilled, and on a sent invoice) or `unbilled` (recurring and unbilled). Recurring first, then oldest `spentOn`. Each expense carries `invoiceNumber` and `invoiceStatus` once billed. |
-| `POST` | `/expenses` | `{ id, clientId, recurring?, spentOn?, description, amount, note? }`. `spentOn` is required for a one-off and refused with `recurring: true`. `id` is a client-generated UUIDv7, so a retry returns the stored row with `200`. `amount` is above zero. |
+| `POST` | `/expenses` | `{ id, clientId, recurring?, spentOn?, description, amount }`. `spentOn` is required for a one-off and refused with `recurring: true`. `id` is a client-generated UUIDv7, so a retry returns the stored row with `200`. `amount` is above zero. |
 | `PATCH` | `/expenses/:id` | Any field from `POST` but `id` and `clientId`. `recurring: true` clears `spentOn`; `false` needs one. **`409 EXPENSE_LOCKED`** once billed on a non-draft invoice; `422` to make a billed one recurring. |
 | `DELETE` | `/expenses/:id` | Same lock. A recurring one can always go; invoices that billed it keep their line. |
 
@@ -473,6 +473,11 @@ it; an invalid zone falls back to UTC rather than failing the request, because
 a view that renders in the wrong zone beats a view that does not render.
 `POST /timer/start`, `POST /timer/stop` and `PATCH /entries/:id` take `tz`
 the same way, for the reads they include ([Including what a write changed](#including-what-a-write-changed)).
+
+Outside production, an `x-stint-now` header (ISO 8601) sets the instant
+`/stats` reads as of, including when a write includes it, so a tester can see
+the home screen as of another day. The server still stamps writes, runs timers
+and answers `/summary` on the real clock.
 
 `GET /exports/entries` and `GET /exports/invoices` fall back the same way. The
 zone dates each row and names the file, but every record is in the file

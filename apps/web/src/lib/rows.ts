@@ -423,12 +423,11 @@ export interface ExpenseRow {
   spent_on: string | null;
   description: string;
   amount: Numeric;
-  note: string | null;
   invoice_id: string | null;
 }
 
 export const EXPENSE_COLUMNS = columns<ExpenseRow>()(
-  'id, client_id, recurring, spent_on, description, amount, note, invoice_id',
+  'id, client_id, recurring, spent_on, description, amount, invoice_id',
 );
 
 /** `invoice` is the billing invoice when there is one, looked up separately. */
@@ -443,7 +442,6 @@ export function toExpense(
     spentOn: r.spent_on,
     description: r.description,
     amount: num(r.amount) ?? 0,
-    note: r.note,
     invoiceId: r.invoice_id,
     invoiceNumber: invoice?.invoice_number ?? null,
     invoiceStatus: invoice?.status ?? null,
@@ -456,7 +454,6 @@ export const EXPENSE_FIELDS = {
   spentOn: 'spent_on',
   description: 'description',
   amount: 'amount',
-  note: 'note',
 } as const;
 
 /** camelCase patch -> snake_case columns. A missing key is dropped from an

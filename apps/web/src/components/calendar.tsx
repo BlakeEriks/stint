@@ -25,7 +25,7 @@ import { Listing, Page, useLoaded } from './page';
 import { EntryDialog, type Opens } from './entry-dialog';
 import { KeyboardAdd } from './keyboard-add';
 import { DayColumn, GUTTER_CLASS, gutterMarks, HourGutter } from './day-column';
-import { keys } from '@stint/client';
+import { keys, appNow } from '@stint/client';
 import { timeZone as tz } from '@/lib/client/use-timer';
 
 /** The least room between labeled gridlines: every 3 hours at the default
@@ -486,7 +486,7 @@ function DayHeading({
     timeZone: tz,
   }).format(at);
 
-  const today = localDateKey(new Date(), tz) === date;
+  const today = localDateKey(appNow(), tz) === date;
 
   const full = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
