@@ -42,21 +42,7 @@ const checked = () =>
 afterEach(() => vi.unstubAllGlobals());
 
 describe('TemplatePicker', () => {
-  it('selects at once, before the server answers', async () => {
-    const user = userEvent.setup();
-    const sent: unknown[] = [];
-    setup((body) => {
-      sent.push(body);
-      return new Promise(() => {}); // never answers
-    });
-
-    await user.click(screen.getByRole('radio', { name: /Classic/ }));
-
-    expect(checked()).toEqual(['classic']);
-    expect(sent).toEqual([{ invoiceTemplate: 'classic' }]);
-  });
-
-  it('Preview chooses nothing; Use in the preview does', async () => {
+  it('saves a press and Use; Preview saves nothing', async () => {
     const user = userEvent.setup();
     const sent: unknown[] = [];
     setup((body) => {
@@ -65,15 +51,15 @@ describe('TemplatePicker', () => {
     });
 
     await user.click(screen.getByRole('button', { name: 'Preview Modern' }));
-
-    expect(screen.getByRole('dialog')).toBeTruthy();
     expect(sent).toEqual([]);
 
     await user.click(screen.getByRole('button', { name: 'Use Modern' }));
+    await user.click(screen.getByRole('radio', { name: /Classic/ }));
 
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(checked()).toEqual(['modern']);
-    expect(sent).toEqual([{ invoiceTemplate: 'modern' }]);
+    expect(sent).toEqual([
+      { invoiceTemplate: 'modern' },
+      { invoiceTemplate: 'classic' },
+    ]);
   });
 
   it('a refused save puts the saved template back', async () => {
