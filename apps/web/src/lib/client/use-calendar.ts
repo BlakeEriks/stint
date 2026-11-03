@@ -210,7 +210,7 @@ export function workedWindow(
       last,
       e.endedAt
         ? hoursFrom(e.endedAt)
-        : (appNow().getTime() - dayStart.getTime()) / hourMs,
+        : (Date.now() - dayStart.getTime()) / hourMs,
     );
   }
 
