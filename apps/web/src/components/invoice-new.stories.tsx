@@ -66,8 +66,9 @@ const pickGrouping = async (page: Page, name: RegExp) => {
 const summaryFor = async (canvasElement: HTMLElement, text: string) => {
   const page = await chooseNorthwind(canvasElement);
   await pickGrouping(page, /One summary line/);
-  if (text)
-    await userEvent.type(await page.findByLabelText(/Summary line/), text);
+  const field = await page.findByLabelText(/Summary line/);
+  await userEvent.clear(field);
+  if (text) await userEvent.type(field, text);
   return page;
 };
 
@@ -841,8 +842,8 @@ export const FormatLoading: Story = {
   },
 };
 
-/** A client never invoiced opens on one summary line, waiting for its
-    text. */
+/** A client never invoiced opens on one summary line, its text started
+    in the field for the user to keep or change. */
 export const FirstInvoice: Story = {
   ...desktop,
   parameters: {
@@ -853,7 +854,9 @@ export const FirstInvoice: Story = {
   },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
-    await expect(await page.findByLabelText(/Summary line/)).toHaveValue('');
+    await expect(await page.findByLabelText(/Summary line/)).toHaveValue(
+      'Contracting services',
+    );
     await expect(
       page.getByRole('button', { name: 'Show time as' }),
     ).toHaveTextContent('One summary line');
@@ -1299,10 +1302,16 @@ export const LeavingDiscards: Story = {
   },
 };
 
-/** Save draft makes the draft, then goes where the link pointed. */
+/** Save draft makes the draft, then goes where the link pointed. A first
+    invoice saves on its started summary line. */
 export const LeavingSaves: Story = {
   ...desktop,
-  parameters: menuOpen,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      db.invoices = db.invoices.filter((i) => i.clientId !== ids.northwind);
+    }),
+  },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
@@ -1310,6 +1319,9 @@ export const LeavingSaves: Story = {
     const dialog = await asked(page);
     await userEvent.click(dialog.getByRole('button', { name: 'Save draft' }));
     await waitFor(() => expect(getDb().invoices.length).toBe(before + 1));
+    await expect(getDb().invoices.at(-1)?.summaryText).toBe(
+      'Contracting services',
+    );
     await waitFor(() =>
       expect(getRouter().push).toHaveBeenCalledWith('/calendar'),
     );

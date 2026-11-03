@@ -247,10 +247,11 @@ function ScheduleHint({
 
 /** What a client's last invoice carries into the next, so a monthly invoice
  *  isn't retyped. A first invoice is one summary line: itemizing is the
- *  exception. */
+ *  exception. Its text starts shown in the field, so it is the user's to
+ *  change, never filled in at save. */
 const carriedFrom = (last: Invoice | undefined) => ({
   groupingMode: last?.groupingMode ?? 'summary',
-  summaryText: last?.summaryText ?? '',
+  summaryText: last?.summaryText ?? 'Contracting services',
   schedules: attachedSchedules(last?.supportingDetail ?? null),
   reference: last?.reference ?? '',
 });
