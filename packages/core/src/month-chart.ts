@@ -4,7 +4,7 @@
  * floor, so the client scales them to whatever box it draws in.
  */
 
-import type { buildEarnedPace } from './stats.ts';
+import { type buildEarnedPace, MIN_PACE_DAYS } from './stats.ts';
 
 type EarnedPace = ReturnType<typeof buildEarnedPace>;
 
@@ -28,7 +28,9 @@ export interface MonthPlot {
   top: number;
   /** Gridline values, bottom to top. */
   gridlines: number[];
-  /** Cumulative earned, one point per business day up to today. */
+  /** Cumulative earned, one point per business day up to today. Before the
+   *  month's first business day, one point at the axis's start holds what the
+   *  weekend earned, so there is always a today to mark. */
   solid: ChartPoint[];
   /** Today to the projected month end; null with no projection. */
   dashed: [ChartPoint, ChartPoint] | null;
@@ -38,29 +40,38 @@ export interface MonthPlot {
 }
 
 export interface MonthChart {
-  projection: { state: 'figure'; amount: number } | { state: 'pending' };
-  /** Null until two days are on the line: one point has no shape. */
-  plot: MonthPlot | null;
+  projection:
+    | { state: 'figure'; amount: number }
+    /** `from` is the first date a projection is allowed: the month's
+     *  `MIN_PACE_DAYS`th business day. */
+    | { state: 'pending'; from: string };
+  /** Drawn from the month's first day, so an early month reads as early
+   *  rather than as missing. */
+  plot: MonthPlot;
 }
 
 export function monthChart(
-  month: Pick<EarnedPace, 'projected' | 'series' | 'projection'>,
+  month: Pick<EarnedPace, 'earned' | 'projected' | 'series' | 'projection'>,
 ): MonthChart {
   return {
     projection:
       month.projected == null
-        ? { state: 'pending' }
+        ? {
+            state: 'pending',
+            from: month.series[MIN_PACE_DAYS - 1]?.date ?? '',
+          }
         : { state: 'figure', amount: month.projected },
     plot: monthPlot(month),
   };
 }
 
 function monthPlot({
+  earned,
   series,
   projection,
-}: Pick<EarnedPace, 'series' | 'projection'>): MonthPlot | null {
-  const done = series.flatMap((p) => (p.actual == null ? [] : [p.actual]));
-  if (done.length < 2) return null;
+}: Pick<EarnedPace, 'earned' | 'series' | 'projection'>): MonthPlot {
+  const actual = series.flatMap((p) => (p.actual == null ? [] : [p.actual]));
+  const done = actual.length > 0 ? actual : [earned];
 
   /* The scale takes the projection's endpoint when there is one, so the
      dashed segment lands inside the box rather than leaving the top of it. */

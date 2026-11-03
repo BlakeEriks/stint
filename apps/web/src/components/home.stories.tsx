@@ -640,7 +640,8 @@ export const OtherCurrency: Story = {
   },
 };
 
-/** The month's first day: no projection yet, so a dash holds On track for's place. */
+/** The month's first day: the axis is drawn with today's work as a dot, and
+ *  the dash under On track for says when a projection starts. */
 export const MonthFirst: Story = {
   ...desktop,
   parameters: { now: '2026-10-01T19:30:00.000Z' },
@@ -649,7 +650,23 @@ export const MonthFirst: Story = {
     await expect(
       await page.findByLabelText('Not projected yet'),
     ).toHaveTextContent('—');
+    await expect(page.getByText('From Mon, Oct 5')).toBeVisible();
+    await expect(page.getByText('today')).toBeVisible();
     await expect(page.queryByText(/business days/)).toBeNull();
+  },
+};
+
+/** A Sunday 1st with nothing worked: the empty month's axis, unlabeled, and
+ *  the first date a projection can show. */
+export const MonthFirstEmpty: Story = {
+  ...desktop,
+  parameters: { ...account('empty'), now: '2026-11-01T19:30:00.000Z' },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(await page.findByText('From Wed, Nov 4')).toBeVisible();
+    await expect(page.getByText('today')).toBeVisible();
+    const yAxis = canvasElement.querySelector('[data-axis="y"]');
+    await expect(yAxis?.textContent).toBe('');
   },
 };
 

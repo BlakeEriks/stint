@@ -44,7 +44,6 @@ for (const [prefix, length] of MONTHS) {
       );
 
       const plot = chart.plot;
-      if (!plot) continue;
       assert.equal(plot.gridlines.at(-1), plot.top, `${day}: top is labeled`);
       const points = [...plot.solid, ...(plot.dashed ?? [])];
       for (const p of points) {
@@ -84,6 +83,7 @@ test('the scale rounds up to a step a reader can add', () => {
     [0, [1, 2, 3, 4]],
   ] as const) {
     const plot = monthChart({
+      earned: 0,
       projected: amount,
       series: [
         { date: '2026-09-01', actual: 0 },
@@ -102,21 +102,44 @@ test('the scale rounds up to a step a reader can add', () => {
   }
 });
 
-test('a month with one day on it has a figure but no plot', () => {
-  const chart = monthChart({
-    projected: null,
-    series: [
-      { date: '2026-09-01', actual: 400 },
-      { date: '2026-09-02', actual: null },
-    ],
-    projection: null,
-  });
-  assert.equal(chart.plot, null);
-  assert.deepEqual(chart.projection, { state: 'pending' });
+test("a month's first day draws today as a dot and dates the projection", () => {
+  const chart = monthChart(
+    buildEarnedPace({
+      byDay: new Map([['2026-09-01', 400]]),
+      now: new Date('2026-09-01T12:00:00Z'),
+      tz: 'UTC',
+    }),
+  );
+  assert.deepEqual(chart.projection, { state: 'pending', from: '2026-09-03' });
+  assert.deepEqual(chart.plot.solid, [{ x: 0, y: 400 / 400 }]);
+  assert.deepEqual(chart.plot.gridlines, [100, 200, 300, 400]);
+});
+
+test('a weekend before the first business day draws its work at the start', () => {
+  // Nov 1 2026 is a Sunday: no business day yet, but Sunday's work counts.
+  const { plot, projection } = monthChart(
+    buildEarnedPace({
+      byDay: new Map([['2026-11-01', 250]]),
+      now: new Date('2026-11-01T12:00:00Z'),
+      tz: 'UTC',
+    }),
+  );
+  assert.deepEqual(projection, { state: 'pending', from: '2026-11-04' });
+  assert.deepEqual(plot.solid, [{ x: 0, y: 250 / 280 }]);
+  assert.deepEqual(plot.today, { x: 0, y: 250 / 280, anchor: 'middle' });
+});
+
+test('a month with nothing earned still has its axis', () => {
+  const { plot } = monthChart(
+    buildEarnedPace({ now: new Date('2026-11-01T12:00:00Z'), tz: 'UTC' }),
+  );
+  assert.deepEqual(plot.solid, [{ x: 0, y: 0 }]);
+  assert.equal(plot.gridlines.length, 4);
 });
 
 test('a projection is a figure with its dashed segment', () => {
   const chart = monthChart({
+    earned: 300,
     projected: 900,
     series: [
       { date: '2026-09-01', actual: 100 },

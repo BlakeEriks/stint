@@ -73,14 +73,20 @@ export function Month({
                 className="type-amount-hero text-strong"
               />
             ) : (
-              <span
-                data-projection="pending"
-                role="img"
-                aria-label="Not projected yet"
-                className="type-amount-hero text-subtle"
-              >
-                —
-              </span>
+              <>
+                <span
+                  data-projection="pending"
+                  role="img"
+                  aria-label="Not projected yet"
+                  className="type-amount-hero text-subtle"
+                >
+                  —
+                </span>
+                {/* The date says the dash is early, not broken. */}
+                <span className="type-meta text-subtle">
+                  From {weekdayLabel(chart.projection.from)}
+                </span>
+              </>
             )}
           </FigGroup>
 
@@ -212,32 +218,17 @@ function Climb({
   hues,
 }: {
   month: Stats['month'];
-  plot: MonthPlot | null;
+  plot: MonthPlot;
   currency: string;
   hues: Map<string, Hue>;
 }) {
-  if (!plot) {
-    return (
-      <div className="min-w-0">
-        <div
-          data-climb="empty"
-          className="flex h-[calc(218px+var(--grow,0px))] items-center type-meta text-subtle"
-        >
-          The month&apos;s climb draws once there are two days on it.
-        </div>
-        {/* The split still answers WHO on a month too young to draw a line:
-            one day of work has no shape, but it already has a source. */}
-        <Strip byClient={month.byClient} hues={hues} currency={currency} />
-      </div>
-    );
-  }
-
   const at = ({ x, y }: { x: number; y: number }) =>
     `${x * PLOT_W},${PLOT_H - y * PLOT_H}`;
   const line = plot.solid
     .map((p, i) => `${i === 0 ? 'M' : 'L'}${at(p)}`)
     .join(' ');
   const { today } = plot;
+  const money = month.earned > 0;
   const area = `${line} L${at({ x: today.x, y: 0 })} L0,${PLOT_H} Z`;
   const dashed = plot.dashed
     ? `M${at(plot.dashed[0])} L${at(plot.dashed[1])}`
@@ -328,7 +319,9 @@ function Climb({
           </svg>
 
           <div data-axis="y" className="absolute inset-y-0 -left-11 w-11">
-            {plot.gridlines.map((v) => (
+            {/* Nothing earned has no scale worth reading: the gridlines stay
+                so the month still has its shape, unlabeled. */}
+            {(money ? plot.gridlines : []).map((v) => (
               <span
                 key={v}
                 style={{ top: `${(1 - v / plot.top) * 100}%` }}
@@ -451,11 +444,22 @@ function label(month: Stats['month'], currency: string): string {
 
 /** `Sep 1`. Built as UTC, so no zone can shift the key a day. */
 function dayLabel(key: string | undefined): string {
+  return keyLabel(key, { month: 'short', day: 'numeric' });
+}
+
+/** `Wed, Nov 4`. */
+function weekdayLabel(key: string): string {
+  return keyLabel(key, { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function keyLabel(
+  key: string | undefined,
+  options: Intl.DateTimeFormatOptions,
+): string {
   if (!key) return '';
   const [y, m, d] = key.split('-').map(Number);
   return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
+    ...options,
     timeZone: 'UTC',
   }).format(new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1)));
 }
