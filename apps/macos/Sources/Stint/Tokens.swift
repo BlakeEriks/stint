@@ -219,7 +219,7 @@ public enum Tokens {
             uppercase: false, tabular: false, mono: true
         )
         public static let wordmarkSmall = Role(
-            size: 14, weight: .semibold, tracking: 1.68,
+            size: 18, weight: .semibold, tracking: 2.16,
             uppercase: false, tabular: false, mono: true
         )
         public static let nav = Role(

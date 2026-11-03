@@ -30,7 +30,7 @@ export function Swatch({
 export function Wordmark({ large = false }: { large?: boolean }) {
   const c = useColors();
   const role = large ? 'wordmark' : 'wordmark-small';
-  const size = text(role).fontSize ?? 14;
+  const size = text(role).fontSize ?? 18;
   const bound = {
     width: Math.max(1.5, size * mark.boundWidth),
     height: size * mark.boundHeight,

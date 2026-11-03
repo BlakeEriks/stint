@@ -154,11 +154,11 @@ struct Square: View {
       HStack(alignment: .top) {
         HStack(alignment: .center, spacing: 1) {
           Text("STINT")
-            .font(.system(size: 13, weight: .semibold, design: .monospaced))
-            .tracking(1.6)
+            .font(.system(size: 18, weight: .semibold, design: .monospaced))
+            .tracking(18 * 0.12)
           Text("™")
-            .font(.system(size: 13 * 0.6, weight: .semibold, design: .monospaced))
-            .offset(y: -13 * 0.35)
+            .font(.system(size: 18 * 0.6, weight: .semibold, design: .monospaced))
+            .offset(y: -18 * 0.35)
         }
         .foregroundStyle(p["text-subtle"])
         .accessibilityElement()

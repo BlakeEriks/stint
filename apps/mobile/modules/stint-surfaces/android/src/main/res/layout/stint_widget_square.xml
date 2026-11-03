@@ -20,12 +20,12 @@
                 <TextView android:id="@+id/wordmark" android:layout_width="wrap_content"
                     android:layout_height="wrap_content" android:importantForAccessibility="no"
                     android:fontFamily="@font/ibm_plex_mono_600" android:letterSpacing="0.12"
-                    android:text="STINT" android:textColor="#8F96A4" android:textSize="14sp" />
+                    android:text="STINT" android:textColor="#8F96A4" android:textSize="18sp" />
                 <TextView android:id="@+id/wordmark_tm" android:layout_width="wrap_content"
                     android:layout_height="wrap_content" android:layout_gravity="top"
                     android:importantForAccessibility="no"
                     android:fontFamily="@font/ibm_plex_mono_600" android:includeFontPadding="false"
-                    android:text="™" android:textColor="#8F96A4" android:textSize="8.4sp" />
+                    android:text="™" android:textColor="#8F96A4" android:textSize="10.8sp" />
             </LinearLayout>
             <include layout="@layout/stint_button" />
         </LinearLayout>
