@@ -211,7 +211,8 @@ the reviewer, each with its reason (a feature lists every decision marked
 do before merging or testing, or a question only they can answer. **How it works** holds how it was verified — only
 commands you ran this round and what they showed, and plainly what nobody
 has seen yet, like the menu bar. In **Try it**, `<n>` is the number `gh pr create` prints — never the
-issue's. Label the PR `migration` if its issue is. A stacked PR is opened
+issue's. Label the PR `migration` if its issue is, and `android` if its
+issue is: only an `android` PR gets a phone preview. A stacked PR is opened
 with `--base <that PR's branch>` and says which merges first.
 
 On `ship` for a round of fixes: push, then one marked comment — what changed,

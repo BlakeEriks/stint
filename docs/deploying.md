@@ -440,9 +440,10 @@ can ask for it too.
 **A preview can be tested as of another day**: `?today=2026-10-20` on any
 page sets the day the app treats as today until the tab closes, and
 `?today=` clears it. Local dev honors it too, and production never does. Forms
-default to the chosen day; the server still stamps writes and runs timers on
-the real clock. The seed holds two weeks of work before the
-real date, so pick a day in that span for the screens to show data.
+default to the chosen day, except a new invoice, which is dated on the real
+day as the server dates it. The server still stamps writes and runs timers
+on the real clock. The seed holds two weeks of work before the real date, so
+pick a day in that span for the screens to show data.
 
 - **GitHub** → Environments → **Preview** → secret `PREVIEW_DB_URL`:
   `stint-test`'s session pooler string. The direct connection is IPv6-only,
@@ -460,7 +461,7 @@ real date, so pick a day in that span for the screens to show data.
   the secret `pnpm try-mac` sends so the menu bar app reaches a preview
   (`docs/macos.md`).
 
-A PR that changes the phone app also gets an EAS Update against its
+A PR labeled `android` also gets an EAS Update against its
 preview, opened in a shared Android build, from
 `.github/workflows/mobile-preview.yml`; `docs/mobile.md` has its one-time
 setup.

@@ -1,5 +1,4 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { appNow } from './app-now.ts';
 import { elapsedSeconds, entrySeconds, localDateKey } from '@stint/core';
 import type {
   Include,
@@ -221,7 +220,7 @@ function withEntries(
 /** `stats` with `seconds` more on today's bar, today being in `tz`. */
 function withTodayBar(stats: Stats | undefined, seconds: number, tz: string) {
   if (!stats || seconds === 0) return stats;
-  const today = localDateKey(appNow(), tz);
+  const today = localDateKey(new Date(), tz);
   return {
     ...stats,
     week: stats.week.map((d) =>

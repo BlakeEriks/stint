@@ -1,6 +1,6 @@
 /**
- * `|Stint|` — the wordmark. `Foundations/Mark` draws it; `mark-bound`
- * carries the geometry so this and `Mark.swift` draw the same mark.
+ * `|Stint|™` — the wordmark. `Foundations/Mark` draws it; `mark-bound` and
+ * `mark-tm` carry the geometry so this and `Mark.swift` draw the same mark.
  *
  * `className` is a whole utility (`text-muted`), not a shade, so the bounds
  * keep tracking it through `currentColor`.
@@ -29,6 +29,7 @@ export function Wordmark({
       <span aria-hidden className="mark-bound" />
       <span>Stint</span>
       <span aria-hidden className="mark-bound" />
+      <span aria-hidden className="mark-tm" />
     </span>
   );
 }

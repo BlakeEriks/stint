@@ -179,9 +179,10 @@ takes no updates, so no over-the-air bundle needs its own upload.
 A PR's phone preview is an EAS Update, opened in one shared development
 build of Stint Preview. The reviewer installs the build once, then scans
 each PR's QR to open that PR, signed in as its seeded account.
-`.github/workflows/mobile-preview.yml` publishes the update on every push
-that changes the app or a package it imports, and comments the QR on the
-PR.
+On a PR labeled `android`, `.github/workflows/mobile-preview.yml`
+publishes the update when the label goes on and on every push that changes
+the app or a package it imports, and comments the QR on the PR. A PR
+without the label gets no phone preview.
 
 The update carries the PR's number and Vercel preview; the build carries
 neither (`fingerprint.config.cjs`). A build is made only when no finished
