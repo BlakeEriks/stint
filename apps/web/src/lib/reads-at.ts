@@ -2,7 +2,8 @@
  * The instant a read is cut at: the client's `x-stint-now`, which the web
  * sends when a tester has chosen another day (`lib/client/today.ts`), or the
  * real clock. Only a preview or local dev honors it. A running timer in
- * `/stats` is measured at that instant; writes never read it.
+ * `/stats` is measured at that instant. A write reads it only for the reads
+ * it includes, never for what it records.
  */
 export function readsAt(req: Request): Date {
   const asked = req.headers.get('x-stint-now');
