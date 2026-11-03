@@ -112,33 +112,23 @@ export function EntryList({
         tabIndex={useScrollerFocus()}
         className="min-h-0 flex-1 overflow-y-auto"
       >
-        {/* No `empty`: a day with nothing logged still draws its grid, the
-            only place a pointer adds an entry. */}
         <Listing query={query} tight>
           {(entries) => (
-            <>
-              {entries.length === 0 ? (
-                <p className="px-1 pb-2 type-support text-subtle">
-                  Nothing logged yet today. Draw or click a time, or start a
-                  timer above.
-                </p>
-              ) : null}
-              <TodayGrid
-                entries={entries}
-                colors={colors}
-                drag={drag}
-                fills={fills}
-                onEdit={(existing) => editing.show({ existing })}
-                onCreate={(startedAt, endedAt) =>
-                  editing.show({
-                    seed: {
-                      startedAt: startedAt.toISOString(),
-                      endedAt: endedAt.toISOString(),
-                    },
-                  })
-                }
-              />
-            </>
+            <TodayGrid
+              entries={entries}
+              colors={colors}
+              drag={drag}
+              fills={fills}
+              onEdit={(existing) => editing.show({ existing })}
+              onCreate={(startedAt, endedAt) =>
+                editing.show({
+                  seed: {
+                    startedAt: startedAt.toISOString(),
+                    endedAt: endedAt.toISOString(),
+                  },
+                })
+              }
+            />
           )}
         </Listing>
       </div>
