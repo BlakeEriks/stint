@@ -157,8 +157,8 @@ struct Square: View {
             .font(.system(size: 13, weight: .semibold, design: .monospaced))
             .tracking(1.6)
           Text("™")
-            .font(.system(size: 13 * 0.42, weight: .semibold, design: .monospaced))
-            .offset(y: -13 * 0.4)
+            .font(.system(size: 13 * 0.6, weight: .semibold, design: .monospaced))
+            .offset(y: -13 * 0.35)
         }
         .foregroundStyle(p["text-subtle"])
         .accessibilityElement()

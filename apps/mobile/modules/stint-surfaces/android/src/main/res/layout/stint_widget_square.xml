@@ -25,7 +25,7 @@
                     android:layout_height="wrap_content" android:layout_gravity="top"
                     android:importantForAccessibility="no"
                     android:fontFamily="@font/ibm_plex_mono_600" android:includeFontPadding="false"
-                    android:text="™" android:textColor="#8F96A4" android:textSize="6sp" />
+                    android:text="™" android:textColor="#8F96A4" android:textSize="8.4sp" />
             </LinearLayout>
             <include layout="@layout/stint_button" />
         </LinearLayout>
