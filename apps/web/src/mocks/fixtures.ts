@@ -58,7 +58,8 @@ export const mockDraftRefusals = (i: StoredInvoice) => {
   const due = i.dueBeforeIssue ?? dueBeforeIssue(i);
   return {
     download: unrated || due.download,
-    send: unrated || due.send || i.lineItems.length === 0,
+    send:
+      unrated || due.send || (i.status === 'draft' && i.lineItems.length === 0),
   };
 };
 
