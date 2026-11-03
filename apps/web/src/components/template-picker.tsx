@@ -45,9 +45,8 @@ const TEMPLATES: Array<{
 ];
 
 /**
- * The account's template, and the press that changes it. Settings and New
- * invoice both use this, so the two can never disagree: it is one setting.
- * The choice shows at once; a refused save puts the saved one back and the
+ * The account's template, and the press on Settings that changes it. The
+ * choice shows at once; a refused save puts the saved one back and the
  * app-wide notice says why.
  */
 export function useTemplateChoice() {
@@ -75,22 +74,22 @@ const THUMBS: Record<InvoiceTemplate, ImageProps['src']> = {
   creative,
 };
 
+/** The template's name, as the picker shows it. */
+export const templateName = (id: InvoiceTemplate) =>
+  TEMPLATES.find((t) => t.id === id)?.name ?? id;
+
 /**
- * The four templates as a radio group of thumbnails: cards with a line on
- * each in Settings, small ones on New invoice. Native radios, so arrow keys
- * move the choice as they would in any radio group. Each has a Preview
- * that shows its sample page at full size.
+ * The four templates as a radio group of thumbnail cards, with a line on
+ * each. Native radios, so arrow keys move the choice as they would in any
+ * radio group. Each has a Preview that shows its sample page at full size.
  */
 export function TemplatePicker({
   value,
   onChange,
-  size,
 }: {
   value: InvoiceTemplate;
   onChange: (t: InvoiceTemplate) => void;
-  size: 'card' | 'mini';
 }) {
-  const card = size === 'card';
   const [previewing, setPreviewing] = useState<InvoiceTemplate | null>(null);
   const shown = TEMPLATES.find((t) => t.id === previewing);
   const scrollerFocus = useScrollerFocus('all');
@@ -99,7 +98,7 @@ export function TemplatePicker({
       <div
         role="radiogroup"
         aria-label="Invoice template"
-        className={`grid ${card ? 'grid-cols-2 gap-3 sm:grid-cols-4' : 'grid-cols-4 gap-2'}`}
+        className="grid grid-cols-2 gap-3 sm:grid-cols-4"
       >
         {TEMPLATES.map((t) => {
           const on = t.id === value;
@@ -108,11 +107,11 @@ export function TemplatePicker({
              thumbnail is a picture, and its text is not the radio's name. */
             <div
               key={t.id}
-              className={`relative flex flex-col rounded-md border has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-edge-focus ${
+              className={`relative flex flex-col gap-2 rounded-md border bg-surface-elevated p-2 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-edge-focus ${
                 on
                   ? 'border-accent-default ring-1 ring-accent-default'
                   : 'border-edge-default hover:bg-surface-hover'
-              } ${card ? 'gap-2 bg-surface-elevated p-2' : 'gap-1 p-1'}`}
+              }`}
             >
               <Image
                 src={THUMBS[t.id]}
@@ -120,20 +119,18 @@ export function TemplatePicker({
                 // The image's size, which Vitest's image import doesn't carry.
                 width={1224}
                 height={1584}
-                sizes={card ? '200px' : '100px'}
+                sizes="200px"
                 className="h-auto w-full rounded-sm shadow-card"
               />
               <span
-                className={`${card ? 'type-control' : 'type-meta text-center'} ${on ? 'text-strong' : 'text-muted'}`}
+                className={`type-control ${on ? 'text-strong' : 'text-muted'}`}
               >
                 {t.name}
               </span>
-              {card ? (
-                <span className="type-meta text-subtle">{t.line}</span>
-              ) : null}
+              <span className="type-meta text-subtle">{t.line}</span>
               <input
                 type="radio"
-                name={`invoice-template-${size}`}
+                name="invoice-template"
                 value={t.id}
                 checked={on}
                 onChange={() => onChange(t.id)}
@@ -144,7 +141,7 @@ export function TemplatePicker({
               <Button
                 type="button"
                 size="xs"
-                variant={card ? 'default' : 'ghost'}
+                variant="default"
                 onClick={() => setPreviewing(t.id)}
                 aria-label={`Preview ${t.name}`}
                 className="relative z-10 self-start"

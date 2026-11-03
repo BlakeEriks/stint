@@ -28,6 +28,7 @@ export function SettingsDialog({
   description,
   missing,
   patch,
+  className,
   children,
 }: {
   onOpenChange: (open: boolean) => void;
@@ -35,6 +36,7 @@ export function SettingsDialog({
   description: ReactNode;
   missing: Missing;
   patch: () => SettingsInput;
+  className?: string;
   children: (
     pending: boolean,
     error: (id: string) => string | undefined,
@@ -63,7 +65,7 @@ export function SettingsDialog({
       // Closed while it waits, a refusal would show nowhere: it is inline.
       onOpenChange={(next) => save.isPending || onOpenChange(next)}
     >
-      <DialogContent>
+      <DialogContent className={className}>
         <form
           noValidate
           className="flex flex-col gap-4"

@@ -9,19 +9,10 @@ import {
   useTemplateChoice,
 } from '@/components/template-picker';
 
-/** Two pickers on one setting, as Settings and New invoice share it. */
-function Both() {
+/** The picker on Settings, which saves each press. */
+function Picker() {
   const { template, choose } = useTemplateChoice();
-  return (
-    <>
-      <div data-testid="settings">
-        <TemplatePicker value={template} onChange={choose} size="card" />
-      </div>
-      <div data-testid="new">
-        <TemplatePicker value={template} onChange={choose} size="mini" />
-      </div>
-    </>
-  );
+  return <TemplatePicker value={template} onChange={choose} />;
 }
 
 function setup(answer: (body: unknown) => Promise<Response>) {
@@ -40,19 +31,18 @@ function setup(answer: (body: unknown) => Promise<Response>) {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
-  render(<Both />, { wrapper });
+  render(<Picker />, { wrapper });
 }
 
-const checked = (where: string) =>
+const checked = () =>
   screen
     .getAllByRole('radio', { checked: true })
-    .filter((r) => r.closest(`[data-testid="${where}"]`))
     .map((r) => (r as HTMLInputElement).value);
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe('TemplatePicker', () => {
-  it('selects at once, in both places, before the server answers', async () => {
+  it('selects at once, before the server answers', async () => {
     const user = userEvent.setup();
     const sent: unknown[] = [];
     setup((body) => {
@@ -60,10 +50,9 @@ describe('TemplatePicker', () => {
       return new Promise(() => {}); // never answers
     });
 
-    await user.click(screen.getAllByRole('radio', { name: /Classic/ })[1]!);
+    await user.click(screen.getByRole('radio', { name: /Classic/ }));
 
-    expect(checked('settings')).toEqual(['classic']);
-    expect(checked('new')).toEqual(['classic']);
+    expect(checked()).toEqual(['classic']);
     expect(sent).toEqual([{ invoiceTemplate: 'classic' }]);
   });
 
@@ -75,9 +64,7 @@ describe('TemplatePicker', () => {
       return new Promise(() => {}); // never answers
     });
 
-    await user.click(
-      screen.getAllByRole('button', { name: 'Preview Modern' })[0]!,
-    );
+    await user.click(screen.getByRole('button', { name: 'Preview Modern' }));
 
     expect(screen.getByRole('dialog')).toBeTruthy();
     expect(sent).toEqual([]);
@@ -85,7 +72,7 @@ describe('TemplatePicker', () => {
     await user.click(screen.getByRole('button', { name: 'Use Modern' }));
 
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(checked('settings')).toEqual(['modern']);
+    expect(checked()).toEqual(['modern']);
     expect(sent).toEqual([{ invoiceTemplate: 'modern' }]);
   });
 
@@ -99,9 +86,8 @@ describe('TemplatePicker', () => {
         ),
     );
 
-    await user.click(screen.getAllByRole('radio', { name: /Modern/ })[0]!);
+    await user.click(screen.getByRole('radio', { name: /Modern/ }));
 
-    await waitFor(() => expect(checked('settings')).toEqual(['standard']));
-    expect(checked('new')).toEqual(['standard']);
+    await waitFor(() => expect(checked()).toEqual(['standard']));
   });
 });

@@ -294,7 +294,7 @@ function TemplateSection() {
       title="Invoice template"
       description="How your invoices look. Every template prints the same details."
     >
-      <TemplatePicker value={template} onChange={choose} size="card" />
+      <TemplatePicker value={template} onChange={choose} />
       <p className="type-support text-subtle">
         Drafts use it right away. A sent invoice keeps the template it was sent
         with.
