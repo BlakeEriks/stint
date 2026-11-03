@@ -3,7 +3,7 @@
 `apps/mobile` is an Expo app for iPhone and Android. **It is the timer and
 nothing else**, the macOS panel's scope: start, stop, task name, project,
 with Today, Earned, and five recent tasks. Each screen's look is its
-`*.stories.tsx`.
+`*.stories.tsx`, and its text follows `docs/voice.md`.
 
 **It calls the web's own timer.** `packages/client` (`@stint/client`) holds
 `useTimer`, `useOptimisticMutation`, the query keys, `useFailedPress` and
