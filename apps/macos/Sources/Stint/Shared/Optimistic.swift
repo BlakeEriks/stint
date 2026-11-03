@@ -1,7 +1,9 @@
 import Foundation
 
-/// The one way the macOS app writes (Constitution VI), the same rules as
-/// `useOptimisticMutation` on the web. Every press answers in the same frame:
+/// The one way the macOS app writes (Constitution VI), and the iPhone's
+/// presses outside its app (`apps/mobile/modules/stint-surfaces/ios`, which
+/// links these files), the same rules as `useOptimisticMutation` on
+/// the web. Every press answers in the same frame:
 ///
 /// - **Predicted**: `apply` changes published state before anything is
 ///   awaited and returns how to undo it.
@@ -32,6 +34,8 @@ protocol Optimistic: AnyObject {
     /// The last request queued in each scope. Only `press` touches it.
     var lanes: [String: Task<Void, Never>] { get set }
     func report(_ reason: String)
+    /// How `report` words a failure.
+    func message(for error: Error) -> String
     /// Fetches the server's truth.
     func refresh() async
 }
@@ -77,7 +81,7 @@ extension Optimistic {
                 await refresh()
             }
             // After the refresh, which clears the model's last error.
-            report(userMessage(for: error))
+            report(message(for: error))
             return nil
         }
     }

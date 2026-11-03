@@ -5,6 +5,7 @@ import { resolveTarget } from './target.ts';
 /** This build's backend, as `app.config.ts` resolved it. */
 export const target = resolveTarget(
   (Constants.expoConfig?.extra?.env as Record<string, string>) ?? {},
+  Platform.OS === 'web' ? undefined : Constants.expoConfig?.hostUri,
 );
 
 /* The local web render asks its own origin, which Metro proxies to the web

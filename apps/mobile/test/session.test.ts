@@ -116,6 +116,35 @@ test('a token about to expire is refreshed, once for concurrent callers', async 
   });
 });
 
+test('a refresh takes the session another process stored since', async () => {
+  // The iPhone's widget presses refresh in Swift, beside this app's session.
+  const s = server(() => json(200, gotrue(3)));
+  const { auth: a, store } = auth(s.fetch);
+  await a.signInWithSession(gotrue(1, { expires_at: NOW / 1000 + 30 }));
+  const key = 'stint.session.localhost_54321';
+  const stored = (n: number, expiresAt: number) =>
+    store.data.set(
+      key,
+      JSON.stringify({
+        accessToken: `access-${n}`,
+        refreshToken: `refresh-${n}`,
+        expiresAt,
+        email: 'builder@localhost.test',
+        userId: 'user-1',
+      }),
+    );
+
+  stored(2, NOW / 1000 + 3600);
+  assert.equal(await a.accessToken(), 'access-2');
+  assert.equal(s.calls.length, 0, 'a fresh stored session spends nothing');
+
+  stored(4, NOW / 1000 + 30);
+  assert.equal((await a.refresh()).accessToken, 'access-3');
+  assert.deepEqual(JSON.parse(String(s.calls[0]?.init.body)), {
+    refresh_token: 'refresh-4',
+  });
+});
+
 test('only GoTrue rejecting the refresh token signs out', async () => {
   for (const status of [400, 401, 403]) {
     const s = server(() => json(status, { msg: 'Invalid Refresh Token' }));
