@@ -73,7 +73,7 @@ export function Today({ stats }: { stats: Stats }) {
       <section
         aria-label="Today's tasks"
         tabIndex={useScrollerFocus('all')}
-        className="mt-4 flex max-h-40 flex-col overflow-y-auto"
+        className="mt-4 flex max-h-[calc(160px+var(--grow,0px))] flex-col overflow-y-auto"
       >
         {entries.length === 0
           ? /* An empty day keeps its rows rather than collapsing, the same way

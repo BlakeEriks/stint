@@ -71,7 +71,7 @@ export function Week({
         {/* The bars stand on a baseline. There is no ceiling: the axis is
             unlabeled and each bar prints its own money, so every column is
             read on its own terms. */}
-        <div className="flex h-[112px] items-stretch gap-1 border-b @md:gap-4 border-edge-default">
+        <div className="flex h-[calc(112px+var(--grow,0px))] items-stretch gap-1 border-b @md:gap-4 border-edge-default">
           {week.map((d) => (
             <div key={d.date} className="flex min-w-0 flex-1">
               <div className="relative mx-auto flex w-full max-w-[74px] min-h-0 flex-1 flex-col-reverse">

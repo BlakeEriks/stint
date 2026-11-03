@@ -9,6 +9,7 @@ import {
   failing,
   light,
   macbook,
+  macbook16,
   phone,
   screen,
   stalled,
@@ -481,7 +482,8 @@ export const Failed: Story = {
   },
 };
 
-/** The panel shows whole, legend included, with no scroll. */
+/** The panel shows whole, legend included, with no scroll; returns the
+ *  scrolling panel. */
 async function fitsWhole(canvasElement: HTMLElement) {
   const legend = await waitFor(() => {
     const found = canvasElement.querySelector('[data-legend="clients"]');
@@ -499,6 +501,7 @@ async function fitsWhole(canvasElement: HTMLElement) {
       panel.getBoundingClientRect().bottom,
     );
   });
+  return panel;
 }
 
 /** Past `2xl` the frame is capped, and Home fits it whole. */
@@ -542,6 +545,19 @@ export const MacBook: Story = {
       'title',
       expect.stringContaining('Copperline Freight'),
     );
+  },
+};
+
+/** A 16-inch MacBook's taller frame: the charts grow until Home fills it,
+ *  rather than leaving a gap beneath the legend. */
+export const MacBook16: Story = {
+  ...macbook16,
+  play: async ({ canvasElement }) => {
+    const panel = await fitsWhole(canvasElement);
+    const content = panel.querySelector('main') as HTMLElement;
+    await expect(
+      panel.clientHeight - content.getBoundingClientRect().height,
+    ).toBeLessThan(24);
   },
 };
 

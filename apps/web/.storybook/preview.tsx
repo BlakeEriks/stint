@@ -152,7 +152,7 @@ const preview: Preview = {
     nextjs: { appDirectory: true },
     msw: { handlers },
     // One width inside each arrangement the frame changes between, at `sm`,
-    // `lg`, `xl` and `2xl`, and the 13-inch MacBook Home must fit whole.
+    // `lg`, `xl` and `2xl`, and the 13- and 16-inch MacBooks Home must fit and fill.
     viewport: {
       options: {
         phone: { name: 'Phone', styles: { width: '390px', height: '844px' } },
@@ -173,6 +173,11 @@ const preview: Preview = {
         macbook: {
           name: 'MacBook 13"',
           styles: { width: '1440px', height: '790px' },
+        },
+        // A 16-inch MacBook's, where Home grows to fill the taller frame.
+        macbook16: {
+          name: 'MacBook 16"',
+          styles: { width: '1728px', height: '950px' },
         },
         // Past `2xl`: the app becomes a bounded card on the recessed plane.
         wide: { name: 'Wide', styles: { width: '1600px', height: '1000px' } },

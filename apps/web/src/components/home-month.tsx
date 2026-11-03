@@ -220,7 +220,7 @@ function Climb({
       <div className="min-w-0">
         <div
           data-climb="empty"
-          className="flex h-[218px] items-center type-meta text-subtle"
+          className="flex h-[calc(218px+var(--grow,0px))] items-center type-meta text-subtle"
         >
           The month&apos;s climb draws once there are two days on it.
         </div>
@@ -248,7 +248,7 @@ function Climb({
       <div className="relative pr-3.5 pl-11">
         {/* A fixed height, not an aspect ratio: with its strip and axis it
             matches the figures beside it, so Home fits a 13-inch screen. */}
-        <div className="relative h-[218px] w-full">
+        <div className="relative h-[calc(218px+var(--grow,0px))] w-full">
           <svg
             viewBox={`0 0 ${PLOT_W} ${PLOT_H}`}
             preserveAspectRatio="none"

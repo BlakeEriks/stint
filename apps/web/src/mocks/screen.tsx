@@ -44,6 +44,7 @@ export const tablet = { globals: { viewport: { value: 'tablet' } } };
 export const laptop = { globals: { viewport: { value: 'laptop' } } };
 export const desktop = { globals: { viewport: { value: 'desktop' } } };
 export const macbook = { globals: { viewport: { value: 'macbook' } } };
+export const macbook16 = { globals: { viewport: { value: 'macbook16' } } };
 export const wide = { globals: { viewport: { value: 'wide' } } };
 export const light = {
   globals: { viewport: { value: 'desktop' }, theme: 'light' },
