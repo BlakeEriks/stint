@@ -183,7 +183,9 @@ export const Empty: Story = {
   parameters: account('empty'),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    await expect(await page.findByText(/No clients yet/)).toBeVisible();
+    await expect(
+      await page.findByText('Clients and their rates appear here.'),
+    ).toBeVisible();
   },
 };
 
