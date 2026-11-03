@@ -1,6 +1,6 @@
 /**
- * The instant the app treats as now: the real clock, moved by whole days when
- * a tester has chosen another day (the web's `lib/client/today.ts`). Every
+ * The instant the app treats as now: the real clock, moved to the same wall
+ * clock time on the day a tester chose (the web's `lib/client/today.ts`). Every
  * "what day is it" a screen asks reads it. A timer's elapsed time, a write's
  * timestamp and the server's clock skew read the real clock instead.
  */
