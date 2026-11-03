@@ -17,6 +17,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, SubFields, inputClass, textareaClass } from './field';
+import { SaveIndicator } from './save-indicator';
+import { useAutosave } from '@/lib/client/use-autosave';
 import { BILL_TO_PLACEHOLDER } from './client-form';
 import { ClientPicker } from './client-picker';
 import {
@@ -721,7 +723,7 @@ function Form({
                   }
                   placeholder="Choose a client…"
                 />
-                {billTo.fields ? <SubFields>{billTo.fields}</SubFields> : null}
+                {billTo.fields}
               </Field>
               <div className="flex flex-wrap gap-4">
                 <DateField
@@ -927,6 +929,11 @@ class UnsavedBillTo extends Error {
 const BILL_TO_LANE = 'client-bill-to';
 
 type BillToField = 'address' | 'email';
+type BillTo = Partial<Pick<Client, BillToField>>;
+
+/** "Meridian Labs'", "Northwind Trading's". */
+const possessive = (name: string) =>
+  name.endsWith('s') ? `${name}'` : `${name}'s`;
 
 /**
  * Leaving a field saves it to the client, which every later invoice reads.
@@ -938,22 +945,6 @@ function useBillTo(client: Client | undefined) {
     address: string;
     email: string;
   }>();
-  const save = useOptimisticMutation({
-    queryKey: () => keys.clients(),
-    serial: BILL_TO_LANE,
-    predict: (
-      current: { clients: Client[] } | undefined,
-      v: { id: string; field: BillToField; value: string | null },
-    ) =>
-      current && {
-        ...current,
-        clients: current.clients.map((c) =>
-          c.id === v.id ? { ...c, [v.field]: v.value } : c,
-        ),
-      },
-    mutationFn: ({ id, field, value }) =>
-      api.updateClient(id, { [field]: value }),
-  });
   if (!client) return { shown: undefined, fields: null, unsaved: false };
 
   const value =
@@ -967,45 +958,93 @@ function useBillTo(client: Client | undefined) {
   const address = value.address.trim() || null;
   const email = value.email.trim() || null;
   const shown = { ...client, address, email };
-  const type = (field: BillToField, v: string) =>
-    setTyped({ ...value, [field]: v });
+  const fields = (
+    // Keyed: a save left to retry belongs to the client it was typed for.
+    <BillToFields
+      key={client.id}
+      client={client}
+      value={value}
+      trimmed={{ address, email }}
+      onType={(field, v) => setTyped({ ...value, [field]: v })}
+    />
+  );
+  const unsaved = address !== client.address || email !== client.email;
+  return { shown, fields, unsaved };
+}
+
+/**
+ * Nothing else on the form saves before Generate, so the group is named for
+ * the client and answers each save in place, as Settings does; a refusal
+ * stays out of the app-wide notice.
+ */
+function BillToFields({
+  client,
+  value,
+  trimmed,
+  onType,
+}: {
+  client: Client;
+  value: { address: string; email: string };
+  trimmed: Required<BillTo>;
+  onType: (field: BillToField, value: string) => void;
+}) {
+  const save = useOptimisticMutation({
+    queryKey: () => keys.clients(),
+    serial: BILL_TO_LANE,
+    predict: (current: { clients: Client[] } | undefined, patch: BillTo) =>
+      current && {
+        ...current,
+        clients: current.clients.map((c) =>
+          c.id === client.id ? { ...c, ...patch } : c,
+        ),
+      },
+    mutationFn: (patch) => api.updateClient(client.id, patch),
+    inline: true,
+  });
+  const autosave = useAutosave<BillTo>((patch) => save.mutateAsync(patch), {
+    delay: 0,
+  });
   const commit = (field: BillToField) => {
-    const next = field === 'address' ? address : email;
-    if (next !== client[field])
-      save.mutate({ id: client.id, field, value: next });
+    if (trimmed[field] !== client[field])
+      autosave.schedule({ [field]: trimmed[field] });
   };
 
-  const fields = (
-    <>
+  return (
+    <SubFields
+      title={`${possessive(client.name)} billing details`}
+      aside={<SaveIndicator state={autosave.state} />}
+      description="Saved to the client"
+    >
       <Field label="Bill to" htmlFor="inv-bill-to">
         <textarea
           id="inv-bill-to"
           rows={3}
           value={value.address}
-          onChange={(e) => type('address', e.target.value)}
+          onChange={(e) => onType('address', e.target.value)}
           onBlur={() => commit('address')}
           placeholder={BILL_TO_PLACEHOLDER}
           className={textareaClass}
         />
       </Field>
-      <Field
-        label="Email"
-        htmlFor="inv-email"
-        hint="Bill to and Email are saved to this client."
-      >
+      <Field label="Email" htmlFor="inv-email">
         <Input
           id="inv-email"
           type="email"
           value={value.email}
-          onChange={(e) => type('email', e.target.value)}
+          onChange={(e) => onType('email', e.target.value)}
           onBlur={() => commit('email')}
           placeholder="billing@acme.com"
         />
       </Field>
-    </>
+      {autosave.state === 'error' ? (
+        <p role="alert" className="type-support text-danger">
+          {autosave.error instanceof ApiError
+            ? autosave.error.message
+            : "Couldn't save to the client."}
+        </p>
+      ) : null}
+    </SubFields>
   );
-  const unsaved = address !== client.address || email !== client.email;
-  return { shown, fields, unsaved };
 }
 
 /**

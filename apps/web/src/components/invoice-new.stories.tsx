@@ -978,7 +978,8 @@ export const EditingExpense: Story = {
 export const EditingExpensePhone: Story = { ...EditingExpense, ...phone };
 
 /** A client with neither an email nor a Bill to: both fields are empty
-    under Client, and the card's Bill to is the name alone. */
+    under Client, in a group named for the client and saved to it, and the
+    card's Bill to is the name alone. */
 export const BillToEmpty: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -990,13 +991,16 @@ export const BillToEmpty: Story = {
       expect.stringMatching(/^Attn:/),
     );
     await expect(page.getByLabelText('Email')).toHaveValue('');
-    await expect(page.getByText(/saved to this client/)).toBeVisible();
+    const group = within(
+      page.getByRole('group', { name: "Meridian Labs' billing details" }),
+    );
+    await expect(group.getByText(/Saved to the client/)).toBeVisible();
   },
 };
 export const BillToEmptyPhone: Story = { ...BillToEmpty, ...phone };
 
 /** Typing an email shows it on the card at once; leaving the field saves it
-    to the client. */
+    to the client, and the group says it landed. */
 export const BillToTyped: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -1011,10 +1015,36 @@ export const BillToTyped: Story = {
         address: null,
       }),
     );
+    await expect(await page.findByText('Saved')).toBeVisible();
   },
 };
 
-/** The save is refused: the app-wide notice says why, and what was typed
+/** Leaving the field while the server has not answered: the group shows the
+    save is on its way. */
+export const BillToSaving: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    // The card dims while it waits on the save; axe reads that as low contrast.
+    a11y: skipping('aria-hidden-focus', 'color-contrast'),
+    stalls: 1,
+    msw: {
+      handlers: {
+        updateClient: http.patch(handlers.updateClient.info.path, () =>
+          delay('infinite'),
+        ),
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseMeridian(canvasElement);
+    await userEvent.type(page.getByLabelText('Email'), 'ap@meridian.test');
+    await userEvent.tab();
+    await expect(await page.findByText('Saving…')).toBeVisible();
+  },
+};
+
+/** The save is refused: the group says why in place, and what was typed
     stays, the rejected email and Bill to typed since, to fix and leave
     again. Generate waits until the client has them. */
 export const BillToRefused: Story = {
@@ -1040,7 +1070,11 @@ export const BillToRefused: Story = {
     const billTo = page.getByLabelText('Bill to') as HTMLTextAreaElement;
     await userEvent.click(billTo);
     await userEvent.type(billTo, 'Attn: Dana Lee');
-    await expect(await page.findByText('Enter a valid email.')).toBeVisible();
+    const group = within(
+      page.getByRole('group', { name: "Northwind Trading's billing details" }),
+    );
+    await expect(await group.findByText('Enter a valid email.')).toBeVisible();
+    await expect(group.getByText('Not saved')).toBeVisible();
     await expect(billTo.value).toContain('Attn: Dana Lee');
     await expect(page.getByLabelText('Email')).toHaveValue('ap@northwind');
     await expect(

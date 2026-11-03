@@ -87,7 +87,10 @@ export function useAutosave<T extends object>(
       setState('pending');
       unsent.current = { ...unsent.current, ...patch } as T;
       if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => void flush(), delay);
+      // No pause: a save on leaving a field goes out in the same press, so a
+      // press after it in the same lane queues behind it.
+      if (delay === 0) void flush();
+      else timer.current = setTimeout(() => void flush(), delay);
     },
     [delay, flush],
   );

@@ -59,12 +59,36 @@ export function Field({
 }
 
 /** Fields that belong to the field above, indented on a rule so they read as
-    part of it rather than as fields of their own. Goes inside that `Field`. */
-export function SubFields({ children }: { children: React.ReactNode }) {
+    part of it rather than as fields of their own. Goes inside that `Field`.
+    `title` names a group that saves to another record, `description` says
+    where, and `aside` is its `SaveIndicator`. */
+export function SubFields({
+  title,
+  description,
+  aside,
+  children,
+}: {
+  title?: string;
+  description?: string;
+  aside?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="mt-1.5 ml-3 flex flex-col gap-4 border-l-2 border-edge-subtle pl-3">
+    <fieldset
+      aria-label={title}
+      className="mt-1.5 ml-3 flex min-w-0 flex-col gap-4 border-l-2 border-edge-subtle pl-3"
+    >
+      {title ? (
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="type-support text-muted">
+            <span className="type-label text-strong">{title}</span>
+            {description ? ` · ${description}` : null}
+          </p>
+          {aside}
+        </div>
+      ) : null}
       {children}
-    </div>
+    </fieldset>
   );
 }
 

@@ -131,12 +131,12 @@ export const NextNumberPastUsed: Story = {
     await userEvent.clear(field);
     await userEvent.type(field, '20');
     await expect(
-      await page.findByLabelText('Saved', {}, { timeout: 3000 }),
+      await page.findByText('Saved', {}, { timeout: 3000 }),
     ).toBeVisible();
     await userEvent.clear(field);
     await userEvent.type(field, '17');
     await expect(
-      await page.findByLabelText('Saved', {}, { timeout: 3000 }),
+      await page.findByText('Saved', {}, { timeout: 3000 }),
     ).toBeVisible();
     await userEvent.clear(field);
     await userEvent.type(field, '15');
@@ -163,7 +163,7 @@ export const PaymentTermsDays: Story = {
     await userEvent.clear(field);
     await userEvent.type(field, '45');
     await expect(
-      await page.findByLabelText('Saved', {}, { timeout: 3000 }),
+      await page.findByText('Saved', {}, { timeout: 3000 }),
     ).toBeVisible();
     await userEvent.clear(field);
     await userEvent.type(field, '400');
@@ -186,7 +186,7 @@ export const BillingZone: Story = {
       await page.findByRole('option', { name: 'America/Chicago' }),
     );
     await expect(
-      await page.findByLabelText('Saved', {}, { timeout: 3000 }),
+      await page.findByText('Saved', {}, { timeout: 3000 }),
     ).toBeVisible();
     await expect(getDb().settings.billingTimeZone).toBe('America/Chicago');
   },
