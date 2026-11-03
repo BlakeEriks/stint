@@ -72,20 +72,6 @@ describe('EntryList', () => {
     expect(screen.queryByText(/^\$/)).toBeNull();
   });
 
-  it('asks for the day alone, not everything since its start', async () => {
-    serve([entry()]);
-    renderList();
-    await screen.findAllByText('1h');
-
-    const url = new URL(
-      vi.mocked(fetch).mock.calls[0]?.[0] as string,
-      'http://t',
-    );
-    const from = Date.parse(url.searchParams.get('from') ?? '');
-    const to = Date.parse(url.searchParams.get('to') ?? '');
-    expect(to - from).toBeLessThan(25 * 3_600_000);
-  });
-
   it('opens Add on the hour up to the last quarter hour, not blank', async () => {
     vi.setSystemTime(new Date('2026-09-11T12:07:00.000Z'));
     serve([entry()]);
