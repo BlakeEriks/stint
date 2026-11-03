@@ -1,3 +1,2 @@
--- Nothing displayed or printed an expense's note, and production holds none
--- (#623).
+-- Expenses no longer have a note; existing ones are dropped (#623).
 alter table expenses drop column note;
