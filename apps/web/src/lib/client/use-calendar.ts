@@ -10,7 +10,7 @@ import {
 } from '@stint/core';
 import { api, type CalendarDay, type TimeEntry } from './api';
 import { timeZone as tz } from './use-timer';
-import { keys } from '@stint/client';
+import { keys, appNow } from '@stint/client';
 
 export interface PositionedEntry {
   entry: TimeEntry;
@@ -46,8 +46,7 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
   // or 169 hours and a fall-back day is 25, so fixed-millisecond arithmetic
   // lands an hour off and silently mis-buckets the entries at the edges.
   const cursor = useMemo(
-    () =>
-      startOfLocalDayOffset(startOfLocalDay(new Date(), tz), tz, -cursorDays),
+    () => startOfLocalDayOffset(startOfLocalDay(appNow(), tz), tz, -cursorDays),
     [cursorDays],
   );
 
@@ -148,9 +147,9 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
     /* Whether the period on screen contains today, which is what the "Today" /
        "This week" button reflects. */
     isCurrent: byDay
-      ? cursorKey === localDateKey(startOfLocalDay(new Date(), tz), tz)
+      ? cursorKey === localDateKey(startOfLocalDay(appNow(), tz), tz)
       : localDateKey(weekStart, tz) ===
-        localDateKey(startOfLocalWeek(new Date(), tz, weekStartsOn), tz),
+        localDateKey(startOfLocalWeek(appNow(), tz, weekStartsOn), tz),
     next: () => setCursorDays((d) => d + step),
     prev: () => setCursorDays((d) => d - step),
     today: () => setCursorDays(0),
@@ -211,7 +210,7 @@ export function workedWindow(
       last,
       e.endedAt
         ? hoursFrom(e.endedAt)
-        : (Date.now() - dayStart.getTime()) / hourMs,
+        : (appNow().getTime() - dayStart.getTime()) / hourMs,
     );
   }
 

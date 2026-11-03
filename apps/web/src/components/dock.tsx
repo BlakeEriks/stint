@@ -11,7 +11,8 @@ import {
 } from '@/lib/client/use-dock-split';
 import { useMediaQuery } from '@/lib/client/use-media-query';
 import { XL } from '@/lib/client/use-scroller-focus';
-import { EntryList, useDayEntries } from './entry-list';
+import { EntryList } from './entry-list';
+import { useTodayEntries } from '@/lib/client/use-today-entries';
 import { Listing } from './page';
 import {
   useAllProjects,
@@ -139,7 +140,7 @@ function useDockTodayQueries() {
   return [
     useQuery({ queryKey: keys.stats(tz), queryFn: () => api.stats(tz) }),
     useQuery({ queryKey: keys.projects(), queryFn: () => api.projects() }),
-    useDayEntries(),
+    useTodayEntries(),
     useClientsQuery(),
     useAllProjects(),
     {

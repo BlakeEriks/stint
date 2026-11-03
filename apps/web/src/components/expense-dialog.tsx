@@ -16,7 +16,7 @@ import { ConfirmAction } from '@/components/confirm-action';
 import { Input } from '@/components/ui/input';
 import { Field } from './field';
 import { timeZone as tz } from '@/lib/client/use-timer';
-import { useOptimisticMutation, keys } from '@stint/client';
+import { useOptimisticMutation, keys, appNow } from '@stint/client';
 import { api, ApiError, type Client, type Expense } from '@/lib/client/api';
 import { useMissing } from '@/lib/client/use-missing';
 
@@ -67,7 +67,7 @@ export function ExpenseDialog({
     if (!open) return;
     setDescription(expense?.description ?? '');
     setAmount(expense ? String(expense.amount) : '');
-    setSpentOn(expense?.spentOn ?? localDateKey(new Date(), tz));
+    setSpentOn(expense?.spentOn ?? localDateKey(appNow(), tz));
     setRecurring(expense?.recurring ?? false);
     setId(expense?.id ?? uuidv7());
     setError(null);

@@ -11,7 +11,8 @@ import {
   useClientsQuery,
 } from '@/lib/client/use-project-colors';
 import { buildHues, Legend } from './home-shell';
-import { Today, useTodayEntries } from './home-today';
+import { Today } from './home-today';
+import { useTodayEntries } from '@/lib/client/use-today-entries';
 import { Week } from './home-week';
 import { Month } from './home-month';
 import { Listing } from './page';
