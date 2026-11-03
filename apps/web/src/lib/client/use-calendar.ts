@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   startOfLocalDay,
@@ -11,7 +11,7 @@ import {
 } from '@stint/core';
 import { api, type CalendarDay, type TimeEntry } from './api';
 import { timeZone as tz } from './use-timer';
-import { keys, appNow } from '@stint/client';
+import { keys, appNow, useInterval } from '@stint/client';
 
 export interface PositionedEntry {
   entry: TimeEntry;
@@ -113,11 +113,11 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
   }, [data, weekStart, byDay]);
 
   /* The server counts only stopped time; a running entry's part of each day
-     is predicted here, to the same now `/stats` reads, and ticks with it. */
+     is predicted here, to the same now `/stats` reads. */
   const running = data?.days
     .flatMap((d) => d.entries)
     .find((e) => e.endedAt == null);
-  useSecondTick(running !== undefined);
+  useInterval(running !== undefined, 1000);
   const live = new Map(
     running
       ? splitByLocalDay(new Date(running.startedAt), appNow(), tz).map((s) => [
@@ -174,16 +174,6 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
     prev: () => setCursorDays((d) => d - step),
     today: () => setCursorDays(0),
   };
-}
-
-/** Re-render once a second while `active`, as the timer's own clock does. */
-function useSecondTick(active: boolean) {
-  const [, force] = useState(0);
-  useEffect(() => {
-    if (!active) return;
-    const id = setInterval(() => force((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, [active]);
 }
 
 /** Hours of padding kept either side of the worked range. */
