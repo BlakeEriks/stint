@@ -1,9 +1,11 @@
 'use client';
 
 import { useMemo } from 'react';
+import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { usePressedSince, keys } from '@stint/client';
-import { api, type Stats } from '@/lib/client/api';
+import { api, type Stats, type TimeEntry } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import {
   useAllProjects,
@@ -16,6 +18,7 @@ import { Week } from './home-week';
 import { Month } from './home-month';
 import { Listing } from './page';
 import { Settling } from './money';
+import { rowBleed, rowButton } from './row-button';
 
 /**
  * The panel paints once, with everything it draws: the gate holds the
@@ -37,9 +40,71 @@ export function HomeCards() {
         query={[stats, useTodayEntries()]}
         also={[useClientsQuery(), useAllProjects()]}
       >
-        {([data]) => <Panel stats={data} />}
+        {([data, today]) =>
+          holdsNothing(data, today.entries) ? (
+            <FirstRun />
+          ) : (
+            <Panel stats={data} />
+          )
+        }
       </Listing>
     </Settling>
+  );
+}
+
+/**
+ * Nothing in any window Home draws. A new account and an old one with an
+ * empty week and month are one state: zeroed cards read as broken either way.
+ */
+function holdsNothing(stats: Stats, today: TimeEntry[]) {
+  return (
+    today.length === 0 &&
+    stats.earnedToday === 0 &&
+    stats.unbilled.seconds === 0 &&
+    stats.awaitingPayment === 0 &&
+    stats.month.earned === 0 &&
+    stats.week.every((d) => d.seconds === 0)
+  );
+}
+
+/** What Home will show, and the first steps toward it. */
+function FirstRun() {
+  const noClients = useClients().size === 0;
+  return (
+    <section
+      data-first-run
+      aria-labelledby="first-run-title"
+      className="flex max-w-xl flex-col px-[18px] pt-5 pb-3.5"
+    >
+      <h2 id="first-run-title" className="type-heading text-strong">
+        Home fills in as you track
+      </h2>
+      <p className="mt-2 type-support text-muted">
+        What today, this week and this month have earned, and what is still
+        unbilled. Start a timer, or add time you already worked.
+      </p>
+      <ul className="mt-4">
+        {noClients ? (
+          <Step href="/clients">Add a client and their rate</Step>
+        ) : null}
+        <Step href="/calendar">Add time on the calendar</Step>
+        <Step href="/settings/import">Import your Toggl history</Step>
+      </ul>
+    </section>
+  );
+}
+
+function Step({ href, children }: { href: string; children: string }) {
+  return (
+    <li className="border-t border-edge-subtle first:border-t-0">
+      <Link
+        href={href}
+        className={`${rowButton} ${rowBleed} flex items-center gap-2.5 py-2.5 type-control text-primary`}
+      >
+        <span className="flex-1">{children}</span>
+        <ArrowRight aria-hidden className="size-3.5 flex-none text-subtle" />
+      </Link>
+    </li>
   );
 }
 

@@ -409,14 +409,42 @@ export const RateRejected: Story = {
   },
 };
 
-/** A new account: every figure is zero and nothing is extrapolated. */
+/** A new account: no zeroed cards, but what Home will show and the first
+ *  steps toward it. */
 export const Empty: Story = {
   ...desktop,
   parameters: account('empty'),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByRole('heading', { name: 'Home fills in as you track' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: /Add a client/ }),
+    ).toHaveAttribute('href', '/clients');
+    await expect(page.queryByText('Earned')).toBeNull();
+  },
+};
+
+/** A quiet day for an account with work behind it: the cards stay, and
+ *  what is empty says so without a zeroed stand-in. */
+export const QuietDay: Story = {
+  ...desktop,
+  parameters: {
+    now: '2026-10-01T19:30:00.000Z',
+    ...account((db) => {
+      const today = localDateKey(db.now, ZONE);
+      db.entries = db.entries.filter(
+        (e) => localDateKey(new Date(e.startedAt), ZONE) !== today,
+      );
+      db.invoices = [];
+    }),
+  },
   play: async ({ canvasElement, loaded }) => {
     const page = within(canvasElement);
     await page.findByText('Unbilled');
     await loaded.settle();
+    await expect(canvasElement.querySelector('[data-first-run]')).toBeNull();
     // No `$0.00 awaiting`: a figure standing in for the absence of one.
     await expect(page.queryByText(/open invoice/)).toBeNull();
     // One neutral band would say the month came from nobody.
