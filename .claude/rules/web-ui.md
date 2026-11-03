@@ -155,8 +155,8 @@ a different order, and the ones that drifted were rebuilt:
 | A labeled control | `Field`, `Input`, `inputClass`, `textareaClass`; on a signed-out page, `elevatedInputClass` |
 | What a form still lacks, shown on Save | `useMissing()` (`lib/client/use-missing.ts`) into `Field`'s `error` |
 | Any action | `Button`, sized and varied by the tables in `ui/button.tsx` |
-| A destructive action | `ConfirmAction` |
-| A press that takes many records at once and can't come back | `ConfirmDialog` |
+| A destructive action in a dialog's footer | `ConfirmAction` |
+| A press that takes many records at once and can't come back: Mark sent, Void, Delete draft | `AskFirst` (a button and its `ConfirmDialog`); `ConfirmDialog` alone when something else opens it |
 | An invoice's status | `StatusBadge` |
 | Money, dates, durations | `Money`, `formatCurrency`, `shortDate` — never `toLocaleString` at the call site |
 | A client's color | `useProjectColors()`, `Swatch` |
@@ -188,14 +188,15 @@ anticipation of one.
   `aria-hidden`. An `aria-label` holds the visible text, in order, so saying
   what is on screen presses it (WCAG 2.5.3): `Mark paid, STINT-0001`.
 - **A destructive action is quiet until it is the confirm**: a ghost in
-  `text-danger`, then `destructive` naming what goes, in place
-  and moving nothing: where the pair would wrap its row, it takes the row.
+  `text-danger`, then `destructive` naming what goes.
   Destructive means it removes something saved; dropping a line from a form
   not yet submitted (a charge on a new invoice) acts at once.
   In a dialog footer the first step is a trash icon alone, pushed away with
-  `mr-auto`. A modal confirm (`ConfirmDialog`) is only for what takes many records
-  at once and can't come back, like Mark sent, which locks a draft's
-  entries, and Delete account.
+  `mr-auto`, and the confirm takes its place. A modal confirm (`ConfirmDialog`)
+  is for what takes many records at once and can't come back, and says what
+  changes, with the figures: Mark sent locks a draft's entries, Void and
+  Delete draft release them, and Delete account. A press that can be taken
+  back doesn't confirm.
 - **A dialog's or form's actions run secondary, Cancel, Save**: Save
   (`accent`) at the bottom right, Cancel beside it, and a secondary action
   (Archive, Delete) pushed to the far left with `mr-auto`.

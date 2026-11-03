@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   useQuery,
@@ -22,15 +21,14 @@ import {
   Lock,
   Pencil,
   Plus,
-  Send,
   Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ConfirmAction, confirmRow } from './confirm-action';
+import { AskFirst } from './confirm-dialog';
 import { shortDate, StatusBadge } from './invoice-bits';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
-import { MarkSentDialog } from './mark-sent-dialog';
+import { entries, markSentAsk } from './mark-sent-dialog';
 import { PRICE } from './plan-section';
 import {
   attachedSchedules,
@@ -169,7 +167,13 @@ function Loaded({
     error: unknown;
   };
   addWork: { mutate: () => void; isPending: boolean };
-  remove: { mutate: () => void; isPending: boolean; isSuccess: boolean };
+  remove: {
+    mutate: () => void;
+    isPending: boolean;
+    isSuccess: boolean;
+    reset: () => void;
+    error: unknown;
+  };
   markPaid: ReturnType<typeof useMarkPaid>;
   /* Picked ONCE by the caller. Re-evaluating `a ?? b` for the check and again
      for the message could type-check a stale error while printing a different
@@ -180,6 +184,7 @@ function Loaded({
   const isVoid = invoice.status === 'void';
   const unrated = invoice.unratedEntries ?? [];
   const refuses = invoice.refuses ?? { download: false, send: false };
+  const total = formatCurrency(invoice.total ?? 0, invoice.currency);
 
   return (
     <>
@@ -193,21 +198,22 @@ function Loaded({
           <StatusBadge status={invoice.status} />
         </div>
 
-        <div className={`flex flex-wrap items-center gap-2 ${confirmRow}`}>
-          {/* Deleting removes the draft and voiding can't be undone, so each
-              asks first. */}
+        <div className="flex flex-wrap items-center gap-2">
           {isDraft ? (
-            <ConfirmAction
-              label={`Delete ${invoice.invoiceNumber} for good`}
+            <AskFirst
+              title="Delete this draft?"
+              description={`The draft (${total}) is deleted and can't be restored. Your ${entries(invoice.entryCount ?? 0)} and any expenses are kept and can go on another invoice.`}
+              confirmLabel="Delete draft"
               pendingLabel="Deleting…"
-              takesRow
+              icon={<Trash2 aria-hidden strokeWidth={1.75} />}
+              tone="danger"
               // Deleted, it stays pending until the list arrives.
-              pending={remove.isPending || remove.isSuccess}
+              press={{
+                ...remove,
+                isPending: remove.isPending || remove.isSuccess,
+              }}
               onConfirm={() => remove.mutate()}
-            >
-              <Trash2 aria-hidden strokeWidth={1.75} />
-              Delete draft
-            </ConfirmAction>
+            />
           ) : null}
 
           {/* "Edit", not "Edit draft": the row stays on the title's line. */}
@@ -221,23 +227,29 @@ function Loaded({
           ) : null}
 
           {!isVoid && !isDraft ? (
-            <ConfirmAction
-              label={`Void ${invoice.invoiceNumber}`}
+            <AskFirst
+              title="Void this invoice?"
+              description={`${invoice.invoiceNumber} (${total}) is no longer owed and can't be restored; it stays in your records, marked void. Your entries and expenses on it are kept and can go on another invoice.`}
+              confirmLabel="Void"
               pendingLabel="Voiding…"
-              takesRow
-              pending={setStatus.isPending}
+              icon={<Ban aria-hidden strokeWidth={1.75} />}
+              tone="danger"
+              press={setStatus}
               onConfirm={() => setStatus.mutate({ status: 'void' })}
-            >
-              <Ban aria-hidden strokeWidth={1.75} />
-              Void
-            </ConfirmAction>
+            />
           ) : null}
 
           {isDraft ? (
-            <MarkSent
-              invoice={invoice}
-              setStatus={setStatus}
-              disabled={refuses.send}
+            <AskFirst
+              {...markSentAsk({
+                invoiceNumber: invoice.invoiceNumber,
+                entryCount: invoice.entryCount ?? 0,
+                total: invoice.total ?? 0,
+                currency: invoice.currency,
+              })}
+              press={setStatus}
+              disabled={refuses.send || invoice.entryCount == null}
+              onConfirm={() => setStatus.mutate({ status: 'sent' })}
             />
           ) : null}
 
@@ -315,53 +327,6 @@ function Loaded({
       />
 
       <MarkPaidDialog {...markPaid.dialog} />
-    </>
-  );
-}
-
-/** Mark sent, and the dialog it asks in. */
-function MarkSent({
-  invoice,
-  setStatus,
-  disabled,
-}: {
-  invoice: Shown;
-  setStatus: {
-    mutate: (args: { status: InvoiceStatus }) => void;
-    isPending: boolean;
-    reset: () => void;
-    error: unknown;
-  };
-  disabled: boolean;
-}) {
-  const [asking, setAsking] = useState(false);
-  return (
-    <>
-      <Button
-        onClick={() => {
-          // A refusal from an earlier press must not read as this one's.
-          setStatus.reset();
-          setAsking(true);
-        }}
-        disabled={disabled || invoice.entryCount == null}
-      >
-        <Send aria-hidden strokeWidth={1.75} />
-        Mark sent
-      </Button>
-      {/* Sent, the draft and this go with it. */}
-      <MarkSentDialog
-        open={asking}
-        onOpenChange={setAsking}
-        invoice={{
-          invoiceNumber: invoice.invoiceNumber,
-          entryCount: invoice.entryCount ?? 0,
-          total: invoice.total ?? 0,
-          currency: invoice.currency,
-        }}
-        pending={setStatus.isPending}
-        error={setStatus.error}
-        onConfirm={() => setStatus.mutate({ status: 'sent' })}
-      />
     </>
   );
 }

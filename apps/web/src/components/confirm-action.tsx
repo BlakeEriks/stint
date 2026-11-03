@@ -5,21 +5,13 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
 
-/** The row of a `takesRow` confirm: its other controls hide while it asks,
-    without their transition, which would hold each visible for its length. */
-export const confirmRow =
-  'has-[[data-asking]]:*:not-[[data-asking]]:invisible has-[[data-asking]]:*:transition-none';
-
 /**
  * A destructive action in two presses (`.claude/rules/web-ui.md`): a quiet red
  * ghost that only asks, then a filled `destructive` naming what goes, with a
- * ghost Keep beside it. In place rather than a modal: a confirm modal is
- * dismissed unread, and the entry dialog would stack one dialog on another.
- * Where the pair would wrap its row, `takesRow` draws it over the trigger's
- * slot and the row (`confirmRow`) hides its other controls until Keep, so
- * nothing moves.
+ * ghost Keep beside it. In place rather than a modal: it sits in a dialog's
+ * footer, and a modal would stack one dialog on another.
  *
- * The pressed button unmounts or hides as the confirm replaces it, so focus
+ * The pressed button unmounts as the confirm replaces it, so focus
  * is handed over explicitly. Otherwise a keyboard or screen-reader user
  * lands on the page body. Keep hands it back.
  */
@@ -31,7 +23,6 @@ export function ConfirmAction({
   disabled,
   onConfirm,
   className,
-  takesRow,
   'aria-label': ariaLabel,
 }: {
   /** The first step's content: a glyph, and its label unless icon-only. */
@@ -42,7 +33,6 @@ export function ConfirmAction({
   disabled?: boolean;
   onConfirm: () => void;
   className?: string;
-  takesRow?: boolean;
   'aria-label'?: string;
 }) {
   const [asking, setAsking] = useState(false);
@@ -76,10 +66,7 @@ export function ConfirmAction({
       aria-label={ariaLabel}
       className={cn(
         'text-danger hover:bg-danger-muted hover:text-danger',
-        asking && 'invisible',
-        // A visibility transition would hold it hidden as Keep focuses it.
-        takesRow && 'transition-none',
-        !takesRow && className,
+        className,
       )}
       disabled={disabled || pending}
       onClick={() => setAsking(true)}
@@ -87,16 +74,10 @@ export function ConfirmAction({
       {children}
     </Button>
   );
-  if (!asking && !takesRow) return first;
+  if (!asking) return first;
 
-  const pair = asking ? (
-    <span
-      className={cn(
-        'flex items-center gap-2',
-        // No insets: drawn where the trigger sits, over the row it hid.
-        takesRow ? 'absolute' : className,
-      )}
-    >
+  return (
+    <span className={cn('flex items-center gap-2', className)}>
       <Button
         ref={confirm}
         type="button"
@@ -115,15 +96,6 @@ export function ConfirmAction({
       >
         Keep
       </Button>
-    </span>
-  ) : null;
-  if (!takesRow) return pair;
-
-  // The trigger stays, hidden, so the row keeps its width.
-  return (
-    <span data-asking={asking || undefined} className={cn('flex', className)}>
-      {pair}
-      {first}
     </span>
   );
 }
