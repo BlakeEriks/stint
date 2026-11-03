@@ -66,7 +66,8 @@ import { missingBusiness, SenderNotice } from './business-dialog';
 import { NumberDialog } from './number-dialog';
 import { summarize } from './payment-profiles';
 import { businessOf, InvoicePreviewCard } from './invoice-preview-card';
-import { TemplatePicker, useTemplateChoice } from './template-picker';
+import { TemplateDialog } from './template-dialog';
+import { templateName } from './template-picker';
 import { rowButton } from './row-button';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
@@ -353,6 +354,34 @@ function NumberLine({
   );
 }
 
+/** The account's template, changed in a dialog as the number is: it is a
+    setting, not a field of this draft. */
+function TemplateLine({ settings }: { settings: Settings | undefined }) {
+  const [changing, setChanging] = useState(false);
+  if (!settings) return null;
+  return (
+    <Field label="Template">
+      <p className="type-control text-strong">
+        {templateName(settings.invoiceTemplate)} ·{' '}
+        <button
+          type="button"
+          className="underline underline-offset-2"
+          aria-label="Change template"
+          onClick={() => setChanging(true)}
+        >
+          Change
+        </button>
+      </p>
+      {changing ? (
+        <TemplateDialog
+          onOpenChange={setChanging}
+          template={settings.invoiceTemplate}
+        />
+      ) : null}
+    </Field>
+  );
+}
+
 /** The number Generate takes, and the due date the client's payment terms,
  *  else the user's, set from `issued`; both '' until the settings answer. */
 function fromSettings(
@@ -494,7 +523,6 @@ function Form({
   const noSender = missingBusiness(settings);
   // Today on the account's billing calendar, as the server dates it.
   const issued = localDateKey(opened, billingZone(settings, tz));
-  const { template, choose } = useTemplateChoice();
   const profiles =
     useQuery({
       queryKey: keys.paymentProfiles(),
@@ -820,12 +848,7 @@ function Form({
               />
             ) : null}
 
-            <Field
-              label="Template"
-              hint="Changes your template for every draft, here and in Settings."
-            >
-              <TemplatePicker value={template} onChange={choose} size="mini" />
-            </Field>
+            <TemplateLine settings={settings} />
           </div>
 
           {/* Beside the form on a wide panel, after it on a narrow one. From

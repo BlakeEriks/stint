@@ -607,6 +607,32 @@ export const ChangeNumberRefused: Story = {
   },
 };
 
+/** The template shows by name; Change picks another in a dialog, saved to
+    Settings, and the draft being built stays as it was. */
+export const ChangeTemplate: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    await userEvent.type(page.getByLabelText('Reference'), 'PO-7');
+    await expect(page.getByText(/Standard ·/)).toBeVisible();
+    await userEvent.click(
+      page.getByRole('button', { name: 'Change template' }),
+    );
+    const dialog = await page.findByRole('dialog', {
+      name: 'Invoice template',
+    });
+    await waitFor(() => expect(dialog).toBeVisible());
+    const form = within(dialog);
+    await userEvent.click(form.getByRole('radio', { name: 'Classic' }));
+    await userEvent.click(form.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+    await expect(page.getByText(/Classic ·/)).toBeVisible();
+    await expect(page.getByLabelText('Reference')).toHaveValue('PO-7');
+  },
+};
+
 /** From `xl` only the form and the preview scroll, each alone: reading
     the end of the page leaves the form where it was. */
 export const ScrollsApart: Story = {
