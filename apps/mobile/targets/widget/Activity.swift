@@ -33,10 +33,15 @@ struct TimerActivity: Widget {
       } compactLeading: {
         Circle().fill(dot(s)).frame(width: 10, height: 10)
       } compactTrailing: {
-        clock(s).frame(maxWidth: 64)
+        // A timer text takes all the width it's given, so it gets the width of
+        // the longest clock it draws, "88:88:88".
+        clock(s).frame(width: 84)
       } minimal: {
         Circle().fill(dot(s)).frame(width: 10, height: 10)
       }
+      // The island's corners are rounder than its default margins allow for:
+      // they cut the project's dot on the row's last line.
+      .contentMargins(.horizontal, 24, for: .expanded)
     }
   }
 
