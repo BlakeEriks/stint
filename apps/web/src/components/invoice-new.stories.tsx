@@ -978,8 +978,7 @@ export const EditingExpense: Story = {
 export const EditingExpensePhone: Story = { ...EditingExpense, ...phone };
 
 /** A client with neither an email nor a Bill to: both fields are empty
-    under Client, in a group named for the client and saved to it, and the
-    card's Bill to is the name alone. */
+    under Client, and the card's Bill to is the name alone. */
 export const BillToEmpty: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -991,10 +990,6 @@ export const BillToEmpty: Story = {
       expect.stringMatching(/^Attn:/),
     );
     await expect(page.getByLabelText('Email')).toHaveValue('');
-    const group = within(
-      page.getByRole('group', { name: "Meridian Labs' billing details" }),
-    );
-    await expect(group.getByText(/Saved to the client/)).toBeVisible();
   },
 };
 export const BillToEmptyPhone: Story = { ...BillToEmpty, ...phone };
@@ -1071,7 +1066,7 @@ export const BillToRefused: Story = {
     await userEvent.click(billTo);
     await userEvent.type(billTo, 'Attn: Dana Lee');
     const group = within(
-      page.getByRole('group', { name: "Northwind Trading's billing details" }),
+      page.getByRole('group', { name: 'Northwind Trading billing details' }),
     );
     await expect(await group.findByText('Enter a valid email.')).toBeVisible();
     await expect(group.getByText('Not saved')).toBeVisible();
@@ -1120,7 +1115,7 @@ export const BillToPutBackAfterRefusal: Story = {
     await userEvent.type(billTo, ' X');
     await userEvent.tab();
     const group = within(
-      page.getByRole('group', { name: "Northwind Trading's billing details" }),
+      page.getByRole('group', { name: 'Northwind Trading billing details' }),
     );
     await expect(await group.findByText('Too long.')).toBeVisible();
     await userEvent.clear(billTo);

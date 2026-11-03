@@ -931,9 +931,6 @@ const BILL_TO_LANE = 'client-bill-to';
 type BillToField = 'address' | 'email';
 type BillTo = Partial<Pick<Client, BillToField>>;
 
-const possessive = (name: string) =>
-  name.endsWith('s') ? `${name}'` : `${name}'s`;
-
 /**
  * Leaving a field saves it to the client, which every later invoice reads.
  * An issued invoice keeps its own copy.
@@ -972,8 +969,8 @@ function useBillTo(client: Client | undefined) {
 }
 
 /**
- * Nothing else on the form saves before Generate, so the group is named for
- * the client and answers each save in place, as Settings does. The app-wide
+ * Nothing else on the form saves before Generate, so the group answers each
+ * save in place, as Settings does. The app-wide
  * notice says it too, for a refusal that lands after another client is
  * chosen.
  */
@@ -1012,9 +1009,8 @@ function BillToFields({
 
   return (
     <SubFields
-      title={`${possessive(client.name)} billing details`}
+      label={`${client.name} billing details`}
       aside={<SaveIndicator state={autosave.state} />}
-      description="Saved to the client"
     >
       <Field label="Bill to" htmlFor="inv-bill-to">
         <textarea
