@@ -100,7 +100,7 @@ export function ClientList() {
           isLoading: clientQuery.isLoading || projectQuery.isLoading,
         }}
         also={[settings, expenses]}
-        empty="Clients and their rates appear here."
+        empty="Who's paying you? Add a client and what you charge them."
       >
         {(shown) => {
           const card = (g: Group) => (

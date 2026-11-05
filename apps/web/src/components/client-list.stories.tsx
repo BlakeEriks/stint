@@ -184,7 +184,9 @@ export const Empty: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     await expect(
-      await page.findByText('Clients and their rates appear here.'),
+      await page.findByText(
+        "Who's paying you? Add a client and what you charge them.",
+      ),
     ).toBeVisible();
   },
 };
