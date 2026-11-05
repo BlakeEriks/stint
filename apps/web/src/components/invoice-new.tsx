@@ -15,8 +15,8 @@ import {
 } from '@stint/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Field, inputClass, textareaClass } from './field';
-import { BILL_TO_PLACEHOLDER } from './client-form';
+import { Field, SubFields, inputClass } from './field';
+import { ClientDialog } from './client-dialog';
 import { ClientPicker } from './client-picker';
 import {
   DropdownMenu,
@@ -538,7 +538,7 @@ function Form({
   /* `'new'` adds a charge; a key, edits that one. */
   const chargeDialog = useDialog<string>();
   const [newProfileOpen, setNewProfileOpen] = useState(false);
-  const billTo = useBillTo(client);
+  const [editingClient, setEditingClient] = useState(false);
 
   /* Only what decides the lines is sent, so a due date or a tick never asks
      the server again. */
@@ -572,7 +572,6 @@ function Form({
   const generate = useOptimisticMutation({
     queryKey: () => keys.invoices(),
     inline: true,
-    serial: BILL_TO_LANE,
     // Generation marks the entries and expenses invoiced, so they leave
     // every unbilled view.
     invalidate: (qc) =>
@@ -582,16 +581,6 @@ function Form({
         invalidateEntryData(qc),
       ]),
     mutationFn: () => {
-      // A Bill to save queued before this press may have been refused.
-      const saved = qc
-        .getQueryData<{ clients: Client[] }>(keys.clients())
-        ?.clients.find((c) => c.id === draft.clientId);
-      if (
-        saved &&
-        (saved.address !== billTo.shown?.address ||
-          saved.email !== billTo.shown?.email)
-      )
-        return Promise.reject(new UnsavedBillTo());
       const choices = {
         ...billed,
         schedules,
@@ -663,7 +652,6 @@ function Form({
     hasSettings: settings !== undefined,
     hasSender: !noSender,
     generating: generate.isPending,
-    unsavedBillTo: billTo.unsaved,
     groupingMode,
     summaryText,
   });
@@ -720,8 +708,13 @@ function Form({
                   }
                   placeholder="Choose a client…"
                 />
+                {client ? (
+                  <ClientDetails
+                    client={client}
+                    onEdit={() => setEditingClient(true)}
+                  />
+                ) : null}
               </Field>
-              {billTo.fields}
               <div className="flex flex-wrap gap-4">
                 <DateField
                   id="inv-from"
@@ -857,7 +850,7 @@ function Form({
             <InvoicePreviewCard
               noSender={noSender}
               preview={current}
-              client={billTo.shown}
+              client={client}
               business={businessOf(settings)}
               number={number}
               issued={issued}
@@ -882,6 +875,17 @@ function Form({
         </div>
       </div>
 
+      {client ? (
+        <ClientDialog
+          open={editingClient}
+          onOpenChange={setEditingClient}
+          client={client}
+          // Its rate prices the lines.
+          onSaved={() =>
+            qc.invalidateQueries({ queryKey: keys.invoicePreview() })
+          }
+        />
+      ) : null}
       {client ? (
         <ExpenseDialog
           open={expenseDialog.open}
@@ -916,95 +920,39 @@ const pressLabel = (editing: boolean, pending: boolean) => {
   return pending ? 'Generating…' : 'Generate invoice';
 };
 
-class UnsavedBillTo extends Error {
-  constructor() {
-    super("Bill to wasn't saved to the client, so nothing was generated.");
-  }
-}
-
-/** Generate queues behind a Bill to save, so the invoice it freezes has it. */
-const BILL_TO_LANE = 'client-bill-to';
-
-type BillToField = 'address' | 'email';
-
 /**
- * Leaving a field saves it to the client, which every later invoice reads.
- * An issued invoice keeps its own copy.
+ * What the invoice prints for the client, read-only: nothing on this form
+ * saves before Generate, so a change to the client goes through its own
+ * dialog, which says it saves.
  */
-function useBillTo(client: Client | undefined) {
-  const [typed, setTyped] = useState<{
-    id: string;
-    address: string;
-    email: string;
-  }>();
-  const save = useOptimisticMutation({
-    queryKey: () => keys.clients(),
-    serial: BILL_TO_LANE,
-    predict: (
-      current: { clients: Client[] } | undefined,
-      v: { id: string; field: BillToField; value: string | null },
-    ) =>
-      current && {
-        ...current,
-        clients: current.clients.map((c) =>
-          c.id === v.id ? { ...c, [v.field]: v.value } : c,
-        ),
-      },
-    mutationFn: ({ id, field, value }) =>
-      api.updateClient(id, { [field]: value }),
-  });
-  if (!client) return { shown: undefined, fields: null, unsaved: false };
-
-  const value =
-    typed?.id === client.id
-      ? typed
-      : {
-          id: client.id,
-          address: client.address ?? '',
-          email: client.email ?? '',
-        };
-  const address = value.address.trim() || null;
-  const email = value.email.trim() || null;
-  const shown = { ...client, address, email };
-  const type = (field: BillToField, v: string) =>
-    setTyped({ ...value, [field]: v });
-  const commit = (field: BillToField) => {
-    const next = field === 'address' ? address : email;
-    if (next !== client[field])
-      save.mutate({ id: client.id, field, value: next });
-  };
-
-  const fields = (
-    <>
-      <Field label="Bill to" htmlFor="inv-bill-to">
-        <textarea
-          id="inv-bill-to"
-          rows={3}
-          value={value.address}
-          onChange={(e) => type('address', e.target.value)}
-          onBlur={() => commit('address')}
-          placeholder={BILL_TO_PLACEHOLDER}
-          className={textareaClass}
-        />
-      </Field>
-      <Field
-        label="Email"
-        htmlFor="inv-email"
-        hint="Bill to and Email are saved to this client."
-      >
-        <Input
-          id="inv-email"
-          type="email"
-          value={value.email}
-          onChange={(e) => type('email', e.target.value)}
-          onBlur={() => commit('email')}
-          placeholder="billing@acme.com"
-        />
-      </Field>
-    </>
+function ClientDetails({
+  client,
+  onEdit,
+}: {
+  client: Client;
+  onEdit: () => void;
+}) {
+  return (
+    <SubFields label={`${client.name} billing details`}>
+      <div className="flex flex-col items-start gap-1.5">
+        {/* As `Party` prints them on the invoice. */}
+        <p className="whitespace-pre-line type-support text-muted">
+          {client.address ?? (
+            <span className="text-subtle">No billing address</span>
+          )}
+          {'\n'}
+          {client.email ?? <span className="text-subtle">No email</span>}
+        </p>
+        <button
+          type="button"
+          className="type-support text-strong underline underline-offset-2"
+          onClick={onEdit}
+        >
+          Edit client
+        </button>
+      </div>
+    </SubFields>
   );
-  const unsaved = address !== client.address || email !== client.email;
-  return { shown, fields, unsaved };
 }
 
 /**
@@ -1024,8 +972,6 @@ function generateState(s: {
   /** The server refuses an invoice with no sender; the notice says why. */
   hasSender: boolean;
   generating: boolean;
-  /** The server reads Bill to from the client, so it waits for a save. */
-  unsavedBillTo: boolean;
   groupingMode: GroupingMode;
   summaryText: string;
 }) {
@@ -1043,8 +989,7 @@ function generateState(s: {
     s.hasSender &&
     !s.updating &&
     !s.failed &&
-    !s.generating &&
-    !s.unsavedBillTo;
+    !s.generating;
   return { canGenerate, noSummaryText };
 }
 
@@ -1076,7 +1021,7 @@ function PreviewNotices({
       ) : null}
       {error ? (
         <p role="alert" className="type-support text-danger">
-          {error instanceof ApiError || error instanceof UnsavedBillTo
+          {error instanceof ApiError
             ? error.message
             : 'Could not build this invoice.'}
         </p>
@@ -1085,8 +1030,7 @@ function PreviewNotices({
   );
 }
 
-/** The one line's text, under the grouping picker on a rule of its own so it
- *  reads as part of that choice rather than a field of the invoice. */
+/** The one line's text, part of the grouping choice. */
 function SummaryLineField({
   value,
   missing,
@@ -1097,7 +1041,7 @@ function SummaryLineField({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="mt-1.5 ml-3 border-l-2 border-edge-subtle pl-3">
+    <SubFields>
       <Field
         label="Summary line"
         htmlFor="inv-summary"
@@ -1112,7 +1056,7 @@ function SummaryLineField({
           maxLength={200}
         />
       </Field>
-    </div>
+    </SubFields>
   );
 }
 

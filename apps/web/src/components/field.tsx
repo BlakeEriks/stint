@@ -58,6 +58,25 @@ export function Field({
   );
 }
 
+/** Fields that belong to the field above, indented on a rule so they read as
+    part of it rather than as fields of their own. Goes inside that `Field`. */
+export function SubFields({
+  label,
+  children,
+}: {
+  label?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <fieldset
+      aria-label={label}
+      className="mt-1.5 ml-3 flex min-w-0 flex-col gap-4 border-l-2 border-edge-subtle pl-3"
+    >
+      {children}
+    </fieldset>
+  );
+}
+
 /**
  * Bring a linked-to section into view and put the caret in its first field.
  *
