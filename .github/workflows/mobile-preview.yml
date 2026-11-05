@@ -2,11 +2,10 @@ name: mobile-preview
 
 # The phone's previews (`docs/mobile.md`, Preview builds): one development
 # build of Stint Preview, which the reviewer installs once, and an EAS Update
-# per PR that the build opens from a QR on the PR. EAS builds Android only:
-# the iPhone's build is sideloaded from a Mac, so CI publishes its update and
-# names its fingerprint. The update carries the PR's number and Vercel
-# preview; the build carries neither, so its fingerprint changes only with
-# native code, and only then does it build.
+# per PR that the build opens from a QR on the PR. EAS builds Android only;
+# the iPhone's build is sideloaded from a Mac. The update carries the PR's
+# number and Vercel preview; the build carries neither, so its fingerprint
+# changes only with native code, and only then does it build.
 #
 # Expo's continuous-deploy-fingerprint action runs these same commands, but
 # finds its comment by a marker anyone can type, and publishes on main too,

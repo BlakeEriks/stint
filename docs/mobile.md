@@ -215,10 +215,12 @@ first time, open `ios/StintPreview.xcworkspace` in Xcode and set each
 target's Signing team to your Personal Team. On first launch, paste
 Vercel's bypass.
 
-The PR's comment names the iOS fingerprint its update needs.
-`npx expo-updates fingerprint:generate --platform ios`, with the same
-variables, prints the checkout's; when they differ, the PR changed native code, so rebuild
-from its branch.
+The `android` label gates the update for both phones, so a PR previewed
+only on an iPhone still carries it. Its comment names the iOS fingerprint
+the update needs. To print the checkout's, run
+`npx expo-updates fingerprint:generate --platform ios` with the same
+variables. When the two differ, the PR changed native code: rebuild from
+its branch.
 
 A free Apple ID's profile lasts 7 days and signs 3 apps per device, so the
 build is reinstalled weekly.
