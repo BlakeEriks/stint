@@ -56,7 +56,11 @@ type StoredInvoice = Invoice & {
 export const mockDraftRefusals = (i: StoredInvoice) => {
   const unrated = (i.unratedEntries?.length ?? 0) > 0;
   const due = i.dueBeforeIssue ?? dueBeforeIssue(i);
-  return { download: unrated || due.download, send: unrated || due.send };
+  return {
+    download: unrated || due.download,
+    send:
+      unrated || due.send || (i.status === 'draft' && i.lineItems.length === 0),
+  };
 };
 
 export const typedDue = (i: StoredInvoice) =>

@@ -108,7 +108,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   if (asked) throw refused(asked);
 
   requireSender(computed.settings);
-  const priced = pricedInvoiceRefusal(computed.totals, body);
+  const priced = pricedInvoiceRefusal(computed.totals);
   if (priced) throw refused(priced);
 
   const { data, error } = await db.rpc('update_draft', {
