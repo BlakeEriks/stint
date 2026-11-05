@@ -462,7 +462,7 @@ pick a day in that span for the screens to show data.
   (`docs/macos.md`).
 
 A PR labeled `android` also gets an EAS Update against its
-preview, opened in a shared Android build, from
+preview, opened in a shared Android build or a sideloaded iPhone one, from
 `.github/workflows/mobile-preview.yml`; `docs/mobile.md` has its one-time
 setup.
 
