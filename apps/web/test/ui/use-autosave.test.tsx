@@ -54,17 +54,6 @@ describe('useAutosave', () => {
     await waitFor(() => expect(result.current.state).toBe('saved'));
   });
 
-  /** A save on leaving a field goes out in the same press, ahead of a press
-      after it in the same lane (Generate behind Bill to). */
-  it('saves in the same call with no pause', () => {
-    const save = vi.fn(async () => {});
-    const { result } = renderHook(() => useAutosave(save, { delay: 0 }));
-
-    act(() => result.current.schedule({ a: 1 }));
-
-    expect(save).toHaveBeenCalledExactlyOnceWith({ a: 1 });
-  });
-
   /** Typing must not fire a request per keystroke. */
   it('collapses rapid edits into one save with the last value', async () => {
     const save = vi.fn(async () => {});

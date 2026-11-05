@@ -59,24 +59,19 @@ export function Field({
 }
 
 /** Fields that belong to the field above, indented on a rule so they read as
-    part of it rather than as fields of their own. Goes inside that `Field`.
-    `aside` sits top-right over the first label's row, which a label never
-    fills, so it takes no room of its own. */
+    part of it rather than as fields of their own. Goes inside that `Field`. */
 export function SubFields({
   label,
-  aside,
   children,
 }: {
   label?: string;
-  aside?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <fieldset
       aria-label={label}
-      className="relative mt-1.5 ml-3 flex min-w-0 flex-col gap-4 border-l-2 border-edge-subtle pl-3"
+      className="mt-1.5 ml-3 flex min-w-0 flex-col gap-4 border-l-2 border-edge-subtle pl-3"
     >
-      {aside ? <div className="absolute top-0 right-0">{aside}</div> : null}
       {children}
     </fieldset>
   );

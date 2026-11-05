@@ -151,7 +151,7 @@ a different order, and the ones that drifted were rebuilt:
 |---|---|
 | The content column | `Page`, `DetailPage` |
 | A list's loading, failure and empty states | `Panel` + `Listing` |
-| Fields that save on their own, and say so: Saving…, Saved, Not saved | `useAutosave` + `SaveIndicator`, in a `Section`'s or `SubFields`' `aside` |
+| A titled region with its own save state | `Section` + `useAutosave` + `SaveIndicator` |
 | A labeled control | `Field`, `Input`, `inputClass`, `textareaClass`; on a signed-out page, `elevatedInputClass` |
 | Fields that belong to the field above them | `SubFields`, inside that `Field` |
 | What a form still lacks, shown on Save | `useMissing()` (`lib/client/use-missing.ts`) into `Field`'s `error` |
