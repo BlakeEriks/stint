@@ -2,9 +2,11 @@ name: mobile-preview
 
 # The phone's previews (`docs/mobile.md`, Preview builds): one development
 # build of Stint Preview, which the reviewer installs once, and an EAS Update
-# per PR that the build opens from a QR on the PR. The update carries the
-# PR's number and Vercel preview; the build carries neither, so its
-# fingerprint changes only with native code, and only then does it build.
+# per PR that the build opens from a QR on the PR. EAS builds Android only:
+# the iPhone's build is sideloaded from a Mac, so CI publishes its update and
+# names its fingerprint. The update carries the PR's number and Vercel
+# preview; the build carries neither, so its fingerprint changes only with
+# native code, and only then does it build.
 #
 # Expo's continuous-deploy-fingerprint action runs these same commands, but
 # finds its comment by a marker anyone can type, and publishes on main too,
@@ -133,13 +135,18 @@ jobs:
         run: |
           # The bundle imports the tokens, which git doesn't carry.
           pnpm --filter @stint/design-tokens build
-          group=$(eas update --branch "pr-$PR" --platform android --environment preview \
+          # Both platforms' updates share one group, so one QR opens either.
+          group=$(eas update --branch "pr-$PR" --platform all --environment preview \
               --message "${SHA:0:7}" --non-interactive --json \
             | jq -r '.[0].group')
+          ios=$(npx expo-updates fingerprint:generate --platform ios | jq -r .hash)
           # qr.expo.dev prefixes `exp+`: the QR opens exp+stint://, which only
           # the development build registers.
-          echo "qr=https://qr.expo.dev/eas-update?appScheme=stint&projectId=${EAS_PROJECT_ID}&groupId=${group}" >> "$GITHUB_OUTPUT"
-          echo "url=https://expo.dev/projects/${EAS_PROJECT_ID}/updates/${group}" >> "$GITHUB_OUTPUT"
+          {
+            echo "ios=$ios"
+            echo "qr=https://qr.expo.dev/eas-update?appScheme=stint&projectId=${EAS_PROJECT_ID}&groupId=${group}"
+            echo "url=https://expo.dev/projects/${EAS_PROJECT_ID}/updates/${group}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Link it on the PR
         if: steps.update.outputs.url
@@ -148,12 +155,16 @@ jobs:
           BUILD: ${{ steps.build.outputs.url }}
           QR: ${{ steps.update.outputs.qr }}
           UPDATE: ${{ steps.update.outputs.url }}
+          IOS: ${{ steps.update.outputs.ios }}
+          SIDELOAD: ${{ github.server_url }}/${{ github.repository }}/blob/main/docs/mobile.md#on-an-iphone
           SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           install="install Stint Preview from ${BUILD} on your Android phone. On its first launch, paste Vercel's bypass."
           open="Then scan this with the phone's camera: Stint Preview opens this PR, signed in as pr-${PR}@preview.test (or open ${UPDATE}).
 
-          ![Scan to open this PR](${QR})"
+          ![Scan to open this PR](${QR})
+
+          On an iPhone, Stint Preview is sideloaded from a Mac (${SIDELOAD}). It opens this PR only if its iOS fingerprint is \`${IOS}\`; if not, rebuild it from this branch."
           if [ "$NEW" = true ]; then
             scan="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=$(jq -rn --arg u "$BUILD" '$u | @uri')"
             body="<!-- mobile-preview -->
