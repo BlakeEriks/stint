@@ -12,6 +12,7 @@ import {
   PairLine,
   RegionHead,
 } from './home-shell';
+import { appNow } from '@stint/client';
 
 /**
  * How much of the track the week's longest day fills.
@@ -45,7 +46,7 @@ export function Week({
      no money to print, so they add nothing to the total rather than zero. */
   const earned = week.reduce((sum, d) => sum + (d.amount ?? 0), 0);
 
-  const today = localDateKey(new Date(), tz);
+  const today = localDateKey(appNow(), tz);
   const longest = Math.max(...week.map((d) => d.seconds), 0);
 
   return (

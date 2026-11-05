@@ -1,7 +1,6 @@
 'use client';
 
 import { useDialog } from '@/lib/client/use-dialog';
-import { useQuery } from '@tanstack/react-query';
 import {
   formatCompact,
   formatCurrency,
@@ -9,16 +8,17 @@ import {
   startOfLocalDay,
 } from '@stint/core';
 import { CalendarDays } from 'lucide-react';
-import { api, type Project } from '@/lib/client/api';
+import type { Project } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { useProjectColors } from '@/lib/client/use-project-colors';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import { useEntryDrag } from '@/lib/client/use-entry-drag';
+import { useTodayEntries } from '@/lib/client/use-today-entries';
 import { EntryDialog, type Opens } from './entry-dialog';
 import { KeyboardAdd } from './keyboard-add';
 import { Listing } from './page';
 import { TodayGrid } from './today-grid';
-import { keys } from '@stint/client';
+import { appNow } from '@stint/client';
 
 /**
  * Today's entries, in the dock beneath the inbox and subordinate to it. An
@@ -54,7 +54,7 @@ export function EntryList({
   /** The dock's fixed column at `xl`, which Today's day fills. */
   fills?: boolean;
 }) {
-  const query = useDayEntries();
+  const query = useTodayEntries();
 
   /* The foot totals outside the scroller, so it reads the day off the
      query rather than the render prop below. */
@@ -104,7 +104,7 @@ export function EntryList({
         <KeyboardAdd
           label="Add an entry today"
           className={earnedToday === undefined ? 'ml-auto' : ''}
-          onClick={() => editing.show({ seed: lastHour(new Date()) })}
+          onClick={() => editing.show({ seed: lastHour(appNow()) })}
         />
       </header>
 
@@ -112,33 +112,23 @@ export function EntryList({
         tabIndex={useScrollerFocus()}
         className="min-h-0 flex-1 overflow-y-auto"
       >
-        {/* No `empty`: a day with nothing logged still draws its grid, the
-            only place a pointer adds an entry. */}
         <Listing query={query} tight>
           {(entries) => (
-            <>
-              {entries.length === 0 ? (
-                <p className="px-1 pb-2 type-support text-subtle">
-                  Nothing logged yet today. Draw or click a time, or start a
-                  timer above.
-                </p>
-              ) : null}
-              <TodayGrid
-                entries={entries}
-                colors={colors}
-                drag={drag}
-                fills={fills}
-                onEdit={(existing) => editing.show({ existing })}
-                onCreate={(startedAt, endedAt) =>
-                  editing.show({
-                    seed: {
-                      startedAt: startedAt.toISOString(),
-                      endedAt: endedAt.toISOString(),
-                    },
-                  })
-                }
-              />
-            </>
+            <TodayGrid
+              entries={entries}
+              colors={colors}
+              drag={drag}
+              fills={fills}
+              onEdit={(existing) => editing.show({ existing })}
+              onCreate={(startedAt, endedAt) =>
+                editing.show({
+                  seed: {
+                    startedAt: startedAt.toISOString(),
+                    endedAt: endedAt.toISOString(),
+                  },
+                })
+              }
+            />
           )}
         </Listing>
       </div>
@@ -187,18 +177,4 @@ function lastHour(now: Date) {
     startedAt: new Date(end - 3_600_000).toISOString(),
     endedAt: new Date(end).toISOString(),
   };
-}
-
-/**
- * Everything today, running included: a column without it has a hole at the
- * one place the eye goes. A hook of its own so the dock can gate on the same
- * query the list reads.
- */
-export function useDayEntries() {
-  const from = startOfLocalDay(new Date(), tz).toISOString();
-  return useQuery({
-    queryKey: keys.entries({ from }),
-    queryFn: () => api.entries({ from }),
-    select: (r) => r.entries,
-  });
 }

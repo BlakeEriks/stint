@@ -44,7 +44,8 @@ export const GET = handle(async (req: Request) => {
   for (const row of data) {
     const entry = toEntry(row as EntryRow);
     /* A running entry is drawn up to now but counts nothing until it
-       stops, as its duration is null until then. */
+       stops, as its duration is null until then: the client adds its
+       running part (`useCalendar`). */
     const end = entry.endedAt ?? new Date().toISOString();
     for (const { date, seconds } of splitByLocalDay(
       new Date(entry.startedAt),

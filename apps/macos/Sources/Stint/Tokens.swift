@@ -105,6 +105,8 @@ public enum Tokens {
         public static let boundHeight: CGFloat = 1.05
         public static let boundGap: CGFloat = 0.18
         public static let boundRadius: CGFloat = 999
+        public static let tmSize: CGFloat = 0.6
+        public static let tmRise: CGFloat = 0.35
     }
 
     /// The type scale. A view names a role; it never assembles one.
@@ -217,7 +219,7 @@ public enum Tokens {
             uppercase: false, tabular: false, mono: true
         )
         public static let wordmarkSmall = Role(
-            size: 14, weight: .semibold, tracking: 1.68,
+            size: 18, weight: .semibold, tracking: 2.16,
             uppercase: false, tabular: false, mono: true
         )
         public static let nav = Role(

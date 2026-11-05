@@ -239,19 +239,16 @@ export const EmptyDay: Story = {
   ...desktop,
   parameters: account('empty'),
   play: async ({ canvasElement }) => {
-    const today = within(
-      await within(canvasElement).findByRole('region', {
-        name: "Today's entries",
-      }),
-    );
-    await expect(
-      await today.findByText(/Nothing logged yet today/),
-    ).toBeVisible();
-
-    const column = canvasElement.querySelector<HTMLElement>(
-      'section .border-l',
-    ) as HTMLElement;
+    const today = await within(canvasElement).findByRole('region', {
+      name: "Today's entries",
+    });
+    const column = await waitFor(() => {
+      const found = today.querySelector<HTMLElement>('.border-l');
+      expect(found).not.toBeNull();
+      return found as HTMLElement;
+    });
     await expect(column).toBeVisible();
+    await expect(today.querySelector('p')).toBeNull();
     const box = column.getBoundingClientRect();
     await userEvent.pointer({
       target: column,

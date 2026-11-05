@@ -88,7 +88,7 @@ or one with an unreadable row, before anything is written.
 | Method | Path | Notes |
 |---|---|---|
 | `GET` | `/summary` | **The menu bar endpoint.** Returns `{ running, todaySeconds, weekSeconds, serverTime }` in one call, so the Mac app can toggle between "current timer" and "today's total" without a second request. A write can return it too ([Including what a write changed](#including-what-a-write-changed)). |
-| `GET` | `/calendar` | `?from&to` (**both required**) `&tz`. Returns `{ days: [{ date, totalSeconds, entries }] }` for every entry that overlaps the range, running ones included. An entry that crosses local midnight is listed under each day it touches, so one id can appear on several days, and each day's `totalSeconds` counts only its own part. `400 INVALID_PERIOD` if `to < from`. |
+| `GET` | `/calendar` | `?from&to` (**both required**) `&tz`. Returns `{ days: [{ date, totalSeconds, entries }] }` for every entry that overlaps the range, running ones included. An entry that crosses local midnight is listed under each day it touches, so one id can appear on several days, and each day's `totalSeconds` counts only its own part. A running entry adds nothing to `totalSeconds`; a client measures it to now. `400 INVALID_PERIOD` if `to < from`. |
 | `GET` | `/stats` | `?tz` — the home screen cards **and the dock's inbox** in one call. One request because they render together, and a set that pops in piecemeal reads as broken. Fields and their rules are below. A write can return it too ([Including what a write changed](#including-what-a-write-changed)). |
 | `GET` | `/entries/task-names` | `?projectId&limit` (1–1000, default 8). Returns `{ taskNames: [{ taskName, projectId, lastUsedAt }] }` — names the user has typed before, for suggesting one rather than retyping it. One row per name **case-insensitively**, keeping the most recent spelling, since offering both is offering the user their own typo; the empty name is excluded, so a timer started in a hurry never becomes a suggestion. **`projectId` ranks, it does not filter** — names used with that project come first and every other name still follows, so there is no `none` literal as there is on `/entries`: "no project" and "no preference" are one request. Omitting it ranks by recency alone. Ranking is the server's and clients must not re-sort it; filtering as the user types is theirs. Backed by the `recent_task_names` SQL function. |
 
@@ -345,7 +345,7 @@ by every one when `recurring`. The amount is in the client's currency.
 | Method | Path | Notes |
 |---|---|---|
 | `GET` | `/expenses` | `?clientId&status` — `status` is `open` (default: recurring, unbilled, and on a sent invoice) or `unbilled` (recurring and unbilled). Recurring first, then oldest `spentOn`. Each expense carries `invoiceNumber` and `invoiceStatus` once billed. |
-| `POST` | `/expenses` | `{ id, clientId, recurring?, spentOn?, description, amount, note? }`. `spentOn` is required for a one-off and refused with `recurring: true`. `id` is a client-generated UUIDv7, so a retry returns the stored row with `200`. `amount` is above zero. |
+| `POST` | `/expenses` | `{ id, clientId, recurring?, spentOn?, description, amount }`. `spentOn` is required for a one-off and refused with `recurring: true`. `id` is a client-generated UUIDv7, so a retry returns the stored row with `200`. `amount` is above zero. |
 | `PATCH` | `/expenses/:id` | Any field from `POST` but `id` and `clientId`. `recurring: true` clears `spentOn`; `false` needs one. **`409 EXPENSE_LOCKED`** once billed on a non-draft invoice; `422` to make a billed one recurring. |
 | `DELETE` | `/expenses/:id` | Same lock. A recurring one can always go; invoices that billed it keep their line. |
 
@@ -473,6 +473,11 @@ it; an invalid zone falls back to UTC rather than failing the request, because
 a view that renders in the wrong zone beats a view that does not render.
 `POST /timer/start`, `POST /timer/stop` and `PATCH /entries/:id` take `tz`
 the same way, for the reads they include ([Including what a write changed](#including-what-a-write-changed)).
+
+On a preview or in local dev, an `x-stint-now` header (ISO 8601) sets the
+instant `/stats` reads as of, including when a write includes it, so a tester
+can see the home screen as of another day. `/stats` measures a running timer
+at that instant too. Writes and `/summary` stay on the real clock.
 
 `GET /exports/entries` and `GET /exports/invoices` fall back the same way. The
 zone dates each row and names the file, but every record is in the file

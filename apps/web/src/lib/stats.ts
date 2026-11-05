@@ -72,9 +72,8 @@ export async function readStats(
   db: SupabaseClient,
   userId: string,
   tz: string,
+  now = new Date(),
 ) {
-  const now = new Date();
-
   const monthStart = startOfLocalMonth(now, tz);
   const monthEnd = startOfNextLocalMonth(now, tz);
 

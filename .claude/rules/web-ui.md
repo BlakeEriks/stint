@@ -153,6 +153,7 @@ a different order, and the ones that drifted were rebuilt:
 | A list's loading, failure and empty states | `Panel` + `Listing` |
 | A titled region with its own save state | `Section` + `useAutosave` + `SaveIndicator` |
 | A labeled control | `Field`, `Input`, `inputClass`, `textareaClass`; on a signed-out page, `elevatedInputClass` |
+| Fields that belong to the field above them | `SubFields`, inside that `Field` |
 | What a form still lacks, shown on Save | `useMissing()` (`lib/client/use-missing.ts`) into `Field`'s `error` |
 | Any action | `Button`, sized and varied by the tables in `ui/button.tsx` |
 | A destructive action in a dialog's footer | `ConfirmAction` |
@@ -211,7 +212,8 @@ anticipation of one.
   `components/row-button.ts`).
 - **A failure renders beside the thing that failed**, and a failed load is
   neutral, never red — it is a condition, and the answer is to try again.
-- **An empty state says what to do**, or what the consequence is.
+- **An empty state says what to do**, or what the consequence is. Home's
+  empty Today grid has no line: the grid itself is the instruction.
 - **Archive, never delete**, wherever invoices or entries reference the
   record.
 - **A picker row is swatch, name, then the client muted.** Internal work gets
@@ -270,7 +272,7 @@ disagree about the same work. A read the write's answer included
 **A query renders through `Listing`**, which owns loading, failure and empty,
 so no screen writes those branches. A grid is the exception to empty: an
 empty day still draws its grid, the only place a pointer adds an entry, so
-the calendar and Today write their own empty line beside it.
+the calendar writes its own empty line beside it.
 
 **A region paints once, with all its data.** Hand `Listing` every query the
 region draws, as a tuple, and nothing of it renders until all have answered;

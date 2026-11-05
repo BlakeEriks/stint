@@ -47,6 +47,7 @@ object Widgets {
     tint.color(R.id.detail, "setTextColor", "text-muted")
     tint.color(R.id.why, "setTextColor", "danger")
     tint.color(R.id.wordmark, "setTextColor", "text-subtle")
+    tint.color(R.id.wordmark_tm, "setTextColor", "text-subtle")
 
     v.setTextViewText(R.id.title, s.title)
     clock(v, s, tint)

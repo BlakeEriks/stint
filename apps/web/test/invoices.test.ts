@@ -2213,7 +2213,6 @@ test('recording an expense is idempotent on its id', async () => {
     spentOn: '2026-09-12',
     description: 'JetBrains license',
     amount: 249,
-    note: 'Order 88213',
   };
 
   const first = await json(await create(req('/expenses', body)));

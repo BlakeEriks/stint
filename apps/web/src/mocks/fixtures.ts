@@ -613,7 +613,6 @@ function expensesFor(invoices: StoredInvoice[]) {
     spentOn: '2026-09-05',
     description: '',
     amount: 0,
-    note: null,
     invoiceId: null,
     invoiceNumber: null,
     invoiceStatus: null,
@@ -633,7 +632,6 @@ function expensesFor(invoices: StoredInvoice[]) {
       spentOn: '2026-08-20',
       description: 'Figma license, annual',
       amount: 180,
-      note: 'Order 88213',
     }),
     expense({
       id: ids.stockPhotos,

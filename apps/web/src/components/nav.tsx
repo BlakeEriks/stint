@@ -60,7 +60,7 @@ export function Nav() {
          beneath so content never scrolls flush against the items. The
          ground, not `elevated`: the active item's `elevated/55` pill would
          vanish on it. */
-      className="sticky top-13 z-30 -mx-3 -mb-2 flex flex-none flex-col gap-1 bg-surface-base px-3 pb-2 sm:static sm:mx-0 sm:mb-0 sm:bg-transparent sm:px-0 sm:pb-0 lg:col-start-1 lg:row-start-1 lg:h-full lg:w-48 lg:pt-4"
+      className="sticky top-13 z-30 -mx-3 -mb-2 flex flex-none flex-col gap-1 bg-surface-base px-3 pb-2 sm:static sm:mx-0 sm:mb-0 sm:bg-transparent sm:px-0 sm:pb-0 lg:col-start-1 lg:row-start-1 lg:h-full lg:w-48"
     >
       {/* Only this scrolls: horizontally on a phone, vertically in the rail if
           the list ever outgrows a short window.

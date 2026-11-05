@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Field } from './field';
 import { useMissing } from '@/lib/client/use-missing';
 import { timeZone } from '@/lib/client/use-timer';
+import { appNow } from '@stint/client';
 
 /**
  * When money actually arrived, not when the invoice happened to get opened.
@@ -70,7 +71,7 @@ export function MarkPaidDialog({
   // Reset to today each time it opens, so a previous pick cannot linger.
   useEffect(() => {
     if (!open) return;
-    const key = localDateKey(new Date(), timeZone);
+    const key = localDateKey(appNow(), timeZone);
     setDate(key);
     setToday(key);
     check.reset();

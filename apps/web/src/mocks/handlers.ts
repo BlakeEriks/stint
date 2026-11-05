@@ -890,7 +890,6 @@ export const handlers = {
     if (existing) return ok(schema.Expense, expenseView(db, existing));
     if (!byId(db.clients, input.clientId)) return refuse(refusals.noSuchClient);
     const expense: Expense = {
-      note: null,
       ...input,
       spentOn: input.spentOn ?? null,
       invoiceId: null,
