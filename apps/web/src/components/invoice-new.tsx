@@ -62,7 +62,11 @@ import { ExpenseDialog } from './expense-dialog';
 import { ExpenseRow } from './expense-row';
 import { type Charge, ChargeDialog } from './charge-dialog';
 import { PaymentProfileDialog } from './payment-profile-dialog';
-import { missingBusiness, SenderNotice } from './business-dialog';
+import {
+  BusinessDialog,
+  missingBusiness,
+  SenderNotice,
+} from './business-dialog';
 import { NumberDialog } from './number-dialog';
 import { summarize } from './payment-profiles';
 import { businessOf, InvoicePreviewCard } from './invoice-preview-card';
@@ -539,6 +543,7 @@ function Form({
   const chargeDialog = useDialog<string>();
   const [newProfileOpen, setNewProfileOpen] = useState(false);
   const [editingClient, setEditingClient] = useState(false);
+  const [editingSender, setEditingSender] = useState(false);
 
   /* Only what decides the lines is sent, so a due date or a tick never asks
      the server again. */
@@ -849,6 +854,11 @@ function Form({
           <div className="mt-6 min-w-0 @min-[800px]/new:mt-0 xl:flex xl:min-h-0 xl:flex-col">
             <InvoicePreviewCard
               noSender={noSender}
+              // A draft froze its sender when it was made; Settings no
+              // longer reaches it.
+              onEditSender={
+                editing || noSender ? undefined : () => setEditingSender(true)
+              }
               preview={current}
               client={client}
               business={businessOf(settings)}
@@ -875,6 +885,9 @@ function Form({
         </div>
       </div>
 
+      {editingSender && settings ? (
+        <BusinessDialog onOpenChange={setEditingSender} settings={settings} />
+      ) : null}
       {client ? (
         <ClientDialog
           open={editingClient}

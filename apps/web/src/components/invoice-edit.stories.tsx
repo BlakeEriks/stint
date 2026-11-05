@@ -40,6 +40,10 @@ export const Filled: Story = {
     await expect(page.queryByText(/^Numbered/)).toBeNull();
     await expect(page.getByText('Saving keeps its number.')).toBeVisible();
     await saved(page);
+    // Its sender was frozen when it was made, so Settings can't reach it.
+    await expect(
+      page.queryByRole('button', { name: /^Edit Sam Rivera/ }),
+    ).toBeNull();
   },
 };
 
