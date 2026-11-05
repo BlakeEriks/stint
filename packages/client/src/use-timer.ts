@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import type { TimerApi } from './api.ts';
 import { useOptimisticMutation } from './mutations.ts';
+import { useInterval } from './use-interval.ts';
 import { readTimer, summaryQuery, timerPresses } from './timer-presses.ts';
 
 /**
@@ -26,16 +27,10 @@ export function currentTimeZone(): string {
  * mismatch; deferring the first tick keeps the two renders identical.
  */
 function useTick(active: boolean): boolean {
-  const [, force] = useState(0);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => setHydrated(true), []);
-
-  useEffect(() => {
-    if (!active) return;
-    const id = setInterval(() => force((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, [active]);
+  useInterval(active, 1000);
 
   return hydrated;
 }
