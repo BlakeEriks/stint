@@ -24,9 +24,9 @@ Keep editing.
   Save draft saves the edits. (decided autonomously)
 - Q: What counts as a change? → A: Any field of the form differing from
   what it opened with. A form opened from an Inbox link, with its client
-  and dates filled in, has no changes until the user makes one. Bill to and
-  Email are not changes: leaving those fields saves them to the client.
-  (decided autonomously)
+  and dates filled in, has no changes until the user makes one. Edits to
+  the client's details go through Edit client, which saves them to the
+  client; they are not form changes. (decided autonomously)
 - Q: Can Generate invoice also make a draft with nothing to bill? → A: Yes.
   It and Save draft are the same press, so one rule decides both; a second
   rule for the same draft would be a state with no use (Constitution VII).
