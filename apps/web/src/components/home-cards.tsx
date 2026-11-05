@@ -10,7 +10,7 @@ import {
   useClients,
   useClientsQuery,
 } from '@/lib/client/use-project-colors';
-import { buildHues, Legend } from './home-shell';
+import { buildHues, type Hue, Legend } from './home-shell';
 import { Today } from './home-today';
 import { useTodayEntries } from '@/lib/client/use-today-entries';
 import { Week } from './home-week';
@@ -73,6 +73,29 @@ function Panel({ stats }: { stats: Stats }) {
     return buildHues({ byClient: stats.month.byClient, weekKeys, clients });
   }, [stats.month.byClient, stats.week, clients]);
 
+  if (stats.hasEntries) return <Cards stats={stats} hues={hues} />;
+
+  /* Before any entry the cards read as dashes and zeros, so they stay as the
+     shape Home will take, dimmed behind the one thing to do first. */
+  return (
+    <div className="relative">
+      <div inert>
+        <Cards stats={stats} hues={hues} />
+      </div>
+      <div className="absolute inset-0 flex items-center justify-center bg-overlay p-6">
+        <div role="status" className="max-w-sm text-center">
+          <h2 className="type-heading text-strong">Add your first entry</h2>
+          <p className="mt-1.5 type-body text-muted">
+            Start a timer or add an entry, and Home fills in as your time
+            entries arrive.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Cards({ stats, hues }: { stats: Stats; hues: Map<string, Hue> }) {
   /* `@container` on the panel, and the regions size off it. The panel is NOT
      the window: the rail and the dock flank it and claim their space at `lg`
      and `xl`, so the panel is 780px at a 1100px window and 732px at 1440 —

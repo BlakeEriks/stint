@@ -191,6 +191,7 @@ describe('an inbox row leaving', () => {
   function stats(attention: Partial<Stats['attention']> = {}): Stats {
     return {
       currency: 'USD',
+      hasEntries: true,
       unbilled: {
         total: 0,
         mixed: false,

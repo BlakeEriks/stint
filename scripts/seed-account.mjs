@@ -68,6 +68,13 @@ const SEED_SCENARIOS = {
       [userId, rows[0].next_invoice_number],
     );
   },
+  /* Clients and settings, and no entry yet: Home's first-entry state.
+     Invoices go first, since a billed entry cannot outlive its invoice. */
+  'no-entries': async (userId) => {
+    for (const table of ['invoices', 'expenses', 'time_entries']) {
+      await db.query(`delete from ${table} where user_id = $1`, [userId]);
+    }
+  },
 };
 
 if (process.argv[2] === '--scenarios') {
