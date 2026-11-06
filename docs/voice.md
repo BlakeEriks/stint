@@ -59,6 +59,27 @@ table*, *your hours are safe*. Humor is not part of the voice.
 | Money, and anything that can't be undone | The plainest: what changes, its figures, and whether it comes back. |
 | Email | The subject carries the payload. The body states the limits, and what to do if it was not expected. |
 | Notification | The title is the fact; the body is the figure and the next step. |
+| Invoice PDF | Written for the client, so no voice at all: invoice conventions (*Billed to*, *Issued*), labels, and figures. |
+
+## Words
+
+One name for each thing, on every client.
+
+| Word | Means | Not |
+| --- | --- | --- |
+| Entry | A stretch of tracked time | time log, session |
+| Task | What an entry was spent on | description, activity |
+| Client | Who pays for the work | customer |
+| Project | A client's body of work | job, engagement |
+| Rate | The hourly charge; the **default rate** applies where a client has none | price, billing rate |
+| Expense | A cost the client reimburses | charge, reimbursement |
+| Invoice | The numbered PDF a client pays | bill |
+| Draft, sent, paid, void | An invoice's states, set by *Mark sent*, *Mark paid*, and *Void* | issued, cancelled |
+| Unbilled | Tracked work on no invoice yet | uninvoiced |
+| Awaiting payment | Sent and not yet paid | outstanding, pending |
+| Inbox | Where a record to resolve waits | notifications, alerts |
+| Payment details | The ACH routing and account number an invoice carries | payment profile, bank info |
+| Paid plan | The $3.33/month plan that downloads invoices | Pro, premium, subscription |
 
 ## Mechanics
 
