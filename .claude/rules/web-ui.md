@@ -182,6 +182,7 @@ anticipation of one.
   and Back returns to it. A component reading `useSearchParams` needs a
   `Suspense` boundary in its `page.tsx`, or `next build` fails while
   `next dev` passes.
+- **User-visible text follows `docs/voice.md`.**
 - **Every action carries a visible label.** Four exceptions, each with an
   `aria-label`: a destructive first step, a dense repeating row, the
   folded dock's strip, which is 44px by design, and `KeyboardAdd`, the "+"
@@ -210,8 +211,8 @@ anticipation of one.
   `components/row-button.ts`).
 - **A failure renders beside the thing that failed**, and a failed load is
   neutral, never red — it is a condition, and the answer is to try again.
-- **An empty state says what to do**, or what the consequence is. Home's
-  empty Today grid has no line: the grid itself is the instruction.
+- **Home's empty Today grid has no empty-state line**: the grid itself is
+  the instruction.
 - **Archive, never delete**, wherever invoices or entries reference the
   record.
 - **A picker row is swatch, name, then the client muted.** Internal work gets

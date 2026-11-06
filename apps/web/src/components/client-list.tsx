@@ -100,7 +100,7 @@ export function ClientList() {
           isLoading: clientQuery.isLoading || projectQuery.isLoading,
         }}
         also={[settings, expenses]}
-        empty="No clients yet. Add one to set a rate and bill against it."
+        empty="Who's paying you? Add a client and what you charge them."
       >
         {(shown) => {
           const card = (g: Group) => (
