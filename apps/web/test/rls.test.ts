@@ -251,6 +251,7 @@ test('a row cannot be written on another user’s behalf', async () => {
         ALICE,
       ]),
     /row-level security/i,
+    'a client reassigned',
   );
   await assert.rejects(
     () =>
@@ -259,6 +260,7 @@ test('a row cannot be written on another user’s behalf', async () => {
         ALICE_EXPENSE,
       ]),
     /row-level security|expense_client_same_owner/i,
+    'an expense reassigned',
   );
 });
 
@@ -414,8 +416,9 @@ test('an invoice carries the plan it was generated on, and no user can claim ano
 test('a row cannot point at another user’s row', async () => {
   await issueAliceInvoice('draft');
 
-  for (const { as, sql, constraint } of [
+  for (const { name, as, sql, constraint } of [
     {
+      name: 'an entry inserted under their project',
       as: ALICE,
       sql: `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at)
             values ('018f0000-0000-7000-8000-00000000000c','${ALICE}','bb000000-0000-4000-8000-00000000000b','Borrowed','2026-09-11T09:00:00Z','2026-09-11T10:00:00Z')`,
@@ -423,42 +426,42 @@ test('a row cannot point at another user’s row', async () => {
     },
     {
       // The column is writable by three routes; the constraint covers all.
+      name: 'an entry moved onto their project',
       as: ALICE,
       sql: `update time_entries set project_id = 'bb000000-0000-4000-8000-00000000000b'
             where id = '${ALICE_ENTRY}'`,
       constraint: 'entry_project_same_owner',
     },
     {
+      name: 'an expense under their client',
       as: ALICE,
       sql: `insert into expenses (user_id,client_id,spent_on,description,amount)
             values ('${ALICE}','cc000000-0000-4000-8000-00000000000b','2026-09-12','Borrowed',1)`,
       constraint: 'expense_client_same_owner',
     },
     {
+      name: 'an invoice to their client',
       as: ALICE,
       sql: `insert into invoices (user_id,client_id,invoice_number,sequence_no)
             values ('${ALICE}','cc000000-0000-4000-8000-00000000000b','INV-0002',2)`,
       constraint: 'invoice_client_same_owner',
     },
     {
+      name: 'a project under their client',
       as: ALICE,
       sql: `insert into projects (user_id,client_id,name)
             values ('${ALICE}','cc000000-0000-4000-8000-00000000000b','Borrowed')`,
       constraint: 'project_client_same_owner',
     },
     {
-      // Another user's draft cannot hold your work.
+      name: 'their draft holding my entry',
       as: BOB,
       sql: `update time_entries set draft_id = '${ALICE_INVOICE}'
             where id = '018f0000-0000-7000-8000-00000000000b'`,
       constraint: 'time_entries_draft_same_owner',
     },
   ])
-    await assert.rejects(
-      () => asUser(as, sql),
-      new RegExp(constraint),
-      constraint,
-    );
+    await assert.rejects(() => asUser(as, sql), new RegExp(constraint), name);
 });
 
 test('a project cannot be handed to another user while entries reference it', async () => {

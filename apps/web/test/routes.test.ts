@@ -932,15 +932,15 @@ test('each client field is null until set, round-trips, survives a patch that om
          `multipleOf(0.01)`, and rounding a third decimal would misstate an
          invoice. */
       field: 'hourlyRate',
-      values: async () => [150, 0, null],
+      values: async () => [0, null, 150],
       bad: [10.005],
     },
     {
       field: 'billingSchedule',
       values: async () => [
         { period: 'semimonthly' },
-        { period: 'weekly', anchor: '2026-10-05' },
         null,
+        { period: 'weekly', anchor: '2026-10-05' },
       ],
       bad: [
         { period: 'weekly' },
@@ -950,7 +950,7 @@ test('each client field is null until set, round-trips, survives a patch that om
     },
     {
       field: 'paymentTermsDays',
-      values: async () => [15, null],
+      values: async () => [15, null, 30],
       bad: [-1, 1.5, 366],
     },
     {
@@ -3009,6 +3009,7 @@ test('a strange duration is one row past its own threshold, only on an entry the
     max: number | null;
     setup: () => Promise<unknown>;
     expect: [id: string, kind: string][];
+    unprojected?: string[];
   }[] = [
     {
       name: 'no thresholds',
@@ -3096,6 +3097,7 @@ test('a strange duration is one row past its own threshold, only on an entry the
       max: 8,
       setup: () => entryFor({ id: S(73), projectId: null, hours: 14 }),
       expect: [],
+      unprojected: [S(73)],
     },
     {
       name: 'on an issued invoice',
@@ -3129,8 +3131,8 @@ test('a strange duration is one row past its own threshold, only on an entry the
     await reset();
     await setThresholds(row.min, row.max);
     await row.setup();
-    const strange = (await json(await stats(req('/stats?tz=UTC')))).body
-      .attention.strangeDurations as {
+    const { attention } = (await json(await stats(req('/stats?tz=UTC')))).body;
+    const strange = attention.strangeDurations as {
       entryId: string;
       kind: string;
       projectName: string;
@@ -3143,6 +3145,11 @@ test('a strange duration is one row past its own threshold, only on an entry the
       // The qualifier names the project and its client.
       row.expect.map(([id, kind]) => [id, kind, 'Website', 'Acme']),
       row.name,
+    );
+    assert.deepEqual(
+      attention.unprojected.map((r: { entryId: string }) => r.entryId),
+      row.unprojected ?? [],
+      `${row.name}: unprojected`,
     );
   }
 });
@@ -3655,20 +3662,25 @@ const failingDb = (error: { code?: string; message: string }) => ({
 test('health answers 200 while Postgres answers, even refusing, and 503 when it does not', async () => {
   const { GET } = await import('../src/app/api/v1/health/route.ts');
 
-  for (const [db, status] of [
-    [undefined, 200],
+  for (const [name, db, status] of [
+    ['answering', undefined, 200],
     [
+      'refusing anon',
       failingDb({
         code: '42501',
         message: 'permission denied for table clients',
       }),
       200,
     ],
-    [failingDb({ code: 'PGRST000', message: 'Could not connect' }), 503],
+    [
+      'not answering',
+      failingDb({ code: 'PGRST000', message: 'Could not connect' }),
+      503,
+    ],
   ] as const) {
     if (db) (globalThis as any).__TEST_DB__ = db;
     const res = await json(await GET());
-    assert.equal(res.status, status, JSON.stringify(db));
+    assert.equal(res.status, status, name);
     assert.deepEqual(res.body, { ok: status === 200 });
   }
 });
