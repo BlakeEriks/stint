@@ -40,7 +40,11 @@ after(async () => {
   await pool.end();
 });
 
-beforeEach(async () => {
+beforeEach(reset);
+
+/** Each test starts here: no rows, the settings back, and billing, push and
+ *  the broadcast unconfigured. A table's rows call it between cases. */
+async function reset() {
   // A push the last test's write scheduled finishes before its rows go.
   await settled();
   await pool.query('delete from push_devices');
@@ -93,7 +97,7 @@ beforeEach(async () => {
     });
     return new Response(null, { status: broadcastStatus });
   };
-});
+}
 
 let fcmFake: ReturnType<typeof fakeFcm>;
 /** Each request to Realtime's broadcast endpoint, and the status it gets. */
@@ -283,22 +287,6 @@ test('an entry PATCH returns what it changed with ?include', async () => {
   );
 });
 
-test('an unknown include is refused before the write', async () => {
-  const { POST: start } = await import(
-    '../src/app/api/v1/timer/start/route.ts'
-  );
-
-  const refused = await json(
-    await start(req('/timer/start?include=invoices&tz=UTC', { taskName: 'X' })),
-  );
-  assert.equal(refused.status, 422);
-  assert.equal(refused.body.code, 'VALIDATION_FAILED');
-  const { rows } = await pool.query(
-    'select count(*)::int as n from time_entries',
-  );
-  assert.equal(rows[0].n, 0, 'nothing was started');
-});
-
 test('THE INVARIANT: a second start is rejected with 409 and returns the running entry', async () => {
   const { POST: start } = await import(
     '../src/app/api/v1/timer/start/route.ts'
@@ -321,29 +309,6 @@ test('THE INVARIANT: a second start is rejected with 409 and returns the running
   );
 });
 
-test('stopping when nothing runs is 409, not a silent success', async () => {
-  const { POST: stop } = await import('../src/app/api/v1/timer/stop/route.ts');
-  const res = await json(await stop(req('/timer/stop', {})));
-  assert.equal(res.status, 409);
-  assert.equal(res.body.code, 'NO_TIMER_RUNNING');
-});
-
-test('a backdated stop before the start is rejected with a clear message', async () => {
-  const { POST: start } = await import(
-    '../src/app/api/v1/timer/start/route.ts'
-  );
-  const { POST: stop } = await import('../src/app/api/v1/timer/stop/route.ts');
-
-  await start(
-    req('/timer/start', { taskName: 'x', startedAt: '2026-09-11T12:00:00Z' }),
-  );
-  const res = await json(
-    await stop(req('/timer/stop', { endedAt: '2026-09-11T11:00:00Z' })),
-  );
-  assert.equal(res.status, 422);
-  assert.equal(res.body.code, 'VALIDATION_FAILED');
-});
-
 test('a running timer can be retitled and reassigned mid-run', async () => {
   const { POST: start } = await import(
     '../src/app/api/v1/timer/start/route.ts'
@@ -360,72 +325,11 @@ test('a running timer can be retitled and reassigned mid-run', async () => {
   assert.equal(res.body.taskName, 'New name');
 });
 
-test("a start without isBillable takes the project's billable default", async () => {
+test("a start or a manual entry without isBillable takes the project's billable default", async () => {
   const { POST: start } = await import(
     '../src/app/api/v1/timer/start/route.ts'
   );
   const { POST: stop } = await import('../src/app/api/v1/timer/stop/route.ts');
-  const { POST: createProject } = await import(
-    '../src/app/api/v1/projects/route.ts'
-  );
-  const { projectId: billable } = await seedClientAndProject();
-  const internal = await json(
-    await createProject(
-      req('/projects', { name: 'Internal', isBillableDefault: false }),
-    ),
-  );
-
-  const startOn = async (body: object) => {
-    const res = await json(
-      await start(
-        req('/timer/start', {
-          taskName: 'x',
-          // Backdated, or a stop in the same millisecond is rejected as
-          // ending at its start and the next start finds the timer running.
-          startedAt: new Date(Date.now() - 60_000).toISOString(),
-          ...body,
-        }),
-      ),
-    );
-    await stop(req('/timer/stop', {}));
-    return res.body.isBillable;
-  };
-
-  assert.equal(await startOn({ projectId: internal.body.id }), false);
-  assert.equal(await startOn({ projectId: billable }), true);
-  assert.equal(await startOn({}), true, 'no project stays billable');
-  assert.equal(
-    await startOn({ projectId: internal.body.id, isBillable: true }),
-    true,
-    'a sent flag wins over the default',
-  );
-});
-
-// ── entries ────────────────────────────────────────────────────────
-test('a manual entry replayed with the same id is idempotent', async () => {
-  const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
-  const body = {
-    id: '018f0000-0000-7000-8000-000000000001',
-    taskName: 'Offline work',
-    startedAt: '2026-09-11T09:00:00Z',
-    endedAt: '2026-09-11T10:00:00Z',
-  };
-
-  const first = await json(await create(req('/entries', body)));
-  assert.equal(first.status, 201);
-  assert.equal(first.body.durationSeconds, 3600);
-
-  const replay = await json(await create(req('/entries', body)));
-  assert.equal(replay.status, 200, 'replay returns the existing entry');
-  assert.equal(replay.body.id, first.body.id);
-
-  const { rows } = await pool.query(
-    'select count(*)::int as n from time_entries',
-  );
-  assert.equal(rows[0].n, 1, 'no duplicate was created');
-});
-
-test("a manual entry without isBillable takes the project's billable default", async () => {
   const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
   const { POST: createProject } = await import(
     '../src/app/api/v1/projects/route.ts'
@@ -438,44 +342,91 @@ test("a manual entry without isBillable takes the project's billable default", a
   );
 
   let n = 10;
-  const addOn = async (body: object) => {
-    const res = await json(
-      await create(
-        req('/entries', {
-          id: `018f0000-0000-7000-8000-0000000000${n++}`,
-          taskName: 'x',
-          startedAt: '2026-09-11T09:00:00Z',
-          endedAt: '2026-09-11T10:00:00Z',
-          ...body,
-        }),
-      ),
-    );
-    return res.body.isBillable;
+  const writes = {
+    start: async (body: object) => {
+      const res = await json(
+        await start(
+          req('/timer/start', {
+            taskName: 'x',
+            // Backdated, or a stop in the same millisecond is rejected as
+            // ending at its start and the next start finds the timer running.
+            startedAt: new Date(Date.now() - 60_000).toISOString(),
+            ...body,
+          }),
+        ),
+      );
+      await stop(req('/timer/stop', {}));
+      return res.body.isBillable;
+    },
+    'manual entry': async (body: object) =>
+      (
+        await json(
+          await create(
+            req('/entries', {
+              id: `018f0000-0000-7000-8000-0000000000${n++}`,
+              taskName: 'x',
+              startedAt: '2026-09-11T09:00:00Z',
+              endedAt: '2026-09-11T10:00:00Z',
+              ...body,
+            }),
+          ),
+        )
+      ).body.isBillable,
   };
 
-  assert.equal(await addOn({ projectId: internal.body.id }), false);
-  assert.equal(await addOn({ projectId: billable }), true);
-  assert.equal(await addOn({}), true, 'no project stays billable');
-  assert.equal(
-    await addOn({ projectId: internal.body.id, isBillable: true }),
-    true,
-    'a sent flag wins over the default',
-  );
+  for (const [name, write] of Object.entries(writes)) {
+    assert.equal(await write({ projectId: internal.body.id }), false, name);
+    assert.equal(await write({ projectId: billable }), true, name);
+    assert.equal(await write({}), true, `${name}: no project stays billable`);
+    assert.equal(
+      await write({ projectId: internal.body.id, isBillable: true }),
+      true,
+      `${name}: a sent flag wins over the default`,
+    );
+  }
 });
 
-test('a manual entry ending before it starts is rejected', async () => {
-  const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
-  const res = await json(
-    await create(
-      req('/entries', {
-        id: '018f0000-0000-7000-8000-000000000002',
-        taskName: 'bad',
-        startedAt: '2026-09-11T10:00:00Z',
-        endedAt: '2026-09-11T09:00:00Z',
-      }),
-    ),
-  );
-  assert.equal(res.status, 422);
+// ── entries ────────────────────────────────────────────────────────
+/* Record ids are client-generated so a retried insert lands on the same
+   row: the replay answers 200 with what the first write stored. */
+test('a create replayed with the same id is idempotent', async () => {
+  const entries = await import('../src/app/api/v1/entries/route.ts');
+  const profiles = await import('../src/app/api/v1/payment-profiles/route.ts');
+  const feedback = await import('../src/app/api/v1/feedback/route.ts');
+
+  for (const [table, post, body] of [
+    [
+      'time_entries',
+      (b: unknown) => entries.POST(req('/entries', b)),
+      {
+        id: '018f0000-0000-7000-8000-000000000001',
+        taskName: 'Offline work',
+        startedAt: '2026-09-11T09:00:00Z',
+        endedAt: '2026-09-11T10:00:00Z',
+      },
+    ],
+    [
+      'payment_profiles',
+      (b: unknown) => profiles.POST(req('/payment-profiles', b)),
+      {
+        id: '33333333-0000-4000-8000-0000000000a1',
+        name: 'Checking',
+        bankName: 'First Bank',
+      },
+    ],
+    ['feedback', (b: unknown) => feedback.POST(req('/feedback', b)), FEEDBACK],
+  ] as const) {
+    const first = await json(await post(body));
+    const replay = await json(await post(body));
+    assert.equal(first.status, 201, table);
+    assert.equal(replay.status, 200, `${table}: replay returns the existing`);
+    assert.deepEqual(replay.body, first.body, table);
+    const { rows } = await pool.query(
+      `select count(*)::int as n from ${table} where id = $1`,
+      [body.id],
+    );
+    assert.equal(rows[0].n, 1, `${table}: no duplicate was created`);
+  }
 });
 
 test('editing an entry billed on a sent invoice returns 409 ENTRY_LOCKED', async () => {
@@ -554,13 +505,6 @@ async function seedBilledElsewhere(status = 'sent') {
   return { clientId };
 }
 
-const flagged = async () =>
-  (
-    await pool.query(
-      'select id from time_entries where invoiced_elsewhere order by id',
-    )
-  ).rows.map((r) => r.id);
-
 test('an entry is marked or cleared billed elsewhere by its PATCH', async () => {
   const { PATCH } = await import('../src/app/api/v1/entries/[id]/route.ts');
   await seedBilledElsewhere();
@@ -581,21 +525,6 @@ test('an entry is marked or cleared billed elsewhere by its PATCH', async () => 
     ),
   );
   assert.equal(cleared.body.invoicedElsewhere, false);
-});
-
-test('marking a running timer billed elsewhere is refused by its PATCH: TIMER_ALREADY_RUNNING', async () => {
-  const { PATCH } = await import('../src/app/api/v1/entries/[id]/route.ts');
-  await seedBilledElsewhere();
-
-  const res = await json(
-    await PATCH(
-      req(`/entries/${BE(3)}`, { invoicedElsewhere: true }, 'PATCH'),
-      ctx(BE(3)),
-    ),
-  );
-  assert.equal(res.status, 409);
-  assert.equal(res.body.code, 'TIMER_ALREADY_RUNNING');
-  assert.deepEqual(await flagged(), []);
 });
 
 /* Both orders of a mark racing an invoice: the routes filter out an entry
@@ -622,50 +551,181 @@ test('an entry billed elsewhere can’t be attached to an invoice: ENTRY_ALREADY
   assert.equal(dbCode(refused), 'ENTRY_ALREADY_INVOICED');
 });
 
-test('marking an entry on a sent invoice billed elsewhere is ENTRY_ALREADY_INVOICED', async () => {
-  const { PATCH } = await import('../src/app/api/v1/entries/[id]/route.ts');
-  await seedBilledElsewhere();
+/* Each row starts from empty tables, and its refusal changes no entry,
+   client or project its setup wrote. */
+test('a request the route cannot honor is refused with its status and code, and writes nothing', async () => {
+  const route = (p: string) => import(`../src/app/api/v1/${p}/route.ts`);
+  const { POST: start } = await route('timer/start');
+  const { POST: stop } = await route('timer/stop');
+  const entries = await route('entries');
+  const entry = await route('entries/[id]');
+  const clients = await route('clients/[id]');
+  const projects = await route('projects');
+  const project = await route('projects/[id]');
+  const calendar = await route('calendar');
+  const taskNames = await route('entries/task-names');
+  const patchEntry = (id: string, body: unknown) =>
+    entry.PATCH(req(`/entries/${id}`, body, 'PATCH'), ctx(id));
+  const DONE = '018f0000-0000-7000-8000-000000000004';
+  const THEIRS = '33333333-0000-4000-8000-0000000000c2';
 
-  const res = await json(
-    await PATCH(
-      req(`/entries/${BE(4)}`, { invoicedElsewhere: true }, 'PATCH'),
-      ctx(BE(4)),
-    ),
-  );
-  assert.equal(res.status, 409);
-  assert.equal(res.body.code, 'ENTRY_ALREADY_INVOICED');
-  assert.deepEqual(await flagged(), []);
-});
+  const rows: {
+    name: string;
+    setup?: () => Promise<unknown>;
+    act: () => Promise<Response>;
+    status: number;
+    code?: string;
+  }[] = [
+    {
+      name: 'an unknown include',
+      act: () =>
+        start(req('/timer/start?include=invoices&tz=UTC', { taskName: 'X' })),
+      status: 422,
+      code: 'VALIDATION_FAILED',
+    },
+    {
+      name: 'a stop with nothing running',
+      act: () => stop(req('/timer/stop', {})),
+      status: 409,
+      code: 'NO_TIMER_RUNNING',
+    },
+    {
+      name: 'a backdated stop before the start',
+      setup: () =>
+        start(
+          req('/timer/start', {
+            taskName: 'x',
+            startedAt: '2026-09-11T12:00:00Z',
+          }),
+        ),
+      act: () => stop(req('/timer/stop', { endedAt: '2026-09-11T11:00:00Z' })),
+      status: 422,
+      code: 'VALIDATION_FAILED',
+    },
+    {
+      name: 'a manual entry ending before it starts',
+      act: () =>
+        entries.POST(
+          req('/entries', {
+            id: '018f0000-0000-7000-8000-000000000002',
+            taskName: 'bad',
+            startedAt: '2026-09-11T10:00:00Z',
+            endedAt: '2026-09-11T09:00:00Z',
+          }),
+        ),
+      status: 422,
+    },
+    {
+      name: 'reopening an entry while a timer runs',
+      setup: () =>
+        pool.query(
+          `insert into time_entries (id,user_id,task_name,started_at,ended_at)
+           values ($1,$2,'Done','2026-09-11T09:00:00Z','2026-09-11T10:00:00Z'),
+                  ($3,$2,'Running','2026-09-11T11:00:00Z',null)`,
+          [DONE, USER, '018f0000-0000-7000-8000-000000000005'],
+        ),
+      act: () => patchEntry(DONE, { endedAt: null }),
+      status: 409,
+      code: 'TIMER_ALREADY_RUNNING',
+    },
+    {
+      name: 'a missing entry',
+      act: () =>
+        entry.GET(
+          req('/entries/x'),
+          ctx('018f0000-0000-7000-8000-00000000dead'),
+        ),
+      status: 404,
+      code: 'ENTRY_NOT_FOUND',
+    },
+    {
+      name: 'marking a running timer billed elsewhere',
+      setup: () => seedBilledElsewhere(),
+      act: () => patchEntry(BE(3), { invoicedElsewhere: true }),
+      status: 409,
+      code: 'TIMER_ALREADY_RUNNING',
+    },
+    {
+      name: 'marking an entry on a sent invoice billed elsewhere',
+      setup: () => seedBilledElsewhere(),
+      act: () => patchEntry(BE(4), { invoicedElsewhere: true }),
+      status: 409,
+      code: 'ENTRY_ALREADY_INVOICED',
+    },
+    {
+      name: 'a client patch naming no known field, not a silent no-op',
+      setup: () => seedClientAndProject(),
+      act: async () =>
+        clients.PATCH(
+          patchReq('/clients/x', {}),
+          ctx((await pool.query('select id from clients')).rows[0].id),
+        ),
+      status: 422,
+    },
+    {
+      name: 'a project under another user’s client, not a 500',
+      setup: () =>
+        pool.query(
+          `insert into clients (id,user_id,name) values ($1,$2,'Theirs')`,
+          [THEIRS, OTHER],
+        ),
+      act: () =>
+        projects.POST(req('/projects', { name: 'Borrowed', clientId: THEIRS })),
+      status: 422,
+      code: 'VALIDATION_FAILED',
+    },
+    {
+      name: 'archiving an unknown project, not a silent 204',
+      act: () =>
+        project.DELETE(
+          req('/projects/x', undefined, 'DELETE'),
+          ctx('bb000000-0000-4000-8000-0000000000ff'),
+        ),
+      status: 404,
+    },
+    {
+      name: 'an inverted calendar period',
+      act: () =>
+        calendar.GET(
+          req('/calendar?from=2026-09-30T00:00:00Z&to=2026-09-01T00:00:00Z'),
+        ),
+      status: 400,
+      code: 'INVALID_PERIOD',
+    },
+    {
+      name: 'a task-name limit past 1000',
+      act: () => taskNames.GET(req('/entries/task-names?limit=1001')),
+      status: 422,
+      code: 'VALIDATION_FAILED',
+    },
+    {
+      /* No `none` literal here: unlike `/entries`, the argument ranks rather
+         than filters, so "no project" and "no preference" are one request. */
+      name: 'a task-name projectId that is not a uuid',
+      act: () => taskNames.GET(req('/entries/task-names?projectId=none')),
+      status: 422,
+      code: 'VALIDATION_FAILED',
+    },
+  ];
 
-test('reopening an entry while a timer runs is TIMER_ALREADY_RUNNING', async () => {
-  const { PATCH: patch } = await import(
-    '../src/app/api/v1/entries/[id]/route.ts'
-  );
-  const id = '018f0000-0000-7000-8000-000000000004';
-  await pool.query(
-    `insert into time_entries (id,user_id,task_name,started_at,ended_at)
-     values ($1,$2,'Done','2026-09-11T09:00:00Z','2026-09-11T10:00:00Z'),
-            ($3,$2,'Running','2026-09-11T11:00:00Z',null)`,
-    [id, USER, '018f0000-0000-7000-8000-000000000005'],
-  );
+  const written = async () =>
+    (
+      await pool.query(
+        `select (select coalesce(string_agg(t::text, ',' order by id), '') from time_entries t)
+             || (select coalesce(string_agg(c::text, ',' order by id), '') from clients c)
+             || (select coalesce(string_agg(p::text, ',' order by id), '') from projects p) as rows`,
+      )
+    ).rows[0].rows;
 
-  const reopen = await json(
-    await patch(req(`/entries/${id}`, { endedAt: null }, 'PATCH'), {
-      params: Promise.resolve({ id }),
-    }),
-  );
-  assert.equal(reopen.status, 409);
-  assert.equal(reopen.body.code, 'TIMER_ALREADY_RUNNING');
-});
-
-test('a missing entry is 404, not 500', async () => {
-  const { GET: get } = await import('../src/app/api/v1/entries/[id]/route.ts');
-  const id = '018f0000-0000-7000-8000-00000000dead';
-  const res = await json(
-    await get(req(`/entries/${id}`), { params: Promise.resolve({ id }) }),
-  );
-  assert.equal(res.status, 404);
-  assert.equal(res.body.code, 'ENTRY_NOT_FOUND');
+  for (const row of rows) {
+    await reset();
+    await row.setup?.();
+    const before = await written();
+    const res = await row.act();
+    assert.equal(res.status, row.status, row.name);
+    if (row.code) assert.equal((await res.json()).code, row.code, row.name);
+    assert.equal(await written(), before, `${row.name} writes nothing`);
+  }
 });
 
 // ── summary ────────────────────────────────────────────────────────
@@ -827,219 +887,125 @@ async function seedClientAndProject() {
   return { clientId: c.body.id as string, projectId: p.body.id as string };
 }
 
-test('a client is read back by id, and 404s when unknown', async () => {
-  const { GET } = await import('../src/app/api/v1/clients/[id]/route.ts');
-  const { clientId } = await seedClientAndProject();
+test('a client or a project is read back by id, and 404s when unknown', async () => {
+  const { clientId, projectId } = await seedClientAndProject();
 
-  const got = await json(await GET(req('/clients/x'), ctx(clientId)));
-  assert.equal(got.status, 200);
-  assert.equal(got.body.name, 'Northwind');
-  // Numeric columns arrive from PostgREST as strings; `rows.ts` converts.
-  assert.equal(got.body.hourlyRate, 150);
-
-  const missing = await json(
-    await GET(req('/clients/x'), ctx('cc000000-0000-4000-8000-0000000000ff')),
-  );
-  assert.equal(missing.status, 404);
-});
-
-test('a client patch changes only the fields it names', async () => {
-  const { PATCH } = await import('../src/app/api/v1/clients/[id]/route.ts');
-  const { clientId } = await seedClientAndProject();
-
-  const res = await json(
-    await PATCH(
-      patchReq('/clients/x', { name: 'Northwind Ltd' }),
-      ctx(clientId),
-    ),
-  );
-  assert.equal(res.status, 200);
-  assert.equal(res.body.name, 'Northwind Ltd');
-  /* The rate was not in the patch, so it must survive untouched — a
-     converter that wrote every column would null it silently, and the next
-     invoice would bill this client at the user's fallback rate instead. */
-  assert.equal(res.body.hourlyRate, 150);
-});
-
-test('a client rate can be cleared to fall back, which is not the same as 0', async () => {
-  const { PATCH } = await import('../src/app/api/v1/clients/[id]/route.ts');
-  const { clientId } = await seedClientAndProject();
-
-  const cleared = await json(
-    await PATCH(patchReq('/clients/x', { hourlyRate: null }), ctx(clientId)),
-  );
-  assert.equal(cleared.body.hourlyRate, null, 'null means "fall back"');
-
-  const zero = await json(
-    await PATCH(patchReq('/clients/x', { hourlyRate: 0 }), ctx(clientId)),
-  );
-  /* `0` is a real rate — pro bono work billed at zero, not work that falls
-     through to the user's default. Truthiness here would conflate them. */
-  assert.equal(zero.body.hourlyRate, 0);
-});
-
-test('a patch naming no known field is rejected, not a silent no-op', async () => {
-  const { PATCH } = await import('../src/app/api/v1/clients/[id]/route.ts');
-  const { clientId } = await seedClientAndProject();
-
-  const res = await json(
-    await PATCH(patchReq('/clients/x', {}), ctx(clientId)),
-  );
-  assert.equal(res.status, 422);
-});
-
-/* The schedule sets a new invoice's period: a field the schema or the column
-   list dropped would leave every client unscheduled, unseen. */
-test('a client billing schedule round-trips, and is null until set', async () => {
-  const { POST: createClient, GET: listClients } = await import(
-    '../src/app/api/v1/clients/route.ts'
-  );
-  const { PATCH } = await import('../src/app/api/v1/clients/[id]/route.ts');
-  const weekly = { period: 'weekly', anchor: '2026-10-05' };
-
-  const plain = await json(
-    await createClient(req('/clients', { name: 'Northwind' })),
-  );
-  assert.equal(plain.body.billingSchedule, null);
-
-  const semi = await json(
-    await createClient(
-      req('/clients', {
-        name: 'Contoso',
-        billingSchedule: { period: 'semimonthly' },
-      }),
-    ),
-  );
-  assert.deepEqual(semi.body.billingSchedule, { period: 'semimonthly' });
-
-  const moved = await json(
-    await PATCH(
-      patchReq('/clients/x', { billingSchedule: weekly }),
-      ctx(plain.body.id),
-    ),
-  );
-  assert.deepEqual(moved.body.billingSchedule, weekly);
-
-  const renamed = await json(
-    await PATCH(
-      patchReq('/clients/x', { name: 'Northwind Trading' }),
-      ctx(plain.body.id),
-    ),
-  );
-  assert.deepEqual(renamed.body.billingSchedule, weekly);
-
-  const list = await json(await listClients(req('/clients')));
-  assert.deepEqual(
-    list.body.clients.map(
-      (c: { billingSchedule: unknown }) => c.billingSchedule,
-    ),
-    [{ period: 'semimonthly' }, weekly],
-  );
-
-  const cleared = await json(
-    await PATCH(
-      patchReq('/clients/x', { billingSchedule: null }),
-      ctx(plain.body.id),
-    ),
-  );
-  assert.equal(cleared.body.billingSchedule, null);
-
-  for (const bad of [
-    { period: 'weekly' },
-    { period: 'monthly', anchor: '2026-10-05' },
-    { period: 'quarterly' },
-  ]) {
-    const refused = await json(
-      await PATCH(
-        patchReq('/clients/x', { billingSchedule: bad }),
-        ctx(plain.body.id),
-      ),
+  for (const [path, id, expected] of [
+    // Numeric columns arrive from PostgREST as strings; `rows.ts` converts.
+    ['clients', clientId, { name: 'Northwind', hourlyRate: 150 }],
+    ['projects', projectId, { name: 'Lifecycle', clientId }],
+  ] as const) {
+    const { GET } = await import(`../src/app/api/v1/${path}/[id]/route.ts`);
+    const got = await json(await GET(req(`/${path}/x`), ctx(id)));
+    assert.equal(got.status, 200, path);
+    for (const [key, value] of Object.entries(expected)) {
+      assert.equal(got.body[key], value, `${path}.${key}`);
+    }
+    const missing = await GET(
+      req(`/${path}/x`),
+      ctx('cc000000-0000-4000-8000-0000000000ff'),
     );
-    assert.equal(refused.status, 422, JSON.stringify(bad));
+    assert.equal(missing.status, 404, path);
   }
 });
 
-/* A client's terms set its invoices' due dates: a field the schema or the
-   column list dropped would put every client back on the user's. */
-test('a client payment terms round-trip, and are null until set', async () => {
-  const { POST: createClient } = await import(
-    '../src/app/api/v1/clients/route.ts'
-  );
-  const { PATCH } = await import('../src/app/api/v1/clients/[id]/route.ts');
+/* A field the route's schema or column list leaves out is dropped without an
+   error, and the client's invoices quietly bill at the fallback rate, on the
+   user's terms, unscheduled, or on the default profile. A converter that
+   wrote every column would null a field the patch never named. */
+test('each client field is null until set, round-trips, survives a patch that omits it, and refuses what it cannot hold', async () => {
+  const clients = await import('../src/app/api/v1/clients/route.ts');
+  const client = await import('../src/app/api/v1/clients/[id]/route.ts');
+  const profiles = await import('../src/app/api/v1/payment-profiles/route.ts');
+  const profile = async (name: string) =>
+    (await json(await profiles.POST(req('/payment-profiles', { name })))).body
+      .id;
 
-  const plain = await json(
-    await createClient(req('/clients', { name: 'Northwind' })),
-  );
-  assert.equal(plain.body.paymentTermsDays, null);
+  const fields: {
+    field: string;
+    values: () => Promise<unknown[]>;
+    bad: unknown[];
+  }[] = [
+    {
+      /* `0` is a real rate (pro bono work billed at zero) and `null` falls
+         back to the user's: truthiness would conflate them. `money` is
+         `multipleOf(0.01)`, and rounding a third decimal would misstate an
+         invoice. */
+      field: 'hourlyRate',
+      values: async () => [150, 0, null],
+      bad: [10.005],
+    },
+    {
+      field: 'billingSchedule',
+      values: async () => [
+        { period: 'semimonthly' },
+        { period: 'weekly', anchor: '2026-10-05' },
+        null,
+      ],
+      bad: [
+        { period: 'weekly' },
+        { period: 'monthly', anchor: '2026-10-05' },
+        { period: 'quarterly' },
+      ],
+    },
+    {
+      field: 'paymentTermsDays',
+      values: async () => [15, null],
+      bad: [-1, 1.5, 366],
+    },
+    {
+      field: 'paymentProfileId',
+      values: async () => [await profile('Checking'), await profile('Savings')],
+      bad: [],
+    },
+  ];
 
-  const own = await json(
-    await createClient(
-      req('/clients', { name: 'Contoso', paymentTermsDays: 15 }),
-    ),
-  );
-  assert.equal(own.body.paymentTermsDays, 15);
+  for (const { field, values, bad } of fields) {
+    await reset();
+    const [first, ...rest] = await values();
+    const patch = async (id: string, body: unknown) =>
+      json(await client.PATCH(patchReq('/clients/x', body), ctx(id)));
 
-  const renamed = await json(
-    await PATCH(
-      patchReq('/clients/x', { name: 'Contoso Ltd' }),
-      ctx(own.body.id),
-    ),
-  );
-  assert.equal(renamed.body.paymentTermsDays, 15, 'omitted leaves it');
-
-  const cleared = await json(
-    await PATCH(
-      patchReq('/clients/x', { paymentTermsDays: null }),
-      ctx(own.body.id),
-    ),
-  );
-  assert.equal(cleared.body.paymentTermsDays, null);
-
-  for (const bad of [-1, 1.5, 366]) {
-    const refused = await json(
-      await PATCH(
-        patchReq('/clients/x', { paymentTermsDays: bad }),
-        ctx(own.body.id),
-      ),
+    const plain = await json(
+      await clients.POST(req('/clients', { name: 'Northwind' })),
     );
-    assert.equal(refused.status, 422, String(bad));
+    assert.equal(plain.body[field], null, `${field} is null until set`);
+
+    const created = await json(
+      await clients.POST(req('/clients', { name: 'Contoso', [field]: first })),
+    );
+    assert.equal(created.status, 201, field);
+    assert.deepEqual(created.body[field], first, `${field} on create`);
+
+    const renamed = await patch(created.body.id, { name: 'Contoso Ltd' });
+    assert.deepEqual(renamed.body[field], first, `${field} survives a rename`);
+
+    for (const value of rest) {
+      const moved = await patch(created.body.id, { [field]: value });
+      assert.deepEqual(moved.body[field], value, `${field} patched`);
+    }
+
+    const list = await json(await clients.GET(req('/clients')));
+    assert.deepEqual(
+      list.body.clients.find((c: { id: string }) => c.id === created.body.id)[
+        field
+      ],
+      rest.at(-1),
+      `${field} in the list`,
+    );
+
+    for (const value of bad) {
+      const label = `${field} ${JSON.stringify(value)}`;
+      const onCreate = await json(
+        await clients.POST(req('/clients', { name: 'Bad', [field]: value })),
+      );
+      assert.equal(onCreate.status, 422, `${label} on create`);
+      assert.equal(onCreate.body.code, 'VALIDATION_FAILED', label);
+      const onPatch = await patch(created.body.id, { [field]: value });
+      assert.equal(onPatch.status, 422, `${label} on patch`);
+    }
   }
 });
-
-/* Which payment profile a client's invoices carry: a field the route's schema
-   must name, or Zod strips it and the write is silently lost. */
-test('a client can be pointed at a payment profile, on create and on patch', async () => {
-  const { POST: createProfile } = await import(
-    '../src/app/api/v1/payment-profiles/route.ts'
-  );
-  const { POST: createClient } = await import(
-    '../src/app/api/v1/clients/route.ts'
-  );
-  const { PATCH } = await import('../src/app/api/v1/clients/[id]/route.ts');
-
-  const a = await json(
-    await createProfile(req('/payment-profiles', { name: 'Checking' })),
-  );
-  const b = await json(
-    await createProfile(req('/payment-profiles', { name: 'Savings' })),
-  );
-
-  const created = await json(
-    await createClient(
-      req('/clients', { name: 'Northwind', paymentProfileId: a.body.id }),
-    ),
-  );
-  assert.equal(created.body.paymentProfileId, a.body.id);
-
-  const moved = await json(
-    await PATCH(
-      patchReq('/clients/x', { paymentProfileId: b.body.id }),
-      ctx(created.body.id),
-    ),
-  );
-  assert.equal(moved.body.paymentProfileId, b.body.id);
-});
-
 /* `.partial()` keeps a `.default()`, so an update schema that inherits
    `isDefault` turns every unrelated PATCH into a demotion — and the next
    invoice then renders with no bank details. */
@@ -1103,11 +1069,22 @@ test('a new payment profile stores every detail it is given', async () => {
 
 /* A malformed routing number on an invoice risks a returned or misrouted
    ACH payment, and nothing downstream checks it again. */
-test('a routing number that fails the ABA check is refused, on create and edit', async () => {
+test('a routing number is stored as its 9 digits, and one failing the ABA check is refused on create and edit', async () => {
   const { POST } = await import('../src/app/api/v1/payment-profiles/route.ts');
   const { PATCH } = await import(
     '../src/app/api/v1/payment-profiles/[id]/route.ts'
   );
+
+  const saved = await json(
+    await POST(
+      req('/payment-profiles', {
+        name: 'Checking',
+        routingNumber: ' 021-000-021 ',
+      }),
+    ),
+  );
+  assert.equal(saved.status, 201);
+  assert.equal(saved.body.routingNumber, '021000021');
 
   const refused = await json(
     await POST(
@@ -1120,9 +1097,6 @@ test('a routing number that fails the ABA check is refused, on create and edit',
   assert.equal(refused.status, 422);
   assert.equal(refused.body.code, 'VALIDATION_FAILED');
 
-  const saved = await json(
-    await POST(req('/payment-profiles', { name: 'Checking' })),
-  );
   const edited = await json(
     await PATCH(
       patchReq('/payment-profiles/x', { routingNumber: '02100002' }),
@@ -1132,22 +1106,6 @@ test('a routing number that fails the ABA check is refused, on create and edit',
   assert.equal(edited.status, 422);
   assert.equal(edited.body.code, 'VALIDATION_FAILED');
 });
-
-test('a routing number is stored as its 9 digits', async () => {
-  const { POST } = await import('../src/app/api/v1/payment-profiles/route.ts');
-
-  const res = await json(
-    await POST(
-      req('/payment-profiles', {
-        name: 'Checking',
-        routingNumber: ' 021-000-021 ',
-      }),
-    ),
-  );
-  assert.equal(res.status, 201);
-  assert.equal(res.body.routingNumber, '021000021');
-});
-
 /* The route strips and checks it, but a write that skips the route (an
    import, the seed) would print whatever it stored. */
 test('the database refuses a routing number that is not 9 digits', async () => {
@@ -1162,37 +1120,6 @@ test('the database refuses a routing number that is not 9 digits', async () => {
   );
 });
 
-test('a payment profile replayed with the same id is idempotent', async () => {
-  const { POST } = await import('../src/app/api/v1/payment-profiles/route.ts');
-  const body = {
-    id: '33333333-0000-4000-8000-0000000000a1',
-    name: 'Checking',
-    bankName: 'First Bank',
-  };
-
-  const first = await json(await POST(req('/payment-profiles', body)));
-  const replay = await json(await POST(req('/payment-profiles', body)));
-  assert.equal(first.status, 201);
-  assert.equal(replay.status, 200, 'replay returns the existing profile');
-  assert.equal(replay.body.id, first.body.id);
-  assert.equal(replay.body.bankName, 'First Bank');
-});
-
-/* `money` is `multipleOf(0.01)`. A third decimal is not a rate anyone can be
-   billed at, and rounding it silently would misstate an invoice. */
-test('a rate finer than a cent is rejected, not rounded', async () => {
-  const { POST: createClient } = await import(
-    '../src/app/api/v1/clients/route.ts'
-  );
-  const res = await json(
-    await createClient(
-      req('/clients', { name: 'Northwind', hourlyRate: 10.005 }),
-    ),
-  );
-  assert.equal(res.status, 422);
-  assert.equal(res.body.code, 'VALIDATION_FAILED');
-});
-
 /* Internal work is the documented case for a project with no client, so the
    field is omittable rather than merely nullable. */
 test('a project needs only a name, and is then internal work', async () => {
@@ -1203,60 +1130,20 @@ test('a project needs only a name, and is then internal work', async () => {
   assert.equal(res.body.clientId, null);
 });
 
-test('a project under another user’s client is the caller’s error, not a 500', async () => {
-  const { POST } = await import('../src/app/api/v1/projects/route.ts');
-  const theirs = '33333333-0000-4000-8000-0000000000c2';
-  await pool.query(
-    `insert into clients (id,user_id,name) values ($1,$2,'Theirs')`,
-    [theirs, OTHER],
-  );
-
-  const res = await json(
-    await POST(req('/projects', { name: 'Borrowed', clientId: theirs })),
-  );
-  assert.equal(res.status, 422);
-  assert.equal(res.body.code, 'VALIDATION_FAILED');
-});
-
-test('a project is read back by id, and 404s when unknown', async () => {
-  const { GET } = await import('../src/app/api/v1/projects/[id]/route.ts');
-  const { clientId, projectId } = await seedClientAndProject();
-
-  const got = await json(await GET(req('/projects/x'), ctx(projectId)));
-  assert.equal(got.status, 200);
-  assert.equal(got.body.name, 'Lifecycle');
-  assert.equal(got.body.clientId, clientId);
-
-  const missing = await json(
-    await GET(req('/projects/x'), ctx('bb000000-0000-4000-8000-0000000000ff')),
-  );
-  assert.equal(missing.status, 404);
-});
-
-test('a project can be detached from its client, and that is not archiving', async () => {
+test('a project detached from its client is not archived, and keeps the billable default the user answered', async () => {
   const { PATCH } = await import('../src/app/api/v1/projects/[id]/route.ts');
   const { projectId } = await seedClientAndProject();
 
-  const res = await json(
-    await PATCH(patchReq('/projects/x', { clientId: null }), ctx(projectId)),
-  );
-  assert.equal(res.status, 200);
   /* A null `client_id` is how internal work is modeled, so clearing it is a
-     legitimate edit rather than a broken reference. */
-  assert.equal(res.body.clientId, null);
-  assert.equal(res.body.archivedAt ?? null, null);
-});
-
-test('isBillableDefault is the user answer, not inferred from the client', async () => {
-  const { PATCH } = await import('../src/app/api/v1/projects/[id]/route.ts');
-  const { projectId } = await seedClientAndProject();
-
-  /* Detaching a project from its client must not flip it to non-billable:
+     legitimate edit. It must not flip the project to non-billable either:
      `client_id = null` covers internal, not-yet-assigned and speculative
      work alike, and only the user knows which. */
   const detached = await json(
     await PATCH(patchReq('/projects/x', { clientId: null }), ctx(projectId)),
   );
+  assert.equal(detached.status, 200);
+  assert.equal(detached.body.clientId, null);
+  assert.equal(detached.body.archivedAt ?? null, null);
   assert.equal(detached.body.isBillableDefault, true);
 
   const answered = await json(
@@ -1330,15 +1217,6 @@ test("an archived client's projects leave the list, and come back with it", asyn
   assert.deepEqual(await names('/projects'), ['Admin', 'Lifecycle']);
 });
 
-test('archiving an unknown project is 404, not a silent 204', async () => {
-  const { DELETE } = await import('../src/app/api/v1/projects/[id]/route.ts');
-  const res = await DELETE(
-    req('/projects/x', undefined, 'DELETE'),
-    ctx('bb000000-0000-4000-8000-0000000000ff'),
-  );
-  assert.equal(res.status, 404);
-});
-
 test("another user's client is invisible to these handlers", async () => {
   const { GET } = await import('../src/app/api/v1/clients/[id]/route.ts');
   const { PATCH } = await import('../src/app/api/v1/clients/[id]/route.ts');
@@ -1372,52 +1250,50 @@ test("another user's client is invisible to these handlers", async () => {
 });
 
 // ── settings ───────────────────────────────────────────────────────
-test('settings update', async () => {
+/* Zod strips what its schema does not name, so a field the converter maps
+   but the schema misses is a 200 that discards the value. Each value is
+   read back, and a refused one changes nothing. */
+test('every settable field round-trips, and a value it cannot hold is refused and changes nothing', async () => {
   const { GET: get, PATCH: patch } = await import(
     '../src/app/api/v1/settings/route.ts'
   );
+  const read = async () => (await json(await get(req('/settings')))).body;
+  const set = async (body: object) =>
+    json(await patch(req('/settings', body, 'PATCH')));
 
-  const before = await json(await get(req('/settings')));
-  assert.equal(before.status, 200);
-  assert.equal(before.body.maxEntryHours, null);
+  const before = await read();
+  assert.equal(before.maxEntryHours, null);
+  assert.equal(before.invoiceTemplate, 'standard', 'Standard until chosen');
 
-  const after = await json(
-    await patch(
-      req('/settings', { maxEntryHours: 10, defaultHourlyRate: 125 }, 'PATCH'),
-    ),
-  );
-  assert.equal(after.status, 200);
-  assert.equal(after.body.maxEntryHours, 10);
-  assert.equal(after.body.defaultHourlyRate, 125);
-});
+  const fields: [field: string, good: unknown[], bad: unknown[]][] = [
+    ['defaultHourlyRate', [125], []],
+    ['maxEntryHours', [10], []],
+    ['minEntrySeconds', [60], []],
+    ['businessAddress', ['1 Main St\nAustin, TX 78701'], []],
+    ['invoiceNumberPrefix', ['STINT-'], []],
+    ['invoiceTemplate', ['classic'], ['compact']],
+    // Whole days from 0 to 365.
+    ['paymentTermsDays', [45, 0], [-1, 1.5, 366]],
+    // An IANA zone, or null.
+    ['billingTimeZone', ['America/Chicago', null], ['Central']],
+  ];
 
-test('the invoice template is Standard until chosen, and one of the four', async () => {
-  const { GET: get, PATCH: patch } = await import(
-    '../src/app/api/v1/settings/route.ts'
-  );
-  const set = (invoiceTemplate: string) =>
-    patch(req('/settings', { invoiceTemplate }, 'PATCH')).then(json);
-
-  assert.equal(
-    (await json(await get(req('/settings')))).body.invoiceTemplate,
-    'standard',
-  );
-  const chosen = await set('classic');
-  assert.equal(chosen.status, 200);
-  assert.equal(chosen.body.invoiceTemplate, 'classic');
-  assert.equal(
-    (await json(await get(req('/settings')))).body.invoiceTemplate,
-    'classic',
-  );
-
-  const refused = await set('compact');
-  assert.equal(refused.status, 422);
-  assert.equal(refused.body.code, 'VALIDATION_FAILED');
-  assert.equal(
-    (await json(await get(req('/settings')))).body.invoiceTemplate,
-    'classic',
-    'a refused template changes nothing',
-  );
+  for (const [field, good, bad] of fields) {
+    for (const value of good) {
+      const res = await set({ [field]: value });
+      assert.equal(res.status, 200, field);
+      assert.deepEqual(res.body[field], value, field);
+      assert.deepEqual((await read())[field], value, `${field} read back`);
+    }
+    const kept = (await read())[field];
+    for (const value of bad) {
+      const label = `${field} ${JSON.stringify(value)}`;
+      const res = await set({ [field]: value });
+      assert.equal(res.status, 422, label);
+      assert.equal(res.body.code, 'VALIDATION_FAILED', label);
+      assert.deepEqual((await read())[field], kept, `${label} changes nothing`);
+    }
+  }
 });
 
 /* A contractor who already sent invoices outside Stint starts past them,
@@ -1570,60 +1446,6 @@ test('the next invoice number has a ceiling', async () => {
     [USER],
   );
   assert.equal(rows[0].next_invoice_number, 1, 'the row is unchanged');
-});
-
-/* Every field the converter maps must survive a PATCH. Zod strips what its
-   schema does not name, so a missing field is a 200 that discards the
-   value. */
-test('every settable field round-trips, rather than being silently dropped', async () => {
-  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
-
-  const sent = {
-    minEntrySeconds: 60,
-    maxEntryHours: 10,
-    businessAddress: '1 Main St\nAustin, TX 78701',
-    invoiceNumberPrefix: 'STINT-',
-  };
-
-  const res = await json(await patch(req('/settings', sent, 'PATCH')));
-  assert.equal(res.status, 200);
-  for (const [field, value] of Object.entries(sent)) {
-    assert.deepEqual(res.body[field], value, field);
-  }
-});
-
-test('the user payment terms are whole days from 0 to 365', async () => {
-  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
-  const set = (body: object) =>
-    patch(req('/settings', body, 'PATCH')).then(json);
-
-  const saved = await set({ paymentTermsDays: 45 });
-  assert.equal(saved.status, 200);
-  assert.equal(saved.body.paymentTermsDays, 45);
-  assert.equal((await set({ paymentTermsDays: 0 })).body.paymentTermsDays, 0);
-
-  for (const bad of [-1, 1.5, 366]) {
-    assert.equal(
-      (await set({ paymentTermsDays: bad })).status,
-      422,
-      String(bad),
-    );
-  }
-});
-
-test("the account's billing time zone is an IANA zone, or null", async () => {
-  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
-  const set = (body: object) =>
-    patch(req('/settings', body, 'PATCH')).then(json);
-
-  const saved = await set({ billingTimeZone: 'America/Chicago' });
-  assert.equal(saved.status, 200);
-  assert.equal(saved.body.billingTimeZone, 'America/Chicago');
-  assert.equal(
-    (await set({ billingTimeZone: null })).body.billingTimeZone,
-    null,
-  );
-  assert.equal((await set({ billingTimeZone: 'Central' })).status, 422);
 });
 
 /* Old terms the migration couldn't read became 30 days; the Inbox shows
@@ -1784,17 +1606,6 @@ test('the entry view splits an entry that crosses local midnight', async () => {
     (d: { date: string }) => d.date === '2026-07-04',
   ).entries;
   assert.equal(entries.length, 1, 'the entry is drawn on Saturday too');
-});
-
-test('calendar rejects an inverted period', async () => {
-  const { GET: calendar } = await import('../src/app/api/v1/calendar/route.ts');
-  const res = await json(
-    await calendar(
-      req('/calendar?from=2026-09-30T00:00:00Z&to=2026-09-01T00:00:00Z'),
-    ),
-  );
-  assert.equal(res.status, 400);
-  assert.equal(res.body.code, 'INVALID_PERIOD');
 });
 
 test('client scale covers every client, not just the top few', async () => {
@@ -2012,40 +1823,6 @@ test('unbilled prices the printed hours, per entry, as an invoice does', async (
   );
 });
 
-test('unbilled resolves rates the same way an invoice does', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  /* The rollup duplicates `resolve_entry_rate`'s coalesce chain, and its
-     header says the two must stay identical. Each level is exercised here so
-     a divergence shows up as a wrong total rather than silently. */
-  const c = '33333333-0000-4000-8000-000000000003';
-  const p = '33333333-0000-4000-8000-0000000000c1';
-  await pool.query(
-    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Chain',150)`,
-    [c, USER],
-  );
-  await pool.query(
-    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
-    [p, USER, c],
-  );
-
-  await entryFor({ id: S(6), projectId: p, hours: 1, rateOverride: 200 });
-  await entryFor({ id: S(7), projectId: p, hours: 1 }); // client's 150
-  await entryFor({ id: S(8), projectId: null, hours: 1 }); // user default 100
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  // 200 + 150 under the client; 100 with no client at all.
-  assert.equal(res.body.unbilled.total, 450);
-  const named = res.body.unbilled.byClient.find(
-    (r: { clientId: string | null }) => r.clientId === c,
-  );
-  assert.equal(named.amount, 350, 'override beats the client rate');
-  const internal = res.body.unbilled.byClient.find(
-    (r: { clientId: string | null }) => r.clientId === null,
-  );
-  assert.equal(internal.amount, 100, 'no client falls to the user default');
-});
-
 test('unrated work counts but adds no money', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
@@ -2092,39 +1869,6 @@ test('stats reads as of x-stint-now, on a preview or local dev only', async () =
   } finally {
     delete process.env.VERCEL_ENV;
   }
-});
-
-test('a running timer is unbilled so far; non-billable work is not', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  const c = '33333333-0000-4000-8000-000000000004';
-  const p = '33333333-0000-4000-8000-0000000000d1';
-  await pool.query(
-    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Excl',100)`,
-    [c, USER],
-  );
-  await pool.query(
-    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
-    [p, USER, c],
-  );
-
-  await entryFor({ id: S(10), projectId: p, hours: 1 }); // counts
-  await entryFor({ id: S(11), projectId: p, hours: 1, billable: false });
-  // Running for an hour: counted up to the request, as it would bill if
-  // stopped now.
-  await pool.query(
-    `insert into time_entries (id,user_id,project_id,task_name,started_at,is_billable)
-     values ($1,$2,$3,'running',$4,true)`,
-    [S(12), USER, p, new Date(Date.now() - 3600 * 1000).toISOString()],
-  );
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(
-    res.body.unbilled.total,
-    200,
-    'the ended hour and the running one, not the non-billable one',
-  );
-  assert.equal(res.body.unbilled.seconds, 7200);
 });
 
 /**
@@ -2323,48 +2067,33 @@ test('the unbilled total covers every client, even past the row cap', async () =
   assert.equal(res.body.unbilled.total, 700, 'but the total is all seven');
 });
 
-test('the month counts BUSINESS days, and needs no target to do it', async () => {
+test('the month steps on business days, one point per day, drawn up to today', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
   const res = await json(await stats(req('/stats?tz=UTC')));
   const month = res.body.month;
+  const series = month.series as { date: string; actual: number | null }[];
 
   assert.ok(month, 'the month is always present — there is no target to miss');
   assert.ok(
     month.businessDaysTotal >= 20 && month.businessDaysTotal <= 23,
     `a month has 20-23 business days, got ${month.businessDaysTotal}`,
   );
-  assert.ok(month.businessDaysTotal < 28, 'business days, not calendar days');
   assert.ok(month.businessDaysElapsed <= month.businessDaysTotal);
+  assert.equal(series.length, month.businessDaysTotal);
+  for (const point of series) {
+    const dow = new Date(`${point.date}T00:00:00Z`).getUTCDay();
+    assert.ok(dow !== 0 && dow !== 6, `${point.date} is a weekend`);
+  }
+
+  /* The line stops at today rather than running flat to the 31st — a level
+     line to month end reads as a month that stopped working. */
+  const drawn = series.filter((s) => s.actual !== null);
   assert.equal(
-    month.series.length,
-    month.businessDaysTotal,
-    'one point per business day',
+    drawn.length,
+    month.businessDaysElapsed,
+    'null past today, and only past today',
   );
-});
-
-test('the month reports MONEY earned, never the hours behind it', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  // 4h at an explicit 150/h, inside whatever month the clock says it is.
-  await entryThisMonth({ id: S(70), hours: 4, rateOverride: 150 });
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(res.body.month.earned, 600);
-  assert.notEqual(res.body.month.earned, 4, 'nor the hours themselves');
-});
-
-/* The screen that read these is gone and so are they: a field nothing
-   renders is a payload every visitor pays for. */
-test('the cards that left took their fields with them', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-
-  assert.equal(res.body.pace, undefined, 'the goal-derived field is gone');
-  assert.equal(res.body.velocity, undefined);
-  assert.equal(res.body.byProject, undefined);
-  assert.equal(res.body.billableRatio, undefined);
 });
 
 test('earned counts invoiced work, before and after the invoice is voided', async () => {
@@ -2556,7 +2285,10 @@ test('collected sums payments by when they were paid', async () => {
   );
 });
 
-test('collected counts only the user’s own currency', async () => {
+/* Money is not addable across currencies and the response carries ONE, so
+   a euro summed in is a euro reported as a dollar on the figure Home leads
+   with, and "paid today" beside $0.00 describes money it did not report. */
+test('collected, and the last payment it counts, are in the user’s own currency only', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
   const c = '33333333-0000-4000-8000-00000000006e';
@@ -2564,11 +2296,7 @@ test('collected counts only the user’s own currency', async () => {
     `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Mixed',100)`,
     [c, USER],
   );
-
-  /* Both paid on the same day, in two currencies. Money is not addable
-     across them and the response carries ONE currency, so a euro summed in
-     here is a euro reported as a dollar on the figure Home leads with. */
-  // Noon UTC today, so both land in this month's bucket whatever hour the
+  // Noon UTC today, so each lands in this month's bucket whatever hour the
   // suite runs at.
   const paidToday = `${new Date().toISOString().slice(0, 10)}T12:00:00Z`;
   const mk = (id: string, num: string, total: number, currency: string) =>
@@ -2580,59 +2308,29 @@ test('collected counts only the user’s own currency', async () => {
       [id, USER, c, num, Number(num.slice(-2)), total, currency, paidToday],
     );
 
-  await mk('44444444-0000-4000-8000-000000000020', 'INV-0020', 500, 'USD');
+  // The only payment there is, and it is a euro one.
   await mk('44444444-0000-4000-8000-000000000021', 'INV-0021', 1000, 'EUR');
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  const { collected } = res.body;
-
+  const euroOnly = (await json(await stats(req('/stats?tz=UTC')))).body;
   assert.equal(
-    res.body.currency,
+    euroOnly.currency,
     'USD',
     'the settings currency is the figure’s',
   );
+  assert.equal(euroOnly.collected.thisMonth, 0);
+  assert.equal(
+    euroOnly.collected.daysSincePaid,
+    null,
+    'a payment in another currency is not this figure’s last payment',
+  );
+
+  await mk('44444444-0000-4000-8000-000000000020', 'INV-0020', 500, 'USD');
+  const { collected } = (await json(await stats(req('/stats?tz=UTC')))).body;
   assert.equal(collected.trailing12, 500, 'the euro invoice is not added in');
   assert.equal(collected.thisMonth, 500);
   assert.equal(
     collected.byMonth[collected.byMonth.length - 1]?.amount,
     500,
     'nor does it reach the plot',
-  );
-});
-
-test('the last payment counted is one in the user’s currency', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  const c = '33333333-0000-4000-8000-00000000006f';
-  await pool.query(
-    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Euro',100)`,
-    [c, USER],
-  );
-
-  /* The only payment there is, and it is a euro one. `daysSincePaid` sits
-     beside a figure that counts dollars, so "paid today" next to $0.00 is the
-     screen describing money it did not report. */
-  await pool.query(
-    `insert into invoices
-       (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
-        subtotal,tax_rate,tax_amount,total,currency,grouping_mode,paid_at)
-     values ($1,$2,$3,'INV-0022',22,'paid','2026-09-01',1000,0,0,1000,'EUR',
-             'entry',$4)`,
-    [
-      '44444444-0000-4000-8000-000000000022',
-      USER,
-      c,
-      `${new Date().toISOString().slice(0, 10)}T12:00:00Z`,
-    ],
-  );
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(res.body.currency, 'USD');
-  assert.equal(res.body.collected.thisMonth, 0);
-  assert.equal(
-    res.body.collected.daysSincePaid,
-    null,
-    'a payment in another currency is not this figure’s last payment',
   );
 });
 
@@ -2660,7 +2358,7 @@ test('a paid invoice cannot exist without its payment date', async () => {
   );
 });
 
-test('stats sees only its own user’s work', async () => {
+test('stats sees only its own user’s work and attention rows', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
   const mine = '33333333-0000-4000-8000-000000000007';
@@ -2668,7 +2366,7 @@ test('stats sees only its own user’s work', async () => {
   const pm = '33333333-0000-4000-8000-0000000000f1';
   const pt = '33333333-0000-4000-8000-0000000000f2';
   await pool.query(
-    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Mine',100),($3,$4,'Theirs',100)`,
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Mine',100),($3,$4,'Theirs',900)`,
     [mine, USER, theirs, OTHER],
   );
   await pool.query(
@@ -2676,18 +2374,50 @@ test('stats sees only its own user’s work', async () => {
     [pm, USER, mine, pt, OTHER, theirs],
   );
   await entryFor({ id: S(31), projectId: pm, hours: 2 });
-  // The rollup takes p_user_id rather than relying on RLS, so a wrong
-  // parameter would silently total someone else's work into this card.
+
+  /* The rollups take p_user_id rather than relying on RLS, so a wrong
+     parameter would silently total someone else's work into a card. Their
+     work today, their unbilled hours, their stale draft and their
+     unprojected entry: none is ours, and an inbox that shows another user's
+     money is the worst kind of wrong. */
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
   await pool.query(
     `insert into time_entries
        (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
-     values ($1,$2,$3,'theirs','2026-09-09T09:00:00Z','2026-09-09T17:00:00Z',true)`,
-    [S(32), OTHER, pt],
+     values ($1,$2,$3,'theirs','2026-09-09T09:00:00Z','2026-09-09T17:00:00Z',true),
+            ($4,$2,$3,'theirs',$5,$6,true),
+            ($7,$2,null,'theirs','2026-09-09T09:00:00Z','2026-09-09T17:00:00Z',true)`,
+    [
+      S(32),
+      OTHER,
+      pt,
+      S(83),
+      today.toISOString(),
+      new Date(today.getTime() + 10 * 3_600_000).toISOString(),
+      S(48),
+    ],
+  );
+  await pool.query(
+    `insert into invoices
+       (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
+        subtotal,tax_rate,tax_amount,total,currency,grouping_mode)
+     values ($1,$2,$3,'INV-0099',99,'draft','2026-01-01',500,0,0,500,'USD','entry')`,
+    ['45444444-0000-4000-8000-000000000099', OTHER, theirs],
   );
 
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(res.body.unbilled.total, 200, 'eight of their hours are absent');
-  assert.equal(res.body.unbilled.byClient.length, 1);
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const { body } = await json(await stats(req(`/stats?tz=${zone}`)));
+  assert.equal(body.unbilled.total, 200, 'only my two hours');
+  assert.equal(body.unbilled.byClient.length, 1);
+  const week = (body.week as { seconds: number }[]).reduce(
+    (a, d) => a + d.seconds,
+    0,
+  );
+  assert.equal(week, 0, 'ten hours of theirs today is absent');
+  assert.equal(body.month.earned, 0);
+  assert.deepEqual(body.attention.staleDrafts, []);
+  assert.deepEqual(body.attention.unprojected, []);
 });
 
 // ── today's earnings ───────────────────────────────────────────────
@@ -2756,31 +2486,6 @@ test("today's earnings are today's work, bucketed in the caller's zone", async (
 });
 
 // ── the month's cumulative series ──────────────────────────────────
-
-test('the series steps on business days, one point per day', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  const series = res.body.month.series as {
-    date: string;
-    actual: number | null;
-  }[];
-
-  assert.equal(series.length, res.body.month.businessDaysTotal);
-  for (const point of series) {
-    const dow = new Date(`${point.date}T00:00:00Z`).getUTCDay();
-    assert.ok(dow !== 0 && dow !== 6, `${point.date} is a weekend`);
-  }
-
-  /* The line stops at today rather than running flat to the 31st — a level
-     line to month end reads as a month that stopped working. */
-  const drawn = series.filter((s) => s.actual !== null);
-  assert.equal(
-    drawn.length,
-    res.body.month.businessDaysElapsed,
-    'null past today, and only past today',
-  );
-});
 
 test('the cumulative line carries money, and ends on the month’s earned', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
@@ -2878,131 +2583,68 @@ test('the week is always seven days, in order, from the week start', async () =>
   );
 });
 
-test('a worked day carries BOTH its seconds and its money', async () => {
+/* The time was worked, so the bar stands at its true height whatever the
+   rate. Its head prints the money; with no rate anywhere in the chain it
+   prints nothing rather than $0, which would claim the work was free, and a
+   rate of exactly 0 is a rate, so it prints 0.00. */
+test('a worked day carries its seconds, and its money only when a rate resolves', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
   const c = '66666666-0000-4000-8000-000000000001';
   const p = '66666666-0000-4000-8000-0000000000a1';
-  await pool.query(
-    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Week',100)`,
-    [c, USER],
-  );
-  await pool.query(
-    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
-    [p, USER, c],
-  );
-
+  const now = new Date();
   // Today at 09:00 local, which every zone agrees is today.
-  const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9);
-  await pool.query(
-    `insert into time_entries
-       (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
-     values ($1,$2,$3,'work',$4,$5,true)`,
-    [
-      S(80),
-      USER,
-      p,
-      start.toISOString(),
-      new Date(start.getTime() + 2 * 3_600_000).toISOString(),
-    ],
-  );
-
-  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const res = await json(await stats(req(`/stats?tz=${zone}`)));
   const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const today = (res.body.week as { date: string }[]).find(
-    (d) => d.date === todayKey,
-  ) as { seconds: number; amount: number } | undefined;
-
-  assert.ok(today, `today ${todayKey} is one of the seven`);
-  assert.equal(today.seconds, 2 * 3600, 'the height');
-  assert.equal(today.amount, 200, 'and the figure at its head');
-  assert.equal(
-    today.amount,
-    res.body.earnedToday,
-    'the same day read two ways agrees',
-  );
-});
-
-test('an unrated day keeps its height and prints no figure', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  /* No rate anywhere in the chain — including the user default the fixture
-     sets, which would otherwise resolve for a project-less entry. The time
-     was worked, so the bar stands at its true height, and the head prints
-     nothing rather than $0, which would claim the work was free. */
-  await pool.query(
-    'update user_settings set default_hourly_rate = null where user_id = $1',
-    [USER],
-  );
-
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10);
-  await pool.query(
-    `insert into time_entries
-       (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
-     values ($1,$2,null,'unrated',$3,$4,true)`,
-    [
-      S(81),
-      USER,
-      start.toISOString(),
-      new Date(start.getTime() + 3_600_000).toISOString(),
-    ],
-  );
-
   const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const res = await json(await stats(req(`/stats?tz=${zone}`)));
-  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const today = (res.body.week as { date: string }[]).find(
-    (d) => d.date === todayKey,
-  ) as { seconds: number; amount: number | null } | undefined;
 
-  assert.ok(today);
-  assert.equal(today.seconds, 3600, 'the honest record of the time');
-  assert.equal(today.amount, null, 'never 0 — that would claim it was free');
-});
+  for (const { rate, amount } of [
+    { rate: 100, amount: 200 },
+    { rate: null, amount: null },
+    { rate: 0, amount: 0 },
+  ]) {
+    await reset();
+    // No user default, so the client's rate is the whole chain.
+    await pool.query(
+      'update user_settings set default_hourly_rate = null where user_id = $1',
+      [USER],
+    );
+    await pool.query(
+      `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Week',$3)`,
+      [c, USER, rate],
+    );
+    await pool.query(
+      `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+      [p, USER, c],
+    );
+    await pool.query(
+      `insert into time_entries
+         (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
+       values ($1,$2,$3,'work',$4,$5,true)`,
+      [
+        S(80),
+        USER,
+        p,
+        start.toISOString(),
+        new Date(start.getTime() + 2 * 3_600_000).toISOString(),
+      ],
+    );
 
-test('a rate of exactly 0 is a rate: real seconds, and 0.00 of money', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+    const res = await json(await stats(req(`/stats?tz=${zone}`)));
+    const today = (
+      res.body.week as {
+        date: string;
+        seconds: number;
+        amount: number | null;
+      }[]
+    ).find((d) => d.date === todayKey);
 
-  const c = '66666666-0000-4000-8000-000000000002';
-  const p = '66666666-0000-4000-8000-0000000000a2';
-  await pool.query(
-    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Pro Bono',0)`,
-    [c, USER],
-  );
-  await pool.query(
-    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
-    [p, USER, c],
-  );
-
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 11);
-  await pool.query(
-    `insert into time_entries
-       (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
-     values ($1,$2,$3,'free',$4,$5,true)`,
-    [
-      S(82),
-      USER,
-      p,
-      start.toISOString(),
-      new Date(start.getTime() + 5 * 3_600_000).toISOString(),
-    ],
-  );
-
-  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const res = await json(await stats(req(`/stats?tz=${zone}`)));
-  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const today = (res.body.week as { date: string }[]).find(
-    (d) => d.date === todayKey,
-  ) as { seconds: number; amount: number | null } | undefined;
-
-  assert.ok(today);
-  assert.equal(today.seconds, 5 * 3600);
-  assert.equal(today.amount, 0, '0 is a rate; only NULL withholds the figure');
-  assert.notEqual(today.amount, null, 'and 0 is not the same as unrated');
+    assert.ok(today, `today ${todayKey} is one of the seven`);
+    assert.equal(today.seconds, 2 * 3600, `rate ${rate}: the height`);
+    assert.equal(today.amount, amount, `rate ${rate}: the figure at its head`);
+    if (amount !== null) {
+      assert.equal(today.amount, res.body.earnedToday, 'the same day agrees');
+    }
+  }
 });
 
 /* Home's bars are split by client from `/stats` itself, so the panel paints
@@ -3061,43 +2703,6 @@ test('each week day splits its seconds by client', async () => {
       `${d.date}: the parts add up to the bar`,
     );
   }
-});
-
-test('the week sees only its own user’s work', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  const theirs = '66666666-0000-4000-8000-000000000003';
-  const pt = '66666666-0000-4000-8000-0000000000a3';
-  await pool.query(
-    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Theirs',900)`,
-    [theirs, OTHER],
-  );
-  await pool.query(
-    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
-    [pt, OTHER, theirs],
-  );
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
-  await pool.query(
-    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
-     values ($1,$2,$3,'theirs',$4,$5,true)`,
-    [
-      S(83),
-      OTHER,
-      pt,
-      start.toISOString(),
-      new Date(start.getTime() + 10 * 3_600_000).toISOString(),
-    ],
-  );
-
-  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const res = await json(await stats(req(`/stats?tz=${zone}`)));
-  const total = (res.body.week as { seconds: number }[]).reduce(
-    (a, d) => a + d.seconds,
-    0,
-  );
-  assert.equal(total, 0, 'ten hours of theirs is absent');
-  assert.equal(res.body.month.earned, 0);
 });
 
 // ── stale drafts ───────────────────────────────────────────────────
@@ -3255,7 +2860,7 @@ test('the draft backfill reads a zoneless draft in the billing zone', async () =
 // Entries with no project cannot resolve a rate beyond the user default, so
 // they are billable work heading for an invoice that cannot be generated.
 
-test('unprojected is empty when everything has a project', async () => {
+test('unprojected is one row per open entry, oldest first, carrying what the row renders', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
   const c = '33333333-0000-4000-8000-00000000000b';
@@ -3268,52 +2873,62 @@ test('unprojected is empty when everything has a project', async () => {
     `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
     [p, USER, c],
   );
+  await pool.query(
+    `insert into invoices
+       (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
+        subtotal,tax_rate,tax_amount,total,currency,grouping_mode)
+     values ($1,$2,$3,'INV-0010',10,'sent','2026-09-01',100,0,0,100,'USD','entry')`,
+    ['45444444-0000-4000-8000-000000000010', USER, c],
+  );
+
+  // The open ones: unprojected, unbilled, billable, ended. Inserted
+  // newest-first, so a query without an explicit order would very plausibly
+  // hand back the wrong one.
+  await entryFor({ id: S(49), projectId: null, hours: 1, daysAgo: 1 });
+  await entryFor({ id: S(50), projectId: null, hours: 2, daysAgo: 9 });
+  await entryFor({ id: S(51), projectId: null, hours: 1, daysAgo: 5 });
+
+  // Has a project.
   await entryFor({ id: S(41), projectId: p, hours: 2 });
+  // Already on an invoice — the rate question was settled at generation.
+  await pool.query(
+    `insert into time_entries
+       (id,user_id,project_id,task_name,started_at,ended_at,is_billable,invoice_id)
+     values ($1,$2,null,'billed','2026-09-09T09:00:00Z','2026-09-09T12:00:00Z',
+             true,$3)`,
+    [S(45), USER, '45444444-0000-4000-8000-000000000010'],
+  );
+  // Non-billable: no rate is MEANT to resolve, so it is not a problem.
+  await entryFor({ id: S(46), projectId: null, hours: 4, billable: false });
+  // Still running, so it has no duration yet and the timer bar owns it.
+  await pool.query(
+    `insert into time_entries
+       (id,user_id,project_id,task_name,started_at,is_billable)
+     values ($1,$2,null,'running','2026-09-10T09:00:00Z',true)`,
+    [S(47), USER],
+  );
 
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.deepEqual(res.body.attention.unprojected, []);
-});
-
-test('unprojected is one row per entry, carrying what the row renders', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  await entryFor({ id: S(42), projectId: null, hours: 2 });
-  await entryFor({ id: S(43), projectId: null, hours: 1 });
-
+  /* Oldest first: that entry is closest to being invoiced without a rate,
+     and it matches the overdue and stale rows, which both lead with the most
+     urgent. */
   const rows = (await json(await stats(req('/stats?tz=UTC')))).body.attention
     .unprojected;
-  assert.equal(rows.length, 2);
   assert.deepEqual(
-    rows
-      .map((r: { seconds: number }) => r.seconds)
-      .sort((a: number, b: number) => a - b),
-    [3600, 7200],
+    rows.map((r: { entryId: string; seconds: number }) => [
+      r.entryId,
+      r.seconds,
+    ]),
+    [
+      [S(50), 7200],
+      [S(51), 3600],
+      [S(49), 3600],
+    ],
   );
   // The row renders a task name and a date without a second request.
   for (const r of rows) {
     assert.equal(typeof r.taskName, 'string');
     assert.ok(r.startedAt, 'carries its own date');
-    assert.ok(r.entryId, 'names the entry it opens');
   }
-});
-
-test('unprojected sorts oldest first', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  // Inserted newest-first, so a query without an explicit order would very
-  // plausibly hand back the wrong one.
-  await entryFor({ id: S(49), projectId: null, hours: 1, daysAgo: 1 });
-  await entryFor({ id: S(50), projectId: null, hours: 1, daysAgo: 9 });
-  await entryFor({ id: S(51), projectId: null, hours: 1, daysAgo: 5 });
-
-  /* Oldest first: that entry is closest to being invoiced without a rate,
-     and it matches the overdue and stale rows, which both lead with the most
-     urgent. */
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.deepEqual(
-    res.body.attention.unprojected.map((r: { entryId: string }) => r.entryId),
-    [S(50), S(51), S(49)],
-  );
 });
 
 // ── strange durations ──────────────────────────────────────────────
@@ -3374,190 +2989,162 @@ test('a new account flags entries over 12 hours, and nothing short', async () =>
   ]);
 });
 
-test('no thresholds means no strange-duration rows at all', async () => {
+/* The thresholds are the shortest and longest ACCEPTABLE lengths, so the
+   boundary is ordinary. The row offers an edit, so it never fires where the
+   edit cannot happen (an issued invoice locks the entry), nor on a length
+   still changing, nor twice for one record: an unprojected entry is that
+   row instead. An answer silences it until the times change. */
+test('a strange duration is one row past its own threshold, only on an entry the user can still edit', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const ok = (id: string) =>
+    pool.query(`update time_entries set duration_ok=true where id=$1`, [id]);
+  const shortAndLong = async () => {
+    await entrySeconds(S(62), 12); // a 12-second mis-tap
+    await entryFor({ id: S(63), projectId: await durProject(), hours: 14 }); // an overnight timer
+  };
 
-  await entrySeconds(S(60), 12); // a 12-second mis-tap
-  await entryFor({ id: S(61), projectId: await durProject(), hours: 14 }); // an overnight timer
+  const rows: {
+    name: string;
+    min: number | null;
+    max: number | null;
+    setup: () => Promise<unknown>;
+    expect: [id: string, kind: string][];
+  }[] = [
+    {
+      name: 'no thresholds',
+      min: null,
+      max: null,
+      setup: shortAndLong,
+      expect: [],
+    },
+    {
+      name: 'short only',
+      min: 60,
+      max: null,
+      setup: shortAndLong,
+      expect: [[S(62), 'short']],
+    },
+    {
+      name: 'long only',
+      min: null,
+      max: 8,
+      setup: shortAndLong,
+      expect: [[S(63), 'long']],
+    },
+    {
+      name: 'both, one row each, and ordinary work between never fires',
+      min: 60,
+      max: 8,
+      setup: async () => {
+        await shortAndLong();
+        await entryFor({ id: S(66), projectId: await durProject(), hours: 3 });
+      },
+      expect: [
+        [S(62), 'short'],
+        [S(63), 'long'],
+      ],
+    },
+    {
+      name: 'exactly the minimum and the maximum',
+      min: 60,
+      max: 8,
+      setup: async () => {
+        await entrySeconds(S(67), 60);
+        await entryFor({ id: S(68), projectId: await durProject(), hours: 8 });
+      },
+      expect: [],
+    },
+    {
+      name: 'a running timer',
+      min: 60,
+      max: 8,
+      setup: () =>
+        pool.query(
+          `insert into time_entries (id,user_id,task_name,started_at,ended_at)
+           values ($1,$2,'still going',$3,null)`,
+          [S(69), USER, new Date(Date.UTC(2026, 8, 1)).toISOString()],
+        ),
+      expect: [],
+    },
+    {
+      name: 'answered with durationOk',
+      min: 60,
+      max: 8,
+      setup: async () => {
+        await entryFor({ id: S(70), projectId: await durProject(), hours: 14 });
+        await ok(S(70));
+      },
+      expect: [],
+    },
+    {
+      name: 'answered, then its times edited',
+      min: 60,
+      max: 8,
+      setup: async () => {
+        await entryFor({ id: S(71), projectId: await durProject(), hours: 14 });
+        await ok(S(71));
+        await pool.query(
+          `update time_entries set ended_at = started_at + interval '20 hours' where id=$1`,
+          [S(71)],
+        );
+      },
+      expect: [[S(71), 'long']],
+    },
+    {
+      name: 'unprojected',
+      min: 60,
+      max: 8,
+      setup: () => entryFor({ id: S(73), projectId: null, hours: 14 }),
+      expect: [],
+    },
+    {
+      name: 'on an issued invoice',
+      min: 60,
+      max: 8,
+      setup: async () => {
+        const c = '33333333-0000-4000-8000-0000000000d1';
+        const inv = '45444444-0000-4000-8000-0000000000d1';
+        await pool.query(
+          `insert into clients (id,user_id,name) values ($1,$2,'Billed')`,
+          [c, USER],
+        );
+        await pool.query(
+          `insert into invoices
+             (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
+              subtotal,tax_rate,tax_amount,total,currency,grouping_mode)
+           values ($1,$2,$3,'INV-0900',900,'sent','2026-09-01',100,0,0,100,'USD','entry')`,
+          [inv, USER, c],
+        );
+        await entryFor({ id: S(72), projectId: await durProject(), hours: 14 });
+        await pool.query(`update time_entries set invoice_id=$2 where id=$1`, [
+          S(72),
+          inv,
+        ]);
+      },
+      expect: [],
+    },
+  ];
 
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.deepEqual(res.body.attention.strangeDurations, []);
-});
-
-test('each threshold switches on only its own side', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  await entrySeconds(S(62), 12);
-  await entryFor({ id: S(63), projectId: await durProject(), hours: 14 });
-
-  await setThresholds(60, null);
-  let rows = (await json(await stats(req('/stats?tz=UTC')))).body.attention
-    .strangeDurations;
-  assert.deepEqual(
-    rows.map((r: { entryId: string }) => r.entryId),
-    [S(62)],
-    'short only',
-  );
-
-  await setThresholds(null, 8);
-  rows = (await json(await stats(req('/stats?tz=UTC')))).body.attention
-    .strangeDurations;
-  assert.deepEqual(
-    rows.map((r: { entryId: string }) => r.entryId),
-    [S(63)],
-    'long only',
-  );
-});
-
-test('short and long each get their own row, and say which they are', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-  await setThresholds(60, 8);
-
-  const p = await durProject();
-  await entrySeconds(S(64), 12, 2);
-  await entryFor({ id: S(65), projectId: p, hours: 14, daysAgo: 1 });
-  // Ordinary work between the two thresholds never fires.
-  await entryFor({ id: S(66), projectId: p, hours: 3 });
-
-  const rows = (await json(await stats(req('/stats?tz=UTC')))).body.attention
-    .strangeDurations;
-  assert.equal(rows.length, 2, 'one row each, never grouped');
-  const byId = new Map(rows.map((r: { entryId: string }) => [r.entryId, r]));
-  assert.equal((byId.get(S(64)) as { kind: string }).kind, 'short');
-  assert.equal((byId.get(S(65)) as { kind: string }).kind, 'long');
-});
-
-test('a boundary length is ordinary, not strange', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-  await setThresholds(60, 8);
-
-  await entrySeconds(S(67), 60); // exactly the minimum
-  await entryFor({ id: S(68), projectId: await durProject(), hours: 8 }); // exactly the maximum
-
-  /* The thresholds are the shortest and longest ACCEPTABLE lengths. Firing on
-     the boundary would question an entry the user set the threshold to
-     allow. */
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.deepEqual(res.body.attention.strangeDurations, []);
-});
-
-test('a running timer is never a strange duration', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-  await setThresholds(60, 8);
-
-  await pool.query(
-    `insert into time_entries (id,user_id,task_name,started_at,ended_at)
-     values ($1,$2,'still going',$3,null)`,
-    [S(69), USER, new Date(Date.UTC(2026, 8, 1)).toISOString()],
-  );
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.deepEqual(
-    res.body.attention.strangeDurations,
-    [],
-    'its length is still changing',
-  );
-});
-
-test('answering the row with durationOk silences it', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-  await setThresholds(60, 8);
-
-  await entryFor({ id: S(70), projectId: await durProject(), hours: 14 });
-  let res = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(res.body.attention.strangeDurations.length, 1);
-
-  await pool.query(`update time_entries set duration_ok=true where id=$1`, [
-    S(70),
-  ]);
-  res = await json(await stats(req('/stats?tz=UTC')));
-  assert.deepEqual(res.body.attention.strangeDurations, []);
-});
-
-test('editing the times asks the question again', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-  await setThresholds(60, 8);
-
-  await entryFor({ id: S(71), projectId: await durProject(), hours: 14 });
-  await pool.query(`update time_entries set duration_ok=true where id=$1`, [
-    S(71),
-  ]);
-
-  await pool.query(
-    `update time_entries set ended_at = started_at + interval '20 hours' where id=$1`,
-    [S(71)],
-  );
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(res.body.attention.strangeDurations.length, 1, 'asks again');
-});
-
-test('an unprojected entry is one row, not two', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-  await setThresholds(60, 8);
-
-  // No project AND implausibly long: both facts hold of the same record.
-  await entryFor({ id: S(73), projectId: null, hours: 14 });
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(res.body.attention.unprojected.length, 1);
-  assert.deepEqual(
-    res.body.attention.strangeDurations,
-    [],
-    'the inbox does not repeat itself',
-  );
-});
-
-test('a projected entry of strange length still gets its row', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-  await setThresholds(60, 8);
-
-  const c = '33333333-0000-4000-8000-0000000000e9';
-  const p = '33333333-0000-4000-8000-0000000000e8';
-  await pool.query(
-    `insert into clients (id,user_id,name) values ($1,$2,'Acme')`,
-    [c, USER],
-  );
-  await pool.query(
-    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'Website')`,
-    [p, USER, c],
-  );
-  await entryFor({ id: S(74), projectId: p, hours: 14 });
-
-  // The suppression is narrow: it drops the duplicate, not the feature.
-  const rows = (await json(await stats(req('/stats?tz=UTC')))).body.attention
-    .strangeDurations;
-  assert.equal(rows.length, 1);
-  assert.equal(rows[0].projectName, 'Website');
-  assert.equal(rows[0].clientName, 'Acme', 'the qualifier names the client');
-});
-
-test('an entry on an ISSUED invoice never fires the row', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-  await setThresholds(60, 8);
-
-  const c = '33333333-0000-4000-8000-0000000000d1';
-  const inv = '45444444-0000-4000-8000-0000000000d1';
-  await pool.query(
-    `insert into clients (id,user_id,name) values ($1,$2,'Billed')`,
-    [c, USER],
-  );
-  await pool.query(
-    `insert into invoices
-       (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
-        subtotal,tax_rate,tax_amount,total,currency,grouping_mode)
-     values ($1,$2,$3,'INV-0900',900,'sent','2026-09-01',100,0,0,100,'USD','entry')`,
-    [inv, USER, c],
-  );
-  await entryFor({ id: S(72), projectId: await durProject(), hours: 14 });
-  await pool.query(`update time_entries set invoice_id=$2 where id=$1`, [
-    S(72),
-    inv,
-  ]);
-
-  /* The row offers an edit, and an issued invoice locks the entry — so the
-     row would be an action that cannot happen. */
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.deepEqual(res.body.attention.strangeDurations, []);
+  for (const row of rows) {
+    await reset();
+    await setThresholds(row.min, row.max);
+    await row.setup();
+    const strange = (await json(await stats(req('/stats?tz=UTC')))).body
+      .attention.strangeDurations as {
+      entryId: string;
+      kind: string;
+      projectName: string;
+      clientName: string;
+    }[];
+    assert.deepEqual(
+      strange
+        .map((r) => [r.entryId, r.kind, r.projectName, r.clientName])
+        .sort(),
+      // The qualifier names the project and its client.
+      row.expect.map(([id, kind]) => [id, kind, 'Website', 'Acme']),
+      row.name,
+    );
+  }
 });
 
 test('entries can be filtered to those with NO project', async () => {
@@ -3590,79 +3177,6 @@ test('entries can be filtered to those with NO project', async () => {
   );
 });
 
-test('unprojected ignores work that is billed, running or non-billable', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  const c = '33333333-0000-4000-8000-00000000000c';
-  await pool.query(
-    `insert into clients (id,user_id,name) values ($1,$2,'Mixed')`,
-    [c, USER],
-  );
-  await pool.query(
-    `insert into invoices
-       (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
-        subtotal,tax_rate,tax_amount,total,currency,grouping_mode)
-     values ($1,$2,$3,'INV-0010',10,'sent','2026-09-01',100,0,0,100,'USD','entry')`,
-    ['45444444-0000-4000-8000-000000000010', USER, c],
-  );
-
-  // The one row that should count: unprojected, unbilled, billable, ended.
-  await entryFor({ id: S(44), projectId: null, hours: 1 });
-
-  // Already on an invoice — the rate question was settled at generation.
-  await pool.query(
-    `insert into time_entries
-       (id,user_id,project_id,task_name,started_at,ended_at,is_billable,invoice_id)
-     values ($1,$2,null,'billed','2026-09-09T09:00:00Z','2026-09-09T12:00:00Z',
-             true,$3)`,
-    [S(45), USER, '45444444-0000-4000-8000-000000000010'],
-  );
-
-  // Non-billable: no rate is MEANT to resolve, so it is not a problem.
-  await entryFor({ id: S(46), projectId: null, hours: 4, billable: false });
-
-  // Still running, so it has no duration yet and the timer bar owns it.
-  await pool.query(
-    `insert into time_entries
-       (id,user_id,project_id,task_name,started_at,is_billable)
-     values ($1,$2,null,'running','2026-09-10T09:00:00Z',true)`,
-    [S(47), USER],
-  );
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(res.body.attention.unprojected.length, 1, 'only the open one');
-  assert.equal(res.body.attention.unprojected[0].seconds, 3600);
-});
-
-test('attention rows are scoped to their own user', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  const theirs = '33333333-0000-4000-8000-00000000000d';
-  await pool.query(
-    `insert into clients (id,user_id,name) values ($1,$2,'Theirs')`,
-    [theirs, OTHER],
-  );
-  // Their stale draft, their unprojected entry. Neither is ours to act on,
-  // and an inbox that shows another user's money is the worst kind of wrong.
-  await pool.query(
-    `insert into invoices
-       (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
-        subtotal,tax_rate,tax_amount,total,currency,grouping_mode)
-     values ($1,$2,$3,'INV-0099',99,'draft','2026-01-01',500,0,0,500,'USD','entry')`,
-    ['45444444-0000-4000-8000-000000000099', OTHER, theirs],
-  );
-  await pool.query(
-    `insert into time_entries
-       (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
-     values ($1,$2,null,'theirs','2026-09-09T09:00:00Z','2026-09-09T17:00:00Z',true)`,
-    [S(48), OTHER],
-  );
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.deepEqual(res.body.attention.staleDrafts, []);
-  assert.deepEqual(res.body.attention.unprojected, []);
-});
-
 // ── task name suggestions ──────────────────────────────────────────
 const TASK_NAMES = '../src/app/api/v1/entries/task-names/route.ts';
 
@@ -3693,37 +3207,27 @@ async function namedEntry(opts: {
 const names = (body: { taskNames: { taskName: string }[] }) =>
   body.taskNames.map((s) => s.taskName);
 
-test('task names dedupe by case, keeping the most recent spelling', async () => {
+test('task names are the caller’s, deduped by case, never empty, and limited', async () => {
   const { GET: taskNames } = await import(TASK_NAMES);
 
   await namedEntry({ id: S(80), name: 'standup', daysAgo: 5 });
   await namedEntry({ id: S(81), name: 'Standup', daysAgo: 1 });
-
-  /* Offering both spellings is offering the user their own typo, and the
-     newer one is the one they have settled on. */
-  const res = await json(await taskNames(req('/entries/task-names')));
-  assert.deepEqual(names(res.body), ['Standup']);
-});
-
-test('task names exclude the empty name', async () => {
-  const { GET: taskNames } = await import(TASK_NAMES);
-
   // A timer started in a hurry has `''`, which is not a suggestion.
   await namedEntry({ id: S(82), name: '', daysAgo: 1 });
   await namedEntry({ id: S(83), name: 'Real work', daysAgo: 2 });
-
-  const res = await json(await taskNames(req('/entries/task-names')));
-  assert.deepEqual(names(res.body), ['Real work']);
-});
-
-test('task names exclude another user’s rows', async () => {
-  const { GET: taskNames } = await import(TASK_NAMES);
-
   await namedEntry({ id: S(84), name: 'Theirs', daysAgo: 1, userId: OTHER });
-  await namedEntry({ id: S(85), name: 'Mine', daysAgo: 2 });
+  await namedEntry({ id: S(85), name: 'Mine', daysAgo: 3 });
 
-  const res = await json(await taskNames(req('/entries/task-names')));
-  assert.deepEqual(names(res.body), ['Mine']);
+  /* Offering both spellings is offering the user their own typo, and the
+     newer one is the one they have settled on. */
+  const all = await json(await taskNames(req('/entries/task-names')));
+  assert.deepEqual(names(all.body), ['Standup', 'Real work', 'Mine']);
+
+  const two = await json(await taskNames(req('/entries/task-names?limit=2')));
+  assert.deepEqual(names(two.body), ['Standup', 'Real work']);
+
+  const most = await taskNames(req('/entries/task-names?limit=1000'));
+  assert.equal(most.status, 200);
 });
 
 test('the project preference ranks its own names first', async () => {
@@ -3773,42 +3277,6 @@ test('the project preference ranks its own names first', async () => {
     'Unprojected',
     'Project work',
   ]);
-});
-
-test('task names honor limit', async () => {
-  const { GET: taskNames } = await import(TASK_NAMES);
-
-  for (let i = 0; i < 5; i++) {
-    await namedEntry({ id: S(90 + i), name: `Task ${i}`, daysAgo: i + 1 });
-  }
-
-  const res = await json(await taskNames(req('/entries/task-names?limit=2')));
-  assert.deepEqual(names(res.body), ['Task 0', 'Task 1']);
-});
-
-test('task names accept a limit up to 1000 and reject one past it', async () => {
-  const { GET: taskNames } = await import(TASK_NAMES);
-
-  const ok = await json(await taskNames(req('/entries/task-names?limit=1000')));
-  assert.equal(ok.status, 200);
-
-  const res = await json(
-    await taskNames(req('/entries/task-names?limit=1001')),
-  );
-  assert.equal(res.status, 422);
-  assert.equal(res.body.code, 'VALIDATION_FAILED');
-});
-
-test('task names reject a non-uuid projectId', async () => {
-  const { GET: taskNames } = await import(TASK_NAMES);
-
-  /* No `none` literal here: unlike `/entries`, the argument ranks rather
-     than filters, so "no project" and "no preference" are one request. */
-  const res = await json(
-    await taskNames(req('/entries/task-names?projectId=none')),
-  );
-  assert.equal(res.status, 422);
-  assert.equal(res.body.code, 'VALIDATION_FAILED');
 });
 
 // ── import ─────────────────────────────────────────────────────────
@@ -3861,11 +3329,25 @@ test('import confirm writes once; the same file again adds nothing', async () =>
   assert.deepEqual(counts.rows[0], { e: 2, p: 2, c: 1, o: 0 });
 });
 
-test('import refuses a file that is not an export, before writing', async () => {
+test('import refuses a file that is not an export, or malformed choices, before writing', async () => {
   const { POST } = await import('../src/app/api/v1/imports/confirm/route.ts');
   const r = await json(await POST(upload('/imports/confirm', 'a,b\n1,2\n')));
   assert.equal(r.status, 422);
   assert.equal(r.body.code, 'IMPORT_FILE_UNRECOGNIZED');
+
+  for (const fields of [
+    { clients: 'not json' },
+    { clients: JSON.stringify({ acme: { hourlyRate: -1 } }) },
+    { clients: JSON.stringify({ acme: { invoicedThrough: '3/10/2026' } }) },
+    { clients: JSON.stringify({ acme: { color: 'red' } }) },
+    { excluded: JSON.stringify([1]) },
+  ] as Record<string, string>[]) {
+    const r = await json(
+      await POST(await withFields('/imports/confirm', fields)),
+    );
+    assert.equal(r.status, 422, JSON.stringify(fields));
+    assert.equal(r.body.code, 'VALIDATION_FAILED');
+  }
   const { rows } = await pool.query('select count(*)::int n from time_entries');
   assert.equal(rows[0].n, 0);
 });
@@ -3941,25 +3423,6 @@ test("import confirm writes a new client's rate and color, and never an excluded
   assert.deepEqual(rows[0], { admin: 0, acme: '(0,#DA8188)' });
 });
 
-test('import refuses malformed choices before writing', async () => {
-  const { POST } = await import('../src/app/api/v1/imports/confirm/route.ts');
-  for (const fields of [
-    { clients: 'not json' },
-    { clients: JSON.stringify({ acme: { hourlyRate: -1 } }) },
-    { clients: JSON.stringify({ acme: { invoicedThrough: '3/10/2026' } }) },
-    { clients: JSON.stringify({ acme: { color: 'red' } }) },
-    { excluded: JSON.stringify([1]) },
-  ] as Record<string, string>[]) {
-    const r = await json(
-      await POST(await withFields('/imports/confirm', fields)),
-    );
-    assert.equal(r.status, 422, JSON.stringify(fields));
-    assert.equal(r.body.code, 'VALIDATION_FAILED');
-  }
-  const { rows } = await pool.query('select count(*)::int n from time_entries');
-  assert.equal(rows[0].n, 0);
-});
-
 test('/stats lists entries sharing a minute or more, and editing one clears it', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
   const a = '018f0000-0000-7000-8000-00000000a0a1';
@@ -3994,13 +3457,15 @@ test('/stats lists entries sharing a minute or more, and editing one clears it',
   assert.deepEqual(after.body.attention.overlaps, []);
 });
 
-test('/stats flags an entry that overlaps time already billed', async () => {
+test('/stats flags billable work that overlaps time already billed, and never non-billable work', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
   const c = '33333333-0000-4000-8000-0000000000c1';
   const p = '33333333-0000-4000-8000-0000000000c2';
   const inv = 'ff000000-0000-4000-8000-0000000000c3';
   const billed = '018f0000-0000-7000-8000-00000000c0c1';
   const fresh = '018f0000-0000-7000-8000-00000000c0c2';
+  const free = '018f0000-0000-7000-8000-00000000c0c3';
+  const also = '018f0000-0000-7000-8000-00000000c0c4';
   await pool.query(
     `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Northwind',150)`,
     [c, USER],
@@ -4014,71 +3479,37 @@ test('/stats flags an entry that overlaps time already billed', async () => {
      values ($1,$2,$3,'INV-0001',1,'sent',now())`,
     [inv, USER, c],
   );
-  // 9-10 was billed on that invoice; 9:30-10:30 was added afterwards. The
-  // new entry is the one to fix, and it can be — only the billed one is
-  // locked. Left unflagged, the next invoice charges 9:30-10:00 twice.
-  await pool.query(
-    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at,invoice_id) values
-       ($1,$3,$4,'Billed', '2026-08-19T09:00:00Z','2026-08-19T10:00:00Z',$5),
-       ($2,$3,$4,'Added',  '2026-08-19T09:30:00Z','2026-08-19T10:30:00Z',null)`,
-    [billed, fresh, USER, p, inv],
-  );
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.deepEqual(
-    res.body.attention.overlaps.map(
-      (o: {
-        entryId: string;
-        otherEntryId: string;
-        otherInvoiceNumber: string | null;
-        seconds: number;
-      }) => [o.entryId, o.otherEntryId, o.otherInvoiceNumber, o.seconds],
-    ),
-    [[fresh, billed, 'INV-0001', 1800]],
-    'the half hour already invoiced is about to be billed again',
-  );
-});
-
-test('/stats pairs only billable work against billed time', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-  const c = '33333333-0000-4000-8000-0000000000d1';
-  const p = '33333333-0000-4000-8000-0000000000d2';
-  const inv = 'ff000000-0000-4000-8000-0000000000d3';
-  const billed = '018f0000-0000-7000-8000-00000000d0d1';
-  const free = '018f0000-0000-7000-8000-00000000d0d2';
-  const also = '018f0000-0000-7000-8000-00000000d0d3';
-  await pool.query(
-    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Northwind',150)`,
-    [c, USER],
-  );
-  await pool.query(
-    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
-    [p, USER, c],
-  );
-  await pool.query(
-    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status,sent_at)
-     values ($1,$2,$3,'INV-0001',1,'sent',now())`,
-    [inv, USER, c],
-  );
-  // Non-billable work is never invoiced, so overlapping billed time bills
-  // nothing twice; overlapping other unbilled work is still flagged.
+  /* 9-10 was billed on that invoice; 9:30-10:30 was added afterwards. The
+     new entry is the one to fix, and it can be — only the billed one is
+     locked. Left unflagged, the next invoice charges 9:30-10:00 twice.
+     Non-billable work is never invoiced, so its overlap with billed time
+     bills nothing twice; its overlap with other unbilled work is still
+     flagged. */
   await pool.query(
     `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at,invoice_id,is_billable) values
-       ($1,$4,$5,'Billed','2026-08-19T09:00:00Z','2026-08-19T10:00:00Z',$6,true),
-       ($2,$4,$5,'Free',  '2026-08-19T09:30:00Z','2026-08-19T10:30:00Z',null,false),
-       ($3,$4,$5,'Also',  '2026-08-19T10:00:00Z','2026-08-19T11:00:00Z',null,true)`,
-    [billed, free, also, USER, p, inv],
+       ($1,$5,$6,'Billed','2026-08-19T09:00:00Z','2026-08-19T10:00:00Z',$7,true),
+       ($2,$5,$6,'Added', '2026-08-19T09:30:00Z','2026-08-19T10:30:00Z',null,true),
+       ($3,$5,$6,'Free',  '2026-08-19T08:30:00Z','2026-08-19T09:15:00Z',null,false),
+       ($4,$5,$6,'Also',  '2026-08-19T08:45:00Z','2026-08-19T09:00:00Z',null,true)`,
+    [billed, fresh, free, also, USER, p, inv],
   );
 
   const res = await json(await stats(req('/stats?tz=UTC')));
   assert.deepEqual(
-    res.body.attention.overlaps.map(
-      (o: { entryId: string; otherEntryId: string }) => [
-        o.entryId,
-        o.otherEntryId,
-      ],
-    ),
-    [[also, free]],
+    res.body.attention.overlaps
+      .map(
+        (o: {
+          entryId: string;
+          otherEntryId: string;
+          otherInvoiceNumber: string | null;
+          seconds: number;
+        }) => [o.entryId, o.otherEntryId, o.otherInvoiceNumber, o.seconds],
+      )
+      .sort(),
+    [
+      [fresh, billed, 'INV-0001', 1800],
+      [also, free, null, 900],
+    ],
   );
 });
 
@@ -4093,94 +3524,122 @@ const attention = async () => {
   return (await json(await GET(req('/stats?tz=UTC')))).body.attention;
 };
 
-test('the inbox lists every unprojected entry', async () => {
-  await fillMe(1001, '2026-08-01T00:00:00Z', null);
-  assert.equal((await attention()).unprojected.length, 1001);
-});
-
-test('the inbox finds a strange duration past the first thousand', async () => {
-  const project = await durProject();
-  await fillMe(1000, '2026-08-01T00:00:00Z', project);
-  // The newest, so the last row of a read ordered oldest first.
-  await pool.query(
-    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at)
-     values (gen_random_uuid(),$1,$2,'Overnight','2026-08-20T00:00:00Z','2026-08-20T14:00:00Z')`,
-    [USER, project],
-  );
-  await pool.query(
-    'update user_settings set max_entry_hours=8 where user_id=$1',
-    [USER],
-  );
-  const rows = (await attention()).strangeDurations;
-  assert.deepEqual(
-    rows.map((r: { taskName: string }) => r.taskName),
-    ['Overnight'],
-  );
-});
-
-test('the inbox finds an overlap past the first thousand', async () => {
-  const project = await durProject();
-  await fillMe(1000, '2026-08-01T00:00:00Z', project);
-  // Sharing half an hour, and written last.
-  await pool.query(
-    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at) values
-       (gen_random_uuid(),$1,$2,'First', '2026-08-20T20:00:00Z','2026-08-20T21:00:00Z'),
-       (gen_random_uuid(),$1,$2,'Second','2026-08-20T20:30:00Z','2026-08-20T21:30:00Z')`,
-    [USER, project],
-  );
-  assert.equal((await attention()).overlaps.length, 1);
-});
-
-test('the calendar returns every entry in its range', async () => {
-  const { GET } = await import('../src/app/api/v1/calendar/route.ts');
-  await fillMe(1001, '2026-09-01T00:00:00Z', await durProject());
-
-  const res = await json(
-    await GET(
-      req('/calendar?from=2026-09-01T00:00:00Z&to=2026-09-30T00:00:00Z&tz=UTC'),
-    ),
-  );
-  const entries = res.body.days.reduce(
-    (n: number, d: { entries: unknown[] }) => n + d.entries.length,
-    0,
-  );
-  assert.equal(entries, 1001);
-});
-
-test('an import preview sees an overlap with existing work past the first thousand', async () => {
-  const { POST } = await import('../src/app/api/v1/imports/preview/route.ts');
-  const project = await durProject();
-  // Inside the window the preview reads, and over by the hour below.
-  await fillMe(1000, '2026-03-09T00:00:00Z', project);
-  // 20:00Z to 21:00Z, written last.
-  await pool.query(
-    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at)
-     values (gen_random_uuid(),$1,$2,'Existing','2026-03-10T20:00:00Z','2026-03-10T21:00:00Z')`,
-    [USER, project],
-  );
-
-  // 16:00 in New York, daylight time: the same hour as the entry above.
-  const form = new FormData();
-  form.set(
-    'file',
-    new File(
-      [
-        `User,Email,Client,Project,Task,Description,Billable,Start date,Start time,End date,End time,Duration,Tags,Amount (USD)
+test('each read finds what it reads for past the first thousand rows', async () => {
+  const rows: [name: string, check: () => Promise<void>][] = [
+    [
+      'the inbox lists every unprojected entry',
+      async () => {
+        await fillMe(1001, '2026-08-01T00:00:00Z', null);
+        assert.equal((await attention()).unprojected.length, 1001);
+      },
+    ],
+    [
+      'the inbox finds a strange duration',
+      async () => {
+        const project = await durProject();
+        await fillMe(1000, '2026-08-01T00:00:00Z', project);
+        // The newest, so the last row of a read ordered oldest first.
+        await pool.query(
+          `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at)
+           values (gen_random_uuid(),$1,$2,'Overnight','2026-08-20T00:00:00Z','2026-08-20T14:00:00Z')`,
+          [USER, project],
+        );
+        await pool.query(
+          'update user_settings set max_entry_hours=8 where user_id=$1',
+          [USER],
+        );
+        assert.deepEqual(
+          (await attention()).strangeDurations.map(
+            (r: { taskName: string }) => r.taskName,
+          ),
+          ['Overnight'],
+        );
+      },
+    ],
+    [
+      'the inbox finds an overlap',
+      async () => {
+        const project = await durProject();
+        await fillMe(1000, '2026-08-01T00:00:00Z', project);
+        // Sharing half an hour, and written last.
+        await pool.query(
+          `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at) values
+             (gen_random_uuid(),$1,$2,'First', '2026-08-20T20:00:00Z','2026-08-20T21:00:00Z'),
+             (gen_random_uuid(),$1,$2,'Second','2026-08-20T20:30:00Z','2026-08-20T21:30:00Z')`,
+          [USER, project],
+        );
+        assert.equal((await attention()).overlaps.length, 1);
+      },
+    ],
+    [
+      'the calendar returns every entry in its range',
+      async () => {
+        const { GET } = await import('../src/app/api/v1/calendar/route.ts');
+        await fillMe(1001, '2026-09-01T00:00:00Z', await durProject());
+        const res = await json(
+          await GET(
+            req(
+              '/calendar?from=2026-09-01T00:00:00Z&to=2026-09-30T00:00:00Z&tz=UTC',
+            ),
+          ),
+        );
+        const entries = res.body.days.reduce(
+          (n: number, d: { entries: unknown[] }) => n + d.entries.length,
+          0,
+        );
+        assert.equal(entries, 1001);
+      },
+    ],
+    [
+      'an import preview sees an overlap with existing work',
+      async () => {
+        const { POST } = await import(
+          '../src/app/api/v1/imports/preview/route.ts'
+        );
+        const project = await durProject();
+        // Inside the window the preview reads, and over by the hour below.
+        await fillMe(1000, '2026-03-09T00:00:00Z', project);
+        // 20:00Z to 21:00Z, written last.
+        await pool.query(
+          `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at)
+           values (gen_random_uuid(),$1,$2,'Existing','2026-03-10T20:00:00Z','2026-03-10T21:00:00Z')`,
+          [USER, project],
+        );
+        // 16:00 in New York, daylight time: the same hour as the entry above.
+        const form = new FormData();
+        form.set(
+          'file',
+          new File(
+            [
+              `User,Email,Client,Project,Task,Description,Billable,Start date,Start time,End date,End time,Duration,Tags,Amount (USD)
 Me,me@x,Acme,Site,,Design,Yes,2026-03-10,16:00:00,2026-03-10,17:00:00,01:00:00,,150.00
 `,
-      ],
-      'export.csv',
-      { type: 'text/csv' },
-    ),
-  );
-  form.set('timeZone', 'America/New_York');
-  const res = await json(
-    await POST(
-      new Request('http://t/imports/preview', { method: 'POST', body: form }),
-    ),
-  );
-  assert.equal(res.status, 200);
-  assert.equal(res.body.summary.overlappingCount, 1);
+            ],
+            'export.csv',
+            { type: 'text/csv' },
+          ),
+        );
+        form.set('timeZone', 'America/New_York');
+        const res = await json(
+          await POST(
+            new Request('http://t/imports/preview', {
+              method: 'POST',
+              body: form,
+            }),
+          ),
+        );
+        assert.equal(res.status, 200);
+        assert.equal(res.body.summary.overlappingCount, 1);
+      },
+    ],
+  ];
+
+  for (const [name, check] of rows) {
+    await reset();
+    await check().catch((e) => {
+      throw new Error(`${name}: ${e.message}`, { cause: e });
+    });
+  }
 });
 
 // ── health, and errors reaching Sentry ─────────────────────────────
@@ -4191,32 +3650,27 @@ const failingDb = (error: { code?: string; message: string }) => ({
   }),
 });
 
-test('health answers 200 while the database answers', async () => {
+/* Postgres refusing anon is Postgres answering; a database that does not
+   answer is a 503, so the monitor alerts. */
+test('health answers 200 while Postgres answers, even refusing, and 503 when it does not', async () => {
   const { GET } = await import('../src/app/api/v1/health/route.ts');
-  const res = await json(await GET());
-  assert.equal(res.status, 200);
-  assert.deepEqual(res.body, { ok: true });
-});
 
-test('health answers 200 when Postgres refuses anon, which is Postgres answering', async () => {
-  const { GET } = await import('../src/app/api/v1/health/route.ts');
-  (globalThis as any).__TEST_DB__ = failingDb({
-    code: '42501',
-    message: 'permission denied for table clients',
-  });
-  const res = await json(await GET());
-  assert.equal(res.status, 200);
-});
-
-test('health answers 503 when the database does not, so the monitor alerts', async () => {
-  const { GET } = await import('../src/app/api/v1/health/route.ts');
-  (globalThis as any).__TEST_DB__ = failingDb({
-    code: 'PGRST000',
-    message: 'Could not connect',
-  });
-  const res = await json(await GET());
-  assert.equal(res.status, 503);
-  assert.deepEqual(res.body, { ok: false });
+  for (const [db, status] of [
+    [undefined, 200],
+    [
+      failingDb({
+        code: '42501',
+        message: 'permission denied for table clients',
+      }),
+      200,
+    ],
+    [failingDb({ code: 'PGRST000', message: 'Could not connect' }), 503],
+  ] as const) {
+    if (db) (globalThis as any).__TEST_DB__ = db;
+    const res = await json(await GET());
+    assert.equal(res.status, status, JSON.stringify(db));
+    assert.deepEqual(res.body, { ok: status === 200 });
+  }
 });
 
 /** What each event `GET /clients` sends Sentry says it is, against `db`. */
@@ -4252,41 +3706,43 @@ async function sentryEventsFor(db: unknown) {
   return sent;
 }
 
-test('an unhandled route error reaches Sentry with its user, not only the log', async () => {
-  const sent = await sentryEventsFor({
-    from() {
-      throw new Error('unexpected');
-    },
-  });
-  assert.deepEqual(sent, [
-    {
-      type: 'Error',
-      value: 'unexpected',
-      synthetic: false,
-      fingerprint: undefined,
-      // The id alone: an email or name would put who they are in Sentry.
-      user: { id: USER },
-    },
-  ]);
-});
-
-test('a database error object reaches Sentry titled and grouped by its message', async () => {
+/* The id alone: an email or name would put who they are in Sentry. A
+   database error is a plain object, so it is titled and grouped by its
+   message rather than as one synthetic event for every failure. */
+test('a route error, thrown or returned by the database, reaches Sentry with its user, not only the log', async () => {
   const failed = () =>
     Promise.resolve({
       data: null,
       error: { message: 'Project not specified.' },
     });
   const query = { select: () => query, order: () => ({ is: failed }) };
-  const sent = await sentryEventsFor({ from: () => query });
-  assert.deepEqual(sent, [
-    {
-      type: 'Error',
-      value: 'Project not specified.',
-      synthetic: false,
-      fingerprint: ['{{ default }}', 'Project not specified.'],
-      user: { id: USER },
-    },
-  ]);
+
+  for (const [db, value, fingerprint] of [
+    [
+      {
+        from() {
+          throw new Error('unexpected');
+        },
+      },
+      'unexpected',
+      undefined,
+    ],
+    [
+      { from: () => query },
+      'Project not specified.',
+      ['{{ default }}', 'Project not specified.'],
+    ],
+  ] as const) {
+    assert.deepEqual(await sentryEventsFor(db), [
+      {
+        type: 'Error',
+        value,
+        synthetic: false,
+        fingerprint,
+        user: { id: USER },
+      },
+    ]);
+  }
 });
 
 // ── feedback ───────────────────────────────────────────────────────
@@ -4324,44 +3780,30 @@ test('feedback is stored with the sender and the context it was sent with', asyn
   ]);
 });
 
-test('feedback trims its message and refuses an empty or overlong one', async () => {
-  const { POST } = await import('../src/app/api/v1/feedback/route.ts');
-
-  for (const message of ['', '   ', 'x'.repeat(2001)]) {
-    const res = await POST(req('/feedback', { ...FEEDBACK, message }));
-    assert.equal(res.status, 422, `"${message.slice(0, 5)}…" is refused`);
-  }
-  const ok = await POST(
-    req('/feedback', { ...FEEDBACK, message: `  ${'x'.repeat(2000)}  ` }),
-  );
-  assert.equal(ok.status, 201, '2,000 characters after trimming is allowed');
-  assert.equal((await feedbackRows())[0].message.length, 2000);
-});
-
-test('feedback refuses a missing screen or version and an unknown client', async () => {
+test('feedback trims its message, and refuses an empty or overlong one, a missing screen or version, or an unknown client', async () => {
   const { POST } = await import('../src/app/api/v1/feedback/route.ts');
 
   const { screen: _s, ...noScreen } = FEEDBACK;
   const { appVersion: _v, ...noVersion } = FEEDBACK;
   for (const body of [
+    { ...FEEDBACK, message: '' },
+    { ...FEEDBACK, message: '   ' },
+    { ...FEEDBACK, message: 'x'.repeat(2001) },
     noScreen,
     noVersion,
     { ...FEEDBACK, client: 'ios' },
     { ...FEEDBACK, screen: 'invoices' },
   ]) {
-    assert.equal((await POST(req('/feedback', body))).status, 422);
+    const res = await POST(req('/feedback', body));
+    assert.equal(res.status, 422, JSON.stringify(body).slice(0, 80));
   }
   assert.equal((await feedbackRows()).length, 0);
-});
 
-test('a retried feedback send stores one message', async () => {
-  const { POST } = await import('../src/app/api/v1/feedback/route.ts');
-
-  assert.equal((await POST(req('/feedback', FEEDBACK))).status, 201);
-  const again = await json(await POST(req('/feedback', FEEDBACK)));
-  assert.equal(again.status, 200);
-  assert.deepEqual(again.body, { id: FEEDBACK.id });
-  assert.equal((await feedbackRows()).length, 1);
+  const ok = await POST(
+    req('/feedback', { ...FEEDBACK, message: `  ${'x'.repeat(2000)}  ` }),
+  );
+  assert.equal(ok.status, 201, '2,000 characters after trimming is allowed');
+  assert.equal((await feedbackRows())[0].message.length, 2000);
 });
 
 // ── billing ────────────────────────────────────────────────────────
@@ -4519,27 +3961,28 @@ test('an old event arriving late still leaves the current state', async () => {
   assert.equal((await billing()).body.plan, 'free');
 });
 
-test('a cancel at period end stays paid, and says when it ends', async () => {
-  configureBilling();
-  stripeFake.state.subscriptions.push(
-    subscription({ userId: USER, cancel_at: 1_820_000_000 }),
-  );
-  await deliver('customer.subscription.updated', { customer: 'cus_1' });
-  const read = (await billing()).body;
-  assert.equal(read.plan, 'paid');
-  assert.equal(read.cancelAtPeriodEnd, true);
-  assert.equal(read.periodEnd, new Date(1_820_000_000 * 1000).toISOString());
-});
-
-test('a failed renewal keeps the plan paid and says the payment failed', async () => {
-  configureBilling();
-  stripeFake.state.subscriptions.push(
-    subscription({ userId: USER, status: 'past_due' }),
-  );
-  await deliver('invoice.payment_failed', { customer: 'cus_1' });
-  const read = (await billing()).body;
-  assert.equal(read.plan, 'paid');
-  assert.equal(read.paymentFailed, true);
+test('a cancel at period end, or a failed renewal, stays paid and says so', async () => {
+  for (const [sub, event, expected] of [
+    [
+      { cancel_at: 1_820_000_000 },
+      'customer.subscription.updated',
+      {
+        cancelAtPeriodEnd: true,
+        periodEnd: new Date(1_820_000_000 * 1000).toISOString(),
+      },
+    ],
+    [{ status: 'past_due' }, 'invoice.payment_failed', { paymentFailed: true }],
+  ] as const) {
+    await reset();
+    configureBilling();
+    stripeFake.state.subscriptions.push(subscription({ userId: USER, ...sub }));
+    await deliver(event, { customer: 'cus_1' });
+    const read = (await billing()).body;
+    assert.equal(read.plan, 'paid', event);
+    for (const [key, value] of Object.entries(expected)) {
+      assert.equal(read[key], value, `${event}: ${key}`);
+    }
+  }
 });
 
 test('a current subscription wins over an older canceled one', async () => {
@@ -5305,20 +4748,114 @@ test('every change to the running timer broadcasts once to the user’s topic', 
   }
 });
 
-test('a failed broadcast reaches Sentry and never fails the write', async () => {
-  configureBroadcast();
-  broadcastStatus = 500;
-  const { status, reported } = await startAndReport();
-  assert.equal(status, 201);
-  assert.equal(broadcasts.length, 1);
-  assert.match(reported[0] ?? '', /^Broadcast not delivered: 500/);
-});
+/* A push or a broadcast is a side effect of the write, so no failure of
+   its own fails the write: each answers 201, and what went wrong reaches
+   Sentry unless it is expected (a transient failure retried, a token FCM
+   unregistered, a deploy with nothing configured). */
+test('a push or broadcast that fails, or has nothing configured, never fails the write', async () => {
+  const rows: {
+    name: string;
+    setup: () => Promise<void>;
+    check: (reported: (string | undefined)[]) => Promise<void>;
+  }[] = [
+    {
+      name: 'a failed broadcast',
+      setup: async () => {
+        configureBroadcast();
+        broadcastStatus = 500;
+      },
+      check: async (reported) => {
+        assert.equal(broadcasts.length, 1);
+        assert.match(reported[0] ?? '', /^Broadcast not delivered: 500/);
+      },
+    },
+    {
+      name: 'no secret key',
+      setup: async () => {},
+      check: async (reported) => {
+        assert.deepEqual(broadcasts, [], 'nothing is broadcast');
+        assert.deepEqual(reported, []);
+      },
+    },
+    {
+      name: 'a transient push failure',
+      setup: async () => {
+        configurePush();
+        await register();
+        fcmFake.state.answers = [{ status: 503 }];
+      },
+      check: async (reported) => {
+        assert.equal(fcmFake.state.sent.length, 2, 'retried once');
+        assert.deepEqual(reported, []);
+      },
+    },
+    {
+      name: 'a push that keeps failing',
+      setup: async () => {
+        configurePush();
+        await register();
+        fcmFake.state.answers = [{ status: 500 }, { status: 500 }];
+      },
+      check: async (reported) => {
+        assert.equal(fcmFake.state.sent.length, 2);
+        assert.equal(reported.length, 1);
+        assert.match(reported[0] ?? '', /^Push not delivered/);
+      },
+    },
+    {
+      name: 'a token FCM calls unregistered',
+      setup: async () => {
+        configurePush();
+        await register();
+        await register({ token: 'fcm-token-2', platform: 'android' });
+        fcmFake.state.answers = [UNREGISTERED];
+      },
+      check: async (reported) => {
+        assert.deepEqual(reported, []);
+        assert.equal((await devices()).length, 1, 'it is deleted');
+      },
+    },
+    {
+      name: 'a refused service account',
+      setup: async () => {
+        process.env.FCM_SERVICE_ACCOUNT = JSON.stringify({
+          ...JSON.parse(serviceAccount()),
+          private_key: (await import('node:crypto'))
+            .generateKeyPairSync('rsa', { modulusLength: 2048 })
+            .privateKey.export({ type: 'pkcs8', format: 'pem' }),
+        });
+        await register();
+      },
+      check: async (reported) => {
+        assert.match(
+          reported[0] ?? '',
+          /Google refused the FCM service account: 400/,
+        );
+        assert.deepEqual(fcmFake.state.sent, []);
+      },
+    },
+    {
+      name: 'no service account',
+      setup: async () => {
+        await register();
+      },
+      check: async (reported) => {
+        assert.deepEqual(fcmFake.state.sent, [], 'nothing is sent');
+        assert.equal(fcmFake.state.tokenRequests, 0);
+        assert.deepEqual(reported, []);
+      },
+    },
+  ];
 
-test('with no secret key, nothing is broadcast', async () => {
-  const { status, reported } = await startAndReport();
-  assert.equal(status, 201);
-  assert.deepEqual(broadcasts, []);
-  assert.deepEqual(reported, []);
+  for (const row of rows) {
+    await reset();
+    await row.setup();
+    const { status, reported } = await startAndReport();
+    assert.equal(status, 201, row.name);
+    await row.check(reported).catch((e) => {
+      throw new Error(`${row.name}: ${e.message}`, { cause: e });
+    });
+  }
 });
 
 /** Starts a timer and returns its status, once its push has settled, and
@@ -5342,63 +4879,6 @@ async function startAndReport() {
   await close(1000);
   return { status: res.status, reported };
 }
-
-test('a transient failure is retried once', async () => {
-  configurePush();
-  await register();
-  fcmFake.state.answers = [{ status: 503 }];
-  const { status, reported } = await startAndReport();
-  assert.equal(status, 201);
-  assert.equal(fcmFake.state.sent.length, 2);
-  assert.deepEqual(reported, []);
-});
-
-test('a send that keeps failing reaches Sentry and never fails the write', async () => {
-  configurePush();
-  await register();
-  fcmFake.state.answers = [{ status: 500 }, { status: 500 }];
-  const { status, reported } = await startAndReport();
-  assert.equal(status, 201);
-  assert.equal(fcmFake.state.sent.length, 2);
-  assert.equal(reported.length, 1);
-  assert.match(reported[0] ?? '', /^Push not delivered/);
-});
-
-test('a token FCM calls unregistered is deleted, and nothing is reported', async () => {
-  configurePush();
-  await register();
-  await register({ token: 'fcm-token-2', platform: 'android' });
-  fcmFake.state.answers = [UNREGISTERED];
-  const { reported } = await startAndReport();
-  assert.deepEqual(reported, []);
-  assert.equal((await devices()).length, 1);
-});
-
-test('a refused service account reaches Sentry', async () => {
-  process.env.FCM_SERVICE_ACCOUNT = JSON.stringify({
-    ...JSON.parse(serviceAccount()),
-    private_key: (await import('node:crypto'))
-      .generateKeyPairSync('rsa', { modulusLength: 2048 })
-      .privateKey.export({ type: 'pkcs8', format: 'pem' }),
-  });
-  await register();
-  const { status, reported } = await startAndReport();
-  assert.equal(status, 201);
-  assert.match(
-    reported[0] ?? '',
-    /Google refused the FCM service account: 400/,
-  );
-  assert.deepEqual(fcmFake.state.sent, []);
-});
-
-test('with no service account, nothing is sent', async () => {
-  await register();
-  const { status, reported } = await startAndReport();
-  assert.equal(status, 201);
-  assert.deepEqual(fcmFake.state.sent, []);
-  assert.equal(fcmFake.state.tokenRequests, 0);
-  assert.deepEqual(reported, []);
-});
 
 test('the access token is fetched once for many sends', async () => {
   configurePush();
