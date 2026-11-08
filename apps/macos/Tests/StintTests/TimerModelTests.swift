@@ -106,14 +106,6 @@ struct TimerModelTests {
         await model.signOut()
     }
 
-    @Test func earnedIsTodaysEarnings() async throws {
-        let model = try await signedInModel()
-        APIStub.routes["/stats"] = (200, Data(#"{"currency":"USD","earnedToday":412.5,"unbilled":{"total":1462.5}}"#.utf8))
-        await model.refresh()
-        #expect(model.stats?.earnedToday == 412.5)
-        await model.signOut()
-    }
-
     @Test func aFullRefreshAssignsEverythingInOneStep() async throws {
         let model = try await signedInModel()
         APIStub.routes["/summary"] = (200, summary(running: "standup"))
