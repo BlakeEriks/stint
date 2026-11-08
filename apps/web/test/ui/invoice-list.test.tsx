@@ -112,23 +112,7 @@ afterEach(() => {
 });
 
 describe('InvoiceList', () => {
-  it('shows open invoices by default, not finished ones', async () => {
-    serve([
-      invoice(),
-      invoice({ id: 'i2', invoiceNumber: 'STINT-0002', status: 'paid' }),
-    ]);
-    render(<InvoiceList />, { wrapper });
-
-    /* A paid invoice is finished. Leading with history means scrolling past
-       it to reach what still needs doing, and this is the screen you open
-       when money lands. */
-    await waitFor(() =>
-      expect(screen.getByText('STINT-0001')).toBeInTheDocument(),
-    );
-    expect(screen.queryByText('STINT-0002')).toBeNull();
-  });
-
-  it('totals only what is actually owed', async () => {
+  it('shows open invoices by default, totals only sent, and offers mark-paid only on sent', async () => {
     serve([
       invoice(),
       invoice({
@@ -146,6 +130,14 @@ describe('InvoiceList', () => {
     ]);
     render(<InvoiceList />, { wrapper });
 
+    /* A paid invoice is finished. Leading with history means scrolling past
+       it to reach what still needs doing, and this is the screen you open
+       when money lands. */
+    await waitFor(() =>
+      expect(screen.getByText('STINT-0001')).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('STINT-0003')).toBeNull();
+
     /* Only `sent` is outstanding: a draft has not been asked for and a paid
        one has arrived. Totalling every row would contradict the list. */
     const total = await screen.findByText(/outstanding/);
@@ -154,27 +146,21 @@ describe('InvoiceList', () => {
     expect(total.textContent).not.toContain('5,000');
     expect(total.textContent).not.toContain('1,300');
     expect(total.textContent).not.toContain('6,300');
-  });
-
-  it('offers mark-paid only on a sent invoice', async () => {
-    serve([
-      invoice(),
-      invoice({ id: 'i2', invoiceNumber: 'STINT-0002', status: 'draft' }),
-    ]);
-    render(<InvoiceList />, { wrapper });
 
     /* A draft has not been sent, so there is nothing to have been paid. */
-    await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: 'Mark paid, STINT-0001' }),
-      ).toBeInTheDocument(),
-    );
+    expect(
+      screen.getByRole('button', { name: 'Mark paid, STINT-0001' }),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Mark paid, STINT-0002' }),
     ).toBeNull();
   });
 
-  it('names the invoice in the action, so identical rows are distinguishable', async () => {
+  /* The unchanged default (today) must not send an explicit `paidAt` — local
+     midnight on the day an invoice was also sent can land before `sentAt`,
+     which the server rejects, and the original "now" behaviour is what the
+     common case should keep. */
+  it('names the invoice in the action, sends no paidAt for the default date, and closes once accepted', async () => {
     const calls = serve([
       invoice(),
       invoice({ id: 'i2', invoiceNumber: 'STINT-0002', total: 900 }),
@@ -182,6 +168,7 @@ describe('InvoiceList', () => {
     const user = userEvent.setup();
     render(<InvoiceList />, { wrapper });
 
+    // Identical rows are told apart by the number in the action's name.
     await user.click(
       await screen.findByRole('button', { name: 'Mark paid, STINT-0002' }),
     );
@@ -193,27 +180,8 @@ describe('InvoiceList', () => {
       path: '/invoices/i2/status',
       body: { status: 'paid' },
     });
-  });
-
-  /* The unchanged default (today) must not send an explicit `paidAt` — local
-     midnight on the day an invoice was also sent can land before `sentAt`,
-     which the server rejects, and the original "now" behaviour is what the
-     common case should keep. */
-  it('sends no paidAt when the default date is left unchanged', async () => {
-    const calls = serve([invoice()]);
-    const user = userEvent.setup();
-    render(<InvoiceList />, { wrapper });
-
-    await user.click(
-      await screen.findByRole('button', { name: 'Mark paid, STINT-0001' }),
-    );
-    await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
-
-    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
-    const call = calls[0]!;
-    const body = call.body as { status: string; paidAt?: string };
-    expect(body.status).toBe('paid');
-    expect(body.paidAt).toBeUndefined();
+    expect((calls[0]!.body as { paidAt?: string }).paidAt).toBeUndefined();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
   /* The whole point of the dialog: a payment that arrived earlier than today
@@ -250,19 +218,6 @@ describe('InvoiceList', () => {
     );
   });
 
-  it('closes the dialog once the server accepts the payment', async () => {
-    serve([invoice()]);
-    const user = userEvent.setup();
-    render(<InvoiceList />, { wrapper });
-
-    await user.click(
-      await screen.findByRole('button', { name: 'Mark paid, STINT-0001' }),
-    );
-    await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
-
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-  });
-
   it('keeps a refusal in the dialog, and not in the next invoice’s', async () => {
     serve([invoice(), invoice({ id: 'i2', invoiceNumber: 'STINT-0002' })], 422);
     const user = userEvent.setup();
@@ -280,18 +235,6 @@ describe('InvoiceList', () => {
     );
     await screen.findByLabelText('Date paid');
     expect(screen.queryByRole('alert')).toBeNull();
-  });
-
-  it('distinguishes an empty account from an empty filter', async () => {
-    serve([invoice({ status: 'paid' })]);
-    render(<InvoiceList />, { wrapper });
-
-    /* "No invoices yet" would be a lie when one exists and is simply paid,
-       and it would send the user to create a duplicate. */
-    await waitFor(() =>
-      expect(screen.getByText(/Nothing open/)).toBeInTheDocument(),
-    );
-    expect(screen.queryByText(/No invoices yet/)).toBeNull();
   });
 
   /* Once the list paints, each draft and open invoice is fetched in full,

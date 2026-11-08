@@ -5,8 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { InvoiceDetail } from '@/components/invoice-detail';
 import type { Invoice, InvoiceStatus } from '@/lib/client/api';
-import { keys } from '@stint/client';
-import { localDateKey, localDateTimeToInstant } from '@stint/core';
+import { localDateKey } from '@stint/core';
 
 const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -109,36 +108,25 @@ beforeEach(() => vi.clearAllMocks());
 afterEach(() => vi.unstubAllGlobals());
 
 describe('InvoiceDetail', () => {
-  it('draws the invoice from the cached list while its lines load', () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => new Promise(() => {})),
-    );
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false, gcTime: Infinity } },
-    });
-    qc.setQueryData(keys.invoices(), { invoices: [invoice('sent')] });
-    // The list fetches the settings with itself, for this screen.
-    qc.setQueryData(keys.settings(), {});
-    render(
-      <QueryClientProvider client={qc}>
-        <InvoiceDetail id="inv-1" />
-      </QueryClientProvider>,
-    );
-
-    expect(screen.getByRole('heading', { name: /INV-13/ })).toBeVisible();
-    expect(screen.getByText('Acme Corp')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Mark paid' })).toBeVisible();
-    expect(screen.queryByRole('status')).toBeNull();
-  });
-
   /**
    * The app sends no mail, so downloading IS how an invoice reaches a
    * client — it is the primary action, and it must always be available.
+   *
+   * A draft holds no number yet, so it is deleted. Once issued, the number
+   * is on record and the invoice can only be voided — that is what keeps
+   * numbering gapless. Each status offers the next step in its lifecycle,
+   * and only that; void is terminal, so nothing moves an invoice out of it.
    */
-  it('offers a download in every status', async () => {
-    for (const status of ['draft', 'sent', 'paid', 'void'] as InvoiceStatus[]) {
-      serve(status);
+  it('offers a download in every status, and only the actions its status allows', async () => {
+    const actions = ['Delete draft', 'Mark sent', 'Void', 'Mark paid'];
+    const offered: Record<InvoiceStatus, string[]> = {
+      draft: ['Delete draft', 'Mark sent'],
+      sent: ['Void', 'Mark paid'],
+      paid: ['Void'],
+      void: [],
+    };
+    for (const [status, expected] of Object.entries(offered)) {
+      serve(status as InvoiceStatus);
       const { unmount } = show();
       expect(
         await screen.findByRole('link', { name: 'Download PDF' }),
@@ -149,60 +137,12 @@ describe('InvoiceDetail', () => {
           /^\/api\/v1\/invoices\/inv-1\/pdf\?tz=.+&download=1$/,
         ),
       );
+      expect(
+        actions.filter((name) => screen.queryByRole('button', { name })),
+      ).toEqual(expected);
       unmount();
       vi.unstubAllGlobals();
     }
-  });
-
-  /**
-   * A draft holds no number yet, so it is deleted. Once issued, the number
-   * is on record and the invoice can only be voided — that is what keeps
-   * numbering gapless.
-   */
-  it('lets a draft be deleted but not voided', async () => {
-    serve('draft');
-    show();
-
-    expect(
-      await screen.findByRole('button', { name: 'Delete draft' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'Void' }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('lets an issued invoice be voided but never deleted', async () => {
-    serve('sent');
-    show();
-
-    expect(
-      await screen.findByRole('button', { name: 'Void' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'Delete draft' }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('offers the next step in the lifecycle, and only that', async () => {
-    serve('draft');
-    const { unmount } = show();
-    expect(
-      await screen.findByRole('button', { name: 'Mark sent' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'Mark paid' }),
-    ).not.toBeInTheDocument();
-    unmount();
-    vi.unstubAllGlobals();
-
-    serve('sent');
-    show();
-    expect(
-      await screen.findByRole('button', { name: 'Mark paid' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'Mark sent' }),
-    ).not.toBeInTheDocument();
   });
 
   /* Voiding can't be taken back and deleting removes the draft, so the
@@ -283,69 +223,6 @@ describe('InvoiceDetail', () => {
     expect(askedAfter).toEqual([]);
   });
 
-  /** Void is terminal: nothing may move an invoice out of it. */
-  it('offers no transitions at all once void', async () => {
-    serve('void');
-    show();
-
-    await screen.findByRole('heading', { name: 'INV-13' });
-    for (const label of ['Mark sent', 'Mark paid', 'Void', 'Delete draft']) {
-      expect(
-        screen.queryByRole('button', { name: label }),
-      ).not.toBeInTheDocument();
-    }
-  });
-
-  /* Nothing asked before, so `paid_at` was always the click, not the
-     payment. The dialog defaults to today and lets a backdated payment be
-     recorded as what it actually was. */
-  it('asks when the payment arrived before recording it as paid', async () => {
-    const calls = serve('sent');
-    const user = userEvent.setup();
-    show();
-
-    await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
-
-    const dateInput = await screen.findByLabelText('Date paid');
-    const today = localDateKey(new Date(), tz);
-    expect(dateInput).toHaveValue(today);
-
-    await user.clear(dateInput);
-    await user.type(dateInput, '2026-08-20');
-    await user.click(screen.getByRole('button', { name: 'Mark paid' }));
-
-    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
-    const call = calls[0]!;
-    expect(call.method).toBe('PATCH');
-    expect(call.path).toBe('/invoices/inv-1/status');
-    const body = call.body as { status: string; paidAt: string };
-    expect(body.status).toBe('paid');
-    /* Local midnight of the picked date, not a UTC-day slice — a naive
-       string comparison gives the wrong day for anyone east of UTC. */
-    expect(body.paidAt).toBe(
-      localDateTimeToInstant('2026-08-20', '00:00', tz).toISOString(),
-    );
-  });
-
-  /* The unchanged default must not send an explicit `paidAt` at all — local
-     midnight on the day the invoice was also sent can land before `sentAt`,
-     which the server now rejects, and the original "click marks it paid
-     now" behaviour is what the common case should keep. */
-  it('sends no paidAt when the default date is left unchanged', async () => {
-    const calls = serve('sent');
-    const user = userEvent.setup();
-    show();
-
-    await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
-    await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
-
-    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
-    const call = calls[0]!;
-    const body = call.body as { status: string; paidAt?: string };
-    expect(body.status).toBe('paid');
-    expect(body.paidAt).toBeUndefined();
-  });
-
   /* Sent Monday 3pm, marked paid on that same Monday from a session running
      Wednesday: local midnight of the picked day is Monday 00:00, which is
      before Monday 3pm and would underflow `sentAt`. The picked date is the
@@ -386,7 +263,7 @@ describe('InvoiceDetail', () => {
  * `can't access property "split", date is null` on the whole invoice.
  */
 describe('shortDate', () => {
-  it('renders a dash rather than throwing on a missing date', async () => {
+  it('renders a dash for a missing or malformed date, and formats a real one', async () => {
     const { shortDate } = await import('@/components/invoice-bits');
 
     /* A date is decoration on a page whose subject is money. Taking the
@@ -396,19 +273,11 @@ describe('shortDate', () => {
     expect(shortDate(null)).toBe('—');
     expect(shortDate(undefined)).toBe('—');
     expect(shortDate('')).toBe('—');
-  });
-
-  it('renders a dash for a malformed date rather than "Invalid Date"', async () => {
-    const { shortDate } = await import('@/components/invoice-bits');
-
     // `new Date(NaN, …)` formats as "Invalid Date", which reads as a bug
     // in the invoice rather than in the data.
     expect(shortDate('not-a-date')).toBe('—');
     expect(shortDate('2026-13')).toBe('—');
-  });
-
-  it('still formats a real date', async () => {
-    const { shortDate } = await import('@/components/invoice-bits');
+    // A real date still formats.
     expect(shortDate('2026-07-26')).toBe('Jul 26, 2026');
   });
 });

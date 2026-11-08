@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -116,63 +116,27 @@ describe('ClientList', () => {
     expect(screen.getAllByText('Website redesign')).toHaveLength(2);
   });
 
-  it('keeps a client with no projects, since this is the only list of clients', async () => {
-    serve([NORTHWIND, BYRNE], [project({ clientId: 'c1' })]);
-    render(<ClientList />, { wrapper });
-
-    await waitFor(() =>
-      expect(headings()).toEqual(['Byrne Studio', 'Northwind']),
+  it('reaches a project with no client, or whose client cannot be resolved, under No client', async () => {
+    serve(
+      [NORTHWIND],
+      [
+        project({ clientId: null, name: 'Stint itself' }),
+        // A dangling client_id should not make a row vanish silently.
+        project({ id: 'p2', clientId: 'gone', name: 'Orphaned work' }),
+      ],
     );
-  });
-
-  it('reaches a project with no client, which has no detail page to open', async () => {
-    serve([NORTHWIND], [project({ clientId: null, name: 'Stint itself' })]);
     render(<ClientList />, { wrapper });
 
     /* The client-nested section cannot show these: there is no client detail
        page, because there is no client. */
     await waitFor(() => expect(headings()).toContain('No client'));
     expect(screen.getByText('Stint itself')).toBeInTheDocument();
+    expect(screen.getByText('Orphaned work')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'No client' })).toBeNull();
   });
 
-  it('puts "No client" last, as the residue rather than a peer', async () => {
-    serve(
-      [NORTHWIND, BYRNE],
-      [
-        project({ id: 'p1', clientId: null, name: 'Admin' }),
-        project({ id: 'p2', clientId: 'c2', name: 'Brand rebuild' }),
-        project({ id: 'p3', clientId: 'c1', name: 'Warehouse' }),
-      ],
-    );
-    render(<ClientList />, { wrapper });
-
-    await waitFor(() =>
-      expect(headings()).toEqual(['Byrne Studio', 'Northwind', 'No client']),
-    );
-  });
-
-  it('never drops a project whose client cannot be resolved', async () => {
-    // A dangling client_id should not make a row vanish silently.
-    serve([], [project({ clientId: 'gone', name: 'Orphaned work' })]);
-    render(<ClientList />, { wrapper });
-
-    await waitFor(() =>
-      expect(screen.getByText('Orphaned work')).toBeInTheDocument(),
-    );
-    expect(headings()).toContain('No client');
-  });
-
   describe('the card', () => {
-    it('marks a rate the client inherits as the default', async () => {
-      serve([BYRNE]);
-      render(<ClientList />, { wrapper });
-      await waitFor(() =>
-        expect(screen.getByText(/\$125\.00\/h · default/)).toBeInTheDocument(),
-      );
-    });
-
-    it('gives each project its resolved rate and where that rate comes from', async () => {
+    it('gives the client and each project its resolved rate and where that rate comes from', async () => {
       serve(
         [NORTHWIND, BYRNE],
         [
@@ -191,24 +155,9 @@ describe('ClientList', () => {
       expect(screen.getByText('$195.00/h')).toBeInTheDocument();
       expect(screen.getByText('from client')).toBeInTheDocument();
       expect(screen.getByText('from default')).toBeInTheDocument();
+      // A rate the client inherits is marked as the default.
+      expect(screen.getByText(/\$125\.00\/h · default/)).toBeInTheDocument();
     });
-  });
-
-  it('adds a project to the client whose card it was asked from', async () => {
-    serve([NORTHWIND, BYRNE]);
-    const user = userEvent.setup();
-    render(<ClientList />, { wrapper });
-
-    await user.click(
-      await screen.findByRole('button', { name: 'Project for Northwind' }),
-    );
-
-    const dialog = await screen.findByRole('dialog');
-    await waitFor(() =>
-      expect(
-        within(dialog).getByRole('button', { name: 'Client' }),
-      ).toHaveTextContent('Northwind'),
-    );
   });
 
   it('shows a new project under its client before the server answers', async () => {

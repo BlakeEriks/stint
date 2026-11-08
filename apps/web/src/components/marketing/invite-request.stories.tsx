@@ -49,6 +49,7 @@ export const Sending: Story = {
     await expect(
       await page.findByRole('button', { name: 'Sending…' }),
     ).toBeDisabled();
+    await expect(page.getByLabelText('Email')).toHaveAttribute('readonly');
   },
 };
 
@@ -61,6 +62,8 @@ export const Sent: Story = {
     await expect(
       await page.findByText('You’re on the list.'),
     ).toBeInTheDocument();
+    await expect(page.getByText(/new@example\.com/)).toBeInTheDocument();
+    await expect(page.queryByLabelText('Email')).toBeNull();
   },
 };
 
@@ -74,6 +77,9 @@ export const Failed: Story = {
       /didn’t send/,
     );
     await expect(page.getByLabelText('Email')).toHaveValue('new@example.com');
+    await expect(
+      page.getByRole('button', { name: 'Request an invite' }),
+    ).toBeEnabled();
   },
 };
 

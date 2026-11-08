@@ -106,6 +106,9 @@ export const Blank: Story = {
     await expect(
       within(canvasElement).queryByText('Give the summary line its text.'),
     ).toBeNull();
+    await expect(
+      within(canvasElement).getByRole('button', { name: 'Generate invoice' }),
+    ).toBeDisabled();
   },
 };
 export const Phone: Story = { ...phone };
@@ -153,9 +156,9 @@ export const EarlyDue: Story = {
     const due = page.getByLabelText('Due');
     await userEvent.clear(due);
     await userEvent.type(due, '2026-09-10');
-    await expect(
-      await page.findByText("Due can't be before the issue date."),
-    ).toBeVisible();
+    const early = await page.findByText("Due can't be before the issue date.");
+    await expect(early).toBeVisible();
+    await expect(early).toHaveAttribute('role', 'alert');
     await expect(
       page.getByRole('button', { name: 'Generate invoice' }),
     ).toBeDisabled();
@@ -415,6 +418,9 @@ export const Unrated: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await expect(await page.findByText(/no rate/i)).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Generate invoice' }),
+    ).toBeDisabled();
   },
 };
 
@@ -1089,6 +1095,10 @@ export const Loading: Story = {
     await expect(await region.findByRole('status')).toHaveTextContent(
       'Loading',
     );
+    // Generate is never there to press before Due can be filled.
+    await expect(
+      region.queryByRole('button', { name: /generate/i }),
+    ).toBeNull();
   },
 };
 

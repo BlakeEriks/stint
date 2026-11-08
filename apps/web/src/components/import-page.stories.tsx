@@ -151,6 +151,9 @@ export const NoDefaultRate: Story = {
   }),
   play: async ({ canvasElement }) => {
     const page = await upload(canvasElement);
+    const rate = await page.findByLabelText('Harbor & Co rate');
+    await expect(rate).toHaveAttribute('placeholder', 'rate');
+    await expect(rate).toHaveAttribute('aria-invalid', 'true');
     await userEvent.click(await page.findByRole('button', { name: /Import/ }));
     await expect(
       await page.findByRole('link', { name: /Set a rate/i }),

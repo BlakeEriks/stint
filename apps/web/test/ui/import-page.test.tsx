@@ -193,17 +193,6 @@ describe('ImportPage', () => {
     });
   });
 
-  it('marks the rate field when there is no default to fall back to', async () => {
-    serve(() => preview({ defaultRate: null }));
-    const user = userEvent.setup();
-    render(<ImportPage />, { wrapper });
-    await chooseFile(user);
-
-    const rate = screen.getByLabelText('Globex rate');
-    expect(rate).toHaveAttribute('placeholder', 'rate');
-    expect(rate).toHaveAttribute('aria-invalid', 'true');
-  });
-
   it("each client's invoiced-through date re-reads the file", async () => {
     const sent = serve(() => preview());
     const user = userEvent.setup();

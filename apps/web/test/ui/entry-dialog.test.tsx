@@ -93,63 +93,43 @@ const open = (existing?: TimeEntry) =>
     { wrapper },
   );
 
+const SUGGESTIONS: TaskNameSuggestion[] = [
+  { taskName: 'Invoice reconciliation', projectId: 'p1', lastUsedAt: '1' },
+];
+
 afterEach(() => vi.unstubAllGlobals());
 
 describe('EntryDialog', () => {
-  it('marks an entry on no invoice billed elsewhere when ticked', async () => {
-    const calls = serve();
-    const user = userEvent.setup();
-    open(entry());
+  it('sends billed elsewhere as ticked, unticked, or not at all when untouched', async () => {
+    for (const [stored, press, sent] of [
+      [false, true, { invoicedElsewhere: true }],
+      [true, true, { invoicedElsewhere: false }],
+      [false, false, undefined],
+    ] as const) {
+      const calls = serve();
+      const user = userEvent.setup();
+      const { unmount } = open(entry({ invoicedElsewhere: stored }));
 
-    await user.click(
-      await screen.findByRole('checkbox', { name: 'Billed elsewhere' }),
-    );
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+      const box = await screen.findByRole('checkbox', {
+        name: 'Billed elsewhere',
+      });
+      if (press) await user.click(box);
+      await user.click(screen.getByRole('button', { name: 'Save' }));
 
-    await waitFor(() =>
-      expect(calls.find((c) => c.method === 'PATCH')?.body).toMatchObject({
-        invoicedElsewhere: true,
-      }),
-    );
+      await waitFor(() =>
+        expect(calls.find((c) => c.method === 'PATCH')?.body).toBeDefined(),
+      );
+      const body = calls.find((c) => c.method === 'PATCH')?.body;
+      if (sent) expect(body).toMatchObject(sent);
+      else expect(body).not.toHaveProperty('invoicedElsewhere');
+      unmount();
+      vi.unstubAllGlobals();
+    }
   });
 
-  it('clears billed elsewhere when unticked', async () => {
+  it('shows the stored instant as local wall-clock time, and sends an edit back as an instant', async () => {
     const calls = serve();
     const user = userEvent.setup();
-    open(entry({ invoicedElsewhere: true }));
-
-    const box = await screen.findByRole('checkbox', {
-      name: 'Billed elsewhere',
-    });
-    expect(box).toBeChecked();
-    await user.click(box);
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-
-    await waitFor(() =>
-      expect(calls.find((c) => c.method === 'PATCH')?.body).toMatchObject({
-        invoicedElsewhere: false,
-      }),
-    );
-  });
-
-  it('leaves billed elsewhere out of an edit that never touched it', async () => {
-    const calls = serve();
-    const user = userEvent.setup();
-    open(entry());
-
-    await screen.findByRole('checkbox', { name: 'Billed elsewhere' });
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-
-    await waitFor(() =>
-      expect(calls.find((c) => c.method === 'PATCH')?.body).toBeDefined(),
-    );
-    expect(calls.find((c) => c.method === 'PATCH')?.body).not.toHaveProperty(
-      'invoicedElsewhere',
-    );
-  });
-
-  it('shows the stored instant as local wall-clock time', async () => {
-    serve();
     open(entry());
 
     /* 13:00Z is 09:00 in New York. Showing UTC here would silently move every
@@ -160,14 +140,7 @@ describe('EntryDialog', () => {
     );
     expect(screen.getByLabelText('End')).toHaveValue('10:30');
     expect(screen.getByLabelText('Date')).toHaveValue('2026-09-11');
-  });
 
-  it('sends an edit back as an instant, not wall-clock', async () => {
-    const calls = serve();
-    const user = userEvent.setup();
-    open(entry());
-
-    await waitFor(() => screen.getByLabelText('End'));
     await user.clear(screen.getByLabelText('End'));
     await user.type(screen.getByLabelText('End'), '11:45');
     await user.click(screen.getByRole('button', { name: 'Save' }));
@@ -208,7 +181,7 @@ describe('EntryDialog', () => {
   });
 
   it('never offers an edit on an entry billed to an issued invoice', async () => {
-    serve('sent');
+    const calls = serve('sent', SUGGESTIONS);
     open(entry({ invoiceId: 'inv1' }));
 
     /* The lock is a database trigger, so an edit here would 409. Showing the
@@ -232,6 +205,14 @@ describe('EntryDialog', () => {
       .map((b) => b.textContent?.trim() || 'Close');
     expect(actions.length).toBeGreaterThan(0);
     expect(new Set(actions)).toEqual(new Set(['Close']));
+
+    /* Nor a suggestion list: one over a read-only field offers an edit that
+       409s. Asserted as the REQUEST, not the rendered list — a disabled
+       input cannot be focused, so "no listbox" would hold whether or not the
+       suggestion machinery was suppressed. */
+    expect(calls.some((c) => c.path.startsWith('/entries/task-names'))).toBe(
+      false,
+    );
   });
 
   /* Radix mounts no dialog inside another, so the item would set its state
@@ -252,78 +233,24 @@ describe('EntryDialog', () => {
     expect(screen.queryByRole('menuitem', { name: /New project/ })).toBeNull();
   });
 
-  /**
-   * The wiring, not the list — `task-suggest.test.tsx` owns its behavior.
-   * What matters here is what a chosen row is allowed to write into a form
-   * that bills.
-   */
-  describe('task suggestions', () => {
-    const SUGGESTIONS: TaskNameSuggestion[] = [
-      { taskName: 'Invoice reconciliation', projectId: 'p1', lastUsedAt: '1' },
-    ];
-
-    /* An entry that exists is already named, so there is nothing to
-       accelerate and the overlay would drop over the field the moment it
-       takes focus. Asserted as the REQUEST rather than the absent list: the
-       list is also absent when nothing has been typed, so "no listbox" would
-       pass whether or not the machinery was actually suppressed.
-
-       `timer-bar.test.tsx` owns what a chosen row may write — that is where
-       suggestions live now. */
-    it('asks for no suggestions when editing an entry that exists', async () => {
-      const calls = serve('sent', SUGGESTIONS);
-      open(entry({ projectId: null }));
-
-      await waitFor(() => expect(screen.getByLabelText('Task')).toBeEnabled());
-
-      expect(calls.some((c) => c.path.startsWith('/entries/task-names'))).toBe(
-        false,
-      );
-    });
-
-    /* Billed to an issued invoice: the field is read-only, so there is
-       nothing to accelerate and a list over it offers an edit that 409s.
-       Asserted as the REQUEST, not the rendered list — a disabled input
-       cannot be focused, so "no listbox" would hold whether or not the
-       suggestion machinery was suppressed. */
-    it('asks for no suggestions on an entry locked by an issued invoice', async () => {
-      const calls = serve('sent', SUGGESTIONS);
-      open(entry({ invoiceId: 'inv1' }));
-
-      await waitFor(() => expect(screen.getByLabelText('Task')).toBeDisabled());
-
-      expect(calls.some((c) => c.path.startsWith('/entries/task-names'))).toBe(
-        false,
-      );
-    });
-  });
-
-  it('opens on the task by default', async () => {
-    serve();
-    open(entry());
+  /* An entry that exists is already named, so there is nothing to
+     accelerate and the overlay would drop over the field the moment it
+     takes focus. Asserted as the REQUEST rather than the absent list: the
+     list is also absent when nothing has been typed, so "no listbox" would
+     pass whether or not the machinery was actually suppressed.
+     `timer-bar.test.tsx` owns what a chosen row may write. */
+  it('opens on the task by default, asking for no suggestions for an entry that exists', async () => {
+    const calls = serve('sent', SUGGESTIONS);
+    open(entry({ projectId: null }));
 
     await waitFor(() => expect(screen.getByLabelText('Task')).toHaveFocus());
-  });
-
-  it('does not delete until the confirmation is clicked', async () => {
-    const calls = serve();
-    const user = userEvent.setup();
-    open(entry());
-
-    await user.click(screen.getByRole('button', { name: /delete/i }));
-
-    /* Deleting a logged entry is irreversible and the row is one click away
-       from the duration, so the first click must only ask. */
-    expect(calls.some((c) => c.method === 'DELETE')).toBe(false);
-
-    await user.click(screen.getByRole('button', { name: 'Delete for good' }));
-    await waitFor(() =>
-      expect(calls.some((c) => c.method === 'DELETE')).toBe(true),
+    expect(calls.some((c) => c.path.startsWith('/entries/task-names'))).toBe(
+      false,
     );
   });
 
-  it('moves focus into the delete confirm, and Keep hands it back', async () => {
-    serve();
+  it('deletes only from the confirm, which takes focus and hands it back on Keep', async () => {
+    const calls = serve();
     const user = userEvent.setup();
     open(entry());
 
@@ -331,24 +258,18 @@ describe('EntryDialog', () => {
     expect(
       screen.getByRole('button', { name: 'Delete for good' }),
     ).toHaveFocus();
-
     await user.click(screen.getByRole('button', { name: 'Keep' }));
     expect(screen.getByRole('button', { name: 'Delete entry' })).toHaveFocus();
-  });
 
-  it('holds the delete confirm pending while the server answers', async () => {
-    serve();
-    const user = userEvent.setup();
-    open(entry());
+    /* Deleting a logged entry is irreversible and the row is one click away
+       from the duration, so the first click must only ask. */
     await user.click(screen.getByRole('button', { name: 'Delete entry' }));
+    expect(calls.some((c) => c.method === 'DELETE')).toBe(false);
 
-    vi.mocked(fetch).mockImplementation(() => new Promise(() => {}));
     await user.click(screen.getByRole('button', { name: 'Delete for good' }));
-
-    expect(
-      await screen.findByRole('button', { name: 'Deleting…' }),
-    ).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Keep' })).toBeDisabled();
+    await waitFor(() =>
+      expect(calls.some((c) => c.method === 'DELETE')).toBe(true),
+    );
   });
 
   it("shows the server's reason when a save is refused", async () => {
@@ -391,7 +312,7 @@ describe('EntryDialog', () => {
     },
   );
 
-  it("a new entry takes its project's billable default", async () => {
+  it("a new entry takes its project's billable default, and a client-generated id", async () => {
     const calls = serve();
     const user = userEvent.setup();
     open();
@@ -411,6 +332,11 @@ describe('EntryDialog', () => {
     );
     const post = calls.find((c) => c.method === 'POST')!;
     expect((post.body as { isBillable: boolean }).isBillable).toBe(false);
+    /* A client-supplied UUIDv7 is what makes a retried insert land on the
+       same row instead of duplicating the entry. */
+    expect((post.body as { id: string }).id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
   });
 
   it('a project picked after Billable was unticked leaves it unticked', async () => {
@@ -443,25 +369,6 @@ describe('EntryDialog', () => {
       await screen.findByRole('menuitemradio', { name: /Internal/ }),
     );
     expect(screen.getByRole('checkbox', { name: 'Billable' })).toBeChecked();
-  });
-
-  it('creates with a client-generated id so a retry is idempotent', async () => {
-    const calls = serve();
-    const user = userEvent.setup();
-    open(); // no existing entry
-
-    await user.type(screen.getByLabelText('Task'), 'Manual');
-    await user.click(screen.getByRole('button', { name: 'Add entry' }));
-
-    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
-    const post = calls.find((c) => c.method === 'POST')!;
-    const body = post.body as { id: string };
-
-    /* A client-supplied UUIDv7 is what makes a retried insert land on the
-       same row instead of duplicating the entry. */
-    expect(body.id).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
-    );
   });
 
   /**

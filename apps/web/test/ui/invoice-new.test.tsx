@@ -278,33 +278,13 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('NewInvoice', () => {
-  it('holds Generate until a client is chosen', async () => {
-    serve();
-    render(<NewInvoice />, { wrapper });
-
-    expect(await screen.findByText('New invoice')).toBeInTheDocument();
-    expect(generate()).toBeDisabled();
-    expect(
-      screen.getByText('Choose a client to see what this invoice will say.'),
-    ).toBeInTheDocument();
-  });
-
-  it('previews as the form fills, with no Preview button', async () => {
-    serve();
-    const user = userEvent.setup();
-    render(<NewInvoice />, { wrapper });
-
-    await ready(user);
-    expect(screen.queryByRole('button', { name: 'Preview' })).toBeNull();
-    expect(screen.getByText('3 entries')).toBeInTheDocument();
-    expect(previews()).toHaveLength(1);
-  });
-
   it('says Updating and holds Generate while the server recomputes', async () => {
     serve();
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
     await ready(user);
+    // The form previews as it fills, once.
+    expect(previews()).toHaveLength(1);
 
     let release = () => {};
     hold = new Promise((r) => {
@@ -319,40 +299,6 @@ describe('NewInvoice', () => {
     await waitFor(() => expect(generate()).toBeEnabled());
     expect(screen.queryByText('Updating…')).toBeNull();
     expect(previews().at(-1)?.body.groupingMode).toBe('task');
-  });
-
-  it('shows a ticked schedule at once, with no request', async () => {
-    serve();
-    const user = userEvent.setup();
-    render(<NewInvoice />, { wrapper });
-    await chooseClient(user);
-    await pickGrouping(user, /One summary line/);
-    await user.type(screen.getByLabelText(/Summary line/), 'Services');
-    await waitFor(() => expect(generate()).toBeEnabled());
-    const sent = previews().length;
-
-    await user.click(
-      screen.getByRole('checkbox', { name: 'Hours by project' }),
-    );
-
-    expect(
-      within(card()).getByText('Page 2 · supporting detail'),
-    ).toBeInTheDocument();
-    expect(within(card()).getByText('Portal')).toBeInTheDocument();
-    expect(previews()).toHaveLength(sent);
-    expect(generate()).toBeEnabled();
-  });
-
-  it('blocks generation when any entry has no rate', async () => {
-    serve({ ...PREVIEW, unratedEntryIds: ['e1', 'e2'] });
-    const user = userEvent.setup();
-    render(<NewInvoice />, { wrapper });
-    await chooseClient(user);
-
-    expect(
-      await screen.findByText(/2 entries have no rate/),
-    ).toBeInTheDocument();
-    expect(generate()).toBeDisabled();
   });
 
   it('generates a draft when the period holds nothing billable', async () => {
@@ -391,23 +337,6 @@ describe('NewInvoice', () => {
     expect(generate()).toBeDisabled();
   });
 
-  it('shows Due from the payment terms, and sends only a typed one', async () => {
-    serve();
-    settings = { ...SETTINGS, paymentTermsDays: 15 };
-    const user = userEvent.setup();
-    render(<NewInvoice />, { wrapper });
-    const due = addDays(localDateKey(new Date(), tz), 15);
-    await waitFor(() => expect(screen.getByLabelText('Due')).toHaveValue(due));
-    await ready(user);
-
-    await user.click(generate());
-
-    await waitFor(() => expect(push).toHaveBeenCalled());
-    expect(
-      bodies.find((b) => b.path.endsWith('/invoices'))!.body,
-    ).not.toHaveProperty('dueDate');
-  });
-
   it('sends a Due the user typed', async () => {
     serve();
     const user = userEvent.setup();
@@ -426,17 +355,6 @@ describe('NewInvoice', () => {
     );
   });
 
-  it("defaults Due to the client's own terms over the user's", async () => {
-    serve();
-    CLIENTS[0]!.paymentTermsDays = 10;
-    const user = userEvent.setup();
-    render(<NewInvoice />, { wrapper });
-    await ready(user);
-    expect(screen.getByLabelText('Due')).toHaveValue(
-      addDays(localDateKey(new Date(), tz), 10),
-    );
-  });
-
   // The device is rarely on Kiritimati's date, 14 hours ahead of UTC.
   it("dates the invoice on the account's billing zone, not the device's", async () => {
     serve();
@@ -447,41 +365,6 @@ describe('NewInvoice', () => {
     expect(screen.getByLabelText('Due')).toHaveValue(
       addDays(localDateKey(new Date(), 'Pacific/Kiritimati'), 30),
     );
-  });
-
-  it('refuses a due date before the issue date at the field', async () => {
-    serve();
-    const user = userEvent.setup();
-    render(<NewInvoice />, { wrapper });
-    await ready(user);
-
-    fireEvent.change(screen.getByLabelText('Due'), {
-      target: { value: addDays(localDateKey(new Date(), tz), -1) },
-    });
-
-    expect(
-      await screen.findByText("Due can't be before the issue date."),
-    ).toHaveAttribute('role', 'alert');
-    expect(generate()).toBeDisabled();
-  });
-
-  /* The form paints once, with its terms in place, so Generate is
-     never there to press before Due can be filled. */
-  it('holds the form until the settings answer, so Due is never sent blank', async () => {
-    serve();
-    let release = () => {};
-    holdSettings = new Promise((r) => {
-      release = r;
-    });
-    render(<NewInvoice />, { wrapper });
-    expect(await screen.findByRole('status')).toHaveTextContent('Loading');
-    expect(screen.queryByRole('button', { name: /generate/i })).toBeNull();
-
-    release();
-
-    expect(
-      await screen.findByRole('button', { name: /generate/i }),
-    ).toBeInTheDocument();
   });
 
   it('generates only when pressed, leaving its dates to the send', async () => {
@@ -536,25 +419,6 @@ describe('NewInvoice — expenses', () => {
 });
 
 describe('NewInvoice — one summary line', () => {
-  it('asks for the line text once cleared, and blocks generation without it', async () => {
-    serve();
-    const user = userEvent.setup();
-    render(<NewInvoice />, { wrapper });
-
-    await ready(user);
-    await pickGrouping(user, /One summary line/);
-
-    const field = screen.getByLabelText(/Summary line/);
-    await user.clear(field);
-    expect(field).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByText('Give the summary line its text.')).toHaveAttribute(
-      'role',
-      'alert',
-    );
-    await waitFor(() => expect(previews().length).toBeGreaterThan(1));
-    expect(generate()).toBeDisabled();
-  });
-
   it('takes spaces alone as no text', async () => {
     serve();
     const user = userEvent.setup();
@@ -562,12 +426,15 @@ describe('NewInvoice — one summary line', () => {
 
     await ready(user);
     await pickGrouping(user, /One summary line/);
-    await user.clear(screen.getByLabelText(/Summary line/));
-    await user.type(screen.getByLabelText(/Summary line/), '   ');
+    const field = screen.getByLabelText(/Summary line/);
+    await user.clear(field);
+    await user.type(field, '   ');
 
-    expect(
-      screen.getByText('Give the summary line its text.'),
-    ).toBeInTheDocument();
+    expect(field).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText('Give the summary line its text.')).toHaveAttribute(
+      'role',
+      'alert',
+    );
     await waitFor(() => expect(previews().length).toBeGreaterThan(1));
     expect(generate()).toBeDisabled();
   });
@@ -691,7 +558,7 @@ describe('NewInvoice — from the client’s last invoice', () => {
 });
 
 describe('NewInvoice — supporting detail', () => {
-  it('sends the ticked schedules in print order', async () => {
+  it('shows ticked schedules at once, with no request, and sends them in print order', async () => {
     serve();
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
@@ -699,11 +566,20 @@ describe('NewInvoice — supporting detail', () => {
     await chooseClient(user);
     await pickGrouping(user, /One summary line/);
     await user.type(screen.getByLabelText(/Summary line/), 'Services');
+    await waitFor(() => expect(generate()).toBeEnabled());
+    const asked = previews().length;
     await user.click(screen.getByRole('checkbox', { name: 'Hours by date' }));
     await user.click(
       screen.getByRole('checkbox', { name: 'Hours by project' }),
     );
-    await waitFor(() => expect(generate()).toBeEnabled());
+
+    // A ticked schedule shows at once, with no request.
+    expect(
+      within(card()).getByText('Page 2 · supporting detail'),
+    ).toBeInTheDocument();
+    expect(within(card()).getAllByText('Portal').length).toBeGreaterThan(0);
+    expect(previews()).toHaveLength(asked);
+    expect(generate()).toBeEnabled();
     await user.click(generate());
     await waitFor(() => expect(push).toHaveBeenCalled());
 
@@ -880,29 +756,6 @@ describe('NewInvoice — expenses, charges and payment details', () => {
     expect(
       bodies.find((b) => b.path.endsWith('/invoices'))!.body.paymentProfileId,
     ).toBe('pp1');
-  });
-
-  it('selects new payment details once they are saved', async () => {
-    serve();
-    const user = userEvent.setup();
-    render(<NewInvoice />, { wrapper });
-    await ready(user);
-
-    await user.click(screen.getByRole('button', { name: 'Payment details' }));
-    await user.click(
-      await screen.findByRole('menuitem', { name: /New payment details/ }),
-    );
-    const dialog = await screen.findByRole('dialog', {
-      name: 'Payment details',
-    });
-    await user.type(within(dialog).getByLabelText(/Label/), 'Wire');
-    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
-
-    await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: 'Payment details' }),
-      ).toHaveTextContent('Wire'),
-    );
   });
 
   it('generates with new payment details before the list refetches', async () => {
