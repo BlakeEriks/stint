@@ -61,16 +61,32 @@ export const NextSavesRate: Story = {
   },
 };
 
-/** Step 2, no name: it can be skipped, the rate field shows the default, and
-    Start tracking says the name is missing. */
+/** What a field's text box has to spare once it holds its placeholder and
+    the browser's number spinner, which sits inside it (Chrome's is 15px). */
+function placeholderSlack(input: HTMLInputElement) {
+  const style = getComputedStyle(input);
+  const ctx = document.createElement('canvas').getContext('2d');
+  if (!ctx) throw new Error('No 2D canvas');
+  ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  const box =
+    input.clientWidth -
+    Number.parseFloat(style.paddingLeft) -
+    Number.parseFloat(style.paddingRight);
+  return box - 15 - ctx.measureText(input.placeholder).width;
+}
+
+/** Step 2, no name: it can be skipped, the rate field shows the default
+    whole, beside its spinner, and Start tracking says the name is missing. */
 export const ClientEmpty: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     await toStep2(canvasElement);
     const page = body(canvasElement);
+    const rate = page.getByRole('spinbutton', { name: 'Rate' });
+    await expect(rate).toHaveAttribute('placeholder', '125.00');
     await expect(
-      page.getByRole('spinbutton', { name: 'Rate' }),
-    ).toHaveAttribute('placeholder', '125.00');
+      placeholderSlack(rate as HTMLInputElement),
+    ).toBeGreaterThanOrEqual(0);
     await expect(
       page.getByRole('button', { name: 'Skip this step' }),
     ).toBeVisible();
