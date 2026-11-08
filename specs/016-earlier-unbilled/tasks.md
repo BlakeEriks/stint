@@ -10,7 +10,7 @@
 
 ## Phase 2: User Story 1 (P1)
 
-- [ ] T004 [US1] Route test first in `apps/web/test/invoices.test.ts`: the preview's `earlierWork` (one entry after a sent invoice, a void one ignored, the edited draft left out, another draft holding it), and the invoice generated from the moved start bills it
+- [ ] T004 [US1] Route test first in `apps/web/test/invoices.test.ts`: the preview's `earlierWork` (one entry after a sent invoice, a non-billable one left out, a void invoice ignored, the edited draft left out, another draft holding it), and the invoice generated from the moved start bills it
 - [ ] T005 [US1] The reads and the call in `apps/web/src/app/api/v1/invoices/preview/route.ts` and `apps/web/src/mocks/derive.ts`
 - [ ] T006 [US1] Stories first in `apps/web/src/components/invoice-new.stories.tsx`: one entry, several, held by a draft, and Include's `play`
 - [ ] T007 [US1] The offer and Include in `apps/web/src/components/invoice-new.tsx`
