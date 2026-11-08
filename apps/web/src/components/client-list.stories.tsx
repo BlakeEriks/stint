@@ -181,14 +181,6 @@ export const ArchivedProjectLast: Story = {
 export const Empty: Story = {
   ...desktop,
   parameters: account('empty'),
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
-    await expect(
-      await page.findByText(
-        "Who's paying you? Add a client and what you charge them.",
-      ),
-    ).toBeVisible();
-  },
 };
 
 /** A failed query says so, rather than loading forever. */

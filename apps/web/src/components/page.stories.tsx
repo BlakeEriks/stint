@@ -24,7 +24,7 @@ type Story = StoryObj<typeof meta>;
 export const Tabs: Story = {};
 export const TabsArchived: Story = { args: { active: 'archived' } };
 
-/** An empty list names the job its button does. */
+/** An empty list says what to do next. */
 export const EmptyList: Story = {
   render: () => (
     <Panel>

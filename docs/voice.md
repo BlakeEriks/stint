@@ -44,7 +44,7 @@ table*, *your hours are safe*. Humor is not part of the voice.
   priced at its client's rate.*
 - When the product did or did not do something, the subject is **we**:
   *We left the entry as it was.*
-- **Stint** is a name, as in *Stint sign-in code*. It never knows, decides,
+- **Stint** is a name, as in *Sign in to Stint*. It never knows, decides,
   or does anything.
 - Most text needs no subject at all: *That code didn't work.*
 
@@ -79,7 +79,7 @@ One name for each thing, on every client.
 | Awaiting payment | Sent and not yet paid | outstanding, pending |
 | Inbox | Where a record to resolve waits | notifications, alerts |
 | Payment details | The ACH routing and account number an invoice carries | payment profile, bank info |
-| Paid plan | The $3.33/month plan that downloads invoices | Pro, premium, subscription |
+| Paid plan | The plan that downloads invoices | Pro, premium, upgrade, subscription |
 
 ## Mechanics
 
@@ -99,13 +99,13 @@ The Google developer documentation style guide is the base. Stint adds:
 - **US formats**, as `packages/core/src/format.ts` and `duration.ts` write
   them: `$4,250.00` for a billed figure and `$6,180` for one read at a
   glance; `6:12 PM`; `14h 32m`.
-- **The price** is `$3.33/month`, with *billed annually* beside it.
+- **The price** is the monthly figure from `docs/positioning.md`, with
+  *billed annually* beside it.
 
 ## Reference lines
 
 Owner-approved text. A new line in the same moment matches these. The
-landing lines show the voice; what the landing page holds is decided
-elsewhere.
+landing lines show the voice, not final copy.
 
 | Moment | Text |
 | --- | --- |
@@ -119,4 +119,4 @@ elsewhere.
 | Server error | Request failed. Tracked time is unaffected. [Retry] |
 | Sign-in email | Subject *Sign in to Stint*. [Sign in] Or enter this code in the Mac app: 482 913. The link and code work once and expire after 24 hours. If you didn't request this, ignore this email. |
 | Month-end notification | **October is over.** $6,180 of work is unbilled across 3 clients. Create the invoices. |
-| Paid plan | Downloading an invoice requires the paid plan: $3.33/month, billed annually. [Upgrade] |
+| Paid plan | Downloading an invoice requires the paid plan: $3.33/month, billed annually. [Get the paid plan] |

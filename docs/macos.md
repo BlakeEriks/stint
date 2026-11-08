@@ -9,7 +9,7 @@ identity when one exists, which buys a stable designated requirement rather
 than an ad-hoc one; distribution still needs a Developer ID and notarization.
 
 **It is the timer and nothing else** — start, stop, task name, project.
-`design/menubar.html` is the spec, and its text follows `docs/voice.md`.
+`design/menubar.html` is the spec.
 
 ## Building and running it
 
