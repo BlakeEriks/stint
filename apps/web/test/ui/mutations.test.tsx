@@ -9,6 +9,7 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import {
+  reportFailure,
   useOptimisticMutation,
   usePressedSince,
   type OptimisticOptions,
@@ -422,6 +423,15 @@ describe('MutationNotice', () => {
     expect(await screen.findByText('Entry was deleted elsewhere')).toBeTruthy();
     act(() => screen.getByRole('button', { name: 'Dismiss' }).click());
     expect(screen.queryByText('Entry was deleted elsewhere')).toBeNull();
+  });
+
+  it('shows a failure reported after its screen has gone', async () => {
+    const { queryClient, wrapper } = setup({ mutationFn: vi.fn() });
+    render(<MutationNotice />, { wrapper });
+
+    act(() => reportFailure(queryClient, new Error('Settings didn’t save.')));
+
+    expect(await screen.findByText('Settings didn’t save.')).toBeTruthy();
   });
 
   it('clears a failure once the same press succeeds', async () => {

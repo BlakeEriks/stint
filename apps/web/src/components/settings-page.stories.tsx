@@ -149,6 +149,15 @@ export const NextNumberPastUsed: Story = {
     ).toBeVisible();
     await expect(page.getByText('Not saved')).toBeVisible();
     await expect(field).toHaveValue(17);
+    await userEvent.clear(field);
+    await userEvent.type(field, '0');
+    await expect(
+      await page.findByText(
+        'A whole number, 1 or more.',
+        {},
+        { timeout: 3000 },
+      ),
+    ).toBeVisible();
   },
 };
 

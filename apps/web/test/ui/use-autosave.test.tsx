@@ -322,4 +322,22 @@ describe('useAutosave', () => {
     });
     expect(result.current.state).toBe('idle');
   });
+  /** Nobody is left to read the section's "Not saved": the app says it. */
+  it('hands a save refused after it unmounts to onOrphanedError', async () => {
+    const refusal = new Error('An email like you@example.com.');
+    const save = vi.fn(async () => {
+      throw refusal;
+    });
+    const onOrphanedError = vi.fn();
+    const { result, unmount } = renderHook(() =>
+      useAutosave(save, { onOrphanedError }),
+    );
+
+    act(() => result.current.schedule({ a: 1 }));
+    unmount();
+
+    await waitFor(() =>
+      expect(onOrphanedError).toHaveBeenCalledExactlyOnceWith(refusal),
+    );
+  });
 });

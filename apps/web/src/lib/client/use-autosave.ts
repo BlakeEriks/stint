@@ -21,11 +21,20 @@ export type SaveState = 'idle' | 'pending' | 'saved' | 'error';
  * Nothing scheduled is dropped: unmounting sends what is unsent at once, and
  * `saveNow` does the same for a blur or a choice, which have nothing left to
  * type. `saved` settles back to `idle`, so the check answers the edit that
- * caused it and does not become permanent.
+ * caused it and does not become permanent. A save that fails once the form
+ * has gone goes to `onOrphanedError`, since no field is left to say it.
  */
 export function useAutosave<T extends object>(
   save: (value: T) => Promise<unknown>,
-  { delay = 700, settle = 2000 }: { delay?: number; settle?: number } = {},
+  {
+    delay = 700,
+    settle = 2000,
+    onOrphanedError,
+  }: {
+    delay?: number;
+    settle?: number;
+    onOrphanedError?: (error: Error) => void;
+  } = {},
 ) {
   const [state, setState] = useState<SaveState>('idle');
   const [error, setError] = useState<Error | null>(null);
@@ -42,6 +51,8 @@ export function useAutosave<T extends object>(
   // identity each render does not restart the debounce.
   const saveRef = useRef(save);
   saveRef.current = save;
+  const orphanedRef = useRef(onOrphanedError);
+  orphanedRef.current = onOrphanedError;
 
   const flush = useCallback(async () => {
     if (inFlight.current) {
@@ -62,7 +73,10 @@ export function useAutosave<T extends object>(
         settling.current = setTimeout(() => setState('idle'), settle);
       }
     } catch (e) {
-      if (!alive.current) return;
+      if (!alive.current) {
+        orphanedRef.current?.(e as Error);
+        return;
+      }
       setError(e as Error);
       setState('error');
       // Put the failed value back under newer edits, so the next save retries

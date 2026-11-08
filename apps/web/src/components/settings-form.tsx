@@ -20,7 +20,7 @@ import {
   type SettingsInput,
 } from '@/lib/client/api';
 import { type Theme, useTheme } from '@/lib/client/use-theme';
-import { keys, invalidateEntryData } from '@stint/client';
+import { keys, invalidateEntryData, reportFailure } from '@stint/client';
 
 const THEMES: Segment<Theme>[] = [
   { value: 'system', label: 'System', icon: Monitor },
@@ -72,9 +72,17 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
     invalidateEntryData(queryClient);
   };
 
-  const billing = useAutosave(persist);
-  const identity = useAutosave(persist);
-  const numbering = useAutosave(persist);
+  /* Once the form has gone, the app-wide notice says what didn't save. */
+  const options = {
+    onOrphanedError: (e: Error) =>
+      reportFailure(
+        queryClient,
+        new Error(`Settings didn’t save: ${refusalReason(e)}`),
+      ),
+  };
+  const billing = useAutosave(persist, options);
+  const identity = useAutosave(persist, options);
+  const numbering = useAutosave(persist, options);
 
   /** Update local state, then schedule that section's save with the new value. */
   const edit =
@@ -334,19 +342,29 @@ function refusedNumber(error: unknown) {
   return details?.field === 'nextInvoiceNumber' ? details.current : undefined;
 }
 
-/** The server's reason a save was refused, when it names `field`: a
-    refusal names it in `details.field`, a validation failure under
-    `details.properties`. */
+type Refused = {
+  field?: string;
+  properties?: Partial<Record<string, { errors?: string[] }>>;
+};
+
+/** A refusal names its field in `details.field`, a validation failure
+    under `details.properties`. */
+const detailsOf = (error: Error | null) =>
+  error instanceof ApiError
+    ? (error.details as Refused | undefined)
+    : undefined;
+
+/** The server's reason a save was refused, when it names `field`. */
 function refusal(error: Error | null, field: keyof Settings) {
-  if (!(error instanceof ApiError)) return undefined;
-  const details = error.details as
-    | {
-        field?: string;
-        properties?: Partial<Record<string, { errors?: string[] }>>;
-      }
-    | undefined;
-  if (details?.field === field) return error.message;
+  const details = detailsOf(error);
+  if (details?.field === field) return error?.message;
   return details?.properties?.[field]?.errors?.[0];
+}
+
+/** Why a save was refused, whichever field it names. */
+function refusalReason(error: Error) {
+  const named = Object.values(detailsOf(error)?.properties ?? {})[0];
+  return named?.errors?.[0] ?? error.message;
 }
 
 /** Saves on its own press, apart from the autosaved fields around it: a

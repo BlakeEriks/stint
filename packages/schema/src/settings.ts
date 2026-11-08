@@ -64,7 +64,11 @@ export const Settings = z.object({
     The settings route refuses either end in one shape, naming the field, so
     the ceiling is not Zod's here. */
 export const UpdateSettings = Settings.partial().extend({
-  nextInvoiceNumber: z.number().int().positive().optional(),
+  nextInvoiceNumber: z
+    .number({ error: 'A whole number, 1 or more.' })
+    .int()
+    .positive()
+    .optional(),
 });
 
 /** What deleting the account removes, counted so the confirm can say so. */
