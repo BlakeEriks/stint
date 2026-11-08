@@ -251,26 +251,19 @@ jobs:
             -f description="Release $RESULT" \
             -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-      # docs/deploying.md "Alerts" is the policy: the outcome you approved
-      # and are waiting for, or any failure. Never a rejection or a
-      # cancellation — you did those — and never an unapproved success.
+      # docs/deploying.md "Alerts" is the policy: failures only. Never a
+      # success, a rejection or a cancellation, and never a failed backup,
+      # which healthchecks.io already reports.
       - name: Tell Discord
-        if: >-
-          needs.approve.result == 'success' || needs.plan.result == 'failure' ||
-          needs.migrate.result == 'failure'
+        if: needs.plan.result == 'failure' || needs.migrate.result == 'failure'
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.event.client_payload.git.sha }}
-          RESULT: ${{ needs.migrate.result }}
           WEBHOOK: ${{ secrets.DISCORD_ALERTS_WEBHOOK }}
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           subject=$(gh api "repos/${{ github.repository }}/commits/$SHA" --jq '.commit.message | split("\n")[0]')
-          if [ "$RESULT" = success ]; then
-            text="✅ Live: \`${SHA:0:7}\` $subject"
-          else
-            text="❌ Release failed: \`${SHA:0:7}\` $subject. The previous build is still serving. $RUN"
-          fi
+          text="❌ Release failed: \`${SHA:0:7}\` $subject. The previous build is still serving. $RUN"
           # Empty allowed_mentions: a commit subject can never ping anyone.
           jq -n --arg c "$text" '{content: $c, allowed_mentions: {parse: []}}' |
             curl -fsS -m 10 -o /dev/null -H 'Content-Type: application/json' -d @- "$WEBHOOK"
