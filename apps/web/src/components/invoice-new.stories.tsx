@@ -458,6 +458,107 @@ export const Overlapping: Story = {
   },
 };
 
+/** Northwind's last invoice ended Aug 15, so its work from then to the
+    period is on no invoice. New invoice says so above the card. */
+export const EarlierWork: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(
+      await page.findByText(
+        /^\d+ earlier entries, Aug \d+ – Aug 31, aren't on any invoice\.$/,
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Include them' }),
+    ).toBeVisible();
+  },
+};
+export const EarlierWorkPhone: Story = { ...EarlierWork, ...phone };
+
+/** The client's ids of the work Aug 16 – 31, the gap after its last invoice. */
+const strays = (db: Db) => {
+  const northwind = new Set(
+    db.projects.filter((p) => p.clientId === ids.northwind).map((p) => p.id),
+  );
+  return db.entries.filter(
+    (e) =>
+      northwind.has(e.projectId as string) &&
+      e.isBillable &&
+      e.invoiceId === null &&
+      e.startedAt >= '2026-08-16' &&
+      e.startedAt < '2026-09-01',
+  );
+};
+
+/** One entry stranded: Include it moves From back to its day, the offer
+    goes, and the card bills it. */
+export const IncludeEarlierWork: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      const keep = strays(db).at(-1);
+      for (const e of strays(db))
+        if (e !== keep) db.entries.splice(db.entries.indexOf(e), 1);
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    const offer = await page.findByText(
+      /^1 earlier entry, Aug 31, isn't on any invoice\.$/,
+    );
+    await settled(page);
+    const before = card(page).getByText(/^\d+ entries$/).textContent;
+    await userEvent.click(page.getByRole('button', { name: 'Include it' }));
+    await expect(page.getByLabelText('From')).toHaveValue('2026-08-31');
+    await expect(offer).not.toBeInTheDocument();
+    await settled(page);
+    await waitFor(() =>
+      expect(card(page).getByText(/^\d+ entries$/).textContent).not.toBe(
+        before,
+      ),
+    );
+  },
+};
+
+/** The stranded work is on another draft already: no Include, and the line
+    links to the draft that bills it. */
+export const EarlierWorkOnDraft: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      const sent = db.invoices.find(
+        (i) => i.clientId === ids.northwind && i.periodEnd === '2026-08-15',
+      ) as Db['invoices'][number];
+      db.invoices.push({
+        ...sent,
+        id: 'ff000000-0000-4000-8000-0000000000e1',
+        invoiceNumber: 'STINT-0042',
+        sequenceNo: 42,
+        status: 'draft',
+        periodStart: '2026-08-16',
+        periodEnd: '2026-09-01',
+        sentAt: null,
+        paidAt: null,
+        template: null,
+      });
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(
+      await page.findByText(/earlier entries, Aug \d+ – Aug 31, are on draft/),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'STINT-0042' }),
+    ).toHaveAttribute('href', '/invoices/ff000000-0000-4000-8000-0000000000e1');
+    await expect(page.queryByRole('button', { name: /^Include/ })).toBeNull();
+  },
+};
+
 /** A charge follows the time lines as 1 x its amount, so its row checks
     like every other. */
 export const WithCharge: Story = {

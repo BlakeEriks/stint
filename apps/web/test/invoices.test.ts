@@ -196,6 +196,95 @@ test('preview names the entries that overlap each other or billed time', async (
   ]);
 });
 
+/* Work stranded between two invoices is billed by neither unless the next
+   says so. */
+test('preview offers the work after the last invoice and before the period, and Include bills it', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const [sent, voided] = [
+    'ff000000-0000-4000-8000-00000000000c',
+    'ff000000-0000-4000-8000-00000000000d',
+  ];
+  await pool.query(
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status,period_start,period_end)
+     values ($1,$3,$4,'INV-0900',900,'sent','2026-09-01','2026-09-29'),
+            ($2,$3,$4,'INV-0901',901,'sent','2026-09-01','2026-09-30')`,
+    [sent, voided, USER, CLIENT],
+  );
+  await pool.query(`update invoices set status='void' where id=$1`, [voided]);
+  await seedEntry({ id: E(1), start: '2026-09-30T15:00:00Z' });
+  await seedEntry({ id: E(2), start: '2026-09-30T17:00:00Z', billable: false });
+  await seedEntry({ id: E(3), start: '2026-10-05T15:00:00Z' });
+  const october = { periodStart: '2026-10-01', periodEnd: '2026-10-31' };
+  const earlier = async (draftId?: string) =>
+    (
+      await json(
+        await preview(
+          req('/invoices/preview', { clientId: CLIENT, ...october, draftId }),
+        ),
+      )
+    ).body.earlierWork;
+
+  assert.deepEqual(await earlier(), {
+    entryCount: 1,
+    from: '2026-09-30',
+    to: '2026-09-30',
+    draft: null,
+  });
+
+  // Include: the period starts on the earlier work's date.
+  const res = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...october,
+        periodStart: '2026-09-30',
+      }),
+    ),
+  );
+  assert.equal(res.status, 201, JSON.stringify(res.body));
+  await send(res.body.id);
+  const { rows } = await pool.query(
+    'select invoice_id from time_entries where id=$1',
+    [E(1)],
+  );
+  assert.equal(rows[0].invoice_id, res.body.id);
+});
+
+test('preview names the draft holding the earlier work, unless it is the one edited', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1), start: '2026-09-30T15:00:00Z' });
+  const draft = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        periodStart: '2026-09-30',
+        periodEnd: '2026-10-31',
+      }),
+    ),
+  );
+  const october = { periodStart: '2026-10-01', periodEnd: '2026-10-31' };
+  const earlier = async (draftId?: string) =>
+    (
+      await json(
+        await preview(
+          req('/invoices/preview', { clientId: CLIENT, ...october, draftId }),
+        ),
+      )
+    ).body.earlierWork;
+
+  assert.deepEqual((await earlier())?.draft, {
+    id: draft.body.id,
+    invoiceNumber: draft.body.invoiceNumber,
+  });
+  assert.equal((await earlier(draft.body.id))?.draft, null);
+});
+
 /* The period is local dates, and the entries are instants. With a UTC window
    these two sit outside a September period for a New York user even though
    both were worked in September on the clock the user read — the late one

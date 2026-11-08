@@ -16,6 +16,8 @@ import {
   buildStrangeDurations,
   buildUnbilled,
   buildUnprojected,
+  earlierWork,
+  earlierWorkFrom,
   lateEntries,
   unbilledDue,
   buildWeek,
@@ -566,6 +568,46 @@ function draftExpenses(db: Db, body: PreviewRequest) {
   );
 }
 
+/** The preview's `earlierWork`, by the route's rule. */
+function previewEarlierWork(db: Db, body: PreviewRequest, tz: string) {
+  const others = db.invoices.filter(
+    (i) =>
+      i.clientId === body.clientId &&
+      i.status !== 'void' &&
+      i.id !== body.draftId,
+  );
+  const from = earlierWorkFrom(
+    body.periodStart,
+    others.map((i) => i.periodEnd),
+  );
+  if (from >= body.periodStart) return null;
+  const window = billingWindow(from, addDays(body.periodStart, -1), tz);
+  const work = earlierWork(
+    db.entries
+      .filter(
+        (e) =>
+          clientOf(db, e.projectId) === body.clientId &&
+          e.isBillable &&
+          isBillableEntry(e, window),
+      )
+      .map((e) => {
+        const draftId = entryHolder(db, e, body.clientId, tz);
+        return {
+          startedAt: e.startedAt,
+          draftId: draftId === body.draftId ? null : draftId,
+        };
+      }),
+    tz,
+  );
+  if (!work) return null;
+  const { draftId, ...rest } = work;
+  const draft = others.find((i) => i.id === draftId);
+  return {
+    ...rest,
+    draft: draft ? { id: draft.id, invoiceNumber: draft.invoiceNumber } : null,
+  };
+}
+
 /** `POST /invoices/preview`: the client's work in the period that no other
     draft holds. */
 export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
@@ -613,6 +655,7 @@ export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
     overlappingEntryIds: toBill
       .map((e) => e.id)
       .filter((id) => overlapping.has(id)),
+    earlierWork: previewEarlierWork(db, body, tz),
     schedules:
       groupingMode === 'summary'
         ? buildSchedules(rated, {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useLeaveGuard } from '@/lib/client/use-leave-guard';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   keepPreviousData,
@@ -878,6 +879,19 @@ function Form({
               payment={payment}
               schedules={schedules}
               updating={updating}
+              offer={
+                <EarlierWorkOffer
+                  // Gone the moment From moves, not when the next answer lands.
+                  work={
+                    current?.periodStart === periodStart
+                      ? current.earlierWork
+                      : null
+                  }
+                  onInclude={(from) =>
+                    setDraft((d) => ({ ...d, periodStart: from, periodEnd }))
+                  }
+                />
+              }
               footnote={
                 editing
                   ? 'Saving keeps its number.'
@@ -1094,6 +1108,58 @@ function blockedBy(s: {
   if (s.earlyDue) return "due can't be before the issue date.";
   if (s.failed) return "the preview couldn't be built.";
   return null;
+}
+
+const shortDate = (d: string) =>
+  new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${d}T00:00:00Z`));
+
+/** Work dated after the client's last invoice and before this period, which
+    neither would bill. Include moves From back to it, and nothing is
+    included without the press (Constitution I). */
+function EarlierWorkOffer({
+  work,
+  onInclude,
+}: {
+  work: InvoicePreview['earlierWork'];
+  onInclude: (from: string) => void;
+}) {
+  if (!work) return null;
+  const one = work.entryCount === 1;
+  const dates =
+    work.from === work.to
+      ? shortDate(work.from)
+      : `${shortDate(work.from)} – ${shortDate(work.to)}`;
+  const what = `${work.entryCount} earlier entr${one ? 'y' : 'ies'}, ${dates},`;
+  if (work.draft)
+    return (
+      <p role="status" className="px-1 pb-2.5 type-support text-warning">
+        {what} {one ? 'is' : 'are'} on draft{' '}
+        <Link
+          href={`/invoices/${work.draft.id}`}
+          className="text-strong underline underline-offset-2"
+        >
+          {work.draft.invoiceNumber}
+        </Link>
+        . Open that draft to bill {one ? 'it' : 'them'}.
+      </p>
+    );
+  return (
+    <p
+      role="status"
+      className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 px-1 pb-2.5 type-support"
+    >
+      <span>
+        {what} {one ? "isn't" : "aren't"} on any invoice.
+      </span>
+      <Button type="button" size="sm" onClick={() => onInclude(work.from)}>
+        Include {one ? 'it' : 'them'}
+      </Button>
+    </p>
+  );
 }
 
 function PreviewNotices({

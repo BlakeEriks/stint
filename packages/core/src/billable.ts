@@ -3,7 +3,7 @@
  * then applies these; the fake API (`apps/web/src/mocks/derive.ts`) applies
  * them to its arrays, so a rule changed here changes both.
  */
-import { addDays, startOfLocalDate } from './calendar.ts';
+import { addDays, localDateKey, startOfLocalDate } from './calendar.ts';
 import type { ExpenseInput } from './invoice.ts';
 
 /**
@@ -56,6 +56,48 @@ export function isBillableEntry(
     started >= window.start.getTime() &&
     started < window.end.getTime()
   );
+}
+
+/** How far a client's first invoice looks back for earlier work: about a
+    monthly period, so it never offers a client's whole history. */
+const FIRST_LOOKBACK_DAYS = 30;
+
+/**
+ * The first day New invoice looks for unbilled work before `periodStart`:
+ * the day after the client's last invoice ending before it, else 30 days
+ * back. `invoiceEnds` are the client's non-void invoices' period ends.
+ */
+export function earlierWorkFrom(periodStart: string, invoiceEnds: string[]) {
+  const last = invoiceEnds
+    .filter((end) => end < periodStart)
+    .sort()
+    .at(-1);
+  return last ? addDays(last, 1) : addDays(periodStart, -FIRST_LOOKBACK_DAYS);
+}
+
+/**
+ * What New invoice offers of the billable entries dated from
+ * `earlierWorkFrom()` to the period: those no draft holds, which Include
+ * bills, else those one draft holds, which it names. The count and dates,
+ * each entry dated by its day in `tz`.
+ */
+export function earlierWork(
+  entries: { startedAt: string; draftId: string | null }[],
+  tz: string,
+) {
+  const free = entries.filter((e) => e.draftId === null);
+  const shown =
+    free.length > 0
+      ? free
+      : entries.filter((e) => e.draftId === entries[0]?.draftId);
+  if (shown.length === 0) return null;
+  const days = shown.map((e) => localDateKey(new Date(e.startedAt), tz)).sort();
+  return {
+    entryCount: shown.length,
+    from: days[0]!,
+    to: days.at(-1)!,
+    draftId: shown[0]!.draftId,
+  };
 }
 
 export interface ExpenseRow {
