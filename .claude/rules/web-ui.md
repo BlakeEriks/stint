@@ -210,7 +210,9 @@ anticipation of one.
 - **A failure renders beside the thing that failed**, and a failed load is
   neutral, never red — it is a condition, and the answer is to try again.
 - **An empty state says what to do**, or what the consequence is. Home's
-  empty Today grid has no line: the grid itself is the instruction.
+  empty Today grid has no line once the account holds an entry: the grid
+  itself is the instruction. Before the first, Home asks for it over the
+  blurred cards.
 - **Archive, never delete**, wherever invoices or entries reference the
   record.
 - **A picker row is swatch, name, then the client muted.** Internal work gets
