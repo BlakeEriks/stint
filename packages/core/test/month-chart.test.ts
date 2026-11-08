@@ -29,6 +29,11 @@ for (const [prefix, length] of MONTHS) {
   const byDay = new Map(days.map((d, i) => [d, 137.37 * ((i % 5) + 1)]));
 
   test(`${prefix}: every day draws inside its scale`, () => {
+    const firstProjected = days.find(
+      (day) =>
+        buildEarnedPace({ byDay, now: new Date(`${day}T12:00:00Z`), tz: 'UTC' })
+          .businessDaysElapsed >= MIN_PACE_DAYS,
+    );
     for (const day of days) {
       const pace = buildEarnedPace({
         byDay,
@@ -42,10 +47,16 @@ for (const [prefix, length] of MONTHS) {
         pace.businessDaysElapsed < MIN_PACE_DAYS,
         `${day}: pending exactly while under ${MIN_PACE_DAYS} business days`,
       );
+      if (chart.projection.state === 'pending') {
+        assert.equal(chart.projection.from, firstProjected, `${day}: from`);
+      }
 
       const plot = chart.plot;
-      if (!plot) continue;
-      assert.equal(plot.gridlines.at(-1), plot.top, `${day}: top is labeled`);
+      assert.deepEqual(
+        plot.gridlines.at(-1),
+        { value: plot.top, label: plot.top },
+        `${day}: top is labeled`,
+      );
       const points = [...plot.solid, ...(plot.dashed ?? [])];
       for (const p of points) {
         assert.ok(p.y >= 0 && p.y <= 1, `${day}: ${p.y} under the top`);
@@ -84,6 +95,7 @@ test('the scale rounds up to a step a reader can add', () => {
     [0, [1, 2, 3, 4]],
   ] as const) {
     const plot = monthChart({
+      earned: amount,
       projected: amount,
       series: [
         { date: '2026-09-01', actual: 0 },
@@ -96,27 +108,38 @@ test('the scale rounds up to a step a reader can add', () => {
       },
     }).plot;
     assert.deepEqual(
-      plot?.gridlines.map((v) => Math.round(v * 100) / 100),
-      gridlines,
+      plot.gridlines.map(({ value, label }) => [
+        Math.round(value * 100) / 100,
+        label == null ? null : Math.round(label * 100) / 100,
+      ]),
+      // Nothing earned keeps its gridlines, unlabeled.
+      gridlines.map((v) => [v, amount === 0 ? null : v]),
     );
   }
 });
 
-test('a month with one day on it has a figure but no plot', () => {
-  const chart = monthChart({
-    projected: null,
-    series: [
-      { date: '2026-09-01', actual: 400 },
-      { date: '2026-09-02', actual: null },
-    ],
-    projection: null,
+/* Before a line has two points, today is a dot. Nov 1 2026 is a Sunday: no
+   business day yet, so its work sits at the axis's start. */
+for (const [now, amount, top] of [
+  ['2026-09-01', 400, 400],
+  ['2026-11-01', 250, 280],
+] as const) {
+  test(`${now}: today is a dot holding what's earned`, () => {
+    const { plot } = monthChart(
+      buildEarnedPace({
+        byDay: new Map([[now, amount]]),
+        now: new Date(`${now}T12:00:00Z`),
+        tz: 'UTC',
+      }),
+    );
+    assert.deepEqual(plot.solid, [{ x: 0, y: amount / top }]);
+    assert.equal(plot.top, top);
   });
-  assert.equal(chart.plot, null);
-  assert.deepEqual(chart.projection, { state: 'pending' });
-});
+}
 
 test('a projection is a figure with its dashed segment', () => {
   const chart = monthChart({
+    earned: 300,
     projected: 900,
     series: [
       { date: '2026-09-01', actual: 100 },
@@ -130,11 +153,11 @@ test('a projection is a figure with its dashed segment', () => {
     },
   });
   assert.deepEqual(chart.projection, { state: 'figure', amount: 900 });
-  assert.deepEqual(chart.plot?.dashed, [
+  assert.deepEqual(chart.plot.dashed, [
     { x: 1 / 3, y: 300 / 1000 },
     { x: 1, y: 900 / 1000 },
   ]);
-  assert.deepEqual(chart.plot?.today, {
+  assert.deepEqual(chart.plot.today, {
     x: 1 / 3,
     y: 300 / 1000,
     anchor: 'middle',

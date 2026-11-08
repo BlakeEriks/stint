@@ -1,5 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { useSearchParams } from '@storybook/nextjs-vite/navigation.mock';
+import {
+  getRouter,
+  useSearchParams,
+} from '@storybook/nextjs-vite/navigation.mock';
 import { delay, http } from 'msw';
 import { useEffect, useReducer } from 'react';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
@@ -63,8 +66,9 @@ const pickGrouping = async (page: Page, name: RegExp) => {
 const summaryFor = async (canvasElement: HTMLElement, text: string) => {
   const page = await chooseNorthwind(canvasElement);
   await pickGrouping(page, /One summary line/);
-  if (text)
-    await userEvent.type(await page.findByLabelText(/Summary line/), text);
+  const field = await page.findByLabelText(/Summary line/);
+  await userEvent.clear(field);
+  if (text) await userEvent.type(field, text);
   return page;
 };
 
@@ -323,8 +327,7 @@ export const NoScheduleNoHint: Story = {
 
 /** A client chosen: the card is the invoice as the PDF prints it, and
     follows the form without a Preview button (US3 scenario 1). What
-    generating does reads under the card, not on it. Northwind's Bill to and
-    email fill their fields. */
+    generating does reads under the card, not on it. */
 export const ClientChosen: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -336,8 +339,6 @@ export const ClientChosen: Story = {
     await expect(footnote).toBeVisible();
     await expect(sheet(page).contains(footnote)).toBe(false);
     await expect(page.queryByRole('button', { name: 'Preview' })).toBeNull();
-    await expect(page.getByLabelText('Email')).toHaveValue('ap@northwind.test');
-    await expect(page.getByLabelText('Bill to')).not.toHaveValue('');
   },
 };
 export const ClientChosenPhone: Story = { ...ClientChosen, ...phone };
@@ -838,8 +839,8 @@ export const FormatLoading: Story = {
   },
 };
 
-/** A client never invoiced opens on one summary line, waiting for its
-    text. */
+/** A client never invoiced opens on one summary line, its text started
+    in the field for the user to keep or change. */
 export const FirstInvoice: Story = {
   ...desktop,
   parameters: {
@@ -850,7 +851,9 @@ export const FirstInvoice: Story = {
   },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
-    await expect(await page.findByLabelText(/Summary line/)).toHaveValue('');
+    await expect(await page.findByLabelText(/Summary line/)).toHaveValue(
+      'Contracting services',
+    );
     await expect(
       page.getByRole('button', { name: 'Show time as' }),
     ).toHaveTextContent('One summary line');
@@ -977,110 +980,56 @@ export const EditingExpense: Story = {
 };
 export const EditingExpensePhone: Story = { ...EditingExpense, ...phone };
 
-/** A client with neither an email nor a Bill to: both fields are empty
-    under Client, and the card's Bill to is the name alone. */
-export const BillToEmpty: Story = {
+/** Under Client, what the invoice prints for it, read-only: nothing on the
+    form saves before Generate. */
+export const ClientDetails: Story = {
   ...desktop,
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
-    const page = await chooseMeridian(canvasElement);
-    await expect(page.getByLabelText('Bill to')).toHaveValue('');
-    await expect(page.getByLabelText('Bill to')).toHaveAttribute(
-      'placeholder',
-      expect.stringMatching(/^Attn:/),
-    );
-    await expect(page.getByLabelText('Email')).toHaveValue('');
-    await expect(page.getByText(/saved to this client/)).toBeVisible();
-  },
-};
-export const BillToEmptyPhone: Story = { ...BillToEmpty, ...phone };
-
-/** Typing an email shows it on the card at once; leaving the field saves it
-    to the client. */
-export const BillToTyped: Story = {
-  ...desktop,
-  parameters: menuOpen,
-  play: async ({ canvasElement }) => {
-    const page = await chooseMeridian(canvasElement);
-    await userEvent.type(page.getByLabelText('Email'), 'ap@meridian.test');
-    await expect(card(page).getByText(/ap@meridian\.test/)).toBeVisible();
-    await userEvent.tab();
-    await waitFor(() =>
-      expect(getDb().clients.find((c) => c.id === ids.meridian)).toMatchObject({
-        email: 'ap@meridian.test',
-        address: null,
-      }),
-    );
-  },
-};
-
-/** The save is refused: the app-wide notice says why, and what was typed
-    stays, the rejected email and Bill to typed since, to fix and leave
-    again. Generate waits until the client has them. */
-export const BillToRefused: Story = {
-  ...desktop,
-  parameters: {
-    ...menuOpen,
-    msw: {
-      handlers: {
-        updateClient: http.patch(handlers.updateClient.info.path, () =>
-          Response.json(
-            { code: 'VALIDATION_FAILED', message: 'Enter a valid email.' },
-            { status: 422 },
-          ),
-        ),
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
-    await settled(page);
-    await userEvent.clear(page.getByLabelText('Email'));
-    await userEvent.type(page.getByLabelText('Email'), 'ap@northwind');
-    const billTo = page.getByLabelText('Bill to') as HTMLTextAreaElement;
-    await userEvent.click(billTo);
-    await userEvent.type(billTo, 'Attn: Dana Lee');
-    await expect(await page.findByText('Enter a valid email.')).toBeVisible();
-    await expect(billTo.value).toContain('Attn: Dana Lee');
-    await expect(page.getByLabelText('Email')).toHaveValue('ap@northwind');
-    await expect(
-      page.getByRole('button', { name: 'Generate invoice' }),
-    ).toBeDisabled();
-  },
-};
-
-/** Generate pressed while a Bill to save is on its way waits for it; the
-    save is refused, so nothing is generated from the old record. */
-export const GenerateAfterRefusedBillTo: Story = {
-  ...desktop,
-  parameters: {
-    ...menuOpen,
-    msw: {
-      handlers: {
-        updateClient: http.patch(handlers.updateClient.info.path, async () => {
-          await delay(300);
-          return Response.json(
-            { code: 'VALIDATION_FAILED', message: 'Enter a valid email.' },
-            { status: 422 },
-          );
-        }),
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const page = await chooseNorthwind(canvasElement);
-    await settled(page);
-    const before = getDb().invoices.length;
-    await userEvent.clear(page.getByLabelText('Email'));
-    await userEvent.type(page.getByLabelText('Email'), 'ap@northwind');
-    await userEvent.tab();
-    await userEvent.click(
-      page.getByRole('button', { name: 'Generate invoice' }),
+    const group = within(
+      page.getByRole('group', { name: 'Northwind Trading billing details' }),
     );
+    await expect(group.getByText(/ap@northwind\.test/)).toBeVisible();
+    await expect(group.queryByRole('textbox')).toBeNull();
     await expect(
-      await page.findByText(/wasn't saved to the client/),
+      group.getByRole('button', { name: 'Edit client' }),
     ).toBeVisible();
-    await expect(getDb().invoices.length).toBe(before);
+  },
+};
+
+/** A client with neither: each says it is missing, and the card's Bill to is
+    the name alone. */
+export const ClientDetailsMissing: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseMeridian(canvasElement);
+    const group = within(
+      page.getByRole('group', { name: 'Meridian Labs billing details' }),
+    );
+    await expect(group.getByText('No billing address')).toBeVisible();
+    await expect(group.getByText('No email')).toBeVisible();
+  },
+};
+
+/** Edit client opens the client's own dialog; once it saves, the block shows
+    what the server kept. */
+export const EditClientHere: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseMeridian(canvasElement);
+    await userEvent.click(page.getByRole('button', { name: 'Edit client' }));
+    const dialog = within(await page.findByRole('dialog'));
+    await userEvent.type(dialog.getByLabelText('Email'), 'ap@meridian.test');
+    await userEvent.click(dialog.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+    const group = within(
+      page.getByRole('group', { name: 'Meridian Labs billing details' }),
+    );
+    await expect(await group.findByText(/ap@meridian\.test/)).toBeVisible();
+    await expect(group.getByText('No billing address')).toBeVisible();
   },
 };
 
@@ -1244,5 +1193,99 @@ export const DetailsSaveFails: Story = {
     await expect(
       form.getByRole('textbox', { name: /Business name/ }),
     ).toHaveValue('Sam Rivera Consulting');
+  },
+};
+
+// ── leaving ────────────────────────────────────────────────────────
+
+/** Presses the rail's Calendar, and returns the dialog that asks. */
+const asked = async (page: Page) => {
+  await userEvent.click(
+    within(page.getByRole('navigation', { name: 'Sections' })).getByRole(
+      'link',
+      { name: 'Calendar' },
+    ),
+  );
+  const dialog = await page.findByRole('dialog', {
+    name: 'Save this invoice as a draft?',
+  });
+  await waitFor(() => expect(dialog).toBeVisible());
+  return within(dialog);
+};
+
+/** Leaving with changes asks, and Keep editing keeps the form as it was. */
+export const LeavingAsks: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    const dialog = await asked(page);
+    await expect(getRouter().push).not.toHaveBeenCalled();
+    await expect(dialog.getByRole('button', { name: 'Discard' })).toBeVisible();
+    await userEvent.click(dialog.getByRole('button', { name: 'Keep editing' }));
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+    await expect(
+      page.getByRole('button', { name: 'Client' }),
+    ).toHaveTextContent(/Northwind/);
+  },
+};
+
+/** Discard goes where the link pointed, and nothing is saved. */
+export const LeavingDiscards: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    const before = getDb().invoices.length;
+    const dialog = await asked(page);
+    await userEvent.click(dialog.getByRole('button', { name: 'Discard' }));
+    await expect(getRouter().push).toHaveBeenCalledWith('/calendar');
+    await expect(getDb().invoices.length).toBe(before);
+  },
+};
+
+/** Save draft makes the draft, then goes where the link pointed. A first
+    invoice saves on its started summary line. */
+export const LeavingSaves: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      db.invoices = db.invoices.filter((i) => i.clientId !== ids.northwind);
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    const before = getDb().invoices.length;
+    const dialog = await asked(page);
+    await userEvent.click(dialog.getByRole('button', { name: 'Save draft' }));
+    await waitFor(() => expect(getDb().invoices.length).toBe(before + 1));
+    await expect(getDb().invoices.at(-1)?.summaryText).toBe(
+      'Contracting services',
+    );
+    await waitFor(() =>
+      expect(getRouter().push).toHaveBeenCalledWith('/calendar'),
+    );
+    await expect(getRouter().push).toHaveBeenCalledTimes(1);
+  },
+};
+
+/** A form that can't be saved yet says why, and Save draft waits. */
+export const LeavingBlocked: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await summaryFor(canvasElement, '');
+    const dialog = await asked(page);
+    await expect(
+      dialog.getByText(
+        /It can't be saved yet: give the summary line its text\./,
+      ),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole('button', { name: 'Save draft' }),
+    ).toBeDisabled();
   },
 };

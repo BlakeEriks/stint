@@ -741,7 +741,7 @@ export const handlers = {
     if (asked) return refuse(asked);
     const preview = invoicePreview(db, input, tz);
     if (!preview) return missing('Client');
-    const priced = pricedInvoiceRefusal(preview, input);
+    const priced = pricedInvoiceRefusal(preview);
     if (priced) return refuse(priced);
     const profile = paymentProfile(db, input.clientId, input.paymentProfileId);
     if (input.paymentProfileId && !profile)
@@ -792,7 +792,7 @@ export const handlers = {
       if (asked) return refuse(asked);
       const preview = invoicePreview(db, input, tz);
       if (!preview) return missing('Client');
-      const priced = pricedInvoiceRefusal(preview, input);
+      const priced = pricedInvoiceRefusal(preview);
       if (priced) return refuse(priced);
       const profile = input.paymentProfileId
         ? paymentProfile(db, input.clientId, input.paymentProfileId)

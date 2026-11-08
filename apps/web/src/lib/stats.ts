@@ -110,6 +110,7 @@ export async function readStats(
     weekEntries,
     issuedPeriods,
     activeClients,
+    anyEntry,
   ] = await Promise.all([
     /* `p_now` on every rollup: a running entry is measured at the same
        instant the windows are cut at. */
@@ -248,6 +249,8 @@ export async function readStats(
       .from('clients')
       .select('id, name, billing_period, period_anchor')
       .is('archived_at', null),
+
+    db.from('time_entries').select('id').limit(1),
   ]);
 
   for (const r of [
@@ -261,6 +264,7 @@ export async function readStats(
     collectedRows,
     issuedPeriods,
     activeClients,
+    anyEntry,
   ]) {
     if (r.error) throw r.error;
   }
@@ -379,6 +383,7 @@ export async function readStats(
 
   return {
     currency,
+    hasEntries: (anyEntry.data ?? []).length > 0,
     unbilled: buildUnbilled(unbilledRows, currency, now),
     /* Work done today at its resolved rate, which is what `revenue_by_day`
        already computes. Absent from the map until the day earns something. */

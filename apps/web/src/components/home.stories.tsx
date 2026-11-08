@@ -411,7 +411,8 @@ export const RateRejected: Story = {
   },
 };
 
-/** A new account: every figure is zero and nothing is extrapolated. */
+/** A new account: every figure is zero and nothing is extrapolated, dimmed
+ *  behind a message asking for the first entry, which that entry lifts. */
 export const Empty: Story = {
   ...desktop,
   parameters: account('empty'),
@@ -429,6 +430,16 @@ export const Empty: Story = {
     await expect(rows).toHaveLength(3);
     for (const row of rows)
       await expect(row.querySelector('[data-pip]')).toBeNull();
+
+    await expect(await page.findByText('Add your first entry')).toBeVisible();
+    await userEvent.click(
+      await within(canvasElement.ownerDocument.body).findByRole('button', {
+        name: 'Start timer',
+      }),
+    );
+    await waitFor(() =>
+      expect(page.queryByText('Add your first entry')).toBeNull(),
+    );
   },
 };
 
@@ -640,7 +651,8 @@ export const OtherCurrency: Story = {
   },
 };
 
-/** The month's first day: no projection yet, so a dash holds On track for's place. */
+/** The month's first day: the axis is drawn with today's work as a dot, and
+ *  the dash under On track for says when a projection starts. */
 export const MonthFirst: Story = {
   ...desktop,
   parameters: { now: '2026-10-01T19:30:00.000Z' },
@@ -649,7 +661,20 @@ export const MonthFirst: Story = {
     await expect(
       await page.findByLabelText('Not projected yet'),
     ).toHaveTextContent('—');
+    await expect(page.getByText('From Mon, Oct 5')).toBeVisible();
+    await expect(page.getByText('today')).toBeVisible();
     await expect(page.queryByText(/business days/)).toBeNull();
+  },
+};
+
+/** A Sunday 1st with nothing worked: the axis is drawn, unlabeled. */
+export const MonthFirstEmpty: Story = {
+  ...desktop,
+  parameters: { ...account('empty'), now: '2026-11-01T19:30:00.000Z' },
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByText('From Wed, Nov 4');
+    const yAxis = canvasElement.querySelector('[data-axis="y"]');
+    await expect(yAxis?.textContent).toBe('');
   },
 };
 

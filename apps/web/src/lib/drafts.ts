@@ -278,11 +278,12 @@ export async function loadPaymentProfile(
 export function draftRefusals(d: {
   unratedEntries: unknown[];
   dueBeforeIssue: { download: boolean; send: boolean };
+  lines: unknown[];
 }) {
   const unrated = d.unratedEntries.length > 0;
   return {
     download: unrated || d.dueBeforeIssue.download,
-    send: unrated || d.dueBeforeIssue.send,
+    send: unrated || d.dueBeforeIssue.send || d.lines.length === 0,
   };
 }
 

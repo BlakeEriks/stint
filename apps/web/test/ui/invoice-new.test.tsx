@@ -355,14 +355,14 @@ describe('NewInvoice', () => {
     expect(generate()).toBeDisabled();
   });
 
-  it('blocks generation when the period holds nothing billable', async () => {
+  it('generates a draft when the period holds nothing billable', async () => {
     serve({ ...PREVIEW, lineItems: [], subtotal: 0, total: 0, entryCount: 0 });
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
     await chooseClient(user);
 
     expect(await screen.findByText(/^Nothing to bill/)).toBeInTheDocument();
-    expect(generate()).toBeDisabled();
+    await waitFor(() => expect(generate()).toBeEnabled());
   });
 
   it('says why a recompute failed, and holds Generate', async () => {
@@ -536,7 +536,7 @@ describe('NewInvoice — expenses', () => {
 });
 
 describe('NewInvoice — one summary line', () => {
-  it('asks for the line text, empty to start, and blocks generation without it', async () => {
+  it('asks for the line text once cleared, and blocks generation without it', async () => {
     serve();
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
@@ -545,7 +545,7 @@ describe('NewInvoice — one summary line', () => {
     await pickGrouping(user, /One summary line/);
 
     const field = screen.getByLabelText(/Summary line/);
-    expect(field).toHaveValue('');
+    await user.clear(field);
     expect(field).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByText('Give the summary line its text.')).toHaveAttribute(
       'role',
@@ -562,6 +562,7 @@ describe('NewInvoice — one summary line', () => {
 
     await ready(user);
     await pickGrouping(user, /One summary line/);
+    await user.clear(screen.getByLabelText(/Summary line/));
     await user.type(screen.getByLabelText(/Summary line/), '   ');
 
     expect(
@@ -578,6 +579,7 @@ describe('NewInvoice — one summary line', () => {
 
     await chooseClient(user);
     await pickGrouping(user, /One summary line/);
+    await user.clear(screen.getByLabelText(/Summary line/));
     await user.type(
       screen.getByLabelText(/Summary line/),
       'Software consulting services',

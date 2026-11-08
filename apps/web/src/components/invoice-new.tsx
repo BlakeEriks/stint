@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
+import { useLeaveGuard } from '@/lib/client/use-leave-guard';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   keepPreviousData,
@@ -15,8 +16,8 @@ import {
 } from '@stint/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Field, inputClass, textareaClass } from './field';
-import { BILL_TO_PLACEHOLDER } from './client-form';
+import { Field, SubFields, inputClass } from './field';
+import { ClientDialog } from './client-dialog';
 import { ClientPicker } from './client-picker';
 import {
   DropdownMenu,
@@ -69,6 +70,7 @@ import { businessOf, InvoicePreviewCard } from './invoice-preview-card';
 import { TemplateDialog } from './template-dialog';
 import { templateName } from './template-picker';
 import { rowButton } from './row-button';
+import { ConfirmDialog } from './confirm-dialog';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
   {
@@ -245,10 +247,11 @@ function ScheduleHint({
 
 /** What a client's last invoice carries into the next, so a monthly invoice
  *  isn't retyped. A first invoice is one summary line: itemizing is the
- *  exception. */
+ *  exception. Its text starts shown in the field, so it is the user's to
+ *  change, never filled in at save. */
 const carriedFrom = (last: Invoice | undefined) => ({
   groupingMode: last?.groupingMode ?? 'summary',
-  summaryText: last?.summaryText ?? '',
+  summaryText: last?.summaryText ?? 'Contracting services',
   schedules: attachedSchedules(last?.supportingDetail ?? null),
   reference: last?.reference ?? '',
 });
@@ -538,7 +541,7 @@ function Form({
   /* `'new'` adds a charge; a key, edits that one. */
   const chargeDialog = useDialog<string>();
   const [newProfileOpen, setNewProfileOpen] = useState(false);
-  const billTo = useBillTo(client);
+  const [editingClient, setEditingClient] = useState(false);
 
   /* Only what decides the lines is sent, so a due date or a tick never asks
      the server again. */
@@ -572,26 +575,17 @@ function Form({
   const generate = useOptimisticMutation({
     queryKey: () => keys.invoices(),
     inline: true,
-    serial: BILL_TO_LANE,
-    // Generation marks the entries and expenses invoiced, so they leave
-    // every unbilled view.
+    // The draft holds its entries and expenses, so no other draft or
+    // preview offers them.
     invalidate: (qc) =>
       Promise.all([
         qc.invalidateQueries({ queryKey: keys.invoices() }),
         qc.invalidateQueries({ queryKey: keys.expenses() }),
         invalidateEntryData(qc),
       ]),
-    mutationFn: () => {
-      // A Bill to save queued before this press may have been refused.
-      const saved = qc
-        .getQueryData<{ clients: Client[] }>(keys.clients())
-        ?.clients.find((c) => c.id === draft.clientId);
-      if (
-        saved &&
-        (saved.address !== billTo.shown?.address ||
-          saved.email !== billTo.shown?.email)
-      )
-        return Promise.reject(new UnsavedBillTo());
+    /* `to` is where a press from the leave dialog was going; the form's own
+       press opens the draft. */
+    mutationFn: (_to?: string) => {
       const choices = {
         ...billed,
         schedules,
@@ -608,8 +602,8 @@ function Form({
         ? api.updateDraft(editing.id, choices)
         : api.createInvoice(choices);
     },
-    onSuccess: (invoice) => {
-      router.push(`/invoices/${invoice.id}`);
+    onSuccess: (invoice, to) => {
+      router.push(to ?? `/invoices/${invoice.id}`);
     },
   });
 
@@ -655,7 +649,8 @@ function Form({
     ? (editing?.paymentDetails ?? null)
     : buildPaymentDetails(profile, { invoiceNumber: number });
 
-  const { canGenerate, noSummaryText } = generateState({
+  const { canGenerate, noSummaryText, blocked } = generateState({
+    hasClient: draft.clientId !== '',
     earlyDue,
     preview: current,
     updating,
@@ -663,13 +658,24 @@ function Form({
     hasSettings: settings !== undefined,
     hasSender: !noSender,
     generating: generate.isPending,
-    unsavedBillTo: billTo.unsaved,
     groupingMode,
     summaryText,
   });
 
+  const guard = useLeaveGuard(
+    JSON.stringify(draft) !== JSON.stringify(initial),
+  );
+
   return (
     <>
+      <LeaveDialog
+        leaving={guard.leaving}
+        onStay={guard.stay}
+        editing={editing}
+        blocked={blocked}
+        canSave={canGenerate}
+        press={generate}
+      />
       {/* From `xl`, where the panel has a height of its own, nothing scrolls
           but the two columns: the form and the preview each scroll alone, so
           reading a long page never moves the field being typed in. Below it
@@ -720,8 +726,13 @@ function Form({
                   }
                   placeholder="Choose a client…"
                 />
+                {client ? (
+                  <ClientDetails
+                    client={client}
+                    onEdit={() => setEditingClient(true)}
+                  />
+                ) : null}
               </Field>
-              {billTo.fields}
               <div className="flex flex-wrap gap-4">
                 <DateField
                   id="inv-from"
@@ -857,7 +868,7 @@ function Form({
             <InvoicePreviewCard
               noSender={noSender}
               preview={current}
-              client={billTo.shown}
+              client={client}
               business={businessOf(settings)}
               number={number}
               issued={issued}
@@ -882,6 +893,17 @@ function Form({
         </div>
       </div>
 
+      {client ? (
+        <ClientDialog
+          open={editingClient}
+          onOpenChange={setEditingClient}
+          client={client}
+          // Its rate prices the lines.
+          onSaved={() =>
+            qc.invalidateQueries({ queryKey: keys.invoicePreview() })
+          }
+        />
+      ) : null}
       {client ? (
         <ExpenseDialog
           open={expenseDialog.open}
@@ -916,106 +938,120 @@ const pressLabel = (editing: boolean, pending: boolean) => {
   return pending ? 'Generating…' : 'Generate invoice';
 };
 
-class UnsavedBillTo extends Error {
-  constructor() {
-    super("Bill to wasn't saved to the client, so nothing was generated.");
-  }
-}
-
-/** Generate queues behind a Bill to save, so the invoice it freezes has it. */
-const BILL_TO_LANE = 'client-bill-to';
-
-type BillToField = 'address' | 'email';
-
 /**
- * Leaving a field saves it to the client, which every later invoice reads.
- * An issued invoice keeps its own copy.
+ * What the invoice prints for the client, read-only: nothing on this form
+ * saves before Generate, so a change to the client goes through its own
+ * dialog, which says it saves.
  */
-function useBillTo(client: Client | undefined) {
-  const [typed, setTyped] = useState<{
-    id: string;
-    address: string;
-    email: string;
-  }>();
-  const save = useOptimisticMutation({
-    queryKey: () => keys.clients(),
-    serial: BILL_TO_LANE,
-    predict: (
-      current: { clients: Client[] } | undefined,
-      v: { id: string; field: BillToField; value: string | null },
-    ) =>
-      current && {
-        ...current,
-        clients: current.clients.map((c) =>
-          c.id === v.id ? { ...c, [v.field]: v.value } : c,
-        ),
-      },
-    mutationFn: ({ id, field, value }) =>
-      api.updateClient(id, { [field]: value }),
-  });
-  if (!client) return { shown: undefined, fields: null, unsaved: false };
-
-  const value =
-    typed?.id === client.id
-      ? typed
-      : {
-          id: client.id,
-          address: client.address ?? '',
-          email: client.email ?? '',
-        };
-  const address = value.address.trim() || null;
-  const email = value.email.trim() || null;
-  const shown = { ...client, address, email };
-  const type = (field: BillToField, v: string) =>
-    setTyped({ ...value, [field]: v });
-  const commit = (field: BillToField) => {
-    const next = field === 'address' ? address : email;
-    if (next !== client[field])
-      save.mutate({ id: client.id, field, value: next });
-  };
-
-  const fields = (
-    <>
-      <Field label="Bill to" htmlFor="inv-bill-to">
-        <textarea
-          id="inv-bill-to"
-          rows={3}
-          value={value.address}
-          onChange={(e) => type('address', e.target.value)}
-          onBlur={() => commit('address')}
-          placeholder={BILL_TO_PLACEHOLDER}
-          className={textareaClass}
-        />
-      </Field>
-      <Field
-        label="Email"
-        htmlFor="inv-email"
-        hint="Bill to and Email are saved to this client."
-      >
-        <Input
-          id="inv-email"
-          type="email"
-          value={value.email}
-          onChange={(e) => type('email', e.target.value)}
-          onBlur={() => commit('email')}
-          placeholder="billing@acme.com"
-        />
-      </Field>
-    </>
+function ClientDetails({
+  client,
+  onEdit,
+}: {
+  client: Client;
+  onEdit: () => void;
+}) {
+  return (
+    <SubFields label={`${client.name} billing details`}>
+      <div className="flex flex-col items-start gap-1.5">
+        {/* As `Party` prints them on the invoice. */}
+        <p className="whitespace-pre-line type-support text-muted">
+          {client.address ?? (
+            <span className="text-subtle">No billing address</span>
+          )}
+          {'\n'}
+          {client.email ?? <span className="text-subtle">No email</span>}
+        </p>
+        <button
+          type="button"
+          className="type-support text-strong underline underline-offset-2"
+          onClick={onEdit}
+        >
+          Edit client
+        </button>
+      </div>
+    </SubFields>
   );
-  const unsaved = address !== client.address || email !== client.email;
-  return { shown, fields, unsaved };
 }
 
 /**
- * Whether Generate can be pressed. Generating freezes what the card shows, so
- * it waits for a current, complete answer from the server.
+ * Leaving the form with changes asks first. Nothing is saved unasked:
+ * a draft takes a number and holds its period's work, so the user decides
+ * whether one exists. Save draft is the form's own press, which opens the
+ * draft; Discard goes where the link pointed.
+ */
+function LeaveDialog({
+  leaving,
+  onStay,
+  editing,
+  blocked,
+  canSave,
+  press,
+}: {
+  leaving: string | null;
+  onStay: () => void;
+  editing: Edited | undefined;
+  blocked: string | null;
+  canSave: boolean;
+  press: {
+    mutate: (to: string) => void;
+    reset: () => void;
+    isPending: boolean;
+    error: unknown;
+  };
+}) {
+  const router = useRouter();
+  const { reset } = press;
+  // A refusal from an earlier press must not read as this one's.
+  useEffect(() => {
+    if (leaving !== null) reset();
+  }, [leaving, reset]);
+  const loses = editing
+    ? 'Leaving loses your changes.'
+    : 'Leaving loses this invoice. A draft keeps it to finish later: it takes the next number and holds this work until you send or delete it.';
+  return (
+    <ConfirmDialog
+      open={leaving !== null}
+      onOpenChange={(open) => {
+        if (!open) onStay();
+      }}
+      title={
+        editing
+          ? `Save changes to ${editing.invoiceNumber}?`
+          : 'Save this invoice as a draft?'
+      }
+      description={
+        blocked ? `${loses} It can't be saved yet: ${blocked}` : loses
+      }
+      confirmLabel="Save draft"
+      pendingLabel="Saving…"
+      keepLabel="Keep editing"
+      pending={press.isPending}
+      disabled={!canSave}
+      error={press.error}
+      secondary={{
+        label: 'Discard',
+        onPress: () => {
+          if (leaving !== null) router.push(leaving);
+        },
+      }}
+      onConfirm={() => {
+        if (leaving !== null) press.mutate(leaving);
+      }}
+    />
+  );
+}
+
+/**
+ * Whether Generate can be pressed, and why not when the user can fix it.
+ * Generating freezes what the card shows, so it waits for a current answer
+ * from the server.
  */
 function generateState(s: {
+  hasClient: boolean;
   /** Due is before the issue date, which the server refuses. */
   earlyDue: boolean;
   /** The server's answer for this client; `undefined` before one. */
-  preview: Pick<InvoicePreview, 'lineItems' | 'unratedEntryIds'> | undefined;
+  preview: Pick<InvoicePreview, 'unratedEntryIds'> | undefined;
   /** The form has changed since the answer, or the server is recomputing. */
   updating: boolean;
   failed: boolean;
@@ -1024,28 +1060,40 @@ function generateState(s: {
   /** The server refuses an invoice with no sender; the notice says why. */
   hasSender: boolean;
   generating: boolean;
-  /** The server reads Bill to from the client, so it waits for a save. */
-  unsavedBillTo: boolean;
   groupingMode: GroupingMode;
   summaryText: string;
 }) {
   const noSummaryText =
     s.groupingMode === 'summary' && s.summaryText.trim() === '';
-  const complete =
-    s.preview !== undefined &&
-    s.preview.lineItems.length > 0 &&
-    s.preview.unratedEntryIds.length === 0 &&
-    !noSummaryText;
+  const blocked = blockedBy({ ...s, noSummaryText });
   const canGenerate =
-    complete &&
-    !s.earlyDue &&
+    blocked === null &&
+    s.preview !== undefined &&
     s.hasSettings &&
-    s.hasSender &&
     !s.updating &&
-    !s.failed &&
-    !s.generating &&
-    !s.unsavedBillTo;
-  return { canGenerate, noSummaryText };
+    !s.generating;
+  return { canGenerate, noSummaryText, blocked };
+}
+
+/** What the user must fix before the form can be saved, said after "It
+ *  can't be saved yet:"; null when only the server's answer is awaited. */
+function blockedBy(s: {
+  hasClient: boolean;
+  hasSender: boolean;
+  earlyDue: boolean;
+  failed: boolean;
+  noSummaryText: boolean;
+  preview: Pick<InvoicePreview, 'unratedEntryIds'> | undefined;
+}): string | null {
+  if (!s.hasClient) return 'choose a client.';
+  if (!s.hasSender) return 'add your business name and email.';
+  const unrated = s.preview?.unratedEntryIds.length ?? 0;
+  if (unrated > 0)
+    return `${unrated} entr${unrated === 1 ? 'y has' : 'ies have'} no rate.`;
+  if (s.noSummaryText) return 'give the summary line its text.';
+  if (s.earlyDue) return "due can't be before the issue date.";
+  if (s.failed) return "the preview couldn't be built.";
+  return null;
 }
 
 function PreviewNotices({
@@ -1076,7 +1124,7 @@ function PreviewNotices({
       ) : null}
       {error ? (
         <p role="alert" className="type-support text-danger">
-          {error instanceof ApiError || error instanceof UnsavedBillTo
+          {error instanceof ApiError
             ? error.message
             : 'Could not build this invoice.'}
         </p>
@@ -1085,8 +1133,7 @@ function PreviewNotices({
   );
 }
 
-/** The one line's text, under the grouping picker on a rule of its own so it
- *  reads as part of that choice rather than a field of the invoice. */
+/** The one line's text, part of the grouping choice. */
 function SummaryLineField({
   value,
   missing,
@@ -1097,7 +1144,7 @@ function SummaryLineField({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="mt-1.5 ml-3 border-l-2 border-edge-subtle pl-3">
+    <SubFields>
       <Field
         label="Summary line"
         htmlFor="inv-summary"
@@ -1112,7 +1159,7 @@ function SummaryLineField({
           maxLength={200}
         />
       </Field>
-    </div>
+    </SubFields>
   );
 }
 

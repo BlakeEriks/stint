@@ -153,6 +153,7 @@ a different order, and the ones that drifted were rebuilt:
 | A list's loading, failure and empty states | `Panel` + `Listing` |
 | A titled region with its own save state | `Section` + `useAutosave` + `SaveIndicator` |
 | A labeled control | `Field`, `Input`, `inputClass`, `textareaClass`; on a signed-out page, `elevatedInputClass` |
+| Fields that belong to the field above them | `SubFields`, inside that `Field` |
 | What a form still lacks, shown on Save | `useMissing()` (`lib/client/use-missing.ts`) into `Field`'s `error` |
 | Any action | `Button`, sized and varied by the tables in `ui/button.tsx` |
 | A destructive action in a dialog's footer | `ConfirmAction` |
@@ -196,8 +197,10 @@ anticipation of one.
   `mr-auto`, and the confirm takes its place. A modal confirm (`ConfirmDialog`)
   is for what takes many records at once and can't come back, and says what
   changes, with the figures: Mark sent locks a draft's entries, Void and
-  Delete draft release them, and Delete account. A press that can be taken
-  back doesn't confirm.
+  Delete draft release them, and Delete account. Leaving the invoice form
+  with changes asks in one too, with Discard as its secondary action, since
+  a draft is saved only when asked (Constitution I). A press that can be
+  taken back doesn't confirm.
 - **A dialog's or form's actions run secondary, Cancel, Save**: Save
   (`accent`) at the bottom right, Cancel beside it, and a secondary action
   (Archive, Delete) pushed to the far left with `mr-auto`.
@@ -210,8 +213,9 @@ anticipation of one.
   `components/row-button.ts`).
 - **A failure renders beside the thing that failed**, and a failed load is
   neutral, never red — it is a condition, and the answer is to try again.
-- **Home's empty Today grid has no empty-state line**: the grid itself is
-  the instruction.
+- **Home's empty Today grid has no empty-state line** once the account
+  holds an entry: the grid itself is the instruction. Before the first,
+  Home asks for it over the blurred cards.
 - **Archive, never delete**, wherever invoices or entries reference the
   record.
 - **A picker row is swatch, name, then the client muted.** Internal work gets

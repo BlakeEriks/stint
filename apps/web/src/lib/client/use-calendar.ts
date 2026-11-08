@@ -7,10 +7,11 @@ import {
   startOfLocalWeek,
   startOfLocalDayOffset,
   localDateKey,
+  splitByLocalDay,
 } from '@stint/core';
 import { api, type CalendarDay, type TimeEntry } from './api';
 import { timeZone as tz } from './use-timer';
-import { keys, appNow } from '@stint/client';
+import { keys, appNow, useInterval } from '@stint/client';
 
 export interface PositionedEntry {
   entry: TimeEntry;
@@ -73,7 +74,7 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
       }),
   });
 
-  const days = useMemo(() => {
+  const served = useMemo(() => {
     const byDate = new Map((data?.days ?? []).map((d) => [d.date, d]));
     return Array.from({ length: 7 }, (_, i) => {
       const at = i === 0 ? weekStart : startOfLocalDayOffset(weekStart, tz, -i);
@@ -110,6 +111,25 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
       };
     });
   }, [data, weekStart, byDay]);
+
+  /* The server counts only stopped time; a running entry's part of each day
+     is predicted here, to the same now `/stats` reads. */
+  const running = data?.days
+    .flatMap((d) => d.entries)
+    .find((e) => e.endedAt == null);
+  useInterval(running !== undefined, 1000);
+  const live = new Map(
+    running
+      ? splitByLocalDay(new Date(running.startedAt), appNow(), tz).map((s) => [
+          s.date,
+          s.seconds,
+        ])
+      : [],
+  );
+  const days = served.map((d) => ({
+    ...d,
+    totalSeconds: d.totalSeconds + (live.get(d.date) ?? 0),
+  }));
 
   const weekSeconds = days.reduce((sum, d) => sum + d.totalSeconds, 0);
 

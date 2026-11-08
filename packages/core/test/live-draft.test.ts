@@ -317,8 +317,8 @@ const DUE: {
   },
 ];
 
-for (const row of DUE)
-  test(`ready to invoice: ${row.name}`, () => {
+test('ready to invoice: the most recent ended period no invoice covers', () => {
+  for (const row of DUE) {
     const rows = unbilledDue(
       {
         clients: [
@@ -336,5 +336,7 @@ for (const row of DUE)
         (r) => `${r.clientName} ${r.periodStart}..${r.periodEnd} ${r.seconds}`,
       ),
       row.due,
+      row.name,
     );
-  });
+  }
+});
