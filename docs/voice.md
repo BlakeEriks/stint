@@ -53,7 +53,7 @@ table*, *your hours are safe*. Humor is not part of the voice.
 | Moment | How it reads |
 | --- | --- |
 | Landing page | The most voice: short declaratives, and the price with what it buys. |
-| Routine screens and empty states | An empty state names the job, and its button does it. |
+| Routine screens and empty states | An empty state names the job, and its button, where it has one, does it. |
 | A record to resolve | The fact with its figures, then each choice as a button. It never guesses or blames. |
 | Error | Impersonal: what failed, what it left untouched, and one action. |
 | Money, and anything that can't be undone | The plainest: what changes, its figures, and whether it comes back. |
