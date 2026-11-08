@@ -523,29 +523,71 @@ export const IncludeEarlierWork: Story = {
   },
 };
 
+/** Another client chosen over the same dates: Northwind's offer goes at
+    once, before Meridian's answer, which here never lands. */
+export const EarlierWorkLeavesWithClient: Story = {
+  ...desktop,
+  parameters: {
+    a11y: skipping('aria-hidden-focus', 'color-contrast'),
+    stalls: 1,
+    msw: {
+      handlers: {
+        previewInvoice: http.post(
+          handlers.previewInvoice.info.path,
+          async (info) => {
+            const body = (await info.request.clone().json()) as {
+              clientId: string;
+            };
+            if (body.clientId === ids.meridian) await delay('infinite');
+            // `resolver` is protected in msw's types, and public at runtime.
+            const real = handlers.previewInvoice as unknown as {
+              resolver: (i: typeof info) => Promise<Response>;
+            };
+            return real.resolver(info);
+          },
+        ),
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await page.findByRole('button', { name: 'Include them' });
+    const from = (page.getByLabelText('From') as HTMLInputElement).value;
+    await chooseMeridian(canvasElement);
+    await expect(page.getByLabelText('From')).toHaveValue(from);
+    await expect(page.queryByRole('button', { name: /^Include/ })).toBeNull();
+  },
+};
+
 /** The stranded work is on another draft already: no Include, and the line
     links to the draft that bills it. */
 export const EarlierWorkOnDraft: Story = {
   ...desktop,
   parameters: {
     ...menuOpen,
-    ...account((db) => {
-      const sent = db.invoices.find(
-        (i) => i.clientId === ids.northwind && i.periodEnd === '2026-08-15',
-      ) as Db['invoices'][number];
-      db.invoices.push({
-        ...sent,
-        id: 'ff000000-0000-4000-8000-0000000000e1',
-        invoiceNumber: 'STINT-0042',
-        sequenceNo: 42,
-        status: 'draft',
-        periodStart: '2026-08-16',
-        periodEnd: '2026-09-01',
-        sentAt: null,
-        paidAt: null,
-        template: null,
-      });
-    }),
+    msw: {
+      handlers: {
+        // Only a draft holding work outside its own period, as one built in
+        // another zone can, holds the look-back's work, which the fake API's
+        // period-bound drafts never do.
+        previewInvoice: http.post(
+          handlers.previewInvoice.info.path,
+          async (info) => {
+            // `resolver` is protected in msw's types, and public at runtime.
+            const real = handlers.previewInvoice as unknown as {
+              resolver: (i: typeof info) => Promise<Response>;
+            };
+            const answer = await (await real.resolver(info)).json();
+            if (answer.earlierWork)
+              answer.earlierWork.draft = {
+                id: 'ff000000-0000-4000-8000-0000000000e1',
+                invoiceNumber: 'STINT-0042',
+              };
+            return Response.json(answer);
+          },
+        ),
+      },
+    },
   },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);

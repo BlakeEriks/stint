@@ -62,7 +62,7 @@ invoice for the next period, then press Include it.
 
 **Acceptance Scenarios**:
 
-1. **Given** a client whose last invoice that isn't void ends before the new
+1. **Given** a client whose latest invoice that isn't void ends before the new
    period starts, with billable, finished, unbilled work dated between,
    **Then** New invoice says how many earlier entries there are and their
    dates, and offers Include.
@@ -96,9 +96,10 @@ invoice for the next period, then press Include it.
 ### Functional Requirements
 
 - **FR-001**: New invoice MUST find a client's billable, finished entries on
-  no invoice and not billed elsewhere, dated after the end of its last
-  invoice that isn't void and ends before the period's start, and dated
-  before the period's start.
+  no invoice and not billed elsewhere, dated after the end of its latest
+  invoice that isn't void and starts before the period's start, and dated
+  before the period's start. When that invoice reaches the period, there
+  are none.
 - **FR-002**: With no such invoice, FR-001 MUST look back no more than 30
   days before the period's start.
 - **FR-003**: When it finds any, New invoice MUST say above the preview how
@@ -107,8 +108,9 @@ invoice for the next period, then press Include it.
   entry's date and keep its end. Nothing MUST be included without that
   press.
 - **FR-005**: FR-001's count MUST leave out work another draft holds. When
-  a draft holds all of it, the offer MUST name the draft and link to it
-  instead of offering Include.
+  drafts hold all of it, the offer MUST name the draft holding the earliest
+  of it, count that draft's entries, and link to it instead of offering
+  Include.
 - **FR-006**: An entry's date MUST be read in the zone the invoice bills in,
   the same zone that decides which entries the period holds.
 - **FR-007**: Include MUST change the period at once, with no wait on the

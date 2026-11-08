@@ -132,31 +132,41 @@ test('a billed expense, or a one-off after the period, is not billed', () => {
   );
 });
 
-for (const [ends, from, why] of [
+const inv = (periodStart: string, periodEnd: string) => ({
+  periodStart,
+  periodEnd,
+});
+for (const [invoices, from, why] of [
   [
-    ['2026-08-31', '2026-09-29'],
+    [inv('2026-08-01', '2026-08-31'), inv('2026-09-01', '2026-09-29')],
     '2026-09-30',
     'the day after the last invoice',
   ],
   [
-    ['2026-09-29', '2026-10-15'],
-    '2026-09-30',
-    'an invoice ending in the period is not the last',
+    [inv('2026-08-01', '2026-08-31'), inv('2026-09-01', '2026-10-15')],
+    null,
+    'nowhere: an invoice spanning the start leaves nothing to offer',
+  ],
+  [
+    [inv('2026-08-01', '2026-08-31'), inv('2026-10-01', '2026-10-31')],
+    '2026-09-01',
+    'after the last invoice before it, not one in the period',
   ],
   [[], '2026-09-01', '30 days back on a first invoice'],
 ] as const)
   test(`the look-back for an Oct 1 period starts ${why}`, () => {
-    assert.equal(earlierWorkFrom('2026-10-01', [...ends]), from);
+    assert.equal(earlierWorkFrom('2026-10-01', [...invoices]), from);
   });
 
 const at = (startedAt: string, draftId: string | null = null) => ({
   startedAt,
   draftId,
 });
-for (const [entries, expected, why] of [
-  [[], null, 'none'],
+for (const [entries, tz, expected, why] of [
+  [[], 'UTC', null, 'none'],
   [
     [at('2026-09-30T15:00:00Z')],
+    'UTC',
     { entryCount: 1, from: '2026-09-30', to: '2026-09-30', draftId: null },
     'one',
   ],
@@ -166,27 +176,40 @@ for (const [entries, expected, why] of [
       at('2026-09-28T15:00:00Z'),
       at('2026-09-29T15:00:00Z'),
     ],
+    'UTC',
     { entryCount: 3, from: '2026-09-28', to: '2026-09-30', draftId: null },
     'several, by their first and last dates',
   ],
   [
     [at('2026-09-30T15:00:00Z', 'd1')],
+    'UTC',
     { entryCount: 1, from: '2026-09-30', to: '2026-09-30', draftId: 'd1' },
     'one behind a draft, which it names',
   ],
   [
+    [
+      at('2026-09-30T15:00:00Z', 'd1'),
+      at('2026-09-28T15:00:00Z', 'd2'),
+      at('2026-09-29T15:00:00Z', 'd1'),
+    ],
+    'UTC',
+    { entryCount: 1, from: '2026-09-28', to: '2026-09-28', draftId: 'd2' },
+    'two drafts holding it: the one holding the earliest',
+  ],
+  [
     [at('2026-09-28T15:00:00Z', 'd1'), at('2026-09-30T15:00:00Z')],
+    'UTC',
     { entryCount: 1, from: '2026-09-30', to: '2026-09-30', draftId: null },
     'work no draft holds, ahead of work one does',
   ],
+  [
+    // 23:30 EDT on Oct 31, the night DST ends: Nov 1 in UTC.
+    [at('2026-11-01T03:30:00Z')],
+    'America/New_York',
+    { entryCount: 1, from: '2026-10-31', to: '2026-10-31', draftId: null },
+    'dated by its day in the zone, across a DST change',
+  ],
 ] as const)
   test(`earlier work: ${why}`, () => {
-    assert.deepEqual(earlierWork([...entries], 'UTC'), expected);
+    assert.deepEqual(earlierWork([...entries], tz), expected);
   });
-
-test('earlier work is dated by its local day across a DST change', () => {
-  // 00:30 on Nov 1 in New York, still EDT; November's EST offset reads Oct 31.
-  const work = earlierWork([at('2026-11-01T04:30:00Z')], 'America/New_York');
-  assert.equal(work?.from, '2026-11-01');
-  assert.equal(earlierWorkFrom('2026-11-02', ['2026-10-31']), work?.from);
-});

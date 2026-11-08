@@ -64,32 +64,42 @@ const FIRST_LOOKBACK_DAYS = 30;
 
 /**
  * The first day New invoice looks for unbilled work before `periodStart`:
- * the day after the client's last invoice ending before it, else 30 days
- * back. `invoiceEnds` are the client's non-void invoices' period ends.
+ * the day after the end of the client's latest invoice starting before it,
+ * else 30 days back. Null when that invoice reaches the period, since what
+ * it left out is its own business, and a second invoice over it is worse.
+ * `invoices` are the client's non-void ones.
  */
-export function earlierWorkFrom(periodStart: string, invoiceEnds: string[]) {
-  const last = invoiceEnds
-    .filter((end) => end < periodStart)
+export function earlierWorkFrom(
+  periodStart: string,
+  invoices: { periodStart: string; periodEnd: string }[],
+) {
+  const last = invoices
+    .filter((i) => i.periodStart < periodStart)
+    .map((i) => i.periodEnd)
     .sort()
     .at(-1);
-  return last ? addDays(last, 1) : addDays(periodStart, -FIRST_LOOKBACK_DAYS);
+  if (!last) return addDays(periodStart, -FIRST_LOOKBACK_DAYS);
+  return last < addDays(periodStart, -1) ? addDays(last, 1) : null;
 }
 
 /**
  * What New invoice offers of the billable entries dated from
  * `earlierWorkFrom()` to the period: those no draft holds, which Include
- * bills, else those one draft holds, which it names. The count and dates,
- * each entry dated by its day in `tz`.
+ * bills, else those held by the draft holding the earliest of them, which
+ * it names. The count and dates, each entry dated by its day in `tz`.
  */
 export function earlierWork(
   entries: { startedAt: string; draftId: string | null }[],
   tz: string,
 ) {
-  const free = entries.filter((e) => e.draftId === null);
+  const sorted = [...entries].sort((a, b) =>
+    a.startedAt.localeCompare(b.startedAt),
+  );
+  const free = sorted.filter((e) => e.draftId === null);
   const shown =
     free.length > 0
       ? free
-      : entries.filter((e) => e.draftId === entries[0]?.draftId);
+      : sorted.filter((e) => e.draftId === sorted[0]?.draftId);
   if (shown.length === 0) return null;
   const days = shown.map((e) => localDateKey(new Date(e.startedAt), tz)).sort();
   return {

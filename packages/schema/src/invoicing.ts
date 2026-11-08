@@ -164,8 +164,9 @@ export const InvoicePreview = z.object({
    *  billed time. A warning, not a block: the user decides. */
   overlappingEntryIds: z.array(uuid),
   /** The client's unbilled work dated after its last invoice and before the
-   *  period (`earlierWork()`), which New invoice offers to include; `draft`
-   *  is the other draft holding it. Null when there is none. */
+   *  period (`earlierWork()`), which New invoice offers to include. When
+   *  other drafts hold all of it, `draft` is the one holding the earliest.
+   *  Null when there is none. */
   earlierWork: z
     .object({
       entryCount: z.number().int().positive(),

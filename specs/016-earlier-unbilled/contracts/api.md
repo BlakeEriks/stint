@@ -11,4 +11,4 @@ The answer gains `earlierWork`, null when there is none:
 }
 ```
 
-`draft` is `{ "id": "…", "invoiceNumber": "INV-0042" }` when another draft holds all of it.
+`draft` is `{ "id": "…", "invoiceNumber": "INV-0042" }` when other drafts hold all of it: the draft holding the earliest of it, whose entries `entryCount` counts.

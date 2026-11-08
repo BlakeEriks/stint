@@ -263,11 +263,17 @@ test('preview names the draft holding the earlier work, unless it is the one edi
     await create(
       req('/invoices', {
         clientId: CLIENT,
-        periodStart: '2026-09-30',
+        periodStart: '2026-10-02',
         periodEnd: '2026-10-31',
       }),
     ),
   );
+  // Held outside its period, as a draft built in another zone holds an
+  // entry near midnight; a draft spanning Oct 1 would leave no look-back.
+  await pool.query('update time_entries set draft_id=$1 where id=$2', [
+    draft.body.id,
+    E(1),
+  ]);
   const october = { periodStart: '2026-10-01', periodEnd: '2026-10-31' };
   const earlier = async (draftId?: string) =>
     (

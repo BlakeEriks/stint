@@ -576,11 +576,8 @@ function previewEarlierWork(db: Db, body: PreviewRequest, tz: string) {
       i.status !== 'void' &&
       i.id !== body.draftId,
   );
-  const from = earlierWorkFrom(
-    body.periodStart,
-    others.map((i) => i.periodEnd),
-  );
-  if (from >= body.periodStart) return null;
+  const from = earlierWorkFrom(body.periodStart, others);
+  if (!from) return null;
   const window = billingWindow(from, addDays(body.periodStart, -1), tz);
   const work = earlierWork(
     db.entries

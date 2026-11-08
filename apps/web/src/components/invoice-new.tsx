@@ -881,9 +881,11 @@ function Form({
               updating={updating}
               offer={
                 <EarlierWorkOffer
-                  // Gone the moment From moves, not when the next answer lands.
+                  // Gone the moment From or the client changes, not when the next
+                  // answer lands.
                   work={
-                    current?.periodStart === periodStart
+                    current?.periodStart === periodStart &&
+                    current.clientId === draft.clientId
                       ? current.earlierWork
                       : null
                   }

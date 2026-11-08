@@ -29,7 +29,7 @@ async function loadEarlierWork(
     await Promise.all([
       db
         .from('invoices')
-        .select('id, invoice_number, period_end')
+        .select('id, invoice_number, period_start, period_end')
         .eq('client_id', opts.clientId)
         .neq('status', 'void'),
       db.from('projects').select('id').eq('client_id', opts.clientId),
@@ -39,9 +39,12 @@ async function loadEarlierWork(
   const others = (invoices ?? []).filter((i) => i.id !== opts.draftId);
   const from = earlierWorkFrom(
     opts.periodStart,
-    others.map((i) => i.period_end as string),
+    others.map((i) => ({
+      periodStart: i.period_start as string,
+      periodEnd: i.period_end as string,
+    })),
   );
-  if (from >= opts.periodStart) return null;
+  if (!from) return null;
   const window = billingWindow(from, addDays(opts.periodStart, -1), opts.tz);
   const rows = await selectAll(() =>
     db
