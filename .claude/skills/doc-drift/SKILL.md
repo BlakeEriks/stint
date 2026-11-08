@@ -51,6 +51,7 @@ Nothing changed behavior → go to step 4 with no findings.
 | a `pnpm` script | `docs/local-dev.md`, `README.md` |
 | a repo-wide constraint | `CLAUDE.md` |
 | what a user sees, or how their data is treated | `.specify/memory/constitution.md`, `.claude/rules/web-ui.md` |
+| the words a user reads | `docs/voice.md` |
 | who it is for, what it costs, what it replaces | `docs/positioning.md` |
 
 Grep `docs/`, `README.md`, the `CLAUDE.md` files, `.claude/` and
