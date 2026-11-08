@@ -58,6 +58,25 @@ export function Field({
   );
 }
 
+/** Fields that belong to the field above, indented on a rule so they read as
+    part of it rather than as fields of their own. Goes inside that `Field`. */
+export function SubFields({
+  label,
+  children,
+}: {
+  label?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <fieldset
+      aria-label={label}
+      className="mt-1.5 ml-3 flex min-w-0 flex-col gap-4 border-l-2 border-edge-subtle pl-3"
+    >
+      {children}
+    </fieldset>
+  );
+}
+
 /**
  * Bring a linked-to section into view and put the caret in its first field.
  *
@@ -161,7 +180,7 @@ export function Section({
 
 export const inputClass =
   'h-9 w-full rounded-md border border-edge-default bg-transparent px-3 type-control ' +
-  'text-strong placeholder:text-subtle outline-none focus-visible:border-edge-focus ' +
+  'text-strong placeholder:text-placeholder outline-none focus-visible:border-edge-focus ' +
   'focus-visible:ring-[3px] focus-visible:ring-edge-focus';
 
 /**
@@ -172,10 +191,10 @@ export const inputClass =
  */
 export const elevatedInputClass =
   'rounded-md border border-edge-control bg-surface-elevated px-3 type-control ' +
-  'text-strong placeholder:text-subtle focus:outline-none ' +
+  'text-strong placeholder:text-placeholder focus:outline-none ' +
   'focus-visible:ring-2 focus-visible:ring-edge-focus';
 
 export const textareaClass =
   'w-full rounded-md border border-edge-default bg-transparent px-3 py-2 type-control ' +
-  'text-strong placeholder:text-subtle outline-none focus-visible:border-edge-focus ' +
+  'text-strong placeholder:text-placeholder outline-none focus-visible:border-edge-focus ' +
   'focus-visible:ring-[3px] focus-visible:ring-edge-focus';

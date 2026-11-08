@@ -54,7 +54,6 @@ export interface Data {
     fields: Array<{ label: string; value: string }>;
     intermediary: Array<{ label: string; value: string }>;
     link: { label: string; url: string } | null;
-    notes: string | null;
   } | null;
   /** The frozen supporting detail, printed from page 2; null when none. */
   supportingDetail?: Schedules | null;
@@ -240,7 +239,6 @@ export interface PaymentStyles {
   value: Style;
   sub: Style;
   link: Style;
-  notes: Style;
 }
 
 export function PaymentView({
@@ -272,7 +270,6 @@ export function PaymentView({
           {payment.link.label}: {payment.link.url}
         </Text>
       ) : null}
-      <Lines text={payment.notes} style={s.notes} />
     </View>
   );
 }
@@ -387,7 +384,6 @@ type Sheet = Record<
   | 'payValue'
   | 'paySub'
   | 'payLink'
-  | 'payNotes'
   | 'table'
   | 'tTitle'
   | 'continued'
@@ -414,7 +410,6 @@ export const payStyles = (s: Sheet): PaymentStyles => ({
   value: s.payValue,
   sub: s.paySub,
   link: s.payLink,
-  notes: s.payNotes,
 });
 
 /** A detail page: the running header, then each table. */

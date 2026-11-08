@@ -23,14 +23,23 @@ mode starts an issue while the cap's worth of PRs is open (step 1).
 
 **You orchestrate; subagents build and review.** `issue-builder` does the
 work and `pr-review-toolkit:code-reviewer` reviews it, each in its own subagent reporting back
-one paragraph. **One builder per issue**: brief it with the issue or PR
-number and nothing else, and send it everything after — findings, `ship` —
-by SendMessage to its agentId. Never a second builder for that issue — save
-the one case step 1 names, when its instructions have changed — and never a
-status check: its notification is its status. Your context holds a summary per issue, not the work, and a
-long run survives auto-compaction. Nothing smaller than an issue or a round
-of fixes gets a subagent — each one re-reads the project, and that is the
-cost.
+one paragraph. Builders run on Opus at medium effort (their frontmatter),
+reviews on Opus, and a read-only scan or search on Sonnet.
+
+**A builder keeps the context it built.** Brief it with the issue or PR
+number and nothing else, and send its design and logic rounds — findings,
+feedback, `ship` — by SendMessage to its agentId. Never a second builder for
+that issue, save the case step 1 names, and never a status check: its
+notification is its status. **A small round gets a fresh builder** instead:
+doc drift, a conflict with `main`, a trim. Brief it with the PR number and
+the finding; it needs none of the old builder's reading, and every call the
+old one makes re-reads all of it. Nothing smaller than a round gets a
+subagent.
+
+**Batch reports.** When several subagents report while you wait, handle
+them in one pass, not a turn each, and tell the owner only what needs them.
+Your context holds a summary per issue, not the work; the state lives in
+labels, PRs and the log, so a long run survives compaction.
 
 **Feedback** means a comment by the repo owner, `BlakeEriks`, without the
 `<!-- work-issues -->` marker — `gh` runs as the repo owner, so the marker is
@@ -41,11 +50,11 @@ comment step 0 reads.
 
 **Labels are the loop's memory**, so nothing is worked out twice:
 
-- `ready-for-qa` (PR): ready to test and merge now — no conflict with
-  `main`, CI green (or, for the next migration PR to hold the preview
-  database, just `main` merged in: step 6), no question open, no feedback
-  unanswered. Off the
-  moment any of that stops being true.
+- `ready-for-qa` (PR): ready to test now — its Vercel preview is up, no
+  conflict with `main`, no check red but `drift`, no question open, no
+  feedback unanswered. A migration PR also waits for CI green (step 6).
+  Merging needs no label: a red required check leaves the PR `BLOCKED`. Off
+  the moment any of that stops being true.
 - `needs-input` (issue or PR): a question only the reviewer can answer, asked in a
   marked comment.
 - `blocked` (issue): waits on another PR; the marked comment names it and why.
@@ -70,6 +79,15 @@ Every build and every fix goes the same way:
 
 The PR shows the fixed work, never the findings.
 
+**A whole-branch review, recommended by churn.** When a feedback round
+ships, judge what the rounds have churned since the PR's last
+`/standards-review final` (its `final` row in the log): how much code they
+rewrote or reverted against the PR's size, and whether an approach was
+swapped, such as a reverted design or a replaced mechanism. Never count
+rounds. Once leftovers are likely, recommend `/standards-review final <n>`
+in your report and your wrap-up, once per PR until it runs. The owner
+decides when it runs; its findings go to the builder as a round.
+
 **Log every subagent run** — you alone, as each result arrives, `at` from
 `date -u +%FT%RZ`: append one line to
 `.claude/work-issues/runs.jsonl` in the main checkout — the parent of
@@ -80,7 +98,7 @@ the most. Gitignored; one JSON object per line:
      "agent":"issue-builder","agentId":"…","tokens":81234,"toolUses":42,
      "durationMs":512000,"findings":2,"outcome":"reviewed"}
 
-`round` is `build`, `feedback` or `ci`; `tokens`, `toolUses` and
+`round` is `build`, `feedback`, `ci` or `final`; `tokens`, `toolUses` and
 `durationMs` are what the subagent's result reports; `findings` only on the
 reviewer's rows. `outcome` is what that agent did, one word: a builder's is
 `committed`, `shipped`, `closed`, `needs-input`, `blocked`, `design-review` or `failed`; the reviewer's
@@ -102,8 +120,9 @@ is `reviewed`.
   2. **Feedback** — the repo owner's comment or review, newer than the last push
      and the last marked comment: remove `ready-for-qa`, then a round of
      fixes. Feedback beyond the PR's scope becomes a new issue instead.
-  3. **CI failed** (`gh pr checks <n>`): remove `ready-for-qa`. A red
-     `drift` is doc drift, step 4, not a check to fix here.
+  3. **CI failed** (`gh pr checks <n>`): remove `ready-for-qa`, since what
+     is being tested may be broken. A red `drift` is doc drift, step 4: it
+     leaves the label on and is not a check to fix here.
      - The same check red on `main`, or on another PR the same way, is not
        this PR's fault: open one `urgent` bug issue for it if none exists —
        or `needs-input`, if only the reviewer can fix it, like a paused `stint-test`
@@ -114,17 +133,20 @@ is `reviewed`.
   4. **Doc drift** — the newest comment starting `<!-- doc-drift:<sha> -->`
      names the PR's head commit (`gh pr view <n> --json headRefOid`), lists
      findings, and no marked comment is newer than its `updatedAt` — it is
-     edited on each push, so its `createdAt` is the first push's: remove
-     `ready-for-qa`, then a round of fixes.
+     edited on each push, so its `createdAt` is the first push's: a round of
+     fixes, with `ready-for-qa` left on.
   5. **Conflicts with `main`** (`gh pr view <n> --json mergeStateStatus`
      says `DIRTY`): remove `ready-for-qa`, then a round in which the builder
      merges `main` in. Review it only if the conflicts needed resolving. A PR
      merely behind `main` is fine: `main` does not require branches to be up
      to date.
-  6. **CI green and none of the above**, all checked in this pass: add
-     `ready-for-qa`, once. Only this step and `migration-handoff.yml` add
-     it — never a look at CI alone, which cannot see feedback.
-     **A migration PR holds the preview database while it is
+  6. **The preview is up and none of 1, 2, 3 or 5 holds**, all checked in
+     this pass: add `ready-for-qa`, once, without waiting for the other
+     checks. Up is `Vercel` and `preview-db` passed, the deploy and its
+     seeded account. After a ship, this runs in the same pass as the push.
+     Only this step and `migration-handoff.yml` add it — never a look at CI
+     alone, which cannot see feedback.
+     **A migration PR waits for CI green**, and holds the preview database while it is
      `ready-for-qa`** (`preview-db.yml`), so at most one has the label. A
      migration PR is one whose diff adds a migration
      (`gh pr diff <n> --name-only | grep '^supabase/migrations/'`), whatever
@@ -133,8 +155,9 @@ is `reviewed`.
      not `needs-input` one and labels it. When none has the label, as after
      a handoff that conflicted, the oldest first gets a round in which the
      builder merges `main` in, then adds the label without waiting for CI.
-  7. **CI still running:** leave it for the next pass, except the migration
-     PR that step 6 just merged `main` into to take the label.
+  7. **Preview still building**, or a migration PR's CI still running:
+     leave it for the next pass, except the migration PR that step 6 just
+     merged `main` into to take the label.
 - **Each open Dependabot PR** (`gh pr list --author app/dependabot`), the
   same steps, except:
   - 3: first `gh pr merge --disable-auto <n>`, so the fix is reviewed
@@ -204,8 +227,9 @@ redraft is republished to the same link, named in the comment.
 ## 2. Stop
 
 When the mode is done or nothing is left to pick, end with one summary: PRs
-opened or updated, which are `ready-for-qa`, what is `needs-input` and its
-question, and anything that failed.
+opened or updated, what is `needs-input` and its question, and anything that
+failed. Of the `ready-for-qa` PRs, name at most three for the owner to
+check, most pressing first, each linked with what merging it unblocks.
 
 Only under `/loop`: wake again in 15 minutes while an open PR's CI is still
 running. Pass the same `/loop` prompt back — never a hand-written one, which

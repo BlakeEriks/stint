@@ -10,10 +10,10 @@ import { useEffect, useState } from 'react';
 import { AppState, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { createApi } from '../api.ts';
-import { createBypass } from '../bypass.ts';
+import { BYPASS_KEY, createBypass } from '../bypass.ts';
 import { createPushDevice } from '../push.ts';
 import { createSurfaces } from '../surfaces.ts';
-import { canDraw, drawSurfaces } from '../surfaces-native';
+import { canDraw, drawSurfaces, onPressedOutside } from '../surfaces-native';
 import { canPush, expoTokens, listenForTimerPushes } from '../push-native';
 import { origin, target } from '../config.ts';
 import { usePlex } from '../fonts.ts';
@@ -66,17 +66,26 @@ focusManager.setEventListener((setFocused) => {
   return () => sub.remove();
 });
 
-/* The notification, widgets, tile and shortcut (`surfaces.ts`): drawn on
-   every change to the cached timer, and pressed through the same client, also
-   with no screen (the `StintPress` task in `index.ts`). */
+/* The timer outside the app (`surfaces.ts`): drawn on every change to the
+   cached timer. On Android it is pressed through the same client, also with
+   no screen (the `StintPress` task in `index.ts`); on iOS Swift presses, at
+   this backend, and says so once it has. */
+const backend = {
+  origin,
+  supabaseUrl: target.supabaseUrl,
+  supabaseKey: target.supabaseKey,
+  session: auth.key,
+  bypass: BYPASS_KEY,
+};
 export const surfaces = createSurfaces({
   queryClient,
   api,
   timeZone: currentTimeZone,
   signedIn: canRequest,
-  draw: drawSurfaces,
+  draw: (state) => drawSurfaces(state, backend),
 });
 if (canDraw) surfaces.follow();
+onPressedOutside(() => void onTimerChanged(queryClient));
 
 /**
  * Whether a request can be made with no screen: a session and, on a preview,

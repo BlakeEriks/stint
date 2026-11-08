@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { Inbox, inboxCount } from '@/components/inbox';
+import { Inbox } from '@/components/inbox';
 import { MutationNotice } from '@/components/mutation-notice';
 import type { Stats } from '@/lib/client/api';
 
@@ -12,6 +12,7 @@ vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
 function stats(attention: Partial<Stats['attention']> = {}): Stats {
   return {
     currency: 'USD',
+    hasEntries: true,
     unbilled: {
       total: 0,
       mixed: false,
@@ -91,24 +92,43 @@ const overdue = {
 
 afterEach(() => vi.unstubAllGlobals());
 
-const due = {
-  clientId: 'c1',
-  clientName: 'Northwind',
-  entryIds: ['e1'],
-  seconds: 54000,
-  since: '2026-09-04',
-  periodStart: '2026-09-01',
-  periodEnd: '2026-09-30',
-  onePeriod: true,
-};
-
-describe('Work past due to bill', () => {
-  it('counts in the header', () => {
-    expect(inboxCount(stats({ unbilledDue: [due] }).attention)).toBe(1);
-  });
-});
-
 describe('Inbox', () => {
+  /* Its invoices open on their own page, so each is fetched in full once
+     the inbox paints, and that page opens loaded. */
+  it('prefetches the overdue invoice and the stale draft', async () => {
+    const fetched: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const one = String(url).match(/\/invoices\/(\w+)\?/)?.[1];
+        if (one) fetched.push(one);
+        return new Response('{}');
+      }),
+    );
+    render(
+      <Inbox
+        stats={stats({
+          overdueInvoices: [overdue],
+          staleDrafts: [
+            {
+              invoiceId: 'd1',
+              invoiceNumber: 'STINT-0019',
+              clientId: 'c1',
+              clientName: 'Byrne Studio',
+              amount: 780,
+              currency: 'USD',
+              ageDays: 13,
+              entryCount: 6,
+              refuses: { download: false, send: false },
+            },
+          ],
+        })}
+      />,
+      { wrapper },
+    );
+    await waitFor(() => expect(fetched.sort()).toEqual(['d1', 'i1']));
+  });
+
   it('names the invoice in every action, even where the label is generic', () => {
     render(<Inbox stats={stats({ overdueInvoices: [overdue] })} />, {
       wrapper,
@@ -163,6 +183,7 @@ describe('Inbox', () => {
               amount: 780,
               currency: 'USD',
               ageDays: 13,
+              entryCount: 6,
               refuses: { download: false, send: false },
             },
           ],

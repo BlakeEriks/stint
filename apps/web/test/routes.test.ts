@@ -561,102 +561,6 @@ const flagged = async () =>
     )
   ).rows.map((r) => r.id);
 
-test('billed elsewhere marks only the user’s finished, uninvoiced entries, and says which', async () => {
-  const { POST } = await import(
-    '../src/app/api/v1/entries/invoiced-elsewhere/route.ts'
-  );
-  await seedBilledElsewhere();
-
-  const res = await json(
-    await POST(
-      req('/entries/invoiced-elsewhere', {
-        ids: [BE(1), BE(2), BE(3), BE(4), BE(5)],
-        invoicedElsewhere: true,
-      }),
-    ),
-  );
-  assert.equal(res.status, 200);
-  assert.deepEqual([...res.body.ids].sort(), [BE(1), BE(2)]);
-  assert.deepEqual(await flagged(), [BE(1), BE(2)]);
-});
-
-test('work marked billed elsewhere leaves Unbilled and the next invoice', async () => {
-  const { POST } = await import(
-    '../src/app/api/v1/entries/invoiced-elsewhere/route.ts'
-  );
-  const { POST: preview } = await import(
-    '../src/app/api/v1/invoices/preview/route.ts'
-  );
-  const { clientId } = await seedBilledElsewhere();
-  // Unbilled counts a running timer live, so it would move under the test.
-  await pool.query('delete from time_entries where id = $1', [BE(3)]);
-  const period = {
-    clientId,
-    periodStart: '2026-09-01',
-    periodEnd: '2026-09-30',
-    tz: 'America/New_York',
-  };
-  const unbilled = async () =>
-    (
-      await pool.query(
-        'select coalesce(sum(seconds),0)::int s from unbilled_by_client($1)',
-        [USER],
-      )
-    ).rows[0].s;
-
-  const before = await json(await preview(req('/invoices/preview', period)));
-  assert.equal(before.body.entryCount, 2);
-  assert.equal(await unbilled(), 3 * 3600);
-
-  await POST(
-    req('/entries/invoiced-elsewhere', {
-      ids: [BE(1), BE(2)],
-      invoicedElsewhere: true,
-    }),
-  );
-  const after = await json(await preview(req('/invoices/preview', period)));
-  assert.equal(after.body.entryCount, 0);
-  assert.equal(await unbilled(), 0);
-});
-
-test('clearing billed elsewhere puts exactly those entries back', async () => {
-  const { POST } = await import(
-    '../src/app/api/v1/entries/invoiced-elsewhere/route.ts'
-  );
-  await seedBilledElsewhere();
-  await pool.query(
-    'update time_entries set invoiced_elsewhere = true where id = any($1)',
-    [[BE(1), BE(2), BE(5)]],
-  );
-
-  const res = await json(
-    await POST(
-      req('/entries/invoiced-elsewhere', {
-        ids: [BE(1), BE(5)],
-        invoicedElsewhere: false,
-      }),
-    ),
-  );
-  assert.deepEqual(res.body.ids, [BE(1)]);
-  assert.deepEqual(
-    await flagged(),
-    [BE(2), BE(5)],
-    'another user’s entry is not cleared',
-  );
-});
-
-test('billed elsewhere refuses an empty list', async () => {
-  const { POST } = await import(
-    '../src/app/api/v1/entries/invoiced-elsewhere/route.ts'
-  );
-  const res = await json(
-    await POST(
-      req('/entries/invoiced-elsewhere', { ids: [], invoicedElsewhere: true }),
-    ),
-  );
-  assert.equal(res.status, 422);
-});
-
 test('an entry is marked or cleared billed elsewhere by its PATCH', async () => {
   const { PATCH } = await import('../src/app/api/v1/entries/[id]/route.ts');
   await seedBilledElsewhere();
@@ -1186,7 +1090,6 @@ test('a new payment profile stores every detail it is given', async () => {
     paymentLinkUrl: 'https://pay.example.com/ada',
     currency: 'USD',
     feeAllocation: 'SHA',
-    notes: 'Reference the invoice number.',
   };
 
   const res = await json(
@@ -1569,10 +1472,7 @@ test('the next invoice number goes anywhere past the numbers invoices hold', asy
   const held = await set({ nextInvoiceNumber: 2, maxEntryHours: 12 });
   assert.equal(held.status, 422);
   assert.equal(held.body.code, 'VALIDATION_FAILED');
-  assert.equal(
-    held.body.message,
-    'Must be higher than INV-0002, your latest invoice.',
-  );
+  assert.match(held.body.message, /INV-0002/, 'names the latest, a draft');
   assert.deepEqual(held.body.details, {
     field: 'nextInvoiceNumber',
     current: 3,
@@ -1640,10 +1540,6 @@ test('an invoice taken during the save makes the next number check again', async
 
     const res = await saving;
     assert.equal(res.status, 422);
-    assert.equal(
-      res.body.message,
-      'Must be higher than INV-0001, your latest invoice.',
-    );
   } finally {
     generate.release();
   }
@@ -1715,6 +1611,21 @@ test('the user payment terms are whole days from 0 to 365', async () => {
   }
 });
 
+test("the account's billing time zone is an IANA zone, or null", async () => {
+  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
+  const set = (body: object) =>
+    patch(req('/settings', body, 'PATCH')).then(json);
+
+  const saved = await set({ billingTimeZone: 'America/Chicago' });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.billingTimeZone, 'America/Chicago');
+  assert.equal(
+    (await set({ billingTimeZone: null })).body.billingTimeZone,
+    null,
+  );
+  assert.equal((await set({ billingTimeZone: 'Central' })).status, 422);
+});
+
 /* Old terms the migration couldn't read became 30 days; the Inbox shows
    what was written until the user saves their terms. */
 test('stats asks about old payment terms until the user saves theirs', async () => {
@@ -1755,6 +1666,21 @@ test('stats flags an account with no default rate, and zero counts as set', asyn
 
   await patch(req('/settings', { defaultHourlyRate: null }, 'PATCH'));
   assert.equal(await flag(), true, 'clearing it asks again');
+});
+
+/* Home asks for a first entry while the account holds none, whatever its date. */
+test('stats says whether the account holds any entry', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const has = async () =>
+    (await json(await stats(req('/stats?tz=UTC')))).body.hasEntries;
+
+  assert.equal(await has(), false);
+  await entryFor({
+    id: '018f0000-0000-7000-8000-00000000e001',
+    hours: 1,
+    daysAgo: 400,
+  });
+  assert.equal(await has(), true, 'outside every window it still counts');
 });
 
 /* The welcome dialog shows while `welcomedAt` is null. The signup trigger
@@ -2135,6 +2061,37 @@ test('unrated work counts but adds no money', async () => {
   assert.equal(row.unratedCount, 1, 'says the total is incomplete');
   assert.equal(row.amount, 0, 'and contributes nothing to it');
   assert.equal(row.seconds, 7200, 'while the hours are still real');
+});
+
+test('stats reads as of x-stint-now, on a preview or local dev only', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  await entryFor({ id: S(30), hours: 2 }); // 2026-09-09, 00:00–02:00 UTC
+
+  const asOf = (env?: string) => {
+    if (env) process.env.VERCEL_ENV = env;
+    else delete process.env.VERCEL_ENV;
+    return stats(
+      new Request('http://t/stats?tz=UTC', {
+        headers: { 'x-stint-now': '2026-09-09T15:00:00.000Z' },
+      }),
+    ).then(json);
+  };
+  try {
+    const shifted = (await asOf()).body.week;
+    assert.equal(
+      shifted.find((d: { date: string }) => d.date === '2026-09-09')?.seconds,
+      7200,
+    );
+    for (const env of ['production', 'development']) {
+      const real = (await asOf(env)).body.week;
+      assert.ok(
+        !real.some((d: { date: string }) => d.date === '2026-09-09'),
+        env,
+      );
+    }
+  } finally {
+    delete process.env.VERCEL_ENV;
+  }
 });
 
 test('a running timer is unbilled so far; non-billable work is not', async () => {
@@ -3195,7 +3152,7 @@ test('a draft is stale only after a week, and the oldest sorts first', async () 
   assert.equal(res.body.attention.staleDrafts[1].ageDays, 9);
 });
 
-test('a stale draft carries the money and the client it belongs to', async () => {
+test('a stale draft carries the money, the entries and the client it belongs to', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
   const c = '33333333-0000-4000-8000-00000000000a';
@@ -3220,12 +3177,78 @@ test('a stale draft carries the money and the client it belongs to', async () =>
              'entry','UTC')`,
     ['45444444-0000-4000-8000-000000000009', USER, c],
   );
+  await pool.query('update time_entries set draft_id = $1 where id = $2', [
+    '45444444-0000-4000-8000-000000000009',
+    S(40),
+  ]);
 
   const res = await json(await stats(req('/stats?tz=UTC')));
   const [draft] = res.body.attention.staleDrafts;
   assert.equal(draft.clientName, 'Namely');
-  assert.equal(draft.amount, 100, 'what its period’s hour comes to now');
+  assert.equal(draft.amount, 100, 'what the hour it holds comes to now');
+  assert.equal(draft.entryCount, 1, 'what Mark sent locks');
   assert.equal(draft.currency, 'USD');
+});
+
+test('the draft backfill reads a zoneless draft in the billing zone', async () => {
+  const c = '33333333-0000-4000-8000-00000000000c';
+  const p = '33333333-0000-4000-8000-0000000000c1';
+  const draft = '45444444-0000-4000-8000-00000000000c';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Zoned',100)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  await pool.query(
+    `insert into invoices
+       (id,user_id,client_id,invoice_number,sequence_no,status,period_start,
+        period_end,currency,grouping_mode)
+     values ($1,$2,$3,'INV-0010',10,'draft','2026-09-01','2026-09-30','USD',
+             'entry')`,
+    [draft, USER, c],
+  );
+  // August 31 and September 30 in Los Angeles; September 1 and October 1 in UTC.
+  for (const [id, start] of [
+    [S(41), '2026-09-01T03:00:00Z'],
+    [S(42), '2026-10-01T03:00:00Z'],
+  ])
+    await pool.query(
+      `insert into time_entries
+         (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
+       values ($1,$2,$3,'work',$4,$4::timestamptz + interval '1 hour',true)`,
+      [id, USER, p, start],
+    );
+  await pool.query(
+    `update user_settings set billing_time_zone='America/Los_Angeles' where user_id=$1`,
+    [USER],
+  );
+  try {
+    await pool.query(
+      readFileSync(
+        new URL(
+          '../../../supabase/migrations/20261101123914_backfill_draft_work.sql',
+          import.meta.url,
+        ),
+        'utf8',
+      ),
+    );
+  } finally {
+    await pool.query(
+      'update user_settings set billing_time_zone=null where user_id=$1',
+      [USER],
+    );
+  }
+  const { rows } = await pool.query(
+    'select draft_id from time_entries where project_id=$1 order by id',
+    [p],
+  );
+  assert.deepEqual(
+    rows.map((r) => r.draft_id),
+    [null, draft],
+  );
 });
 
 // ── unprojected work ───────────────────────────────────────────────

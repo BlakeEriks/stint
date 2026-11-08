@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { ArrowRight, type LucideIcon } from 'lucide-react';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
 import { INSET } from './page';
@@ -198,6 +199,11 @@ export function Pip({ color }: { color?: string | null }) {
   );
 }
 
+/** `gap-x-5` between legend keys, in px. */
+const LEGEND_GAP = 20;
+/** Room kept for `+12 more` when keys fold, in px. */
+const MORE_WIDTH = 72;
+
 /**
  * ONE legend, at the foot of the panel, naming every hue drawn above it.
  *
@@ -207,23 +213,73 @@ export function Pip({ color }: { color?: string | null }) {
  * find out what it means.
  */
 export function Legend({ hues }: { hues: Map<string, Hue> }) {
-  if (hues.size === 0) return null;
+  const all = [...hues.values()];
+  const row = useRef<HTMLUListElement>(null);
+  const [shown, setShown] = useState(all.length);
+
+  /* One row however many clients: a second would push Home past one screen.
+     The keys that fit are measured, not counted, since that turns on the
+     panel's width and the names; the rest fold into `+N more`. */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: new names remeasure without the row resizing
+  useLayoutEffect(() => {
+    const el = row.current;
+    if (!el) return;
+    const measure = () => {
+      const widths = [
+        ...el.querySelectorAll<HTMLElement>('[data-legend-key]'),
+      ].map((key) => key.offsetWidth + LEGEND_GAP);
+      const fit = (room: number) => {
+        let used = 0;
+        let count = 0;
+        for (const w of widths) {
+          used += w;
+          if (used - LEGEND_GAP > room) break;
+          count += 1;
+        }
+        return count;
+      };
+      const whole = fit(el.clientWidth);
+      setShown(
+        whole === widths.length ? whole : fit(el.clientWidth - MORE_WIDTH),
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hues]);
+
+  if (all.length === 0) return null;
+  const rest = all.slice(shown).map((h) => h.name);
 
   return (
     <ul
+      ref={row}
       data-legend="clients"
-      className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-edge-subtle pt-3.5"
+      className="mt-4 flex items-center gap-x-5 overflow-hidden border-t border-edge-subtle pt-3"
     >
-      {[...hues.values()].map((h) => (
+      {all.map((h, i) => (
+        /* A folded key stays in the row, hidden past the `+N more`, so it
+           is still there to measure when the panel widens. */
         <li
           key={h.id || 'internal'}
           data-legend-key={h.id || 'internal'}
-          className="inline-flex items-center gap-[7px] type-meta text-subtle"
+          className={`inline-flex flex-none items-center gap-[7px] type-meta whitespace-nowrap text-subtle ${i < shown ? '' : 'invisible order-last'}`}
         >
           <Pip color={h.color} />
           {h.name}
         </li>
       ))}
+      {rest.length > 0 ? (
+        <li
+          data-legend-more
+          title={rest.join(', ')}
+          className="flex-none type-meta whitespace-nowrap text-subtle"
+        >
+          +{rest.length} more
+          <span className="sr-only">: {rest.join(', ')}</span>
+        </li>
+      ) : null}
     </ul>
   );
 }

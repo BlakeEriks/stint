@@ -1,13 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
+import { useLeaveGuard } from '@/lib/client/use-leave-guard';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { shortDate } from './invoice-bits';
 import {
   keepPreviousData,
-  type QueryClient,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
@@ -18,7 +16,8 @@ import {
 } from '@stint/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Field, inputClass } from './field';
+import { Field, SubFields, inputClass } from './field';
+import { ClientDialog } from './client-dialog';
 import { ClientPicker } from './client-picker';
 import {
   DropdownMenu,
@@ -34,6 +33,7 @@ import {
   addDays,
   BILLING_PERIOD_LABELS,
   buildPaymentDetails,
+  billingZone,
   defaultInvoicePeriod,
   attachedSchedules,
   formatCurrency,
@@ -64,13 +64,13 @@ import { ExpenseRow } from './expense-row';
 import { type Charge, ChargeDialog } from './charge-dialog';
 import { PaymentProfileDialog } from './payment-profile-dialog';
 import { missingBusiness, SenderNotice } from './business-dialog';
-import { ClientDialog } from './client-dialog';
 import { NumberDialog } from './number-dialog';
 import { summarize } from './payment-profiles';
 import { businessOf, InvoicePreviewCard } from './invoice-preview-card';
-import { TemplatePicker, useTemplateChoice } from './template-picker';
+import { TemplateDialog } from './template-dialog';
+import { templateName } from './template-picker';
 import { rowButton } from './row-button';
-import { PortalToast } from './toast';
+import { ConfirmDialog } from './confirm-dialog';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
   {
@@ -103,13 +103,13 @@ interface Draft {
   /** `null` until the user picks one, so it follows the payment terms the
    *  invoice prints. */
   dueDate: string | null;
-  /** The PO, contract or SOW. It decides no line, so it never asks the
-   *  server again. */
-  reference: string;
   /** Printed on this invoice only; blank prints nothing. */
   notes: string;
-  /* These three are `null` until the user sets them, so they follow the
+  /* These four are `null` until the user sets them, so they follow the
      client's last invoice. */
+  /** The PO, contract or SOW. It decides no line, so it never asks the
+   *  server again. */
+  reference: string | null;
   groupingMode: GroupingMode | null;
   /** The one line's text with `summary`. */
   summaryText: string | null;
@@ -128,7 +128,7 @@ const EMPTY: Draft = {
   periodStart: null,
   periodEnd: null,
   dueDate: null,
-  reference: '',
+  reference: null,
   notes: '',
   groupingMode: null,
   summaryText: null,
@@ -146,7 +146,7 @@ const isDate = (d: string | null): d is string =>
 
 /**
  * The draft a link opens with: `?client=…&from=…&to=…`, as the Inbox's row
- * for a period that ended with no invoice sends. A client not in `clients`,
+ * for a client ready to invoice sends. A client not in `clients`,
  * or dates that aren't a period, are left out, so the form opens as usual.
  */
 export function linkedDraft(
@@ -162,6 +162,49 @@ export function linkedDraft(
     clientId: clients.some((c) => c.id === client) ? client! : '',
     periodStart: period ? from : null,
     periodEnd: period ? to : null,
+  };
+}
+
+/** A draft as `GET /invoices/:id` answers it, which an edit opens. */
+type Edited = Awaited<ReturnType<typeof api.invoice>>;
+
+/** Payment details compared by content: Postgres stores them as jsonb,
+ *  which keeps no key order. */
+const canonical = (v: unknown) =>
+  JSON.stringify(v, (_, x) =>
+    x && typeof x === 'object' && !Array.isArray(x)
+      ? Object.fromEntries(Object.entries(x).sort())
+      : x,
+  );
+
+/** The form as the draft left it. Its payment details are the profile that
+ *  renders them still, else '' to keep them as they were frozen. */
+function draftOf(inv: Edited, profiles: PaymentProfile[]): Draft {
+  const summary = inv.groupingMode === 'summary';
+  const frozen = canonical(inv.paymentDetails);
+  return {
+    clientId: inv.clientId,
+    periodStart: inv.periodStart,
+    periodEnd: inv.periodEnd,
+    dueDate: inv.choices?.dueDate ?? null,
+    reference: inv.reference ?? '',
+    notes: inv.notes ?? '',
+    groupingMode: inv.groupingMode,
+    // Left to carry, as on New invoice, should a summary be picked.
+    summaryText: summary ? (inv.summaryText ?? '') : null,
+    schedules: summary ? attachedSchedules(inv.supportingDetail) : null,
+    charges: (inv.choices?.manualLines ?? []).map((l) => ({
+      ...l,
+      key: crypto.randomUUID(),
+    })),
+    excludedExpenseIds: inv.choices?.excludedExpenseIds ?? [],
+    paymentProfileId:
+      profiles.find(
+        (p) =>
+          canonical(
+            buildPaymentDetails(p, { invoiceNumber: inv.invoiceNumber }),
+          ) === frozen,
+      )?.id ?? '',
   };
 }
 
@@ -202,16 +245,16 @@ function ScheduleHint({
   );
 }
 
-/** What a client's last invoice carries into the next: a summary's text and
- *  attachments, so a monthly invoice isn't retyped. */
-const carriedFrom = (last: Invoice | undefined) =>
-  last?.groupingMode === 'summary'
-    ? {
-        groupingMode: last.groupingMode,
-        summaryText: last.summaryText ?? '',
-        schedules: attachedSchedules(last.supportingDetail),
-      }
-    : { groupingMode: 'entry' as const, summaryText: '', schedules: [] };
+/** What a client's last invoice carries into the next, so a monthly invoice
+ *  isn't retyped. A first invoice is one summary line: itemizing is the
+ *  exception. Its text starts shown in the field, so it is the user's to
+ *  change, never filled in at save. */
+const carriedFrom = (last: Invoice | undefined) => ({
+  groupingMode: last?.groupingMode ?? 'summary',
+  summaryText: last?.summaryText ?? 'Contracting services',
+  schedules: attachedSchedules(last?.supportingDetail ?? null),
+  reference: last?.reference ?? '',
+});
 
 /** `key` `'new'` adds the charge; any other replaces the charge it names. */
 const putCharge = (
@@ -239,6 +282,7 @@ function useCarried(draft: Draft) {
     lastPending: lastInvoice.isPending,
     groupingMode,
     summaryText: draft.summaryText ?? carried.summaryText,
+    reference: draft.reference ?? carried.reference,
     schedules:
       groupingMode === 'summary' ? (draft.schedules ?? carried.schedules) : [],
   };
@@ -313,6 +357,34 @@ function NumberLine({
   );
 }
 
+/** The account's template, changed in a dialog as the number is: it is a
+    setting, not a field of this draft. */
+function TemplateLine({ settings }: { settings: Settings | undefined }) {
+  const [changing, setChanging] = useState(false);
+  if (!settings) return null;
+  return (
+    <Field label="Template">
+      <p className="type-control text-strong">
+        {templateName(settings.invoiceTemplate)} ·{' '}
+        <button
+          type="button"
+          className="underline underline-offset-2"
+          aria-label="Change template"
+          onClick={() => setChanging(true)}
+        >
+          Change
+        </button>
+      </p>
+      {changing ? (
+        <TemplateDialog
+          onOpenChange={setChanging}
+          template={settings.invoiceTemplate}
+        />
+      ) : null}
+    </Field>
+  );
+}
+
 /** The number Generate takes, and the due date the client's payment terms,
  *  else the user's, set from `issued`; both '' until the settings answer. */
 function fromSettings(
@@ -354,6 +426,9 @@ function useSettled<T>(value: T, ms: number): T {
  * server's current answer.
  */
 export function NewInvoice() {
+  /* Keyed by the link: the Inbox stays reachable here, so a row pressed on
+     this page changes the address and must open its own draft. */
+  const params = useSearchParams();
   /* The form paints once, its client list, terms and payment profiles in
      place; what a chosen client then loads fills in as it is asked for. The
      back link is the frame, so it stands while they load. */
@@ -371,40 +446,93 @@ export function NewInvoice() {
   });
   return (
     <DetailPage back="/invoices" label="Invoices" workspace fills>
-      <Listing query={[clients, settings, profiles]}>{() => <Form />}</Listing>
+      <Listing query={[clients, settings, profiles]}>
+        {([c]) => (
+          <Form
+            key={params.toString()}
+            initial={linkedDraft(params, c.clients)}
+          />
+        )}
+      </Listing>
     </DetailPage>
   );
 }
 
-function Form() {
+/** New invoice, opened on a draft: every field but the client, which it
+ *  keeps. Saving keeps its number. */
+export function EditInvoice({ id }: { id: string }) {
+  const invoice = useQuery({
+    queryKey: keys.invoice(id),
+    queryFn: () => api.invoice(id),
+  });
+  const clients = useQuery({
+    queryKey: keys.clients(),
+    queryFn: () => api.clients(),
+  });
+  const settings = useQuery({
+    queryKey: keys.settings(),
+    queryFn: () => api.settings(),
+  });
+  const profiles = useQuery({
+    queryKey: keys.paymentProfiles(),
+    queryFn: () => api.paymentProfiles(),
+  });
+  return (
+    <DetailPage back={`/invoices/${id}`} label="Invoice" workspace fills>
+      <Listing
+        query={[invoice, clients, settings, profiles]}
+        missing="That invoice no longer exists."
+      >
+        {([inv, , , p]) =>
+          inv.status === 'draft' ? (
+            <Form editing={inv} initial={draftOf(inv, p.paymentProfiles)} />
+          ) : (
+            <p className="type-body text-muted">
+              {inv.invoiceNumber} is {inv.status}, and only a draft can be
+              edited.
+            </p>
+          )
+        }
+      </Listing>
+    </DetailPage>
+  );
+}
+
+function Form({
+  editing,
+  initial = EMPTY,
+}: {
+  editing?: Edited;
+  initial?: Draft;
+}) {
   const router = useRouter();
   const qc = useQueryClient();
-  const params = useSearchParams();
+
+  const [draft, setDraft] = useState<Draft>(initial);
+  /* Read once: a form left open past midnight keeps the dates it showed
+     rather than moving them to the next period unseen. */
+  const [opened] = useState(() => new Date());
+  const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
+    setDraft((d) => ({ ...d, [key]: value }));
 
   const clients =
     useQuery({ queryKey: keys.clients(), queryFn: () => api.clients() }).data
       ?.clients ?? [];
-  const [draft, setDraft] = useState(() => linkedDraft(params, clients));
-  /* Read once: a form left open past midnight keeps the dates it showed
-     rather than moving them to the next period unseen. */
-  const [issued] = useState(() => localDateKey(new Date(), tz));
-  const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
-    setDraft((d) => ({ ...d, [key]: value }));
-
   const client = clients.find((c) => c.id === draft.clientId);
   const { data: settings } = useQuery({
     queryKey: keys.settings(),
     queryFn: () => api.settings(),
   });
   const noSender = missingBusiness(settings);
-  const { template, choose } = useTemplateChoice();
+  // Today on the account's billing calendar, as the server dates it.
+  const issued = localDateKey(opened, billingZone(settings, tz));
   const profiles =
     useQuery({
       queryKey: keys.paymentProfiles(),
       queryFn: () => api.paymentProfiles(),
     }).data?.paymentProfiles ?? [];
 
-  const { lastPending, groupingMode, summaryText, schedules } =
+  const { lastPending, groupingMode, summaryText, schedules, reference } =
     useCarried(draft);
   const { periodStart, periodEnd } = periodOf(draft, client, issued);
   const waiting = useWaitingExpenses(draft.clientId, periodEnd);
@@ -413,7 +541,7 @@ function Form() {
   /* `'new'` adds a charge; a key, edits that one. */
   const chargeDialog = useDialog<string>();
   const [newProfileOpen, setNewProfileOpen] = useState(false);
-  const [clientOpen, setClientOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState(false);
 
   /* Only what decides the lines is sent, so a due date or a tick never asks
      the server again. */
@@ -433,75 +561,50 @@ function Form() {
     excludedExpenseIds: draft.excludedExpenseIds,
   };
   const { preview, current, updating } = useLivePreview(
-    billed,
+    // Priced as itself, so it keeps the expenses it shows.
+    { ...billed, draftId: editing?.id },
     draft.clientId !== '',
   );
 
-  const { number, termsDue } = fromSettings(settings, issued, client);
+  const terms = fromSettings(settings, issued, client);
+  const number = editing?.invoiceNumber ?? terms.number;
+  const { termsDue } = terms;
   const due = draft.dueDate ?? termsDue;
   const earlyDue = due !== '' && due < issued;
 
   const generate = useOptimisticMutation({
     queryKey: () => keys.invoices(),
     inline: true,
-    // Generation marks the entries and expenses invoiced, so they leave
-    // every unbilled view.
+    // The draft holds its entries and expenses, so no other draft or
+    // preview offers them.
     invalidate: (qc) =>
       Promise.all([
         qc.invalidateQueries({ queryKey: keys.invoices() }),
         qc.invalidateQueries({ queryKey: keys.expenses() }),
         invalidateEntryData(qc),
       ]),
-    mutationFn: () =>
-      api.createInvoice({
+    /* `to` is where a press from the leave dialog was going; the form's own
+       press opens the draft. */
+    mutationFn: (_to?: string) => {
+      const choices = {
         ...billed,
         schedules,
         // Only a typed one: otherwise the terms date it from the day it is
         // sent.
         dueDate: draft.dueDate ?? undefined,
-        reference: draft.reference.trim() || undefined,
+        reference: reference.trim() || undefined,
         notes: draft.notes.trim() || undefined,
-        // The profile the card shows, frozen as it is now.
+        // The profile the card shows, frozen as it is now; none keeps a
+        // draft's.
         paymentProfileId: profile?.id,
-      }),
-    onSuccess: (invoice) => {
-      router.push(`/invoices/${invoice.id}`);
+      };
+      return editing
+        ? api.updateDraft(editing.id, choices)
+        : api.createInvoice(choices);
     },
-  });
-
-  /* Every entry the card shows, by id: billed elsewhere marks exactly what
-     the user is looking at, never work logged since (Constitution I). */
-  const shownIds = current
-    ? [
-        ...new Set([
-          ...current.lineItems.flatMap((l) => l.entryIds),
-          ...current.unratedEntryIds,
-        ]),
-      ]
-    : [];
-  const [marked, setMarked] = useState<string[] | null>(null);
-  const dismissMarked = useCallback(() => setMarked(null), []);
-  const elsewherePress = {
-    queryKey: () => keys.entries(),
-    movesHome: true,
-    // The card loses or regains that work, as every unbilled view does.
-    invalidate: (qc: QueryClient) =>
-      Promise.all([
-        invalidateEntryData(qc),
-        qc.invalidateQueries({ queryKey: keys.invoicePreview() }),
-      ]),
-  };
-  const markElsewhere = useOptimisticMutation({
-    ...elsewherePress,
-    mutationFn: () =>
-      api.markInvoicedElsewhere({ ids: shownIds, invoicedElsewhere: true }),
-    onSuccess: (res) => setMarked(res.ids),
-  });
-  const undoElsewhere = useOptimisticMutation({
-    ...elsewherePress,
-    mutationFn: (ids: string[]) =>
-      api.markInvoicedElsewhere({ ids, invoicedElsewhere: false }),
-    onSuccess: () => setMarked(null),
+    onSuccess: (invoice, to) => {
+      router.push(to ?? `/invoices/${invoice.id}`);
+    },
   });
 
   const toggleExpense = (id: string, bill: boolean) =>
@@ -532,33 +635,22 @@ function Form() {
     set('paymentProfileId', p.id);
   };
 
-  const profile =
-    profiles.find((p) => p.id === draft.paymentProfileId) ??
-    resolvePaymentProfile(profiles, {
-      clientProfileId: client?.paymentProfileId,
-      defaultProfileId: profiles.find((p) => p.isDefault)?.id,
-    });
-  const payment = buildPaymentDetails(profile, { invoiceNumber: number });
+  /* A draft whose details no profile renders now keeps them until another
+     is picked. */
+  const keeps = editing !== undefined && draft.paymentProfileId === '';
+  const profile = keeps
+    ? null
+    : (profiles.find((p) => p.id === draft.paymentProfileId) ??
+      resolvePaymentProfile(profiles, {
+        clientProfileId: client?.paymentProfileId,
+        defaultProfileId: profiles.find((p) => p.isDefault)?.id,
+      }));
+  const payment = keeps
+    ? (editing?.paymentDetails ?? null)
+    : buildPaymentDetails(profile, { invoiceNumber: number });
 
-  /* One open draft per client and date: the server refuses another, so the
-     form says which draft holds these dates before Generate is pressed. */
-  const openDrafts =
-    useQuery({
-      queryKey: [...keys.invoices(), 'drafts', draft.clientId],
-      queryFn: () =>
-        api.invoices({ clientId: draft.clientId, status: 'draft' }),
-      enabled: draft.clientId !== '',
-    }).data?.invoices ?? [];
-  const covering = openDrafts.find(
-    (i) =>
-      periodStart !== '' &&
-      periodEnd !== '' &&
-      i.periodStart <= periodEnd &&
-      i.periodEnd >= periodStart,
-  );
-
-  const { canGenerate, noSummaryText } = generateState({
-    covered: covering !== undefined,
+  const { canGenerate, noSummaryText, blocked } = generateState({
+    hasClient: draft.clientId !== '',
     earlyDue,
     preview: current,
     updating,
@@ -570,8 +662,20 @@ function Form() {
     summaryText,
   });
 
+  const guard = useLeaveGuard(
+    JSON.stringify(draft) !== JSON.stringify(initial),
+  );
+
   return (
     <>
+      <LeaveDialog
+        leaving={guard.leaving}
+        onStay={guard.stay}
+        editing={editing}
+        blocked={blocked}
+        canSave={canGenerate}
+        press={generate}
+      />
       {/* From `xl`, where the panel has a height of its own, nothing scrolls
           but the two columns: the form and the preview each scroll alone, so
           reading a long page never moves the field being typed in. Below it
@@ -580,25 +684,17 @@ function Form() {
       <div className="@container/new xl:flex xl:min-h-0 xl:flex-1 xl:flex-col">
         <div className="sticky top-0 z-10 flex items-center justify-between gap-4 bg-surface-primary pt-1 pb-3.5 xl:static">
           <h1 className="type-title whitespace-nowrap text-strong">
-            New invoice
+            {editing ? `Edit ${editing.invoiceNumber}` : 'New invoice'}
           </h1>
           <Button
             type="button"
             variant="accent"
             onClick={() => generate.mutate()}
-            disabled={!canGenerate || markElsewhere.isPending}
+            disabled={!canGenerate}
           >
-            {generate.isPending ? 'Generating…' : 'Generate invoice'}
+            {pressLabel(editing !== undefined, generate.isPending)}
           </Button>
         </div>
-        {marked ? (
-          <MarkedToast
-            count={marked.length}
-            undoing={undoElsewhere.isPending}
-            onUndo={() => undoElsewhere.mutate(marked)}
-            onDone={dismissMarked}
-          />
-        ) : null}
 
         {/* A fixed form, and the page up to a Letter page's width (816px):
             more would stretch the lines apart, not show more of them, so
@@ -613,27 +709,11 @@ function Form() {
             {/* First on the form: it is why Generate is disabled. */}
             <SenderNotice settings={settings} />
             <div className="flex flex-col gap-4">
-              <Field
-                label="Client"
-                htmlFor="inv-client"
-                required
-                hint={
-                  client && missingDetails(client) ? (
-                    <span className="text-danger">
-                      {missingDetails(client)} ·{' '}
-                      <button
-                        type="button"
-                        onClick={() => setClientOpen(true)}
-                        className="rounded-sm underline hover:text-strong focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
-                      >
-                        Edit client
-                      </button>
-                    </span>
-                  ) : undefined
-                }
-              >
+              <Field label="Client" htmlFor="inv-client" required>
+                {/* A draft keeps its client: another is a new invoice. */}
                 <ClientPicker
                   id="inv-client"
+                  disabled={editing !== undefined}
                   clients={clients}
                   value={draft.clientId || null}
                   // Another client brings its own payment details.
@@ -646,6 +726,12 @@ function Form() {
                   }
                   placeholder="Choose a client…"
                 />
+                {client ? (
+                  <ClientDetails
+                    client={client}
+                    onEdit={() => setEditingClient(true)}
+                  />
+                ) : null}
               </Field>
               <div className="flex flex-wrap gap-4">
                 <DateField
@@ -683,45 +769,39 @@ function Form() {
                 periodStart={periodStart}
                 periodEnd={periodEnd}
               />
-              {covering && client ? (
-                <p role="status" className="type-support text-warning">
-                  A draft already covers {shortDate(covering.periodStart)} –{' '}
-                  {shortDate(covering.periodEnd)} for {client.name}:{' '}
-                  <Link
-                    href={`/invoices/${covering.id}`}
-                    className="text-strong underline underline-offset-2"
-                  >
-                    {covering.invoiceNumber}
-                  </Link>
-                  . Start after {shortDate(covering.periodEnd)}, or open that
-                  draft.
-                </p>
-              ) : null}
               <Field label="Reference" htmlFor="inv-reference">
                 <Input
                   id="inv-reference"
-                  value={draft.reference}
+                  value={reference}
                   onChange={(e) => set('reference', e.target.value)}
                   placeholder="PO number, contract or SOW"
                   maxLength={200}
                 />
               </Field>
-              <NumberLine number={number} settings={settings} />
+              {editing ? null : (
+                <NumberLine number={number} settings={settings} />
+              )}
             </div>
 
-            <Field label="Show time as" htmlFor="inv-group">
-              <GroupingPicker
-                value={groupingMode}
-                onChange={(mode) => set('groupingMode', mode)}
-              />
-              {groupingMode === 'summary' ? (
-                <SummaryLineField
-                  value={summaryText}
-                  missing={noSummaryText}
-                  onChange={(v) => set('summaryText', v)}
+            {/* Shown once the client's last invoice says its format, so a
+                carried grouping never flips in after a default. */}
+            {lastPending ? null : (
+              <Field label="Show time as" htmlFor="inv-group">
+                <GroupingPicker
+                  value={groupingMode}
+                  onChange={(mode) => set('groupingMode', mode)}
                 />
-              ) : null}
-            </Field>
+                {groupingMode === 'summary' ? (
+                  <SummaryLineField
+                    value={summaryText}
+                    missing={
+                      noSummaryText && draft.clientId !== '' && !lastPending
+                    }
+                    onChange={(v) => set('summaryText', v)}
+                  />
+                ) : null}
+              </Field>
+            )}
 
             {client ? (
               <Field label="Expenses">
@@ -751,6 +831,7 @@ function Form() {
                 value={profile}
                 onChange={(id) => set('paymentProfileId', id)}
                 onNew={() => setNewProfileOpen(true)}
+                kept={keeps && payment !== null}
               />
             </Field>
 
@@ -763,7 +844,7 @@ function Form() {
                 placeholder="Printed on this invoice"
                 maxLength={2000}
                 className="w-full rounded-md border border-edge-default bg-transparent px-3 py-2
-                           type-control text-strong placeholder:text-subtle outline-none
+                           type-control text-strong placeholder:text-placeholder outline-none
                            focus-visible:border-edge-focus focus-visible:ring-[3px]
                            focus-visible:ring-edge-focus"
               />
@@ -771,19 +852,14 @@ function Form() {
 
             {/* Only a summary has detail to support: every other grouping
                 already breaks the time down on the invoice. */}
-            {groupingMode === 'summary' ? (
+            {!lastPending && groupingMode === 'summary' ? (
               <ScheduleChecklist
                 value={schedules}
                 onChange={(v) => set('schedules', v)}
               />
             ) : null}
 
-            <Field
-              label="Template"
-              hint="Changes your template for every draft, here and in Settings."
-            >
-              <TemplatePicker value={template} onChange={choose} size="mini" />
-            </Field>
+            <TemplateLine settings={settings} />
           </div>
 
           {/* Beside the form on a wide panel, after it on a narrow one. From
@@ -797,30 +873,15 @@ function Form() {
               number={number}
               issued={issued}
               due={due}
-              reference={draft.reference.trim()}
+              reference={reference.trim()}
               notes={draft.notes.trim()}
               payment={payment}
               schedules={schedules}
               updating={updating}
-              footnote="Generating assigns a number and locks these entries."
-              entryAction={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => markElsewhere.mutate()}
-                  disabled={
-                    shownIds.length === 0 ||
-                    updating ||
-                    preview.isError ||
-                    markElsewhere.isPending ||
-                    generate.isPending
-                  }
-                >
-                  {markElsewhere.isPending
-                    ? 'Marking…'
-                    : 'Already billed this?'}
-                </Button>
+              footnote={
+                editing
+                  ? 'Saving keeps its number.'
+                  : 'Generating assigns a number and holds these entries for this draft.'
               }
             >
               <PreviewNotices
@@ -832,6 +893,17 @@ function Form() {
         </div>
       </div>
 
+      {client ? (
+        <ClientDialog
+          open={editingClient}
+          onOpenChange={setEditingClient}
+          client={client}
+          // Its rate prices the lines.
+          onSaved={() =>
+            qc.invalidateQueries({ queryKey: keys.invoicePreview() })
+          }
+        />
+      ) : null}
       {client ? (
         <ExpenseDialog
           open={expenseDialog.open}
@@ -852,13 +924,6 @@ function Form() {
         onSave={saveCharge}
         onRemove={chargeDialog.subject !== 'new' ? removeCharge : undefined}
       />
-      {/* No Archive: the draft would keep a client the picker has dropped. */}
-      <ClientDialog
-        open={clientOpen}
-        onOpenChange={setClientOpen}
-        client={client}
-        archivable={false}
-      />
       <PaymentProfileDialog
         open={newProfileOpen}
         onOpenChange={setNewProfileOpen}
@@ -868,64 +933,125 @@ function Form() {
   );
 }
 
-/** How long the Undo stays offered. Past it, each entry's dialog clears it. */
-const UNDO_MS = 8000;
+const pressLabel = (editing: boolean, pending: boolean) => {
+  if (editing) return pending ? 'Saving…' : 'Save draft';
+  return pending ? 'Generating…' : 'Generate invoice';
+};
 
-function MarkedToast({
-  count,
-  undoing,
-  onUndo,
-  onDone,
+/**
+ * What the invoice prints for the client, read-only: nothing on this form
+ * saves before Generate, so a change to the client goes through its own
+ * dialog, which says it saves.
+ */
+function ClientDetails({
+  client,
+  onEdit,
 }: {
-  count: number;
-  undoing: boolean;
-  onUndo: () => void;
-  onDone: () => void;
+  client: Client;
+  onEdit: () => void;
 }) {
-  useEffect(() => {
-    if (undoing) return;
-    const t = setTimeout(onDone, UNDO_MS);
-    return () => clearTimeout(t);
-  }, [undoing, onDone]);
-  if (count === 0)
-    return (
-      <PortalToast>Nothing marked: that work is on an invoice now.</PortalToast>
-    );
   return (
-    <PortalToast>
-      {count} {count === 1 ? 'entry' : 'entries'} marked billed elsewhere
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={onUndo}
-        disabled={undoing}
-      >
-        {undoing ? 'Undoing…' : 'Undo'}
-      </Button>
-    </PortalToast>
+    <SubFields label={`${client.name} billing details`}>
+      <div className="flex flex-col items-start gap-1.5">
+        {/* As `Party` prints them on the invoice. */}
+        <p className="whitespace-pre-line type-support text-muted">
+          {client.address ?? (
+            <span className="text-subtle">No billing address</span>
+          )}
+          {'\n'}
+          {client.email ?? <span className="text-subtle">No email</span>}
+        </p>
+        <button
+          type="button"
+          className="type-support text-strong underline underline-offset-2"
+          onClick={onEdit}
+        >
+          Edit client
+        </button>
+      </div>
+    </SubFields>
   );
 }
 
-/** What Bill to will lack, said; null when it has both. */
-function missingDetails(client: Pick<Client, 'address' | 'email'>) {
-  if (client.address && client.email) return null;
-  if (client.address) return 'No email';
-  if (client.email) return 'No address';
-  return 'No address or email';
+/**
+ * Leaving the form with changes asks first. Nothing is saved unasked:
+ * a draft takes a number and holds its period's work, so the user decides
+ * whether one exists. Save draft is the form's own press, which opens the
+ * draft; Discard goes where the link pointed.
+ */
+function LeaveDialog({
+  leaving,
+  onStay,
+  editing,
+  blocked,
+  canSave,
+  press,
+}: {
+  leaving: string | null;
+  onStay: () => void;
+  editing: Edited | undefined;
+  blocked: string | null;
+  canSave: boolean;
+  press: {
+    mutate: (to: string) => void;
+    reset: () => void;
+    isPending: boolean;
+    error: unknown;
+  };
+}) {
+  const router = useRouter();
+  const { reset } = press;
+  // A refusal from an earlier press must not read as this one's.
+  useEffect(() => {
+    if (leaving !== null) reset();
+  }, [leaving, reset]);
+  const loses = editing
+    ? 'Leaving loses your changes.'
+    : 'Leaving loses this invoice. A draft keeps it to finish later: it takes the next number and holds this work until you send or delete it.';
+  return (
+    <ConfirmDialog
+      open={leaving !== null}
+      onOpenChange={(open) => {
+        if (!open) onStay();
+      }}
+      title={
+        editing
+          ? `Save changes to ${editing.invoiceNumber}?`
+          : 'Save this invoice as a draft?'
+      }
+      description={
+        blocked ? `${loses} It can't be saved yet: ${blocked}` : loses
+      }
+      confirmLabel="Save draft"
+      pendingLabel="Saving…"
+      keepLabel="Keep editing"
+      pending={press.isPending}
+      disabled={!canSave}
+      error={press.error}
+      secondary={{
+        label: 'Discard',
+        onPress: () => {
+          if (leaving !== null) router.push(leaving);
+        },
+      }}
+      onConfirm={() => {
+        if (leaving !== null) press.mutate(leaving);
+      }}
+    />
+  );
 }
 
 /**
- * Whether Generate can be pressed. Generating freezes what the card shows, so
- * it waits for a current, complete answer from the server.
+ * Whether Generate can be pressed, and why not when the user can fix it.
+ * Generating freezes what the card shows, so it waits for a current answer
+ * from the server.
  */
 function generateState(s: {
-  /** An open draft for this client holds some of these dates. */
-  covered: boolean;
+  hasClient: boolean;
   /** Due is before the issue date, which the server refuses. */
   earlyDue: boolean;
   /** The server's answer for this client; `undefined` before one. */
-  preview: Pick<InvoicePreview, 'lineItems' | 'unratedEntryIds'> | undefined;
+  preview: Pick<InvoicePreview, 'unratedEntryIds'> | undefined;
   /** The form has changed since the answer, or the server is recomputing. */
   updating: boolean;
   failed: boolean;
@@ -939,21 +1065,35 @@ function generateState(s: {
 }) {
   const noSummaryText =
     s.groupingMode === 'summary' && s.summaryText.trim() === '';
-  const complete =
-    s.preview !== undefined &&
-    s.preview.lineItems.length > 0 &&
-    s.preview.unratedEntryIds.length === 0 &&
-    !noSummaryText;
+  const blocked = blockedBy({ ...s, noSummaryText });
   const canGenerate =
-    complete &&
-    !s.covered &&
-    !s.earlyDue &&
+    blocked === null &&
+    s.preview !== undefined &&
     s.hasSettings &&
-    s.hasSender &&
     !s.updating &&
-    !s.failed &&
     !s.generating;
-  return { canGenerate, noSummaryText };
+  return { canGenerate, noSummaryText, blocked };
+}
+
+/** What the user must fix before the form can be saved, said after "It
+ *  can't be saved yet:"; null when only the server's answer is awaited. */
+function blockedBy(s: {
+  hasClient: boolean;
+  hasSender: boolean;
+  earlyDue: boolean;
+  failed: boolean;
+  noSummaryText: boolean;
+  preview: Pick<InvoicePreview, 'unratedEntryIds'> | undefined;
+}): string | null {
+  if (!s.hasClient) return 'choose a client.';
+  if (!s.hasSender) return 'add your business name and email.';
+  const unrated = s.preview?.unratedEntryIds.length ?? 0;
+  if (unrated > 0)
+    return `${unrated} entr${unrated === 1 ? 'y has' : 'ies have'} no rate.`;
+  if (s.noSummaryText) return 'give the summary line its text.';
+  if (s.earlyDue) return "due can't be before the issue date.";
+  if (s.failed) return "the preview couldn't be built.";
+  return null;
 }
 
 function PreviewNotices({
@@ -993,8 +1133,7 @@ function PreviewNotices({
   );
 }
 
-/** The one line's text, under the grouping picker on a rule of its own so it
- *  reads as part of that choice rather than a field of the invoice. */
+/** The one line's text, part of the grouping choice. */
 function SummaryLineField({
   value,
   missing,
@@ -1005,7 +1144,7 @@ function SummaryLineField({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="mt-1.5 ml-3 border-l-2 border-edge-subtle pl-3">
+    <SubFields>
       <Field
         label="Summary line"
         htmlFor="inv-summary"
@@ -1020,7 +1159,7 @@ function SummaryLineField({
           maxLength={200}
         />
       </Field>
-    </div>
+    </SubFields>
   );
 }
 
@@ -1207,11 +1346,14 @@ function PaymentPicker({
   value,
   onChange,
   onNew,
+  kept = false,
 }: {
   profiles: PaymentProfile[];
   value: PaymentProfile | null;
   onChange: (id: string) => void;
   onNew: () => void;
+  /** A draft's details no profile renders now, kept as they were. */
+  kept?: boolean;
 }) {
   return (
     <DropdownMenu>
@@ -1220,7 +1362,9 @@ function PaymentPicker({
         className={`${inputClass} flex items-center justify-between gap-2 text-left
                     focus:border-edge-focus focus:ring-[3px] focus:ring-edge-focus`}
       >
-        <span className="truncate">{value?.name ?? 'None'}</span>
+        <span className="truncate">
+          {value?.name ?? (kept ? 'As generated' : 'None')}
+        </span>
         <ChevronDown
           aria-hidden
           className="size-4 flex-none text-muted opacity-60"

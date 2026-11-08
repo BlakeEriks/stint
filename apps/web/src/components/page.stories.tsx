@@ -28,7 +28,7 @@ export const TabsArchived: Story = { args: { active: 'archived' } };
 export const EmptyList: Story = {
   render: () => (
     <Panel>
-      <Empty>No clients yet. Add one to start billing.</Empty>
+      <Empty>Who's paying you? Add a client and what you charge them.</Empty>
     </Panel>
   ),
 };

@@ -46,7 +46,8 @@ recolored.
 
 Style only with the design system: a `var(--…)` token for every color and a
 `type-*` class for every piece of text. The app's rail and page header frame
-each screen, so it reads as the app. Under the switcher, each variation
+each screen, so it reads as the app. Its text follows `docs/voice.md`,
+so the copy is reviewed with the layout. Under the switcher, each variation
 says in one line what it is best at and what it costs.
 
 Open it in the browser pane (`preview_start` with its `file://` URL) and ask

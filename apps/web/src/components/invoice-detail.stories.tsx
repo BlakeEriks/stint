@@ -3,10 +3,19 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client/api';
 import { addDays } from '@stint/core';
 import { keys } from '@stint/client';
-import { expect, userEvent, within } from 'storybook/test';
+import { delay, http } from 'msw';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import { type Db, id } from '@/mocks/fixtures';
-import { desktop, phone, screen, skipping, stalled } from '@/mocks/screen';
+import { handlers } from '@/mocks/handlers';
+import {
+  desktop,
+  failing,
+  phone,
+  screen,
+  skipping,
+  stalled,
+} from '@/mocks/screen';
 import { InvoiceDetail } from './invoice-detail';
 
 /* Each status offers its own actions: a draft is deleted or sent, an issued
@@ -53,43 +62,91 @@ export const Draft: Story = {
       page.getByText('Amount due').nextElementSibling,
     ).toHaveTextContent('$2,787.60');
     await expect(page.queryByText(/supporting detail/)).toBeNull();
+    await expect(page.getByRole('link', { name: 'Edit' })).toHaveAttribute(
+      'href',
+      `/invoices/${invoice(15)}/edit`,
+    );
   },
 };
 export const DraftPhone: Story = { ...phone };
 
-/* The draft as the server sends it once work landed after its PDF. */
-const changed = paying((db) => {
+/* The draft as the server sends it once work landed in its period. */
+const newWork = paying((db) => {
   const draft = db.invoices.find((i) => i.id === invoice(15));
-  if (!draft) return;
-  draft.changedSinceDownload = {
-    hours: { from: 18.4, to: 20.9 },
-    total: { from: 2512.6, to: 2787.6 },
-  };
-  const line = draft.lineItems[0];
-  if (line) line.isNew = true;
+  if (draft)
+    draft.newWork = { entries: 2, expenses: 0, hours: 2.5, amount: 275 };
 });
 
-/** Work landed after the PDF was downloaded: the banner says what moved,
-    Mark sent waits for the new PDF, and the new line is tinted. */
-export const DraftChanged: Story = {
+/** Work logged in its period since it was built is offered, not added:
+    the total stays until Add to draft, which takes the notice away. */
+export const DraftNewWork: Story = {
   ...desktop,
-  parameters: changed,
+  parameters: newWork,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     await expect(
-      await page.findByText('Changed since you downloaded it'),
+      await page.findByText('2 new entries, 2.50h, in this period'),
     ).toBeVisible();
-    await expect(page.getByText(/2\.50h added/)).toBeVisible();
-    await expect(page.getByText('$2,512.60')).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Mark sent' }),
-    ).toBeDisabled();
-    await expect(
-      page.getByText('Type scale for the brand site').closest('tr'),
-    ).toHaveClass(/bg-warning-muted/);
+      page.getByText('Amount due').nextElementSibling,
+    ).toHaveTextContent('$2,787.60');
+    await userEvent.click(page.getByRole('button', { name: 'Add to draft' }));
+    await waitFor(() => expect(page.queryByText(/in this period$/)).toBeNull());
   },
 };
-export const DraftChangedPhone: Story = { ...phone, parameters: changed };
+export const DraftNewWorkPhone: Story = { ...phone, parameters: newWork };
+
+const fourteen = paying((db) => {
+  const draft = db.invoices.find((i) => i.id === invoice(15));
+  if (draft) draft.entryCount = 14;
+});
+
+/** Mark sent asks in a dialog that says what it fixes; Keep as draft
+    takes it back. A download since doesn't hold it. */
+export const MarkSentAsks: Story = {
+  ...desktop,
+  parameters: fourteen,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Mark sent' }),
+    );
+    const dialog = within(await page.findByRole('dialog'));
+    await expect(
+      dialog.getByText(
+        'This records that you sent it. Its 14 entries, any expenses on it and its $2,787.60 total stop changing. To correct it later, void it and issue a new one.',
+      ),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole('button', { name: 'Mark sent' }),
+    ).toBeEnabled();
+    await userEvent.click(
+      dialog.getByRole('button', { name: 'Keep as draft' }),
+    );
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+  },
+};
+
+/* Mark sent's answer never comes. */
+const sendStalls = stalled('updateInvoiceStatus');
+
+/** Marking sent waits on the server: the confirm says so and the dialog
+    stays. */
+export const MarkSentPending: Story = {
+  ...desktop,
+  parameters: { ...fourteen, ...sendStalls },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Mark sent' }),
+    );
+    const dialog = within(await page.findByRole('dialog'));
+    await userEvent.click(dialog.getByRole('button', { name: 'Mark sent' }));
+    await expect(
+      await dialog.findByRole('button', { name: 'Marking sent…' }),
+    ).toBeDisabled();
+  },
+};
 
 /* The draft as the server sends it with work no rate prices. */
 const unrated = paying((db) => {
@@ -163,37 +220,6 @@ export const DraftDueSinceDownload: Story = {
   },
 };
 
-const changedPastDue = paying((db) => {
-  const draft = db.invoices.find((i) => i.id === invoice(15));
-  if (!draft) return;
-  draft.dueDate = addDays(draft.issueDate, -3);
-  draft.changedSinceDownload = {
-    hours: { from: 18.4, to: 20.9 },
-    total: { from: 2512.6, to: 2787.6 },
-  };
-  draft.dueBeforeIssue = { download: true, send: true };
-});
-
-/** Changed since a PDF downloaded before its typed due date: the new PDF it
-    needs is refused, so it asks for a new draft, not a download. */
-export const DraftChangedPastDue: Story = {
-  ...desktop,
-  parameters: changedPastDue,
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
-    await expect(
-      await page.findByText(/Delete this draft and generate it again/),
-    ).toBeVisible();
-    await expect(
-      page.queryByText('Changed since you downloaded it'),
-    ).toBeNull();
-    await expect(page.queryByText(/Download the new PDF/)).toBeNull();
-    await expect(
-      page.getByRole('button', { name: 'Mark sent' }),
-    ).toBeDisabled();
-  },
-};
-
 /** No line under the title: the card already shows the due date. An
     issued invoice is the invoice, not a preview of it. */
 export const Sent: Story = {
@@ -254,49 +280,52 @@ export const BillingNotSetUp: Story = {
   },
 };
 
-/** The first press of a destructive pair only asks; the second names it. */
-const press =
-  (first: string, then?: string) =>
-  async ({ canvasElement }: { canvasElement: HTMLElement }) => {
-    const page = within(canvasElement);
-    await userEvent.click(await page.findByRole('button', { name: first }));
-    if (then) await userEvent.click(page.getByRole('button', { name: then }));
-  };
+/** Opens a confirm from the header and returns its dialog. */
+const ask = async (canvasElement: HTMLElement, trigger: string) => {
+  const page = within(canvasElement.ownerDocument.body);
+  await userEvent.click(await page.findByRole('button', { name: trigger }));
+  return within(await page.findByRole('dialog'));
+};
 
 export const ConfirmDelete: Story = {
   ...desktop,
-  play: async (ctx) => {
-    await press('Delete draft')(ctx);
+  parameters: fourteen,
+  play: async ({ canvasElement }) => {
+    const dialog = await ask(canvasElement, 'Delete draft');
     await expect(
-      within(ctx.canvasElement).getByRole('button', {
-        name: 'Delete STINT-0015 for good',
-      }),
+      dialog.getByText(
+        "The draft ($2,787.60) is deleted and can't be restored. Your 14 entries and any expenses are kept and can go on another invoice.",
+      ),
     ).toBeVisible();
+    await userEvent.click(dialog.getByRole('button', { name: 'Keep' }));
+    await waitFor(() =>
+      expect(
+        within(canvasElement.ownerDocument.body).queryByRole('dialog'),
+      ).toBeNull(),
+    );
   },
 };
 
 export const Deleting: Story = {
   ...desktop,
   parameters: stalled('deleteInvoice'),
-  play: async (ctx) => {
-    await press('Delete draft', 'Delete STINT-0015 for good')(ctx);
+  play: async ({ canvasElement }) => {
+    const dialog = await ask(canvasElement, 'Delete draft');
+    await userEvent.click(dialog.getByRole('button', { name: 'Delete draft' }));
     await expect(
-      await within(ctx.canvasElement).findByRole('button', {
-        name: 'Deleting…',
-      }),
+      await dialog.findByRole('button', { name: 'Deleting…' }),
     ).toBeDisabled();
+    await expect(dialog.getByRole('button', { name: 'Keep' })).toBeDisabled();
   },
 };
 
 export const ConfirmVoid: Story = {
   ...desktop,
   args: { id: invoice(14) },
-  play: async (ctx) => {
-    await press('Void')(ctx);
+  play: async ({ canvasElement }) => {
+    const dialog = await ask(canvasElement, 'Void');
     await expect(
-      within(ctx.canvasElement).getByRole('button', {
-        name: 'Void STINT-0014',
-      }),
+      dialog.getByText(/STINT-0014 \(\$[\d,.]+\) is no longer owed/),
     ).toBeVisible();
   },
 };
@@ -305,13 +334,24 @@ export const Voiding: Story = {
   ...desktop,
   args: { id: invoice(14) },
   parameters: stalled('updateInvoiceStatus'),
-  play: async (ctx) => {
-    await press('Void', 'Void STINT-0014')(ctx);
+  play: async ({ canvasElement }) => {
+    const dialog = await ask(canvasElement, 'Void');
+    await userEvent.click(dialog.getByRole('button', { name: 'Void' }));
     await expect(
-      await within(ctx.canvasElement).findByRole('button', {
-        name: 'Voiding…',
-      }),
+      await dialog.findByRole('button', { name: 'Voiding…' }),
     ).toBeDisabled();
+  },
+};
+
+export const VoidRefusedPhone: Story = {
+  ...phone,
+  args: { id: invoice(14) },
+  parameters: failing('updateInvoiceStatus'),
+  play: async ({ canvasElement }) => {
+    const dialog = await ask(canvasElement, 'Void');
+    await userEvent.click(dialog.getByRole('button', { name: 'Void' }));
+    await expect(await dialog.findByRole('alert')).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Void' })).toBeEnabled();
   },
 };
 
@@ -400,7 +440,6 @@ export const AsPrinted: Story = {
       ],
       intermediary: [],
       link: { label: 'Pay online', url: 'https://pay.example.test/sam' },
-      notes: 'Include the invoice number in the memo.',
     };
   }),
   play: async ({ canvasElement }) => {
@@ -409,13 +448,31 @@ export const AsPrinted: Story = {
       'Net 30',
       'Payment details',
       'Pay online: https://pay.example.test/sam',
-      'Include the invoice number in the memo.',
       'Thank you for the work this month.',
     ]) {
       await expect(await page.findByText(text)).toBeVisible();
     }
   },
 };
+
+/* Only the invoice the page opens never answers. The dock prefetches the
+   overdue and stale ones too, and `stalled('invoice')` would hold those
+   open as well: the story would pass or time out by which came first. */
+const stalledInvoice = (opened: string) => ({
+  stalls: 1,
+  msw: {
+    handlers: {
+      invoice: http.get(handlers.invoice.info.path, async (info) => {
+        if (info.params.id === opened) await delay('infinite');
+        // `resolver` is protected in msw's types, and public at runtime.
+        const real = handlers.invoice as unknown as {
+          resolver: (i: typeof info) => Promise<Response>;
+        };
+        return real.resolver(info);
+      }),
+    },
+  },
+});
 
 /* Mounts the page only once the lists it was opened from are cached, as
    they are after a click in Invoices. */
@@ -438,7 +495,7 @@ export const OpenedFromList: Story = {
   args: { id: invoice(14) },
   decorators: [fromTheList],
   parameters: {
-    ...stalled('invoice'),
+    ...stalledInvoice(invoice(14)),
     /* The card dims until its lines land; axe reads the half opacity as low
        contrast. */
     a11y: skipping('color-contrast'),
@@ -462,7 +519,7 @@ export const OpenedFromList: Story = {
  *  it has arrived. */
 export const Loading: Story = {
   ...desktop,
-  parameters: stalled('invoice'),
+  parameters: stalledInvoice(invoice(15)),
   play: async ({ canvasElement }) => {
     const region = within(canvasElement.querySelector('main') as HTMLElement);
     await expect(await region.findByRole('status')).toHaveTextContent(

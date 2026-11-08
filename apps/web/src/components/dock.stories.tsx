@@ -145,53 +145,41 @@ export const LateEntry: Story = {
   },
 };
 
-/** Northwind on `schedule`, with its unbilled work before `from` billed
-    elsewhere, so only the work from `from` on can be due. */
-const northwindFrom = (
-  schedule: Db['clients'][number]['billingSchedule'],
-  from: string,
-) =>
+/** Northwind on `schedule`. */
+const northwindOn = (schedule: Db['clients'][number]['billingSchedule']) =>
   account((db) => {
-    const northwind = new Set(
-      db.projects.filter((p) => p.clientId === ids.northwind).map((p) => p.id),
-    );
     for (const c of db.clients)
       if (c.id === ids.northwind) c.billingSchedule = schedule;
-    for (const e of db.entries)
-      if (
-        !e.invoiceId &&
-        e.projectId &&
-        northwind.has(e.projectId) &&
-        e.startedAt < from
-      )
-        e.invoicedElsewhere = true;
   });
 
 /** Northwind bills twice a month, and on September 17 its first half has
     ended with work in it and no invoice. The row opens New invoice for it. */
 export const PeriodDue: Story = {
   ...desktop,
-  parameters: northwindFrom({ period: 'semimonthly' }, '2026-09-01'),
+  parameters: northwindOn({ period: 'semimonthly' }),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
+    const row = within(
+      (await page.findByText('Sep 1 – 15 is ready to invoice')).closest(
+        '[data-tone]',
+      ) as HTMLElement,
+    );
     await expect(
-      await page.findByText('Sep 1 – 15 ended with no invoice'),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('link', { name: 'Create invoice, Northwind Trading' }),
+      row.getByRole('link', { name: 'Northwind Trading' }),
     ).toHaveAttribute(
       'href',
       `/invoices/new?client=${ids.northwind}&from=2026-09-01&to=2026-09-15`,
     );
-    await expect(
-      page.getByRole('link', { name: 'Create invoice, Northwind Trading' }),
-    ).not.toHaveAttribute('download');
+    const inbox = page.getByRole('region', { name: 'Inbox' });
+    await expect(inbox.querySelector('header')).toHaveTextContent(
+      String(within(inbox).getAllByRole('listitem').length),
+    );
   },
 };
 
 /** Billed monthly, a client's whole month is named, not its dates: with
     Meridian's August invoices voided and work left in August, August is
-    due. */
+    ready. */
 export const PeriodDueMonthly: Story = {
   ...desktop,
   parameters: account((db) => {
@@ -207,7 +195,7 @@ export const PeriodDueMonthly: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await expect(
-      await page.findByText('August ended with no invoice'),
+      await page.findByText('August is ready to invoice'),
     ).toBeVisible();
   },
 };
@@ -216,104 +204,12 @@ export const PeriodDueMonthly: Story = {
     from August 27, the one that last ended is August 27 to September 9. */
 export const PeriodDueAcrossMonths: Story = {
   ...desktop,
-  parameters: northwindFrom(
-    { period: 'biweekly', anchor: '2026-08-27' },
-    '2026-08-27',
-  ),
+  parameters: northwindOn({ period: 'biweekly', anchor: '2026-08-27' }),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await expect(
-      await page.findByText('Aug 27 – Sep 9 ended with no invoice'),
+      await page.findByText('Aug 27 – Sep 9 is ready to invoice'),
     ).toBeVisible();
-  },
-};
-
-/** Meridian's August invoices voided and work logged on the dates given,
-    so nothing but that work is due for Meridian. */
-const meridianWork = (
-  schedule: Db['clients'][number]['billingSchedule'],
-  ...dates: string[]
-) =>
-  account((db) => {
-    for (const c of db.clients)
-      if (c.id === ids.meridian) c.billingSchedule = schedule;
-    for (const i of db.invoices)
-      if (i.clientId === ids.meridian && i.periodStart.startsWith('2026-08'))
-        i.status = 'void';
-    db.entries.push(
-      ...dates.map((date, n) =>
-        entry(990 + n, date, '09:00', 120, ids.pipeline, 'Audit notes'),
-      ),
-    );
-  });
-
-/** Work across several ended periods is one row, saying how far back it
-    goes rather than naming a period. */
-export const PastDueSincePeriods: Story = {
-  ...desktop,
-  parameters: meridianWork({ period: 'monthly' }, '2026-07-10', '2026-08-20'),
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement.ownerDocument.body);
-    const row = within(
-      (await page.findByText('unbilled since Jul 10')).closest(
-        '[data-tone]',
-      ) as HTMLElement,
-    );
-    await expect(row.getByText('Meridian Labs')).toBeVisible();
-    await expect(row.getByText('4h')).toBeVisible();
-    await expect(
-      row.getByRole('link', { name: 'Create invoice, Meridian Labs' }),
-    ).toHaveAttribute(
-      'href',
-      `/invoices/new?client=${ids.meridian}&from=2026-07-01&to=2026-08-31`,
-    );
-  },
-};
-
-/** With no schedule, work waits a month before it is due. */
-export const PastDueUnscheduled: Story = {
-  ...desktop,
-  parameters: meridianWork(null, '2026-07-10'),
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement.ownerDocument.body);
-    await expect(await page.findByText('unbilled since Jul 10')).toBeVisible();
-  },
-};
-
-/** Billed elsewhere marks that work billed outside Stint; the row leaves
-    on the server's answer. */
-export const PastDueBilledElsewhere: Story = {
-  ...desktop,
-  parameters: meridianWork({ period: 'monthly' }, '2026-07-10', '2026-08-20'),
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement.ownerDocument.body);
-    await expect(await page.findByText('unbilled since Jul 10')).toBeVisible();
-    await userEvent.click(
-      page.getByRole('button', { name: 'Billed elsewhere, Meridian Labs' }),
-    );
-    await waitFor(() =>
-      expect(page.queryByText('unbilled since Jul 10')).toBeNull(),
-    );
-  },
-};
-
-/** While the server decides, the button says so and the row stays. */
-export const PastDueBilledElsewherePending: Story = {
-  ...desktop,
-  parameters: {
-    ...meridianWork({ period: 'monthly' }, '2026-07-10', '2026-08-20'),
-    ...stalled('markInvoicedElsewhere'),
-  },
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement.ownerDocument.body);
-    await expect(await page.findByText('unbilled since Jul 10')).toBeVisible();
-    await userEvent.click(
-      page.getByRole('button', { name: 'Billed elsewhere, Meridian Labs' }),
-    );
-    await expect(
-      await page.findByRole('button', { name: 'Marking…, Meridian Labs' }),
-    ).toBeDisabled();
-    await expect(page.getByText('unbilled since Jul 10')).toBeVisible();
   },
 };
 
@@ -333,15 +229,36 @@ export const Clear: Story = {
         e.projectId !== null &&
         !['Client call and follow-ups'].includes(e.taskName),
     );
-    // Work a month old with no invoice is past due to bill.
-    for (const e of db.entries)
-      if (!e.invoiceId && e.startedAt < '2026-08-18')
-        e.invoicedElsewhere = true;
   }),
 };
 
-/** A day with nothing logged yet. */
-export const EmptyDay: Story = { ...desktop, parameters: account('empty') };
+/** A day with nothing logged yet: the grid is still drawn, so a pointer
+    can draw or click a time, and a mouse over it shows the slot a press
+    would make. */
+export const EmptyDay: Story = {
+  ...desktop,
+  parameters: account('empty'),
+  play: async ({ canvasElement }) => {
+    const today = await within(canvasElement).findByRole('region', {
+      name: "Today's entries",
+    });
+    const column = await waitFor(() => {
+      const found = today.querySelector<HTMLElement>('.border-l');
+      expect(found).not.toBeNull();
+      return found as HTMLElement;
+    });
+    await expect(column).toBeVisible();
+    await expect(today.querySelector('p')).toBeNull();
+    const box = column.getBoundingClientRect();
+    await userEvent.pointer({
+      target: column,
+      coords: { clientX: box.left + 10, clientY: box.top + box.height / 2 },
+    });
+    await waitFor(() =>
+      expect(column.querySelector('[data-hover-slot]')).not.toBeNull(),
+    );
+  },
+};
 
 /** Work with no project is assigned in place, one entry at a time. */
 export const AssignProject: Story = {

@@ -2,10 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   instantAt,
-  snapMs,
   movedTo,
   resized,
-  windowFor,
+  movedByDays,
   drawnRange,
   zoomed,
   fillPxPerHour,
@@ -14,17 +13,16 @@ import {
   hourStep,
   MIN_PX_PER_HOUR,
   MAX_PX_PER_HOUR,
-  SNAP_MINUTES,
-  MIN_ENTRY_MINUTES,
 } from '../src/grid.ts';
 import { startOfLocalDay, startOfLocalDayOffset } from '../src/calendar.ts';
 
-const MIN = 60_000;
+const NY = 'America/New_York';
+const HOUR = 3_600_000;
 
-/** The wall clock in a zone, for asserting where a drag actually landed. */
-function clock(at: Date, tz: string) {
+/** The wall clock in New York, for asserting where a drag actually landed. */
+function clock(at: Date) {
   return new Intl.DateTimeFormat('en-CA', {
-    timeZone: tz,
+    timeZone: NY,
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
@@ -32,111 +30,74 @@ function clock(at: Date, tz: string) {
 }
 
 /** The column a day occupies, the way the calendar computes it. */
-function column(iso: string, tz: string) {
-  const start = startOfLocalDay(new Date(iso), tz);
-  return { start, end: startOfLocalDayOffset(start, tz, -1) };
+function column(iso: string) {
+  const start = startOfLocalDay(new Date(iso), NY);
+  return { start, end: startOfLocalDayOffset(start, NY, -1) };
 }
 
-test('a fraction resolves to the matching wall-clock time', () => {
-  const { start, end } = column('2026-09-09T12:00:00Z', 'America/New_York');
-
-  assert.equal(clock(instantAt(0, start, end), 'America/New_York'), '00:00');
-  assert.equal(clock(instantAt(0.5, start, end), 'America/New_York'), '12:00');
-  assert.equal(clock(instantAt(0.25, start, end), 'America/New_York'), '06:00');
-});
-
-test('a fraction outside the column clamps to its edges', () => {
-  const { start, end } = column('2026-09-09T12:00:00Z', 'UTC');
-
-  assert.equal(instantAt(-1, start, end).getTime(), start.getTime());
-  assert.equal(instantAt(2, start, end).getTime(), end.getTime());
-});
-
-test('an arbitrary pointer position snaps to the quarter hour', () => {
-  const { start, end } = column('2026-09-09T12:00:00Z', 'UTC');
-
-  // 09:07 is 0.3799… of the way through a 24h day.
-  const at = instantAt((9 * 60 + 7) / 1440, start, end);
-  assert.equal(clock(at, 'UTC'), '09:00');
-
-  // 09:08 is past the midpoint, so it rounds up.
-  const up = instantAt((9 * 60 + 8) / 1440, start, end);
-  assert.equal(clock(up, 'UTC'), '09:15');
-});
-
 /**
- * The reason this module exists. A spring-forward day is 23 hours, so
- * multiplying a fraction by 24 hours would land every drag an hour out by
- * the end of the column.
+ * A local day is 23, 24 or 25 hours long, and the reason this module exists:
+ * multiplying a fraction by 24 hours would land every drag on a DST day up to
+ * an hour out. Asserting the wall clock, not merely that minutes divide by 15,
+ * because a 24-hour denominator also lands on quarter hours — the wrong ones.
  */
-test('a fraction resolves against a 23-hour spring-forward column', () => {
-  const tz = 'America/New_York';
-  // 2026-03-08: 02:00 jumps to 03:00, so the local day is 23 hours.
-  const { start, end } = column('2026-03-08T16:00:00Z', tz);
-  assert.equal(end.getTime() - start.getTime(), 23 * 60 * MIN);
+const DAY = {
+  ordinary: column('2026-09-09T12:00:00Z'),
+  springForward: column('2026-03-08T12:00:00Z'), // 02:00 jumps to 03:00
+  fallBack: column('2026-11-01T12:00:00Z'), // 01:00 repeats
+};
 
-  /* Asserting the WALL CLOCK, not merely that minutes divide by 15. A fixed
-     24-hour denominator also lands on quarter hours — it just lands on the
-     wrong ones — so a divisibility check cannot tell the two apart, which is
-     the whole failure this module exists to prevent.
+/** The fraction of `day` that `hours` elapsed from its start reach. */
+const at = (day: { start: Date; end: Date }, hours: number) =>
+  (hours * HOUR) / (day.end.getTime() - day.start.getTime());
 
-     Halfway through a 23-hour day is 11.5 elapsed hours. The transition has
-     already happened by then, so the wall clock reads 12:30, not 12:00. */
-  assert.equal(clock(instantAt(0.5, start, end), tz), '12:30');
-  assert.equal(clock(instantAt(0, start, end), tz), '00:00');
-  // The last instant of the column is the next midnight.
-  assert.equal(clock(instantAt(1, start, end), tz), '00:00');
+/** Each row: name, day, its hours, then fractions and the wall clock each snaps to. */
+const INSTANTS = [
+  [
+    'an ordinary day',
+    DAY.ordinary,
+    24,
+    [
+      [0, '00:00'],
+      [0.25, '06:00'],
+      [0.5, '12:00'],
+      [(9 * 60 + 7) / 1440, '09:00'], // a stray minute snaps down
+      [(9 * 60 + 8) / 1440, '09:15'], // past the midpoint, it rounds up
+      [1, '00:00'], // the last instant is the next midnight
+    ],
+  ],
+  [
+    'a spring forward',
+    DAY.springForward,
+    23,
+    [
+      [0, '00:00'],
+      [0.1, '03:15'], // 2.3 elapsed hours, snapped to 2.25
+      [0.5, '12:30'], // 11.5 elapsed hours, past the skipped one
+      [1, '00:00'],
+    ],
+  ],
+  [
+    'a fall back',
+    DAY.fallBack,
+    25,
+    [
+      [0, '00:00'],
+      [0.5, '11:30'], // 12.5 elapsed hours, past the repeated one
+      [1, '00:00'],
+    ],
+  ],
+] as const;
 
-  for (const f of [0.1, 0.25, 0.5, 0.75, 0.9]) {
-    const minutes = Number(clock(instantAt(f, start, end), tz).slice(3));
-    assert.equal(
-      minutes % SNAP_MINUTES,
-      0,
-      `fraction ${f} landed on :${minutes}`,
-    );
+test('a fraction resolves to the wall clock on every length of day', () => {
+  for (const [name, { start, end }, hours, cases] of INSTANTS) {
+    assert.equal(end.getTime() - start.getTime(), hours * HOUR, name);
+    for (const [f, wall] of cases)
+      assert.equal(clock(instantAt(f, start, end)), wall, `${name} at ${f}`);
+    // Outside the column clamps to its edges.
+    assert.equal(instantAt(-1, start, end).getTime(), start.getTime(), name);
+    assert.equal(instantAt(2, start, end).getTime(), end.getTime(), name);
   }
-});
-
-test('a fraction resolves against a 25-hour fall-back column', () => {
-  const tz = 'America/New_York';
-  // 2026-11-01: 02:00 repeats, so the local day is 25 hours.
-  const { start, end } = column('2026-11-01T16:00:00Z', tz);
-  assert.equal(end.getTime() - start.getTime(), 25 * 60 * MIN);
-
-  // Halfway through a 25-hour day is 12.5 elapsed hours, and the repeated
-  // hour is behind us, so the wall clock reads 11:30.
-  assert.equal(clock(instantAt(0.5, start, end), tz), '11:30');
-  assert.equal(clock(instantAt(0, start, end), tz), '00:00');
-  assert.equal(clock(instantAt(1, start, end), tz), '00:00');
-
-  for (const f of [0.1, 0.25, 0.5, 0.75, 0.9]) {
-    const minutes = Number(clock(instantAt(f, start, end), tz).slice(3));
-    assert.equal(
-      minutes % SNAP_MINUTES,
-      0,
-      `fraction ${f} landed on :${minutes}`,
-    );
-  }
-});
-
-test('snapMs rounds to the nearest step in both directions', () => {
-  assert.equal(snapMs(7 * MIN), 0);
-  assert.equal(snapMs(8 * MIN), 15 * MIN);
-  // `+ 0` normalizes -0, which is the same instant but not strictly equal.
-  assert.equal(snapMs(-7 * MIN) + 0, 0);
-  assert.equal(snapMs(-8 * MIN), -15 * MIN);
-});
-
-test('moving a block preserves its duration exactly', () => {
-  const startedAt = new Date('2026-09-09T09:00:00Z');
-  const endedAt = new Date('2026-09-09T11:30:00Z');
-  const moved = movedTo(startedAt, endedAt, new Date('2026-09-09T14:00:00Z'));
-
-  assert.equal(moved.startedAt.toISOString(), '2026-09-09T14:00:00.000Z');
-  assert.equal(
-    moved.endedAt.getTime() - moved.startedAt.getTime(),
-    endedAt.getTime() - startedAt.getTime(),
-  );
 });
 
 /**
@@ -144,202 +105,192 @@ test('moving a block preserves its duration exactly', () => {
  * across a DST boundary is still two and a half hours — re-deriving the end
  * from a wall clock would make it one and a half or three and a half.
  */
-test('moving across a DST boundary keeps the duration, not the wall clock', () => {
-  const startedAt = new Date('2026-03-08T05:00:00Z');
-  const endedAt = new Date('2026-03-08T07:30:00Z');
-  const moved = movedTo(startedAt, endedAt, new Date('2026-03-08T10:00:00Z'));
-
-  assert.equal(
-    moved.endedAt.getTime() - moved.startedAt.getTime(),
-    150 * MIN,
-    'duration changed while moving a block',
-  );
-});
-
-test('resizing the end moves only the end', () => {
-  const startedAt = new Date('2026-09-09T09:00:00Z');
-  const endedAt = new Date('2026-09-09T11:00:00Z');
-  const out = resized(
-    startedAt,
-    endedAt,
-    'end',
-    new Date('2026-09-09T12:00:00Z'),
-  );
-
-  assert.equal(out.startedAt.getTime(), startedAt.getTime());
-  assert.equal(out.endedAt.toISOString(), '2026-09-09T12:00:00.000Z');
-});
-
-test('resizing the start moves only the start', () => {
-  const startedAt = new Date('2026-09-09T09:00:00Z');
-  const endedAt = new Date('2026-09-09T11:00:00Z');
-  const out = resized(
-    startedAt,
-    endedAt,
-    'start',
-    new Date('2026-09-09T08:00:00Z'),
-  );
-
-  assert.equal(out.startedAt.toISOString(), '2026-09-09T08:00:00.000Z');
-  assert.equal(out.endedAt.getTime(), endedAt.getTime());
+test('moving a block keeps its duration, not its wall clock', () => {
+  for (const [name, startedAt, endedAt, to, end] of [
+    [
+      'within a day',
+      '2026-09-09T09:00:00Z',
+      '2026-09-09T11:30:00Z',
+      '2026-09-09T14:00:00Z',
+      '2026-09-09T16:30:00Z',
+    ],
+    [
+      'across a spring forward',
+      '2026-03-08T05:00:00Z',
+      '2026-03-08T07:30:00Z',
+      '2026-03-08T10:00:00Z',
+      '2026-03-08T12:30:00Z',
+    ],
+  ] as const) {
+    const out = movedTo(new Date(startedAt), new Date(endedAt), new Date(to));
+    assert.deepEqual(
+      [out.startedAt.toISOString(), out.endedAt.toISOString()],
+      [new Date(to).toISOString(), new Date(end).toISOString()],
+      name,
+    );
+  }
 });
 
 /**
  * Dragging an edge past the other one is not an overnight shift — that
  * reading belongs to typed times, where 22:00–02:00 is a real shift. Here the
- * gesture means "this block ends here" and inverting it has no meaning.
+ * gesture means "this block ends here", so it clamps to the shortest entry.
+ * Each row resizes 09:00–11:00 UTC: name, edge, where it went, the result.
  */
-test('dragging the end above the start clamps instead of inverting', () => {
-  const startedAt = new Date('2026-09-09T09:00:00Z');
-  const endedAt = new Date('2026-09-09T11:00:00Z');
-  const out = resized(
-    startedAt,
-    endedAt,
-    'end',
-    new Date('2026-09-09T07:00:00Z'),
-  );
-
-  assert.ok(
-    out.endedAt > out.startedAt,
-    'resize produced an entry ending before it starts',
-  );
-  assert.equal(
-    out.endedAt.getTime() - out.startedAt.getTime(),
-    MIN_ENTRY_MINUTES * MIN,
-  );
+test('resizing moves only the dragged edge, and never inverts', () => {
+  for (const [name, edge, to, start, end] of [
+    ['the end, later', 'end', '12:00', '09:00', '12:00'],
+    ['the start, earlier', 'start', '08:00', '08:00', '11:00'],
+    ['the end above the start', 'end', '07:00', '09:00', '09:15'],
+    ['the start below the end', 'start', '13:00', '10:45', '11:00'],
+  ] as const) {
+    const utc = (t: string) => new Date(`2026-09-09T${t}:00Z`);
+    const out = resized(utc('09:00'), utc('11:00'), edge, utc(to));
+    assert.deepEqual(
+      [out.startedAt.toISOString(), out.endedAt.toISOString()],
+      [utc(start).toISOString(), utc(end).toISOString()],
+      name,
+    );
+  }
 });
 
-test('dragging the start below the end clamps instead of inverting', () => {
-  const startedAt = new Date('2026-09-09T09:00:00Z');
-  const endedAt = new Date('2026-09-09T11:00:00Z');
-  const out = resized(
-    startedAt,
-    endedAt,
-    'start',
-    new Date('2026-09-09T13:00:00Z'),
-  );
+/**
+ * A week-view drag across columns: the entry lands on the new day at the
+ * wall clock it had, DST between or not, overnight entries as one block.
+ * Each row: name, start, end, days moved, then the new start and end, all
+ * in New York.
+ */
+const ACROSS_DAYS = [
+  [
+    'a day later',
+    '2026-09-09T13:00:00Z', // Wed 09:00
+    '2026-09-09T15:00:00Z', // Wed 11:00
+    1,
+    '2026-09-10T13:00:00Z',
+    '2026-09-10T15:00:00Z',
+  ],
+  [
+    'two days back',
+    '2026-09-09T13:00:00Z',
+    '2026-09-09T15:00:00Z',
+    -2,
+    '2026-09-07T13:00:00Z',
+    '2026-09-07T15:00:00Z',
+  ],
+  [
+    'overnight, as one block',
+    '2026-09-10T02:00:00Z', // Wed 22:00
+    '2026-09-10T06:00:00Z', // Thu 02:00
+    1,
+    '2026-09-11T02:00:00Z',
+    '2026-09-11T06:00:00Z',
+  ],
+  [
+    'onto a fall back, by the wall clock',
+    '2026-10-31T13:00:00Z', // Sat 09:00 EDT
+    '2026-10-31T15:00:00Z', // Sat 11:00 EDT
+    1,
+    '2026-11-01T14:00:00Z', // Sun 09:00 EST
+    '2026-11-01T16:00:00Z',
+  ],
+  [
+    'across a spring forward, overnight',
+    '2026-03-07T04:00:00Z', // Fri 23:00 EST
+    '2026-03-07T08:00:00Z', // Sat 03:00 EST
+    1,
+    '2026-03-08T04:00:00Z', // Sat 23:00 EST
+    '2026-03-08T07:00:00Z', // Sun 03:00 EDT: the skipped hour is gone
+  ],
+  [
+    'into a skipped hour, keeping its length',
+    '2026-03-07T06:45:00Z', // Sat 01:45 EST
+    '2026-03-07T07:00:00Z', // Sat 02:00 EST
+    1,
+    '2026-03-08T06:45:00Z', // Sun 01:45 EST
+    '2026-03-08T07:00:00Z', // 02:00 does not exist; 15 minutes on
+  ],
+] as const;
 
-  assert.ok(out.endedAt > out.startedAt);
-  assert.equal(
-    out.endedAt.getTime() - out.startedAt.getTime(),
-    MIN_ENTRY_MINUTES * MIN,
-  );
+test('a move across days keeps the wall clock', () => {
+  for (const [name, startedAt, endedAt, days, start, end] of ACROSS_DAYS) {
+    const out = movedByDays(new Date(startedAt), new Date(endedAt), days, NY);
+    assert.deepEqual(
+      [out.startedAt.toISOString(), out.endedAt.toISOString()],
+      [new Date(start).toISOString(), new Date(end).toISOString()],
+      name,
+    );
+  }
 });
 
-test('the dialog window pads the entry and lands on whole hours', () => {
-  const { start, end } = column('2026-09-09T12:00:00Z', 'America/New_York');
-  const w = windowFor(
-    new Date('2026-09-09T13:30:00Z'), // 09:30 local
-    new Date('2026-09-09T15:00:00Z'), // 11:00 local
-    start,
-    end,
-  );
+/**
+ * Each row: name, day, the elapsed hours the pointer went from and to, the
+ * least length in minutes (a click passes its own), then the range drawn.
+ */
+const DRAWN = [
+  [
+    'snaps both ends',
+    DAY.ordinary,
+    17 + 7 / 60,
+    17 + 58 / 60,
+    undefined,
+    '17:00',
+    '18:00',
+  ],
+  [
+    'never shorter than the shortest entry',
+    DAY.ordinary,
+    12,
+    12,
+    undefined,
+    '12:00',
+    '12:15',
+  ],
+  [
+    'kept inside the day at midnight',
+    DAY.ordinary,
+    24,
+    24,
+    undefined,
+    '23:45',
+    '00:00',
+  ],
+  [
+    'a click, from where it landed',
+    DAY.ordinary,
+    9 + 7 / 60,
+    9 + 7 / 60,
+    30,
+    '09:00',
+    '09:30',
+  ],
+  ['a click at midnight', DAY.ordinary, 24, 24, 60, '23:00', '00:00'],
+  [
+    'on a spring forward',
+    DAY.springForward,
+    16,
+    17,
+    undefined,
+    '17:00',
+    '18:00',
+  ],
+  ['on a fall back', DAY.fallBack, 17, 18, undefined, '16:00', '17:00'],
+] as const;
 
-  assert.equal(clock(w.from, 'America/New_York'), '07:00');
-  assert.equal(clock(w.to, 'America/New_York'), '13:00');
+test('a drawn range lands on the wall clock drawn, in either direction', () => {
+  for (const [name, day, from, to, minutes, start, end] of DRAWN) {
+    const { start: s, end: e } = day;
+    const down = drawnRange(at(day, from), at(day, to), s, e, minutes);
+    assert.deepEqual(
+      [clock(down.startedAt), clock(down.endedAt)],
+      [start, end],
+      name,
+    );
+    const up = drawnRange(at(day, to), at(day, from), s, e, minutes);
+    assert.deepEqual(up, down, `${name}, drawn upward`);
+  }
 });
 
-test('a long entry is padded by its own length, not a flat two hours', () => {
-  const { start, end } = column('2026-09-09T12:00:00Z', 'UTC');
-  const w = windowFor(
-    new Date('2026-09-09T08:00:00Z'),
-    new Date('2026-09-09T20:00:00Z'), // 12 hours
-    start,
-    end,
-  );
-
-  // Padded by 12h each side, so it clamps to the whole day rather than
-  // drawing the entry edge to edge with no ground around it.
-  assert.equal(w.from.getTime(), start.getTime());
-  assert.equal(w.to.getTime(), end.getTime());
-});
-
-test('a window near midnight shifts inside the day instead of shrinking', () => {
-  const { start, end } = column('2026-09-09T12:00:00Z', 'UTC');
-  const w = windowFor(
-    new Date('2026-09-09T00:00:00Z'),
-    new Date('2026-09-09T00:30:00Z'),
-    start,
-    end,
-  );
-
-  assert.equal(w.from.getTime(), start.getTime());
-  // The 2h of padding it could not take before midnight is taken after it,
-  // so the span is the same width it would have had at midday.
-  assert.equal((w.to.getTime() - w.from.getTime()) / MIN, 4 * 60 + 30);
-});
-
-test('a short window rounds to the half hour, keeping the entry wide', () => {
-  const { start, end } = column('2026-09-09T12:00:00Z', 'UTC');
-  const w = windowFor(
-    new Date('2026-09-09T09:15:00Z'),
-    new Date('2026-09-09T09:30:00Z'),
-    start,
-    end,
-  );
-
-  assert.equal(clock(w.from, 'UTC'), '07:00');
-  assert.equal(clock(w.to, 'UTC'), '11:30');
-});
-
-test('the window holds its width across a spring-forward boundary', () => {
-  // 2026-03-08 is the US spring forward: a 23-hour local day.
-  const { start, end } = column('2026-03-08T12:00:00Z', 'America/New_York');
-  const w = windowFor(
-    new Date('2026-03-08T14:00:00Z'), // 10:00 local, after the skip
-    new Date('2026-03-08T15:00:00Z'), // 11:00 local
-    start,
-    end,
-  );
-
-  // Ticks are elapsed time from the day's start, so the ends stay on the
-  // hour rather than drifting by the missing hour.
-  assert.equal(clock(w.from, 'America/New_York'), '08:00');
-  assert.equal(clock(w.to, 'America/New_York'), '13:00');
-});
-
-test('a drawn range snaps both ends and reads the same in either direction', () => {
-  const { start, end } = column('2026-09-09T12:00:00Z', 'UTC');
-  const at = (h: number, m: number) => (h * 60 + m) / 1440;
-
-  const down = drawnRange(at(17, 7), at(17, 58), start, end);
-  assert.equal(clock(down.startedAt, 'UTC'), '17:00');
-  assert.equal(clock(down.endedAt, 'UTC'), '18:00');
-
-  const up = drawnRange(at(17, 58), at(17, 7), start, end);
-  assert.deepEqual(up, down);
-});
-
-test('a drawn range is never shorter than the shortest entry, even at midnight', () => {
-  const { start, end } = column('2026-09-09T12:00:00Z', 'UTC');
-
-  const short = drawnRange(0.5, 0.5, start, end);
-  assert.equal(
-    short.endedAt.getTime() - short.startedAt.getTime(),
-    MIN_ENTRY_MINUTES * MIN,
-  );
-
-  const last = drawnRange(1, 1, start, end);
-  assert.equal(last.endedAt.getTime(), end.getTime());
-  assert.equal(
-    last.endedAt.getTime() - last.startedAt.getTime(),
-    MIN_ENTRY_MINUTES * MIN,
-  );
-});
-
-test('a drawn range on a 23-hour day lands on the wall clock drawn', () => {
-  const tz = 'America/New_York';
-  const { start, end } = column('2026-03-08T12:00:00Z', tz);
-  const span = end.getTime() - start.getTime();
-  // 17:00 local is 16 elapsed hours on a spring-forward day.
-  const f = (elapsedHours: number) => (elapsedHours * 3_600_000) / span;
-
-  const r = drawnRange(f(16), f(17), start, end);
-  assert.equal(clock(r.startedAt, tz), '17:00');
-  assert.equal(clock(r.endedAt, tz), '18:00');
-});
-
-test('zoom scales by the wheel delta, in and out, inside its limits', () => {
+test('zoom scales by the wheel delta, capped per notch, inside its limits', () => {
   assert.ok(zoomed(44, -10) > 44);
   assert.ok(zoomed(44, 10) < 44);
   assert.equal(zoomed(44, 0), 44);
@@ -347,11 +298,29 @@ test('zoom scales by the wheel delta, in and out, inside its limits', () => {
   assert.ok(Math.abs(zoomed(zoomed(44, -10), 10) - 44) < 1e-9);
   assert.equal(zoomed(MAX_PX_PER_HOUR, -100), MAX_PX_PER_HOUR);
   assert.equal(zoomed(MIN_PX_PER_HOUR, 100), MIN_PX_PER_HOUR);
-});
-
-test('one mouse-wheel notch is capped, so it never jumps a whole range', () => {
+  // One mouse-wheel notch never jumps a whole range.
   assert.equal(zoomed(44, -1000), zoomed(44, -100));
   assert.ok(zoomed(44, -1000) < 2 * 44);
+  // Out stops at a raised floor, a level stored below it starts from it,
+  // and zooming in is unaffected.
+  assert.equal(zoomed(30, 100, 30), 30);
+  assert.equal(zoomed(22, 0, 30), 30);
+  assert.ok(zoomed(30, -50, 30) > 30);
+});
+
+test('the fill floor is where the day fills its area, inside the zoom range', () => {
+  for (const [viewport, hours, px] of [
+    [720, 24, 30], // a 24-hour week in a 720px area fills it exactly
+    [200, 24, MIN_PX_PER_HOUR],
+    [0, 24, MIN_PX_PER_HOUR],
+    [5000, 10, MAX_PX_PER_HOUR],
+    [720, 0, MIN_PX_PER_HOUR],
+  ] as const)
+    assert.equal(
+      fillPxPerHour(viewport, hours),
+      px,
+      `${viewport}px, ${hours}h`,
+    );
 });
 
 test('the label step widens as hours shrink and narrows as they grow', () => {
@@ -361,23 +330,6 @@ test('the label step widens as hours shrink and narrows as they grow', () => {
   assert.equal(hourStep(22, 132), 6);
   assert.equal(hourStep(44, 44), 1);
   assert.equal(hourStep(22, 44), 2);
-});
-
-test('zoom out stops where the day still fills its scroll area', () => {
-  // A 24-hour week in a 720px area: 30px an hour fills it exactly.
-  assert.equal(fillPxPerHour(720, 24), 30);
-  assert.equal(zoomed(30, 100, fillPxPerHour(720, 24)), 30);
-  // A level stored below it starts from it rather than from below.
-  assert.equal(zoomed(22, 0, 30), 30);
-  // Zooming in is unaffected.
-  assert.ok(zoomed(30, -50, 30) > 30);
-});
-
-test('the fill floor never drops below the least zoom or tops the most', () => {
-  assert.equal(fillPxPerHour(200, 24), MIN_PX_PER_HOUR);
-  assert.equal(fillPxPerHour(0, 24), MIN_PX_PER_HOUR);
-  assert.equal(fillPxPerHour(5000, 10), MAX_PX_PER_HOUR);
-  assert.equal(fillPxPerHour(720, 0), MIN_PX_PER_HOUR);
 });
 
 test('a click makes the shortest block its label fits, across the zoom range', () => {
@@ -392,49 +344,38 @@ test('a click makes the shortest block its label fits, across the zoom range', (
   assert.equal(clickMinutes(10, label), 60);
 });
 
-test('a click draws its length from where it landed, inside the day', () => {
-  const { start, end } = column('2026-09-09T12:00:00Z', 'UTC');
-  const at = (9 * 60 + 7) / 1440;
-
-  const r = drawnRange(at, at, start, end, 30);
-  assert.equal(clock(r.startedAt, 'UTC'), '09:00');
-  assert.equal(clock(r.endedAt, 'UTC'), '09:30');
-
-  const last = drawnRange(1, 1, start, end, 60);
-  assert.equal(last.endedAt.getTime(), end.getTime());
-  assert.equal(last.endedAt.getTime() - last.startedAt.getTime(), 60 * MIN);
-});
-
-test('hour marks fall on the step across an ordinary day, ends included', () => {
-  const { start, end } = column('2026-09-09T12:00:00Z', 'America/New_York');
-  const marks = hourMarks(start, end, 3, 'America/New_York');
-  assert.deepEqual(
-    marks.map((m) => m.hour),
+/**
+ * Counting elapsed hours as wall hours would label a fall back's 02:00 as
+ * "03" and end its day on "01". Each row: name, day, step, the hours
+ * labeled, and where the second label sits.
+ */
+const MARKS = [
+  ['an ordinary day', DAY.ordinary, 3, [0, 3, 6, 9, 12, 15, 18, 21, 0], 12.5],
+  [
+    'a fall back',
+    DAY.fallBack,
+    3,
     [0, 3, 6, 9, 12, 15, 18, 21, 0],
-  );
-  assert.equal(marks[1]?.pct, 12.5);
-  assert.equal(marks.at(-1)?.pct, 100);
-});
+    (4 / 25) * 100,
+  ],
+  [
+    'a spring forward, without the hour that never was',
+    DAY.springForward,
+    1,
+    [0, 1, ...Array.from({ length: 21 }, (_, i) => i + 3), 0],
+    (1 / 23) * 100,
+  ],
+] as const;
 
-/* A 25-hour day repeats 01:00. Counting elapsed hours as wall hours would
-   label 02:00 as "03" and end the day on "01". */
-test('hour marks on a fall-back day name the hour the clock reads', () => {
-  const tz = 'America/New_York';
-  const { start, end } = column('2026-11-01T12:00:00Z', tz);
-  const marks = hourMarks(start, end, 3, tz);
-  assert.deepEqual(
-    marks.map((m) => m.hour),
-    [0, 3, 6, 9, 12, 15, 18, 21, 0],
-  );
-  // 03:00 is four elapsed hours into the 25.
-  assert.equal(marks[1]?.pct, (4 / 25) * 100);
-  assert.equal(marks.at(-1)?.pct, 100);
-});
-
-test('hour marks on a spring-forward day skip the hour that never was', () => {
-  const tz = 'America/New_York';
-  const { start, end } = column('2026-03-08T12:00:00Z', tz);
-  const hours = hourMarks(start, end, 1, tz).map((m) => m.hour);
-  assert.equal(hours.length, 24);
-  assert.ok(!hours.includes(2));
+test('hour marks name the hour the clock reads, ends included', () => {
+  for (const [name, { start, end }, step, hours, second] of MARKS) {
+    const marks = hourMarks(start, end, step, NY);
+    assert.deepEqual(
+      marks.map((m) => m.hour),
+      hours,
+      name,
+    );
+    assert.equal(marks[1]?.pct, second, name);
+    assert.equal(marks.at(-1)?.pct, 100, name);
+  }
 });

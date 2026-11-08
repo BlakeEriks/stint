@@ -57,7 +57,7 @@ export type CardFigures = Pick<
     Pick<
       InvoicePreview['lineItems'][number],
       'description' | 'unit' | 'quantity' | 'unitPrice' | 'amount' | 'spentOn'
-    > & { isNew?: boolean }
+    >
   >;
   entryCount?: number;
 };
@@ -88,7 +88,6 @@ export function InvoicePreviewCard({
   heading = true,
   noSender = false,
   footnote,
-  entryAction,
   children,
 }: {
   preview: CardFigures | undefined;
@@ -113,8 +112,6 @@ export function InvoicePreviewCard({
   noSender?: boolean;
   /** Under the card, after `children`. */
   footnote?: string;
-  /** Beside the entry count: an action on the entries it counts. */
-  entryAction?: React.ReactNode;
   /** Warnings and errors, under the card. */
   children?: React.ReactNode;
 }) {
@@ -139,7 +136,6 @@ export function InvoicePreviewCard({
         {client ? (
           <span className="ml-auto flex items-center gap-2">
             <Caption updating={updating} entries={preview?.entryCount} />
-            {entryAction}
           </span>
         ) : null}
       </div>
@@ -381,9 +377,6 @@ function Payment({ payment }: { payment: PaymentDetails }) {
           {payment.link.label}: {payment.link.url}
         </p>
       ) : null}
-      {payment.notes ? (
-        <p className="whitespace-pre-line text-muted">{payment.notes}</p>
-      ) : null}
     </div>
   );
 }
@@ -400,9 +393,6 @@ function PaymentFields({ fields }: { fields: PaymentDetails['fields'] }) {
     </dl>
   );
 }
-
-/** A draft's line its last PDF didn't have: the reason Mark sent waits. */
-const NEW = 'bg-warning-muted';
 
 function Lines({
   preview,
@@ -444,10 +434,7 @@ function Lines({
         </thead>
         <tbody>
           {services.map((li, i) => (
-            <tr
-              key={i}
-              className={`border-b border-edge-subtle last:border-0 ${li.isNew ? NEW : ''}`}
-            >
+            <tr key={i} className="border-b border-edge-subtle last:border-0">
               <td className="py-2.5 text-primary">{li.description}</td>
               <td className={`${TD} text-muted`}>
                 {formatQuantity(li.unit, li.quantity)}
@@ -469,10 +456,7 @@ function Lines({
               </th>
             </tr>
             {expenses.map((li, i) => (
-              <tr
-                key={i}
-                className={`border-b border-edge-subtle last:border-0 ${li.isNew ? NEW : ''}`}
-              >
+              <tr key={i} className="border-b border-edge-subtle last:border-0">
                 <td className="py-2.5 text-primary">{li.description}</td>
                 <td className={`${TD} text-muted`}>{shortDate(li.spentOn)}</td>
                 <td className={RATE} />

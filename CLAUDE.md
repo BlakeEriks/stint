@@ -15,6 +15,7 @@ adding to it, name the doc that owns the claim:
 | How to run, build, or deploy something | `docs/local-dev.md`, `docs/deploying.md`, `docs/setup.md` |
 | How one screen or part looks, in each state | its `*.stories.tsx`, beside the component |
 | A visual or UI convention every screen keeps | `.claude/rules/web-ui.md` |
+| The words a user reads, anywhere Stint shows them | `docs/voice.md` |
 | Why one screen or component is the way it is | a comment at the line it governs |
 | About the macOS app | `docs/macos.md`, `docs/design/menubar.html` |
 | About the phone app | `docs/mobile.md` |

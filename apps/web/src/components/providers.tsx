@@ -8,8 +8,22 @@ import {
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { useEffect, useState } from 'react';
 import { CACHE_MAX_AGE, cachePersister } from '@/lib/client/query-cache';
-import { followRunningTimer } from '@stint/client';
+import { followRunningTimer, setTodayOffset } from '@stint/client';
+import { chooseToday } from '@/lib/client/today';
+import { timeZone } from '@/lib/client/use-timer';
 import { MutationNotice } from './mutation-notice';
+
+/* Before any screen asks what day it is. */
+if (typeof window !== 'undefined') {
+  setTodayOffset(
+    chooseToday(
+      location.search,
+      sessionStorage,
+      process.env.NEXT_PUBLIC_VERCEL_ENV,
+      timeZone,
+    ),
+  );
+}
 
 export function Providers({
   children,

@@ -1,6 +1,9 @@
 {
-  "platforms": ["android"],
+  "platforms": ["android", "apple"],
   "android": {
     "modules": ["dev.stint.surfaces.SurfacesModule"]
+  },
+  "apple": {
+    "modules": ["SurfacesModule"]
   }
 }

@@ -14,10 +14,9 @@ import { Dock } from '@/components/dock';
  *
  * The drag is a window pointer gesture over a measured box, and jsdom's
  * `getBoundingClientRect` is all zeroes — so the column's is stubbed with a
- * height the fractions can be read against, the same way the entry dialog's
- * scrubber is driven. That is what makes the pointer path assertable: the
- * zero-height guard, the clamp when the pointer leaves the column, and the
- * write landing on release rather than on every move.
+ * height the fractions can be read against. That is what makes the pointer
+ * path assertable: the zero-height guard, the clamp when the pointer leaves
+ * the column, and the write landing on release rather than on every move.
  */
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/' }));

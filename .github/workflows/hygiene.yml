@@ -1,7 +1,8 @@
 name: Hygiene
 
 # Weekly: the hygiene scan ranks files by debt × recent churn, and Claude
-# files an issue for each of the worst few that are not already filed.
+# files an issue for each of the worst few that are not already filed, and
+# for every orphaned test besides.
 # `/work-issues` picks them up like any other enhancement.
 on:
   schedule:
@@ -9,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       issues:
-        description: Most issues to file
+        description: Most issues to file, besides orphaned tests
         default: '5'
 
 concurrency:
@@ -60,7 +61,7 @@ jobs:
 
       # Pinned: this step holds the Claude token.
       - if: steps.scan.outputs.files != '0'
-        uses: anthropics/claude-code-action@16f9f71ab9c490faf367f94dd294897edc25be33 # v1.0.261
+        uses: anthropics/claude-code-action@6d5ae526d25ce88daa2200be073e1a373167f064 # v1.0.265
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}

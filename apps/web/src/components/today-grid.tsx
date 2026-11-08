@@ -12,6 +12,7 @@ import { position, workedWindow } from '@/lib/client/use-calendar';
 import type { useEntryDrag } from '@/lib/client/use-entry-drag';
 import { useZoom } from '@/lib/client/use-zoom';
 import { DayColumn, gutterMarks, HourGutter } from './day-column';
+import { appNow, useInterval } from '@stint/client';
 
 /** The least room between labeled hours: every hour at the default scale,
     since the dock is too narrow for the calendar's 3-hour step. */
@@ -47,7 +48,7 @@ export function TodayGrid({
 }) {
   /* The real next midnight, not +24h: a DST day is 23 or 25 hours and every
      position here is a fraction of the column's own span. */
-  const dayStart = startOfLocalDay(new Date(), tz);
+  const dayStart = startOfLocalDay(appNow(), tz);
   const dayEnd = startOfLocalDayOffset(dayStart, tz, -1);
 
   /* A running block grows and the now-line moves, so both need a clock. A
@@ -66,7 +67,7 @@ export function TodayGrid({
      and their labels stay on the hour. */
   const [worked, workedTo] = workedWindow(entries, dayStart, dayEnd);
   const [from, to] = minute
-    ? withNow(worked, workedTo, new Date(), dayStart, dayEnd)
+    ? withNow(worked, workedTo, appNow(), dayStart, dayEnd)
     : [worked, workedTo];
 
   const placed = position(entries, from, to);
@@ -80,7 +81,7 @@ export function TodayGrid({
      construction, but the guard stays: it is the one value read off a clock
      rather than the data, so a zero-length window or a stale render must not
      put a line outside the grid it belongs to. */
-  const at = minute ? fractionOf(new Date(), from, to) : null;
+  const at = minute ? fractionOf(appNow(), from, to) : null;
   const nowAt = at !== null && at >= 0 && at <= 1 ? at : null;
 
   /* No label of its own: the section around it is already "Today's entries",
@@ -124,7 +125,6 @@ export function TodayGrid({
  * which is correct — the server does not know what time it is here.
  */
 function useMinute(): boolean {
-  const [, force] = useState(0);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => setHydrated(true), []);
@@ -132,10 +132,7 @@ function useMinute(): boolean {
   /* Unconditional: the line moves whether or not a timer is running, and the
      window follows it. A tick gated on a running timer would freeze the line
      on an idle afternoon, which is the afternoon you most want it. */
-  useEffect(() => {
-    const id = setInterval(() => force((n) => n + 1), 60_000);
-    return () => clearInterval(id);
-  }, []);
+  useInterval(true, 60_000);
 
   return hydrated;
 }

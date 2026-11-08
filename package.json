@@ -39,11 +39,11 @@
     "*.{js,mjs,ts,tsx,json,jsonc,css}": "biome check --write --no-errors-on-unmatched"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.2",
+    "@biomejs/biome": "^2.6.4",
     "@types/node": "^24.19.2",
     "husky": "^9.1.7",
     "jscpd": "^5.4.2",
-    "knip": "^6.42.1",
+    "knip": "^6.44.0",
     "lint-staged": "^17.6.0",
     "pg": "^8.23.1",
     "supabase": "2.122.0",
@@ -54,7 +54,8 @@
       "@expo/cli>zod": "^4.6.7"
     },
     "patchedDependencies": {
-      "@storybook/nextjs-vite@10.6.1": "patches/@storybook__nextjs-vite@10.6.1.patch"
+      "@storybook/nextjs-vite@10.6.1": "patches/@storybook__nextjs-vite@10.6.1.patch",
+      "expo-modules-jsi@58.0.21": "patches/expo-modules-jsi@58.0.21.patch"
     }
   }
 }

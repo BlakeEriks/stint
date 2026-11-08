@@ -23,10 +23,12 @@ other read, `entitlement()`, decides only whether the PDF opens.
 preview and the PDF render one number one way.
 
 **An invalid `tz` is rejected rather than swallowed here.** The period is local
-dates, so the zone decides which entries are billed. Preview, generation,
-`GET /invoices`, `GET /invoices/:id`, `/pdf` and `/status` return 422 for
-one, the reads included, since each derives a draft. An omitted one defaults
-to UTC, except that sending a draft with no zone of its own refuses.
+dates, so the zone decides which entries are billed: the account's billing
+zone (`billingZone`), with `tz` only the fallback for an account that has
+none. Preview, generation,
+`GET /invoices`, `GET /invoices/:id`, `/pdf`, `/status` and `/work` return
+422 for one, the reads included, since each prices a draft. An omitted one defaults
+to UTC only on an account with no `billingTimeZone`, and sending a draft with no zone at all refuses.
 
 ### Rules that must not regress
 
@@ -39,16 +41,18 @@ to UTC, except that sending a draft with no zone of its own refuses.
   three: the arithmetic a client checks on the page is the arithmetic that
   produced it, and the total never moves with the grouping. Every rollup
   prices the same per-entry hours (`00000000000028_bill_printed_hours.sql`).
-- **A draft is the user's choices; its lines are derived on read, and it
-  claims its work only when sent.** Every read goes through `deriveDraft()`
-  and writes nothing; only `sendDraft()` (`send_draft`) writes its lines,
-  claims its entries and dates it. An issued invoice's lines are never
-  recomputed: re-downloading a year later must produce the same document.
+- **A draft is the user's choices and the work it holds; its lines are
+  priced on read, and it bills its work only when sent.** Building it
+  (`create_invoice`, `update_draft`, `hold_draft_work`) holds work through
+  `draft_id`; nothing else does, so work logged later joins only when the
+  owner adds it. Every read goes through `deriveDraft()` and writes nothing;
+  only `sendDraft()` (`send_draft`) writes its lines, claims its work and
+  dates it. An issued invoice's lines are never recomputed: re-downloading a
+  year later must produce the same document.
 - **Only drafts can be marked sent or deleted.** The user sends the PDF;
   `PATCH /invoices/:id/status` records it.
 - **Voiding releases entries and expenses; it does not remove the number.**
-  Numbering stays gapless. A draft holds none, so deleting it releases
-  nothing.
+  Numbering stays gapless. Deleting a draft lets go of the work it held.
 - Running timers, non-billable entries, and already-invoiced entries never
   reach an invoice.
 

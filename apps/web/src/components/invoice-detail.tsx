@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
 import {
   useQuery,
   useQueryClient,
@@ -14,12 +13,22 @@ import {
   invalidateEntryData,
 } from '@stint/client';
 import { useMarkPaid } from '@/lib/client/use-mark-paid';
-import { Ban, DollarSign, Download, Lock, Send, Trash2 } from 'lucide-react';
+import {
+  Ban,
+  DollarSign,
+  Download,
+  Loader2,
+  Lock,
+  Pencil,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ConfirmAction } from './confirm-action';
+import { AskFirst } from './confirm-dialog';
 import { shortDate, StatusBadge } from './invoice-bits';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
+import { entries, markSentAsk } from './mark-sent-dialog';
 import { PRICE } from './plan-section';
 import {
   attachedSchedules,
@@ -31,7 +40,7 @@ import { timeZone as tz } from '@/lib/client/use-timer';
 import {
   api,
   ApiError,
-  type DraftChange,
+  type NewWork,
   type Invoice,
   type InvoiceStatus,
   type InvoiceLineItem,
@@ -42,9 +51,10 @@ import { DetailPage, Listing } from './page';
 /** An invoice; the lines, and whether its PDF opens, are absent until they
     load. */
 type Shown = Invoice & {
-  lineItems?: (InvoiceLineItem & { isNew?: boolean })[];
+  lineItems?: InvoiceLineItem[];
   canDownload?: boolean;
-  changedSinceDownload?: DraftChange | null;
+  entryCount?: number | null;
+  newWork?: NewWork | null;
   unratedEntries?: UnratedEntry[];
   dueBeforeIssue?: { download: boolean; send: boolean };
   refuses?: { download: boolean; send: boolean };
@@ -70,17 +80,23 @@ export function InvoiceDetail({ id }: { id: string }) {
 
   /* Voiding releases the entries and expenses and deleting a draft frees
      them, so every view of that work moves with the invoice. */
+  const refresh = (qc: QueryClient, deleted?: string) =>
+    Promise.all([
+      /* A deleted draft is not asked for again: it answers 404, "Invoice not
+         found", on a page still waiting on the list. */
+      qc.invalidateQueries({
+        queryKey: keys.invoices(),
+        predicate: (q) => deleted === undefined || q.queryKey[1] !== deleted,
+      }),
+      qc.invalidateQueries({ queryKey: keys.expenses() }),
+      invalidateEntryData(qc),
+    ]);
   /* Pending, not predicted: issuing assigns the number, and voiding or
      deleting can't be taken back. The page says what was refused. */
   const invoicePress = {
     queryKey: () => keys.invoices(),
     inline: true,
-    invalidate: (qc: QueryClient) =>
-      Promise.all([
-        qc.invalidateQueries({ queryKey: keys.invoices() }),
-        qc.invalidateQueries({ queryKey: keys.expenses() }),
-        invalidateEntryData(qc),
-      ]),
+    invalidate: (qc: QueryClient) => refresh(qc),
   };
 
   const setStatus = useOptimisticMutation({
@@ -89,8 +105,14 @@ export function InvoiceDetail({ id }: { id: string }) {
       api.updateInvoiceStatus(id, args),
   });
 
+  const addWork = useOptimisticMutation({
+    ...invoicePress,
+    mutationFn: () => api.addDraftWork(id),
+  });
+
   const remove = useOptimisticMutation({
     ...invoicePress,
+    invalidate: (qc: QueryClient) => refresh(qc, id),
     mutationFn: () => api.deleteInvoice(id),
     onSuccess: () => router.push('/invoices'),
   });
@@ -104,18 +126,21 @@ export function InvoiceDetail({ id }: { id: string }) {
           <Loaded
             data={data}
             onDownload={() =>
-              /* The download is a navigation the page can't await, and it is
-                 what records the copy the client gets; the server's answer
-                 replaces the change once the PDF has rendered. */
+              /* The download is a navigation the page can't await, and it
+                 records the dates the client's copy printed, which Mark sent
+                 keeps; the server's answer arrives once it has rendered. */
               setTimeout(
                 () => qc.invalidateQueries({ queryKey: keys.invoice(id) }),
                 1500,
               )
             }
             setStatus={setStatus}
+            addWork={addWork}
             remove={remove}
             markPaid={markPaid}
-            error={remove.error ?? setStatus.error ?? markPaid.error}
+            error={
+              remove.error ?? setStatus.error ?? addWork.error ?? markPaid.error
+            }
           />
         )}
       </Listing>
@@ -128,6 +153,7 @@ function Loaded({
   data: invoice,
   onDownload,
   setStatus,
+  addWork,
   remove,
   markPaid,
   error,
@@ -138,8 +164,16 @@ function Loaded({
     mutate: (args: { status: InvoiceStatus }) => void;
     isPending: boolean;
     reset: () => void;
+    error: unknown;
   };
-  remove: { mutate: () => void; isPending: boolean };
+  addWork: { mutate: () => void; isPending: boolean };
+  remove: {
+    mutate: () => void;
+    isPending: boolean;
+    isSuccess: boolean;
+    reset: () => void;
+    error: unknown;
+  };
   markPaid: ReturnType<typeof useMarkPaid>;
   /* Picked ONCE by the caller. Re-evaluating `a ?? b` for the check and again
      for the message could type-check a stale error while printing a different
@@ -148,13 +182,9 @@ function Loaded({
 }) {
   const isDraft = invoice.status === 'draft';
   const isVoid = invoice.status === 'void';
-  /* A draft that moved since its PDF was rendered holds Mark sent until the
-     client's copy is the one Stint keeps; pressing Download releases it here,
-     and the server, which recorded the render, has the last word. */
-  const [downloaded, setDownloaded] = useState(false);
-  const changed = isDraft && !downloaded ? invoice.changedSinceDownload : null;
   const unrated = invoice.unratedEntries ?? [];
   const refuses = invoice.refuses ?? { download: false, send: false };
+  const total = formatCurrency(invoice.total ?? 0, invoice.currency);
 
   return (
     <>
@@ -169,42 +199,58 @@ function Loaded({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Deleting removes the draft and voiding can't be undone, so each
-              asks first. */}
           {isDraft ? (
-            <ConfirmAction
-              label={`Delete ${invoice.invoiceNumber} for good`}
+            <AskFirst
+              title="Delete this draft?"
+              description={`The draft (${total}) is deleted and can't be restored. Your ${entries(invoice.entryCount ?? 0)} and any expenses are kept and can go on another invoice.`}
+              confirmLabel="Delete draft"
               pendingLabel="Deleting…"
-              consequence="Its work stays unbilled."
-              pending={remove.isPending}
+              icon={<Trash2 aria-hidden strokeWidth={1.75} />}
+              tone="danger"
+              // Deleted, it stays pending until the list arrives.
+              press={{
+                ...remove,
+                isPending: remove.isPending || remove.isSuccess,
+              }}
               onConfirm={() => remove.mutate()}
-            >
-              <Trash2 aria-hidden strokeWidth={1.75} />
-              Delete draft
-            </ConfirmAction>
+            />
+          ) : null}
+
+          {/* "Edit", not "Edit draft": the row stays on the title's line. */}
+          {isDraft ? (
+            <Button asChild>
+              <Link href={`/invoices/${invoice.id}/edit`}>
+                <Pencil aria-hidden strokeWidth={1.75} />
+                Edit
+              </Link>
+            </Button>
           ) : null}
 
           {!isVoid && !isDraft ? (
-            <ConfirmAction
-              label={`Void ${invoice.invoiceNumber}`}
+            <AskFirst
+              title="Void this invoice?"
+              description={`${invoice.invoiceNumber} (${total}) is no longer owed and can't be restored; it stays in your records, marked void. Your entries and expenses on it are kept and can go on another invoice.`}
+              confirmLabel="Void"
               pendingLabel="Voiding…"
-              consequence="The number stays on record, and this invoice can't be reissued."
-              pending={setStatus.isPending}
+              icon={<Ban aria-hidden strokeWidth={1.75} />}
+              tone="danger"
+              press={setStatus}
               onConfirm={() => setStatus.mutate({ status: 'void' })}
-            >
-              <Ban aria-hidden strokeWidth={1.75} />
-              Void
-            </ConfirmAction>
+            />
           ) : null}
 
           {isDraft ? (
-            <Button
-              onClick={() => setStatus.mutate({ status: 'sent' })}
-              disabled={setStatus.isPending || changed != null || refuses.send}
-            >
-              <Send aria-hidden strokeWidth={1.75} />
-              Mark sent
-            </Button>
+            <AskFirst
+              {...markSentAsk({
+                invoiceNumber: invoice.invoiceNumber,
+                entryCount: invoice.entryCount ?? 0,
+                total: invoice.total ?? 0,
+                currency: invoice.currency,
+              })}
+              press={setStatus}
+              disabled={refuses.send || invoice.entryCount == null}
+              onConfirm={() => setStatus.mutate({ status: 'sent' })}
+            />
           ) : null}
 
           {invoice.status === 'sent' ? (
@@ -232,10 +278,7 @@ function Loaded({
             <Button asChild>
               <a
                 href={api.invoicePdfUrl(invoice.id, true)}
-                onClick={() => {
-                  setDownloaded(true);
-                  onDownload();
-                }}
+                onClick={onDownload}
               >
                 <Download aria-hidden strokeWidth={1.75} />
                 Download PDF
@@ -254,15 +297,18 @@ function Loaded({
       </header>
       <Notices
         invoice={invoice}
-        // A new PDF it can't have is no remedy.
-        changed={refuses.download ? null : changed}
         unrated={unrated}
+        addWork={addWork}
         error={error}
       />
 
       <InvoicePreviewCard
         heading={false}
-        preview={{ ...invoice, schedules: invoice.supportingDetail }}
+        preview={{
+          ...invoice,
+          entryCount: undefined,
+          schedules: invoice.supportingDetail,
+        }}
         client={invoice.billTo}
         business={invoice.business}
         number={invoice.invoiceNumber}
@@ -285,12 +331,9 @@ function Loaded({
   );
 }
 
-function statusHint(
-  status: InvoiceStatus,
-  period: { periodStart: string; periodEnd: string },
-): string | null {
+function statusHint(status: InvoiceStatus): string | null {
   if (status === 'draft')
-    return `It keeps collecting ${shortDate(period.periodStart)} – ${shortDate(period.periodEnd)} until you mark it sent. Download it, send it from your own address, then mark it sent.`;
+    return 'It holds the work it shows. Download it, send it from your own address, then mark it sent.';
   if (status === 'void') return 'Voided. Its entries can be billed again.';
   return null;
 }
@@ -298,23 +341,25 @@ function statusHint(
 /** Where the invoice stands, and what holds it, under the title. */
 function Notices({
   invoice,
-  changed,
   unrated,
+  addWork,
   error,
 }: {
   invoice: Shown;
-  changed: DraftChange | null | undefined;
   unrated: UnratedEntry[];
+  addWork: { mutate: () => void; isPending: boolean };
   error: unknown;
 }) {
-  const hint = changed
-    ? 'Download the new PDF, send it from your own address, then mark it sent.'
-    : statusHint(invoice.status, invoice);
+  const hint = statusHint(invoice.status);
   return (
     <div className="flex flex-col gap-1 pt-1 pb-6">
       {hint ? <p className="type-support text-muted">{hint}</p> : null}
-      {changed ? (
-        <Changed change={changed} currency={invoice.currency} />
+      {invoice.status === 'draft' && invoice.newWork ? (
+        <NewWorkNotice
+          work={invoice.newWork}
+          currency={invoice.currency}
+          addWork={addWork}
+        />
       ) : null}
       {unrated.length > 0 ? <Unrated entries={unrated} /> : null}
       {invoice.dueBeforeIssue?.download ? (
@@ -341,34 +386,47 @@ function Notices({
 const NOTICE =
   'mt-3 flex flex-col gap-0.5 rounded-md border border-edge-default border-l-[3px] border-l-warning bg-surface-elevated px-3.5 py-3';
 
-/** What moved since the PDF the client may already hold. No button: the
-    header's Download PDF is the one action, and this says why Mark sent
-    waits for it. */
-function Changed({
-  change,
+/** Work dated in the draft's period that it doesn't hold. It joins only when
+    the owner adds it (Constitution I), all of it in one press. */
+function NewWorkNotice({
+  work,
   currency,
+  addWork,
 }: {
-  change: DraftChange;
+  work: NewWork;
   currency: string;
+  addWork: { mutate: () => void; isPending: boolean };
 }) {
-  const added = change.hours.to - change.hours.from;
+  const what = [
+    work.entries
+      ? `${work.entries} new entr${work.entries === 1 ? 'y' : 'ies'}, ${formatHours(work.hours)}h`
+      : '',
+    work.expenses
+      ? `${work.expenses} new expense${work.expenses === 1 ? '' : 's'}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' and ');
   return (
-    <div role="status" className={NOTICE}>
-      <p className="type-body text-strong">Changed since you downloaded it</p>
-      <p className="type-support text-muted">
-        {added === 0
-          ? 'Its lines changed'
-          : `${formatHours(Math.abs(added))}h ${added > 0 ? 'added' : 'removed'}`}{' '}
-        · total{' '}
-        <s className="text-subtle">
-          {formatCurrency(change.total.from, currency)}
-        </s>{' '}
-        →{' '}
-        <span className="text-strong">
-          {formatCurrency(change.total.to, currency)}
-        </span>
-        . Download the new PDF to mark it sent.
-      </p>
+    <div
+      role="status"
+      className={`${NOTICE} flex-row flex-wrap items-center justify-between gap-x-4 gap-y-2.5`}
+    >
+      <div className="flex flex-col gap-0.5">
+        <p className="type-body text-strong">{what}, in this period</p>
+        <p className="type-support text-muted">
+          Logged since you built it · {formatCurrency(work.amount, currency)}.
+          They stay off unless you add them.
+        </p>
+      </div>
+      <Button onClick={() => addWork.mutate()} disabled={addWork.isPending}>
+        {addWork.isPending ? (
+          <Loader2 aria-hidden className="animate-spin" />
+        ) : (
+          <Plus aria-hidden strokeWidth={1.75} />
+        )}
+        {addWork.isPending ? 'Adding…' : 'Add to draft'}
+      </Button>
     </div>
   );
 }
@@ -417,7 +475,7 @@ function DueBeforeIssue({
       <p className="type-support text-muted">
         {downloaded
           ? `The due date you typed, ${shortDate(due)}, is before today, so it can’t be downloaded again. Send the PDF you downloaded, then mark it sent.`
-          : `The due date you typed, ${shortDate(due)}, is before today’s issue date, ${shortDate(issued)}, so it can’t be downloaded or sent. Delete this draft and generate it again with a later due date.`}
+          : `The due date you typed, ${shortDate(due)}, is before today’s issue date, ${shortDate(issued)}, so it can’t be downloaded or sent. Edit this draft to give it a later due date.`}
       </p>
     </div>
   );

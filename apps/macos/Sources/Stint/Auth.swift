@@ -50,7 +50,7 @@ actor Auth {
             throw Self.error(from: data, status: status)
                 ?? APIError(
                     status: status, code: "INVALID_CODE",
-                    message: "That code did not work. Codes expire quickly and can only be used once."
+                    message: "That code did not work. Codes expire after 24 hours and can only be used once."
                 )
         }
         await tokens.store(try JSONDecoder().decode(Session.self, from: data))

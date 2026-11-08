@@ -4,7 +4,7 @@ import {
   planOf,
   type BillingPeriod,
   type BillingSchedule,
-  type DraftSnapshot,
+  type PrintedDates,
   type SubscriptionStatus,
 } from '@stint/core';
 import type {
@@ -208,6 +208,7 @@ export interface SettingsRow {
   business_email: string | null;
   logo_url: string | null;
   payment_terms_days: number;
+  billing_time_zone: string | null;
   invoice_number_prefix: string;
   invoice_template: InvoiceTemplate;
   next_invoice_number: number;
@@ -215,7 +216,7 @@ export interface SettingsRow {
 }
 
 export const SETTINGS_COLUMNS = columns<SettingsRow>()(
-  'default_hourly_rate, currency, week_starts_on, time_format, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, payment_terms_days, invoice_number_prefix, invoice_template, next_invoice_number, welcomed_at',
+  'default_hourly_rate, currency, week_starts_on, time_format, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, payment_terms_days, billing_time_zone, invoice_number_prefix, invoice_template, next_invoice_number, welcomed_at',
 );
 
 export function toSettings(r: SettingsRow) {
@@ -231,6 +232,7 @@ export function toSettings(r: SettingsRow) {
     businessEmail: r.business_email,
     logoUrl: r.logo_url,
     paymentTermsDays: r.payment_terms_days,
+    billingTimeZone: r.billing_time_zone,
     invoiceNumberPrefix: r.invoice_number_prefix,
     invoiceTemplate: r.invoice_template,
     nextInvoiceNumber: r.next_invoice_number,
@@ -261,12 +263,11 @@ export interface PaymentProfileRow {
   payment_link_url: string | null;
   currency: string | null;
   fee_allocation: z.infer<typeof PaymentProfile>['feeAllocation'];
-  notes: string | null;
   archived_at: string | null;
 }
 
 export const PAYMENT_PROFILE_COLUMNS = columns<PaymentProfileRow>()(
-  'id, name, is_default, account_holder_name, account_holder_address, bank_name, bank_address, account_number, routing_number, account_type, iban, swift_bic, local_code_label, local_code, intermediary_bank_name, intermediary_swift_bic, intermediary_account_number, payment_link_label, payment_link_url, currency, fee_allocation, notes, archived_at',
+  'id, name, is_default, account_holder_name, account_holder_address, bank_name, bank_address, account_number, routing_number, account_type, iban, swift_bic, local_code_label, local_code, intermediary_bank_name, intermediary_swift_bic, intermediary_account_number, payment_link_label, payment_link_url, currency, fee_allocation, archived_at',
 );
 
 export function toPaymentProfile(r: PaymentProfileRow) {
@@ -292,7 +293,6 @@ export function toPaymentProfile(r: PaymentProfileRow) {
     paymentLinkUrl: r.payment_link_url,
     currency: r.currency,
     feeAllocation: r.fee_allocation,
-    notes: r.notes,
     archivedAt: r.archived_at,
   };
 }
@@ -337,7 +337,7 @@ export interface InvoiceRow {
    *  never sent to a client. */
   tz: string | null;
   excluded_expense_ids: string[];
-  downloaded_snapshot: DraftSnapshot | null;
+  downloaded_snapshot: PrintedDates | null;
 }
 
 export const INVOICE_COLUMNS = columns<InvoiceRow>()(
@@ -423,12 +423,11 @@ export interface ExpenseRow {
   spent_on: string | null;
   description: string;
   amount: Numeric;
-  note: string | null;
   invoice_id: string | null;
 }
 
 export const EXPENSE_COLUMNS = columns<ExpenseRow>()(
-  'id, client_id, recurring, spent_on, description, amount, note, invoice_id',
+  'id, client_id, recurring, spent_on, description, amount, invoice_id',
 );
 
 /** `invoice` is the billing invoice when there is one, looked up separately. */
@@ -443,7 +442,6 @@ export function toExpense(
     spentOn: r.spent_on,
     description: r.description,
     amount: num(r.amount) ?? 0,
-    note: r.note,
     invoiceId: r.invoice_id,
     invoiceNumber: invoice?.invoice_number ?? null,
     invoiceStatus: invoice?.status ?? null,
@@ -456,7 +454,6 @@ export const EXPENSE_FIELDS = {
   spentOn: 'spent_on',
   description: 'description',
   amount: 'amount',
-  note: 'note',
 } as const;
 
 /** camelCase patch -> snake_case columns. A missing key is dropped from an
@@ -516,6 +513,7 @@ export const SETTINGS_FIELDS = {
   businessEmail: 'business_email',
   logoUrl: 'logo_url',
   paymentTermsDays: 'payment_terms_days',
+  billingTimeZone: 'billing_time_zone',
   invoiceNumberPrefix: 'invoice_number_prefix',
   invoiceTemplate: 'invoice_template',
   nextInvoiceNumber: 'next_invoice_number',
@@ -543,7 +541,6 @@ export const PAYMENT_PROFILE_FIELDS = {
   paymentLinkUrl: 'payment_link_url',
   currency: 'currency',
   feeAllocation: 'fee_allocation',
-  notes: 'notes',
 } as const;
 
 // ── subscriptions ──────────────────────────────────────────────────

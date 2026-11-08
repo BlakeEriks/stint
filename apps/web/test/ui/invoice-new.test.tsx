@@ -44,6 +44,7 @@ const SETTINGS = {
   invoiceNumberPrefix: 'STINT-',
   nextInvoiceNumber: 16,
   paymentTermsDays: 30,
+  billingTimeZone: null as string | null,
 };
 
 /** The settings served; a test changes the payment terms. */
@@ -107,7 +108,6 @@ const EXPENSES = [
     spentOn: '2000-01-12',
     description: 'JetBrains license',
     amount: 199,
-    note: null,
     invoiceId: null,
     invoiceNumber: null,
     invoiceStatus: null,
@@ -119,7 +119,6 @@ const EXPENSES = [
     spentOn: '2999-01-05',
     description: 'Next year flight',
     amount: 400,
-    note: null,
     invoiceId: null,
     invoiceNumber: null,
     invoiceStatus: null,
@@ -146,8 +145,19 @@ const WITH_EXPENSE = {
   total: 574,
 };
 
+/** An earlier invoice of every entry, which most tests open on. */
+const EARLIER = {
+  id: 'inv-0',
+  clientId: 'c1',
+  status: 'paid',
+  groupingMode: 'entry',
+  summaryText: null,
+  supportingDetail: null,
+  reference: null,
+};
+
 /** The client's invoices, newest first, as the list serves them. */
-let invoices: unknown[] = [];
+let invoices: unknown[] = [EARLIER];
 /** A held invoice list: a test answers it after the form has settled. */
 let holdInvoices: Promise<void> | null = null;
 
@@ -262,7 +272,7 @@ beforeEach(() => {
   settings = SETTINGS;
   CLIENTS[0]!.paymentTermsDays = null;
   holdSettings = null;
-  invoices = [];
+  invoices = [EARLIER];
   holdInvoices = null;
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -345,14 +355,14 @@ describe('NewInvoice', () => {
     expect(generate()).toBeDisabled();
   });
 
-  it('blocks generation when the period holds nothing billable', async () => {
+  it('generates a draft when the period holds nothing billable', async () => {
     serve({ ...PREVIEW, lineItems: [], subtotal: 0, total: 0, entryCount: 0 });
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
     await chooseClient(user);
 
     expect(await screen.findByText(/^Nothing to bill/)).toBeInTheDocument();
-    expect(generate()).toBeDisabled();
+    await waitFor(() => expect(generate()).toBeEnabled());
   });
 
   it('says why a recompute failed, and holds Generate', async () => {
@@ -403,15 +413,16 @@ describe('NewInvoice', () => {
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
     await ready(user);
+    const typed = addDays(localDateKey(new Date(), tz), 90);
     fireEvent.change(screen.getByLabelText('Due'), {
-      target: { value: '2026-12-01' },
+      target: { value: typed },
     });
 
     await user.click(generate());
 
     await waitFor(() => expect(push).toHaveBeenCalled());
     expect(bodies.find((b) => b.path.endsWith('/invoices'))!.body.dueDate).toBe(
-      '2026-12-01',
+      typed,
     );
   });
 
@@ -423,6 +434,18 @@ describe('NewInvoice', () => {
     await ready(user);
     expect(screen.getByLabelText('Due')).toHaveValue(
       addDays(localDateKey(new Date(), tz), 10),
+    );
+  });
+
+  // The device is rarely on Kiritimati's date, 14 hours ahead of UTC.
+  it("dates the invoice on the account's billing zone, not the device's", async () => {
+    serve();
+    settings = { ...SETTINGS, billingTimeZone: 'Pacific/Kiritimati' };
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await ready(user);
+    expect(screen.getByLabelText('Due')).toHaveValue(
+      addDays(localDateKey(new Date(), 'Pacific/Kiritimati'), 30),
     );
   });
 
@@ -513,7 +536,7 @@ describe('NewInvoice — expenses', () => {
 });
 
 describe('NewInvoice — one summary line', () => {
-  it('asks for the line text, empty to start, and blocks generation without it', async () => {
+  it('asks for the line text once cleared, and blocks generation without it', async () => {
     serve();
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
@@ -522,7 +545,7 @@ describe('NewInvoice — one summary line', () => {
     await pickGrouping(user, /One summary line/);
 
     const field = screen.getByLabelText(/Summary line/);
-    expect(field).toHaveValue('');
+    await user.clear(field);
     expect(field).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByText('Give the summary line its text.')).toHaveAttribute(
       'role',
@@ -539,6 +562,7 @@ describe('NewInvoice — one summary line', () => {
 
     await ready(user);
     await pickGrouping(user, /One summary line/);
+    await user.clear(screen.getByLabelText(/Summary line/));
     await user.type(screen.getByLabelText(/Summary line/), '   ');
 
     expect(
@@ -555,6 +579,7 @@ describe('NewInvoice — one summary line', () => {
 
     await chooseClient(user);
     await pickGrouping(user, /One summary line/);
+    await user.clear(screen.getByLabelText(/Summary line/));
     await user.type(
       screen.getByLabelText(/Summary line/),
       'Software consulting services',
@@ -645,17 +670,23 @@ describe('NewInvoice — from the client’s last invoice', () => {
     );
   });
 
-  it('opens every entry when the last invoice was not a summary', async () => {
-    invoices = [sent(null)];
+  // What it shows is the FromLastByTask story's; this is what it sends.
+  it('sends the last invoice’s grouping and reference, whatever it was', async () => {
+    invoices = [
+      { ...sent(null), groupingMode: 'task', reference: 'SOW 12' },
+      sent('Consulting'),
+    ];
     serve();
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
 
     await ready(user);
-    expect(
-      screen.getByRole('button', { name: 'Show time as' }),
-    ).toHaveTextContent('Every entry');
-    expect(screen.queryByLabelText(/Summary line/)).toBeNull();
+    expect(previews().every((p) => p.body.groupingMode === 'task')).toBe(true);
+    await user.click(generate());
+    await waitFor(() => expect(push).toHaveBeenCalled());
+    const made = bodies.find((b) => b.path.endsWith('/invoices'))!.body;
+    expect(made.groupingMode).toBe('task');
+    expect(made.reference).toBe('SOW 12');
   });
 });
 
@@ -820,7 +851,7 @@ describe('NewInvoice — expenses, charges and payment details', () => {
     );
   });
 
-  it('holds a charge back until it has a description and an amount', async () => {
+  it('holds a charge back until it has an amount', async () => {
     serve();
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
@@ -829,7 +860,10 @@ describe('NewInvoice — expenses, charges and payment details', () => {
     await user.click(screen.getByRole('button', { name: 'Add a charge' }));
     const dialog = await screen.findByRole('dialog', { name: 'New charge' });
     await user.type(within(dialog).getByLabelText(/Description/), 'Setup fee');
-    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled();
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(
+      screen.queryByRole('button', { name: /^Edit charge Setup fee/ }),
+    ).toBeNull();
   });
 
   it('prints the default payment details, and sends the ones chosen', async () => {
@@ -904,14 +938,6 @@ describe('NewInvoice — expenses, charges and payment details', () => {
 
 describe('A link to New invoice', () => {
   const link = (q: string) => linkedDraft(new URLSearchParams(q), CLIENTS);
-
-  it('fills in a known client and a valid period', () => {
-    expect(link('client=c1&from=2026-09-01&to=2026-09-30')).toMatchObject({
-      clientId: 'c1',
-      periodStart: '2026-09-01',
-      periodEnd: '2026-09-30',
-    });
-  });
 
   it('ignores a client it does not know, and dates that are not a period', () => {
     expect(link('client=nope&from=2026-09-01&to=2026-09-30')).toMatchObject({

@@ -31,7 +31,6 @@ export const PaymentProfile = z.object({
 
   currency: currency.nullable().optional(),
   feeAllocation: z.enum(['OUR', 'SHA', 'BEN']).nullable().optional(),
-  notes: z.string().max(1000).nullable().optional(),
   archivedAt: iso.nullable().optional(),
 });
 

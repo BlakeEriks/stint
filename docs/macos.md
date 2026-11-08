@@ -138,7 +138,7 @@ opened after a night shut would otherwise come back signed out.
   total adds live seconds **from the fetch**, not from `startedAt` — the route
   already folded the running entry in.
 - **Every press shows its result before the server answers** — start, stop,
-  rename, project, start again — through `press` in `apps/macos/Sources/Stint/Optimistic.swift`. A
+  rename, project, start again — through `press` in `apps/macos/Sources/Stint/Shared/Optimistic.swift`. A
   refusal takes it back and says why in the panel; a 409 from
   `/timer/start` then shows what *is* running. Start and stop ask for
   `?include=summary`, so the refetch after them skips `/summary`.

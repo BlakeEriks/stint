@@ -1,0 +1,109 @@
+import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { getRouter } from '@storybook/nextjs-vite/navigation.mock';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
+import { account, getDb } from '@/mocks/db';
+import { id } from '@/mocks/fixtures';
+import { desktop, screen } from '@/mocks/screen';
+import { EditInvoice } from './invoice-new';
+
+/* Byrne Studio's draft, STINT-0015: August. */
+const draft = id(315);
+
+const meta = {
+  title: 'Screens/Invoices/Edit',
+  component: EditInvoice,
+  ...screen(`/invoices/${draft}/edit`),
+  args: { id: draft },
+} satisfies Meta<typeof EditInvoice>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+const saved = async (page: ReturnType<typeof within>) =>
+  waitFor(
+    () =>
+      expect(page.getByRole('button', { name: 'Save draft' })).toBeEnabled(),
+    { timeout: 3000 },
+  );
+
+/** New invoice, opened on the draft: every field as the draft left it, and
+    the client locked. Its number stays, so none is offered. */
+export const Filled: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      await page.findByRole('heading', { name: 'Edit STINT-0015' }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Client' })).toBeDisabled();
+    await expect(page.getByLabelText('From')).toHaveValue('2026-08-01');
+    await expect(page.getByLabelText('To')).toHaveValue('2026-08-31');
+    await expect(page.queryByText(/^Numbered/)).toBeNull();
+    await expect(page.getByText('Saving keeps its number.')).toBeVisible();
+    await saved(page);
+  },
+};
+
+/** Saving writes what was changed onto the same draft. */
+export const SavesDates: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const to = await page.findByLabelText('To');
+    await userEvent.clear(to);
+    await userEvent.type(to, '2026-09-15');
+    await userEvent.type(page.getByLabelText('Reference'), 'PO-88');
+    await saved(page);
+    await userEvent.click(page.getByRole('button', { name: 'Save draft' }));
+    await waitFor(() => {
+      const stored = getDb().invoices.find((i) => i.id === draft);
+      expect(stored?.periodEnd).toBe('2026-09-15');
+      expect(stored?.reference).toBe('PO-88');
+      expect(stored?.invoiceNumber).toBe('STINT-0015');
+    });
+  },
+};
+
+/** Leaving with changes asks; Save draft saves them, then goes where the
+    link pointed. */
+export const LeavingSaves: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.type(await page.findByLabelText('Reference'), 'PO-88');
+    await saved(page);
+    await userEvent.click(
+      within(page.getByRole('navigation', { name: 'Sections' })).getByRole(
+        'link',
+        { name: 'Calendar' },
+      ),
+    );
+    const dialog = within(
+      await page.findByRole('dialog', { name: 'Save changes to STINT-0015?' }),
+    );
+    await userEvent.click(dialog.getByRole('button', { name: 'Save draft' }));
+    await waitFor(() =>
+      expect(getRouter().push).toHaveBeenCalledWith('/calendar'),
+    );
+    await expect(getRouter().push).toHaveBeenCalledTimes(1);
+    await expect(getDb().invoices.find((i) => i.id === draft)?.reference).toBe(
+      'PO-88',
+    );
+  },
+};
+
+/** Sent since: only a draft is edited, so the form doesn't open. */
+export const Issued: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    const august = db.invoices.find((i) => i.id === draft);
+    if (august) august.status = 'sent';
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByText(/STINT-0015 is sent, and only a draft/),
+    ).toBeVisible();
+    await expect(page.queryByRole('button', { name: 'Save draft' })).toBeNull();
+  },
+};

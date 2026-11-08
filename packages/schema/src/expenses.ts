@@ -15,8 +15,6 @@ export const Expense = z.object({
   spentOn: z.iso.date().nullable(),
   description: z.string(),
   amount: money,
-  /** A receipt or order number. Never printed on the invoice. */
-  note: z.string().nullable(),
   /** Set means billed. */
   invoiceId: uuid.nullable(),
   /** The billing invoice's number and status, so a list can say where an
@@ -44,7 +42,6 @@ export const CreateExpense = z
     spentOn: z.iso.date().nullable().optional(),
     description: z.string().trim().min(1).max(200),
     amount: expenseAmount,
-    note: z.string().max(500).nullable().optional(),
   })
   .refine(datedUnlessRecurring, {
     message: 'a one-off expense has a date and a recurring one has none',
@@ -59,7 +56,6 @@ export const UpdateExpense = z
     spentOn: z.iso.date().nullable(),
     description: z.string().trim().min(1).max(200),
     amount: expenseAmount,
-    note: z.string().max(500).nullable(),
   })
   .partial();
 

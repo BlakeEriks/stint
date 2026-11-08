@@ -27,12 +27,12 @@ export function ClientDialog({
   open,
   onOpenChange,
   client,
-  archivable = true,
+  onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   client?: Client;
-  archivable?: boolean;
+  onSaved?: (client: Client) => void;
 }) {
   const archive = useArchiveClient();
   const restore = useRestoreClient();
@@ -52,11 +52,13 @@ export function ClientDialog({
         <ClientForm
           key={client?.id ?? 'new'}
           existing={client}
-          onSaved={() => onOpenChange(false)}
+          onSaved={(saved) => {
+            onSaved?.(saved);
+            onOpenChange(false);
+          }}
           onCancel={() => onOpenChange(false)}
           footer={
-            client &&
-            archivable && (
+            client && (
               <ArchiveButton
                 archived={client.archivedAt != null}
                 onArchive={() => {

@@ -25,8 +25,8 @@ with the command that moves it at each step.
    built by hand merges one user story at a time, and a story that can't
    stand alone stays unlinked in the UI until the rest lands.
 3. **Review.** A PR runs CI and the Docs checks (Vale, `/doc-drift`), then
-   goes to QA on its Vercel preview, `pnpm try-mac`, or its phone update
-   (`docs/mobile.md`). A green Dependabot PR
+   goes to QA on its Vercel preview, `pnpm try-mac`, or its phone update,
+   which only a PR labeled `android` gets (`docs/mobile.md`). A green Dependabot PR
    outside the framework group merges itself; a red one goes to
    `/work-issues`.
 4. **Ship.** Merging is the deploy. The release gate plans, waits for approval and a
@@ -61,6 +61,9 @@ Every PR reaches QA the same way, whether `/work-issues` built it or not:
 
 - **`/standards-review` has reviewed its commits** before it opens:
   `/work-issues` runs it each round, and Spec Kit after `/speckit-implement`.
+  Once a PR's rounds have churned enough to leave leftovers,
+  `/work-issues` recommends `/standards-review final <n>`, which reviews the
+  whole branch; the owner decides when it runs.
 
 - **The branch name is under 30 characters.** It becomes the preview's URL,
   and Vercel hashes a longer one.
@@ -70,7 +73,9 @@ Every PR reaches QA the same way, whether `/work-issues` built it or not:
 - **`migration` labels a PR that adds one.** The previews share one schema,
   so only one PR whose diff touches `supabase/migrations`, labeled or not,
   is `ready-for-qa` at a time; it holds the preview database.
-- **`ready-for-qa` goes on once CI is green and nothing is unanswered**: no
-  feedback, doc drift or conflict with `main` left open. The next migration
-  PR to hold the preview database is the exception: it gets the label once
-  `main` is merged in, before CI finishes (`docs/deploying.md` §3d).
+- **`ready-for-qa` goes on once the preview is up and nothing is
+  unanswered**: no feedback, conflict with `main` or red check left open,
+  save `drift`, which a round fixes while testing goes on. Merging still
+  waits for every required check. A migration PR waits for CI green, except
+  the next one to hold the preview database: it gets the label once `main`
+  is merged in, before CI finishes (`docs/deploying.md` §3d).

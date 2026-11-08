@@ -910,6 +910,19 @@ test('voiding releases what the invoice billed, in the same statement', async ()
   assert.deepEqual(rows[0], { entry: null, expense: null });
 });
 
+test('another user’s draft cannot hold your work', async () => {
+  await issueAliceInvoice('draft');
+
+  await assert.rejects(
+    () =>
+      asUser(BOB, `update time_entries set draft_id = $1 where id = $2`, [
+        ALICE_INVOICE,
+        '018f0000-0000-7000-8000-00000000000b',
+      ]),
+    /time_entries_draft_same_owner/,
+  );
+});
+
 test('an invoice cannot reference another user’s client', async () => {
   await seedBoth();
 
@@ -962,4 +975,28 @@ test('send_draft reaches only the caller’s own drafts', async () => {
   assert.equal(sent.status, 'sent', 'the owner sends it');
 
   await assert.rejects(() => asAlice(send), /is sent and cannot be sent/);
+});
+
+/* `update_draft` runs as the caller too: another user's draft is out of its
+   reach, and a sent invoice isn't a draft to edit. */
+test('update_draft reaches only the caller’s own drafts', async () => {
+  const edit = `select update_draft($1, '{"period_start": "2026-09-01", "period_end": "2026-09-30", "grouping_mode": "entry", "notes": "Edited", "tz": "UTC", "manual_lines": []}'::jsonb)`;
+  const notes = async () =>
+    (
+      await admin.query(`select notes from invoices where id = $1`, [
+        ALICE_INVOICE,
+      ])
+    ).rows[0].notes;
+
+  await issueAliceInvoice('draft');
+  await assert.rejects(() => asUser(BOB, edit, [ALICE_INVOICE]), /not found/);
+  assert.equal(await notes(), null, 'another user cannot edit it');
+
+  await asAlice(edit);
+  assert.equal(await notes(), 'Edited', 'the owner edits it');
+
+  await admin.query(`update invoices set status = 'sent' where id = $1`, [
+    ALICE_INVOICE,
+  ]);
+  await assert.rejects(() => asAlice(edit), /is sent and cannot be edited/);
 });

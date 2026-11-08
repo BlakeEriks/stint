@@ -1,9 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef, useState } from 'react';
+import {
+  forgetInvoice,
+  usePrefetchInvoices,
+} from '@/lib/client/prefetch-invoices';
+import { useId, useRef, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMissing } from '@/lib/client/use-missing';
+import {
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
 import {
   useOptimisticMutation,
   keys,
@@ -20,11 +29,9 @@ import {
   Check,
   DollarSign,
   Download,
-  FilePlus,
   FolderInput,
   Inbox as InboxIcon,
   Pencil,
-  ReceiptText,
   Send,
 } from 'lucide-react';
 import {
@@ -37,11 +44,13 @@ import {
 import { useExit } from '@/lib/client/use-exit';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { EntryDialog } from './entry-dialog';
+import { MarkSentDialog } from './mark-sent-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RateInput, isValidRate, parseRate } from './rate-input';
 
 type Attention = Stats['attention'];
+type StaleDraft = Attention['staleDrafts'][number];
 
 /** How many rows the Inbox holds: its header's count and the folded dock's. */
 export function inboxCount(attention: Attention) {
@@ -98,6 +107,13 @@ export function Inbox({ stats }: { stats: Stats }) {
     overlaps,
   } = stats.attention;
   const queryClient = useQueryClient();
+  usePrefetchInvoices([
+    ...overdueInvoices.map((i) => ({
+      id: i.invoiceId,
+      status: 'sent' as const,
+    })),
+    ...staleDrafts.map((d) => ({ id: d.invoiceId, status: 'draft' as const })),
+  ]);
 
   const exit = useExit();
 
@@ -151,23 +167,6 @@ export function Inbox({ stats }: { stats: Stats }) {
     },
   });
 
-  /* Pending, not predicted: it can mark hundreds of entries, and undoing
-     that is one entry dialog at a time. The button says it is marking, and
-     the row leaves on the server's answer. A wrong billable flag is fixed on
-     the entry, not answered here. */
-  const markElsewhere = useOptimisticMutation({
-    queryKey: () => keys.stats(),
-    mutationFn: ({ ids }: { id: string; ids: string[] }) =>
-      api.markAllInvoicedElsewhere(ids),
-    invalidate: async (qc, { id }) => {
-      await exit.mark(id);
-      return invalidateEntryData(qc);
-    },
-  });
-  const marking = markElsewhere.isPending
-    ? markElsewhere.variables?.id
-    : undefined;
-
   /* Deduped against Home's identical query, so the one screen rendering both
      makes no second request. */
   const { data: projects = [] } = useQuery({
@@ -187,16 +186,29 @@ export function Inbox({ stats }: { stats: Stats }) {
   const downloads =
     !billing || documentOpens(billing.available, billing.plan, null);
 
-  const setStatus = useOptimisticMutation({
+  const statusWrite = {
     ...rowPress,
     mutationFn: ({ id, status }: { id: string; status: InvoiceStatus }) =>
       api.updateInvoiceStatus(id, { status }),
-    invalidate: async (qc, { id }) => {
+    invalidate: async (qc: QueryClient, { id }: { id: string }) => {
       await leaving.get(id);
+      forgetInvoice(qc, id);
       return Promise.all([
         qc.invalidateQueries({ queryKey: keys.invoices() }),
         invalidateEntryData(qc),
       ]);
+    },
+  };
+  const setStatus = useOptimisticMutation(statusWrite);
+
+  /* Mark sent asks first, in the dialog the invoice page asks in, and the
+     row leaves only once the server has locked it. */
+  const sending = useDialog<StaleDraft>();
+  const markSent = useOptimisticMutation({
+    ...statusWrite,
+    onSuccess: (_, { id }) => {
+      sending.onOpenChange(false);
+      leave(id);
     },
   });
 
@@ -281,6 +293,7 @@ export function Inbox({ stats }: { stats: Stats }) {
   ];
 
   const count = inboxCount(stats.attention);
+  const sent = sending.subject;
 
   return (
     <section aria-label="Inbox">
@@ -328,7 +341,7 @@ export function Inbox({ stats }: { stats: Stats }) {
                   const rate = parseRate(text);
                   return isValidRate(rate) ? rate : null;
                 }}
-                invalid="A rate is a number, zero or more."
+                invalid="Enter a rate of zero or more, to the cent."
                 onSubmit={(defaultHourlyRate) => {
                   leave(r.id);
                   answer.mutate({ id: r.id, patch: { defaultHourlyRate } });
@@ -369,13 +382,16 @@ export function Inbox({ stats }: { stats: Stats }) {
                   leave(v.id);
                   setStatus.mutate(v);
                 }}
+                onSend={(d) => {
+                  // A refusal from an earlier press must not read as this one's.
+                  markSent.reset();
+                  sending.show(d);
+                }}
                 onOpen={openEntry}
                 onConfirm={(id) => {
                   leave(id);
                   confirmLength.mutate(id);
                 }}
-                onElsewhere={markElsewhere.mutate}
-                marking={marking}
                 exiting={exit.exiting.has(r.id)}
                 ref={exit.register(r.id)}
               />
@@ -384,16 +400,31 @@ export function Inbox({ stats }: { stats: Stats }) {
         </ul>
       )}
 
-      <EntryDialog
-        open={assigning.open}
-        onOpenChange={assigning.onOpenChange}
-        existing={assigning.subject?.entry}
-        focus={assigning.subject?.focus}
-        projects={projects}
-        /* The row's id IS the entry id for both kinds that open this dialog,
+      {sent ? (
+        <MarkSentDialog
+          open={sending.open}
+          onOpenChange={sending.onOpenChange}
+          invoice={{ ...sent, total: sent.amount }}
+          pending={markSent.isPending}
+          error={markSent.error}
+          onConfirm={() =>
+            markSent.mutate({ id: sent.invoiceId, status: 'sent' })
+          }
+        />
+      ) : null}
+
+      {assigning.subject ? (
+        <EntryDialog
+          open={assigning.open}
+          onOpenChange={assigning.onOpenChange}
+          existing={assigning.subject.entry}
+          focus={assigning.subject.focus}
+          projects={projects}
+          /* The row's id IS the entry id for both kinds that open this dialog,
            so the mark lands on the row the user just answered. */
-        onSaved={exit.mark}
-      />
+          onSaved={exit.mark}
+        />
+      ) : null}
     </section>
   );
 }
@@ -406,11 +437,9 @@ type ItemRow = Exclude<InboxRow, { kind: SettingsRowId }>;
 type Handlers = {
   downloads: boolean;
   onStatus: (v: { id: string; status: InvoiceStatus }) => void;
+  onSend: (d: StaleDraft) => void;
   onOpen: (v: { id: string; focus: 'task' | 'project' }) => void;
   onConfirm: (id: string) => void;
-  onElsewhere: (v: { id: string; ids: string[] }) => void;
-  /** The row whose Billed elsewhere is waiting on the server. */
-  marking?: string;
 };
 
 type ItemProps = Omit<React.ComponentProps<typeof Item>, 'exiting' | 'ref'>;
@@ -436,6 +465,7 @@ function itemFor(r: ItemRow, h: Handlers): ItemProps {
         detail: `${r.row.daysLate} ${r.row.daysLate === 1 ? 'day' : 'days'} late`,
         tone: 'danger',
         status: 'paid',
+        onMark: () => h.onStatus({ id: r.row.invoiceId, status: 'paid' }),
       });
     case 'draft':
       return invoiceItem(r.row, h, {
@@ -444,10 +474,11 @@ function itemFor(r: ItemRow, h: Handlers): ItemProps {
           : `Draft, ${r.row.ageDays}d old`,
         tone: 'neutral',
         status: 'sent',
+        onMark: () => h.onSend(r.row),
         refuses: r.row.refuses,
       });
     case 'due':
-      return dueItem(r.row, h);
+      return dueItem(r.row);
     case 'unprojected':
       return unprojectedItem(r.row, h);
     case 'overlap':
@@ -467,15 +498,17 @@ const MARK = {
 } as const;
 
 function invoiceItem(
-  i: Attention['overdueInvoices'][number] | Attention['staleDrafts'][number],
+  i: Attention['overdueInvoices'][number] | StaleDraft,
   h: Handlers,
   {
     detail,
     tone,
     status,
+    onMark,
     refuses = { download: false, send: false },
   }: Pick<ItemProps, 'detail' | 'tone'> & {
     status: keyof typeof MARK;
+    onMark: () => void;
     refuses?: { download: boolean; send: boolean };
   },
 ): ItemProps {
@@ -492,7 +525,7 @@ function invoiceItem(
             label={MARK[status].label}
             context={i.invoiceNumber}
             icon={MARK[status].icon}
-            onClick={() => h.onStatus({ id: i.invoiceId, status })}
+            onClick={onMark}
           />
         )}
         {h.downloads && !refuses.download ? (
@@ -508,52 +541,21 @@ function invoiceItem(
   };
 }
 
-/* A chore, not money late, so neutral. Create invoice fills in New invoice
-   and creates nothing: the user makes the draft, so it is numbered then.
-   One period is named; work across several says how far back it goes. */
-function dueItem(d: Attention['unbilledDue'][number], h: Handlers): ItemProps {
-  const id = `due:${d.clientId}`;
-  const href = `/invoices/new?${new URLSearchParams({
-    client: d.clientId,
-    from: d.periodStart,
-    to: d.periodEnd,
-  })}`;
+/* A chore, not money late, so neutral. The link fills in New invoice and
+   creates nothing: the user makes the draft, so it is numbered then. */
+function dueItem(d: Attention['unbilledDue'][number]): ItemProps {
   return {
-    href,
+    href: `/invoices/new?${new URLSearchParams({
+      client: d.clientId,
+      from: d.periodStart,
+      to: d.periodEnd,
+    })}`,
     label: d.clientName,
-    detail: d.onePeriod
-      ? `${periodName(d.periodStart, d.periodEnd)} ended with no invoice`
-      : `unbilled since ${shortDay(d.since)}`,
+    detail: `${periodName(d.periodStart, d.periodEnd)} is ready to invoice`,
     value: formatCompact(d.seconds),
     tone: 'neutral',
-    actions: (
-      <>
-        <Action
-          label="Create invoice"
-          context={d.clientName}
-          icon={<FilePlus aria-hidden />}
-          href={href}
-          navigates
-        />
-        <Action
-          label={h.marking === id ? 'Marking…' : 'Billed elsewhere'}
-          context={d.clientName}
-          icon={<ReceiptText aria-hidden />}
-          onClick={() => h.onElsewhere({ id, ids: d.entryIds })}
-          disabled={h.marking === id}
-        />
-      </>
-    ),
   };
 }
-
-/** `YYYY-MM-DD` as "Aug 1". */
-const shortDay = (d: string) =>
-  new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'UTC',
-  }).format(new Date(`${d}T00:00:00Z`));
 
 /** A calendar month by its name, any other period by its dates:
  *  "Oct 1 – 15", "Sep 28 – Oct 4". */
@@ -564,11 +566,12 @@ function periodName(start: string, end: string) {
     );
   if (isPeriod({ period: 'monthly' }, start, end))
     return date(start, { month: 'long' });
+  const short = { month: 'short', day: 'numeric' } as const;
   const to =
     start.slice(0, 7) === end.slice(0, 7)
       ? date(end, { day: 'numeric' })
-      : shortDay(end);
-  return `${shortDay(start)} – ${to}`;
+      : date(end, short);
+  return `${date(start, short)} – ${to}`;
 }
 
 function entryItem(
@@ -847,27 +850,15 @@ function Action({
   icon,
   onClick,
   href,
-  navigates,
-  disabled,
 }: {
   label: string;
   context: string;
   icon: React.ReactNode;
   onClick?: () => void;
-  disabled?: boolean;
-  /** A file to download, or with `navigates` a page in the app. */
   href?: string;
-  navigates?: boolean;
 }) {
   const ariaLabel = `${label}, ${context}`;
-  return navigates && href ? (
-    <Button asChild size="xs">
-      <Link href={href} aria-label={ariaLabel}>
-        {icon}
-        {label}
-      </Link>
-    </Button>
-  ) : href ? (
+  return href ? (
     <Button asChild size="xs">
       <a href={href} aria-label={ariaLabel} download>
         {icon}
@@ -875,13 +866,7 @@ function Action({
       </a>
     </Button>
   ) : (
-    <Button
-      type="button"
-      size="xs"
-      aria-label={ariaLabel}
-      onClick={onClick}
-      disabled={disabled}
-    >
+    <Button type="button" size="xs" aria-label={ariaLabel} onClick={onClick}>
       {icon}
       {label}
     </Button>
@@ -910,7 +895,7 @@ function SettingsRow({
   input: (props: React.ComponentProps<'input'>) => React.ReactNode;
   initial: string;
   parse: (text: string) => number | null;
-  /** Said under the field while what's typed doesn't parse. */
+  /** Said under the field when Save is pressed on what doesn't parse. */
   invalid: string;
   onSubmit: (value: number) => void;
   /** The server's refusal of the last save, shown once the row is back. */
@@ -920,7 +905,9 @@ function SettingsRow({
 }) {
   const [text, setText] = useState(initial);
   const value = parse(text);
-  const shown = text !== '' && value === null ? invalid : error;
+  const id = useId();
+  const check = useMissing({ [id]: value === null ? invalid : undefined });
+  const shown = check.error(id) ?? error;
 
   return (
     <Item
@@ -931,20 +918,22 @@ function SettingsRow({
       tone="neutral"
       actions={
         <form
+          noValidate
           className="flex w-full flex-col gap-1.5"
           onSubmit={(e) => {
             e.preventDefault();
-            if (value !== null) onSubmit(value);
+            if (check.passes() && value !== null) onSubmit(value);
           }}
         >
           <div className="flex items-center gap-1.5">
             {input({
+              id,
               className: 'flex-1',
               'aria-invalid': shown ? true : undefined,
               value: text,
               onChange: (e) => setText(e.target.value),
             })}
-            <Button type="submit" size="xs" disabled={value === null}>
+            <Button type="submit" size="xs">
               Save
             </Button>
           </div>

@@ -1,5 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { brand } from '@stint/design-tokens';
 import { text, useColors } from '../theme.ts';
+
+const mark = brand.mark;
 
 /** A client's color, or the hollow ring of a client with none. */
 export function Swatch({
@@ -24,20 +27,20 @@ export function Swatch({
   );
 }
 
-/** The lockup: the wordmark between its two bounds, as the web draws it. */
 export function Wordmark({ large = false }: { large?: boolean }) {
   const c = useColors();
   const role = large ? 'wordmark' : 'wordmark-small';
-  const size = text(role).fontSize ?? 14;
+  const size = text(role).fontSize ?? 18;
   const bound = {
-    width: Math.max(1.5, size * 0.09),
-    height: size * 1.05,
-    borderRadius: 999,
+    width: Math.max(1.5, size * mark.boundWidth),
+    height: size * mark.boundHeight,
+    borderRadius: mark.boundRadius,
     backgroundColor: c['text-strong'],
   };
+  const tmSize = size * mark.tmSize;
   return (
     <View
-      style={[styles.row, { gap: size * 0.18 }]}
+      style={[styles.row, { gap: size * mark.boundGap }]}
       accessible
       accessibilityRole="header"
       accessibilityLabel="Stint"
@@ -45,6 +48,18 @@ export function Wordmark({ large = false }: { large?: boolean }) {
       <View style={bound} />
       <Text style={[text(role), { color: c['text-strong'] }]}>STINT</Text>
       <View style={bound} />
+      <Text
+        style={{
+          ...text(role),
+          fontSize: tmSize,
+          lineHeight: tmSize,
+          letterSpacing: 0,
+          color: c['text-strong'],
+          transform: [{ translateY: -size * mark.tmRise }],
+        }}
+      >
+        ™
+      </Text>
     </View>
   );
 }

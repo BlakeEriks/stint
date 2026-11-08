@@ -207,7 +207,6 @@ const s = StyleSheet.create({
     borderTopColor: print.rule,
   },
   payLink: { marginTop: 8, fontWeight: 700, color: print.accent },
-  payNotes: { marginTop: 8, fontSize: 8.5, color: print.muted },
   notes: { marginTop: 12, color: print.muted, lineHeight: `${LINE}pt` },
   footer: { fontSize: 8, color: print.faint },
   voidMark: { fontWeight: 700, color: print.void },

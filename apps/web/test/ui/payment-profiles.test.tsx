@@ -29,7 +29,6 @@ const BASE: PaymentProfile = {
   paymentLinkUrl: null,
   currency: 'USD',
   feeAllocation: null,
-  notes: null,
   archivedAt: null,
 };
 

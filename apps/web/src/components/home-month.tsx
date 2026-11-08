@@ -12,6 +12,7 @@ import {
   INTERNAL,
   RegionHead,
 } from './home-shell';
+import { appNow } from '@stint/client';
 
 /** The climb's viewport, in its own units — the paths are scaled by SVG. */
 const PLOT_W = 300;
@@ -40,7 +41,7 @@ export function Month({
   const chart = monthChart(month);
 
   return (
-    <div className="mt-6 border-t border-edge-subtle pt-6">
+    <div className="mt-5 border-t border-edge-subtle pt-5">
       <div className="grid items-start gap-8 @2xl:grid-cols-[17.5rem_minmax(0,1fr)]">
         <div className="flex flex-col">
           <RegionHead>This month · {monthName()}</RegionHead>
@@ -49,7 +50,7 @@ export function Month({
               `unbilled.seconds` is a different window — an all-time balance
               rather than the month — so printing it here would label one
               period's hours with another's. */}
-          <FigGroup tier="hero" className="mt-6">
+          <FigGroup tier="hero" className="mt-4">
             <FigLabel>Earned</FigLabel>
             <Money
               figure="month-earned"
@@ -62,7 +63,7 @@ export function Month({
           {/* Spacing alone carries the split: Earned is the month's subject,
               the two below are readings taken from it. A rule here would read
               as a section boundary, which is not what this is. */}
-          <FigGroup tier="minor" className="mt-[26px]">
+          <FigGroup tier="minor" className="mt-3">
             <FigLabel>On track for</FigLabel>
             {chart.projection.state === 'figure' ? (
               <Money
@@ -72,18 +73,23 @@ export function Month({
                 className="type-amount-hero text-strong"
               />
             ) : (
-              <span
-                data-projection="pending"
-                role="img"
-                aria-label="Not projected yet"
-                className="type-amount-hero text-subtle"
-              >
-                —
-              </span>
+              <>
+                <span
+                  data-projection="pending"
+                  role="img"
+                  aria-label="Not projected yet"
+                  className="type-amount-hero text-subtle"
+                >
+                  —
+                </span>
+                <span className="type-meta text-subtle">
+                  From {weekdayLabel(chart.projection.from)}
+                </span>
+              </>
             )}
           </FigGroup>
 
-          <FigGroup tier="minor" className="mt-[22px]">
+          <FigGroup tier="minor" className="mt-2.5">
             <FigLabel>Unbilled</FigLabel>
             <Money
               figure="month-unbilled"
@@ -102,7 +108,7 @@ export function Month({
               there is something to count. Never summed with unbilled: one has
               an invoice and a due date, the other can still be written off. */}
           {stats.awaitingPayment > 0 ? (
-            <p className="mt-[22px] type-meta text-subtle">
+            <p className="mt-2.5 type-meta text-subtle">
               {formatCurrency(stats.awaitingPayment, currency)} awaiting ·{' '}
               {stats.openInvoiceCount} open invoice
               {stats.openInvoiceCount === 1 ? '' : 's'}
@@ -211,26 +217,10 @@ function Climb({
   hues,
 }: {
   month: Stats['month'];
-  plot: MonthPlot | null;
+  plot: MonthPlot;
   currency: string;
   hues: Map<string, Hue>;
 }) {
-  if (!plot) {
-    return (
-      <div className="min-w-0">
-        <div
-          data-climb="empty"
-          className="flex min-h-[230px] items-center type-meta text-subtle"
-        >
-          The month&apos;s climb draws once there are two days on it.
-        </div>
-        {/* The split still answers WHO on a month too young to draw a line:
-            one day of work has no shape, but it already has a source. */}
-        <Strip byClient={month.byClient} hues={hues} currency={currency} />
-      </div>
-    );
-  }
-
   const at = ({ x, y }: { x: number; y: number }) =>
     `${x * PLOT_W},${PLOT_H - y * PLOT_H}`;
   const line = plot.solid
@@ -246,7 +236,9 @@ function Climb({
   return (
     <div className="min-w-0">
       <div className="relative pr-3.5 pl-11">
-        <div className="relative min-h-[230px] w-full aspect-[16/9.2]">
+        {/* A fixed height, not an aspect ratio: with its strip and axis it
+            matches the figures beside it, so Home fits a 13-inch screen. */}
+        <div className="relative h-[calc(218px+var(--grow,0px))] w-full">
           <svg
             viewBox={`0 0 ${PLOT_W} ${PLOT_H}`}
             preserveAspectRatio="none"
@@ -254,11 +246,11 @@ function Climb({
             role="img"
             aria-label={label(month, currency)}
           >
-            {plot.gridlines.map((v) => {
-              const y = PLOT_H - (v / plot.top) * PLOT_H;
+            {plot.gridlines.map(({ value }) => {
+              const y = PLOT_H - (value / plot.top) * PLOT_H;
               return (
                 <line
-                  key={v}
+                  key={value}
                   x1="0"
                   y1={y}
                   x2={PLOT_W}
@@ -325,13 +317,13 @@ function Climb({
           </svg>
 
           <div data-axis="y" className="absolute inset-y-0 -left-11 w-11">
-            {plot.gridlines.map((v) => (
+            {plot.gridlines.map(({ value, label }) => (
               <span
-                key={v}
-                style={{ top: `${(1 - v / plot.top) * 100}%` }}
+                key={value}
+                style={{ top: `${(1 - value / plot.top) * 100}%` }}
                 className="absolute left-0 -translate-y-1/2 type-meta whitespace-nowrap text-subtle"
               >
-                {compact(v, currency)}
+                {label == null ? null : compact(label, currency)}
               </span>
             ))}
           </div>
@@ -446,20 +438,29 @@ function label(month: Stats['month'], currency: string): string {
     : `${monthName()} earnings climbing to ${earned}`;
 }
 
-/** `Sep 1`. Built as UTC, so no zone can shift the key a day. */
+/** `Sep 1`. */
 function dayLabel(key: string | undefined): string {
+  return keyLabel(key, { month: 'short', day: 'numeric' });
+}
+
+function weekdayLabel(key: string): string {
+  return keyLabel(key, { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+/** Built as UTC, so no zone can shift the key a day. */
+function keyLabel(
+  key: string | undefined,
+  options: Intl.DateTimeFormatOptions,
+): string {
   if (!key) return '';
   const [y, m, d] = key.split('-').map(Number);
   return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
+    ...options,
     timeZone: 'UTC',
   }).format(new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1)));
 }
 
 /* Browser locale, like every other date on this screen. */
 function monthName(): string {
-  return new Intl.DateTimeFormat(undefined, { month: 'long' }).format(
-    new Date(),
-  );
+  return new Intl.DateTimeFormat(undefined, { month: 'long' }).format(appNow());
 }

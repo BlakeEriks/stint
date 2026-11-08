@@ -1,19 +1,24 @@
 'use client';
 
 import { useDialog } from '@/lib/client/use-dialog';
-import { useQuery } from '@tanstack/react-query';
-import { formatCompact, formatCurrency, startOfLocalDay } from '@stint/core';
-import { CalendarDays, Plus } from 'lucide-react';
-import { api, type Project, type TimeEntry } from '@/lib/client/api';
+import {
+  formatCompact,
+  formatCurrency,
+  SNAP_MINUTES,
+  startOfLocalDay,
+} from '@stint/core';
+import { CalendarDays } from 'lucide-react';
+import type { Project } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { useProjectColors } from '@/lib/client/use-project-colors';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import { useEntryDrag } from '@/lib/client/use-entry-drag';
-import { Button } from '@/components/ui/button';
-import { EntryDialog } from './entry-dialog';
+import { useTodayEntries } from '@/lib/client/use-today-entries';
+import { EntryDialog, type Opens } from './entry-dialog';
+import { KeyboardAdd } from './keyboard-add';
 import { Listing } from './page';
 import { TodayGrid } from './today-grid';
-import { keys } from '@stint/client';
+import { appNow } from '@stint/client';
 
 /**
  * Today's entries, in the dock beneath the inbox and subordinate to it. An
@@ -49,7 +54,7 @@ export function EntryList({
   /** The dock's fixed column at `xl`, which Today's day fills. */
   fills?: boolean;
 }) {
-  const query = useDayEntries();
+  const query = useTodayEntries();
 
   /* The foot totals outside the scroller, so it reads the day off the
      query rather than the render prop below. */
@@ -59,10 +64,7 @@ export function EntryList({
 
   /* An entry edits it; otherwise it adds one, at the times drawn if any. */
   const drag = useEntryDrag();
-  const editing = useDialog<{
-    existing?: TimeEntry;
-    seed?: { startedAt: string; endedAt: string };
-  }>();
+  const editing = useDialog<Opens>();
 
   return (
     <section
@@ -99,27 +101,18 @@ export function EntryList({
             {formatCurrency(earnedToday, currency)}
           </span>
         )}
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          className={earnedToday === undefined ? 'ml-auto' : undefined}
-          onClick={() => editing.show({})}
-        >
-          <Plus aria-hidden />
-          Add
-        </Button>
+        <KeyboardAdd
+          label="Add an entry today"
+          className={earnedToday === undefined ? 'ml-auto' : ''}
+          onClick={() => editing.show({ seed: lastHour(appNow()) })}
+        />
       </header>
 
       <div
         tabIndex={useScrollerFocus()}
         className="min-h-0 flex-1 overflow-y-auto"
       >
-        <Listing
-          query={query}
-          tight
-          empty="Nothing logged yet today. Start a timer above."
-        >
+        <Listing query={query} tight>
           {(entries) => (
             <TodayGrid
               entries={entries}
@@ -157,30 +150,31 @@ export function EntryList({
         </div>
       ) : null}
 
-      <EntryDialog
-        open={editing.open}
-        onOpenChange={(open) => {
-          editing.onOpenChange(open);
-          if (!open) drag.release();
-        }}
-        existing={editing.subject?.existing}
-        seed={editing.subject?.seed}
-        projects={projects}
-      />
+      {editing.subject ? (
+        <EntryDialog
+          {...editing.subject}
+          open={editing.open}
+          onOpenChange={(open) => {
+            editing.onOpenChange(open);
+            if (!open) drag.release();
+          }}
+          projects={projects}
+        />
+      ) : null}
     </section>
   );
 }
 
 /**
- * Everything today, running included: a column without it has a hole at the
- * one place the eye goes. A hook of its own so the dock can gate on the same
- * query the list reads.
+ * The hour up to the last quarter hour: what Add opens on. Work is logged
+ * after it is done, and an end in the future would be a guess.
  */
-export function useDayEntries() {
-  const from = startOfLocalDay(new Date(), tz).toISOString();
-  return useQuery({
-    queryKey: keys.entries({ from }),
-    queryFn: () => api.entries({ from }),
-    select: (r) => r.entries,
-  });
+function lastHour(now: Date) {
+  const dayStart = startOfLocalDay(now, tz).getTime();
+  const step = SNAP_MINUTES * 60_000;
+  const end = dayStart + Math.floor((now.getTime() - dayStart) / step) * step;
+  return {
+    startedAt: new Date(end - 3_600_000).toISOString(),
+    endedAt: new Date(end).toISOString(),
+  };
 }

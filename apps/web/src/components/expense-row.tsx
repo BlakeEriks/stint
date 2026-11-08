@@ -15,7 +15,7 @@ function monthDay(date: string) {
   }).format(new Date(y, m - 1, d));
 }
 
-/** Billed and past editing: a draft claims an expense only when sent. */
+/** Billed and past editing: a draft bills an expense only when sent. */
 export function isLocked(expense: Expense) {
   return expense.invoiceStatus !== null;
 }

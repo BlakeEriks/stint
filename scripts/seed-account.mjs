@@ -18,7 +18,7 @@
  *
  * **Every inbox scenario is represented**, because the inbox is the hardest
  * surface to exercise by hand: each row needs a condition that takes days to
- * arrive naturally. The table above `OVERDUE_DAYS` lists the four conditions.
+ * arrive naturally. The table above `OVERDUE_DAYS` lists the five conditions.
  * The exception is the default-rate row, which a seeded account never shows:
  * `--scenario first-signin` leaves a new signup's settings, with no rate and
  * the welcome dialog not yet seen.
@@ -68,6 +68,13 @@ const SEED_SCENARIOS = {
       [userId, rows[0].next_invoice_number],
     );
   },
+  /* Clients and settings, and no entry yet: Home's first-entry state.
+     Invoices go first, since a billed entry cannot outlive its invoice. */
+  'no-entries': async (userId) => {
+    for (const table of ['invoices', 'expenses', 'time_entries']) {
+      await db.query(`delete from ${table} where user_id = $1`, [userId]);
+    }
+  },
 };
 
 if (process.argv[2] === '--scenarios') {
@@ -111,6 +118,8 @@ const CLIENTS = [
     // Its own payment details, so the picker has a client profile to prefer.
     profile: 'savings',
     rate: null, // inherits the user default — worth seeing resolved
+    // No seeded invoice is Meridian's, so its ended month is ready to invoice.
+    billingPeriod: 'monthly',
     color: '#C58AF9',
     projects: [{ name: 'Data pipeline audit', rate: null }],
   },
@@ -133,6 +142,8 @@ const INTERNAL = 'Admin and invoicing';
  * | Overdue invoice     | `sent`, `due_date` more than 7 days past     |
  * | Stale draft         | `draft`, period ended more than 7 days ago   |
  * | Unprojected entries | ended, billable, unbilled, no project        |
+ * | Ready to invoice    | scheduled client, unbilled work in its last  |
+ * |                     | ended period, no invoice overlapping it      |
  *
  * The inbox is the one surface that is genuinely hard to exercise by hand:
  * every row needs a condition that takes days of real time to arrive.
@@ -173,7 +184,7 @@ const INVOICES = [
   {
     /* Stale draft: generated and then forgotten, which is the case the row
        exists to catch. A draft holds no number with a client yet, and no
-       line: it shows its period's work as it stands. */
+       line: it shows the work it holds, priced as it stands. */
     status: 'draft',
     issuedDaysAgo: STALE_DRAFT_DAYS,
   },
@@ -364,8 +375,9 @@ try {
       rows: [{ id: clientId }],
     } = await db.query(
       `insert into clients
-         (user_id, name, email, address, hourly_rate, currency, color, payment_profile_id)
-       values ($1, $2, $3, $4, $5, 'USD', $6, $7) returning id`,
+         (user_id, name, email, address, hourly_rate, currency, color,
+          payment_profile_id, billing_period)
+       values ($1, $2, $3, $4, $5, 'USD', $6, $7, $8) returning id`,
       [
         userId,
         client.name,
@@ -374,6 +386,7 @@ try {
         client.rate,
         client.color,
         client.profile ? profiles[client.profile] : null,
+        client.billingPeriod ?? null,
       ],
     );
     clientIds.push(clientId);
@@ -541,6 +554,25 @@ try {
     entries += 1;
   }
 
+  /* Ready to invoice: Meridian's work in last month, which the fortnight above
+     misses later in a month. The 15th is inside that month in any zone, and
+     at 19:00, at least 14 days back, it is clear of every other entry. */
+  const lastMonth = new Date();
+  lastMonth.setMonth(lastMonth.getMonth() - 1, 15);
+  lastMonth.setHours(19, 0, 0, 0);
+  await db.query(
+    `insert into time_entries
+       (id, user_id, project_id, task_name, started_at, ended_at, is_billable)
+     values (gen_random_uuid(), $1, $2, 'Seeded: last month''s audit', $3, $4, true)`,
+    [
+      userId,
+      projectIds.at(-1),
+      lastMonth.toISOString(),
+      new Date(lastMonth.getTime() + 2 * 3_600_000).toISOString(),
+    ],
+  );
+  entries += 1;
+
   /* A timer left running overnight and stopped the next morning: past
      `max_entry_hours`, so the inbox asks whether its length is right. 18:00
      to 08:00, clear of the 09:00 blocks either side, and on a project so it
@@ -703,6 +735,24 @@ try {
           total,
         ],
       );
+    /* A draft holds the work it was built with, as `POST /invoices` holds
+       it: here, its period's. */
+    if (inv.status === 'draft')
+      await db.query(
+        `update time_entries e set draft_id = $1
+           from projects p
+          where p.id = e.project_id and p.client_id = $2 and e.user_id = $3
+            and e.invoice_id is null and not e.invoiced_elsewhere
+            and e.ended_at is not null
+            and e.started_at >= $4::date and e.started_at < $5::date + 1`,
+        [
+          invoiceId,
+          firstClientId,
+          userId,
+          periodStart.toISOString().slice(0, 10),
+          periodEnd.toISOString().slice(0, 10),
+        ],
+      );
     /* Issued once its line is written: `guard_issued_line_item` refuses a
        line on a sent invoice, and paid is reached through sent. */
     for (const status of { draft: [], sent: ['sent'], paid: ['sent', 'paid'] }[
@@ -739,6 +789,7 @@ try {
   console.log('    overdue invoice    yes');
   console.log('    stale draft        yes');
   console.log(`    unprojected work   yes (${unprojected.length} entries)`);
+  console.log('    ready to invoice   yes (Meridian Labs, last month)');
   if (scenario) console.log(`\n  Then left as: ${scenario}`);
   if (created) {
     console.log(

@@ -1,13 +1,15 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { localDateKey } from '@stint/core';
 import { account } from '@/mocks/db';
-import { entry, ids } from '@/mocks/fixtures';
+import { entry, id, ids } from '@/mocks/fixtures';
 import { ZONE } from '@/mocks/time.mts';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import {
   desktop,
   failing,
   light,
+  macbook,
+  macbook16,
   phone,
   screen,
   stalled,
@@ -76,6 +78,52 @@ export const Light: Story = { ...light };
 /** A timer running: its task leads Today, and the timer bar counts it.
  *  Earned, the week's bar and the month count the session so far. */
 export const Running: Story = { ...desktop, parameters: account('running') };
+
+/** The fill as painted: 255 is opaque, whatever color syntax it computes to. */
+function alpha(el: Element) {
+  const paint = document.createElement('canvas').getContext('2d');
+  if (!paint) throw new Error('No 2d canvas');
+  paint.fillStyle = getComputedStyle(el).backgroundColor;
+  paint.fillRect(0, 0, 1, 1);
+  return paint.getImageData(0, 0, 1, 1).data[3];
+}
+
+async function scrollTo(top: number) {
+  window.scrollTo(0, top);
+  await new Promise(requestAnimationFrame);
+}
+
+/** On a phone the page scrolls between a pinned header and a floating timer
+ *  bar, and nothing under either shows through, in either theme. */
+export const RunningPhoneScrolled: Story = {
+  ...phone,
+  parameters: account('running'),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const bar = await page.findByRole('region', { name: 'Timer' });
+    await within(bar).findByRole('button', { name: 'Stop timer' });
+    const header = canvasElement.querySelector('header') as HTMLElement;
+    const nav = page.getByRole('navigation', { name: 'Sections' });
+    const gap = () => window.innerHeight - bar.getBoundingClientRect().bottom;
+
+    await scrollTo(document.documentElement.scrollHeight / 2);
+    await expect(header.getBoundingClientRect().top).toBe(0);
+    await expect(nav.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      header.getBoundingClientRect().bottom,
+    );
+    await expect(nav.getBoundingClientRect().bottom).toBeLessThan(120);
+    const html = document.documentElement;
+    for (const theme of ['light', 'dark']) {
+      html.dataset.theme = theme;
+      for (const el of [header, nav, bar]) await expect(alpha(el)).toBe(255);
+    }
+    // Floating mid-scroll, by the gap it has at the end of the page.
+    const floating = gap();
+    await expect(floating).toBeGreaterThanOrEqual(12);
+    await scrollTo(html.scrollHeight);
+    await expect(Math.abs(gap() - floating)).toBeLessThanOrEqual(1);
+  },
+};
 
 /** A Today row is a summary line: pressing it starts nothing. */
 export const TodayRowInert: Story = {
@@ -181,7 +229,6 @@ export const NoRate: Story = {
     await expect(
       rows[at + 1]?.querySelector('a[href^="/invoices/"]'),
     ).toBeNull();
-    await expect(inbox.getByRole('button', { name: 'Save' })).toBeDisabled();
   },
 };
 
@@ -190,7 +237,7 @@ const blockedDraft = account((db) => {
   if (!draft) return;
   draft.periodEnd = '2026-01-31';
   draft.unratedEntries = [
-    { id: 'unrated-1', taskName: 'Kickoff', startedAt: '2026-01-05T15:00:00Z' },
+    { id: id(9002), taskName: 'Kickoff', startedAt: '2026-01-05T15:00:00Z' },
   ];
 });
 
@@ -244,6 +291,47 @@ export const StaleDraftDownloaded: Story = {
   },
 };
 
+const staleDraft = account((db) => {
+  const draft = db.invoices.find((i) => i.status === 'draft');
+  if (!draft) return;
+  draft.entryCount = 14;
+});
+
+/** A stale draft's Mark sent asks in the invoice page's dialog, which names
+ *  what it fixes; Keep as draft keeps the row, and Mark sent takes it away. */
+export const StaleDraftMarkSent: Story = {
+  ...desktop,
+  parameters: staleDraft,
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    const inbox = within(
+      await within(canvasElement).findByRole('region', { name: 'Inbox' }),
+    );
+    const send = await inbox.findByRole('button', { name: /^Mark sent, / });
+
+    await userEvent.click(send);
+    let dialog = within(await body.findByRole('dialog'));
+    await expect(
+      dialog.getByText(
+        'This records that you sent it. Its 14 entries, any expenses on it and its $2,787.60 total stop changing. To correct it later, void it and issue a new one.',
+      ),
+    ).toBeVisible();
+    await userEvent.click(
+      dialog.getByRole('button', { name: 'Keep as draft' }),
+    );
+    await waitFor(() => expect(body.queryByRole('dialog')).toBeNull());
+    await expect(send).toBeVisible();
+
+    await userEvent.click(send);
+    dialog = within(await body.findByRole('dialog'));
+    await userEvent.click(dialog.getByRole('button', { name: 'Mark sent' }));
+    await waitFor(() => expect(body.queryByRole('dialog')).toBeNull());
+    await waitFor(() =>
+      expect(inbox.queryByRole('button', { name: /^Mark sent, / })).toBeNull(),
+    );
+  },
+};
+
 const oldTerms = account((db) => {
   db.legacyPaymentTerms = 'Payment by check, thanks';
 });
@@ -287,7 +375,7 @@ export const SaveRate: Story = {
   },
 };
 
-/** A negative rate is refused on the row, before any request. */
+/** Saving a negative rate is refused on the row, before any request. */
 export const RateInvalid: Story = {
   ...desktop,
   parameters: noRate,
@@ -297,10 +385,11 @@ export const RateInvalid: Story = {
       await page.findByRole('spinbutton', { name: 'Default hourly rate' }),
       '-5',
     );
+    await userEvent.click(page.getByRole('button', { name: 'Save' }));
     await expect(
-      await page.findByText('A rate is a number, zero or more.'),
+      await page.findByText('Enter a rate of zero or more, to the cent.'),
     ).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await expect(page.getByText('Set your default rate')).toBeVisible();
   },
 };
 
@@ -322,7 +411,8 @@ export const RateRejected: Story = {
   },
 };
 
-/** A new account: every figure is zero and nothing is extrapolated. */
+/** A new account: every figure is zero and nothing is extrapolated, dimmed
+ *  behind a message asking for the first entry, which that entry lifts. */
 export const Empty: Story = {
   ...desktop,
   parameters: account('empty'),
@@ -340,6 +430,16 @@ export const Empty: Story = {
     await expect(rows).toHaveLength(3);
     for (const row of rows)
       await expect(row.querySelector('[data-pip]')).toBeNull();
+
+    await expect(await page.findByText('Add your first entry')).toBeVisible();
+    await userEvent.click(
+      await within(canvasElement.ownerDocument.body).findByRole('button', {
+        name: 'Start timer',
+      }),
+    );
+    await waitFor(() =>
+      expect(page.queryByText('Add your first entry')).toBeNull(),
+    );
   },
 };
 
@@ -434,26 +534,84 @@ export const Failed: Story = {
   },
 };
 
-/** Past `2xl` the frame is capped, and Home fits it whole, legend included. */
+/** The panel shows whole, legend included, with no scroll; returns the
+ *  scrolling panel. */
+async function fitsWhole(canvasElement: HTMLElement) {
+  const legend = await waitFor(() => {
+    const found = canvasElement.querySelector('[data-legend="clients"]');
+    if (!found) throw new Error('No legend yet');
+    return found;
+  });
+  let panel = legend.parentElement;
+  while (panel && getComputedStyle(panel).overflowY !== 'auto') {
+    panel = panel.parentElement;
+  }
+  if (!panel) throw new Error('Home sits in no scrolling panel');
+  await waitFor(() => {
+    expect(panel.scrollHeight).toBeLessThanOrEqual(panel.clientHeight);
+    expect(legend.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      panel.getBoundingClientRect().bottom,
+    );
+  });
+  return panel;
+}
+
+/** Past `2xl` the frame is capped, and Home fits it whole. */
 export const Wide: Story = {
   ...wide,
   play: async ({ canvasElement }) => {
-    const legend = await waitFor(() => {
-      const found = canvasElement.querySelector('[data-legend="clients"]');
-      if (!found) throw new Error('No legend yet');
-      return found;
-    });
-    let panel = legend.parentElement;
-    while (panel && getComputedStyle(panel).overflowY !== 'auto') {
-      panel = panel.parentElement;
+    await fitsWhole(canvasElement);
+  },
+};
+
+/** A 13-inch MacBook shows Home whole, even with a dozen clients in the
+ *  legend: it keeps one row, and the keys that don't fit fold into
+ *  `+N more`, which names them. */
+export const MacBook: Story = {
+  ...macbook,
+  parameters: account((db) => {
+    const today = localDateKey(db.now, ZONE);
+    const [base] = db.clients;
+    const [work] = db.projects;
+    if (!base || !work) return;
+    for (const [i, name] of [
+      'Halvorsen Engineering',
+      'Quill & Ledger',
+      'Tidewater Logistics',
+      'Bramble Health',
+      'Ostrava Partners',
+      'Pinecrest Schools',
+      'Kestrel Analytics',
+      'Larkspur Media',
+      'Copperline Freight',
+    ].entries()) {
+      const client = { ...base, id: id(700 + i), name };
+      const project = { ...work, id: id(800 + i), clientId: client.id };
+      db.clients.push(client);
+      db.projects.push(project);
+      db.entries.push(entry(9200 + i, today, `0${i}:00`, 30, project.id, name));
     }
-    if (!panel) throw new Error('Home sits in no scrolling panel');
-    await waitFor(() => {
-      expect(panel.scrollHeight).toBeLessThanOrEqual(panel.clientHeight);
-      expect(legend.getBoundingClientRect().bottom).toBeLessThanOrEqual(
-        panel.getBoundingClientRect().bottom,
-      );
-    });
+  }),
+  play: async ({ canvasElement }) => {
+    await fitsWhole(canvasElement);
+    const more = await within(canvasElement).findByText(/^\+\d+ more/);
+    await expect(more).toHaveAttribute(
+      'title',
+      expect.stringContaining('Copperline Freight'),
+    );
+  },
+};
+
+/** A 16-inch MacBook's taller frame: the charts grow until Home fills it,
+ *  rather than leaving a gap beneath the legend. */
+export const MacBook16: Story = {
+  ...macbook16,
+  play: async ({ canvasElement }) => {
+    const panel = await fitsWhole(canvasElement);
+    const content = panel.querySelector('main') as HTMLElement;
+    await expect(
+      panel.clientHeight - content.getBoundingClientRect().height,
+    ).toBeLessThan(24);
   },
 };
 
@@ -493,7 +651,8 @@ export const OtherCurrency: Story = {
   },
 };
 
-/** The month's first day: no projection yet, so a dash holds On track for's place. */
+/** The month's first day: the axis is drawn with today's work as a dot, and
+ *  the dash under On track for says when a projection starts. */
 export const MonthFirst: Story = {
   ...desktop,
   parameters: { now: '2026-10-01T19:30:00.000Z' },
@@ -502,7 +661,20 @@ export const MonthFirst: Story = {
     await expect(
       await page.findByLabelText('Not projected yet'),
     ).toHaveTextContent('—');
+    await expect(page.getByText('From Mon, Oct 5')).toBeVisible();
+    await expect(page.getByText('today')).toBeVisible();
     await expect(page.queryByText(/business days/)).toBeNull();
+  },
+};
+
+/** A Sunday 1st with nothing worked: the axis is drawn, unlabeled. */
+export const MonthFirstEmpty: Story = {
+  ...desktop,
+  parameters: { ...account('empty'), now: '2026-11-01T19:30:00.000Z' },
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByText('From Wed, Nov 4');
+    const yAxis = canvasElement.querySelector('[data-axis="y"]');
+    await expect(yAxis?.textContent).toBe('');
   },
 };
 

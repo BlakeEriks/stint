@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { Settings } from '@/lib/client/api';
-import { Field } from './field';
+import { Field, textareaClass } from './field';
 import { SettingsDialog } from './settings-dialog';
+import { EMAIL } from '@/lib/client/use-missing';
 
 /**
  * Whether the invoice has no sender yet. The server refuses to generate one
@@ -34,16 +35,30 @@ function BusinessDialog({
       onOpenChange={onOpenChange}
       title="Who is this invoice from?"
       description="Your name and email go at the top of every invoice. Saved to Settings, so you're asked once."
-      ready={name.trim() !== '' && email.trim() !== ''}
+      missing={{
+        'biz-dialog-name':
+          name.trim() === '' ? 'Enter your business name.' : undefined,
+        'biz-dialog-email':
+          email.trim() === ''
+            ? 'Enter your email.'
+            : EMAIL.test(email.trim())
+              ? undefined
+              : 'Enter an email like you@example.com.',
+      }}
       patch={() => ({
         businessName: name.trim(),
         businessEmail: email.trim(),
         businessAddress: address.trim() || null,
       })}
     >
-      {(pending) => (
+      {(pending, error) => (
         <>
-          <Field label="Business name" htmlFor="biz-dialog-name" required>
+          <Field
+            label="Business name"
+            htmlFor="biz-dialog-name"
+            required
+            error={error('biz-dialog-name')}
+          >
             <Input
               id="biz-dialog-name"
               autoFocus
@@ -53,7 +68,12 @@ function BusinessDialog({
               onChange={(e) => setName(e.target.value)}
             />
           </Field>
-          <Field label="Email" htmlFor="biz-dialog-email" required>
+          <Field
+            label="Email"
+            htmlFor="biz-dialog-email"
+            required
+            error={error('biz-dialog-email')}
+          >
             <Input
               id="biz-dialog-email"
               type="email"
@@ -64,12 +84,14 @@ function BusinessDialog({
             />
           </Field>
           <Field label="Address" htmlFor="biz-dialog-address">
-            <Input
+            <textarea
               id="biz-dialog-address"
-              placeholder="Street, city, state ZIP"
+              rows={3}
+              placeholder={'123 Main St\nAustin, TX 78701'}
               value={address}
               readOnly={pending}
               onChange={(e) => setAddress(e.target.value)}
+              className={textareaClass}
             />
           </Field>
         </>

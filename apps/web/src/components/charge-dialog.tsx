@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field } from './field';
+import { useMissing } from '@/lib/client/use-missing';
 
 /** A flat amount on one invoice: a fee, a deposit, a retainer. */
 export interface Charge {
@@ -43,16 +44,23 @@ export function ChargeDialog({
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
 
+  const parsed = Number.parseFloat(amount);
+  const check = useMissing({
+    'charge-description':
+      description.trim() === '' ? 'Say what the charge is for.' : undefined,
+    'charge-amount':
+      Number.isFinite(parsed) && parsed > 0
+        ? undefined
+        : 'Enter an amount over zero.',
+  });
+
   // Reset each time it opens, so a previous charge cannot linger.
   useEffect(() => {
     if (!open) return;
     setDescription(charge?.description ?? '');
     setAmount(charge ? String(charge.amount) : '');
-  }, [open, charge]);
-
-  const parsed = Number.parseFloat(amount);
-  const valid =
-    description.trim() !== '' && Number.isFinite(parsed) && parsed > 0;
+    check.reset();
+  }, [open, charge, check.reset]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -60,13 +68,14 @@ export function ChargeDialog({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!valid) return;
+            if (!check.passes()) return;
             onSave({
               description: description.trim(),
               amount: Math.round(parsed * 100) / 100,
             });
             onOpenChange(false);
           }}
+          noValidate
           className="flex flex-col gap-4"
         >
           <DialogHeader>
@@ -76,7 +85,12 @@ export function ChargeDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <Field label="Description" htmlFor="charge-description" required>
+          <Field
+            label="Description"
+            htmlFor="charge-description"
+            required
+            error={check.error('charge-description')}
+          >
             <Input
               id="charge-description"
               value={description}
@@ -86,7 +100,12 @@ export function ChargeDialog({
               required
             />
           </Field>
-          <Field label="Amount" htmlFor="charge-amount" required>
+          <Field
+            label="Amount"
+            htmlFor="charge-amount"
+            required
+            error={check.error('charge-amount')}
+          >
             <Input
               id="charge-amount"
               value={amount}
@@ -121,7 +140,7 @@ export function ChargeDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" variant="accent" disabled={!valid}>
+            <Button type="submit" variant="accent">
               Save
             </Button>
           </DialogFooter>

@@ -27,10 +27,15 @@ export function NumberDialog({
       onOpenChange={onOpenChange}
       title="Invoice number"
       description="Saved to Settings, for every invoice after this one."
-      ready={next !== '' && Number.isInteger(number) && number > 0}
+      missing={{
+        'number-dialog-next':
+          next !== '' && Number.isInteger(number) && number > 0
+            ? undefined
+            : 'Enter a whole number over zero.',
+      }}
       patch={() => ({ nextInvoiceNumber: number, invoiceNumberPrefix: prefix })}
     >
-      {(pending) => (
+      {(pending, error) => (
         <div className="flex flex-wrap gap-4">
           <Field
             label="Prefix"
@@ -50,9 +55,8 @@ export function NumberDialog({
             label="Next number"
             htmlFor="number-dialog-next"
             className="flex-1 basis-40"
+            error={error('number-dialog-next')}
           >
-            {/* No min or max: the browser would block the submit with its own
-                message, where the server's says why. */}
             <Input
               id="number-dialog-next"
               type="number"

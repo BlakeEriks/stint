@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import { keys } from '@stint/client';
 import { InvoiceList } from '@/components/invoice-list';
 import type { Invoice } from '@/lib/client/api';
 import { localDateKey, localDateTimeToInstant } from '@stint/core';
@@ -76,6 +77,35 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
+/** The API for a list: each invoice's own route reports to `onDetail`, a
+    write to `onWrite`. */
+function answerWith(
+  list: Invoice[],
+  onDetail: (id: string) => void,
+  onWrite?: () => void,
+) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const path = String(url).replace('/api/v1', '');
+      if (init?.method && init.method !== 'GET') {
+        onWrite?.();
+        return new Response('{}');
+      }
+      if (path.startsWith('/clients'))
+        return new Response(
+          JSON.stringify({ clients: [{ id: 'c1', name: 'Northwind' }] }),
+        );
+      const one = path.match(/^\/invoices\/(i\d)/)?.[1];
+      if (one) {
+        onDetail(one);
+        return new Response(JSON.stringify(list.find((i) => i.id === one)));
+      }
+      return new Response(JSON.stringify({ invoices: list }));
+    }),
+  );
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
   search.value = new URLSearchParams();
@@ -136,11 +166,11 @@ describe('InvoiceList', () => {
     /* A draft has not been sent, so there is nothing to have been paid. */
     await waitFor(() =>
       expect(
-        screen.getByRole('button', { name: 'Mark STINT-0001 paid' }),
+        screen.getByRole('button', { name: 'Mark paid, STINT-0001' }),
       ).toBeInTheDocument(),
     );
     expect(
-      screen.queryByRole('button', { name: 'Mark STINT-0002 paid' }),
+      screen.queryByRole('button', { name: 'Mark paid, STINT-0002' }),
     ).toBeNull();
   });
 
@@ -153,7 +183,7 @@ describe('InvoiceList', () => {
     render(<InvoiceList />, { wrapper });
 
     await user.click(
-      await screen.findByRole('button', { name: 'Mark STINT-0002 paid' }),
+      await screen.findByRole('button', { name: 'Mark paid, STINT-0002' }),
     );
     await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
 
@@ -175,7 +205,7 @@ describe('InvoiceList', () => {
     render(<InvoiceList />, { wrapper });
 
     await user.click(
-      await screen.findByRole('button', { name: 'Mark STINT-0001 paid' }),
+      await screen.findByRole('button', { name: 'Mark paid, STINT-0001' }),
     );
     await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
 
@@ -196,7 +226,7 @@ describe('InvoiceList', () => {
     render(<InvoiceList />, { wrapper });
 
     await user.click(
-      await screen.findByRole('button', { name: 'Mark STINT-0001 paid' }),
+      await screen.findByRole('button', { name: 'Mark paid, STINT-0001' }),
     );
 
     const dateInput = await screen.findByLabelText('Date paid');
@@ -226,7 +256,7 @@ describe('InvoiceList', () => {
     render(<InvoiceList />, { wrapper });
 
     await user.click(
-      await screen.findByRole('button', { name: 'Mark STINT-0001 paid' }),
+      await screen.findByRole('button', { name: 'Mark paid, STINT-0001' }),
     );
     await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
 
@@ -239,14 +269,14 @@ describe('InvoiceList', () => {
     render(<InvoiceList />, { wrapper });
 
     await user.click(
-      await screen.findByRole('button', { name: 'Mark STINT-0001 paid' }),
+      await screen.findByRole('button', { name: 'Mark paid, STINT-0001' }),
     );
     await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('rejected');
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     await user.click(
-      await screen.findByRole('button', { name: 'Mark STINT-0002 paid' }),
+      await screen.findByRole('button', { name: 'Mark paid, STINT-0002' }),
     );
     await screen.findByLabelText('Date paid');
     expect(screen.queryByRole('alert')).toBeNull();
@@ -262,5 +292,49 @@ describe('InvoiceList', () => {
       expect(screen.getByText(/Nothing open/)).toBeInTheDocument(),
     );
     expect(screen.queryByText(/No invoices yet/)).toBeNull();
+  });
+
+  /* Once the list paints, each draft and open invoice is fetched in full,
+     so opening one shows it with its actions live; a finished one waits. */
+  it('prefetches drafts and open invoices, never paid ones', async () => {
+    const list = [
+      invoice({ id: 'i1', invoiceNumber: 'STINT-0001', status: 'draft' }),
+      invoice({ id: 'i2', invoiceNumber: 'STINT-0002', status: 'sent' }),
+      invoice({ id: 'i3', invoiceNumber: 'STINT-0003', status: 'paid' }),
+    ];
+    const fetched: string[] = [];
+    answerWith(list, (id) => fetched.push(id));
+    render(<InvoiceList />, { wrapper });
+    await waitFor(() => expect(fetched.sort()).toEqual(['i1', 'i2']));
+  });
+
+  /* Paid from its row, a prefetched invoice opens as the row now says, not
+     as the copy fetched while it was still sent. */
+  it('drops the prefetched copy of an invoice paid from its row', async () => {
+    const list = [invoice({ status: 'sent' })];
+    answerWith(
+      list,
+      () => {},
+      () => (list[0] = invoice({ status: 'paid' })),
+    );
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+    });
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={qc}>
+        <InvoiceList />
+      </QueryClientProvider>,
+    );
+    await waitFor(() =>
+      expect(qc.getQueryData(keys.invoice('i1'))).toBeDefined(),
+    );
+    await user.click(
+      await screen.findByRole('button', { name: 'Mark paid, STINT-0001' }),
+    );
+    await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
+    await waitFor(() =>
+      expect(qc.getQueryData(keys.invoice('i1'))).toBeUndefined(),
+    );
   });
 });

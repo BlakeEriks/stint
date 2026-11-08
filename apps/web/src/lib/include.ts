@@ -4,21 +4,28 @@ import { IncludeQuery, type Included, type IncludedName } from '@stint/schema';
 import { parseQuery } from './validate';
 import { readStats } from './stats';
 import { readSummary } from './summary';
+import { readsAt } from './reads-at';
 
-type Asked = z.infer<typeof IncludeQuery>;
+type Asked = z.infer<typeof IncludeQuery> & { now: Date };
 
 /**
  * What a write's `?include=` asks for. Parsed before the write, so a bad
  * name is a 422 that changed nothing.
  */
 export function askedToInclude(req: Request): Asked {
-  return parseQuery(req, IncludeQuery);
+  return { ...parseQuery(req, IncludeQuery), now: readsAt(req) };
 }
 
 const READS: Record<
   IncludedName,
-  (db: SupabaseClient, userId: string, tz: string) => Promise<unknown>
+  (
+    db: SupabaseClient,
+    userId: string,
+    tz: string,
+    now: Date,
+  ) => Promise<unknown>
 > = {
+  /* The menu bar's timer truth, and its clock skew: always the real clock. */
   summary: (db, _userId, tz) => readSummary(db, tz),
   stats: readStats,
 };
@@ -35,7 +42,10 @@ export async function readIncluded(
   if (!asked.include?.length) return null;
   const names = [...new Set(asked.include)];
   const reads = await Promise.all(
-    names.map(async (name) => [name, await READS[name](db, userId, asked.tz)]),
+    names.map(async (name) => [
+      name,
+      await READS[name](db, userId, asked.tz, asked.now),
+    ]),
   );
   return Object.fromEntries(reads);
 }

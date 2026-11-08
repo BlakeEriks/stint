@@ -153,8 +153,11 @@ a different order, and the ones that drifted were rebuilt:
 | A list's loading, failure and empty states | `Panel` + `Listing` |
 | A titled region with its own save state | `Section` + `useAutosave` + `SaveIndicator` |
 | A labeled control | `Field`, `Input`, `inputClass`, `textareaClass`; on a signed-out page, `elevatedInputClass` |
+| Fields that belong to the field above them | `SubFields`, inside that `Field` |
+| What a form still lacks, shown on Save | `useMissing()` (`lib/client/use-missing.ts`) into `Field`'s `error` |
 | Any action | `Button`, sized and varied by the tables in `ui/button.tsx` |
-| A destructive action | `ConfirmAction` |
+| A destructive action in a dialog's footer | `ConfirmAction` |
+| A press that takes many records at once and can't come back: Mark sent, Void, Delete draft | `AskFirst` (a button and its `ConfirmDialog`); `ConfirmDialog` alone when something else opens it |
 | An invoice's status | `StatusBadge` |
 | Money, dates, durations | `Money`, `formatCurrency`, `shortDate` — never `toLocaleString` at the call site |
 | A client's color | `useProjectColors()`, `Swatch` |
@@ -162,28 +165,42 @@ a different order, and the ones that drifted were rebuilt:
 | A key to press | `Kbd` |
 | A short choice in a section's heading row | `SegmentedControl` |
 
-A choice in a form or dialog field is a `Select`; a row carrying a swatch, a
-second line or an `Add…` item is a `DropdownMenu`. Put a component in
-`components/` when a second screen needs it, not in anticipation of one.
+A choice in a form or dialog field is a `Select`; one too long to scan, such
+as a time zone, is a `Combobox` (`ui/combobox.tsx`), which searches; a row
+carrying a swatch, a second line or an `Add…` item is a `DropdownMenu`. Put
+a component in `components/` when a second screen needs it, not in
+anticipation of one.
 
 **Conventions every screen keeps:**
 
+- **Save stays enabled while a form is incomplete**, because a disabled
+  button can't say what it waits for. Pressing it marks each missing field
+  at its `Field` and focuses the first (`useMissing()`); the form sets
+  `noValidate`, since the browser's bubble never reaches a phone. Save is
+  disabled only while its save is pending.
 - **A list filter lives in the URL** (`FilterTabs`), so the view is linkable
   and Back returns to it. A component reading `useSearchParams` needs a
   `Suspense` boundary in its `page.tsx`, or `next build` fails while
   `next dev` passes.
-- **Every action carries a visible label.** Three exceptions, each with an
-  `aria-label`: a destructive first step, a dense repeating row, and the
-  folded dock's strip, which is 44px by design. A glyph is always
+- **User-visible text follows `docs/voice.md`.**
+- **Every action carries a visible label.** Four exceptions, each with an
+  `aria-label`: a destructive first step, a dense repeating row, the
+  folded dock's strip, which is 44px by design, and `KeyboardAdd`, the "+"
+  that shows only on keyboard focus because a pointer draws on the grid. A glyph is always
   `aria-hidden`. An `aria-label` holds the visible text, in order, so saying
   what is on screen presses it (WCAG 2.5.3): `Mark paid, STINT-0001`.
 - **A destructive action is quiet until it is the confirm**: a ghost in
-  `text-danger`, then `destructive` spelling the consequence out, in place.
+  `text-danger`, then `destructive` naming what goes.
   Destructive means it removes something saved; dropping a line from a form
   not yet submitted (a charge on a new invoice) acts at once.
   In a dialog footer the first step is a trash icon alone, pushed away with
-  `mr-auto`. A modal confirm is only for what takes many records at once and
-  can't come back, like Delete account.
+  `mr-auto`, and the confirm takes its place. A modal confirm (`ConfirmDialog`)
+  is for what takes many records at once and can't come back, and says what
+  changes, with the figures: Mark sent locks a draft's entries, Void and
+  Delete draft release them, and Delete account. Leaving the invoice form
+  with changes asks in one too, with Discard as its secondary action, since
+  a draft is saved only when asked (Constitution I). A press that can be
+  taken back doesn't confirm.
 - **A dialog's or form's actions run secondary, Cancel, Save**: Save
   (`accent`) at the bottom right, Cancel beside it, and a secondary action
   (Archive, Delete) pushed to the far left with `mr-auto`.
@@ -196,7 +213,9 @@ second line or an `Add…` item is a `DropdownMenu`. Put a component in
   `components/row-button.ts`).
 - **A failure renders beside the thing that failed**, and a failed load is
   neutral, never red — it is a condition, and the answer is to try again.
-- **An empty state says what to do**, or what the consequence is.
+- **Home's empty Today grid has no empty-state line** once the account
+  holds an entry: the grid itself is the instruction. Before the first,
+  Home asks for it over the blurred cards.
 - **Archive, never delete**, wherever invoices or entries reference the
   record.
 - **A picker row is swatch, name, then the client muted.** Internal work gets
@@ -253,7 +272,9 @@ disagree about the same work. A read the write's answer included
 (`include`) counts as refreshed, so it is skipped.
 
 **A query renders through `Listing`**, which owns loading, failure and empty,
-so no screen writes those branches.
+so no screen writes those branches. A grid is the exception to empty: an
+empty day still draws its grid, the only place a pointer adds an entry, so
+the calendar writes its own empty line beside it.
 
 **A region paints once, with all its data.** Hand `Listing` every query the
 region draws, as a tuple, and nothing of it renders until all have answered;
@@ -279,5 +300,6 @@ into. Absent, the list is simply not offered and the field still works. Do not
 clears the approved preview and hides Generate. Tested, and the test was
 verified to fail when the invalidation is removed.
 
-**Any entry with an `invoiceId` is locked**: a draft claims its work only
-when it is sent, so only an issued invoice sets one.
+**Any entry with an `invoiceId` is locked**: a draft only holds its work
+(`draft_id`, which locks nothing) and bills it when sent, so only an issued
+invoice sets one.

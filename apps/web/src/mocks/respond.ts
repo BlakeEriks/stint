@@ -84,16 +84,17 @@ export const envelopes = {
   paymentProfiles: list('paymentProfiles', schema.PaymentProfile),
   expenses: list('expenses', schema.Expense),
   calendar: list('days', schema.CalendarDay),
-  invoicedElsewhere: list('ids', z.uuid()),
 };
 
 export const invoiceDetail = schema.Invoice.extend({
-  lineItems: z.array(schema.InvoiceLineItem.extend({ isNew: z.boolean() })),
+  lineItems: z.array(schema.InvoiceLineItem),
   canDownload: z.boolean(),
-  changedSinceDownload: schema.DraftChange.nullable(),
+  entryCount: z.number().int().nullable(),
+  newWork: schema.NewWork.nullable(),
   unratedEntries: z.array(schema.UnratedEntry),
   dueBeforeIssue: schema.DraftActions,
   refuses: schema.DraftActions,
+  choices: schema.DraftChoices.nullable(),
 });
 
 export const createdInvoice = schema.Invoice.extend({

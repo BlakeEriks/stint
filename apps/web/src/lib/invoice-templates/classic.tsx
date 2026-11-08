@@ -143,7 +143,6 @@ const s = StyleSheet.create({
     borderTopColor: print.hairline,
   },
   payLink: { marginTop: 8, color: print.accent },
-  payNotes: { marginTop: 8, color: print.muted },
   notes: { marginTop: 14, lineHeight: `${LINE}pt` },
   footer: { fontSize: 9, color: print.muted },
   voidMark: { color: print.void },

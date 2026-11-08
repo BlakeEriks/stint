@@ -2,8 +2,10 @@
 
 import {
   type ApiError,
+  appNow,
   readBody,
   readFailure,
+  todayMoved,
   withInclude,
   type Include,
   type Res,
@@ -18,7 +20,6 @@ import {
   type Project,
 } from '@stint/client';
 import type { z } from 'zod';
-import { MARK_IDS_MAX } from '@stint/schema';
 import type * as schema from '@stint/schema';
 import type { ImportPreview, ImportResult } from '@stint/core';
 import { forgetCache } from './query-cache';
@@ -50,9 +51,12 @@ async function request<T>(
   body?: unknown,
 ): Promise<T> {
   const form = body instanceof FormData;
+  const headers: Record<string, string> = {};
+  if (body && !form) headers['content-type'] = 'application/json';
+  if (todayMoved()) headers['x-stint-now'] = appNow().toISOString();
   const res = await fetch(`/api/v1${path}`, {
     method,
-    headers: body && !form ? { 'content-type': 'application/json' } : undefined,
+    headers,
     body: form ? body : body ? JSON.stringify(body) : undefined,
   });
 
@@ -110,7 +114,24 @@ export type InvoiceStatus = z.infer<typeof schema.InvoiceStatus>;
 export type ComputedLineItem = Res<schema.ComputedLineItem>;
 export type InvoiceLineItem = Res<schema.InvoiceLineItem>;
 export type UnratedEntry = Res<schema.UnratedEntry>;
-export type DraftChange = Res<schema.DraftChange>;
+export type NewWork = Res<schema.NewWork>;
+export type DraftChoices = Res<schema.DraftChoices>;
+/** What Generate sends, and an edit of a draft sends again. */
+export interface InvoiceChoices {
+  clientId: string;
+  periodStart: string;
+  periodEnd: string;
+  groupingMode?: GroupingMode;
+  summaryText?: string;
+  tz?: string;
+  manualLines?: ManualLine[];
+  excludedExpenseIds?: string[];
+  schedules?: ScheduleKind[];
+  reference?: string;
+  paymentProfileId?: string;
+  dueDate?: string;
+  notes?: string;
+}
 
 /** Everything a project is created or edited with. */
 export type ProjectInput = Partial<Omit<Project, 'id' | 'archivedAt'>> &
@@ -126,8 +147,7 @@ export type SettingsInput = Partial<Settings>;
 export type ExpenseInput = Pick<
   Expense,
   'clientId' | 'recurring' | 'spentOn' | 'description' | 'amount'
-> &
-  Partial<Pick<Expense, 'note'>>;
+>;
 
 export type PaymentProfileInput = Partial<
   Omit<PaymentProfile, 'id' | 'archivedAt'>
@@ -208,28 +228,6 @@ export const api = {
       >
     >,
   ) => request<TimeEntry>('PATCH', `/entries/${id}`, body),
-
-  /** Sets or clears billed elsewhere on `ids`; answers with the ones it
-   *  changed, which is what an Undo sends back. */
-  markInvoicedElsewhere: (body: {
-    ids: string[];
-    invoicedElsewhere: boolean;
-  }) => request<{ ids: string[] }>('POST', '/entries/invoiced-elsewhere', body),
-
-  /** Marks every one of `ids` billed elsewhere, `MARK_IDS_MAX` a request, in
-   *  order. A request that fails fails the whole call and sends no more;
-   *  the ones already marked stay marked, and a refetch shows what is left. */
-  markAllInvoicedElsewhere: async (ids: string[]) => {
-    const changed: string[] = [];
-    for (let i = 0; i < ids.length; i += MARK_IDS_MAX) {
-      const res = await api.markInvoicedElsewhere({
-        ids: ids.slice(i, i + MARK_IDS_MAX),
-        invoicedElsewhere: true,
-      });
-      changed.push(...res.ids);
-    }
-    return { ids: changed };
-  },
 
   deleteEntry: (id: string) => request<void>('DELETE', `/entries/${id}`),
 
@@ -325,15 +323,23 @@ export const api = {
   invoice: (id: string) =>
     request<
       Invoice & {
-        /** `isNew`: on a draft, a line its last PDF didn't have. */
-        lineItems: (InvoiceLineItem & { isNew: boolean })[];
+        lineItems: InvoiceLineItem[];
         canDownload: boolean;
-        changedSinceDownload: DraftChange | null;
         unratedEntries: UnratedEntry[];
         dueBeforeIssue: { download: boolean; send: boolean };
         refuses: { download: boolean; send: boolean };
+        /** A draft's, for editing it; null once issued. */
+        choices: DraftChoices | null;
+        /** A draft's: the entries Mark sent locks. */
+        entryCount: number | null;
+        /** A draft's: the work in its period it doesn't hold. */
+        newWork: NewWork | null;
       }
     >('GET', `/invoices/${id}?${zone()}`),
+
+  /** Add to draft: it holds the work in its period it doesn't yet. */
+  addDraftWork: (id: string) =>
+    request<void>('POST', `/invoices/${id}/work?${zone()}`),
 
   /** No side effects — this is what the user approves before generating. */
   previewInvoice: (body: {
@@ -345,28 +351,25 @@ export const api = {
     tz?: string;
     manualLines?: ManualLine[];
     excludedExpenseIds?: string[];
+    /** The draft being edited. */
+    draftId?: string;
   }) => request<InvoicePreview>('POST', '/invoices/preview', body),
 
-  /** Allocates the number and creates the draft, which bills its period's
+  /** Allocates the number and creates the draft, which holds its period's
    *  work until it is sent. */
-  createInvoice: (body: {
-    clientId: string;
-    periodStart: string;
-    periodEnd: string;
-    groupingMode?: GroupingMode;
-    summaryText?: string;
-    tz?: string;
-    manualLines?: ManualLine[];
-    excludedExpenseIds?: string[];
-    schedules?: ScheduleKind[];
-    reference?: string;
-    paymentProfileId?: string;
-    dueDate?: string;
-    notes?: string;
-  }) =>
+  createInvoice: (body: InvoiceChoices) =>
     request<Invoice & { lineItems: ComputedLineItem[]; entryCount: number }>(
       'POST',
       '/invoices',
+      body,
+    ),
+
+  /** Drafts only: every choice Generate took, but its client, which it
+   *  keeps. Without `paymentProfileId` it keeps its payment details. */
+  updateDraft: (id: string, body: InvoiceChoices) =>
+    request<Invoice & { lineItems: ComputedLineItem[] }>(
+      'PATCH',
+      `/invoices/${id}`,
       body,
     ),
 
@@ -376,7 +379,7 @@ export const api = {
   ) =>
     request<Invoice>(
       'PATCH',
-      // A draft is sent as its period's work stands, read in its zone.
+      // A draft is sent as the work it holds stands, read in its zone.
       `/invoices/${id}/status${body.status === 'sent' ? `?${zone()}` : ''}`,
       body,
     ),

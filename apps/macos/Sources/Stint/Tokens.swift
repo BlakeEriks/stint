@@ -27,6 +27,7 @@ public enum Tokens {
         static let textPrimary = Color(hex: "#CACED7")
         static let textMuted = Color(hex: "#A0A7B4")
         static let textSubtle = Color(hex: "#8F96A4")
+        static let textPlaceholder = Color(hex: "#8F96A4")
         static let textOnAccent = Color(hex: "#111316")
         static let textOnDanger = Color(hex: "#111316")
         static let overlay = Color(hex: "#05060899")
@@ -61,6 +62,7 @@ public enum Tokens {
         static let textPrimary = Color(hex: "#2D2A25")
         static let textMuted = Color(hex: "#565149")
         static let textSubtle = Color(hex: "#635E56")
+        static let textPlaceholder = Color(hex: "#6D685F")
         static let textOnAccent = Color(hex: "#FFFFFF")
         static let textOnDanger = Color(hex: "#FFFFFF")
         static let overlay = Color(hex: "#1B1E2799")
@@ -103,6 +105,8 @@ public enum Tokens {
         public static let boundHeight: CGFloat = 1.05
         public static let boundGap: CGFloat = 0.18
         public static let boundRadius: CGFloat = 999
+        public static let tmSize: CGFloat = 0.6
+        public static let tmRise: CGFloat = 0.35
     }
 
     /// The type scale. A view names a role; it never assembles one.
@@ -215,7 +219,7 @@ public enum Tokens {
             uppercase: false, tabular: false, mono: true
         )
         public static let wordmarkSmall = Role(
-            size: 14, weight: .semibold, tracking: 1.68,
+            size: 18, weight: .semibold, tracking: 2.16,
             uppercase: false, tabular: false, mono: true
         )
         public static let nav = Role(

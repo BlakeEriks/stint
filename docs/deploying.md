@@ -323,21 +323,19 @@ Rehearsed 2026-09-24 against the local stack: every row came back.
 ## 3c. Alerts
 
 Alerts go to the private `#alerts` channel on the Stint Discord server.
-**An alert is something you act on, or the one outcome you are waiting for;
-everything else stays silent**, because a channel that reports routine
-success teaches you to stop reading it.
+**An alert is something you act on; everything else stays silent**, because
+a channel that reports routine success teaches you to stop reading it.
 
 | Event | Message | Source |
 |---|---|---|
 | Release waiting for approval | ⏸ with the run link, where you approve | `release.yml`, `plan` |
-| Approved release live | ✅ commit and subject | `release.yml`, `report` |
 | Release failed, or its plan failed | ❌ with the run link | `release.yml`, `report` |
 | Backup failed, or a day passed without one | healthchecks.io's own | healthchecks.io → Discord |
 | App or database down, and its recovery | UptimeRobot's own | UptimeRobot → Discord |
 | A new unhandled error in the server or the browser | Sentry's own, with the stack trace | Sentry → Discord |
 | A new crash or error in the macOS or phone app | Sentry's own, with the stack trace | Sentry → Discord |
 
-Never posted: a release with no migration going live, a rejection or
+Never posted: a release going live, a rejection or
 cancellation (you did it), a backup that worked (healthchecks.io is quiet
 until one does not arrive), and a `ready-for-qa` or `needs-input` label —
 the PR and issue lists are where you look for those.
@@ -437,6 +435,14 @@ shows on the PR. Add a scenario to the seed script rather than editing
 `stint-test` by hand: a scenario is reviewed, runs in CI, and the next PR
 can ask for it too.
 
+**A preview can be tested as of another day**: `?today=2026-10-20` on any
+page sets the day the app treats as today until the tab closes, and
+`?today=` clears it. Local dev honors it too, and production never does. Forms
+default to the chosen day, except a new invoice, which is dated on the real
+day as the server dates it. The server still stamps writes and runs timers
+on the real clock. The seed holds two weeks of work before the real date, so
+pick a day in that span for the screens to show data.
+
 - **GitHub** → Environments → **Preview** → secret `PREVIEW_DB_URL`:
   `stint-test`'s session pooler string. The direct connection is IPv6-only,
   which Actions runners cannot reach.
@@ -453,7 +459,7 @@ can ask for it too.
   the secret `pnpm try-mac` sends so the menu bar app reaches a preview
   (`docs/macos.md`).
 
-A PR that changes the phone app also gets an EAS Update against its
+A PR labeled `android` also gets an EAS Update against its
 preview, opened in a shared Android build, from
 `.github/workflows/mobile-preview.yml`; `docs/mobile.md` has its one-time
 setup.

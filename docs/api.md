@@ -57,7 +57,6 @@ written.
 | `POST` | `/entries` | Manual entry. `id` is client-supplied (UUIDv7) so a retry is idempotent. Always complete — `endedAt` required, and `422 VALIDATION_FAILED` if it is at or before `startedAt`. **`isBillable` omitted takes the project's billable default**, and is billable with no project. |
 | `PATCH` | `/entries/:id` | **`409 ENTRY_LOCKED`** if billed on a non-draft invoice, and **`409 ENTRY_ALREADY_INVOICED`** for `invoicedElsewhere: true` on an entry on an invoice (`409 TIMER_ALREADY_RUNNING` on a running one). Returns `409 TIMER_ALREADY_RUNNING` if clearing `endedAt` would reopen this entry while another timer runs, and `422 VALIDATION_FAILED` if the patch would leave `endedAt` at or before `startedAt`. `?include` returns `{ entry, included }` instead of the entry ([Including what a write changed](#including-what-a-write-changed)). |
 | `DELETE` | `/entries/:id` | Same lock applies. |
-| `POST` | `/entries/invoiced-elsewhere` | `{ ids, invoicedElsewhere }`, 1–1000 ids. Sets or clears billed elsewhere ([Work invoiced elsewhere](data-model.md#work-invoiced-elsewhere)) on the user's entries among `ids`; a mark skips a running entry and one on an invoice. Returns `{ ids }`, the entries it changed, which a clear can send back to undo the mark. |
 
 ## Import
 
@@ -89,16 +88,18 @@ or one with an unreadable row, before anything is written.
 | Method | Path | Notes |
 |---|---|---|
 | `GET` | `/summary` | **The menu bar endpoint.** Returns `{ running, todaySeconds, weekSeconds, serverTime }` in one call, so the Mac app can toggle between "current timer" and "today's total" without a second request. A write can return it too ([Including what a write changed](#including-what-a-write-changed)). |
-| `GET` | `/calendar` | `?from&to` (**both required**) `&tz`. Returns `{ days: [{ date, totalSeconds, entries }] }` for every entry that overlaps the range, running ones included. An entry that crosses local midnight is listed under each day it touches, so one id can appear on several days, and each day's `totalSeconds` counts only its own part. `400 INVALID_PERIOD` if `to < from`. |
+| `GET` | `/calendar` | `?from&to` (**both required**) `&tz`. Returns `{ days: [{ date, totalSeconds, entries }] }` for every entry that overlaps the range, running ones included. An entry that crosses local midnight is listed under each day it touches, so one id can appear on several days, and each day's `totalSeconds` counts only its own part. A running entry adds nothing to `totalSeconds`; a client measures it to now. `400 INVALID_PERIOD` if `to < from`. |
 | `GET` | `/stats` | `?tz` — the home screen cards **and the dock's inbox** in one call. One request because they render together, and a set that pops in piecemeal reads as broken. Fields and their rules are below. A write can return it too ([Including what a write changed](#including-what-a-write-changed)). |
 | `GET` | `/entries/task-names` | `?projectId&limit` (1–1000, default 8). Returns `{ taskNames: [{ taskName, projectId, lastUsedAt }] }` — names the user has typed before, for suggesting one rather than retyping it. One row per name **case-insensitively**, keeping the most recent spelling, since offering both is offering the user their own typo; the empty name is excluded, so a timer started in a hurry never becomes a suggestion. **`projectId` ranks, it does not filter** — names used with that project come first and every other name still follows, so there is no `none` literal as there is on `/entries`: "no project" and "no preference" are one request. Omitting it ranks by recency alone. Ranking is the server's and clients must not re-sort it; filtering as the user types is theirs. Backed by the `recent_task_names` SQL function. |
 
 ### `/stats` fields
 
-`currency`, `unbilled`, `earnedToday`, `week`, `month`, `collected`,
+`currency`, `hasEntries`, `unbilled`, `earnedToday`, `week`, `month`, `collected`,
 `awaitingPayment`, `openInvoiceCount` and `attention`. The rollups behind
 them, and the window each one runs, are in `docs/data-model.md`; what the
 screen does with them is `Screens/Home` in Storybook.
+
+`hasEntries` is whether the account holds any entry, running or invoiced, whatever its date.
 
 **Three figures are three stages of one pipeline, and no two may be summed** —
 any pair double-counts the same hours. `unbilled` is work done and not
@@ -173,20 +174,19 @@ rows stop at the boundary.
 **`attention` is derived per request** from stored facts, with grace periods:
 an invoice is overdue at `due_date` + 7 days, a draft stale 7 days after
 its period ends. A stale draft's `refuses` (`{ download, send }`) says which of its PDF and
-Mark sent would refuse it now, and the Inbox offers only the others. The one row whose condition never clears on its own is gated by a
+Mark sent would refuse it now, and the Inbox offers only the others; its `entryCount` is how many entries Mark sent locks, which the Inbox's dialog names. The one row whose condition never clears on its own is gated by a
 stored answer instead — `duration_ok` on an entry of unusual length — so it
 cannot return every day once answered. `unprojected` is one row per entry,
 oldest first; `strangeDurations` one per stopped entry of implausible length;
-`lateEntries` one per unbilled billable entry dated, in `tz`, inside a sent or
-paid invoice's period for its client, naming that invoice;
-`unbilledDue` one per active client with billable work past due to bill,
-dated in `tz` inside no invoice but a void one: in any ended period of a
-scheduled client, or more than `UNBILLED_DUE_DAYS` (30) old for any other.
-It names the `entryIds`, their `seconds` and the first day as `since`.
-`periodStart`..`periodEnd` span the oldest run of that work no invoice
-interrupts (adjacent whole periods for a scheduled client), and
-`onePeriod` is true when all of it is in one of the client's periods, so
-always false with no schedule. No entry is in both it and `lateEntries`.
+`lateEntries` one per unbilled billable entry dated, in that invoice's zone
+(else `tz`), inside a sent or paid invoice's period for its client, naming
+that invoice;
+`unbilledDue` one per active client with a billing schedule whose most
+recent ended period holds billable work, overlaps no sent or paid invoice,
+and lies inside no draft's period (a draft offers only its own period's work),
+with that work's `seconds`, dated in the account's `billingTimeZone`
+(else `tz`) as its invoice would be, and the period as
+`periodStart`..`periodEnd`. No entry is in both it and `lateEntries`.
 The long threshold defaults to 12 hours, which is how a timer left running
 overnight reaches the inbox; the short one defaults to null. `overlaps` is one
 per pair of entries sharing a minute or more (`MIN_OVERLAP_SECONDS` in
@@ -271,6 +271,10 @@ without an anchor, or an anchor on a calendar period, is `422`.
 settings (default 30), and nullable on a client, where null uses the
 user's. Anything else is `422`.
 
+`billingTimeZone`, on settings, is the IANA zone invoices read their period,
+issue date and due date in; null uses the device's `tz`. Anything but an IANA
+zone is `422`.
+
 **Money is cents.** Every rate and amount is validated as a non-negative
 multiple of `0.01`, so `10.005` is a `422` rather than a silently rounded
 rate. `0` is a real rate, distinct from `null`, which means "fall back".
@@ -279,23 +283,29 @@ rate. `0` is a real rate, distinct from `null`, which means "fall back".
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/invoices` | `?clientId&status&limit` (1–200, default 50), newest first — ordered by invoice sequence, not issue date. A draft's totals and dates are derived from its period's work now, without writing. |
-| `POST` | `/invoices/preview` | **No side effects.** `{ clientId, periodStart, periodEnd, groupingMode?, summaryText?, tz?, manualLines?, excludedExpenseIds? }` → `lineItems`, `subtotal`, `taxRate`, `taxAmount`, `expensesSubtotal`, `total`, `entryCount`, `unratedEntryIds`, `overlappingEntryIds` (entries to bill that share a minute or more with each other or with billed time), `schedules` (every supporting-detail table with `summary`, else null), plus `clientId`, `clientName`, `currency`, the echoed period and `groupingMode`. `400 INVALID_PERIOD` if `periodEnd < periodStart`; `422 VALIDATION_FAILED` if `tz` is not an IANA zone. |
-| `POST` | `/invoices` | Creates a draft, in one transaction: allocates the number, stores what the user chose and its charges, and freezes **payment details** and the From and Bill to blocks (`business`, `billTo`) from settings and the client as they are now. It claims no entry or expense: its lines are derived on every read until it is sent. Keeps the client's `paymentTermsDays`, else the user's, as its terms. Also accepts `dueDate` (absent, the terms from the day it is sent; before today, `422 VALIDATION_FAILED` with `{ field: 'dueDate' }`), `notes`, `tz`, `reference` (the PO, contract or SOW, at most 200 characters; blank is none), and `schedules` (`project | week | date`, with `summary` only), which freezes those tables as `supportingDetail`. `paymentProfileId` picks the payment details to freeze; absent, the client's profile, else the default. Returns the `Invoice` plus `lineItems` and `entryCount`. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate; `400 INVALID_PERIOD` if there is nothing to bill: no time, no expense and no charge; `422 VALIDATION_FAILED` for `summary` with an empty `summaryText`, `schedules` with another grouping, or a `paymentProfileId` archived or not found; `409 DRAFT_OVERLAPS` with `{ invoiceId, invoiceNumber, periodStart, periodEnd }` when an open draft for the client covers any of the period, even one another Generate made at the same moment; it writes nothing and uses no number; `422 VALIDATION_FAILED` on an invalid `tz`, or while settings have no business name or email, before anything is written. |
-| `GET` | `/invoices/:id` | Invoice, with its frozen `business` and `billTo`, and `template`: null for a draft, frozen once sent; + its line items, and `canDownload`: whether the caller's plan opens the PDF below. A draft is derived from its period's work, dated as if sent today, with the terms its dates make (`Net N`, or `Due on receipt`), and writes nothing; `unratedEntries` (`{ id, taskName, startedAt }`) names the billable entries no rate prices, which it leaves out. `dueBeforeIssue` (`{ download, send }`) says whether its typed due date is before the issue date a new PDF would print, today, and the one Mark sent would, its last PDF's; one changed since that PDF needs a new one, so it refuses both. `refuses` (`{ download, send }`) is what the PDF and Mark sent refuse now, for either reason. `changedSinceDownload` (`{ hours, total }`, each `{ from, to }`) is null unless a draft moved since its last PDF, and each line's `isNew` is true only for a line that PDF lacked. Returned **flat**, like every other detail route. These `lineItems` carry no `rateSource` or `entryIds`, which a preview or a generation returns. |
-| `DELETE` | `/invoices/:id` | **Drafts only** — `422 VALIDATION_FAILED` otherwise. An issued invoice must be voided, so numbering stays gapless. A draft holds no work, so there is nothing to release. |
-| `GET` | `/invoices/:id/pdf` | A draft is derived first and its render recorded for Mark sent to compare; one with an unrated entry is `400 NO_RATE_CONFIGURED`, and one whose typed due date is before its issue date `422 VALIDATION_FAILED`. Streams `application/pdf` in the invoice's `template`, or for a draft the setting's, which its recorded render keeps, from the line items, `business`, `billTo` and payment details, then the frozen `supportingDetail` from page 2, in hours. `?download=1` for `attachment` rather than an inline preview. Both are the paid tier: `402 PAYMENT_REQUIRED` unless billing is not set up, the caller pays, or the invoice was generated while they paid. Previewing and generating stay free. |
-| `PATCH` | `/invoices/:id/status` | `{ status, sentAt?, paidAt? }`. Also how an invoice is marked sent: `send_draft` writes a draft's lines and totals as they stand, claims its entries and one-off expenses, dates it as its last PDF printed, else `issueDate` the send date in its zone and `dueDate` by its terms unless one was typed, freezes its `template` as its last PDF's, else the setting's, and sends it, in one transaction — `400 NO_RATE_CONFIGURED` if an entry has no rate, `422 VALIDATION_FAILED` if it has no lines, no zone (its own or `?tz`), or a typed due date before its issue date (`{ field: 'dueDate' }`), `409 DRAFT_CHANGED` with `{ hours, total }` if it moved since its PDF was last rendered (one never rendered sends), `409 ENTRY_ALREADY_INVOICED` if another invoice took one of its entries or expenses at the same moment. `422 VALIDATION_FAILED` on a transition the table below forbids, or if `paidAt` is later than now or earlier than the invoice's `sentAt`; `409 INVOICE_STATUS_CHANGED` if another request changed the status since this one read it. |
+| `GET` | `/invoices` | `?clientId&status&limit` (1–200, default 50), newest first — ordered by invoice sequence, not issue date. A draft's totals and dates are priced from the work it holds now, without writing. |
+| `POST` | `/invoices/preview` | **No side effects.** `{ clientId, periodStart, periodEnd, groupingMode?, summaryText?, tz?, manualLines?, excludedExpenseIds?, draftId? }`, where `draftId` names the draft being edited, so the work it holds counts as free to take; work another draft holds never does → `lineItems`, `subtotal`, `taxRate`, `taxAmount`, `expensesSubtotal`, `total`, `entryCount`, `unratedEntryIds`, `overlappingEntryIds` (entries to bill that share a minute or more with each other or with billed time), `schedules` (every supporting-detail table with `summary`, else null), plus `clientId`, `clientName`, `currency`, the echoed period and `groupingMode`. `400 INVALID_PERIOD` if `periodEnd < periodStart`; `422 VALIDATION_FAILED` if `tz` is not an IANA zone. |
+| `POST` | `/invoices` | Creates a draft, in one transaction: allocates the number, stores what the user chose and its charges, and freezes **payment details** and the From and Bill to blocks (`business`, `billTo`) from settings and the client as they are now. It holds the entries and one-off expenses it built, so no other draft takes them, and bills none until it is sent; its lines are priced from them on every read. Keeps the client's `paymentTermsDays`, else the user's, as its terms. Also accepts `dueDate` (absent, the terms from the day it is sent; before today in its zone, `422 VALIDATION_FAILED` with `{ field: 'dueDate' }`), `notes`, `tz`, `reference` (the PO, contract or SOW, at most 200 characters; blank is none), and `schedules` (`project | week | date`, with `summary` only), which freezes those tables as `supportingDetail`. `paymentProfileId` picks the payment details to freeze; absent, the client's profile, else the default. Returns the `Invoice` plus `lineItems` and `entryCount`. A draft with nothing to bill is created; sending it is refused. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate; `422 VALIDATION_FAILED` for `summary` with an empty `summaryText`, `schedules` with another grouping, or a `paymentProfileId` archived or not found; `422 VALIDATION_FAILED` on an invalid `tz`, or while settings have no business name or email, before anything is written. |
+| `GET` | `/invoices/:id` | Invoice, with its frozen `business` and `billTo`, and `template`: null for a draft, frozen once sent; + its line items, and `canDownload`: whether the caller's plan opens the PDF below. A draft is priced from the work it holds, dated as if sent today, with the terms its dates make (`Net N`, or `Due on receipt`), and writes nothing; `unratedEntries` (`{ id, taskName, startedAt }`) names the billable entries no rate prices, which it leaves out. `dueBeforeIssue` (`{ download, send }`) says whether its typed due date is before the issue date a new PDF would print, today, and the one Mark sent would, its last PDF's. `refuses` (`{ download, send }`) is what the PDF and Mark sent refuse now, for either reason, and Mark sent for a draft with no lines. `choices` (`{ dueDate, excludedExpenseIds, manualLines }`) is what an edit opens with that the rest doesn't say: the due date typed, else null, the expenses left off, and the charges; null once issued. `entryCount` is how many entries Mark sent locks, and `newWork` (`{ entries, expenses, hours, amount }`) the billable work in its period it doesn't hold, which `POST /invoices/:id/work` adds; both null once issued, and `newWork` null when there is none. Returned **flat**, like every other detail route. These `lineItems` carry no `rateSource` or `entryIds`, which a preview or a generation returns. |
+| `PATCH` | `/invoices/:id` | **Drafts only.** Edits a draft: the body is `POST /invoices`'s, checked as it is, and `clientId` must be the draft's (`422 VALIDATION_FAILED` with `{ field: 'clientId' }`). Keeps the number. `paymentProfileId` freezes those payment details; absent, the draft keeps its own. Saving is a build: the draft holds its period's work that no other draft holds, as the preview with `draftId` showed it, and lets go of what it held outside the period. Returns the `Invoice` plus `lineItems`. `409 INVOICE_STATUS_CHANGED` for an invoice that isn't a draft; `404` for one not found. |
+| `POST` | `/invoices/:id/work` | **Drafts only.** Add to draft: holds the work `newWork` counts, all of it. Work another draft took meanwhile stays with it. `204`. `409 INVOICE_STATUS_CHANGED` for an invoice that isn't a draft; `404` for one not found. |
+| `DELETE` | `/invoices/:id` | **Drafts only** — `422 VALIDATION_FAILED` otherwise. An issued invoice must be voided, so numbering stays gapless. Deleting a draft lets go of the work it held. |
+| `GET` | `/invoices/:id/pdf` | A draft is priced first and the dates its render printed recorded, which Mark sent keeps; one with an unrated entry is `400 NO_RATE_CONFIGURED`, and one whose typed due date is before its issue date `422 VALIDATION_FAILED`. Streams `application/pdf` in the invoice's `template`, or for a draft the setting's, which its recorded render keeps, from the line items, `business`, `billTo` and payment details, then the frozen `supportingDetail` from page 2, in hours. `?download=1` for `attachment` rather than an inline preview. Both are the paid tier: `402 PAYMENT_REQUIRED` unless billing is not set up, the caller pays, or the invoice was generated while they paid. Previewing and generating stay free. |
+| `PATCH` | `/invoices/:id/status` | `{ status, sentAt?, paidAt? }`. Also how an invoice is marked sent: `send_draft` writes a draft's lines and totals as the work it holds stands, claims that work and lets go of the rest it held, dates it as its last PDF printed, else `issueDate` the send date in its zone and `dueDate` by its terms unless one was typed, freezes its `template` as its last PDF's, else the setting's, and sends it, in one transaction — `400 NO_RATE_CONFIGURED` if an entry has no rate, `422 VALIDATION_FAILED` if it has no lines, no zone (its own, the account's `billingTimeZone`, or `?tz`), or a typed due date before its issue date (`{ field: 'dueDate' }`), `409 ENTRY_ALREADY_INVOICED` if another invoice took one of its entries or expenses at the same moment. `422 VALIDATION_FAILED` on a transition the table below forbids, or if `paidAt` is later than now or earlier than the invoice's `sentAt`; `409 INVOICE_STATUS_CHANGED` if another request changed the status since this one read it. |
 
-A draft is derived in the zone stored when it was generated. `?tz` matters
-only for a draft without one: reads use it, else UTC, and sending needs it and
-stores it. On `GET /invoices`, `GET /invoices/:id`, `/pdf` and `/status`, an
-invalid `tz` is `422 VALIDATION_FAILED`.
+A draft is priced in the zone stored when it was generated. A draft without
+one is read in the account's `billingTimeZone`, else `?tz`, else UTC. Sending it
+refuses when the UTC fallback is all it has, and stores the zone it used. On `GET /invoices`, `GET /invoices/:id`, `/pdf`, `/status` and `POST
+/invoices/:id/work`, an invalid `tz` is `422 VALIDATION_FAILED`.
 
-**A one-off expense shows on one open draft**: of the client's drafts that
-haven't left it off, the one whose period ends first on or after its date
-(`assignExpenses` in `@stint/core`). New invoice's preview counts itself among
-them.
+**A draft holds its work.** Building one (`POST /invoices`, `PATCH
+/invoices/:id`, `POST /invoices/:id/work`) holds its period's billable work
+and one-off expenses that no other draft holds, so two drafts never show the
+same work, and work logged later joins only when the owner adds it. Holding
+is not billing: held work still reads as unbilled everywhere else. A draft
+lets go of its work when it is deleted or sent, when an edit's build leaves
+it out, and when an entry moves to another client, by its own project or a
+whole project ([data model](data-model.md#invoices--invoice_line_items)).
 
 **Status transitions are constrained:** draft→sent/void, sent→paid/void,
 paid→void. `void` is terminal, and setting a status to its current value is a
@@ -310,8 +320,8 @@ accruing), non-billable entries, and entries already attached to an invoice.
 
 **Expenses are billed from what is stored, never from the request.** An
 invoice shows every recurring expense for its client, dated `periodEnd`, and
-the unbilled one-offs `assignExpenses` gives it, an earlier month's included,
-less any in `excludedExpenseIds`. Sending attaches the one-offs; a recurring
+the unbilled one-offs it holds, an earlier month's included, less any in
+`excludedExpenseIds`. Sending attaches the one-offs; a recurring
 one bills again on the next invoice.
 They follow the service lines as `unit: "expense"` lines carrying `spentOn`,
 and `total` is `subtotal + taxAmount + expensesSubtotal`: tax never applies to
@@ -337,7 +347,7 @@ by every one when `recurring`. The amount is in the client's currency.
 | Method | Path | Notes |
 |---|---|---|
 | `GET` | `/expenses` | `?clientId&status` — `status` is `open` (default: recurring, unbilled, and on a sent invoice) or `unbilled` (recurring and unbilled). Recurring first, then oldest `spentOn`. Each expense carries `invoiceNumber` and `invoiceStatus` once billed. |
-| `POST` | `/expenses` | `{ id, clientId, recurring?, spentOn?, description, amount, note? }`. `spentOn` is required for a one-off and refused with `recurring: true`. `id` is a client-generated UUIDv7, so a retry returns the stored row with `200`. `amount` is above zero. |
+| `POST` | `/expenses` | `{ id, clientId, recurring?, spentOn?, description, amount }`. `spentOn` is required for a one-off and refused with `recurring: true`. `id` is a client-generated UUIDv7, so a retry returns the stored row with `200`. `amount` is above zero. |
 | `PATCH` | `/expenses/:id` | Any field from `POST` but `id` and `clientId`. `recurring: true` clears `spentOn`; `false` needs one. **`409 EXPENSE_LOCKED`** once billed on a non-draft invoice; `422` to make a billed one recurring. |
 | `DELETE` | `/expenses/:id` | Same lock. A recurring one can always go; invoices that billed it keep their line. |
 
@@ -346,7 +356,7 @@ by every one when `recurring`. The amount is in the client's currency.
 | Method | Path | Notes |
 |---|---|---|
 | `GET` | `/exports/entries` | `?tz`. Every finished entry as a `text/csv` attachment, `stint-entries-<today in tz>.csv`, oldest first: local date and times, billed hours, client, project, task, billable, the rate `resolveRate()` gives it now and its source, the amount an invoice would bill (empty for non-billable or unrated work), currency, and the billing invoice's number or `Invoiced elsewhere`. |
-| `GET` | `/exports/invoices` | `?tz`. Every invoice, any status, as a `text/csv` attachment, newest issue date first, with its dates, totals, and client name (`billTo.name`). An issued invoice's are frozen, so renaming a client doesn't change its row; a draft's row has its period's work as it stands now. Both files are UTF-8 with a BOM, CRLF, US dates (`MM/DD/YYYY`), and money as plain two-place decimals; a text cell a spreadsheet would run as a formula gets a leading `'`. |
+| `GET` | `/exports/invoices` | `?tz`. Every invoice, any status, as a `text/csv` attachment, newest issue date first, with its dates, totals, and client name (`billTo.name`). An issued invoice's are frozen, so renaming a client doesn't change its row; a draft's row has the work it holds as it stands now. Both files are UTF-8 with a BOM, CRLF, US dates (`MM/DD/YYYY`), and money as plain two-place decimals; a text cell a spreadsheet would run as a formula gets a leading `'`. |
 
 ## Feedback
 
@@ -431,8 +441,6 @@ preference — `.claude/rules/invoicing.md` has the reason.
 | `EXPENSE_ALREADY_INVOICED` | 409 | The database's refusal when another invoice took an expense. Marking a draft sent answers it as `ENTRY_ALREADY_INVOICED`. |
 | `ENTRY_ALREADY_INVOICED` | 409 | Marking a draft sent: another invoice billed an entry or expense in its period, or an entry was marked billed elsewhere, at the same moment. Open the draft again. Or a mark named an entry already on an invoice. |
 | `INVOICE_STATUS_CHANGED` | 409 | Another request changed the invoice's status first. Read it again. |
-| `DRAFT_CHANGED` | 409 | The draft moved since its PDF was rendered. Download it again, then mark it sent. |
-| `DRAFT_OVERLAPS` | 409 | An open draft for the client already covers some of these dates. |
 | `ENTRY_NOT_FOUND` | 404 | |
 | `NO_RATE_CONFIGURED` | 400 | No rate at any level for a billable entry. |
 | `INVALID_PERIOD` | 400 | |
@@ -468,18 +476,25 @@ a view that renders in the wrong zone beats a view that does not render.
 `POST /timer/start`, `POST /timer/stop` and `PATCH /entries/:id` take `tz`
 the same way, for the reads they include ([Including what a write changed](#including-what-a-write-changed)).
 
+On a preview or in local dev, an `x-stint-now` header (ISO 8601) sets the
+instant `/stats` reads as of, including when a write includes it, so a tester
+can see the home screen as of another day. `/stats` measures a running timer
+at that instant too. Writes and `/summary` stay on the real clock.
+
 `GET /exports/entries` and `GET /exports/invoices` fall back the same way. The
 zone dates each row and names the file, but every record is in the file
 whatever the zone, so a wrong zone shifts dates rather than dropping work.
 
-**The invoicing routes reject an invalid one instead.** `POST /invoices/preview`
-and `POST /invoices` resolve the billing period in `tz`. `GET /invoices`,
-`GET /invoices/:id`, `/pdf` and `/status` derive a draft in it when the draft
-has no zone, and sending dates the invoice on that zone's day. The zone decides
+**The invoicing routes reject an invalid one instead.** `POST /invoices/preview`,
+`POST /invoices` and `PATCH /invoices/:id` resolve the billing period in the
+account's `billingTimeZone`, else `tz` (`billingZone` in `@stint/core`), and a
+new or edited draft stores that zone. `GET /invoices`,
+`GET /invoices/:id`, `/pdf`, `/status` and `POST /invoices/:id/work` derive a
+draft in it when the draft has no zone, and sending dates the invoice on that zone's day. The zone decides
 which entries are billed — falling back to UTC there would move the boundary
 by hours and put the wrong work on an invoice. An **omitted** `tz` defaults to
-UTC on the two `POST`s and the reads, so a client that means a local period
-must send one; sending a zone-less draft without one is refused.
+UTC only on an account with no `billingTimeZone`, so a client there that means
+a local period must send one; sending a zone-less draft without one is refused.
 
 Day and week boundaries are computed by `@stint/core/calendar`, which resolves the
 offset **at the candidate instant** rather than the current one. Using the

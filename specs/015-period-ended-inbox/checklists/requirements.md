@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Say in the Inbox when a scheduled period has ended with no invoice
+# Specification Quality Checklist: Say in the Inbox when a client is ready to invoice
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-10-28

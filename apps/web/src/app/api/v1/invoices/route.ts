@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { handle, ApiError, dbCode, refused } from '@/lib/errors';
+import { handle, refused } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import {
@@ -36,7 +36,7 @@ export const GET = handle(async (req: Request) => {
   const { data, error } = await query;
   if (error) throw error;
 
-  // A draft's total is its period's work now.
+  // A draft's total is the work it holds, priced now.
   const invoices = await Promise.all(
     ((data ?? []) as InvoiceRow[]).map(async (r) =>
       toInvoice((await deriveDraft(db, r, q.tz))?.row ?? r),
@@ -53,37 +53,36 @@ export const GET = handle(async (req: Request) => {
  *      expenses (never trusting a preview the client may have cached).
  *   2. Refuse if any billable entry has no resolvable rate.
  *   3. Write the draft's choices and its charges through `create_invoice`,
- *      in one transaction with the gapless number. A draft claims its work
- *      only when sent.
+ *      in one transaction with the gapless number, holding the work it
+ *      built so no other draft offers it. It is billed only when sent.
  *
  * One transaction is the point of step 3. Allocating a number is not
  * undoable, so a failure after a separate allocation left a gap in a
- * sequence promised to have none — and a draft another Generate made over
- * the same dates meanwhile is exactly such a failure.
+ * sequence promised to have none.
  */
 export const POST = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
   const body = await parseBody(req, CreateInvoice);
 
-  const asked = invoiceRequestRefusal(body, localDateKey(new Date(), body.tz));
-  if (asked) throw refused(asked);
-
   const computed = await computeInvoice(db, {
     clientId: body.clientId,
     periodStart: body.periodStart,
     periodEnd: body.periodEnd,
-    tz: body.tz,
+    tz: { device: body.tz },
     groupingMode: body.groupingMode,
     summaryText: body.summaryText,
     manualLines: body.manualLines,
     excludedExpenseIds: body.excludedExpenseIds,
     schedules: body.schedules,
   });
-  const { client, settings, totals } = computed;
+  const { client, settings, totals, tz } = computed;
+
+  const asked = invoiceRequestRefusal(body, localDateKey(new Date(), tz));
+  if (asked) throw refused(asked);
 
   requireSender(settings);
 
-  const priced = pricedInvoiceRefusal(totals, body);
+  const priced = pricedInvoiceRefusal(totals);
   if (priced) throw refused(priced);
 
   // Frozen alongside the rates: if the profile changes or is deleted later,
@@ -116,26 +115,18 @@ export const POST = handle(async (req: Request) => {
       supporting_detail: computed.supportingDetail,
       reference: body.reference ?? null,
       payment_details: paymentDetails,
-      tz: body.tz,
+      tz,
       excluded_expense_ids: body.excludedExpenseIds,
       manual_lines: body.manualLines,
+      entry_ids: computed.heldEntryIds,
+      expense_ids: computed.expenseIds,
     },
   });
 
-  /* One open draft per client and date, which `create_invoice` holds: two
-     would both show the same work. */
-  if (dbCode(error) === 'DRAFT_OVERLAPS') {
-    const open = JSON.parse(error!.details) as { invoiceNumber: string };
-    throw new ApiError(
-      'DRAFT_OVERLAPS',
-      `${open.invoiceNumber} is a draft for these dates already. Open it, or start after it.`,
-      open,
-    );
-  }
   if (error) throw error;
 
   const row = (Array.isArray(data) ? data[0] : data) as InvoiceRow;
-  const draft = (await deriveDraft(db, row, body.tz))!;
+  const draft = (await deriveDraft(db, row, tz))!;
 
   return NextResponse.json(
     {

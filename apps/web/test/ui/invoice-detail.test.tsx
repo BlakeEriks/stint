@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -206,8 +206,8 @@ describe('InvoiceDetail', () => {
   });
 
   /* Voiding can't be taken back and deleting removes the draft, so the
-     first press only asks: nothing reaches the server until the second. */
-  it('voids only on the second press, and Keep backs out', async () => {
+     first press only asks: nothing reaches the server until the dialog's. */
+  it('voids only from its dialog', async () => {
     const calls = serve('sent');
     const user = userEvent.setup();
     show();
@@ -215,13 +215,9 @@ describe('InvoiceDetail', () => {
     await user.click(await screen.findByRole('button', { name: 'Void' }));
     expect(calls).toEqual([]);
 
-    await user.click(screen.getByRole('button', { name: 'Keep' }));
-    expect(
-      screen.queryByRole('button', { name: 'Void INV-13' }),
-    ).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Void' }));
-    await user.click(screen.getByRole('button', { name: 'Void INV-13' }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Void' }),
+    );
     await waitFor(() => expect(calls.length).toBe(1));
     expect(calls[0]).toMatchObject({
       method: 'PATCH',
@@ -230,23 +226,7 @@ describe('InvoiceDetail', () => {
     });
   });
 
-  /* The pressed button unmounts as the confirm takes its place, so focus is
-     handed over explicitly; otherwise a keyboard user lands on the page. */
-  it('moves focus into the confirm, and Keep hands it back', async () => {
-    serve('sent');
-    const user = userEvent.setup();
-    show();
-
-    await user.click(await screen.findByRole('button', { name: 'Void' }));
-    const confirm = screen.getByRole('button', { name: 'Void INV-13' });
-    expect(confirm).toHaveFocus();
-    expect(confirm).toHaveAccessibleDescription(/can't be reissued/);
-
-    await user.click(screen.getByRole('button', { name: 'Keep' }));
-    expect(screen.getByRole('button', { name: 'Void' })).toHaveFocus();
-  });
-
-  it('deletes a draft only on the second press', async () => {
+  it('deletes a draft only from its dialog', async () => {
     const calls = serve('draft');
     const user = userEvent.setup();
     show();
@@ -257,7 +237,9 @@ describe('InvoiceDetail', () => {
     expect(calls).toEqual([]);
 
     await user.click(
-      screen.getByRole('button', { name: 'Delete INV-13 for good' }),
+      within(screen.getByRole('dialog')).getByRole('button', {
+        name: 'Delete draft',
+      }),
     );
     await waitFor(() => expect(calls.length).toBe(1));
     expect(calls[0]).toMatchObject({
@@ -266,21 +248,39 @@ describe('InvoiceDetail', () => {
     });
   });
 
-  /* Pending, not predicted: the confirm says it is working until the server
-     answers, and nothing can be pressed twice meanwhile. */
-  it('holds the confirm pending while the server answers', async () => {
-    serve('sent');
+  /* The page stays until the list arrives, and a deleted draft is gone:
+     refetching it, or deleting it again, answers "Invoice not found" as if
+     the delete had failed. */
+  it('holds a deleted draft pending, never asking for it again', async () => {
+    serve('draft');
+    let deleted = false;
+    const answer = vi.mocked(fetch).getMockImplementation()!;
+    const askedAfter: string[] = [];
+    vi.mocked(fetch).mockImplementation(async (url, init) => {
+      if (init?.method === 'DELETE') {
+        deleted = true;
+        return new Response(null, { status: 204 });
+      }
+      if (deleted && String(url).includes('/invoices/inv-1')) {
+        askedAfter.push(String(url));
+      }
+      return answer(url, init);
+    });
     const user = userEvent.setup();
     show();
-    await user.click(await screen.findByRole('button', { name: 'Void' }));
 
-    vi.mocked(fetch).mockImplementation(() => new Promise(() => {}));
-    await user.click(screen.getByRole('button', { name: 'Void INV-13' }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Delete draft' }),
+    );
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', {
+        name: 'Delete draft',
+      }),
+    );
+    await waitFor(() => expect(deleted).toBe(true));
 
-    expect(
-      await screen.findByRole('button', { name: 'Voiding…' }),
-    ).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Keep' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Deleting…' })).toBeDisabled();
+    expect(askedAfter).toEqual([]);
   });
 
   /** Void is terminal: nothing may move an invoice out of it. */

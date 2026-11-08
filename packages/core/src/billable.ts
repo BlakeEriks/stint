@@ -5,7 +5,19 @@
  */
 import { addDays, startOfLocalDate } from './calendar.ts';
 import type { ExpenseInput } from './invoice.ts';
-import { assignExpenses, type OpenDraft } from './live-draft.ts';
+
+/**
+ * The zone an invoice reads its period, issue date and due date in: the
+ * account's billing zone, else the device's. A traveller's device zone would
+ * move work near midnight between invoices, so it is only the fallback for an
+ * account that has never set one.
+ */
+export function billingZone<Device extends string | undefined>(
+  account: { billingTimeZone?: string | null } | null | undefined,
+  device: Device,
+): string | Device {
+  return account?.billingTimeZone ?? device;
+}
 
 /**
  * The instants a period of local dates covers: from its first day's start to
@@ -54,36 +66,35 @@ export interface ExpenseRow {
   description: string;
   amount: number;
   invoiceId: string | null;
+  /** The draft holding it; a recurring expense is never held. */
+  draftId: string | null;
 }
 
 /**
- * What a draft bills of the client's unbilled expenses: every recurring one,
- * and the one-offs `assignExpenses` gives it among the client's open drafts,
- * less the ones the user left off. An earlier month's one-off is included,
- * so one missed invoice does not strand a reimbursement.
+ * What a draft bills of the client's unbilled expenses: every recurring one
+ * it didn't leave off, and of the one-offs, those it `held`, else those a
+ * build takes: held by no other draft, dated by the period's end, and not
+ * left off. An earlier month's one-off is included, so one missed invoice
+ * does not strand a reimbursement.
  *
  * A recurring line takes the period's last day, the date the invoice claims
- * to cover; `recurring` tells the caller not to claim it, since it bills
- * again on the next invoice.
+ * to cover; `recurring` tells the caller not to hold or claim it, since it
+ * bills again on the next invoice.
  */
 export function billableExpenses(
   rows: ExpenseRow[],
-  draft: OpenDraft,
-  openDrafts: OpenDraft[],
+  draft: { id?: string; periodEnd: string; excludedExpenseIds: string[] },
+  held: boolean,
 ): Array<ExpenseInput & { recurring: boolean }> {
-  const unbilled = rows.filter((r) => r.invoiceId === null);
-  const assigned = assignExpenses(
-    unbilled.flatMap((r) =>
-      r.recurring ? [] : [{ id: r.id, spentOn: r.spentOn as string }],
-    ),
-    [...openDrafts.filter((d) => d.id !== draft.id), draft],
-  );
-  return unbilled
-    .filter((r) =>
-      r.recurring
-        ? !draft.excludedExpenseIds.includes(r.id)
-        : assigned.get(r.id) === draft.id,
-    )
+  const mine = (r: ExpenseRow) => draft.id != null && r.draftId === draft.id;
+  return rows
+    .filter((r) => r.invoiceId === null)
+    .filter((r) => !draft.excludedExpenseIds.includes(r.id))
+    .filter((r) => {
+      if (r.recurring) return true;
+      if (held) return mine(r);
+      return (r.draftId === null || mine(r)) && r.spentOn! <= draft.periodEnd;
+    })
     .map((r) => ({
       id: r.id,
       recurring: r.recurring,

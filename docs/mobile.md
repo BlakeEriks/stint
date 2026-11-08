@@ -22,7 +22,16 @@ cd apps/mobile && STINT_APP_URL=http://localhost:<web port> pnpm web --port 8085
 
 Metro passes `/api/v1` to the web server (`metro.config.cjs`), so the page
 asks its own origin. Sign in as the seeded account: the code is in the
-email Mailpit caught. The native app needs a phone: see Preview builds.
+email Mailpit caught. The native app runs on a phone (see Preview builds)
+or, on iPhone, in Xcode's Simulator, as the next paragraph says.
+
+**The iPhone's native code is seen in Xcode's Simulator**, with
+`npx expo run:ios`. Without Xcode, `eas build --platform ios --profile
+simulator` builds Stint Local for a simulator in Expo's cloud, unsigned,
+which shows it compiles. Loaded from Metro, a native Stint Local asks Metro
+for `/api/v1` and `/auth/v1` too, which it passes to the web server and
+Supabase, so a simulator or a phone on the LAN reaches the builder's
+stack.
 
 | Suite | Command |
 | --- | --- |
@@ -64,8 +73,8 @@ test data. The answer to a leak is rotating the bypass in Vercel
 The macOS app's emailed six-digit code (`docs/macos.md`, Sign-in), over
 `fetch` to GoTrue. **The session lives in secure storage**: the Keychain on
 iOS, Keystore-encrypted storage on Android, one entry per backend host. On
-iOS it uses the `dev.stint.shared` keychain access group once
-`APPLE_TEAM_ID` is set, so the widgets can read it.
+iOS, a press outside the app refreshes it in Swift and stores the result; a
+refresh in the app reads the stored session first and takes that one.
 
 **Only GoTrue rejecting the refresh token signs out.** Offline, a timeout,
 a 5xx or a rate limit keeps the session, and the screen says Stint can't be
@@ -131,6 +140,32 @@ A local build has no push, so its surfaces follow only the app's own reads
 and presses. The module is native code: a change to it needs a new build,
 not an update.
 
+**On iPhone, the same state draws a Live Activity** on the lock screen and
+in the Dynamic Island, home screen widgets in Android's two layouts, two lock
+screen widgets, and a Control Center control on iOS 18. Siri and Shortcuts
+know Start and Stop, so the Action button runs one. All need iOS 17; the app
+runs from 16.4 without them. `specs/015-ios-surfaces/spec.md`, Design, is
+their look, and `targets/widget` their SwiftUI, added to the build by
+`@bacons/apple-targets`.
+
+**A press runs in the app, in Swift.** Each intent is a `LiveActivityIntent`,
+which iOS runs in the app, launched in the background with no scene, where
+React Native doesn't start. So `modules/stint-surfaces/ios` presses itself,
+through the macOS app's `Optimistic`, symlinking the files of
+`apps/macos/Sources/Stint/Shared`. It draws `pressed` at
+once, calls `/api/v1` with the app's session, and once the last press
+settles, draws the timer the server holds, with JS's words for a failure.
+The app's JS refetches the timer when it next runs. The widget extension
+only reads what the module stored, the keychain item `dev.stint.surfaces`.
+Until #471, a timer started on another client reaches the iPhone's surfaces
+only when the app next opens.
+
+**A free Apple ID can sign it.** The build relies on keychain sharing alone:
+no app group, no Siri capability, and no push entitlement, which
+`app.config.ts` removes. Where keychain sharing isn't signed, the widgets
+and the control say "Open Stint", and the Live Activity, Siri and Shortcuts
+still work.
+
 ## Crash reporting
 
 **Only a production build reports**, to Sentry's `stint-mobile` project:
@@ -144,9 +179,10 @@ takes no updates, so no over-the-air bundle needs its own upload.
 A PR's phone preview is an EAS Update, opened in one shared development
 build of Stint Preview. The reviewer installs the build once, then scans
 each PR's QR to open that PR, signed in as its seeded account.
-`.github/workflows/mobile-preview.yml` publishes the update on every push
-that changes the app or a package it imports, and comments the QR on the
-PR.
+On a PR labeled `android`, `.github/workflows/mobile-preview.yml`
+publishes the update when the label goes on and on every push that changes
+the app or a package it imports, and comments the QR on the PR. A PR
+without the label gets no phone preview.
 
 The update carries the PR's number and Vercel preview; the build carries
 neither (`fingerprint.config.cjs`). A build is made only when no finished

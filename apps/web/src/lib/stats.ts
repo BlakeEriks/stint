@@ -10,6 +10,7 @@ import {
 } from '@/lib/rows';
 import {
   addDays,
+  billingZone,
   buildAwaitingPayment,
   buildCollected,
   buildEarnedPace,
@@ -71,9 +72,8 @@ export async function readStats(
   db: SupabaseClient,
   userId: string,
   tz: string,
+  now = new Date(),
 ) {
-  const now = new Date();
-
   const monthStart = startOfLocalMonth(now, tz);
   const monthEnd = startOfNextLocalMonth(now, tz);
 
@@ -110,6 +110,7 @@ export async function readStats(
     weekEntries,
     issuedPeriods,
     activeClients,
+    anyEntry,
   ] = await Promise.all([
     /* `p_now` on every rollup: a running entry is measured at the same
        instant the windows are cut at. */
@@ -154,7 +155,7 @@ export async function readStats(
     db
       .from('user_settings')
       .select(
-        'currency, min_entry_seconds, max_entry_hours, week_starts_on, default_hourly_rate, legacy_payment_terms',
+        'currency, min_entry_seconds, max_entry_hours, week_starts_on, default_hourly_rate, legacy_payment_terms, billing_time_zone',
       )
       .maybeSingle(),
 
@@ -240,15 +241,16 @@ export async function readStats(
        holds. */
     db
       .from('invoices')
-      .select('id, invoice_number, client_id, status, period_start, period_end')
+      .select('id, invoice_number, client_id, period_start, period_end, tz')
       .in('status', ['sent', 'paid']),
 
-    /* For work past due to bill: each client's schedule, which says when
-       its work is due. */
+    /* For clients ready to invoice: each one's schedule. */
     db
       .from('clients')
       .select('id, name, billing_period, period_anchor')
       .is('archived_at', null),
+
+    db.from('time_entries').select('id').limit(1),
   ]);
 
   for (const r of [
@@ -262,6 +264,7 @@ export async function readStats(
     collectedRows,
     issuedPeriods,
     activeClients,
+    anyEntry,
   ]) {
     if (r.error) throw r.error;
   }
@@ -299,7 +302,7 @@ export async function readStats(
   ];
 
   const unbilledRows = (unbilled.data ?? []) as UnbilledRow[];
-  // A draft's total is its period's work now.
+  // A draft's total is the work it holds, priced now.
   const invoiceRows: InvoiceRow[] = await Promise.all(
     ((invoices.data ?? []) as StoredInvoiceRow[]).map(async (stored) => {
       const draft = await deriveDraft(db, stored, tz);
@@ -308,12 +311,17 @@ export async function readStats(
         ...r,
         total: r.total ?? 0,
         refuses: draft ? draftRefusals(draft) : undefined,
+        entry_count: draft?.computed.totals.entryCount,
       };
     }),
   );
   const clientNames = clientNamesFrom(unbilledRows);
 
   const todayKey = localDateKey(now, tz);
+  const billTz = billingZone(
+    { billingTimeZone: settings.data?.billing_time_zone },
+    tz,
+  );
 
   /* Today's earnings come out of the month's own by-day series, which is
      already loaded and already grouped on the local date. A second query for
@@ -341,6 +349,22 @@ export async function readStats(
   );
   const clientOfProject = (projectId: string | null) =>
     projectId ? (clientOf.get(projectId) ?? null) : null;
+  const uninvoicedEntries = overlapCandidates.map((r) => ({
+    id: r.id,
+    taskName: r.task_name,
+    startedAt: new Date(r.started_at).toISOString(),
+    durationSeconds: r.duration_seconds,
+    isBillable: r.is_billable,
+    clientId: clientOfProject(r.project_id),
+  }));
+  const issued = (issuedPeriods.data ?? []).map((i) => ({
+    id: i.id as string,
+    invoiceNumber: i.invoice_number as string,
+    clientId: i.client_id as string,
+    periodStart: i.period_start as string,
+    periodEnd: i.period_end as string,
+    tz: i.tz as string | null,
+  }));
   const week = buildWeek(
     (weekDays.data ?? []) as DayRow[],
     Array.from({ length: 7 }, (_, i) => addDays(weekStartKey, i)),
@@ -359,6 +383,7 @@ export async function readStats(
 
   return {
     currency,
+    hasEntries: (anyEntry.data ?? []).length > 0,
     unbilled: buildUnbilled(unbilledRows, currency, now),
     /* Work done today at its resolved rate, which is what `revenue_by_day`
        already computes. Absent from the map until the day earns something. */
@@ -404,24 +429,10 @@ export async function readStats(
         todayKey,
         localDateKey(startOfLocalDayOffset(now, tz, STALE_DRAFT_DAYS), tz),
       ),
-      lateEntries: lateEntries(
-        overlapCandidates.map((r) => ({
-          id: r.id,
-          taskName: r.task_name,
-          startedAt: new Date(r.started_at).toISOString(),
-          durationSeconds: r.duration_seconds,
-          isBillable: r.is_billable,
-          clientId: clientOfProject(r.project_id),
-        })),
-        (issuedPeriods.data ?? []).map((i) => ({
-          id: i.id as string,
-          invoiceNumber: i.invoice_number as string,
-          clientId: i.client_id as string,
-          periodStart: i.period_start as string,
-          periodEnd: i.period_end as string,
-        })),
-        tz,
-      ).map((e) => ({ ...e, clientName: clientNames.get(e.clientId) ?? null })),
+      lateEntries: lateEntries(uninvoicedEntries, issued, tz).map((e) => ({
+        ...e,
+        clientName: clientNames.get(e.clientId) ?? null,
+      })),
       unbilledDue: unbilledDue(
         {
           clients: ((activeClients.data ?? []) as ClientRow[]).map((c) => ({
@@ -429,25 +440,20 @@ export async function readStats(
             name: c.name,
             schedule: toBillingSchedule(c),
           })),
-          entries: overlapCandidates.map((r) => ({
-            id: r.id,
-            startedAt: new Date(r.started_at).toISOString(),
-            durationSeconds: r.duration_seconds,
-            isBillable: r.is_billable,
-            clientId: clientOfProject(r.project_id),
-          })),
+          entries: uninvoicedEntries,
           invoices: [
-            ...((invoices.data ?? []) as StoredInvoiceRow[]),
-            ...((issuedPeriods.data ?? []) as StoredInvoiceRow[]),
-          ].map((i) => ({
-            clientId: i.client_id,
-            status: i.status,
-            periodStart: i.period_start,
-            periodEnd: i.period_end,
-          })),
+            ...((invoices.data ?? []) as StoredInvoiceRow[]).map((i) => ({
+              status: i.status,
+              clientId: i.client_id,
+              periodStart: i.period_start,
+              periodEnd: i.period_end,
+            })),
+            ...issued,
+          ],
         },
-        todayKey,
-        tz,
+        // Read as its invoice will be, so no entry is both due and late.
+        localDateKey(now, billTz),
+        billTz,
       ),
       unprojected: buildUnprojected(unprojected),
       strangeDurations: buildStrangeDurations(

@@ -10,10 +10,15 @@
 <!-- Three bullets at most, each an outcome someone notices, not how it's
      built. -->
 
+## Decisions made
+
+<!-- One line per call made without the reviewer, each with its reason and
+     any risk it creates. Reply on the PR to change one. "None." if none. -->
+
 ## Needs you
 
-<!-- Calls you might make differently, anything to do before merging, and
-     risks. "Nothing." if none. -->
+<!-- Only what you must do before merging or testing (set a secret, install
+     an app), or a question only you can answer. "Nothing." if none. -->
 
 ## Try it
 
@@ -40,8 +45,9 @@ migration only while it is `ready-for-qa`).
 - [ ] **Rates and line items still freeze** onto issued invoices — nothing
       recomputes a sent invoice.
 - [ ] **A screen or state this adds or changes has its story.**
-- [ ] **A new macOS write goes through `press`** (Constitution VI) — the web
-      has a lint for this; Swift has this box.
+- [ ] **A new Swift write, macOS or an iPhone surface, goes through
+      `press`** (Constitution VI) — the web has a lint for this; Swift has
+      this box.
 - [ ] Verified by running it, not only by the suite passing.
 
 <!-- Delete any line that does not apply. -->

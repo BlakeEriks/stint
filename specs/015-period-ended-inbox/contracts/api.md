@@ -1,18 +1,15 @@
 # Contract: `GET /api/v1/stats`
 
-`attention` gains `unbilledDue`, an array, empty when nothing is due:
+`attention` gains `unbilledDue`, an array, empty when no client is ready:
 
 ```json
 "unbilledDue": [
   {
     "clientId": "…",
     "clientName": "Northwind Trading",
-    "entryIds": ["…", "…"],
     "seconds": 50400,
-    "since": "2026-08-03",
-    "periodStart": "2026-08-01",
-    "periodEnd": "2026-09-30",
-    "onePeriod": false
+    "periodStart": "2026-10-01",
+    "periodEnd": "2026-10-31"
   }
 ]
 ```
@@ -22,6 +19,3 @@
 `?client=<uuid>&from=<YYYY-MM-DD>&to=<YYYY-MM-DD>` fills in the client and
 dates. Any of them missing or invalid leaves the form as it opens without
 them.
-
-Billed elsewhere uses the existing `POST /entries/invoiced-elsewhere` with
-`{ ids: entryIds, invoicedElsewhere: true }`.

@@ -60,6 +60,9 @@ export const InvoicePreviewRequest = z.object({
    * include sent back from a preview. They keep waiting for a later invoice.
    */
   excludedExpenseIds: z.array(uuid).max(200).default([]),
+  /** The draft being edited, which is priced as itself among the client's
+   *  open drafts, so it keeps the expenses it shows. */
+  draftId: uuid.optional(),
 });
 
 /** A table of supporting detail: hours by project, by week or by date. */
@@ -121,11 +124,13 @@ export const ComputedLineItem = InvoiceLineItem.extend({
   expenseId: uuid.optional(),
 });
 
-const Change = z.object({ from: z.number(), to: z.number() });
-
-/** How a draft moved since its PDF was last rendered: what Mark sent's
- *  `DRAFT_CHANGED` carries, and the detail's `changedSinceDownload`. */
-export const DraftChange = z.object({ hours: Change, total: Change });
+/** The work in a draft's period it doesn't hold: what Add to draft adds. */
+export const NewWork = z.object({
+  entries: z.number().int(),
+  expenses: z.number().int(),
+  hours: z.number(),
+  amount: z.number(),
+});
 
 /** A billable entry on a draft that no rate prices: the draft shows without
  *  it, and its PDF and Mark sent are refused until it has one. */
@@ -167,33 +172,47 @@ export type ManualLine = z.infer<
   typeof InvoicePreviewRequest
 >['manualLines'][number];
 
+/** What editing a draft opens with that the draft as read doesn't say. */
+export const DraftChoices = z.object({
+  /** The due date typed; null follows the terms. */
+  dueDate: z.iso.date().nullable(),
+  excludedExpenseIds: z.array(uuid),
+  /** Its charges. */
+  manualLines: z.array(z.object({ description: z.string(), amount: money })),
+});
+
 /** One flag each for a draft's PDF and its Mark sent. */
 export const DraftActions = z.object({
   download: z.boolean(),
   send: z.boolean(),
 });
 
-export const CreateInvoice = InvoicePreviewRequest.extend({
-  /** Typed by the user. Absent, it follows the terms from the day the draft
-   *  is sent, which is also its issue date. */
-  dueDate: z.iso.date().optional(),
-  notes: z.string().max(2000).optional(),
-  /** The PO, contract or SOW the client matches the invoice to. */
-  reference: z
-    .string()
-    .trim()
-    .max(200)
-    .optional()
-    .transform((r) => r || undefined),
-  /** The payment details to freeze; absent is the client's, else the
-   *  default. */
-  paymentProfileId: uuid.optional(),
-  /** The supporting detail to attach, with `summary` only. */
-  schedules: z
-    .array(ScheduleKind)
-    .refine((k) => new Set(k).size === k.length, 'Each schedule once')
-    .default([]),
+/** What Generate sends, and what an edit of a draft sends again: the same
+ *  choices, with the draft's own client. */
+export const CreateInvoice = InvoicePreviewRequest.omit({
+  draftId: true,
 })
+  .extend({
+    /** Typed by the user. Absent, it follows the terms from the day the draft
+     *  is sent, which is also its issue date. */
+    dueDate: z.iso.date().optional(),
+    notes: z.string().max(2000).optional(),
+    /** The PO, contract or SOW the client matches the invoice to. */
+    reference: z
+      .string()
+      .trim()
+      .max(200)
+      .optional()
+      .transform((r) => r || undefined),
+    /** The payment details to freeze; absent is the client's, else the
+     *  default. */
+    paymentProfileId: uuid.optional(),
+    /** The supporting detail to attach, with `summary` only. */
+    schedules: z
+      .array(ScheduleKind)
+      .refine((k) => new Set(k).size === k.length, 'Each schedule once')
+      .default([]),
+  })
   .refine((b) => b.groupingMode !== 'summary' || b.summaryText !== '', {
     message: 'A summary line needs its text',
     path: ['summaryText'],
@@ -208,7 +227,6 @@ const PaymentDetailsSnapshot = z.object({
   fields: z.array(z.object({ label: z.string(), value: z.string() })),
   intermediary: z.array(z.object({ label: z.string(), value: z.string() })),
   link: z.object({ label: z.string(), url: z.string() }).nullable(),
-  notes: z.string().nullable(),
 });
 
 export const InvoiceStatus = z.enum(['draft', 'sent', 'paid', 'void']);
@@ -217,10 +235,11 @@ export const InvoiceStatus = z.enum(['draft', 'sent', 'paid', 'void']);
  * An issued invoice, as the API returns it.
  *
  * Line items are NOT part of this shape: they are fetched with the detail
- * view. A draft's, its totals and its dates are derived from its period's
- * work on every read, as if sent today; once sent they are frozen, and
- * re-deriving them is the thing that must never happen — re-downloading a
- * year later has to produce the same document.
+ * view. A draft's, its totals and its dates are priced from the work it
+ * holds on every read, as if sent today; later work in its period joins only
+ * through `POST /invoices/:id/work` or a saved edit. Once sent they are
+ * frozen, and re-deriving them is the thing that must never happen —
+ * re-downloading a year later has to produce the same document.
  */
 export const Invoice = z.object({
   id: uuid,
@@ -270,7 +289,7 @@ export const Invoice = z.object({
   createdAt: iso,
 });
 
-/** A draft is derived on every read, in the zone its period's dates are
+/** A draft is priced on every read, in the zone its period's dates are
  *  read in; a draft with no zone of its own takes the read's, else UTC. */
 export const InvoiceReadQuery = z.object({ tz: ianaZone.optional() });
 
@@ -292,5 +311,6 @@ export type InvoicePreview = z.infer<typeof InvoicePreview>;
 export type Invoice = z.infer<typeof Invoice>;
 export type InvoiceLineItem = z.infer<typeof InvoiceLineItem>;
 export type ComputedLineItem = z.infer<typeof ComputedLineItem>;
-export type DraftChange = z.infer<typeof DraftChange>;
+export type NewWork = z.infer<typeof NewWork>;
+export type DraftChoices = z.infer<typeof DraftChoices>;
 export type UnratedEntry = z.infer<typeof UnratedEntry>;

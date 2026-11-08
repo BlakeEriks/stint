@@ -78,6 +78,7 @@ function month(over: Partial<Stats['month']> = {}): Stats['month'] {
 function stats(over: Partial<Stats> = {}): Stats {
   return {
     currency: 'USD',
+    hasEntries: true,
     unbilled: {
       total: 6840,
       mixed: false,

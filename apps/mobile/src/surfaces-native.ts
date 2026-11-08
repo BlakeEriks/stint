@@ -1,15 +1,18 @@
 import { theme } from '@stint/design-tokens';
 import { requireOptionalNativeModule } from 'expo';
 import * as Notifications from 'expo-notifications';
-import { pressedState, type SurfaceState } from './surfaces.ts';
+import { Platform } from 'react-native';
+import { type Backend, nativeState, type SurfaceState } from './surfaces.ts';
 
-/** `modules/stint-surfaces`, on Android only. */
-const native = requireOptionalNativeModule<{ draw(state: string): void }>(
-  'StintSurfaces',
-);
+/** `modules/stint-surfaces`, on Android and iOS. */
+const native = requireOptionalNativeModule<{
+  /** A promise on iOS, which draws on the main thread. */
+  draw(state: string): Promise<void> | void;
+  addListener?(event: 'pressed', listener: () => void): { remove(): void };
+}>('StintSurfaces');
 export const canDraw = native !== null;
 
-/** The tokens the widget draws with (`Widgets.kt`). */
+/** The tokens the widgets draw with (`Widgets.kt`, `targets/widget`). */
 const WIDGET = [
   'bg-primary',
   'bg-elevated',
@@ -28,26 +31,32 @@ const WIDGET = [
 const pick = (colors: Record<string, string>) =>
   Object.fromEntries(WIDGET.map((name) => [name, colors[name]]));
 
-/** Hands Kotlin the state, what a press would show, and both themes. */
-export function drawSurfaces(state: SurfaceState) {
+/** Hands native the state, what a press would show, and both themes. */
+export function drawSurfaces(state: SurfaceState, backend: Backend) {
   if (!native) return;
-  native.draw(
+  const out = nativeState(state, backend);
+  void native.draw(
     JSON.stringify(
-      state.kind === 'kept'
-        ? state
+      out.kind === 'kept'
+        ? out
         : {
-            ...state,
-            pressed: pressedState(state),
+            ...out,
             colors: { light: pick(theme.light), dark: pick(theme.dark) },
           },
     ),
   );
 }
 
-/** The notification permission, and asking for it; `null` with no surfaces. */
+/** iOS: a press outside the app ran in Swift while the app's JS was up. */
+export function onPressedOutside(listener: () => void): () => void {
+  const sub = native?.addListener?.('pressed', listener);
+  return () => sub?.remove();
+}
+
+/** Android's notification permission, and asking for it; `null` elsewhere. */
 export const notifications = {
   async read() {
-    if (!native) return null;
+    if (!native || Platform.OS !== 'android') return null;
     return Notifications.getPermissionsAsync();
   },
   async ask() {

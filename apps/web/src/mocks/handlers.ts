@@ -17,6 +17,7 @@ import {
   invoicesCsv,
   measured,
   formatInvoiceNumber,
+  billingZone,
   localDateKey,
   paymentTermsText,
   pickSchedules,
@@ -46,6 +47,7 @@ import {
 } from './fixtures';
 import {
   calendar,
+  draftEntryCount,
   expenseView,
   invoicePreview,
   type PreviewRequest,
@@ -107,10 +109,13 @@ const highestInvoice = (db: Db) =>
     undefined,
   );
 
-function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
-  const seq = db.settings.nextInvoiceNumber;
-  db.settings.nextInvoiceNumber += 1;
-  const issueDate = localDateKey(db.now, input.tz);
+const zoneOf = (db: Db, input: { tz?: string }) =>
+  billingZone(db.settings, input.tz ?? ZONE);
+
+/** What a draft takes from New invoice's choices and the preview they make,
+ *  on Generate and on every edit. */
+function draftChoices(db: Db, input: CreateInvoice, preview: Preview) {
+  const issueDate = localDateKey(db.now, zoneOf(db, input));
   const days =
     db.clients.find((c) => c.id === preview.clientId)?.paymentTermsDays ??
     db.settings.paymentTermsDays;
@@ -122,11 +127,6 @@ function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
     printed: null,
   });
   return {
-    id: uuidv7(db.now.getTime()),
-    clientId: preview.clientId,
-    invoiceNumber: formatInvoiceNumber(db.settings.invoiceNumberPrefix, seq),
-    sequenceNo: seq,
-    status: 'draft' as const,
     issueDate,
     dueDate,
     periodStart: preview.periodStart,
@@ -136,7 +136,6 @@ function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
     taxAmount: preview.taxAmount,
     expensesSubtotal: preview.expensesSubtotal,
     total: preview.total,
-    currency: preview.currency,
     notes: input.notes ?? null,
     paymentTerms: paymentTermsText(issueDate, dueDate),
     typedDueDate: input.dueDate ?? null,
@@ -144,17 +143,40 @@ function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
     groupingMode: preview.groupingMode,
     summaryText: preview.groupingMode === 'summary' ? input.summaryText : null,
     reference: input.reference ?? null,
-    template: null,
     supportingDetail: preview.schedules
       ? pickSchedules(preview.schedules, input.schedules)
       : null,
+  };
+}
+
+function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
+  const seq = db.settings.nextInvoiceNumber;
+  db.settings.nextInvoiceNumber += 1;
+  return {
+    id: uuidv7(db.now.getTime()),
+    clientId: preview.clientId,
+    invoiceNumber: formatInvoiceNumber(db.settings.invoiceNumberPrefix, seq),
+    sequenceNo: seq,
+    status: 'draft' as const,
+    currency: preview.currency,
+    template: null,
     paymentDetails: null,
+    ...draftChoices(db, input, preview),
     ...parties(db.settings, byId(db.clients, preview.clientId) as Client),
     sentAt: null,
     paidAt: null,
     createdAt: db.now.toISOString(),
   };
 }
+
+/** A preview's lines, as an invoice stores them. */
+const storedLines = (preview: Preview) =>
+  preview.lineItems.map(
+    ({ rateSource: _, entryIds: __, expenseId: ___, ...l }) => ({
+      ...l,
+      spentOn: l.spentOn ?? null,
+    }),
+  );
 
 function claimBilled(db: Db, invoiceId: string, preview: Preview) {
   const claimed = new Set(preview.lineItems.flatMap((l) => l.entryIds));
@@ -170,7 +192,7 @@ type StoredInvoice = Db['invoices'][number];
 /** An invoice as the list and status routes answer it. */
 const listed = ({
   lineItems: _,
-  changedSinceDownload: __,
+  newWork: __,
   unratedEntries: ___,
   dueBeforeIssue: ____,
   typedDueDate: _____,
@@ -178,8 +200,9 @@ const listed = ({
   ...invoice
 }: StoredInvoice) => invoice;
 
-/** `lib/drafts.ts`'s `sendDraft`: the draft as its period stands at
- *  `sentAt`, priced, dated, claimed and sent. */
+/** `lib/drafts.ts`'s `sendDraft`: the draft as it stands at `sentAt`,
+ *  priced, dated, claimed and sent. The fake holds no work, so a draft is
+ *  its period's. */
 function sendDraft(
   db: Db,
   invoice: StoredInvoice,
@@ -204,12 +227,6 @@ function sendDraft(
   if (preview.unratedEntryIds.length > 0)
     return refuse(unratedRefusal(preview.unratedEntryIds));
   if (preview.lineItems.length === 0) return refuse(nothingToSend);
-  if (invoice.changedSinceDownload)
-    return fail(
-      'DRAFT_CHANGED',
-      'This draft changed since you downloaded it. Download the new PDF, send that one, then mark it sent.',
-      invoice.changedSinceDownload,
-    );
   const { sent } = draftDates({
     issueDate: localDateKey(new Date(sentAt), zone),
     dueDate: typedDue(invoice),
@@ -269,7 +286,6 @@ const EMPTY_PROFILE: Omit<PaymentProfile, 'id' | 'name' | 'isDefault'> = {
   paymentLinkUrl: null,
   currency: null,
   feeAllocation: null,
-  notes: null,
   archivedAt: null,
 };
 
@@ -519,27 +535,6 @@ export const handlers = {
     return ok(schema.TimeEntry, db.entries[i]);
   }),
 
-  markInvoicedElsewhere: http.post(
-    `${API}/entries/invoiced-elsewhere`,
-    async ({ request }) => {
-      const db = getDb();
-      const { ids, invoicedElsewhere } = await body<{
-        ids: string[];
-        invoicedElsewhere: boolean;
-      }>(request);
-      const changed = db.entries.filter(
-        (e) =>
-          ids.includes(e.id) &&
-          e.invoicedElsewhere !== invoicedElsewhere &&
-          (!invoicedElsewhere || (e.invoiceId === null && e.endedAt !== null)),
-      );
-      for (const e of changed) e.invoicedElsewhere = invoicedElsewhere;
-      return ok(envelopes.invoicedElsewhere, {
-        ids: changed.map((e) => e.id),
-      });
-    },
-  ),
-
   deleteEntry: http.delete(`${API}/entries/:id`, ({ params }) => {
     const db = getDb();
     const entry = byId(db.entries, params.id);
@@ -683,7 +678,7 @@ export const handlers = {
     // The fake keeps no plan per invoice: the account's plan decides.
     const { available, plan } = db.billing;
     const {
-      changedSinceDownload,
+      newWork,
       lineItems,
       unratedEntries,
       dueBeforeIssue: due,
@@ -693,18 +688,45 @@ export const handlers = {
     } = invoice;
     return ok(invoiceDetail, {
       ...rest,
-      lineItems: lineItems.map((l) => ({ ...l, isNew: l.isNew ?? false })),
+      lineItems,
       canDownload: documentOpens(available, plan, null),
-      changedSinceDownload: changedSinceDownload ?? null,
+      entryCount:
+        invoice.status === 'draft' ? draftEntryCount(db, invoice) : null,
+      newWork: newWork ?? null,
       unratedEntries: unratedEntries ?? [],
       dueBeforeIssue: due ?? dueBeforeIssue(invoice),
       refuses: mockDraftRefusals(invoice),
+      // The fake keeps no expense left off a draft.
+      choices:
+        invoice.status === 'draft'
+          ? {
+              dueDate: typedDue(invoice),
+              excludedExpenseIds: [],
+              manualLines: lineItems
+                .filter((l) => l.unit === 'fixed')
+                .map(({ description, amount }) => ({ description, amount })),
+            }
+          : null,
     });
+  }),
+
+  /* The route's Add to draft. The fake holds no work: a story sets the new
+     work it shows, and adding it takes the notice away. */
+  addDraftWork: http.post(`${API}/invoices/:id/work`, ({ params }) => {
+    const invoice = byId(getDb().invoices, params.id);
+    if (!invoice) return missing('Invoice');
+    if (invoice.status !== 'draft')
+      return fail('INVOICE_STATUS_CHANGED', 'Only a draft can take new work', {
+        from: invoice.status,
+      });
+    invoice.newWork = null;
+    return new HttpResponse(null, { status: 204 });
   }),
 
   previewInvoice: http.post(`${API}/invoices/preview`, async ({ request }) => {
     const input = await body<PreviewRequest>(request);
-    const preview = invoicePreview(getDb(), input, input.tz ?? ZONE);
+    const db = getDb();
+    const preview = invoicePreview(db, input, zoneOf(db, input));
     return preview
       ? ok(schema.InvoicePreview, preview)
       : fail('ENTRY_NOT_FOUND');
@@ -714,36 +736,18 @@ export const handlers = {
     const db = getDb();
     const input = await parse(request, schema.CreateInvoice);
     if (input instanceof Response) return input;
-    const asked = invoiceRequestRefusal(input, localDateKey(db.now, input.tz));
+    const tz = zoneOf(db, input);
+    const asked = invoiceRequestRefusal(input, localDateKey(db.now, tz));
     if (asked) return refuse(asked);
-    const preview = invoicePreview(db, input, input.tz);
+    const preview = invoicePreview(db, input, tz);
     if (!preview) return missing('Client');
-    const priced = pricedInvoiceRefusal(preview, input);
+    const priced = pricedInvoiceRefusal(preview);
     if (priced) return refuse(priced);
     const profile = paymentProfile(db, input.clientId, input.paymentProfileId);
     if (input.paymentProfileId && !profile)
       return fail(
         'VALIDATION_FAILED',
         'Those payment details are archived or gone. Choose others.',
-      );
-    // `create_invoice`'s: one open draft per client and date.
-    const open = db.invoices.find(
-      (i) =>
-        i.clientId === input.clientId &&
-        i.status === 'draft' &&
-        i.periodStart <= input.periodEnd &&
-        i.periodEnd >= input.periodStart,
-    );
-    if (open)
-      return fail(
-        'DRAFT_OVERLAPS',
-        `${open.invoiceNumber} is a draft for these dates already. Open it, or start after it.`,
-        {
-          invoiceId: open.id,
-          invoiceNumber: open.invoiceNumber,
-          periodStart: open.periodStart,
-          periodEnd: open.periodEnd,
-        },
       );
     const row = invoiceRow(db, input, preview);
     const invoice = {
@@ -752,15 +756,7 @@ export const handlers = {
         invoiceNumber: row.invoiceNumber,
       }),
     };
-    db.invoices.push({
-      ...invoice,
-      lineItems: preview.lineItems.map(
-        ({ rateSource: _, entryIds: __, expenseId: ___, ...l }) => ({
-          ...l,
-          spentOn: l.spentOn ?? null,
-        }),
-      ),
-    });
+    db.invoices.push({ ...invoice, lineItems: storedLines(preview) });
     return ok(
       createdInvoice,
       {
@@ -771,6 +767,58 @@ export const handlers = {
       201,
     );
   }),
+
+  /* The route's: a draft takes every choice again but its client. */
+  updateDraft: http.patch(
+    `${API}/invoices/:id`,
+    async ({ params, request }) => {
+      const db = getDb();
+      const invoice = byId(db.invoices, params.id);
+      if (!invoice) return missing('Invoice');
+      const input = await parse(request, schema.CreateInvoice);
+      if (input instanceof Response) return input;
+      if (invoice.status !== 'draft')
+        return fail('INVOICE_STATUS_CHANGED', 'Only a draft can be edited', {
+          from: invoice.status,
+        });
+      if (input.clientId !== invoice.clientId)
+        return fail(
+          'VALIDATION_FAILED',
+          'A draft keeps its client. Delete it and generate one for the other client.',
+          { field: 'clientId' },
+        );
+      const tz = zoneOf(db, input);
+      const asked = invoiceRequestRefusal(input, localDateKey(db.now, tz));
+      if (asked) return refuse(asked);
+      const preview = invoicePreview(db, input, tz);
+      if (!preview) return missing('Client');
+      const priced = pricedInvoiceRefusal(preview);
+      if (priced) return refuse(priced);
+      const profile = input.paymentProfileId
+        ? paymentProfile(db, input.clientId, input.paymentProfileId)
+        : undefined;
+      if (profile === null)
+        return fail(
+          'VALIDATION_FAILED',
+          'Those payment details are archived or gone. Choose others.',
+        );
+      Object.assign(invoice, draftChoices(db, input, preview), {
+        paymentDetails: profile
+          ? buildPaymentDetails(profile, {
+              invoiceNumber: invoice.invoiceNumber,
+            })
+          : invoice.paymentDetails,
+        lineItems: storedLines(preview),
+      });
+      return ok(
+        schema.Invoice.extend({ lineItems: createdInvoice.shape.lineItems }),
+        {
+          ...listed(invoice),
+          lineItems: preview.lineItems,
+        },
+      );
+    },
+  ),
 
   updateInvoiceStatus: http.patch(
     `${API}/invoices/:id/status`,
@@ -842,7 +890,6 @@ export const handlers = {
     if (existing) return ok(schema.Expense, expenseView(db, existing));
     if (!byId(db.clients, input.clientId)) return refuse(refusals.noSuchClient);
     const expense: Expense = {
-      note: null,
       ...input,
       spentOn: input.spentOn ?? null,
       invoiceId: null,

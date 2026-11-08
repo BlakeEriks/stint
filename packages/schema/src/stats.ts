@@ -135,6 +135,9 @@ export const WeekDay = z.object({
 
 export const Stats = z.object({
   currency,
+  /** Whether the account holds any entry, running or invoiced, whatever its
+   *  date. Home asks for a first one while it is false. */
+  hasEntries: z.boolean(),
   unbilled: z.object({
     /** Work done and not yet invoiced, a running timer's session so far
      *  included. Never "earned" and never "revenue". */
@@ -252,26 +255,23 @@ export const Stats = z.object({
         amount: money,
         currency,
         ageDays: z.number().int(),
+        /** The entries Mark sent locks, which its dialog names. */
+        entryCount: z.number().int().nonnegative(),
         /** Whether its PDF and Mark sent would refuse it now. */
         refuses: DraftActions,
       }),
     ),
-    /** Billable work past due to bill, one row per client (`unbilledDue` in
-     *  `@stint/core`): in an ended period of a scheduled client, or older
-     *  than `UNBILLED_DUE_DAYS` for any other. `periodStart`..`periodEnd`
-     *  span its oldest run that no invoice interrupts, which Create invoice
-     *  opens; `onePeriod` says all of it is in one of the client's
-     *  periods. */
+    /** Clients ready to invoice (`unbilledDue` in `@stint/core`): the most
+     *  recent ended period of the client's schedule holds billable work, overlaps
+     *  no sent or paid invoice, and no draft spans it. `seconds` is that work; New invoice
+     *  opens with the period. */
     unbilledDue: z.array(
       z.object({
         clientId: uuid,
         clientName: z.string(),
-        entryIds: z.array(uuid),
         seconds: z.number().int().nonnegative(),
-        since: z.iso.date(),
         periodStart: z.iso.date(),
         periodEnd: z.iso.date(),
-        onePeriod: z.boolean(),
       }),
     ),
     /** Unbilled billable work dated inside a sent or paid invoice's period

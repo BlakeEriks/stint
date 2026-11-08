@@ -226,7 +226,7 @@ export function createSurfaces({
         });
       }
     } catch (err) {
-      why = `${p.action === 'stop' ? 'Not stopped' : 'Not started'}: ${reason(err)}`;
+      why = `${FAILED[p.action]}: ${reason(err)}`;
     }
     // Native drops its prediction only on a draw, so this one always lands.
     drawn = '';
@@ -300,10 +300,41 @@ export function pressedState(s: SurfaceState): SurfaceState | null {
   };
 }
 
+/** How a failed press reads, also from Swift's press on iOS. */
+const FAILED = {
+  start: 'Not started',
+  stop: 'Not stopped',
+  unreachable: 'can’t reach Stint',
+};
+
+/** Where Swift's press on iOS sends it, and the secure-store keys it reads. */
+export interface Backend {
+  origin: string;
+  supabaseUrl: string;
+  supabaseKey: string;
+  session: string;
+  bypass: string;
+}
+
+/**
+ * What native draws: the state and what a press shows. On iOS a press runs
+ * in Swift, since the app's JS doesn't start for it (`docs/mobile.md`,
+ * Outside the app), so the state also carries its words and its backend.
+ */
+export function nativeState(state: SurfaceState, backend: Backend) {
+  if (state.kind === 'kept') return state;
+  return {
+    ...state,
+    pressed: pressedState(state),
+    failed: FAILED,
+    backend: state.kind === 'signedOut' ? null : backend,
+  };
+}
+
 /** A refusal's message; the network, said plainly. Anything else is a bug. */
 function reason(err: unknown): string {
   if (err instanceof ApiError) return err.message.replace(/\.$/, '');
-  if (err instanceof TypeError) return 'can’t reach Stint';
+  if (err instanceof TypeError) return FAILED.unreachable;
   throw err;
 }
 

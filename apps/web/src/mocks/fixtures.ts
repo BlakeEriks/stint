@@ -18,7 +18,7 @@ import type {
   InvoiceLineItem,
   UnratedEntry,
   TimeEntry,
-  DraftChange,
+  NewWork,
 } from '@/lib/client/api';
 import { businessOf } from '@/components/invoice-preview-card';
 import { ZONE } from './time.mts';
@@ -33,12 +33,13 @@ import { ZONE } from './time.mts';
  * internal work.
  */
 
-/** A draft the story says moved since its PDF was rendered carries the
- *  change and which lines are new, and one with unpriced work names it; the
- *  fake keeps no snapshot of its own and derives nothing on read. */
+/** A draft a story gives new work, or the entries Mark sent locks, carries
+ *  them, and one with unpriced work names it; the fake holds no work of its
+ *  own and derives nothing on read. */
 type StoredInvoice = Invoice & {
-  lineItems: (InvoiceLineItem & { isNew?: boolean })[];
-  changedSinceDownload?: DraftChange | null;
+  lineItems: InvoiceLineItem[];
+  newWork?: NewWork | null;
+  entryCount?: number;
   unratedEntries?: UnratedEntry[];
   /** The due date typed on New invoice, the row's `due_date`; absent, the
    *  stored `dueDate` was typed. A draft without one is due by its terms
@@ -55,7 +56,11 @@ type StoredInvoice = Invoice & {
 export const mockDraftRefusals = (i: StoredInvoice) => {
   const unrated = (i.unratedEntries?.length ?? 0) > 0;
   const due = i.dueBeforeIssue ?? dueBeforeIssue(i);
-  return { download: unrated || due.download, send: unrated || due.send };
+  return {
+    download: unrated || due.download,
+    send:
+      unrated || due.send || (i.status === 'draft' && i.lineItems.length === 0),
+  };
 };
 
 export const typedDue = (i: StoredInvoice) =>
@@ -130,6 +135,7 @@ export const settings = (): Settings => ({
   businessEmail: 'billing@samrivera.test',
   logoUrl: null,
   paymentTermsDays: 30,
+  billingTimeZone: ZONE,
   invoiceNumberPrefix: 'STINT-',
   invoiceTemplate: 'standard',
   nextInvoiceNumber: 16,
@@ -340,7 +346,6 @@ export function seed(now: Date): Db {
         paymentLinkUrl: null,
         currency: 'USD',
         feeAllocation: null,
-        notes: null,
         archivedAt: null,
       },
       {
@@ -365,7 +370,6 @@ export function seed(now: Date): Db {
         paymentLinkUrl: null,
         currency: 'USD',
         feeAllocation: 'SHA',
-        notes: null,
         archivedAt: null,
       },
     ],
@@ -609,7 +613,6 @@ function expensesFor(invoices: StoredInvoice[]) {
     spentOn: '2026-09-05',
     description: '',
     amount: 0,
-    note: null,
     invoiceId: null,
     invoiceNumber: null,
     invoiceStatus: null,
@@ -629,7 +632,6 @@ function expensesFor(invoices: StoredInvoice[]) {
       spentOn: '2026-08-20',
       description: 'Figma license, annual',
       amount: 180,
-      note: 'Order 88213',
     }),
     expense({
       id: ids.stockPhotos,
