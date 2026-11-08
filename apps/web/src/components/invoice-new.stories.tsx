@@ -567,9 +567,8 @@ export const EarlierWorkOnDraft: Story = {
     ...menuOpen,
     msw: {
       handlers: {
-        // Only a draft holding work outside its own period, as one built in
-        // another zone can, holds the look-back's work, which the fake API's
-        // period-bound drafts never do.
+        // A draft holds the look-back's work once a held entry is re-dated
+        // past its period, which the fake API's period-bound drafts never do.
         previewInvoice: http.post(
           handlers.previewInvoice.info.path,
           async (info) => {

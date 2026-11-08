@@ -258,22 +258,34 @@ test('preview names the draft holding the earlier work, unless it is the one edi
     '../src/app/api/v1/invoices/preview/route.ts'
   );
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
-  await seedEntry({ id: E(1), start: '2026-09-30T15:00:00Z' });
+  const { PATCH: edit } = await import(
+    '../src/app/api/v1/entries/[id]/route.ts'
+  );
+  await seedEntry({ id: E(1), start: '2026-09-10T15:00:00Z' });
   const draft = await json(
     await create(
       req('/invoices', {
         clientId: CLIENT,
-        periodStart: '2026-10-02',
-        periodEnd: '2026-10-31',
+        periodStart: '2026-09-01',
+        periodEnd: '2026-09-15',
       }),
     ),
   );
-  // Held outside its period, as a draft built in another zone holds an
-  // entry near midnight; a draft spanning Oct 1 would leave no look-back.
-  await pool.query('update time_entries set draft_id=$1 where id=$2', [
-    draft.body.id,
-    E(1),
-  ]);
+  // Re-dated past its draft's period, the entry stays held by the draft.
+  const moved = await json(
+    await edit(
+      req(
+        `/entries/${E(1)}`,
+        {
+          startedAt: '2026-09-20T15:00:00Z',
+          endedAt: '2026-09-20T16:00:00Z',
+        },
+        'PATCH',
+      ),
+      { params: Promise.resolve({ id: E(1) }) },
+    ),
+  );
+  assert.equal(moved.status, 200, JSON.stringify(moved.body));
   const october = { periodStart: '2026-10-01', periodEnd: '2026-10-31' };
   const earlier = async (draftId?: string) =>
     (
