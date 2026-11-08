@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>New invoice: earlier unbilled work (round 1)</title>
+<title>New invoice: earlier unbilled work</title>
 <style>
 /* GENERATED from tokens.json — do not edit by hand. Run `pnpm tokens`. */
 /* The palette for docs/design mockups. Token names are the RAW ones
@@ -346,7 +346,7 @@ h1 { margin: 6px 0 20px; }
 .row { display: flex; gap: 16px; flex-wrap: wrap; }
 .input { border: 1px solid var(--border-control); background: var(--bg-elevated); border-radius: 6px; padding: 7px 10px; min-width: 150px; color: var(--text-primary); }
 .input.moved { border-color: var(--border-focus); }
-.offer { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 10px 0 0; }
+.offer { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0; }
 .offer.warn { color: var(--warning); }
 .link { color: var(--text-strong); text-decoration: underline; text-underline-offset: 2px; }
 .btn { background: var(--bg-elevated); color: var(--text-strong); border: 1px solid var(--border-control); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
@@ -365,11 +365,9 @@ body.phone .pair { grid-template-columns: 1fr; gap: 24px; }
 </style>
 <div class="bar">
   <div><span class="type-label">State</span><span id="states"></span></div>
-  <div><span class="type-label">Variation</span><span id="vars"></span></div>
   <div><span class="type-label">Width</span><button data-w="desktop" aria-pressed="true">Desktop</button><button data-w="phone">Phone</button></div>
   <div><span class="type-label">Theme</span><button data-t="dark" aria-pressed="true">Dark</button><button data-t="light">Light</button></div>
 </div>
-<p class="note type-support" id="varnote"></p>
 <div class="app">
   <nav class="rail">
     <span class="type-wordmark" style="padding:0 10px 12px">Stint</span>
@@ -387,7 +385,6 @@ body.phone .pair { grid-template-columns: 1fr; gap: 24px; }
             <div class="field"><span class="type-label">From</span><span class="input type-control" id="from"></span></div>
             <div class="field"><span class="type-label">To</span><span class="input type-control">Oct 31, 2026</span></div>
           </div>
-          <div id="slotB"></div>
         </div>
         <div class="field"><span class="type-label">Show time as</span><span class="input type-control">Every entry</span></div>
         <div><button class="btn primary type-control">Generate invoice</button></div>
@@ -412,11 +409,7 @@ const STATES = {
   held: 'Held by a draft',
   included: 'After Include',
 };
-const VARS = {
-  A: ['Above the preview', 'Beside the other things the preview warns about, where the issue puts it. Costs: Include moves a field on the other side of the screen.'],
-  B: ['Under the dates', 'Next to the date it moves, so the change is seen where it lands. Costs: the form, not the preview, tells her what will be billed.'],
-};
-let state = 'one', variation = 'A';
+let state = 'one';
 const LINES = [
   ['Sep 30 · Warehouse dashboard: fix picker', '2.50 h', '$375.00', 'sep'],
   ['Oct 2 · Warehouse dashboard', '6.00 h', '$900.00'],
@@ -431,8 +424,6 @@ function offer() {
 }
 function render() {
   document.querySelectorAll('[data-s]').forEach(b => b.setAttribute('aria-pressed', b.dataset.s === state));
-  document.querySelectorAll('[data-v]').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === variation));
-  document.getElementById('varnote').textContent = VARS[variation][0] + ': ' + VARS[variation][1];
   const included = state === 'included';
   const start = included ? 'Sep 30, 2026' : 'Oct 1, 2026';
   const from = document.getElementById('from');
@@ -443,14 +434,11 @@ function render() {
   document.getElementById('total').textContent = included ? '$3,187.50' : '$2,812.50';
   const o = offer();
   const html = o ? `<p class="offer type-support ${o[0]}" role="status"><span>${o[1]}</span>${o[2] ? `<button class="btn type-control" data-include>${o[2]}</button>` : ''}</p>` : '';
-  document.getElementById('slotA').innerHTML = variation === 'A' ? html : '';
-  document.getElementById('slotB').innerHTML = variation === 'B' ? html : '';
+  document.getElementById('slotA').innerHTML = html;
   document.querySelectorAll('[data-include]').forEach(b => b.onclick = () => { state = 'included'; render(); });
 }
 document.getElementById('states').innerHTML = Object.entries(STATES).map(([k, v]) => `<button data-s="${k}">${v}</button>`).join('');
-document.getElementById('vars').innerHTML = Object.entries(VARS).map(([k, v]) => `<button data-v="${k}">${k}: ${v[0]}</button>`).join('');
 document.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { state = b.dataset.s; render(); });
-document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { variation = b.dataset.v; render(); });
 document.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { document.body.classList.toggle('phone', b.dataset.w === 'phone'); document.querySelectorAll('[data-w]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
 document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { document.documentElement.dataset.theme = b.dataset.t; document.querySelectorAll('[data-t]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
 render();

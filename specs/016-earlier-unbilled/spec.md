@@ -2,7 +2,7 @@ Closes #569
 
 # Feature Specification: New invoice offers to include unbilled work dated just before its period
 
-**Feature Branch**: `f569-earlier-work`, stacked on `f482-invoice-due` (#548), which merges first
+**Feature Branch**: `f569-earlier-work`
 
 **Created**: 2026-10-29
 
@@ -21,11 +21,27 @@ feature finds what is already stranded.
 
 ### Session 2026-10-29
 
-- Q: How far back does a client's first invoice look? → A: 30 days before the period starts, the age at which #548's Inbox row asks about a client with no schedule. Older work is that row's, and its Create invoice opens a period of its own. (decided autonomously)
-- Q: Which zone dates the work? → A: The zone the invoice bills in, so the offer and the period agree on every entry's day. On this branch that is the zone New invoice previews in. Once #580 merges, it is the client's billing zone, `billingZone()`, and whichever of the two merges second makes the switch. (decided autonomously)
-- Q: Does the offer show when a draft is edited (#571)? → A: Yes, on the same screen and by the same rule. The draft being edited neither ends the look-back nor holds the work, and Save draft refuses a start moved onto another draft, as Generate does. #571 isn't merged; whichever merges second passes the edited draft's id. (decided autonomously)
+- Q: How far back does a client's first invoice look? → A: 30 days before the period starts, about one monthly period. #548 merged without the no-schedule Inbox row this once borrowed its age from, so 30 days stands on its own: older work is a period of its own, not a stray. (decided autonomously)
+- Q: Which zone dates the work? → A: The zone the invoice bills in, `billingZone()` (#580), so the offer and the period agree on every entry's day. (decided autonomously)
+- Q: Does the offer show when a draft is edited (#571)? → A: Yes, on the same screen and by the same rule. The draft being edited neither ends the look-back nor counts as holding the work. (decided autonomously)
+- Q: What does "held by a draft" mean now that #596 removed `DRAFT_OVERLAPS`? → A: A draft holds its entries (`draft_id`), and two drafts may share dates, so Include is never refused. Earlier work another draft holds isn't stranded: the offer counts only work no draft holds, and names the draft only when every earlier entry is held by one. (decided autonomously)
 - Q: Does Include wait for the server? → A: No. It moves a date she can move back, so the period changes at once and the preview follows (Principle VI). (decided autonomously)
 - Q: Do expenses count? → A: No. A one-off expense already shows on the first draft whose period ends on or after its date, so none is left behind by a period's start. (decided autonomously)
+
+## Design
+
+[`design/new-invoice.html`](design/new-invoice.html)
+
+- **The offer** sits above the preview, with its other notices, as one line
+  of support text and an **Include it** (one entry) or **Include them**
+  (several) button: "1 earlier entry, Sep 30, isn't on any invoice." or
+  "3 earlier entries, Sep 28 – Sep 30, aren't on any invoice."
+- **None**: nothing shows.
+- **Held by a draft**: the line is a warning with no button: "1 earlier
+  entry, Sep 30, is on draft INV-0042. Open that draft to bill it.", the
+  number linking to the draft.
+- **After Include**: From reads the earliest entry's date, the preview's
+  period and lines follow, and the offer is gone.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -57,7 +73,7 @@ invoice for the next period, then press Include it.
    period and the invoice stay as they were, and the work stays unbilled.
 4. **Given** no earlier invoice for the client, **Then** the offer looks
    back only 30 days before the period starts.
-5. **Given** earlier work that falls inside an open draft's period,
+5. **Given** earlier work that another draft holds, and none it doesn't,
    **Then** the offer doesn't offer Include. It names the draft that holds
    that work and links to it.
 6. **Given** non-billable work, a running timer, work billed elsewhere, or
@@ -90,8 +106,9 @@ invoice for the next period, then press Include it.
 - **FR-004**: Include MUST move the period's start back to the earliest
   entry's date and keep its end. Nothing MUST be included without that
   press.
-- **FR-005**: When an open draft's period holds that work, the offer MUST
-  name the draft and link to it instead of offering Include.
+- **FR-005**: FR-001's count MUST leave out work another draft holds. When
+  a draft holds all of it, the offer MUST name the draft and link to it
+  instead of offering Include.
 - **FR-006**: An entry's date MUST be read in the zone the invoice bills in,
   the same zone that decides which entries the period holds.
 - **FR-007**: Include MUST change the period at once, with no wait on the
