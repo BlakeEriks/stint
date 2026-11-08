@@ -411,7 +411,8 @@ export const RateRejected: Story = {
   },
 };
 
-/** A new account: every figure is zero and nothing is extrapolated. */
+/** A new account: every figure is zero and nothing is extrapolated, dimmed
+ *  behind a message asking for the first entry, which that entry lifts. */
 export const Empty: Story = {
   ...desktop,
   parameters: account('empty'),
@@ -429,6 +430,16 @@ export const Empty: Story = {
     await expect(rows).toHaveLength(3);
     for (const row of rows)
       await expect(row.querySelector('[data-pip]')).toBeNull();
+
+    await expect(await page.findByText('Add your first entry')).toBeVisible();
+    await userEvent.click(
+      await within(canvasElement.ownerDocument.body).findByRole('button', {
+        name: 'Start timer',
+      }),
+    );
+    await waitFor(() =>
+      expect(page.queryByText('Add your first entry')).toBeNull(),
+    );
   },
 };
 
