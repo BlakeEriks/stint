@@ -2,7 +2,6 @@
 
 import {
   hashKey,
-  type QueryClient,
   type QueryKey,
   useMutationState,
 } from '@tanstack/react-query';
@@ -40,17 +39,4 @@ export function useFailedPress(): {
   return shown
     ? { message: shown.message, dismiss: () => setDismissed(shown.id) }
     : null;
-}
-
-/**
- * A failure that no press holds, such as a save sent as its screen closed,
- * recorded where `useFailedPress` reads it, so the notice says it.
- */
-export function reportFailure(queryClient: QueryClient, error: Error) {
-  queryClient
-    .getMutationCache()
-    .build(queryClient, { mutationFn: () => Promise.reject(error) })
-    .execute(undefined)
-    // The rejection is the record: the cache now holds it as failed.
-    .catch(() => {});
 }

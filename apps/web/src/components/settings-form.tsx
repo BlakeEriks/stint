@@ -20,7 +20,7 @@ import {
   type SettingsInput,
 } from '@/lib/client/api';
 import { type Theme, useTheme } from '@/lib/client/use-theme';
-import { keys, invalidateEntryData, reportFailure } from '@stint/client';
+import { keys, invalidateEntryData, pressOnce } from '@stint/client';
 
 const THEMES: Segment<Theme>[] = [
   { value: 'system', label: 'System', icon: Monitor },
@@ -72,13 +72,22 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
     invalidateEntryData(queryClient);
   };
 
-  /* Once the form has gone, the app-wide notice says what didn't save. */
+  /* Once the form has gone, the app-wide notice says what didn't save,
+     recorded as a failed press on settings. */
   const options = {
     onOrphanedError: (e: Error) =>
-      reportFailure(
+      pressOnce(
         queryClient,
-        new Error(`Settings didn’t save: ${refusalReason(e)}`),
-      ),
+        {
+          queryKey: () => keys.settings(),
+          mutationFn: () =>
+            Promise.reject(
+              new Error(`Settings didn’t save: ${refusalReason(e)}`),
+            ),
+        },
+        undefined,
+        // The rejection is the record: the notice reads it from the cache.
+      ).catch(() => {}),
   };
   const billing = useAutosave(persist, options);
   const identity = useAutosave(persist, options);
