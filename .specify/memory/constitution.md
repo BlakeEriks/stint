@@ -72,8 +72,8 @@ delete, money) shows a pending state on the control instead. Never neither.
 
 Every write goes through one mechanism per platform —
 `useOptimisticMutation` (`packages/client/src/mutations.ts`), which the
-web and phone apps share, and its `pressOnce` for an Android surface with no
-screen, or the
+web and phone apps share, and its `pressOnce` for a press with no component,
+such as an Android surface with no screen, or the
 `Optimistic` protocol's `press` (`apps/macos/Sources/Stint/Shared/Optimistic.swift`),
 which the macOS app and the iPhone's surfaces outside the app share
 — which gives both the same rules: overlapping presses let the latest win,
@@ -140,4 +140,4 @@ change, the plausible design that breaks it, and why no check catches that
 in time. The version follows semver: MAJOR removes or redefines a principle,
 MINOR adds one, PATCH rewords. The reasoning goes in the PR.
 
-**Version**: 8.3.2 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-10-29
+**Version**: 8.3.3 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-11-08
