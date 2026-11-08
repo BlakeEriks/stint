@@ -82,21 +82,21 @@ the dialog; press Keep editing and see the form unchanged.
 
 ### User Story 2 - Save draft keeps the work (Priority: P1)
 
-Save draft in the dialog creates the draft, or saves the edits, and opens
-it.
+Save draft in the dialog creates the draft, or saves the edits, then goes
+where the pressed link pointed.
 
 **Why this priority**: Without it, the dialog only warns before the loss.
 
 **Independent Test**: Change a field, press a link, press Save draft, and
-see the draft open with its number and the field kept.
+land on the link's page, with the draft listed and the field kept.
 
 **Acceptance Scenarios**:
 
 1. **Given** the dialog on New invoice, **When** Save draft is pressed,
    **Then** it shows a pending state until the server answers, then the
-   new draft opens.
+   link's page opens.
 2. **Given** the dialog on an edit form, **When** Save draft is pressed,
-   **Then** the edits are saved and the draft opens.
+   **Then** the edits are saved and the link's page opens.
 3. **Given** the server refuses the save, **Then** the refusal shows in
    the dialog, which stays open.
 4. **Given** a form that can't be saved yet (no client, unrated work, a
@@ -145,7 +145,7 @@ it refused.
 - **FR-003**: Refreshing or closing the tab with changes MUST raise the
   browser's own prompt. Nothing MUST be stored on the device.
 - **FR-004**: Save draft MUST make the same press as Generate invoice, or
-  Save draft on an edit form, and open the draft. It MUST show a pending
+  Save draft on an edit form, then go to the link's page. It MUST show a pending
   state, and a refusal MUST show in the dialog.
 - **FR-005**: While the form can't be saved, Save draft MUST be disabled,
   and the dialog MUST say why.

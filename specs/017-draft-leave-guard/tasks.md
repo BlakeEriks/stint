@@ -16,7 +16,7 @@ Foundational: Save draft on a half-filled form needs it.
 - [x] T005 [US1] Write `apps/web/src/lib/client/use-leave-guard.ts`
 - [x] T006 [US1] Give `ConfirmDialog` a secondary action and a disabled confirm in `apps/web/src/components/confirm-dialog.tsx`
 - [x] T007 [US1] [US2] Wire the form in `apps/web/src/components/invoice-new.tsx`: changed state, the dialog, the reason Save draft can't save, Save draft as the Generate press
-- [x] T008 [US1] [US2] Stories in `apps/web/src/components/invoice-new.stories.tsx`: leaving untouched doesn't ask; leaving changed asks and Keep editing keeps it; Discard leaves; Save draft creates and opens the draft; a blocked form says why
+- [x] T008 [US1] [US2] Stories in `apps/web/src/components/invoice-new.stories.tsx`: leaving untouched doesn't ask; leaving changed asks and Keep editing keeps it; Discard leaves; Save draft creates the draft and goes where the link pointed; a blocked form says why
 - [x] T009 Update `docs/api.md` for `POST /invoices` and `PATCH /invoices/:id`
 
 ## Phase 3: Verify
