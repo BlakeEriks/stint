@@ -1290,8 +1290,9 @@ export const LeavingBlocked: Story = {
   },
 };
 
-/** The sender on the preview opens the same dialog, filled from Settings:
- *  correcting it reprints the preview and leaves the draft as it was. */
+/** Your business, atop the form, opens the same dialog, filled from
+ *  Settings: correcting it reprints the preview and leaves the draft as it
+ *  was. */
 export const EditSender: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -1299,9 +1300,7 @@ export const EditSender: Story = {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
     await userEvent.type(page.getByLabelText('Reference'), 'PO-7');
-    await userEvent.click(
-      card(page).getByRole('button', { name: /^Edit Sam Rivera/ }),
-    );
+    await userEvent.click(page.getByRole('button', { name: 'Edit business' }));
     const dialog = await page.findByRole('dialog', {
       name: 'Who is this invoice from?',
     });

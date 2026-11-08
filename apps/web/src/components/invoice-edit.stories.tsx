@@ -43,7 +43,7 @@ export const Filled: Story = {
     await saved(page);
     // Its sender was frozen when it was made, so Settings can't reach it.
     await expect(
-      page.queryByRole('button', { name: /^Edit Sam Rivera/ }),
+      page.queryByRole('button', { name: 'Edit business' }),
     ).toBeNull();
   },
 };

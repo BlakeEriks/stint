@@ -17,10 +17,8 @@ import type {
   InvoicePreview,
   Settings,
 } from '@/lib/client/api';
-import { Pencil } from 'lucide-react';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import { shortDate } from './invoice-bits';
-import { rowButton } from './row-button';
 
 type Business = Pick<Invoice['business'], 'name' | 'address' | 'email'>;
 
@@ -89,7 +87,6 @@ export function InvoicePreviewCard({
   notes,
   heading = true,
   noSender = false,
-  onEditSender,
   footnote,
   children,
 }: {
@@ -113,8 +110,6 @@ export function InvoicePreviewCard({
   heading?: boolean;
   /** No business name or email yet: a draft marks where they will print. */
   noSender?: boolean;
-  /** Given, the sender is the button that edits it. */
-  onEditSender?: () => void;
   /** Under the card, after `children`. */
   footnote?: string;
   /** Warnings and errors, under the card. */
@@ -158,7 +153,6 @@ export function InvoicePreviewCard({
             <From
               business={business}
               noSender={noSender}
-              onEdit={onEditSender}
               number={number}
               issued={issued}
               due={due}
@@ -244,14 +238,12 @@ function Caption({
 function From({
   business,
   noSender,
-  onEdit,
   number,
   issued,
   due,
 }: {
   business: Business | undefined;
   noSender: boolean;
-  onEdit: (() => void) | undefined;
   number: string;
   issued: string;
   due: string;
@@ -265,25 +257,6 @@ function From({
           aria-hidden
           className="min-h-14 min-w-0 flex-[1_1_200px] self-start rounded-md border border-dashed border-edge-control"
         />
-      ) : onEdit ? (
-        /* Pulled out by its padding, so the name keeps the card's edge. */
-        <button
-          type="button"
-          onClick={onEdit}
-          className={`${rowButton} -mx-2 -my-1 flex min-w-0 flex-[1_1_200px] items-start gap-2 self-start py-1`}
-        >
-          <span className="sr-only">Edit</span>{' '}
-          <Party
-            as="span"
-            name={business ? (business.name ?? 'Invoice') : ''}
-            lines={[business?.address, business?.email]}
-          />
-          <Pencil
-            aria-hidden
-            strokeWidth={1.75}
-            className="mt-0.5 size-3.5 flex-none text-subtle group-hover:text-strong"
-          />
-        </button>
       ) : (
         <Party
           name={business ? (business.name ?? 'Invoice') : ''}
@@ -343,21 +316,18 @@ function Notes({ notes }: { notes: string }) {
   );
 }
 
-/** `as="span"` inside a button, which holds no paragraph. */
 function Party({
   name,
   lines,
-  as: Tag = 'p',
 }: {
   name: string;
   lines: Array<string | null | undefined>;
-  as?: 'p' | 'span';
 }) {
   return (
-    <Tag className="block min-w-0 flex-[1_1_200px] whitespace-pre-line type-support text-muted">
+    <p className="min-w-0 flex-[1_1_200px] whitespace-pre-line type-support text-muted">
       <b className="block type-control text-strong">{name}</b>
       {lines.filter(Boolean).join('\n')}
-    </Tag>
+    </p>
   );
 }
 

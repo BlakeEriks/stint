@@ -711,8 +711,16 @@ function Form({
               focus ring, taken back with a negative margin so the fields
               don't move. */}
           <div className="flex min-w-0 flex-col xl:-mx-1 xl:min-h-0 xl:overflow-y-auto xl:px-1 [&>*]:border-t [&>*]:border-edge-subtle [&>*]:py-5 [&>*:first-child]:border-0 [&>*:first-child]:pt-1">
-            {/* First on the form: it is why Generate is disabled. */}
-            <SenderNotice settings={settings} />
+            {/* First on the form, as on the invoice. A draft froze its sender
+                when it was made, so Settings no longer reaches it. */}
+            {editing || !settings || noSender ? (
+              <SenderNotice settings={settings} />
+            ) : (
+              <SenderDetails
+                business={businessOf(settings)}
+                onEdit={() => setEditingSender(true)}
+              />
+            )}
             <div className="flex flex-col gap-4">
               <Field label="Client" htmlFor="inv-client" required>
                 {/* A draft keeps its client: another is a new invoice. */}
@@ -872,11 +880,6 @@ function Form({
           <div className="mt-6 min-w-0 @min-[800px]/new:mt-0 xl:flex xl:min-h-0 xl:flex-col">
             <InvoicePreviewCard
               noSender={noSender}
-              // A draft froze its sender when it was made; Settings no
-              // longer reaches it.
-              onEditSender={
-                editing || noSender ? undefined : () => setEditingSender(true)
-              }
               preview={current}
               client={client}
               business={businessOf(settings)}
@@ -950,6 +953,37 @@ const pressLabel = (editing: boolean, pending: boolean) => {
   if (editing) return pending ? 'Saving…' : 'Save draft';
   return pending ? 'Generating…' : 'Generate invoice';
 };
+
+/**
+ * Who the invoice is from, read-only like the client's details; its dialog
+ * saves to Settings.
+ */
+function SenderDetails({
+  business,
+  onEdit,
+}: {
+  business: Invoice['business'];
+  onEdit: () => void;
+}) {
+  return (
+    <Field label="Your business">
+      <div className="flex flex-col items-start gap-1.5">
+        {/* As `Party` prints it on the invoice. */}
+        <p className="whitespace-pre-line type-support text-muted">
+          <b className="block type-control text-strong">{business.name}</b>
+          {[business.address, business.email].filter(Boolean).join('\n')}
+        </p>
+        <button
+          type="button"
+          className="type-support text-strong underline underline-offset-2"
+          onClick={onEdit}
+        >
+          Edit business
+        </button>
+      </div>
+    </Field>
+  );
+}
 
 /**
  * What the invoice prints for the client, read-only: nothing on this form

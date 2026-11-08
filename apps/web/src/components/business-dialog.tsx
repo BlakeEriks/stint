@@ -34,7 +34,7 @@ export function BusinessDialog({
     <SettingsDialog
       onOpenChange={onOpenChange}
       title="Who is this invoice from?"
-      description="Your name and email go at the top of every invoice. Saved to Settings, for every invoice after this one."
+      description="Your name and email go at the top of every invoice. Saved to Settings, for this invoice and every one after it."
       missing={{
         'biz-dialog-name':
           name.trim() === '' ? 'Enter your business name.' : undefined,
