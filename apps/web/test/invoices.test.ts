@@ -718,13 +718,18 @@ test('generation refuses when any billable entry has no rate', async () => {
   assert.equal(rows[0].n, 1, 'a refused generation consumes no number');
 });
 
-test('generation refuses an empty period rather than issuing a zero invoice', async () => {
-  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+test('a draft with nothing to bill is created, and offers no Mark sent', async () => {
+  const r = await live();
   const res = await json(
-    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
   );
-  assert.equal(res.status, 400);
-  assert.equal(res.body.code, 'INVALID_PERIOD');
+  assert.equal(res.status, 201, JSON.stringify(res.body));
+  assert.equal(res.body.lineItems.length, 0);
+
+  const shown = await json(
+    await r.detail(req('/invoices/x?tz=UTC'), at(res.body.id)),
+  );
+  assert.deepEqual(shown.body.refuses, { download: false, send: true });
 });
 
 test('sequential generations produce gapless numbers', async () => {

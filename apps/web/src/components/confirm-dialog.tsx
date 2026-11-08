@@ -18,7 +18,9 @@ import { ApiError } from '@/lib/client/api';
  * changes. The server decides it, so the confirm shows a pending state
  * until it answers (Constitution VI), and a refusal stays in the dialog,
  * beside the press that met it. `tone` is the confirm's weight: `primary`
- * for one that locks, `danger` for one that destroys.
+ * for one that locks, `danger` for one that destroys. `secondary` is a
+ * third way out, at the far left; `disabled` holds a confirm the
+ * description says why it can't make yet.
  */
 export function ConfirmDialog({
   open,
@@ -31,7 +33,9 @@ export function ConfirmDialog({
   keepLabel = 'Keep',
   tone = 'primary',
   pending,
+  disabled = false,
   error,
+  secondary,
   onConfirm,
 }: {
   open: boolean;
@@ -45,7 +49,9 @@ export function ConfirmDialog({
   keepLabel?: string;
   tone?: 'primary' | 'danger';
   pending: boolean;
+  disabled?: boolean;
   error?: unknown;
+  secondary?: { label: string; onPress: () => void };
   onConfirm: () => void;
 }) {
   return (
@@ -67,6 +73,17 @@ export function ConfirmDialog({
           </p>
         ) : null}
         <DialogFooter>
+          {secondary ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="mr-auto"
+              disabled={pending}
+              onClick={secondary.onPress}
+            >
+              {secondary.label}
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="ghost"
@@ -78,7 +95,7 @@ export function ConfirmDialog({
           <Button
             type="button"
             variant={tone === 'danger' ? 'destructive' : 'accent'}
-            disabled={pending}
+            disabled={pending || disabled}
             onClick={onConfirm}
           >
             {pending ? <Loader2 aria-hidden className="animate-spin" /> : icon}
@@ -100,7 +117,7 @@ export function AskFirst({
   ...ask
 }: Omit<
   Parameters<typeof ConfirmDialog>[0],
-  'open' | 'onOpenChange' | 'pending' | 'error'
+  'open' | 'onOpenChange' | 'pending' | 'error' | 'disabled' | 'secondary'
 > & {
   press: { isPending: boolean; reset: () => void; error: unknown };
   disabled?: boolean;

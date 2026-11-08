@@ -82,7 +82,7 @@ export const POST = handle(async (req: Request) => {
 
   requireSender(settings);
 
-  const priced = pricedInvoiceRefusal(totals, body);
+  const priced = pricedInvoiceRefusal(totals);
   if (priced) throw refused(priced);
 
   // Frozen alongside the rates: if the profile changes or is deleted later,
