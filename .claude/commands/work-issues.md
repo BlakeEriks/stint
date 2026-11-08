@@ -1,8 +1,5 @@
 ---
 description: Work through open GitHub issues one at a time, to an open PR each, stopping only for a decision the issue can't settle
-# The orchestrator re-reads its whole chat on every call: Sonnet keeps that
-# cheap. Builders and reviews pick their own model.
-model: sonnet
 # Follows orchestrator-workers and evaluator-optimizer from "Building effective
 # agents" (anthropic.com/engineering/building-effective-agents).
 ---
