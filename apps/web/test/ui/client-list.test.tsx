@@ -155,7 +155,6 @@ describe('ClientList', () => {
       expect(screen.getByText('$195.00/h')).toBeInTheDocument();
       expect(screen.getByText('from client')).toBeInTheDocument();
       expect(screen.getByText('from default')).toBeInTheDocument();
-      // A rate the client inherits is marked as the default.
       expect(screen.getByText(/\$125\.00\/h · default/)).toBeInTheDocument();
     });
   });

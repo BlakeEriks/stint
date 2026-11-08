@@ -1,11 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { HttpResponse, delay, http } from 'msw';
-import { expect, userEvent, within } from 'storybook/test';
+import { expect, fn, userEvent, within } from 'storybook/test';
 import { desktop, phone } from '@/mocks/screen';
 import { InviteRequest } from './invite-request';
 
 /* `.storybook/vite-mocks.mts` points the form at a stand-in URL; each story
-   answers it here, and an unanswered request fails the story. */
+   that sends answers it here. MSW fails a story only on an unanswered
+   `/api/` request, so a story asserting nothing is sent spies on it. */
 const ENDPOINT = process.env.NEXT_PUBLIC_INVITE_FORM_URL ?? '';
 const answer = (respond: Parameters<typeof http.post>[1]) => ({
   msw: { handlers: { invite: http.post(ENDPOINT, respond) } },
@@ -84,13 +85,19 @@ export const Failed: Story = {
 };
 
 /** Not an email: the browser stops it, and nothing is sent. */
+const invalidSent = fn(() => HttpResponse.json({ ok: true }));
 export const Invalid: Story = {
   ...desktop,
+  parameters: answer(invalidSent),
   play: async ({ canvasElement }) => {
+    invalidSent.mockClear();
     const page = await send(canvasElement, 'not-an-email');
     await expect(page.getByLabelText('Email')).toBeInvalid();
     await expect(
       page.getByRole('button', { name: 'Request an invite' }),
     ).toBeEnabled();
+    // A request would land within a tick; give it one before asserting none.
+    await new Promise((settle) => setTimeout(settle, 100));
+    await expect(invalidSent).not.toHaveBeenCalled();
   },
 };

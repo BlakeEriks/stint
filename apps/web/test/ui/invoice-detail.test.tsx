@@ -277,7 +277,6 @@ describe('shortDate', () => {
     // in the invoice rather than in the data.
     expect(shortDate('not-a-date')).toBe('—');
     expect(shortDate('2026-13')).toBe('—');
-    // A real date still formats.
     expect(shortDate('2026-07-26')).toBe('Jul 26, 2026');
   });
 });

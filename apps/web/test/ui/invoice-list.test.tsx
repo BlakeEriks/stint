@@ -168,7 +168,6 @@ describe('InvoiceList', () => {
     const user = userEvent.setup();
     render(<InvoiceList />, { wrapper });
 
-    // Identical rows are told apart by the number in the action's name.
     await user.click(
       await screen.findByRole('button', { name: 'Mark paid, STINT-0002' }),
     );

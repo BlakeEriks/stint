@@ -283,7 +283,6 @@ describe('NewInvoice', () => {
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
     await ready(user);
-    // The form previews as it fills, once.
     expect(previews()).toHaveLength(1);
 
     let release = () => {};
@@ -568,16 +567,14 @@ describe('NewInvoice — supporting detail', () => {
     await user.type(screen.getByLabelText(/Summary line/), 'Services');
     await waitFor(() => expect(generate()).toBeEnabled());
     const asked = previews().length;
-    await user.click(screen.getByRole('checkbox', { name: 'Hours by date' }));
     await user.click(
       screen.getByRole('checkbox', { name: 'Hours by project' }),
     );
-
-    // A ticked schedule shows at once, with no request.
     expect(
       within(card()).getByText('Page 2 · supporting detail'),
     ).toBeInTheDocument();
-    expect(within(card()).getAllByText('Portal').length).toBeGreaterThan(0);
+    expect(within(card()).getByText('Portal')).toBeInTheDocument();
+    await user.click(screen.getByRole('checkbox', { name: 'Hours by date' }));
     expect(previews()).toHaveLength(asked);
     expect(generate()).toBeEnabled();
     await user.click(generate());

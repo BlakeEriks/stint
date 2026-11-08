@@ -237,8 +237,9 @@ describe('EntryDialog', () => {
      accelerate and the overlay would drop over the field the moment it
      takes focus. Asserted as the REQUEST rather than the absent list: the
      list is also absent when nothing has been typed, so "no listbox" would
-     pass whether or not the machinery was actually suppressed.
-     `timer-bar.test.tsx` owns what a chosen row may write. */
+     pass whether or not the machinery was actually suppressed. What a
+     chosen row may write is `timer-bar.test.tsx`'s "fills the field with a
+     chosen name". */
   it('opens on the task by default, asking for no suggestions for an entry that exists', async () => {
     const calls = serve('sent', SUGGESTIONS);
     open(entry({ projectId: null }));
