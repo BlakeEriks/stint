@@ -76,14 +76,17 @@ function Panel({ stats }: { stats: Stats }) {
   if (stats.hasEntries) return <Cards stats={stats} hues={hues} />;
 
   /* Before any entry the cards read as dashes and zeros, so they stay as the
-     shape Home will take, dimmed behind the one thing to do first. */
+     shape Home will take, blurred behind the one thing to do first. */
   return (
     <div className="relative">
-      <div inert>
+      <div inert className="blur-sm">
         <Cards stats={stats} hues={hues} />
       </div>
-      <div className="absolute inset-0 flex items-center justify-center bg-overlay p-6">
-        <div role="status" className="max-w-sm text-center">
+      <div className="absolute inset-0 flex items-center justify-center p-6">
+        <div
+          role="status"
+          className="max-w-sm rounded-lg border border-edge-subtle bg-surface-elevated p-6 text-center shadow-float"
+        >
           <h2 className="type-heading text-strong">Add your first entry</h2>
           <p className="mt-1.5 type-body text-muted">
             Start a timer or add an entry, and Home fills in as your time
