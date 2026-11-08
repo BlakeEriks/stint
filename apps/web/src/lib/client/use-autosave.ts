@@ -17,15 +17,21 @@ export type SaveState = 'idle' | 'pending' | 'saved' | 'error';
  * Saves are coalesced: edits during an in-flight request queue one more save
  * after it, rather than racing it. Without that, a fast typist can land an
  * older payload after a newer one.
+ *
+ * Nothing scheduled is dropped: unmounting sends what is unsent at once, and
+ * `saveNow` does the same for a blur or a choice, which have nothing left to
+ * type. `saved` settles back to `idle`, so the check answers the edit that
+ * caused it and does not become permanent.
  */
 export function useAutosave<T extends object>(
   save: (value: T) => Promise<unknown>,
-  { delay = 700 }: { delay?: number } = {},
+  { delay = 700, settle = 2000 }: { delay?: number; settle?: number } = {},
 ) {
   const [state, setState] = useState<SaveState>('idle');
   const [error, setError] = useState<Error | null>(null);
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const settling = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlight = useRef(false);
   // Every patch scheduled since the last request went out.
   const unsent = useRef<T | null>(null);
@@ -36,18 +42,6 @@ export function useAutosave<T extends object>(
   // identity each render does not restart the debounce.
   const saveRef = useRef(save);
   saveRef.current = save;
-
-  // Set on mount, not just cleared on unmount: React StrictMode mounts,
-  // unmounts and remounts in development, and a ref that is only ever
-  // cleared stays false for the real mount — every save then completes
-  // silently and the indicator spins forever.
-  useEffect(() => {
-    alive.current = true;
-    return () => {
-      alive.current = false;
-      if (timer.current) clearTimeout(timer.current);
-    };
-  }, []);
 
   const flush = useCallback(async () => {
     if (inFlight.current) {
@@ -63,7 +57,10 @@ export function useAutosave<T extends object>(
       if (!alive.current) return;
       setError(null);
       // An unsent edit means this is not settled yet — stay pending.
-      if (unsent.current === null) setState('saved');
+      if (unsent.current === null) {
+        setState('saved');
+        settling.current = setTimeout(() => setState('idle'), settle);
+      }
     } catch (e) {
       if (!alive.current) return;
       setError(e as Error);
@@ -74,16 +71,31 @@ export function useAutosave<T extends object>(
       queued.current = false;
     } finally {
       inFlight.current = false;
-      if (queued.current && alive.current) {
+      if (queued.current) {
         queued.current = false;
         void flush();
       }
     }
-  }, []);
+  }, [settle]);
+
+  // Set on mount, not just cleared on unmount: React StrictMode mounts,
+  // unmounts and remounts in development, and a ref that is only ever
+  // cleared stays false for the real mount — every save then completes
+  // silently and the indicator spins forever.
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      if (settling.current) clearTimeout(settling.current);
+      if (timer.current) clearTimeout(timer.current);
+      void flush();
+    };
+  }, [flush]);
 
   /** Call on every edit with the fields it changed. Marks pending immediately, persists after `delay`. */
   const schedule = useCallback(
     (patch: T) => {
+      if (settling.current) clearTimeout(settling.current);
       setState('pending');
       unsent.current = { ...unsent.current, ...patch } as T;
       if (timer.current) clearTimeout(timer.current);
@@ -92,5 +104,11 @@ export function useAutosave<T extends object>(
     [delay, flush],
   );
 
-  return { state, error, schedule };
+  /** Sends what is unsent now, without waiting out the pause. */
+  const saveNow = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    return flush();
+  }, [flush]);
+
+  return { state, error, schedule, saveNow };
 }

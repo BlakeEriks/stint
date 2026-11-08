@@ -224,6 +224,39 @@ export const NextNumberCeiling: Story = {
   },
 };
 
+/** Every section says why a save was refused, at the field it names. */
+export const EmailRefused: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const field = await page.findByLabelText('Email');
+    await userEvent.clear(field);
+    await userEvent.type(field, 'you@');
+    await expect(
+      await page.findByText(
+        'An email like you@example.com.',
+        {},
+        { timeout: 3000 },
+      ),
+    ).toBeVisible();
+    await expect(page.getByText('Not saved')).toBeVisible();
+  },
+};
+
+/** Leaving a field saves it at once, without waiting out the pause, so an
+    edit made just before leaving the screen is not lost. */
+export const LeavingSaves: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await userEvent.type(await page.findByLabelText('Business name'), ' Co');
+    await userEvent.tab();
+    await waitFor(() => expect(getDb().settings.businessName).toMatch(/ Co$/), {
+      timeout: 400,
+    });
+  },
+};
+
 export const Failed: Story = { ...desktop, parameters: failing('settings') };
 
 /** Appearance is one row: System, which follows the OS, Light and Dark,

@@ -256,4 +256,70 @@ describe('useAutosave', () => {
     });
     await waitFor(() => expect(result.current.state).toBe('saved'));
   });
+  /** Leaving within the pause must not drop what was typed. */
+  it('sends an edit still in its pause when it unmounts', async () => {
+    const save = vi.fn(async () => {});
+    const { result, unmount } = renderHook(() => useAutosave(save));
+
+    act(() => result.current.schedule({ a: 1 }));
+    unmount();
+
+    expect(save).toHaveBeenCalledExactlyOnceWith({ a: 1 });
+  });
+
+  it('sends an edit queued behind an open save when it unmounts', async () => {
+    const first = deferred();
+    const save = vi
+      .fn<(v: unknown) => Promise<void>>()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementation(async () => {});
+    const { result, unmount } = renderHook(() =>
+      useAutosave(save, { delay: 100 }),
+    );
+
+    act(() => result.current.schedule({ n: 1 }));
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+    });
+    act(() => result.current.schedule({ n: 2 }));
+    unmount();
+    await act(async () => {
+      first.resolve();
+      await first.promise;
+    });
+
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    expect(save).toHaveBeenLastCalledWith({ n: 2 });
+  });
+
+  /** A blur, or a choice, has nothing left to type: no pause. */
+  it('saves at once on saveNow', async () => {
+    const save = vi.fn(async () => {});
+    const { result } = renderHook(() => useAutosave(save));
+
+    act(() => result.current.schedule({ a: 1 }));
+    await act(async () => result.current.saveNow());
+
+    expect(save).toHaveBeenCalledExactlyOnceWith({ a: 1 });
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  /** A check that stays becomes one nobody reads. */
+  it('settles from saved back to idle', async () => {
+    const save = vi.fn(async () => {});
+    const { result } = renderHook(() => useAutosave(save, { delay: 100 }));
+
+    act(() => result.current.schedule({ a: 1 }));
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+    });
+    await waitFor(() => expect(result.current.state).toBe('saved'));
+    await act(async () => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(result.current.state).toBe('idle');
+  });
 });

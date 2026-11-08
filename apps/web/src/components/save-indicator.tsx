@@ -5,9 +5,9 @@ import type { SaveState } from '@/lib/client/use-autosave';
 /**
  * Per-card save status.
  *
- * A dot at rest rather than a checkmark: a check that is always there says
- * nothing, and stops being read. The check appears only after a save the
- * user actually caused, so it answers "did that land?" and nothing else.
+ * Nothing at rest: a mark that is always there says nothing, and stops being
+ * read. The check appears only after a save the user caused, and only until
+ * it settles, so it answers "did that land?" and nothing else.
  *
  * "Not saved" is worded, not only colored: it is the one state the user has
  * to act on.
@@ -74,8 +74,6 @@ export function SaveIndicator({ state }: { state: SaveState }) {
     );
   }
 
-  // Idle: present but silent, so the row does not reflow when a save starts.
-  return (
-    <span aria-hidden className="block size-1.5 rounded-full bg-timer-idle" />
-  );
+  // Idle keeps the icons' room, so the row does not reflow when a save starts.
+  return <span aria-hidden className="block size-3.5" />;
 }
