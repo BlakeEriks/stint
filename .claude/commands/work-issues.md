@@ -1,5 +1,8 @@
 ---
 description: Work through open GitHub issues one at a time, to an open PR each, stopping only for a decision the issue can't settle
+# The orchestrator re-reads its whole chat on every call: Sonnet keeps that
+# cheap. Builders and reviews pick their own model.
+model: sonnet
 # Follows orchestrator-workers and evaluator-optimizer from "Building effective
 # agents" (anthropic.com/engineering/building-effective-agents).
 ---
@@ -23,14 +26,23 @@ mode starts an issue while the cap's worth of PRs is open (step 1).
 
 **You orchestrate; subagents build and review.** `issue-builder` does the
 work and `pr-review-toolkit:code-reviewer` reviews it, each in its own subagent reporting back
-one paragraph. **One builder per issue**: brief it with the issue or PR
-number and nothing else, and send it everything after — findings, `ship` —
-by SendMessage to its agentId. Never a second builder for that issue — save
-the one case step 1 names, when its instructions have changed — and never a
-status check: its notification is its status. Your context holds a summary per issue, not the work, and a
-long run survives auto-compaction. Nothing smaller than an issue or a round
-of fixes gets a subagent — each one re-reads the project, and that is the
-cost.
+one paragraph. Builders run on Opus at medium effort (their frontmatter),
+reviews on Opus, and a read-only scan or search on Sonnet.
+
+**A builder keeps the context it built.** Brief it with the issue or PR
+number and nothing else, and send its design and logic rounds — findings,
+feedback, `ship` — by SendMessage to its agentId. Never a second builder for
+that issue, save the case step 1 names, and never a status check: its
+notification is its status. **A small round gets a fresh builder** instead:
+doc drift, a conflict with `main`, a trim. Brief it with the PR number and
+the finding; it needs none of the old builder's reading, and every call the
+old one makes re-reads all of it. Nothing smaller than a round gets a
+subagent.
+
+**Batch reports.** When several subagents report while you wait, handle
+them in one pass, not a turn each, and tell the owner only what needs them.
+Your context holds a summary per issue, not the work; the state lives in
+labels, PRs and the log, so a long run survives compaction.
 
 **Feedback** means a comment by the repo owner, `BlakeEriks`, without the
 `<!-- work-issues -->` marker — `gh` runs as the repo owner, so the marker is
@@ -218,8 +230,9 @@ redraft is republished to the same link, named in the comment.
 ## 2. Stop
 
 When the mode is done or nothing is left to pick, end with one summary: PRs
-opened or updated, which are `ready-for-qa`, what is `needs-input` and its
-question, and anything that failed.
+opened or updated, what is `needs-input` and its question, and anything that
+failed. Of the `ready-for-qa` PRs, name at most three for the owner to
+check, most pressing first, each linked with what merging it unblocks.
 
 Only under `/loop`: wake again in 15 minutes while an open PR's CI is still
 running. Pass the same `/loop` prompt back — never a hand-written one, which
