@@ -1149,7 +1149,7 @@ export const AddDetails: Story = {
     await expect(
       page.queryByText('Your business details are missing'),
     ).toBeNull();
-    await expect(page.getByText('Sam Rivera Consulting')).toBeVisible();
+    await expect(card(page).getByText('Sam Rivera Consulting')).toBeVisible();
     await settled(page);
   },
 };
