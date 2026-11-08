@@ -76,23 +76,11 @@ const cases: [string, Refusal | null, Want | null][] = [
     invoiceRequestRefusal({ ...period, dueDate: '2026-09-16' }, today),
     { code: 'VALIDATION_FAILED', details: { field: 'dueDate' } },
   ],
-  [
-    'every entry rated, with a line',
-    pricedInvoiceRefusal({ unratedEntryIds: [], lineItems: [{}] }, period),
-    null,
-  ],
+  ['every entry rated', pricedInvoiceRefusal({ unratedEntryIds: [] }), null],
   [
     'an unrated entry',
-    pricedInvoiceRefusal({ unratedEntryIds: ['a'], lineItems: [] }, period),
+    pricedInvoiceRefusal({ unratedEntryIds: ['a'] }),
     { code: 'NO_RATE_CONFIGURED', details: { unratedEntryIds: ['a'] } },
-  ],
-  [
-    'no lines, naming only the period',
-    pricedInvoiceRefusal({ unratedEntryIds: [], lineItems: [] }, {
-      ...period,
-      dueDate: '2026-10-01',
-    } as typeof period),
-    { code: 'INVALID_PERIOD', details: period },
   ],
   [
     'one unrated entry',
