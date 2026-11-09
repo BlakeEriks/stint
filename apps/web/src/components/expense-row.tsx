@@ -30,7 +30,6 @@ const rowClass = `${rowButton} ${rowBleed} flex items-center gap-3 py-2`;
  * invoice is labeled with the invoice's number and steps down a shade, since
  * it is already asked for; it links to that invoice instead of opening the
  * dialog, because an issued one is locked.
-
  */
 export function ExpenseRow({
   expense,

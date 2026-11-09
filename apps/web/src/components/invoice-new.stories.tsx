@@ -744,19 +744,19 @@ export const WithReference: Story = {
   },
 };
 
-/** A note prints on this invoice, and the card shows it at once. */
+/** A note is typed where it prints, which labels it once filled. */
 export const WithNotes: Story = {
   ...desktop,
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    await expect(card(page).queryByText('Notes')).toBeNull();
     await userEvent.type(
       page.getByLabelText('Notes'),
       'Thanks for a great month.',
     );
-    await expect(
-      card(page).getByText('Thanks for a great month.'),
-    ).toBeVisible();
+    await expect(card(page).getByText('Notes')).toBeVisible();
   },
 };
 

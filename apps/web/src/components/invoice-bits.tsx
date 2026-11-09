@@ -45,6 +45,20 @@ export function StatusBadge({ status }: { status: InvoiceStatus }) {
   );
 }
 
+/** New invoice with a client and period filled in, as `linkedDraft`
+ *  (`invoice-new.tsx`) reads it. */
+export function newInvoiceHref(d: {
+  clientId: string;
+  periodStart: string;
+  periodEnd: string;
+}) {
+  return `/invoices/new?${new URLSearchParams({
+    client: d.clientId,
+    from: d.periodStart,
+    to: d.periodEnd,
+  })}`;
+}
+
 /** A calendar month by its name, any other period by its dates:
  *  "Oct 1 – 15", "Sep 28 – Oct 4". */
 export function periodName(start: string, end: string) {

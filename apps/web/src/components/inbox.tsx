@@ -43,7 +43,7 @@ import {
 import { useExit } from '@/lib/client/use-exit';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { EntryDialog } from './entry-dialog';
-import { periodName } from './invoice-bits';
+import { newInvoiceHref, periodName } from './invoice-bits';
 import { MarkSentDialog } from './mark-sent-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -545,11 +545,7 @@ function invoiceItem(
    creates nothing: the user makes the draft, so it is numbered then. */
 function dueItem(d: Attention['unbilledDue'][number]): ItemProps {
   return {
-    href: `/invoices/new?${new URLSearchParams({
-      client: d.clientId,
-      from: d.periodStart,
-      to: d.periodEnd,
-    })}`,
+    href: newInvoiceHref(d),
     label: d.clientName,
     detail: `${periodName(d.periodStart, d.periodEnd)} is ready to invoice`,
     value: formatCompact(d.seconds),

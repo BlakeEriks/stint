@@ -6,7 +6,7 @@ import { keys } from '@stint/client';
 import { formatCompact, formatCurrency } from '@stint/core';
 import { api, type Client } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
-import { periodName } from './invoice-bits';
+import { newInvoiceHref, periodName } from './invoice-bits';
 import { rowBleed, rowButton } from './row-button';
 import { Swatch } from './swatch';
 
@@ -50,11 +50,7 @@ export function ReadyToInvoice({ clients }: { clients: Client[] }) {
           return (
             <li key={d.clientId}>
               <Link
-                href={`/invoices/new?${new URLSearchParams({
-                  client: d.clientId,
-                  from: d.periodStart,
-                  to: d.periodEnd,
-                })}`}
+                href={newInvoiceHref(d)}
                 className={`${rowButton} ${rowBleed} flex items-center gap-3 py-2.5`}
               >
                 <Swatch

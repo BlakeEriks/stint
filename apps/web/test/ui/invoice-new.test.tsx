@@ -599,18 +599,14 @@ describe('NewInvoice — supporting detail', () => {
 });
 
 describe('NewInvoice — reference', () => {
-  it('types the reference on the card, labeled once filled, and sends it', async () => {
+  it('asks no preview for a reference, and sends it', async () => {
     serve();
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
     await ready(user);
     const sent = previews().length;
 
-    const field = screen.getByLabelText('Reference');
-    expect(within(card()).queryByText('Reference')).toBeNull();
-    await user.type(field, 'PO 4471');
-
-    expect(within(card()).getByText('Reference')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Reference'), 'PO 4471');
     expect(previews()).toHaveLength(sent);
 
     await user.click(generate());
@@ -622,7 +618,7 @@ describe('NewInvoice — reference', () => {
 });
 
 describe('NewInvoice — notes', () => {
-  it('shows a note in the card at once, and sends it', async () => {
+  it('asks no preview for a note, and sends it', async () => {
     serve();
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
@@ -633,10 +629,6 @@ describe('NewInvoice — notes', () => {
       screen.getByLabelText('Notes'),
       '  Thanks for a great month.  ',
     );
-
-    expect(
-      within(card()).getByText('Thanks for a great month.'),
-    ).toBeInTheDocument();
     expect(previews()).toHaveLength(sent);
 
     await user.click(generate());
