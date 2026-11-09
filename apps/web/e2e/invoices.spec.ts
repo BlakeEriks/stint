@@ -78,7 +78,7 @@ test.describe('invoices', () => {
 
     const preview = page.getByRole('region', { name: 'Preview' });
     await expect(
-      preview.getByRole('cell', { name: 'Onboarding fee' }),
+      preview.getByRole('button', { name: 'Edit charge Onboarding fee' }),
     ).toBeVisible();
     await expect(generate).toBeEnabled();
 

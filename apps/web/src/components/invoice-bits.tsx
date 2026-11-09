@@ -1,5 +1,6 @@
 'use client';
 
+import { isPeriod } from '@stint/core';
 import type { InvoiceStatus } from '@/lib/client/api';
 
 /**
@@ -42,4 +43,21 @@ export function StatusBadge({ status }: { status: InvoiceStatus }) {
       {status}
     </span>
   );
+}
+
+/** A calendar month by its name, any other period by its dates:
+ *  "Oct 1 – 15", "Sep 28 – Oct 4". */
+export function periodName(start: string, end: string) {
+  const date = (d: string, parts: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat('en-US', { ...parts, timeZone: 'UTC' }).format(
+      new Date(`${d}T00:00:00Z`),
+    );
+  if (isPeriod({ period: 'monthly' }, start, end))
+    return date(start, { month: 'long' });
+  const short = { month: 'short', day: 'numeric' } as const;
+  const to =
+    start.slice(0, 7) === end.slice(0, 7)
+      ? date(end, { day: 'numeric' })
+      : date(end, short);
+  return `${date(start, short)} – ${to}`;
 }

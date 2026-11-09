@@ -66,7 +66,7 @@ const pickGrouping = async (page: Page, name: RegExp) => {
 const summaryFor = async (canvasElement: HTMLElement, text: string) => {
   const page = await chooseNorthwind(canvasElement);
   await pickGrouping(page, /One summary line/);
-  const field = await page.findByLabelText(/Summary line/);
+  const field = await page.findByLabelText('Summary line');
   await userEvent.clear(field);
   if (text) await userEvent.type(field, text);
   return page;
@@ -82,6 +82,33 @@ const chooseMeridian = async (canvasElement: HTMLElement) => {
   return page;
 };
 
+/** Opens Period, where From and To are, unless it is open. */
+const period = async (page: Page) => {
+  if (!page.queryByLabelText('From'))
+    await userEvent.click(await page.findByRole('button', { name: 'Period' }));
+  await page.findByLabelText('From');
+  return page;
+};
+
+/** Opens the page's No., Issued and Due. */
+const openDates = async (page: Page, shown = 'STINT-0016') => {
+  await userEvent.click(
+    await page.findByRole('button', {
+      name: new RegExp(`^Edit No\\. ${shown}`),
+    }),
+  );
+  const dialog = await page.findByRole('dialog', { name: 'Number and dates' });
+  await waitFor(() => expect(dialog).toBeVisible());
+  return within(dialog);
+};
+
+/** The count and amount beside Generate. */
+const due = (page: Page) =>
+  within(
+    page.getByRole('button', { name: 'Generate invoice' })
+      .parentElement as HTMLElement,
+  );
+
 const card = (page: Page) =>
   within(page.getByRole('region', { name: 'Preview' }));
 
@@ -89,19 +116,37 @@ const card = (page: Page) =>
 const sheet = (page: Page) =>
   card(page).getByText('Bill to').closest('.rounded-lg') as HTMLElement;
 
+const scheduled = (
+  id: string,
+  billingSchedule: Db['clients'][number]['billingSchedule'],
+) =>
+  account((db) => {
+    for (const c of db.clients)
+      if (c.id === id) c.billingSchedule = billingSchedule;
+  });
+
 // ── states ─────────────────────────────────────────────────────────
 
-/** No client yet: Generate waits, and in place of a card a line says what
-    it needs. */
+/** No client yet: Generate waits, and in place of a page each client
+    ready to invoice is a row that opens with its client and period. */
 export const Blank: Story = {
   ...desktop,
+  parameters: scheduled(ids.northwind, { period: 'semimonthly' }),
   play: async ({ canvasElement }) => {
-    const region = within(
-      await within(canvasElement).findByRole('region', { name: 'Preview' }),
+    const ready = within(
+      await within(canvasElement).findByRole('region', {
+        name: 'Ready to invoice',
+      }),
     );
-    const prompt = region.getByText(/^Choose a client to see/);
-    await expect(prompt).toBeVisible();
-    await expect(prompt.closest('.rounded-lg')).toBeNull();
+    await expect(
+      ready.getByRole('link', { name: /^Northwind Trading/ }),
+    ).toHaveAttribute(
+      'href',
+      `/invoices/new?client=${ids.northwind}&from=2026-09-01&to=2026-09-15`,
+    );
+    await expect(
+      within(canvasElement).queryByRole('region', { name: 'Preview' }),
+    ).toBeNull();
     // No client, no format yet: nothing to fault.
     await expect(
       within(canvasElement).queryByText('Give the summary line its text.'),
@@ -120,10 +165,13 @@ export const Defaults: Story = {
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
+    await expect(
+      page.getByRole('button', { name: 'Period' }),
+    ).toHaveTextContent('Sep 1 – Sep 30, 2026');
+    await period(page);
     await expect(page.getByLabelText('From')).toHaveValue('2026-09-01');
     await expect(page.getByLabelText('To')).toHaveValue('2026-09-30');
-    await expect(page.getByLabelText('Due')).toHaveValue('2026-10-17');
-    await expect(await card(page).findByText(/Oct 17, 2026/)).toBeVisible();
+    await expect(await card(page).findByText('Oct 17, 2026')).toBeVisible();
   },
 };
 
@@ -140,39 +188,48 @@ export const ClientTerms: Story = {
   },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
-    await expect(page.getByLabelText('Due')).toHaveValue('2026-10-02');
+    await expect(await card(page).findByText('Oct 2, 2026')).toBeVisible();
     await expect(await card(page).findByText('Net 15')).toBeVisible();
   },
 };
 
-/** A due date before the issue date says so under the dates and holds
-    Generate back. */
+/** The page's dates open a dialog; a due date before the issue date is
+    refused there, and the invoice keeps the one it had. */
 export const EarlyDue: Story = {
   ...desktop,
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
-    const due = page.getByLabelText('Due');
+    const form = await openDates(page);
+    const due = form.getByLabelText('Due');
+    await expect(due).toHaveValue('2026-10-17');
     await userEvent.clear(due);
     await userEvent.type(due, '2026-09-10');
-    const early = await page.findByText("Due can't be before the issue date.");
-    await expect(early).toBeVisible();
-    await expect(early).toHaveAttribute('role', 'alert');
-    await expect(
-      page.getByRole('button', { name: 'Generate invoice' }),
-    ).toBeDisabled();
+    await userEvent.click(form.getByRole('button', { name: 'Save' }));
+    await expect(due).toHaveAccessibleDescription(
+      /Due can't be before the issue date\./,
+    );
+    await expect(due).toHaveFocus();
   },
 };
 
-const scheduled = (
-  id: string,
-  billingSchedule: Db['clients'][number]['billingSchedule'],
-) =>
-  account((db) => {
-    for (const c of db.clients)
-      if (c.id === id) c.billingSchedule = billingSchedule;
-  });
+/** A due date saved there is this invoice's alone, and the page prints it. */
+export const ChangeDue: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    const form = await openDates(page);
+    await userEvent.clear(form.getByLabelText('Due'));
+    await userEvent.type(form.getByLabelText('Due'), '2026-10-31');
+    await userEvent.click(form.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+    await expect(await card(page).findByText('Oct 31, 2026')).toBeVisible();
+    await expect(getDb().settings.nextInvoiceNumber).toBe(16);
+  },
+};
 
 /** Billed twice a month: on September 17 the period is the last half that
     has ended, the 1st to the 15th. */
@@ -184,6 +241,7 @@ export const ScheduledDefaults: Story = {
   },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
+    await period(page);
     await expect(page.getByLabelText('From')).toHaveValue('2026-09-01');
     await expect(page.getByLabelText('To')).toHaveValue('2026-09-15');
     await expect(page.queryByText(/is billed/)).toBeNull();
@@ -200,6 +258,7 @@ export const WeeklyDefaults: Story = {
   },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
+    await period(page);
     await expect(page.getByLabelText('From')).toHaveValue('2026-09-07');
     await expect(page.getByLabelText('To')).toHaveValue('2026-09-13');
   },
@@ -222,6 +281,7 @@ export const FromInboxLink: Story = {
     await expect(
       await page.findByRole('button', { name: 'Client' }),
     ).toHaveTextContent('Northwind');
+    await period(page);
     await expect(page.getByLabelText('From')).toHaveValue('2026-09-01');
     await expect(page.getByLabelText('To')).toHaveValue('2026-09-15');
     await settled(page);
@@ -265,11 +325,34 @@ export const PressedFromTheInbox: Story = {
       within(row).getByRole('link', { name: 'Northwind Trading' }),
     );
     await waitFor(() =>
-      expect(page.getByLabelText('To')).toHaveValue('2026-09-15'),
+      expect(page.getByRole('button', { name: 'Period' })).toHaveTextContent(
+        'Sep 1 – Sep 15, 2026',
+      ),
     );
     await expect(
       page.getByRole('button', { name: 'Client' }),
     ).toHaveTextContent('Northwind');
+    await settled(page);
+  },
+};
+
+/** A preset sets both ends, and Period names the one it matches. On
+    September 17 the last two weeks end yesterday. */
+export const PeriodPreset: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await period(await chooseNorthwind(canvasElement));
+    await userEvent.click(page.getByRole('button', { name: 'Last two weeks' }));
+    await expect(
+      page.getByRole('button', { name: 'Last two weeks' }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByLabelText('From')).toHaveValue('2026-09-03');
+    await expect(page.getByLabelText('To')).toHaveValue('2026-09-16');
+    await userEvent.keyboard('{Escape}');
+    await expect(
+      page.getByRole('button', { name: 'Period' }),
+    ).toHaveTextContent('Sep 3 – Sep 16, 2026 · Last two weeks');
     await settled(page);
   },
 };
@@ -282,10 +365,12 @@ export const EditedDatesStay: Story = {
     ...scheduled(ids.meridian, { period: 'semimonthly' }),
   },
   play: async ({ canvasElement }) => {
-    const page = await chooseNorthwind(canvasElement);
+    const page = await period(await chooseNorthwind(canvasElement));
     await userEvent.clear(page.getByLabelText('From'));
     await userEvent.type(page.getByLabelText('From'), '2026-09-05');
+    await userEvent.keyboard('{Escape}');
     await chooseMeridian(canvasElement);
+    await period(page);
     await expect(page.getByLabelText('From')).toHaveValue('2026-09-05');
     await expect(page.getByLabelText('To')).toHaveValue('2026-09-30');
   },
@@ -302,6 +387,7 @@ export const OffSchedule: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await expect(page.queryByText(/is billed/)).toBeNull();
+    await period(page);
     await userEvent.clear(page.getByLabelText('From'));
     await expect(page.queryByText(/is billed/)).toBeNull();
     await userEvent.type(page.getByLabelText('From'), '2026-09-16');
@@ -320,7 +406,7 @@ export const NoScheduleNoHint: Story = {
   ...desktop,
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
-    const page = await chooseNorthwind(canvasElement);
+    const page = await period(await chooseNorthwind(canvasElement));
     await userEvent.clear(page.getByLabelText('From'));
     await userEvent.type(page.getByLabelText('From'), '2026-09-16');
     await settled(page);
@@ -346,8 +432,8 @@ export const ClientChosen: Story = {
 };
 export const ClientChosenPhone: Story = { ...ClientChosen, ...phone };
 
-/** The screen is a workspace: the dock folds to a strip, so at 2xl the
-    preview is 700px beside the form (it was ~430px beside the dock). */
+/** The screen is a workspace: the dock folds to a strip, and the page is
+    a US letter's width, 816px at most. */
 export const Workspace: Story = {
   ...ClientChosen,
   ...wide,
@@ -361,6 +447,7 @@ export const Workspace: Story = {
       .getByRole('region', { name: 'Preview' })
       .getBoundingClientRect().width;
     await expect(width).toBeGreaterThanOrEqual(700);
+    await expect(width).toBeLessThanOrEqual(816);
   },
 };
 
@@ -516,15 +603,15 @@ export const IncludeEarlierWork: Story = {
       /^1 earlier entry, Aug 31, isn't on any invoice\.$/,
     );
     await settled(page);
-    const before = card(page).getByText(/^\d+ entries$/).textContent;
+    const before = due(page).getByText(/^\d+ entries$/).textContent;
     await userEvent.click(page.getByRole('button', { name: 'Include it' }));
-    await expect(page.getByLabelText('From')).toHaveValue('2026-08-31');
     await expect(offer).not.toBeInTheDocument();
+    await period(page);
+    await expect(page.getByLabelText('From')).toHaveValue('2026-08-31');
+    await userEvent.keyboard('{Escape}');
     await settled(page);
     await waitFor(() =>
-      expect(card(page).getByText(/^\d+ entries$/).textContent).not.toBe(
-        before,
-      ),
+      expect(due(page).getByText(/^\d+ entries$/).textContent).not.toBe(before),
     );
   },
 };
@@ -558,9 +645,11 @@ export const EarlierWorkLeavesWithClient: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await page.findByRole('button', { name: 'Include them' });
-    const from = (page.getByLabelText('From') as HTMLInputElement).value;
+    const range = page.getByRole('button', { name: 'Period' }).textContent;
     await chooseMeridian(canvasElement);
-    await expect(page.getByLabelText('From')).toHaveValue(from);
+    await expect(
+      page.getByRole('button', { name: 'Period' }),
+    ).toHaveTextContent(range as string);
     await expect(page.queryByRole('button', { name: /^Include/ })).toBeNull();
   },
 };
@@ -628,18 +717,20 @@ export const WithCharge: Story = {
         name: /^Edit charge Hosting, September/,
       }),
     ).toBeVisible();
-    const row = (
-      await card(page).findByRole('cell', { name: 'Hosting, September' })
-    ).closest('tr') as HTMLElement;
+    const row = card(page)
+      .getByRole('button', { name: /^Edit charge Hosting, September/ })
+      .closest('tr') as HTMLElement;
     await expect(
       within(row)
         .getAllByRole('cell')
+        .slice(1)
         .map((c) => c.textContent),
-    ).toEqual(['Hosting, September', '1', '$400.00', '$400.00']);
+    ).toEqual(['1', '$400.00', '$400.00']);
   },
 };
 
-/** A reference prints under the service period, at once (US4 scenario 1). */
+/** A reference is typed where it prints, under the service period, which
+    labels it once filled (US4 scenario 1). */
 export const WithReference: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -649,9 +740,7 @@ export const WithReference: Story = {
       page.getByLabelText('Reference'),
       'ICA dated Aug 5, 2026 · Exhibit A SOW',
     );
-    await expect(
-      card(page).getByText('ICA dated Aug 5, 2026 · Exhibit A SOW'),
-    ).toBeVisible();
+    await expect(card(page).getByText('Reference')).toBeVisible();
   },
 };
 
@@ -689,18 +778,14 @@ const changeNumber = async (canvasElement: HTMLElement, next: string) => {
   return { page, form: await saveNumber(page, 'STINT-0016', next) };
 };
 
-/** Opens Change on the "Numbered" line and saves `next`. STINT-0015 is
-    the highest number an invoice holds. */
+/** Opens the page's number and saves `next`. STINT-0015 is the highest
+    number an invoice holds. */
 const saveNumber = async (
   page: ReturnType<typeof within>,
   shown: string,
   next: string,
 ) => {
-  const line = page.getByText(new RegExp(`Numbered ${shown}`));
-  await userEvent.click(within(line).getByRole('button', { name: 'Change' }));
-  const dialog = await page.findByRole('dialog', { name: 'Invoice number' });
-  await waitFor(() => expect(dialog).toBeVisible());
-  const form = within(dialog);
+  const form = await openDates(page, shown);
   const field = form.getByLabelText('Next number');
   // Prefix, then number, in reading and tab order, as the invoice prints.
   await expect(
@@ -712,15 +797,17 @@ const saveNumber = async (
   return form;
 };
 
-/** The number Generate takes shows before it does. Change moves it in a
-    dialog, so the draft being built stays as it was. */
+/** The number Generate takes prints before it does. Pressing it moves it
+    in a dialog, so the draft being built stays as it was. */
 export const ChangeNumber: Story = {
   ...desktop,
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const { page } = await changeNumber(canvasElement, '20');
     await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
-    await expect(page.getByText(/Numbered STINT-0020/)).toBeVisible();
+    await expect(
+      card(page).getByRole('button', { name: /^Edit No\. STINT-0020/ }),
+    ).toBeVisible();
     await expect(page.getByLabelText('Reference')).toHaveValue('PO-7');
   },
 };
@@ -734,7 +821,9 @@ export const ChangeNumberBack: Story = {
     await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
     await saveNumber(page, 'STINT-0020', '16');
     await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
-    await expect(page.getByText(/Numbered STINT-0016/)).toBeVisible();
+    await expect(
+      card(page).getByRole('button', { name: /^Edit No\. STINT-0016/ }),
+    ).toBeVisible();
   },
 };
 
@@ -756,8 +845,8 @@ export const ChangeNumberRefused: Story = {
   },
 };
 
-/** The template shows by name; Change picks another in a dialog, saved to
-    Settings, and the draft being built stays as it was. */
+/** Under the page the template shows by name; Change picks another in a
+    dialog, saved to Settings, and the draft being built stays as it was. */
 export const ChangeTemplate: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -765,7 +854,7 @@ export const ChangeTemplate: Story = {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
     await userEvent.type(page.getByLabelText('Reference'), 'PO-7');
-    await expect(page.getByText(/Standard ·/)).toBeVisible();
+    await expect(page.getByText(/^Standard template/)).toBeVisible();
     await userEvent.click(
       page.getByRole('button', { name: 'Change template' }),
     );
@@ -777,35 +866,8 @@ export const ChangeTemplate: Story = {
     await userEvent.click(form.getByRole('radio', { name: 'Classic' }));
     await userEvent.click(form.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
-    await expect(page.getByText(/Classic ·/)).toBeVisible();
+    await expect(page.getByText(/^Classic template/)).toBeVisible();
     await expect(page.getByLabelText('Reference')).toHaveValue('PO-7');
-  },
-};
-
-/** From `xl` only the form and the preview scroll, each alone: reading
-    the end of the page leaves the form where it was. */
-export const ScrollsApart: Story = {
-  ...desktop,
-  parameters: menuOpen,
-  play: async ({ canvasElement }) => {
-    const page = await chooseNorthwind(canvasElement);
-    await settled(page);
-    const main = canvasElement.ownerDocument.querySelector('main');
-    const scrollers = [...(main?.querySelectorAll('*') ?? [])].filter(
-      (el) =>
-        getComputedStyle(el).overflowY === 'auto' &&
-        el.scrollHeight > el.clientHeight,
-    );
-    await expect(scrollers).toHaveLength(2);
-    const [form, preview] = scrollers as [HTMLElement, HTMLElement];
-    preview.scrollTop = preview.scrollHeight;
-    await expect(preview.scrollTop).toBeGreaterThan(0);
-    await expect(form.scrollTop).toBe(0);
-    // A scroller scrolls sideways too: nothing in the form may spill.
-    await expect(form.scrollWidth).toBeLessThanOrEqual(form.clientWidth);
-    // The panel itself never scrolls.
-    const panel = main?.parentElement as HTMLElement;
-    await expect(panel.scrollHeight).toBeLessThanOrEqual(panel.clientHeight);
   },
 };
 
@@ -859,7 +921,7 @@ export const NoSummaryLine: Story = {
       await page.findByText('Give the summary line its text.'),
     ).toBeVisible();
     await expect(
-      page.getByLabelText(/Summary line/),
+      page.getByLabelText('Summary line'),
     ).toHaveAccessibleDescription('Give the summary line its text.');
     await expect(
       page.getByRole('button', { name: 'Generate invoice' }),
@@ -921,7 +983,7 @@ export const FromLastInvoice: Story = {
   },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
-    await expect(await page.findByLabelText(/Summary line/)).toHaveValue(
+    await expect(await page.findByLabelText('Summary line')).toHaveValue(
       'Software consulting services',
     );
     await expect(
@@ -956,7 +1018,6 @@ export const FromLastByTask: Story = {
       page.getByRole('button', { name: 'Show time as' }),
     ).toHaveTextContent('By task');
     await expect(page.getByLabelText('Reference')).toHaveValue('PO 4471');
-    await expect(card(page).getByText('PO 4471')).toBeVisible();
   },
 };
 
@@ -977,7 +1038,7 @@ export const FormatLoading: Story = {
     await expect(
       page.queryByRole('button', { name: 'Show time as' }),
     ).toBeNull();
-    await expect(page.queryByLabelText(/Summary line/)).toBeNull();
+    await expect(page.queryByLabelText('Summary line')).toBeNull();
     await expect(
       page.queryByText('Give the summary line its text.'),
     ).toBeNull();
@@ -999,7 +1060,7 @@ export const FirstInvoice: Story = {
   },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
-    await expect(await page.findByLabelText(/Summary line/)).toHaveValue(
+    await expect(await page.findByLabelText('Summary line')).toHaveValue(
       'Contracting services',
     );
     await expect(
@@ -1018,7 +1079,9 @@ export const WithExpenses: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await expect(
-      await card(page).findByRole('cell', { name: 'Figma license, annual' }),
+      await card(page).findByRole('button', {
+        name: /^Edit Figma license, annual/,
+      }),
     ).toBeVisible();
     await expect(
       card(page).getByRole('cell', { name: 'Aug 20, 2026' }),
@@ -1039,26 +1102,30 @@ export const OnlyExpenses: Story = {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
     await expect(
-      card(page).getByRole('cell', { name: 'Figma license, annual' }),
+      card(page).getByRole('button', { name: /^Edit Figma license, annual/ }),
     ).toBeVisible();
     await expect(card(page).queryByText('Services')).toBeNull();
   },
 };
 
-/** Unticking one asks the server again and leaves it off. */
+/** Unticking one asks the server again and leaves it off the bill, faint
+    on the page so it can be ticked again. */
 export const UntickExpense: Story = {
   ...desktop,
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
-    await userEvent.click(
-      page.getByRole('checkbox', { name: 'Bill Figma license, annual' }),
-    );
+    const total = due(page).getByText(/^\$[\d,]+\.\d\d$/).textContent;
+    const tick = page.getByRole('checkbox', {
+      name: 'Bill Figma license, annual',
+    });
+    await userEvent.click(tick);
     await settled(page);
-    await expect(
-      card(page).queryByRole('cell', { name: 'Figma license, annual' }),
-    ).toBeNull();
+    await expect(tick).not.toBeChecked();
+    await expect(due(page).getByText(/^\$[\d,]+\.\d\d$/).textContent).not.toBe(
+      total,
+    );
   },
 };
 
@@ -1101,7 +1168,9 @@ export const RecurringTicked: Story = {
       }),
     ).toBeChecked();
     await expect(
-      await card(page).findByRole('cell', { name: 'Claude Max subscription' }),
+      await card(page).findByRole('button', {
+        name: /^Edit Claude Max subscription/,
+      }),
     ).toBeVisible();
     await expect(
       card(page).getByRole('cell', { name: 'Sep 30, 2026' }),
@@ -1128,56 +1197,28 @@ export const EditingExpense: Story = {
 };
 export const EditingExpensePhone: Story = { ...EditingExpense, ...phone };
 
-/** Under Client, what the invoice prints for it, read-only: nothing on the
-    form saves before Generate. */
-export const ClientDetails: Story = {
-  ...desktop,
-  parameters: menuOpen,
-  play: async ({ canvasElement }) => {
-    const page = await chooseNorthwind(canvasElement);
-    const group = within(
-      page.getByRole('group', { name: 'Northwind Trading billing details' }),
-    );
-    await expect(group.getByText(/ap@northwind\.test/)).toBeVisible();
-    await expect(group.queryByRole('textbox')).toBeNull();
-    await expect(
-      group.getByRole('button', { name: 'Edit client' }),
-    ).toBeVisible();
-  },
-};
-
-/** A client with neither: each says it is missing, and the card's Bill to is
-    the name alone. */
-export const ClientDetailsMissing: Story = {
-  ...desktop,
-  parameters: menuOpen,
-  play: async ({ canvasElement }) => {
-    const page = await chooseMeridian(canvasElement);
-    const group = within(
-      page.getByRole('group', { name: 'Meridian Labs billing details' }),
-    );
-    await expect(group.getByText('No billing address')).toBeVisible();
-    await expect(group.getByText('No email')).toBeVisible();
-  },
-};
-
-/** Edit client opens the client's own dialog; once it saves, the block shows
-    what the server kept. */
+/** Bill to is what the invoice prints for the client, and opens the
+    client's own dialog; once it saves, the page shows what the server kept.
+    A client with no address or email prints its name alone. */
 export const EditClientHere: Story = {
   ...desktop,
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const page = await chooseMeridian(canvasElement);
-    await userEvent.click(page.getByRole('button', { name: 'Edit client' }));
+    const billTo = await card(page).findByRole('button', {
+      name: /^Edit Bill to/,
+    });
+    await expect(billTo).toHaveAccessibleName('Edit Bill to Meridian Labs');
+    await userEvent.click(billTo);
     const dialog = within(await page.findByRole('dialog'));
     await userEvent.type(dialog.getByLabelText('Email'), 'ap@meridian.test');
     await userEvent.click(dialog.getByRole('button', { name: 'Save changes' }));
     await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
-    const group = within(
-      page.getByRole('group', { name: 'Meridian Labs billing details' }),
+    await waitFor(() =>
+      expect(billTo).toHaveAccessibleName(
+        'Edit Bill to Meridian Labs ap@meridian.test',
+      ),
     );
-    await expect(await group.findByText(/ap@meridian\.test/)).toBeVisible();
-    await expect(group.getByText('No billing address')).toBeVisible();
   },
 };
 
@@ -1213,7 +1254,7 @@ export const NewPaymentDetails: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await userEvent.click(
-      await page.findByRole('button', { name: 'Payment details' }),
+      await card(page).findByRole('button', { name: /^Edit Payment/ }),
     );
     await userEvent.click(
       await page.findByRole('menuitem', { name: /New payment details/ }),
@@ -1250,7 +1291,7 @@ const noSender = account((db: Db) => {
 });
 
 /** No business name or email: the notice says so, Generate waits, and the
- *  preview marks where the sender prints, saying so under the card. */
+ *  page marks where the sender prints, with a hint under it. */
 export const DetailsMissing: Story = {
   ...desktop,
   parameters: noSender,
@@ -1259,9 +1300,11 @@ export const DetailsMissing: Story = {
     await expect(
       await page.findByText('Your business details are missing'),
     ).toBeVisible();
-    const marker = await page.findByText(/^Your business name and email/);
-    await expect(marker).toBeVisible();
-    await expect(sheet(page).contains(marker)).toBe(false);
+    await expect(
+      card(page).getByRole('button', { name: 'Add your business' }),
+    ).toBeVisible();
+    const hint = page.getByText(/^Dashed is yours to fill/);
+    await expect(sheet(page).contains(hint)).toBe(false);
     await expect(
       page.getByRole('button', { name: 'Generate invoice' }),
     ).toBeDisabled();
@@ -1442,7 +1485,7 @@ export const LeavingBlocked: Story = {
   },
 };
 
-/** Your business, atop the form, opens the same dialog, filled from
+/** Your business, atop the page, opens the same dialog, filled from
  *  Settings: correcting it reprints the preview and leaves the draft as it
  *  was. */
 export const EditSender: Story = {
@@ -1452,7 +1495,9 @@ export const EditSender: Story = {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
     await userEvent.type(page.getByLabelText('Reference'), 'PO-7');
-    await userEvent.click(page.getByRole('button', { name: 'Edit business' }));
+    await userEvent.click(
+      card(page).getByRole('button', { name: /^Edit Sam Rivera/ }),
+    );
     const dialog = await page.findByRole('dialog', {
       name: 'Who is this invoice from?',
     });

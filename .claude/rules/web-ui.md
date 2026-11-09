@@ -130,6 +130,8 @@ screen that needs the room (Home), not a preference.
 invoice, the calendar): at `xl` it takes the dock's room and the dock folds
 to a 44px strip (`DockStrip`), because the frame reads `data-workspace`
 through `:has()`. Below `xl` the dock is a band under the content and stays.
+`DetailPage`'s `letter` is for a screen whose content is a printed page
+(New invoice): one centered column, 816px at most, a US letter's width.
 The card keeps its size, so the frame never jolts between screens. The page
 title is `type-title`, once.
 

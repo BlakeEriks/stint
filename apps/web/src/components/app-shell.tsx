@@ -78,7 +78,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <Nav />
             <Version />
-            <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto lg:col-start-2 lg:row-start-1 xl:contents">
+            {/* It scrolls from `sm`; on a phone the page does, and a scroller
+                that never scrolls would hold a screen's `sticky` in place. */}
+            <div className="flex min-w-0 flex-1 flex-col gap-4 sm:overflow-y-auto lg:col-start-2 lg:row-start-1 xl:contents">
               <ContentPanel>{children}</ContentPanel>
               <Dock />
             </div>

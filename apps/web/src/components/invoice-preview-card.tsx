@@ -11,14 +11,16 @@ import {
   type ScheduleKind,
   type Schedules,
 } from '@stint/core';
+import { Pencil, Plus } from 'lucide-react';
 import type {
   Client,
+  Expense,
   Invoice,
   InvoicePreview,
   Settings,
 } from '@/lib/client/api';
-import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import { shortDate } from './invoice-bits';
+import { rowButton } from './row-button';
 
 type Business = Pick<Invoice['business'], 'name' | 'address' | 'email'>;
 
@@ -57,20 +59,58 @@ export type CardFigures = Pick<
     Pick<
       InvoicePreview['lineItems'][number],
       'description' | 'unit' | 'quantity' | 'unitPrice' | 'amount' | 'spentOn'
-    >
+    > & { expenseId?: string }
   >;
   entryCount?: number;
 };
 
+/** Text the user types where it prints. */
+type Typed = { value: string; onChange: (value: string) => void };
+
 /**
- * The invoice as its PDF prints it, line for line: live beside the New
- * invoice form, and as issued on its detail page.
+ * What New invoice edits on the page, each where it prints. Absent, the card
+ * is the invoice as issued, with nothing to press.
+ */
+export type CardEdits = {
+  /** Absent on a draft, whose sender was frozen when it was made. */
+  onBusiness?: () => void;
+  onDates: () => void;
+  onClient: () => void;
+  reference: Typed;
+  notes: Typed;
+  /** With one summary line: its text, typed on the line. */
+  summary?: Typed & { invalid: boolean };
+  /** With one summary line: the supporting detail it attaches. */
+  schedules?: { onChange: (value: ScheduleKind[]) => void };
+  charges: {
+    list: { key: string; description: string; amount: number }[];
+    onOpen: (key: string) => void;
+    onAdd: () => void;
+  };
+  expenses: {
+    /** The client's waiting expenses this invoice can bill. */
+    waiting: Expense[];
+    excluded: string[];
+    onToggle: (id: string, bill: boolean) => void;
+    onOpen: (expense: Expense) => void;
+    onAdd: () => void;
+  };
+  /** Wraps the payment block, or its add button, in the menu it opens. */
+  paymentMenu: (trigger: React.ReactElement) => React.ReactNode;
+};
+
+/**
+ * The invoice as its PDF prints it, line for line: the form itself on New
+ * invoice, and as issued on its detail page.
  *
  * The lines, totals and schedules are the server's answer; the rest — the
  * business block, the number, the dates, the payment block, which schedules
  * are ticked — is known here and shows in the same frame as the change that
- * set it. While the server recomputes, the figures dim and the caption says
- * so rather than showing a guess.
+ * set it. While the server recomputes, the figures dim rather than showing a
+ * guess.
+ *
+ * With `edit`, what can change is pressed or typed where it prints. Nothing
+ * dashed, no pencil and no tick prints.
  */
 export function InvoicePreviewCard({
   preview,
@@ -88,11 +128,11 @@ export function InvoicePreviewCard({
   heading = true,
   noSender = false,
   footnote,
-  offer,
+  edit,
   children,
 }: {
   preview: CardFigures | undefined;
-  client: Pick<Client, 'name' | 'address' | 'email'> | undefined;
+  client: Pick<Client, 'name' | 'address' | 'email'>;
   /** Undefined while it loads. */
   business: Business | undefined;
   /** A prediction: generation allocates the number. */
@@ -113,83 +153,94 @@ export function InvoicePreviewCard({
   noSender?: boolean;
   /** Under the card, after `children`. */
   footnote?: string;
-  /** Above the card, where it is read before what it would change. */
-  offer?: React.ReactNode;
-  /** Warnings and errors, under the card. */
+  edit?: CardEdits;
+  /** Under the card: what is said about it but never printed. */
   children?: React.ReactNode;
 }) {
   const terms =
     paymentTerms === undefined ? termsFrom(issued, due) : paymentTerms;
-  const scrollerFocus = useScrollerFocus();
 
   return (
     <section
       aria-labelledby="inv-preview"
       aria-busy={updating}
-      className="flex min-h-0 flex-col"
+      className="flex flex-col"
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-2 px-1 pb-2.5">
-        {/* Hidden, not dropped: the schedules' headings sit under it. */}
-        <h2
-          id="inv-preview"
-          className={heading ? 'type-section text-strong' : 'sr-only'}
-        >
-          {heading ? 'Preview' : 'Invoice'}
-        </h2>
-        {client ? (
-          <span className="ml-auto flex items-center gap-2">
-            <Caption updating={updating} entries={preview?.entryCount} />
-          </span>
-        ) : null}
-      </div>
-
-      {client ? offer : null}
-
-      {client ? (
-        /* The scroller is around the card, not in it: the card moves as one
-           page, edges and all, while the caption above keeps "Updating…" in
-           view. */
-        <div tabIndex={scrollerFocus} className="min-h-0 overflow-y-auto">
-          <div
-            className={`@container/card flex flex-col gap-5 rounded-lg border border-edge-subtle bg-surface-elevated p-6 transition-opacity duration-150 ${
-              updating ? 'opacity-50' : ''
-            }`}
-          >
-            <From
-              business={business}
-              noSender={noSender}
-              number={number}
-              issued={issued}
-              due={due}
-            />
-            <To client={client} preview={preview} reference={reference} />
-
-            {preview?.lineItems ? (
-              <Lines
-                preview={{ ...preview, lineItems: preview.lineItems }}
-                terms={terms}
-              />
-            ) : null}
-
-            {payment ? <Payment payment={payment} /> : null}
-
-            {notes ? <Notes notes={notes} /> : null}
-
-            {preview?.schedules?.totalHours && schedules.length > 0 ? (
-              <Detail detail={preview.schedules} chosen={schedules} />
-            ) : null}
-          </div>
-        </div>
-      ) : (
-        <p className="px-1 type-support text-subtle">
-          Choose a client to see what this invoice will say.
+      {/* Hidden, not dropped: the schedules' headings sit under it. */}
+      <h2 id="inv-preview" className="sr-only">
+        {heading ? 'Preview' : 'Invoice'}
+      </h2>
+      {/* New invoice says so beside Generate; an issued invoice here. */}
+      {edit ? null : (
+        <p className="px-1 pb-2.5 text-right type-support text-subtle">
+          {updating ? 'Updating…' : null}
         </p>
       )}
+      <div className="@container/card flex flex-col gap-5 rounded-lg border border-edge-subtle bg-surface-elevated p-6">
+        <From
+          business={business}
+          noSender={noSender}
+          number={number}
+          issued={issued}
+          due={due}
+          edit={edit}
+        />
+        <To
+          client={client}
+          preview={preview}
+          reference={reference}
+          edit={edit}
+        />
 
-      <UnderCard noSender={Boolean(client) && noSender} footnote={footnote}>
-        {children}
-      </UnderCard>
+        {preview?.lineItems ? (
+          <Lines
+            preview={{ ...preview, lineItems: preview.lineItems }}
+            terms={terms}
+            updating={updating}
+            edit={edit}
+          />
+        ) : null}
+
+        <PaymentBlock payment={payment} edit={edit} />
+
+        {edit ? (
+          <TypedNotes notes={edit.notes} />
+        ) : notes ? (
+          <Notes notes={notes} />
+        ) : null}
+
+        <Detail
+          detail={preview?.schedules ?? null}
+          chosen={schedules}
+          updating={updating}
+          onChange={edit?.schedules?.onChange}
+        />
+      </div>
+
+      <UnderCard footnote={footnote}>{children}</UnderCard>
     </section>
+  );
+}
+
+const DIM = 'opacity-50';
+
+/** The server's figures, dimmed while it recomputes them; what the user
+    types stays as it is. */
+function Dims({
+  updating,
+  children,
+}: {
+  updating: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={`flex flex-col gap-5 transition-opacity duration-150 ${
+        updating ? DIM : ''
+      }`}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -201,41 +252,79 @@ function termsFrom(issued: string, due: string): string | null {
 /** The card reads as the PDF will, so anything that won't print goes here,
     below it. */
 function UnderCard({
-  noSender,
   footnote,
   children,
 }: {
-  noSender: boolean;
   footnote: string | undefined;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-1 px-1 pt-2.5 empty:hidden">
-      {noSender ? (
-        <p className="type-support text-subtle">
-          Your business name and email print in the dashed box.
-        </p>
-      ) : null}
       {children}
       {footnote ? <p className="type-support text-subtle">{footnote}</p> : null}
     </div>
   );
 }
 
-function Caption({
-  updating,
-  entries,
+/** What the user fills in, marked as theirs: it prints only once filled. */
+const DASHED =
+  'rounded-md border border-dashed border-edge-control text-muted hover:bg-surface-hover hover:text-strong focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none';
+
+/**
+ * A block that opens its editor is itself the button (`.claude/rules/
+ * web-ui.md`): it highlights whole, and a faint pencil at its top right says
+ * so. Without `onPress` it is the block as printed.
+ */
+function Block({
+  onPress,
+  className = '',
+  children,
 }: {
-  updating: boolean;
-  entries: number | undefined;
+  onPress?: () => void;
+  className?: string;
+  children: React.ReactNode;
 }) {
-  if (updating)
-    return <span className="type-support text-subtle">Updating…</span>;
-  if (entries === undefined) return null;
+  if (!onPress) return <div className={className}>{children}</div>;
   return (
-    <span className="type-support text-subtle">
-      {entries} entr{entries === 1 ? 'y' : 'ies'}
-    </span>
+    <button
+      type="button"
+      onClick={onPress}
+      className={`${rowButton} -mx-2 -my-1.5 py-1.5 ${className}`}
+    >
+      <span className="sr-only">Edit</span> {children}
+      <EditMark />
+    </button>
+  );
+}
+
+function EditMark() {
+  return (
+    <Pencil
+      aria-hidden
+      strokeWidth={1.75}
+      className="absolute top-2 right-2 size-3.5 text-subtle opacity-60 group-hover:text-strong group-hover:opacity-100"
+    />
+  );
+}
+
+function AddButton({
+  label,
+  onClick,
+  className = '',
+}: {
+  label: string;
+  onClick?: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`${DASHED} flex items-center gap-1.5 self-start px-2.5 py-1.5 type-support ${className}`}
+    >
+      <Plus aria-hidden strokeWidth={2.25} className="size-3.5" />
+      {label}
+    </button>
   );
 }
 
@@ -246,34 +335,66 @@ function From({
   number,
   issued,
   due,
+  edit,
 }: {
   business: Business | undefined;
   noSender: boolean;
   number: string;
   issued: string;
   due: string;
+  edit: CardEdits | undefined;
 }) {
   return (
     <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
-      {noSender ? (
-        /* Where the sender prints, marked as missing rather than left
-           blank; the line under the card says what goes in it. */
-        <div
-          aria-hidden
-          className="min-h-14 min-w-0 flex-[1_1_200px] self-start rounded-md border border-dashed border-edge-control"
-        />
-      ) : (
-        <Party
-          name={business ? (business.name ?? 'Invoice') : ''}
-          lines={[business?.address, business?.email]}
-        />
-      )}
-      <dl className="flex flex-col gap-1 type-support">
-        <Meta label="No." value={number} mono right />
-        <Meta label="Issued" value={shortDate(issued)} right />
-        <Meta label="Due" value={shortDate(due)} right />
-      </dl>
+      <Sender
+        business={business}
+        noSender={noSender}
+        onPress={edit?.onBusiness}
+      />
+      <Block onPress={edit?.onDates} className="self-start pr-7">
+        <dl className="flex flex-col gap-1 type-support">
+          <Meta label="No." value={number} mono right />
+          <Meta label="Issued" value={shortDate(issued)} right />
+          <Meta label="Due" value={shortDate(due)} right />
+        </dl>
+      </Block>
     </div>
+  );
+}
+
+function Sender({
+  business,
+  noSender,
+  onPress,
+}: {
+  business: Business | undefined;
+  noSender: boolean;
+  onPress: (() => void) | undefined;
+}) {
+  const room = 'min-w-0 flex-[1_1_200px]';
+  if (noSender && onPress)
+    return (
+      <AddButton
+        label="Add your business"
+        onClick={onPress}
+        className={`${room} min-h-14`}
+      />
+    );
+  /* Where the sender prints, marked as missing rather than left blank. */
+  if (noSender)
+    return (
+      <div
+        aria-hidden
+        className={`${room} min-h-14 self-start rounded-md border border-dashed border-edge-control`}
+      />
+    );
+  return (
+    <Block onPress={onPress} className={`${room} self-start`}>
+      <Party
+        name={business ? (business.name ?? 'Invoice') : ''}
+        lines={[business?.address, business?.email]}
+      />
+    </Block>
   );
 }
 
@@ -282,17 +403,19 @@ function To({
   client,
   preview,
   reference,
+  edit,
 }: {
   client: Pick<Client, 'name' | 'address' | 'email'>;
   preview: CardFigures | undefined;
   reference: string;
+  edit: CardEdits | undefined;
 }) {
   return (
     <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
-      <div className="min-w-0 flex-[1_1_200px]">
+      <Block onPress={edit?.onClient} className="min-w-0 flex-[1_1_200px]">
         <span className={`${LABEL} mb-2`}>Bill to</span>
         <Party name={client.name} lines={[client.address, client.email]} />
-      </div>
+      </Block>
       <div className="min-w-0 flex-[1_1_200px]">
         <span className={`${LABEL} mb-2`}>Engagement</span>
         <dl className="flex flex-col gap-1 type-support">
@@ -305,9 +428,43 @@ function To({
                 : '—'
             }
           />
-          {reference ? <Meta label="Reference" value={reference} /> : null}
+          {edit ? (
+            <TypedReference reference={edit.reference} />
+          ) : reference ? (
+            <Meta label="Reference" value={reference} />
+          ) : null}
         </dl>
       </div>
+    </div>
+  );
+}
+
+/** Typed in place: a dashed underline once filled, a dashed add button
+    while empty. */
+const typedClass = (filled: boolean) =>
+  filled
+    ? 'w-full min-w-0 border-0 border-b border-dashed border-edge-control bg-transparent text-primary outline-none focus-visible:border-edge-focus'
+    : `${DASHED} w-full min-w-0 bg-transparent px-2.5 py-1.5 placeholder:text-muted outline-none focus-visible:placeholder:text-subtle`;
+
+function TypedReference({ reference }: { reference: Typed }) {
+  const filled = reference.value.trim() !== '';
+  return (
+    <div className="flex gap-3">
+      {/* Kept in its slot when empty, so the field keeps focus as its label
+          appears. */}
+      {filled ? (
+        <dt className="w-26 flex-none text-subtle">Reference</dt>
+      ) : null}
+      <dd className="min-w-0 flex-1">
+        <input
+          aria-label="Reference"
+          value={reference.value}
+          onChange={(e) => reference.onChange(e.target.value)}
+          placeholder="Add a reference"
+          maxLength={200}
+          className={`type-support ${typedClass(filled)}`}
+        />
+      </dd>
     </div>
   );
 }
@@ -317,6 +474,24 @@ function Notes({ notes }: { notes: string }) {
     <div className="border-t border-edge-subtle pt-4">
       <span className={`${LABEL} mb-2`}>Notes</span>
       <p className="whitespace-pre-line type-support text-muted">{notes}</p>
+    </div>
+  );
+}
+
+function TypedNotes({ notes }: { notes: Typed }) {
+  const filled = notes.value.trim() !== '';
+  return (
+    <div className={filled ? 'border-t border-edge-subtle pt-4' : ''}>
+      {filled ? <span className={`${LABEL} mb-2`}>Notes</span> : null}
+      <textarea
+        aria-label="Notes"
+        rows={1}
+        value={notes.value}
+        onChange={(e) => notes.onChange(e.target.value)}
+        placeholder="Add a note"
+        maxLength={2000}
+        className={`field-sizing-content resize-none type-support ${typedClass(filled)}`}
+      />
     </div>
   );
 }
@@ -368,10 +543,49 @@ const TD = 'type-duration py-2.5 pl-3 text-right align-top whitespace-nowrap';
 /* The rate is the column a narrow card can spare: quantity × rate is still
    checkable from the amount, and the description keeps its room. */
 const RATE = '@max-[360px]/card:hidden';
+const ROW = 'border-b border-edge-subtle last:border-0';
+
+function PaymentBlock({
+  payment,
+  edit,
+}: {
+  payment: PaymentDetails | null;
+  edit: CardEdits | undefined;
+}) {
+  if (!edit) return payment ? <Payment payment={payment} /> : null;
+  if (!payment)
+    return (
+      <div className="border-t border-edge-subtle pt-4">
+        {edit.paymentMenu(<AddButton label="Add payment details" />)}
+      </div>
+    );
+  return (
+    <div className="border-t border-edge-subtle pt-2.5">
+      {edit.paymentMenu(
+        <button
+          type="button"
+          className={`${rowButton} -mx-2 w-[calc(100%+1rem)] py-1.5`}
+        >
+          <span className="sr-only">Edit</span>{' '}
+          <PaymentFieldsBlock payment={payment} />
+          <EditMark />
+        </button>,
+      )}
+    </div>
+  );
+}
 
 function Payment({ payment }: { payment: PaymentDetails }) {
   return (
-    <div className="flex flex-col gap-3 border-t border-edge-subtle pt-4 type-support">
+    <div className="border-t border-edge-subtle pt-4">
+      <PaymentFieldsBlock payment={payment} />
+    </div>
+  );
+}
+
+function PaymentFieldsBlock({ payment }: { payment: PaymentDetails }) {
+  return (
+    <div className="flex flex-col gap-3 type-support">
       <span className={LABEL}>Payment details</span>
       <PaymentFields fields={payment.fields} />
       {payment.intermediary.length > 0 ? (
@@ -399,86 +613,311 @@ function PaymentFields({ fields }: { fields: PaymentDetails['fields'] }) {
   );
 }
 
+type Line = NonNullable<CardFigures['lineItems']>[number];
+
+/** An expense on the page: the server's line once it bills it, and the
+    user's tick on New invoice. */
+type ExpenseLine = {
+  key: string;
+  description: string;
+  spentOn: string | null | undefined;
+  amount: number;
+  /** On New invoice: the expense, ticked or not. */
+  expense?: Expense;
+  billed: boolean;
+};
+
+/** The expense rows: the server's lines, and on New invoice each waiting
+    expense too, unticked ones included so they can be ticked again. */
+function expenseLines(lines: Line[], edit: CardEdits | undefined) {
+  const served = lines.filter((li) => li.unit === 'expense');
+  const rows: ExpenseLine[] = served.map((li, i) => ({
+    key: li.expenseId ?? `line-${i}`,
+    description: li.description,
+    spentOn: li.spentOn,
+    amount: li.amount,
+    expense: edit?.expenses.waiting.find((e) => e.id === li.expenseId),
+    billed: !edit?.expenses.excluded.includes(li.expenseId ?? ''),
+  }));
+  for (const e of edit?.expenses.waiting ?? []) {
+    if (rows.some((r) => r.key === e.id)) continue;
+    rows.push({
+      key: e.id,
+      description: e.description,
+      spentOn: e.spentOn,
+      amount: e.amount,
+      expense: e,
+      billed: !edit?.expenses.excluded.includes(e.id),
+    });
+  }
+  return rows;
+}
+
 function Lines({
   preview,
   terms,
+  updating,
+  edit,
 }: {
-  preview: CardFigures & { lineItems: NonNullable<CardFigures['lineItems']> };
+  preview: CardFigures & { lineItems: Line[] };
   terms: string | null | undefined;
+  updating: boolean;
+  edit: CardEdits | undefined;
 }) {
+  const dim = updating ? DIM : '';
   const cur = preview.currency;
-  const services = preview.lineItems.filter((li) => li.unit !== 'expense');
-  const expenses = preview.lineItems.filter((li) => li.unit === 'expense');
-
-  if (preview.lineItems.length === 0) {
-    return (
-      <p className="type-support text-subtle">
-        Nothing to bill in this period.
-      </p>
-    );
-  }
+  /* On New invoice the charges are the user's, listed as they are now;
+     the server's copy of them lags a keystroke. */
+  const services = preview.lineItems.filter(
+    (li) => li.unit !== 'expense' && !(edit && li.unit === 'fixed'),
+  );
+  const charges = edit?.charges.list ?? [];
+  const expenses = expenseLines(preview.lineItems, edit);
+  const empty =
+    services.length === 0 && charges.length === 0 && expenses.length === 0;
 
   return (
     <>
-      <table className="w-full type-support">
-        <thead>
-          <tr className="border-b border-edge-default text-left">
-            <th scope="col" className={TH}>
-              Description
-            </th>
-            <th scope="col" className={`${TH} text-right`}>
-              Qty
-            </th>
-            <th scope="col" className={`${TH} text-right ${RATE}`}>
-              Rate
-            </th>
-            <th scope="col" className={`${TH} text-right`}>
-              Amount
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {services.map((li, i) => (
-            <tr key={i} className="border-b border-edge-subtle last:border-0">
-              <td className="py-2.5 text-primary">{li.description}</td>
-              <td className={`${TD} text-muted`}>
-                {formatQuantity(li.unit, li.quantity)}
-              </td>
-              <td className={`${TD} text-muted ${RATE}`}>
-                {formatCurrency(li.unitPrice, cur)}
-              </td>
-              <td className={`${TD} text-strong`}>
-                {formatCurrency(li.amount, cur)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-        {expenses.length > 0 ? (
-          <tbody>
+      {empty ? (
+        <p className="type-support text-subtle">
+          Nothing to bill in this period.
+        </p>
+      ) : (
+        <table className="w-full type-support">
+          <thead>
             <tr className="border-b border-edge-default text-left">
-              <th scope="colgroup" colSpan={4} className={`${TH} pt-6`}>
-                Expenses
+              <th scope="col" className={TH}>
+                Description
+              </th>
+              <th scope="col" className={`${TH} text-right`}>
+                Qty
+              </th>
+              <th scope="col" className={`${TH} text-right ${RATE}`}>
+                Rate
+              </th>
+              <th scope="col" className={`${TH} text-right`}>
+                Amount
               </th>
             </tr>
-            {expenses.map((li, i) => (
-              <tr key={i} className="border-b border-edge-subtle last:border-0">
-                <td className="py-2.5 text-primary">{li.description}</td>
-                <td className={`${TD} text-muted`}>{shortDate(li.spentOn)}</td>
-                <td className={RATE} />
-                <td className={`${TD} text-strong`}>
-                  {formatCurrency(li.amount, cur)}
-                </td>
-              </tr>
+          </thead>
+          <tbody>
+            {services.map((li, i) => (
+              <ServiceRow
+                key={i}
+                line={li}
+                currency={cur}
+                dim={dim}
+                summary={edit?.summary}
+                first={i === 0}
+              />
+            ))}
+            {charges.map((c) => (
+              <ChargeRow
+                key={c.key}
+                charge={c}
+                currency={cur}
+                onOpen={() => edit?.charges.onOpen(c.key)}
+              />
             ))}
           </tbody>
-        ) : null}
-      </table>
+          {expenses.length > 0 ? (
+            <tbody>
+              <tr className="border-b border-edge-default text-left">
+                <th scope="colgroup" colSpan={4} className={`${TH} pt-6`}>
+                  Expenses
+                </th>
+              </tr>
+              {expenses.map((row) => (
+                <ExpenseRowLine
+                  key={row.key}
+                  row={row}
+                  currency={cur}
+                  edit={edit}
+                />
+              ))}
+            </tbody>
+          ) : null}
+        </table>
+      )}
 
+      {edit ? (
+        <div className="flex flex-wrap gap-2">
+          <AddButton label="Add a charge" onClick={edit.charges.onAdd} />
+          <AddButton label="Add an expense" onClick={edit.expenses.onAdd} />
+        </div>
+      ) : null}
+
+      {empty ? null : (
+        <Dims updating={updating}>
+          <Totals
+            preview={preview}
+            terms={terms}
+            services={services.length + charges.length}
+            expenses={expenses.some((e) => e.billed)}
+          />
+        </Dims>
+      )}
+    </>
+  );
+}
+
+/** The id of New invoice's notice that the summary line is empty. */
+export const SUMMARY_ERROR = 'inv-summary-error';
+
+function ServiceRow({
+  line,
+  currency,
+  dim,
+  summary,
+  first,
+}: {
+  line: Line;
+  currency: string;
+  /** The server's figures dim while it recomputes; typed text never does. */
+  dim: string;
+  summary: CardEdits['summary'];
+  /** Each rate is a line of the same text, typed once on the first. */
+  first: boolean;
+}) {
+  return (
+    <tr className={ROW}>
+      <td className="py-2.5 text-primary">
+        {summary && !first ? (
+          summary.value
+        ) : summary ? (
+          <input
+            aria-label="Summary line"
+            aria-invalid={summary.invalid || undefined}
+            aria-describedby={summary.invalid ? SUMMARY_ERROR : undefined}
+            value={summary.value}
+            onChange={(e) => summary.onChange(e.target.value)}
+            placeholder="Professional services"
+            maxLength={200}
+            className={`type-support ${typedClass(true)} aria-invalid:border-danger`}
+          />
+        ) : (
+          line.description
+        )}
+      </td>
+      <td className={`${TD} text-muted ${dim}`}>
+        {formatQuantity(line.unit, line.quantity)}
+      </td>
+      <td className={`${TD} text-muted ${RATE} ${dim}`}>
+        {formatCurrency(line.unitPrice, currency)}
+      </td>
+      <td className={`${TD} text-strong ${dim}`}>
+        {formatCurrency(line.amount, currency)}
+      </td>
+    </tr>
+  );
+}
+
+function ChargeRow({
+  charge,
+  currency,
+  onOpen,
+}: {
+  charge: { description: string; amount: number };
+  currency: string;
+  onOpen: () => void;
+}) {
+  return (
+    <tr className={ROW}>
+      <td className="py-1">
+        <button
+          type="button"
+          onClick={onOpen}
+          className={`${rowButton} -mx-2 w-[calc(100%+1rem)] py-1.5 pr-7 text-primary`}
+        >
+          <span className="sr-only">Edit charge</span> {charge.description}
+          <EditMark />
+        </button>
+      </td>
+      <td className={`${TD} text-muted`}>{formatQuantity('fixed', 1)}</td>
+      <td className={`${TD} text-muted ${RATE}`}>
+        {formatCurrency(charge.amount, currency)}
+      </td>
+      <td className={`${TD} text-strong`}>
+        {formatCurrency(charge.amount, currency)}
+      </td>
+    </tr>
+  );
+}
+
+/** On New invoice an expense carries its tick, and an unticked one stays
+    on the page, faint, so it can be ticked again. */
+function ExpenseRowLine({
+  row,
+  currency,
+  edit,
+}: {
+  row: ExpenseLine;
+  currency: string;
+  edit: CardEdits | undefined;
+}) {
+  const faint = row.billed ? '' : 'text-subtle line-through';
+  const { expense } = row;
+  return (
+    <tr className={ROW}>
+      <td className={`py-1 ${faint || 'text-primary'}`}>
+        {edit ? (
+          <span className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={row.billed}
+              onChange={(ev) =>
+                edit.expenses.onToggle(row.key, ev.target.checked)
+              }
+              aria-label={`Bill ${row.description}`}
+              className="size-4 flex-none accent-[var(--text-muted)]"
+            />
+            {expense ? (
+              <button
+                type="button"
+                onClick={() => edit.expenses.onOpen(expense)}
+                className={`${rowButton} -ml-0.5 min-w-0 flex-1 py-1.5 pr-7`}
+              >
+                <span className="sr-only">Edit</span> {row.description}
+                <EditMark />
+              </button>
+            ) : (
+              <span className="py-1.5">{row.description}</span>
+            )}
+          </span>
+        ) : (
+          <span className="block py-1.5">{row.description}</span>
+        )}
+      </td>
+      <td className={`${TD} ${faint || 'text-muted'}`}>
+        {shortDate(row.spentOn)}
+      </td>
+      <td className={RATE} />
+      <td className={`${TD} ${faint || 'text-strong'}`}>
+        {formatCurrency(row.amount, currency)}
+      </td>
+    </tr>
+  );
+}
+
+function Totals({
+  preview,
+  terms,
+  services,
+  expenses,
+}: {
+  preview: CardFigures;
+  terms: string | null | undefined;
+  services: number;
+  expenses: boolean;
+}) {
+  const cur = preview.currency;
+  return (
+    <>
       <dl className="ml-auto flex w-full max-w-64 flex-col gap-1.5 type-support">
         {/* An invoice of expenses alone has no services to subtotal. */}
-        {services.length > 0 || expenses.length === 0 ? (
+        {services > 0 || !expenses ? (
           <Total
-            label={expenses.length > 0 ? 'Services' : 'Subtotal'}
+            label={expenses ? 'Services' : 'Subtotal'}
             value={formatCurrency(preview.subtotal, cur)}
           />
         ) : null}
@@ -488,7 +927,7 @@ function Lines({
             value={formatCurrency(preview.taxAmount, cur)}
           />
         ) : null}
-        {expenses.length > 0 ? (
+        {expenses ? (
           <Total
             label="Expenses"
             value={formatCurrency(preview.expensesSubtotal, cur)}
@@ -534,71 +973,127 @@ function Total({
   );
 }
 
-/** What page 2 onward will hold: hours only, never money. */
+/** A schedule as a chip: pressed on, it is attached. */
+function ScheduleChips({
+  chosen,
+  onChange,
+}: {
+  chosen: ScheduleKind[];
+  onChange: (value: ScheduleKind[]) => void;
+}) {
+  return (
+    <fieldset aria-label="Attach" className="flex flex-wrap gap-1.5">
+      {SCHEDULE_KINDS.map((kind) => (
+        <label
+          key={kind}
+          className={`${DASHED} cursor-pointer px-2.5 py-1 type-support has-checked:border-solid has-checked:border-edge-default has-checked:text-strong has-focus-visible:ring-2 has-focus-visible:ring-edge-focus`}
+        >
+          <input
+            type="checkbox"
+            className="sr-only"
+            checked={chosen.includes(kind)}
+            onChange={(e) =>
+              onChange(
+                SCHEDULE_KINDS.filter((k) =>
+                  k === kind ? e.target.checked : chosen.includes(k),
+                ),
+              )
+            }
+          />
+          {SCHEDULE_TITLES[kind]}
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
+/** What page 2 onward will hold: hours only, never money. On New invoice,
+    with one summary line, its chips choose the tables. */
 function Detail({
   detail,
   chosen,
+  updating,
+  onChange,
 }: {
-  detail: Schedules;
+  detail: Schedules | null;
   chosen: ScheduleKind[];
+  updating: boolean;
+  onChange?: (value: ScheduleKind[]) => void;
 }) {
-  const kinds = SCHEDULE_KINDS.filter((k) => chosen.includes(k));
+  const shown = detail?.totalHours ? chosen : [];
+  if (!onChange && shown.length === 0) return null;
+  const kinds = SCHEDULE_KINDS.filter((k) => shown.includes(k));
   return (
     <div className="flex flex-col gap-5 border-t border-dashed border-edge-default pt-4">
       <span className="type-label text-subtle">Page 2 · supporting detail</span>
-      {kinds.map((kind) => (
-        <div key={kind}>
-          <h3 className="mb-1 type-control text-strong">
-            {SCHEDULE_TITLES[kind]}
-          </h3>
-          <table className="w-full type-support">
-            <thead>
-              <tr className="border-b border-edge-default text-left">
-                {kind === 'date' ? (
-                  <th scope="col" className={TH}>
-                    Date
-                  </th>
-                ) : null}
-                <th scope="col" className={TH}>
-                  {kind === 'week' ? 'Week' : 'Project'}
-                </th>
-                <th scope="col" className={`${TH} text-right`}>
-                  Hours
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows(detail, kind).map((cells, i) => (
-                <tr key={i} className="border-b border-edge-subtle">
-                  {cells.map((cell, j) => (
-                    <td
-                      key={j}
-                      className={
-                        j === cells.length - 1
-                          ? `${TD} text-muted`
-                          : 'py-2.5 pr-3 text-primary'
-                      }
-                    >
-                      {cell}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-              <tr>
+      {onChange ? <ScheduleChips chosen={chosen} onChange={onChange} /> : null}
+      {detail
+        ? kinds.map((kind) => (
+            <Dims key={kind} updating={updating}>
+              <ScheduleTable detail={detail} kind={kind} />
+            </Dims>
+          ))
+        : null}
+    </div>
+  );
+}
+
+function ScheduleTable({
+  detail,
+  kind,
+}: {
+  detail: Schedules;
+  kind: ScheduleKind;
+}) {
+  return (
+    <div>
+      <h3 className="mb-1 type-control text-strong">{SCHEDULE_TITLES[kind]}</h3>
+      <table className="w-full type-support">
+        <thead>
+          <tr className="border-b border-edge-default text-left">
+            {kind === 'date' ? (
+              <th scope="col" className={TH}>
+                Date
+              </th>
+            ) : null}
+            <th scope="col" className={TH}>
+              {kind === 'week' ? 'Week' : 'Project'}
+            </th>
+            <th scope="col" className={`${TH} text-right`}>
+              Hours
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows(detail, kind).map((cells, i) => (
+            <tr key={i} className="border-b border-edge-subtle">
+              {cells.map((cell, j) => (
                 <td
-                  colSpan={kind === 'date' ? 2 : 1}
-                  className="pt-2.5 type-control text-primary"
+                  key={j}
+                  className={
+                    j === cells.length - 1
+                      ? `${TD} text-muted`
+                      : 'py-2.5 pr-3 text-primary'
+                  }
                 >
-                  Total
+                  {cell}
                 </td>
-                <td className={`${TD} text-strong`}>
-                  {formatHours(detail.totalHours)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      ))}
+              ))}
+            </tr>
+          ))}
+          <tr>
+            <td
+              colSpan={kind === 'date' ? 2 : 1}
+              className="pt-2.5 type-control text-primary"
+            >
+              Total
+            </td>
+            <td className={`${TD} text-strong`}>
+              {formatHours(detail.totalHours)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 }

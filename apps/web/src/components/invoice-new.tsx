@@ -16,8 +16,7 @@ import {
   invalidateEntryData,
 } from '@stint/client';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Field, SubFields, inputClass } from './field';
+import { Field, inputClass } from './field';
 import { ClientDialog } from './client-dialog';
 import { ClientPicker } from './client-picker';
 import {
@@ -29,7 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ChevronDown, Pencil, Plus } from 'lucide-react';
+import { ChevronDown, Plus } from 'lucide-react';
 import {
   addDays,
   BILLING_PERIOD_LABELS,
@@ -42,8 +41,6 @@ import {
   isPeriod,
   localDateKey,
   resolvePaymentProfile,
-  SCHEDULE_KINDS,
-  SCHEDULE_TITLES,
   type Period,
   type ScheduleKind,
 } from '@stint/core';
@@ -61,7 +58,6 @@ import {
 } from '@/lib/client/api';
 import { DetailPage, Listing } from './page';
 import { ExpenseDialog } from './expense-dialog';
-import { ExpenseRow } from './expense-row';
 import { type Charge, ChargeDialog } from './charge-dialog';
 import { PaymentProfileDialog } from './payment-profile-dialog';
 import {
@@ -69,12 +65,17 @@ import {
   missingBusiness,
   SenderNotice,
 } from './business-dialog';
-import { NumberDialog } from './number-dialog';
+import { InvoiceDatesDialog } from './invoice-dates-dialog';
+import { PeriodPicker } from './invoice-period';
+import { ReadyToInvoice } from './invoice-ready';
 import { summarize } from './payment-profiles';
-import { businessOf, InvoicePreviewCard } from './invoice-preview-card';
+import {
+  businessOf,
+  InvoicePreviewCard,
+  SUMMARY_ERROR,
+} from './invoice-preview-card';
 import { TemplateDialog } from './template-dialog';
 import { templateName } from './template-picker';
-import { rowButton } from './row-button';
 import { ConfirmDialog } from './confirm-dialog';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
@@ -334,62 +335,6 @@ function useLivePreview(
   return { preview, current: chosen ? preview.data : undefined, updating };
 }
 
-/** The number Generate takes, shown before it does: one that repeats an
-    invoice sent before Stint is caught while it can still change. */
-function NumberLine({
-  number,
-  settings,
-}: {
-  number: string;
-  settings: Settings | undefined;
-}) {
-  const [changing, setChanging] = useState(false);
-  if (!number || !settings) return null;
-  return (
-    <p className="type-support text-subtle">
-      Numbered {number} ·{' '}
-      <button
-        type="button"
-        className="text-strong underline underline-offset-2"
-        onClick={() => setChanging(true)}
-      >
-        Change
-      </button>
-      {changing ? (
-        <NumberDialog onOpenChange={setChanging} settings={settings} />
-      ) : null}
-    </p>
-  );
-}
-
-/** The account's template, changed in a dialog as the number is: it is a
-    setting, not a field of this draft. */
-function TemplateLine({ settings }: { settings: Settings | undefined }) {
-  const [changing, setChanging] = useState(false);
-  if (!settings) return null;
-  return (
-    <Field label="Template">
-      <p className="type-control text-strong">
-        {templateName(settings.invoiceTemplate)} ·{' '}
-        <button
-          type="button"
-          className="underline underline-offset-2"
-          aria-label="Change template"
-          onClick={() => setChanging(true)}
-        >
-          Change
-        </button>
-      </p>
-      {changing ? (
-        <TemplateDialog
-          onOpenChange={setChanging}
-          template={settings.invoiceTemplate}
-        />
-      ) : null}
-    </Field>
-  );
-}
-
 /** The number Generate takes, and the due date the client's payment terms,
  *  else the user's, set from `issued`; both '' until the settings answer. */
 function fromSettings(
@@ -450,7 +395,7 @@ export function NewInvoice() {
     queryFn: () => api.paymentProfiles(),
   });
   return (
-    <DetailPage back="/invoices" label="Invoices" workspace fills>
+    <DetailPage back="/invoices" label="Invoices" workspace letter>
       <Listing query={[clients, settings, profiles]}>
         {([c]) => (
           <Form
@@ -483,7 +428,7 @@ export function EditInvoice({ id }: { id: string }) {
     queryFn: () => api.paymentProfiles(),
   });
   return (
-    <DetailPage back={`/invoices/${id}`} label="Invoice" workspace fills>
+    <DetailPage back={`/invoices/${id}`} label="Invoice" workspace letter>
       <Listing
         query={[invoice, clients, settings, profiles]}
         missing="That invoice no longer exists."
@@ -548,6 +493,7 @@ function Form({
   const [newProfileOpen, setNewProfileOpen] = useState(false);
   const [editingClient, setEditingClient] = useState(false);
   const [editingSender, setEditingSender] = useState(false);
+  const [editingDates, setEditingDates] = useState(false);
 
   /* Only what decides the lines is sent, so a due date or a tick never asks
      the server again. */
@@ -574,8 +520,7 @@ function Form({
 
   const terms = fromSettings(settings, issued, client);
   const number = editing?.invoiceNumber ?? terms.number;
-  const { termsDue } = terms;
-  const due = draft.dueDate ?? termsDue;
+  const due = draft.dueDate ?? terms.termsDue;
   const earlyDue = due !== '' && due < issued;
 
   const generate = useOptimisticMutation({
@@ -640,6 +585,10 @@ function Form({
     );
     set('paymentProfileId', p.id);
   };
+  // Its rate prices the lines; a new or changed expense changes what is
+  // billed, and a new one is ticked, since nothing excludes it.
+  const reprice = () =>
+    qc.invalidateQueries({ queryKey: keys.invoicePreview() });
 
   /* A draft whose details no profile renders now keeps them until another
      is picked. */
@@ -667,6 +616,7 @@ function Form({
     groupingMode,
     summaryText,
   });
+  const summary = !lastPending && groupingMode === 'summary';
 
   const guard = useLeaveGuard(
     JSON.stringify(draft) !== JSON.stringify(initial),
@@ -682,258 +632,211 @@ function Form({
         canSave={canGenerate}
         press={generate}
       />
-      {/* From `xl`, where the panel has a height of its own, nothing scrolls
-          but the two columns: the form and the preview each scroll alone, so
-          reading a long page never moves the field being typed in. Below it
-          the page is one scroll, and the title row is pinned to keep
-          Generate in reach. */}
-      <div className="@container/new xl:flex xl:min-h-0 xl:flex-1 xl:flex-col">
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-4 bg-surface-primary pt-1 pb-3.5 xl:static">
+      <div className="@container/new flex flex-col gap-5">
+        {/* Pinned, to keep Generate in reach down a long invoice. On a
+            phone the title row gives way (`contents`), and what it held is
+            a bar pinned to the bottom, over the timer bar: its 52px and the
+            0.75rem it floats by. */}
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-4 bg-surface-primary py-1 @max-[560px]/new:contents">
           <h1 className="type-title whitespace-nowrap text-strong">
             {editing ? `Edit ${editing.invoiceNumber}` : 'New invoice'}
           </h1>
-          <Button
-            type="button"
-            variant="accent"
-            onClick={() => generate.mutate()}
-            disabled={!canGenerate}
-          >
-            {pressLabel(editing !== undefined, generate.isPending)}
-          </Button>
-        </div>
-
-        {/* A fixed form, and the page up to a Letter page's width (816px):
-            more would stretch the lines apart, not show more of them, so
-            any room past that is margin around the pair. */}
-        <div className="grid gap-x-10 @min-[800px]/new:grid-cols-[360px_minmax(0,816px)] @min-[800px]/new:justify-center xl:min-h-0 xl:flex-1 xl:grid-rows-[minmax(0,1fr)]">
-          {/* One list, in the order the invoice reads: who and when, how the
-              time is shown, what else is billed, what is attached. */}
-          {/* A scroller clips its sides too, so its padding is room for a
-              focus ring, taken back with a negative margin so the fields
-              don't move. */}
-          <div className="flex min-w-0 flex-col xl:-mx-1 xl:min-h-0 xl:overflow-y-auto xl:px-1 [&>*]:border-t [&>*]:border-edge-subtle [&>*]:py-5 [&>*:first-child]:border-0 [&>*:first-child]:pt-1">
-            {/* First on the form, as on the invoice. A draft froze its sender
-                when it was made, so Settings no longer reaches it. */}
-            {editing || !settings || noSender ? (
-              <SenderNotice settings={settings} />
-            ) : (
-              <SenderDetails
-                business={businessOf(settings)}
-                onEdit={() => setEditingSender(true)}
-              />
-            )}
-            <div className="flex flex-col gap-4">
-              <Field label="Client" htmlFor="inv-client" required>
-                {/* A draft keeps its client: another is a new invoice. */}
-                <ClientPicker
-                  id="inv-client"
-                  disabled={editing !== undefined}
-                  clients={clients}
-                  value={draft.clientId || null}
-                  // Another client brings its own payment details.
-                  onChange={(id) =>
-                    setDraft((d) => ({
-                      ...d,
-                      clientId: id ?? '',
-                      paymentProfileId: '',
-                    }))
-                  }
-                  placeholder="Choose a client…"
-                />
-                {client ? (
-                  <ClientDetails
-                    client={client}
-                    onEdit={() => setEditingClient(true)}
-                  />
-                ) : null}
-              </Field>
-              <div className="flex flex-wrap gap-4">
-                <DateField
-                  id="inv-from"
-                  label="From"
-                  value={periodStart}
-                  // Either date pins both, so another client's schedule
-                  // cannot move the other end under the user.
-                  onChange={(v) =>
-                    setDraft((d) => ({ ...d, periodStart: v, periodEnd }))
-                  }
-                />
-                <DateField
-                  id="inv-to"
-                  label="To"
-                  value={periodEnd}
-                  onChange={(v) =>
-                    setDraft((d) => ({ ...d, periodStart, periodEnd: v }))
-                  }
-                />
-                <DateField
-                  id="inv-due"
-                  label="Due"
-                  value={due}
-                  onChange={(v) => set('dueDate', v)}
-                />
-              </div>
-              {earlyDue ? (
-                <p role="alert" className="type-support text-danger">
-                  Due can't be before the issue date.
-                </p>
-              ) : null}
-              <ScheduleHint
-                client={client}
-                periodStart={periodStart}
-                periodEnd={periodEnd}
-              />
-              <Field label="Reference" htmlFor="inv-reference">
-                <Input
-                  id="inv-reference"
-                  value={reference}
-                  onChange={(e) => set('reference', e.target.value)}
-                  placeholder="PO number, contract or SOW"
-                  maxLength={200}
-                />
-              </Field>
-              {editing ? null : (
-                <NumberLine number={number} settings={settings} />
-              )}
-            </div>
-
-            {/* Shown once the client's last invoice says its format, so a
-                carried grouping never flips in after a default. */}
-            {lastPending ? null : (
-              <Field label="Show time as" htmlFor="inv-group">
-                <GroupingPicker
-                  value={groupingMode}
-                  onChange={(mode) => set('groupingMode', mode)}
-                />
-                {groupingMode === 'summary' ? (
-                  <SummaryLineField
-                    value={summaryText}
-                    missing={
-                      noSummaryText && draft.clientId !== '' && !lastPending
-                    }
-                    onChange={(v) => set('summaryText', v)}
-                  />
-                ) : null}
-              </Field>
-            )}
-
-            {client ? (
-              <Field label="Expenses">
-                <ExpenseRows
-                  expenses={waiting}
-                  currency={client.currency ?? undefined}
-                  excluded={draft.excludedExpenseIds}
-                  onToggle={toggleExpense}
-                  onOpen={expenseDialog.show}
-                  onAdd={() => expenseDialog.show(undefined)}
-                />
-              </Field>
-            ) : null}
-
-            <Field label="Charges">
-              <ChargeRows
-                charges={draft.charges}
-                currency={client?.currency ?? undefined}
-                onOpen={chargeDialog.show}
-                onAdd={() => chargeDialog.show('new')}
-              />
-            </Field>
-
-            <Field label="Payment details" htmlFor="inv-payment">
-              <PaymentPicker
-                profiles={profiles}
-                value={profile}
-                onChange={(id) => set('paymentProfileId', id)}
-                onNew={() => setNewProfileOpen(true)}
-                kept={keeps && payment !== null}
-              />
-            </Field>
-
-            <Field label="Notes" htmlFor="inv-notes">
-              <textarea
-                id="inv-notes"
-                rows={3}
-                value={draft.notes}
-                onChange={(e) => set('notes', e.target.value)}
-                placeholder="Printed on this invoice"
-                maxLength={2000}
-                className="w-full rounded-md border border-edge-default bg-transparent px-3 py-2
-                           type-control text-strong placeholder:text-placeholder outline-none
-                           focus-visible:border-edge-focus focus-visible:ring-[3px]
-                           focus-visible:ring-edge-focus"
-              />
-            </Field>
-
-            {/* Only a summary has detail to support: every other grouping
-                already breaks the time down on the invoice. */}
-            {!lastPending && groupingMode === 'summary' ? (
-              <ScheduleChecklist
-                value={schedules}
-                onChange={(v) => set('schedules', v)}
-              />
-            ) : null}
-
-            <TemplateLine settings={settings} />
-          </div>
-
-          {/* Beside the form on a wide panel, after it on a narrow one. From
-              `xl` its caption stays put and the card scrolls under it. */}
-          <div className="mt-6 min-w-0 @min-[800px]/new:mt-0 xl:flex xl:min-h-0 xl:flex-col">
-            <InvoicePreviewCard
-              noSender={noSender}
-              preview={current}
-              client={client}
-              business={businessOf(settings)}
-              number={number}
-              issued={issued}
-              due={due}
-              reference={reference.trim()}
-              notes={draft.notes.trim()}
-              payment={payment}
-              schedules={schedules}
-              updating={updating}
-              offer={
-                <EarlierWorkOffer
-                  // Gone the moment From or the client changes, not when the next
-                  // answer lands.
-                  work={
-                    current?.periodStart === periodStart &&
-                    current.clientId === draft.clientId
-                      ? current.earlierWork
-                      : null
-                  }
-                  onInclude={(from) =>
-                    setDraft((d) => ({ ...d, periodStart: from, periodEnd }))
-                  }
-                />
-              }
-              footnote={
-                editing
-                  ? 'Saving keeps its number.'
-                  : 'Generating assigns a number and holds these entries for this draft.'
-              }
+          <div className={`flex items-center gap-4 ${PHONE_BAR}`}>
+            {client ? <Due preview={current} updating={updating} /> : null}
+            <Button
+              type="button"
+              variant="accent"
+              onClick={() => generate.mutate()}
+              disabled={!canGenerate}
             >
-              <PreviewNotices
-                preview={current}
-                error={generate.error ?? preview.error}
-              />
-            </InvoicePreviewCard>
+              {pressLabel(editing !== undefined, generate.isPending)}
+            </Button>
           </div>
         </div>
+
+        {/* What decides the lines, so it leads; the rest is on the page. */}
+        <div className="grid gap-4 @min-[560px]/new:grid-cols-3">
+          <Field label="Client" htmlFor="inv-client" required>
+            {/* A draft keeps its client: another is a new invoice. */}
+            <ClientPicker
+              id="inv-client"
+              disabled={editing !== undefined}
+              clients={clients}
+              value={draft.clientId || null}
+              // Another client brings its own payment details.
+              onChange={(id) =>
+                setDraft((d) => ({
+                  ...d,
+                  clientId: id ?? '',
+                  paymentProfileId: '',
+                }))
+              }
+              placeholder="Choose a client…"
+            />
+          </Field>
+          {client ? (
+            <Field label="Period" htmlFor="inv-period">
+              <PeriodPicker
+                id="inv-period"
+                today={issued}
+                value={{ periodStart, periodEnd }}
+                onChange={(p) => setDraft((d) => ({ ...d, ...p }))}
+              />
+            </Field>
+          ) : null}
+          {/* Shown once the client's last invoice says its format, so a
+              carried grouping never flips in after a default. */}
+          {client && !lastPending ? (
+            <Field label="Show time as" htmlFor="inv-group">
+              <GroupingPicker
+                value={groupingMode}
+                onChange={(mode) => set('groupingMode', mode)}
+              />
+            </Field>
+          ) : null}
+        </div>
+
+        {client ? (
+          <div className="flex flex-col gap-2 empty:hidden">
+            {/* First: it is why Generate is disabled. */}
+            <SenderNotice settings={settings} />
+            <ScheduleHint
+              client={client}
+              periodStart={periodStart}
+              periodEnd={periodEnd}
+            />
+            <EarlierWorkOffer
+              // Gone the moment From or the client changes, not when the
+              // next answer lands.
+              work={
+                current?.periodStart === periodStart &&
+                current.clientId === draft.clientId
+                  ? current.earlierWork
+                  : null
+              }
+              onInclude={(from) =>
+                setDraft((d) => ({ ...d, periodStart: from, periodEnd }))
+              }
+            />
+            {noSummaryText && !lastPending ? (
+              <p
+                id={SUMMARY_ERROR}
+                role="alert"
+                className="type-support text-danger"
+              >
+                Give the summary line its text.
+              </p>
+            ) : null}
+            {earlyDue ? (
+              <p role="alert" className="type-support text-danger">
+                Due can't be before the issue date.
+              </p>
+            ) : null}
+            <PreviewNotices
+              preview={current}
+              error={generate.error ?? preview.error}
+            />
+          </div>
+        ) : null}
+
+        {client ? (
+          <InvoicePreviewCard
+            noSender={noSender}
+            preview={current}
+            client={client}
+            business={businessOf(settings)}
+            number={number}
+            issued={issued}
+            due={due}
+            reference={reference.trim()}
+            notes={draft.notes.trim()}
+            payment={payment}
+            schedules={schedules}
+            updating={updating}
+            footnote={
+              editing
+                ? 'Saving keeps its number.'
+                : 'Generating assigns a number and holds these entries for this draft.'
+            }
+            edit={{
+              // A draft froze its sender when it was made, so Settings no
+              // longer reaches it.
+              onBusiness: editing ? undefined : () => setEditingSender(true),
+              onDates: () => setEditingDates(true),
+              onClient: () => setEditingClient(true),
+              reference: {
+                value: reference,
+                onChange: (v) => set('reference', v),
+              },
+              notes: { value: draft.notes, onChange: (v) => set('notes', v) },
+              summary: summary
+                ? {
+                    value: summaryText,
+                    onChange: (v) => set('summaryText', v),
+                    invalid: noSummaryText,
+                  }
+                : undefined,
+              // Only a summary has detail to support: every other grouping
+              // already breaks the time down on the invoice.
+              schedules: summary
+                ? { onChange: (v) => set('schedules', v) }
+                : undefined,
+              charges: {
+                list: draft.charges,
+                onOpen: chargeDialog.show,
+                onAdd: () => chargeDialog.show('new'),
+              },
+              expenses: {
+                waiting,
+                excluded: draft.excludedExpenseIds,
+                onToggle: toggleExpense,
+                onOpen: expenseDialog.show,
+                onAdd: () => expenseDialog.show(undefined),
+              },
+              paymentMenu: (trigger) => (
+                <PaymentMenu
+                  profiles={profiles}
+                  value={profile}
+                  onChange={(id) => set('paymentProfileId', id)}
+                  onNew={() => setNewProfileOpen(true)}
+                >
+                  {trigger}
+                </PaymentMenu>
+              ),
+            }}
+          >
+            <p className="type-support text-subtle">
+              Dashed is yours to fill, and prints only once filled.
+            </p>
+            <TemplateLine settings={settings} />
+          </InvoicePreviewCard>
+        ) : (
+          <ReadyToInvoice clients={clients} />
+        )}
       </div>
 
       {editingSender && settings ? (
         <BusinessDialog onOpenChange={setEditingSender} settings={settings} />
+      ) : null}
+      {editingDates ? (
+        <InvoiceDatesDialog
+          onOpenChange={setEditingDates}
+          settings={editing ? undefined : settings}
+          number={number}
+          issued={issued}
+          due={due}
+          // An unchanged Due keeps following the terms.
+          onDue={(d) => {
+            if (d !== due) set('dueDate', d);
+          }}
+        />
       ) : null}
       {client ? (
         <ClientDialog
           open={editingClient}
           onOpenChange={setEditingClient}
           client={client}
-          // Its rate prices the lines.
-          onSaved={() =>
-            qc.invalidateQueries({ queryKey: keys.invoicePreview() })
-          }
+          onSaved={reprice}
         />
       ) : null}
       {client ? (
@@ -942,11 +845,7 @@ function Form({
           onOpenChange={expenseDialog.onOpenChange}
           client={client}
           expense={expenseDialog.subject}
-          // A new or changed expense changes what would be billed; a new one
-          // is ticked, since nothing excludes it.
-          onSaved={() =>
-            qc.invalidateQueries({ queryKey: keys.invoicePreview() })
-          }
+          onSaved={reprice}
         />
       ) : null}
       <ChargeDialog
@@ -965,74 +864,66 @@ function Form({
   );
 }
 
+const PHONE_BAR =
+  '@max-[560px]/new:sticky @max-[560px]/new:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] @max-[560px]/new:z-10 @max-[560px]/new:order-last @max-[560px]/new:justify-between @max-[560px]/new:rounded-lg @max-[560px]/new:border @max-[560px]/new:border-edge-subtle @max-[560px]/new:bg-surface-primary @max-[560px]/new:px-3 @max-[560px]/new:py-2.5';
+
 const pressLabel = (editing: boolean, pending: boolean) => {
   if (editing) return pending ? 'Saving…' : 'Save draft';
   return pending ? 'Generating…' : 'Generate invoice';
 };
 
-/**
- * Who the invoice is from, read-only like the client's details; its dialog
- * saves to Settings.
- */
-function SenderDetails({
-  business,
-  onEdit,
+/** What Generate would bill, beside it: the entries and the amount due,
+    or Updating while the server recomputes them. */
+function Due({
+  preview,
+  updating,
 }: {
-  business: Invoice['business'];
-  onEdit: () => void;
+  preview: InvoicePreview | undefined;
+  updating: boolean;
 }) {
+  if (!preview && !updating) return null;
+  const entries = preview?.entryCount ?? 0;
   return (
-    <Field label="Your business">
-      <div className="flex flex-col items-start gap-1.5">
-        {/* As `Party` prints it on the invoice. */}
-        <p className="whitespace-pre-line type-support text-muted">
-          <b className="block type-control text-strong">{business.name}</b>
-          {[business.address, business.email].filter(Boolean).join('\n')}
-        </p>
-        <button
-          type="button"
-          className="type-support text-strong underline underline-offset-2"
-          onClick={onEdit}
+    <span className="flex items-baseline gap-3">
+      <span className="type-support text-subtle">
+        {updating
+          ? 'Updating…'
+          : `${entries} entr${entries === 1 ? 'y' : 'ies'}`}
+      </span>
+      {preview ? (
+        <span
+          className={`type-amount text-strong transition-opacity duration-150 ${updating ? 'opacity-50' : ''}`}
         >
-          Edit business
-        </button>
-      </div>
-    </Field>
+          {formatCurrency(preview.total, preview.currency)}
+        </span>
+      ) : null}
+    </span>
   );
 }
 
-/**
- * What the invoice prints for the client, read-only: nothing on this form
- * saves before Generate, so a change to the client goes through its own
- * dialog, which says it saves.
- */
-function ClientDetails({
-  client,
-  onEdit,
-}: {
-  client: Client;
-  onEdit: () => void;
-}) {
+/** The account's template, changed in a dialog: it is a setting, not a
+    field of this draft. */
+function TemplateLine({ settings }: { settings: Settings | undefined }) {
+  const [changing, setChanging] = useState(false);
+  if (!settings) return null;
   return (
-    <SubFields label={`${client.name} billing details`}>
-      <div className="flex flex-col items-start gap-1.5">
-        {/* As `Party` prints them on the invoice. */}
-        <p className="whitespace-pre-line type-support text-muted">
-          {client.address ?? (
-            <span className="text-subtle">No billing address</span>
-          )}
-          {'\n'}
-          {client.email ?? <span className="text-subtle">No email</span>}
-        </p>
-        <button
-          type="button"
-          className="type-support text-strong underline underline-offset-2"
-          onClick={onEdit}
-        >
-          Edit client
-        </button>
-      </div>
-    </SubFields>
+    <p className="type-support text-subtle">
+      {templateName(settings.invoiceTemplate)} template ·{' '}
+      <button
+        type="button"
+        className="text-strong underline underline-offset-2"
+        aria-label="Change template"
+        onClick={() => setChanging(true)}
+      >
+        Change
+      </button>
+      {changing ? (
+        <TemplateDialog
+          onOpenChange={setChanging}
+          template={settings.invoiceTemplate}
+        />
+      ) : null}
+    </p>
   );
 }
 
@@ -1185,7 +1076,7 @@ function EarlierWorkOffer({
   const what = `${work.entryCount} earlier entr${one ? 'y' : 'ies'}, ${dates},`;
   if (work.draft)
     return (
-      <p role="status" className="px-1 pb-2.5 type-support text-warning">
+      <p role="status" className="type-support text-warning">
         {what} {one ? 'is' : 'are'} on draft{' '}
         <Link
           href={`/invoices/${work.draft.id}`}
@@ -1199,7 +1090,7 @@ function EarlierWorkOffer({
   return (
     <p
       role="status"
-      className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 px-1 pb-2.5 type-support"
+      className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 type-support"
     >
       <span>
         {what} {one ? "isn't" : "aren't"} on any invoice.
@@ -1248,245 +1139,28 @@ function PreviewNotices({
   );
 }
 
-/** The one line's text, part of the grouping choice. */
-function SummaryLineField({
-  value,
-  missing,
-  onChange,
-}: {
-  value: string;
-  missing: boolean;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <SubFields>
-      <Field
-        label="Summary line"
-        htmlFor="inv-summary"
-        required
-        error={missing ? 'Give the summary line its text.' : undefined}
-      >
-        <Input
-          id="inv-summary"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Professional services"
-          maxLength={200}
-        />
-      </Field>
-    </SubFields>
-  );
-}
-
-/** The supporting detail a summary attaches, kept in print order. */
-function ScheduleChecklist({
-  value,
-  onChange,
-}: {
-  value: ScheduleKind[];
-  onChange: (value: ScheduleKind[]) => void;
-}) {
-  return (
-    // In a div: a fieldset's legend sits on its border, and the band rule is
-    // a border.
-    <div>
-      <fieldset className="flex flex-col gap-1.5">
-        <legend className="mb-1.5 type-label text-subtle">Attach</legend>
-        {SCHEDULE_KINDS.map((kind) => (
-          <label
-            key={kind}
-            className="flex items-center gap-2 type-control text-primary"
-          >
-            <input
-              type="checkbox"
-              checked={value.includes(kind)}
-              onChange={(e) =>
-                onChange(
-                  SCHEDULE_KINDS.filter((k) =>
-                    k === kind ? e.target.checked : value.includes(k),
-                  ),
-                )
-              }
-              className="size-4 flex-none accent-[var(--text-muted)]"
-            />
-            {SCHEDULE_TITLES[kind]}
-          </label>
-        ))}
-      </fieldset>
-    </div>
-  );
-}
-
-function DateField({
-  id,
-  label,
-  value,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <Field label={label} htmlFor={id} className="flex-[1_1_104px]">
-      <Input
-        id={id}
-        type="date"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        // A date input keeps an intrinsic width that would wrap the row.
-        className="min-w-0"
-      />
-    </Field>
-  );
-}
-
-/** The bordered list that expenses and charges share. */
-const LIST =
-  'rounded-md border border-edge-subtle px-1.5 divide-y divide-edge-subtle';
-
-function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
-  // Its edge, hover and all, is the fields' edge.
-  return (
-    <div className="mt-1">
-      <Button type="button" variant="ghost" size="sm" onClick={onClick}>
-        <Plus aria-hidden strokeWidth={2.25} />
-        {label}
-      </Button>
-    </div>
-  );
-}
-
 /**
- * The client's expenses this invoice can bill, each billed unless unticked.
- * Unticking leaves it for a later invoice, never deletes it; the name opens
- * the expense itself.
+ * Which payment details the invoice prints, opened from the payment block:
+ * each profile by name, with its bank and last four beneath so two at one
+ * bank tell apart.
  */
-function ExpenseRows({
-  expenses,
-  currency,
-  excluded,
-  onToggle,
-  onOpen,
-  onAdd,
-}: {
-  expenses: Expense[];
-  currency?: string;
-  excluded: string[];
-  onToggle: (id: string, bill: boolean) => void;
-  onOpen: (expense: Expense) => void;
-  onAdd: () => void;
-}) {
-  return (
-    <div className="flex flex-col">
-      {expenses.length > 0 ? (
-        <ul className={LIST}>
-          {expenses.map((e) => (
-            <li key={e.id} className="pl-1.5">
-              <ExpenseRow
-                expense={e}
-                currency={currency}
-                onOpen={() => onOpen(e)}
-                leading={
-                  <input
-                    type="checkbox"
-                    checked={!excluded.includes(e.id)}
-                    onChange={(ev) => onToggle(e.id, ev.target.checked)}
-                    aria-label={`Bill ${e.description}`}
-                    className="size-4 flex-none accent-[var(--text-muted)]"
-                  />
-                }
-              />
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      <AddButton label="Add an expense" onClick={onAdd} />
-    </div>
-  );
-}
-
-/** The charges on this invoice, each opening its dialog. */
-function ChargeRows({
-  charges,
-  currency,
-  onOpen,
-  onAdd,
-}: {
-  charges: DraftCharge[];
-  currency?: string;
-  onOpen: (key: string) => void;
-  onAdd: () => void;
-}) {
-  return (
-    <div className="flex flex-col">
-      {charges.length > 0 ? (
-        <ul className={LIST}>
-          {charges.map((c) => (
-            <li key={c.key}>
-              <button
-                type="button"
-                onClick={() => onOpen(c.key)}
-                className={`${rowButton} flex w-full items-center gap-3 py-2.5`}
-              >
-                <span className="sr-only">Edit charge</span>{' '}
-                <span className="min-w-0 flex-1 truncate type-control text-strong">
-                  {c.description}
-                </span>
-                <span className="flex-none type-duration text-strong">
-                  {formatCurrency(c.amount, currency)}
-                </span>
-                <Pencil
-                  aria-hidden
-                  strokeWidth={1.75}
-                  className="size-3.5 flex-none text-subtle group-hover:text-strong"
-                />
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      <AddButton label="Add a charge" onClick={onAdd} />
-    </div>
-  );
-}
-
-/**
- * Which payment details the invoice prints: each profile by name, with its
- * bank and last four beneath so two at one bank tell apart.
- */
-function PaymentPicker({
+function PaymentMenu({
   profiles,
   value,
   onChange,
   onNew,
-  kept = false,
+  children,
 }: {
   profiles: PaymentProfile[];
   value: PaymentProfile | null;
   onChange: (id: string) => void;
   onNew: () => void;
-  /** A draft's details no profile renders now, kept as they were. */
-  kept?: boolean;
+  /** The block, or its add button, that opens the menu. */
+  children: React.ReactElement;
 }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        id="inv-payment"
-        className={`${inputClass} flex items-center justify-between gap-2 text-left
-                    focus:border-edge-focus focus:ring-[3px] focus:ring-edge-focus`}
-      >
-        <span className="truncate">
-          {value?.name ?? (kept ? 'As generated' : 'None')}
-        </span>
-        <ChevronDown
-          aria-hidden
-          className="size-4 flex-none text-muted opacity-60"
-          strokeWidth={2}
-        />
-      </DropdownMenuTrigger>
-
+      <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-72">
         {profiles.length > 0 ? (
           <>

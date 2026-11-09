@@ -87,23 +87,22 @@ export function DetailPage({
   back,
   label,
   workspace = false,
-  fills = false,
+  letter = false,
   children,
 }: {
   back: string;
   label: string;
   workspace?: boolean;
-  /** `Page`'s: the content below the back link takes the rest of the panel. */
-  fills?: boolean;
+  /** One centered column a Letter page wide (816px), the back link in it,
+   *  for a screen whose subject is the page itself. */
+  letter?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <Page workspace={workspace} fills={fills}>
-      <BackLink up={back} label={label} />
-      <div
-        className={`mt-4${fills ? ' xl:flex xl:min-h-0 xl:flex-1 xl:flex-col' : ''}`}
-      >
-        {children}
+    <Page workspace={workspace}>
+      <div className={letter ? 'mx-auto w-full max-w-[816px]' : undefined}>
+        <BackLink up={back} label={label} />
+        <div className="mt-4">{children}</div>
       </div>
     </Page>
   );
