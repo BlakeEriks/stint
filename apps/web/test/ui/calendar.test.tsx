@@ -541,7 +541,7 @@ describe('where the week opens', () => {
       '[style*="height"]',
     ) as HTMLElement;
     return {
-      el: gutter.parentElement?.parentElement as HTMLElement,
+      el: gutter.closest('.overflow-x-auto') as HTMLElement,
       gridHeight: Number.parseFloat(gutter.style.height),
     };
   }

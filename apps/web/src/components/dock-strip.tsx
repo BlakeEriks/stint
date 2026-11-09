@@ -1,136 +1,88 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { CalendarDays, Inbox as InboxIcon } from 'lucide-react';
-import { Popover } from 'radix-ui';
+import { PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { api } from '@/lib/client/api';
 import { keys } from '@stint/client';
-import { useDockFold, type FoldRegion } from '@/lib/client/use-dock-fold';
+import { useDockFold } from '@/lib/client/use-dock-fold';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { Button } from '@/components/ui/button';
-import { DockToday } from './dock';
-import { Inbox, inboxCount } from './inbox';
-import { Listing } from './page';
+import { inboxCount } from './inbox';
 
 /**
- * The dock, folded: on a workspace screen at `xl`, a 44px strip where the
- * dock's column was, so the screen keeps the room and the Inbox stays one
- * press away with its count in view.
+ * The dock, folded by the user at `xl`: a 44px strip where the dock's column
+ * was, with the Inbox's count in view and the button that unfolds it.
  *
- * Each icon opens its region over the panel as a non-modal popover: Escape,
- * a press outside, focus leaving or a navigation closes it, and focus returns
- * to the icon.
+ * `data-dock-folded` is what `AppShell` reads, through `:has()`, to narrow the
+ * dock's column. Below `xl` the dock is a band under the content and the
+ * choice does not apply.
  *
- * Icon-only by design, the third exception in `.claude/rules/web-ui.md`:
- * each carries its name, and the Inbox its count, in `aria-label`.
+ * Icon-only by design, an exception in `.claude/rules/web-ui.md`: the button
+ * carries its name, and the Inbox's count, in `aria-label`.
  */
 export function DockStrip() {
-  const { open, setOpen } = useDockFold();
+  const { folded, setFolded } = useDockFold();
   const stats = useQuery({
     queryKey: keys.stats(tz),
     queryFn: () => api.stats(tz),
   });
   const count = stats.data ? inboxCount(stats.data.attention) : 0;
 
-  const fold = (region: FoldRegion) => ({
-    open: open === region,
-    onOpenChange: (next: boolean) => setOpen(next ? region : null),
-  });
+  if (!folded) return null;
 
   return (
     <aside
       aria-label="Inbox and Today"
-      className="hidden flex-col items-center gap-1.5 pt-2 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:group-has-[[data-workspace]]/app:flex"
+      data-dock-folded
+      className="hidden flex-col items-center xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:flex"
     >
-      <Popover.Root {...fold('inbox')}>
-        <Icon
-          label={
-            count
-              ? `Inbox, ${count} ${count === 1 ? 'item' : 'items'}`
-              : 'Inbox'
-          }
-          title="Inbox"
-        >
-          <InboxIcon aria-hidden strokeWidth={1.75} />
-          {/* The dock's own count pill, on the icon's corner; none at zero,
-              where the open Inbox says "Nothing needs you." */}
-          {count ? (
-            <span
-              aria-hidden
-              className="absolute top-0.5 right-0.5 inline-flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-surface-active px-1 type-meta text-strong"
-            >
-              {count}
-            </span>
-          ) : null}
-        </Icon>
-        <Fold label="Inbox">
-          <Listing query={stats}>{(data) => <Inbox stats={data} />}</Listing>
-        </Fold>
-      </Popover.Root>
-
-      <Popover.Root {...fold('today')}>
-        <Icon label="Today" title="Today">
-          <CalendarDays aria-hidden strokeWidth={1.75} />
-        </Icon>
-        <Fold label="Today">
-          <DockToday flush />
-        </Fold>
-      </Popover.Root>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label={
+          count
+            ? `Show Inbox and Today, ${count} ${count === 1 ? 'item' : 'items'}`
+            : 'Show Inbox and Today'
+        }
+        title="Show Inbox and Today"
+        onClick={() => setFolded(false)}
+        className="relative text-muted [&_svg:not([class*='size-'])]:size-[18px]"
+      >
+        <PanelRightOpen aria-hidden strokeWidth={1.75} />
+        {/* The dock's own count pill, on the icon's corner; none at zero. */}
+        {count ? (
+          <span
+            aria-hidden
+            className="absolute -top-1 -right-1 inline-flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-surface-active px-1 type-meta text-strong"
+          >
+            {count}
+          </span>
+        ) : null}
+      </Button>
     </aside>
   );
 }
 
-function Icon({
-  label,
-  title,
-  children,
-}: {
-  label: string;
-  title: string;
-  children: React.ReactNode;
-}) {
+/**
+ * The open dock's button that folds it, at the top right, where the strip's
+ * button that unfolds it sits.
+ */
+export function FoldButton() {
+  const { setFolded } = useDockFold();
   return (
-    <Popover.Trigger asChild>
+    <div className="hidden justify-end xl:flex">
       <Button
         type="button"
         variant="ghost"
-        size="icon"
-        aria-label={label}
-        title={title}
-        className="relative text-muted data-[state=open]:bg-surface-active data-[state=open]:text-strong [&_svg:not([class*='size-'])]:size-[18px]"
+        size="icon-sm"
+        aria-label="Hide Inbox and Today"
+        title="Hide Inbox and Today"
+        onClick={() => setFolded(true)}
+        className="text-muted [&_svg:not([class*='size-'])]:size-[18px]"
       >
-        {children}
+        <PanelRightClose aria-hidden strokeWidth={1.75} />
       </Button>
-    </Popover.Trigger>
-  );
-}
-
-/**
- * The open region, over the panel to the strip's left and the dock's width.
- *
- * On the ground the dock is painted on, not a raised surface: the Inbox's
- * rows carry the elevated fill, and on an elevated popover they would vanish
- * into it. The border and the float shadow are what lift it off the panel.
- */
-function Fold({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Popover.Portal>
-      <Popover.Content
-        side="left"
-        align="start"
-        sideOffset={8}
-        collisionPadding={12}
-        aria-label={label}
-        className="z-40 flex max-h-(--radix-popover-content-available-height) w-[286px] flex-col overflow-y-auto rounded-xl border border-edge-subtle bg-surface-base p-3 shadow-float"
-      >
-        {children}
-      </Popover.Content>
-    </Popover.Portal>
+    </div>
   );
 }

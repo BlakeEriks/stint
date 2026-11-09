@@ -54,17 +54,41 @@ export const Desktop: Story = {
     await expect(page.queryByRole('status')).toBeNull();
   },
 };
-/** At `2xl` the grid scrolls inside the card. The screen is a workspace:
-    the dock folds to a strip, so the week takes the dock's room. */
+/** At `2xl` the grid scrolls inside the card, beside the open dock: no
+    screen folds it on its own. */
 export const Wide: Story = {
   ...wide,
   play: async ({ canvasElement }) => {
     await calendar(canvasElement);
     await expect(
-      within(canvasElement.ownerDocument.body).queryByRole('complementary', {
+      within(canvasElement.ownerDocument.body).getByRole('complementary', {
         name: 'At a glance',
       }),
-    ).toBeNull();
+    ).toBeVisible();
+  },
+};
+
+/** Where seven days would fall under 120px each, the grid scrolls sideways
+    and opens on today, right of the pinned hour gutter. */
+export const Sideways: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = await calendar(canvasElement);
+    await page.findAllByText('Pairing on the ingest job');
+    const today =
+      canvasElement.ownerDocument.querySelector<HTMLElement>(
+        'main [data-today]',
+      )!;
+    const scroller = today.parentElement!.parentElement!;
+    await expect(today.getBoundingClientRect().width).toBeGreaterThanOrEqual(
+      120,
+    );
+    await expect(scroller.scrollWidth).toBeGreaterThan(scroller.clientWidth);
+    await waitFor(() => expect(scroller.scrollLeft).toBeGreaterThan(0));
+    const gutter = today.parentElement!.firstElementChild!;
+    await expect(today.getBoundingClientRect().left).toBeGreaterThanOrEqual(
+      gutter.getBoundingClientRect().right,
+    );
   },
 };
 export const Tablet: Story = { ...tablet };
@@ -521,9 +545,13 @@ export const ZoomOutFills: Story = {
     const area = el.parentElement?.parentElement as HTMLElement;
     // Filled exactly: nothing left to scroll, so no scrollbar.
     await waitFor(() => expect(area.scrollHeight).toBe(area.clientHeight));
-    // At most the pixel the area's height is rounded down by.
+    // At most the pixel the area's height is rounded down by, below the
+    // pinned day headings.
+    const headings = area.firstElementChild as HTMLElement;
     await expect(
-      area.clientHeight - el.getBoundingClientRect().height,
+      area.clientHeight -
+        headings.getBoundingClientRect().height -
+        el.getBoundingClientRect().height,
     ).toBeLessThanOrEqual(1);
     // Taller than 22px an hour would draw it: the floor is the area's.
     await expect(area.clientHeight).toBeGreaterThan(24 * 22 + 10);

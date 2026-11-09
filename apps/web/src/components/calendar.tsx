@@ -41,6 +41,14 @@ const LABEL_GAP_PX = 3 * PX_PER_HOUR;
 const DAY_MAX_HEIGHT = 620;
 
 /**
+ * The narrowest a day gets before the grid scrolls sideways: room for a
+ * block's task name and the heading's total. The gutter is `GUTTER_CLASS`'s
+ * width.
+ */
+const MIN_DAY_PX = 120;
+const GUTTER_PX = 40;
+
+/**
  * A week of logged time, and where it gets corrected: seven `DayColumn`s,
  * zoomed by a pinch or a modified scroll over the grid.
  *
@@ -107,6 +115,7 @@ export function Calendar() {
     ? localDateKey(cal.cursor, tz)
     : localDateKey(cal.weekStart, tz);
   const scroller = useScrollToFirstEntry(period, cal.days, gridHeight, px);
+  const minWidth = GUTTER_PX + cal.days.length * MIN_DAY_PX;
 
   /* The heading names what is on screen, down to the day in day view. */
   const label = byDay
@@ -213,48 +222,54 @@ export function Calendar() {
           {() => (
             <>
               <div className="flex min-h-0 flex-col overflow-hidden border-t border-edge-subtle xl:flex-1">
-                <div className="flex flex-none border-b border-edge-subtle">
-                  <div className={GUTTER_CLASS} />
-                  {cal.days.map((day) => (
-                    <DayHeading
-                      key={day.date}
-                      date={day.date}
-                      at={day.at}
-                      seconds={day.totalSeconds}
-                      nameless={byDay}
-                      /* 09:00, because a day added from the heading has no clicked
-                   position to take a time from and the start of a working day is
-                   the likeliest intent. */
-                      onAdd={() => {
-                        const start = new Date(
-                          day.at.getTime() + 9 * 3_600_000,
-                        );
-                        create(start, new Date(start.getTime() + 3_600_000));
-                      }}
-                    />
-                  ))}
-                </div>
+                {/* One scroll container in both directions, so the hour gutter
+              cannot drift from the grid and the day headings cannot drift
+              from their columns. The headings are pinned to its top and the
+              gutter to its left, on the panel's fill so the grid passes under
+              them.
 
-                {/* One scroll container so the hour gutter cannot drift from the grid.
-
-              **It binds at `xl`, where `fills` gives the column the panel's
-              height for it to measure against.** Below that the column is sized
-              by its content, so an `overflow-y-auto` here would have nothing to
-              resolve against: the grid would grow to its full 24 hours and the
-              scroller outside it would carry the overflow — a scrollbar on a
-              box with nothing to scroll, inside the one doing the work.
-
-              So below `xl` there is no inner scroller and the page owns the
-              scroll, which is one gesture however tall the chrome around it
-              is. The day headings scroll with the hours there; they hold only
-              where the scroller is inside the card. */}
+              **It scrolls vertically only at `xl`, where `fills` gives the
+              column the panel's height for it to measure against.** Below
+              that the column is sized by its content, so a vertical scroll
+              here would have nothing to resolve against: the page owns that
+              scroll, and the headings scroll with the hours. Sideways it
+              scrolls at every width, once the days reach `MIN_DAY_PX`. */}
                 <div
                   ref={scroller}
                   tabIndex={scrollerFocus}
-                  className="xl:min-h-0 xl:flex-1 xl:overflow-y-auto"
+                  className="overflow-x-auto xl:min-h-0 xl:flex-1 xl:overflow-y-auto"
                 >
-                  <div className="flex" ref={zoom.ref}>
-                    <HourGutter marks={marks} height={gridHeight} />
+                  <div
+                    className="sticky top-0 z-30 flex border-b border-edge-subtle bg-surface-primary"
+                    style={{ minWidth }}
+                  >
+                    <div
+                      className={`${GUTTER_CLASS} sticky left-0 bg-surface-primary`}
+                    />
+                    {cal.days.map((day) => (
+                      <DayHeading
+                        key={day.date}
+                        date={day.date}
+                        at={day.at}
+                        seconds={day.totalSeconds}
+                        nameless={byDay}
+                        /* 09:00, because a day added from the heading has no clicked
+                   position to take a time from and the start of a working day is
+                   the likeliest intent. */
+                        onAdd={() => {
+                          const start = new Date(
+                            day.at.getTime() + 9 * 3_600_000,
+                          );
+                          create(start, new Date(start.getTime() + 3_600_000));
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  <div className="flex" ref={zoom.ref} style={{ minWidth }}>
+                    <div className="sticky left-0 z-20 bg-surface-primary">
+                      <HourGutter marks={marks} height={gridHeight} />
+                    </div>
 
                     {cal.days.map((day) => (
                       <DayColumn
@@ -309,8 +324,9 @@ export function Calendar() {
 }
 
 /**
- * Scrolls the grid to an hour above the earliest entry on screen, once per
- * `period`. Returns the ref for the scroll container.
+ * Scrolls the grid to an hour above the earliest entry on screen, and
+ * sideways to today, once per `period`. Returns the ref for the scroll
+ * container.
  *
  * A week of ordinary days opens on the morning rather than on midnight, which
  * is what makes 24 hours affordable: the empty small hours are above the fold
@@ -339,6 +355,17 @@ function useScrollToFirstEntry(
        edge and the hour before it stays reachable without scrolling up. */
     el.scrollTop = Math.max(0, firstTop * gridHeight - pxPerHour);
   }, [period, firstTop, gridHeight, pxPerHour]);
+
+  /* Sideways, a week too wide for the panel opens on today, just right of
+     the pinned gutter; any other week opens on its first day. */
+  const landedX = useRef<string>('');
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el || landedX.current === period) return;
+    landedX.current = period;
+    const today = el.querySelector<HTMLElement>('[data-today]');
+    el.scrollLeft = today ? today.offsetLeft - GUTTER_PX : 0;
+  });
 
   return scroller;
 }
@@ -496,7 +523,10 @@ function DayHeading({
   }).format(at);
 
   return (
-    <div className="min-w-0 flex-1 px-1 py-2 text-center">
+    <div
+      data-today={today || undefined}
+      className="min-w-0 flex-1 px-1 py-2 text-center"
+    >
       {nameless ? null : (
         <>
           <div className="type-label text-subtle">{weekday}</div>

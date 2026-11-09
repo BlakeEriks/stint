@@ -302,15 +302,15 @@ describe('the day fills its scroll area', () => {
       const scroller = document.querySelector<HTMLElement>('.overflow-y-auto')!;
       // jsdom applies no stylesheet, so the class's overflow is set here.
       scroller.style.overflowY = 'auto';
-      scroller.getBoundingClientRect = () => ({ height: px }) as DOMRect;
+      scroller.getBoundingClientRect = () =>
+        ({ top: 0, height: px }) as DOMRect;
       act(() => {
         for (const cb of seen) cb();
       });
     };
   }
 
-  /* The strip's popover and the band below `xl` size to the grid: their
-     height is the zoom's own, so a floor read from it would hold the zoom
+  /* The band below `xl` sizes to the grid: its height is the zoom's own, so a floor read from it would hold the zoom
      where it is and zoom-out would never move. */
   it('zooms out freely where the area sizes to the grid', async () => {
     const resize = area();

@@ -1,74 +1,28 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { useDockFold } from '@/lib/client/use-dock-fold';
 
-const at = { pathname: '/invoices/new' };
-vi.mock('next/navigation', () => ({ usePathname: () => at.pathname }));
-
-/** `XL` matches or not, and tells the hook when that changes. */
-const media = {
-  matches: true,
-  listeners: new Set<() => void>(),
-  set(matches: boolean) {
-    this.matches = matches;
-    for (const l of this.listeners) l();
-  },
-};
-const original = window.matchMedia;
-
-beforeEach(() => {
-  at.pathname = '/invoices/new';
-  media.matches = true;
-  media.listeners.clear();
-  window.matchMedia = ((query: string) => ({
-    get matches() {
-      return media.matches;
-    },
-    media: query,
-    addEventListener: (_: string, l: () => void) => media.listeners.add(l),
-    removeEventListener: (_: string, l: () => void) =>
-      media.listeners.delete(l),
-  })) as unknown as typeof window.matchMedia;
-});
-
-afterEach(() => {
-  window.matchMedia = original;
-});
+beforeEach(() => localStorage.clear());
 
 describe('useDockFold', () => {
-  it('opens a region, and closes it when set to nothing', () => {
+  it('is open until the user folds it', () => {
     const { result } = renderHook(() => useDockFold());
-    expect(result.current.open).toBeNull();
-    act(() => result.current.setOpen('inbox'));
-    expect(result.current.open).toBe('inbox');
-    act(() => result.current.setOpen(null));
-    expect(result.current.open).toBeNull();
+    expect(result.current.folded).toBe(false);
   });
 
-  it('holds one region at a time', () => {
-    const { result } = renderHook(() => useDockFold());
-    act(() => result.current.setOpen('inbox'));
-    act(() => result.current.setOpen('today'));
-    expect(result.current.open).toBe('today');
+  it('tells every reader, so the dock and its strip agree', () => {
+    const dock = renderHook(() => useDockFold());
+    const strip = renderHook(() => useDockFold());
+    act(() => dock.result.current.setFolded(true));
+    expect(strip.result.current.folded).toBe(true);
+    act(() => strip.result.current.setFolded(false));
+    expect(dock.result.current.folded).toBe(false);
   });
 
-  it('closes on navigation, and stays closed coming back', () => {
-    const { result, rerender } = renderHook(() => useDockFold());
-    act(() => result.current.setOpen('inbox'));
-    at.pathname = '/invoices/abc';
-    rerender();
-    expect(result.current.open).toBeNull();
-    at.pathname = '/invoices/new';
-    rerender();
-    expect(result.current.open).toBeNull();
-  });
-
-  it('closes below xl, where the strip gives way to the band', () => {
-    const { result } = renderHook(() => useDockFold());
-    act(() => result.current.setOpen('today'));
-    act(() => media.set(false));
-    expect(result.current.open).toBeNull();
-    act(() => media.set(true));
-    expect(result.current.open).toBeNull();
+  it('keeps the choice for the next screen', () => {
+    const first = renderHook(() => useDockFold());
+    act(() => first.result.current.setFolded(true));
+    first.unmount();
+    expect(renderHook(() => useDockFold()).result.current.folded).toBe(true);
   });
 });

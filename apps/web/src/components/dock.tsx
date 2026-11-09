@@ -19,6 +19,8 @@ import {
   useClientsQuery,
 } from '@/lib/client/use-project-colors';
 import { Inbox } from './inbox';
+import { FoldButton } from './dock-strip';
+import { useDockFold } from '@/lib/client/use-dock-fold';
 import { keys } from '@stint/client';
 
 /**
@@ -32,8 +34,8 @@ import { keys } from '@stint/client';
  */
 export function Dock() {
   /* The inbox draws stats; Today's data is waited on too, so the two arrive
-     together, and `DockToday` then finds it cached. Today keeps its own gate
-     because the folded strip opens it alone. */
+     together, and `DockToday` then finds it cached. Today keeps its own gate,
+     so a failure there shows in Today alone. */
   const [stats, ...today] = useDockTodayQueries();
 
   /* The split is only a thing at `xl`, where the dock is a fixed-height
@@ -43,6 +45,7 @@ export function Dock() {
   const column = useRef<HTMLElement>(null);
   const wide = useMediaQuery(XL);
   const { split, dragging, begin, nudge, reset } = useDockSplit(column);
+  const { folded } = useDockFold();
 
   return (
     <aside
@@ -65,11 +68,12 @@ export function Dock() {
          Where it divides is the user's, dragged on the handle between them
          and kept per device.
 
-         At `xl` a workspace screen folds it to `DockStrip`: that screen is a
-         tool and takes the room (`Page`'s `workspace`). Below `xl` it is a
-         band under the content, which costs no width, so it stays. */
-      className="flex min-h-0 flex-none flex-col xl:group-has-[[data-workspace]]/app:hidden xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:w-[286px]"
+         At `xl` the user can fold it to `DockStrip`, on every screen alike.
+         Below `xl` it is a band under the content, which costs no width, so
+         it stays. */
+      className={`flex min-h-0 flex-none flex-col xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:w-[286px]${folded ? ' xl:hidden' : ''}`}
     >
+      <FoldButton />
       {/* The inbox takes its share and scrolls within it. `min-h-0` is what
           lets it shrink below its content so the scroller engages rather than
           the column growing.
@@ -105,13 +109,12 @@ export function Dock() {
   );
 }
 
-/** The dock's Today, in its column or opened from the folded strip. */
-export function DockToday({
+/** The dock's Today. */
+function DockToday({
   flush,
   fills = false,
 }: {
   flush: boolean;
-  /** Only in the dock's column: the strip's popover sizes to its content. */
   fills?: boolean;
 }) {
   const timer = useTimer();
