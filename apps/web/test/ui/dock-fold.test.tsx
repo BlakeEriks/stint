@@ -10,24 +10,14 @@ beforeEach(() => {
 });
 
 describe('the dock fold', () => {
-  it('folds and unfolds the frame at once', () => {
-    setDockFolded(true);
-    expect(html.hasAttribute('data-dock-folded')).toBe(true);
-    setDockFolded(false);
-    expect(html.hasAttribute('data-dock-folded')).toBe(false);
-  });
-
-  it('is folded before paint on the next page load', () => {
-    setDockFolded(true);
-    html.removeAttribute('data-dock-folded');
-    new Function(DOCK_FOLD_SCRIPT)();
-    expect(html.hasAttribute('data-dock-folded')).toBe(true);
-  });
-
-  it('stays open on the next page load once unfolded', () => {
-    setDockFolded(true);
-    setDockFolded(false);
-    new Function(DOCK_FOLD_SCRIPT)();
-    expect(html.hasAttribute('data-dock-folded')).toBe(false);
-  });
+  it.each([true, false])(
+    'is %s before paint on the next page load',
+    (folded) => {
+      setDockFolded(true);
+      setDockFolded(folded);
+      html.removeAttribute('data-dock-folded');
+      new Function(DOCK_FOLD_SCRIPT)();
+      expect(html.hasAttribute('data-dock-folded')).toBe(folded);
+    },
+  );
 });

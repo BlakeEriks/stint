@@ -32,7 +32,8 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        {/* Applies the stored theme, and the dock's fold, BEFORE first paint.
+        {/* Applies the stored theme BEFORE first paint, and the dock's fold,
+            so a folded dock never paints open and reflows the frame.
 
             The choice lives in localStorage, so the server cannot know it and
             the markup is always rendered dark, the default. Without this
