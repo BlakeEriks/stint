@@ -1149,7 +1149,7 @@ export const AddDetails: Story = {
     await expect(
       page.queryByText('Your business details are missing'),
     ).toBeNull();
-    await expect(page.getByText('Sam Rivera Consulting')).toBeVisible();
+    await expect(card(page).getByText('Sam Rivera Consulting')).toBeVisible();
     await settled(page);
   },
 };
@@ -1289,3 +1289,33 @@ export const LeavingBlocked: Story = {
     ).toBeDisabled();
   },
 };
+
+/** Your business, atop the form, opens the same dialog, filled from
+ *  Settings: correcting it reprints the preview and leaves the draft as it
+ *  was. */
+export const EditSender: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    await userEvent.type(page.getByLabelText('Reference'), 'PO-7');
+    await userEvent.click(page.getByRole('button', { name: 'Edit business' }));
+    const dialog = await page.findByRole('dialog', {
+      name: 'Who is this invoice from?',
+    });
+    await waitFor(() => expect(dialog).toBeVisible());
+    const form = within(dialog);
+    const email = form.getByRole('textbox', { name: /Email/ });
+    await expect(email).toHaveValue('billing@samrivera.test');
+    await userEvent.clear(email);
+    await userEvent.type(email, 'sam@samrivera.test');
+    await userEvent.click(form.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+    await expect(
+      await card(page).findByText(/sam@samrivera\.test/),
+    ).toBeVisible();
+    await expect(page.getByLabelText('Reference')).toHaveValue('PO-7');
+  },
+};
+export const EditSenderPhone: Story = { ...EditSender, ...phone };
