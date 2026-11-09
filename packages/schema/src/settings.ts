@@ -15,8 +15,6 @@ import {
     would overflow adding one. */
 export const NEXT_INVOICE_NUMBER_MAX = 999_999;
 
-/* A field's message is what Settings shows beside it when a save is
-   refused, so each one a user types into reads as an instruction. */
 export const Settings = z.object({
   defaultHourlyRate: money.nullable(),
   currency,
@@ -32,27 +30,15 @@ export const Settings = z.object({
    * started and stopped without work between it.
    */
   minEntrySeconds: z.number().int().positive().nullable(),
-  maxEntryHours: z
-    .number({ error: 'More than 0 hours, up to 24.' })
-    .positive()
-    .max(24)
-    .nullable(),
-  businessName: z
-    .string({ error: 'Up to 200 characters.' })
-    .max(200)
-    .nullable(),
-  businessAddress: z
-    .string({ error: 'Up to 1,000 characters.' })
-    .max(1000)
-    .nullable(),
-  businessEmail: z
-    .email({ error: 'An email like you@example.com.' })
-    .nullable(),
+  maxEntryHours: z.number().positive().max(24).nullable(),
+  businessName: z.string().max(200).nullable(),
+  businessAddress: z.string().max(1000).nullable(),
+  businessEmail: z.email().nullable(),
   logoUrl: z.url().nullable(),
   paymentTermsDays: termsDays,
   /** The zone invoices read their dates in; null uses the device's. */
   billingTimeZone: ianaZone.nullable(),
-  invoiceNumberPrefix: z.string({ error: 'Up to 20 characters.' }).max(20),
+  invoiceNumberPrefix: z.string().max(20),
   /** The template drafts render in; a sent invoice keeps its own. */
   invoiceTemplate: InvoiceTemplate,
   nextInvoiceNumber: z.number().int().positive().max(NEXT_INVOICE_NUMBER_MAX),
@@ -64,11 +50,7 @@ export const Settings = z.object({
     The settings route refuses either end in one shape, naming the field, so
     the ceiling is not Zod's here. */
 export const UpdateSettings = Settings.partial().extend({
-  nextInvoiceNumber: z
-    .number({ error: 'A whole number, 1 or more.' })
-    .int()
-    .positive()
-    .optional(),
+  nextInvoiceNumber: z.number().int().positive().optional(),
 });
 
 /** What deleting the account removes, counted so the confirm can say so. */

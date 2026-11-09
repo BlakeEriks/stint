@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { SaveIndicator } from './save-indicator';
 
-/** A region's autosave. Idle shows nothing but holds its space, so nothing
-    shifts when a save begins; an error is worded, never a color alone. */
+/** A region's autosave. Idle still holds its space, so nothing shifts when
+    a save begins; an error is worded, never a color alone. */
 const meta = {
   title: 'Primitives/SaveIndicator',
   component: SaveIndicator,
