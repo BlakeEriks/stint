@@ -52,16 +52,15 @@ export const Open: Story = {
   },
 };
 
-/** Typed: the count climbs toward 2,000. */
+/** Typed: the count climbs toward 2,000, and the box stops there. */
 export const Typing: Story = {
   play: async (ctx) => {
     await openForm(ctx);
     const page = within(ctx.canvasElement.ownerDocument.body);
-    await userEvent.type(
-      page.getByRole('textbox', { name: 'Message' }),
-      MESSAGE,
-    );
+    const box = page.getByRole('textbox', { name: 'Message' });
+    await userEvent.type(box, MESSAGE);
     await expect(page.getByText(/^53 \/ 2,000/)).toBeVisible();
+    await expect(box).toHaveAttribute('maxLength', '2000');
   },
 };
 
@@ -74,6 +73,10 @@ export const Sending: Story = {
     await expect(
       await page.findByRole('button', { name: /Sending/ }),
     ).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    await expect(
+      page.getByRole('textbox', { name: 'Message' }),
+    ).toHaveAttribute('readonly');
   },
 };
 

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, userEvent, within } from 'storybook/test';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import { desktop, phone, screen } from '@/mocks/screen';
 import { ImportPage } from './import-page';
@@ -151,6 +151,10 @@ export const NoDefaultRate: Story = {
   }),
   play: async ({ canvasElement }) => {
     const page = await upload(canvasElement);
+    const rate = await page.findByLabelText('Harbor & Co rate');
+    // Marked once settings answer that there is no default.
+    await waitFor(() => expect(rate).toHaveAttribute('aria-invalid', 'true'));
+    await expect(rate).toHaveAttribute('placeholder', 'rate');
     await userEvent.click(await page.findByRole('button', { name: /Import/ }));
     await expect(
       await page.findByRole('link', { name: /Set a rate/i }),

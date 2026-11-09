@@ -104,57 +104,30 @@ afterEach(() => {
 });
 
 describe('opening an entry from the calendar', () => {
-  it('opens the editor on the entry that was clicked', async () => {
+  it('names a block with its time range, and a billed one as billed', async () => {
     serve([
       {
         date: '2026-09-07',
         totalSeconds: 7200,
-        entries: [entry({ taskName: 'Design review' })],
-      },
-    ]);
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    render(<Calendar />, { wrapper });
-
-    await user.click(
-      await screen.findByRole('button', { name: /Design review/ }),
-    );
-
-    expect(await screen.findByText('Edit entry')).toBeInTheDocument();
-    expect(screen.getByLabelText('Task')).toHaveValue('Design review');
-  });
-
-  it('names a block with its time range, not just its task', async () => {
-    serve([
-      {
-        date: '2026-09-07',
-        totalSeconds: 7200,
-        entries: [entry({ taskName: 'Standup' })],
+        entries: [
+          entry({ taskName: 'Standup' }),
+          entry({ id: 'e2', taskName: 'Billed work', invoiceId: 'inv-1' }),
+        ],
       },
     ]);
     render(<Calendar />, { wrapper });
 
     const button = await screen.findByRole('button', { name: /Standup/ });
     expect(button).toHaveAccessibleName(/^Edit Standup .*\d+:\d+\s?(AM|PM)/i);
-  });
-
-  it('marks a billed entry as billed in its accessible name', async () => {
-    serve([
-      {
-        date: '2026-09-07',
-        totalSeconds: 7200,
-        entries: [entry({ taskName: 'Billed work', invoiceId: 'inv-1' })],
-      },
-    ]);
-    render(<Calendar />, { wrapper });
-
+    expect(button).not.toHaveAccessibleName(/billed/i);
     expect(
-      await screen.findByRole('button', { name: /Billed work.*billed/i }),
+      screen.getByRole('button', { name: /Billed work.*billed/i }),
     ).toBeInTheDocument();
   });
 });
 
 describe('creating an entry by clicking a time', () => {
-  it('opens the editor pre-filled rather than writing a row', async () => {
+  it('opens the editor on the clicked time rather than writing a row', async () => {
     const srv = serve([]);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     render(<Calendar />, { wrapper });
@@ -175,6 +148,13 @@ describe('creating an entry by clicking a time', () => {
     ).toBeInTheDocument();
     // A click on a grid is too cheap a gesture to create a financial record.
     expect(srv.writes()).toEqual([]);
+    // Times render in the viewer's zone, so assert the shape rather than a
+    // wall clock the test environment decides.
+    const start = (screen.getByLabelText('Start') as HTMLInputElement).value;
+    const end = (screen.getByLabelText('End') as HTMLInputElement).value;
+    expect(start).toMatch(/^\d\d:\d\d$/);
+    expect(end).toMatch(/^\d\d:\d\d$/);
+    expect(start).not.toBe(end);
   });
 
   /* Drawing or clicking a time is a pointer-only gesture, so without this
@@ -225,31 +205,6 @@ describe('creating an entry by clicking a time', () => {
     expect((minutes('End') - minutes('Start') + 1440) % 1440).toBe(180);
     expect(srv.writes()).toEqual([]);
   });
-
-  it('seeds the clicked time into the form', async () => {
-    serve([]);
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    render(<Calendar />, { wrapper });
-
-    await screen.findByText('Mon');
-    layOut();
-
-    const column = document.querySelectorAll<HTMLElement>('.border-l')[0]!;
-    await user.pointer({
-      target: column,
-      coords: { x: 10, y: 270 },
-      keys: '[MouseLeft]',
-    });
-
-    await screen.findByRole('heading', { name: 'Add entry' });
-    // Times render in the viewer's zone, so assert the shape rather than a
-    // wall clock the test environment decides.
-    const start = (screen.getByLabelText('Start') as HTMLInputElement).value;
-    const end = (screen.getByLabelText('End') as HTMLInputElement).value;
-    expect(start).toMatch(/^\d\d:\d\d$/);
-    expect(end).toMatch(/^\d\d:\d\d$/);
-    expect(start).not.toBe(end);
-  });
 });
 
 describe('adjusting an entry by dragging', () => {
@@ -282,7 +237,7 @@ describe('adjusting an entry by dragging', () => {
     expect(srv.writes()).toEqual([]);
   });
 
-  it('patches the new times once the pointer has traveled', async () => {
+  it('patches the new times once the pointer has traveled, opening no editor', async () => {
     const srv = serve([
       { date: '2026-09-07', totalSeconds: 7200, entries: [entry()] },
     ]);
@@ -313,23 +268,6 @@ describe('adjusting an entry by dragging', () => {
     expect(
       new Date(moved.endedAt).getTime() - new Date(moved.startedAt).getTime(),
     ).toBe(7_200_000);
-  });
-
-  it('does not open the editor after a drag', async () => {
-    serve([{ date: '2026-09-07', totalSeconds: 7200, entries: [entry()] }]);
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    render(<Calendar />, { wrapper });
-
-    await screen.findByRole('button', { name: /Work/ });
-    layOut();
-
-    const target = block(/Work/);
-    await user.pointer([
-      { target, coords: { x: 10, y: 300 }, keys: '[MouseLeft>]' },
-      { target, coords: { x: 10, y: 360 } },
-      { target, keys: '[/MouseLeft]' },
-    ]);
-
     // Interrupting every adjustment with a dialog would make dragging useless.
     expect(screen.queryByText('Edit entry')).not.toBeInTheDocument();
   });

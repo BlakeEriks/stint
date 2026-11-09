@@ -208,6 +208,14 @@ export const NewProjectForClient: Story = {
       }),
     );
     await expectOpen(canvasElement, 'dialog');
+    // The client fills in once the client list has answered.
+    await waitFor(() =>
+      expect(
+        within(page.getByRole('dialog')).getByRole('button', {
+          name: 'Client',
+        }),
+      ).toHaveTextContent('Northwind Trading'),
+    );
     // Nothing to archive yet.
     await expect(page.queryByRole('button', { name: 'Archive' })).toBeNull();
   },
