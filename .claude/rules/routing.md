@@ -20,7 +20,8 @@ middleware convention is deprecated in Next 16 and renamed.
 
 The apex `/` is **rewritten**, so the visitor keeps the bare domain in the
 address bar and the first impression costs no extra round trip. Any other apex
-path **redirects** to the subdomain, so an old link still arrives.
+path **redirects** to the subdomain, so an old link still arrives, except a
+link preview's `opengraph-image`, which the proxy's matcher skips.
 
 Consequences worth knowing:
 
