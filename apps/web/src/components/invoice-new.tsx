@@ -733,7 +733,6 @@ function Form({
       {editingDates ? (
         <InvoiceDatesDialog
           onOpenChange={setEditingDates}
-          // A draft keeps its number.
           settings={editing ? undefined : settings}
           number={number}
           issued={issued}
