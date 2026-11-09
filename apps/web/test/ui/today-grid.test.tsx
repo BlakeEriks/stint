@@ -310,8 +310,9 @@ describe('the day fills its scroll area', () => {
     };
   }
 
-  /* The band below `xl` sizes to the grid: its height is the zoom's own, so a floor read from it would hold the zoom
-     where it is and zoom-out would never move. */
+  /* The band below `xl` sizes to the grid: its height is the zoom's own,
+     so a floor read from it would hold the zoom where it is and zoom-out
+     would never move. */
   it('zooms out freely where the area sizes to the grid', async () => {
     const resize = area();
     serve([entry()]);

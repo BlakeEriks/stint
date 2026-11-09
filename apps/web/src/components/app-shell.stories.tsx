@@ -12,12 +12,12 @@ import {
   stalled,
   tablet,
   wide,
+  foldDock,
   expectOpen,
 } from '@/mocks/screen';
 import { AppShell } from './app-shell';
 import { Home } from './home';
 import { Page } from './page';
-import { FOLD_KEY } from '@/lib/client/use-dock-fold';
 
 /**
  * What every screen renders inside: the header, the rail, the panel, the dock
@@ -126,7 +126,7 @@ export const Workspace: Story = {
     it shows even when the user folded it. */
 export const FoldedPhone: Story = {
   ...phone,
-  beforeEach: () => localStorage.setItem(FOLD_KEY, '1'),
+  beforeEach: foldDock,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await expect(

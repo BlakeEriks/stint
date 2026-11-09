@@ -1,8 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
-import { desktop, failing, screen, wide } from '@/mocks/screen';
-import { FOLD_KEY } from '@/lib/client/use-dock-fold';
+import { desktop, failing, foldDock, screen, wide } from '@/mocks/screen';
 import { AppShell } from './app-shell';
 import { Page } from './page';
 
@@ -12,7 +11,7 @@ const meta = {
   title: 'Parts/Dock Strip',
   component: AppShell,
   parameters: screen('/').parameters,
-  beforeEach: () => localStorage.setItem(FOLD_KEY, '1'),
+  beforeEach: foldDock,
   args: {
     children: (
       <Page>
@@ -51,7 +50,8 @@ export const Strip: Story = {
   },
 };
 
-/** The strip's button unfolds the dock, and the dock's folds it again. */
+/** The strip's button unfolds the dock, and the dock's folds it again;
+    focus moves to the button that takes it back. */
 export const Toggle: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -66,12 +66,15 @@ export const Toggle: Story = {
     await expect(
       page.queryByRole('complementary', { name: 'Inbox and Today' }),
     ).toBeNull();
+    const hide = page.getByRole('button', { name: 'Hide Inbox and Today' });
+    await expect(hide).toHaveFocus();
 
-    await userEvent.click(
-      page.getByRole('button', { name: 'Hide Inbox and Today' }),
-    );
+    await userEvent.click(hide);
     await strip(page);
     await expect(dock(page)).toBeNull();
+    await expect(
+      page.getByRole('button', { name: /^Show Inbox and Today/ }),
+    ).toHaveFocus();
   },
 };
 

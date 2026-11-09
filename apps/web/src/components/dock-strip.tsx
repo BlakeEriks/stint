@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { api } from '@/lib/client/api';
 import { keys } from '@stint/client';
-import { useDockFold } from '@/lib/client/use-dock-fold';
+import { setDockFolded } from '@/lib/client/dock-fold';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { Button } from '@/components/ui/button';
 import { inboxCount } from './inbox';
@@ -13,28 +13,24 @@ import { inboxCount } from './inbox';
  * The dock, folded by the user at `xl`: a 44px strip where the dock's column
  * was, with the Inbox's count in view and the button that unfolds it.
  *
- * `data-dock-folded` is what `AppShell` reads, through `:has()`, to narrow the
- * dock's column. Below `xl` the dock is a band under the content and the
- * choice does not apply.
+ * It shows only while `<html>` carries `data-dock-folded`, read by CSS, as the
+ * dock and the frame's column width are. Below `xl` the dock is a band under
+ * the content and the choice does not apply.
  *
  * Icon-only by design, an exception in `.claude/rules/web-ui.md`: the button
  * carries its name, and the Inbox's count, in `aria-label`.
  */
 export function DockStrip() {
-  const { folded, setFolded } = useDockFold();
   const stats = useQuery({
     queryKey: keys.stats(tz),
     queryFn: () => api.stats(tz),
   });
   const count = stats.data ? inboxCount(stats.data.attention) : 0;
 
-  if (!folded) return null;
-
   return (
     <aside
       aria-label="Inbox and Today"
-      data-dock-folded
-      className="hidden flex-col items-center xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:flex"
+      className="hidden flex-col items-center xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:[[data-dock-folded]_&]:flex"
     >
       <Button
         type="button"
@@ -46,7 +42,8 @@ export function DockStrip() {
             : 'Show Inbox and Today'
         }
         title="Show Inbox and Today"
-        onClick={() => setFolded(false)}
+        id={UNFOLD}
+        onClick={() => toggle(false, FOLD)}
         className="relative text-muted [&_svg:not([class*='size-'])]:size-[18px]"
       >
         <PanelRightOpen aria-hidden strokeWidth={1.75} />
@@ -69,7 +66,6 @@ export function DockStrip() {
  * button that unfolds it sits.
  */
 export function FoldButton() {
-  const { setFolded } = useDockFold();
   return (
     <div className="hidden justify-end xl:flex">
       <Button
@@ -78,11 +74,22 @@ export function FoldButton() {
         size="icon-sm"
         aria-label="Hide Inbox and Today"
         title="Hide Inbox and Today"
-        onClick={() => setFolded(true)}
+        id={FOLD}
+        onClick={() => toggle(true, UNFOLD)}
         className="text-muted [&_svg:not([class*='size-'])]:size-[18px]"
       >
         <PanelRightClose aria-hidden strokeWidth={1.75} />
       </Button>
     </div>
   );
+}
+
+const FOLD = 'dock-fold';
+const UNFOLD = 'dock-unfold';
+
+/* Each button hides itself, so focus moves to the one that takes it back
+   rather than falling to the page. */
+function toggle(folded: boolean, next: string) {
+  setDockFolded(folded);
+  document.getElementById(next)?.focus();
 }

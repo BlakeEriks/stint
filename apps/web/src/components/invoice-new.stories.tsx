@@ -20,9 +20,9 @@ import {
   stalled,
   tablet,
   wide,
+  foldDock,
 } from '@/mocks/screen';
 import { NewInvoice } from './invoice-new';
-import { FOLD_KEY } from '@/lib/client/use-dock-fold';
 
 const meta = {
   title: 'Screens/Invoices/New',
@@ -349,7 +349,7 @@ export const ClientChosenPhone: Story = { ...ClientChosen, ...phone };
 export const Workspace: Story = {
   ...ClientChosen,
   ...wide,
-  beforeEach: () => localStorage.setItem(FOLD_KEY, '1'),
+  beforeEach: foldDock,
   play: async (ctx) => {
     await ClientChosen.play?.(ctx);
     const page = within(ctx.canvasElement.ownerDocument.body);
@@ -641,7 +641,7 @@ export const ChangeTemplate: Story = {
 export const ScrollsApart: Story = {
   ...desktop,
   parameters: menuOpen,
-  beforeEach: () => localStorage.setItem(FOLD_KEY, '1'),
+  beforeEach: foldDock,
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);

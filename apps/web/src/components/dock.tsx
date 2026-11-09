@@ -20,7 +20,6 @@ import {
 } from '@/lib/client/use-project-colors';
 import { Inbox } from './inbox';
 import { FoldButton } from './dock-strip';
-import { useDockFold } from '@/lib/client/use-dock-fold';
 import { keys } from '@stint/client';
 
 /**
@@ -45,7 +44,6 @@ export function Dock() {
   const column = useRef<HTMLElement>(null);
   const wide = useMediaQuery(XL);
   const { split, dragging, begin, nudge, reset } = useDockSplit(column);
-  const { folded } = useDockFold();
 
   return (
     <aside
@@ -71,7 +69,7 @@ export function Dock() {
          At `xl` the user can fold it to `DockStrip`, on every screen alike.
          Below `xl` it is a band under the content, which costs no width, so
          it stays. */
-      className={`flex min-h-0 flex-none flex-col xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:w-[286px]${folded ? ' xl:hidden' : ''}`}
+      className="flex min-h-0 flex-none flex-col xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:w-[286px] xl:[[data-dock-folded]_&]:hidden"
     >
       <FoldButton />
       {/* The inbox takes its share and scrolls within it. `min-h-0` is what
@@ -110,13 +108,7 @@ export function Dock() {
 }
 
 /** The dock's Today. */
-function DockToday({
-  flush,
-  fills = false,
-}: {
-  flush: boolean;
-  fills?: boolean;
-}) {
+function DockToday({ flush, fills }: { flush: boolean; fills: boolean }) {
   const timer = useTimer();
   return (
     <Listing query={useDockTodayQueries()}>

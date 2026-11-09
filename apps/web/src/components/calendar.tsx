@@ -24,7 +24,13 @@ import { api, type TimeEntry } from '@/lib/client/api';
 import { Listing, Page, useLoaded } from './page';
 import { EntryDialog, type Opens } from './entry-dialog';
 import { KeyboardAdd } from './keyboard-add';
-import { DayColumn, GUTTER_CLASS, gutterMarks, HourGutter } from './day-column';
+import {
+  DayColumn,
+  GUTTER_CLASS,
+  GUTTER_PX,
+  gutterMarks,
+  HourGutter,
+} from './day-column';
 import { keys, appNow } from '@stint/client';
 import { timeZone as tz } from '@/lib/client/use-timer';
 
@@ -42,11 +48,9 @@ const DAY_MAX_HEIGHT = 620;
 
 /**
  * The narrowest a day gets before the grid scrolls sideways: room for a
- * block's task name and the heading's total. The gutter is `GUTTER_CLASS`'s
- * width.
+ * block's task name and the heading's total.
  */
 const MIN_DAY_PX = 120;
-const GUTTER_PX = 40;
 
 /**
  * A week of logged time, and where it gets corrected: seven `DayColumn`s,

@@ -130,7 +130,7 @@ screen that needs the room (Home), not a preference.
 invoice, the calendar): it drops the measure and takes the column's width.
 **No screen folds the dock.** At `xl` the user folds it to a 44px strip
 (`DockStrip`) and unfolds it, and the choice holds on every screen
-(`useDockFold`). Below `xl` the dock is a band under the content and stays.
+(`setDockFolded`). Below `xl` the dock is a band under the content and stays.
 The card keeps its size, so the frame never jolts between screens. The page
 title is `type-title`, once.
 
@@ -185,11 +185,11 @@ anticipation of one.
   `next dev` passes.
 - **User-visible text follows `docs/voice.md`.**
 - **Every action carries a visible label.** Four exceptions, each with an
-  `aria-label`: a destructive first step, a dense repeating row, the
-  dock's fold and unfold buttons, the strip being 44px by design, and `KeyboardAdd`, the "+"
-  that shows only on keyboard focus because a pointer draws on the grid. A glyph is always
-  `aria-hidden`. An `aria-label` holds the visible text, in order, so saying
-  what is on screen presses it (WCAG 2.5.3): `Mark paid, STINT-0001`.
+  `aria-label`: a destructive first step, a dense repeating row, the dock's
+  fold and unfold buttons, the strip being 44px by design, and
+  `KeyboardAdd`, the "+" that shows only on keyboard focus because a pointer
+  draws on the grid. A glyph is always `aria-hidden`. An `aria-label` holds
+  the visible text, in order, so saying what is on screen presses it (WCAG 2.5.3): `Mark paid, STINT-0001`.
 - **A destructive action is quiet until it is the confirm**: a ghost in
   `text-danger`, then `destructive` naming what goes.
   Destructive means it removes something saved; dropping a line from a form
