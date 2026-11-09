@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, userEvent, within } from 'storybook/test';
+import { expect, fn, userEvent, within } from 'storybook/test';
 import { ids, seed } from '@/mocks/fixtures';
 import { expectOpen, menuOpen } from '@/mocks/screen';
 import { NOW } from '@/mocks/time.mts';
@@ -31,15 +31,17 @@ export const Open: Story = {
   },
 };
 
-/** Escape closes the menu and it leaves the page at once: under reduced
-    motion nothing waits on an exit animation. */
+/** Escape closes the menu, choosing nothing, and it leaves the page at once:
+    under reduced motion nothing waits on an exit animation. */
 export const Closed: Story = {
-  play: async ({ canvasElement }) => {
+  args: { onChange: fn() },
+  play: async ({ args, canvasElement }) => {
     await userEvent.click(within(canvasElement).getByRole('button'));
     await expectOpen(canvasElement, 'menu');
     await userEvent.keyboard('{Escape}');
     const page = within(canvasElement.ownerDocument.body);
     await expect(page.queryByRole('menu')).toBeNull();
+    await expect(args.onChange).not.toHaveBeenCalled();
   },
 };
 

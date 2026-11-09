@@ -23,9 +23,9 @@ afterEach(() => {
 });
 
 describe('SignInForm', () => {
-  it('clears this browser’s stale auth state BEFORE requesting a link', async () => {
+  it('clears this browser’s auth state locally, requests a link that creates no account, and replaces the error with confirmation', async () => {
     const user = userEvent.setup();
-    render(<SignInForm inviteUrl="/#invite" />);
+    render(<SignInForm inviteUrl="/#invite" error="invalid_link" />);
 
     await user.type(screen.getByLabelText('Email'), 'dev@localhost.test');
     await user.click(screen.getByRole('button', { name: /Email me/ }));
@@ -33,33 +33,13 @@ describe('SignInForm', () => {
     /* The PKCE verifier lives under one key per origin, so requesting a link
        without clearing first overwrites another tab's verifier. */
     await waitFor(() => expect(calls).toEqual(['signOut', 'signInWithOtp']));
-  });
-
-  it('signs out locally only, never the user’s other devices', async () => {
-    const user = userEvent.setup();
-    render(<SignInForm inviteUrl="/#invite" />);
-
-    await user.type(screen.getByLabelText('Email'), 'dev@localhost.test');
-    await user.click(screen.getByRole('button', { name: /Email me/ }));
-
     // A global scope would revoke the session on the user's phone because
     // they asked for a link on their laptop.
-    await waitFor(() => expect(signOut).toHaveBeenCalled());
     expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
-  });
-
-  it('explains an unrecognized reason instead of rendering nothing', async () => {
-    render(<SignInForm inviteUrl="/#invite" error="something_new" />);
-    expect(screen.getByRole('alert').textContent).toMatch(/went wrong/i);
-  });
-
-  it('replaces the error with confirmation once a link is sent', async () => {
-    const user = userEvent.setup();
-    render(<SignInForm inviteUrl="/#invite" error="invalid_link" />);
-
-    await user.type(screen.getByLabelText('Email'), 'dev@localhost.test');
-    await user.click(screen.getByRole('button', { name: /Email me/ }));
-
+    // Sign-in is invite-only.
+    expect(signInWithOtp.mock.calls[0]?.[0]).toMatchObject({
+      options: { shouldCreateUser: false },
+    });
     // Leaving a stale failure beside "Check your email" would say the new
     // link is broken too.
     await waitFor(() =>
@@ -68,16 +48,8 @@ describe('SignInForm', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('never creates an account: sign-in is invite-only', async () => {
-    const user = userEvent.setup();
-    render(<SignInForm inviteUrl="/#invite" />);
-
-    await user.type(screen.getByLabelText('Email'), 'dev@localhost.test');
-    await user.click(screen.getByRole('button', { name: /Email me/ }));
-
-    await waitFor(() => expect(signInWithOtp).toHaveBeenCalled());
-    expect(signInWithOtp.mock.calls[0]?.[0]).toMatchObject({
-      options: { shouldCreateUser: false },
-    });
+  it('explains an unrecognized reason instead of rendering nothing', async () => {
+    render(<SignInForm inviteUrl="/#invite" error="something_new" />);
+    expect(screen.getByRole('alert').textContent).toMatch(/went wrong/i);
   });
 });
