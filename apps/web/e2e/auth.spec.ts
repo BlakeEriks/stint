@@ -22,11 +22,21 @@ function serviceHeaders(): Record<string, string> {
 
 /** Sign-in and sign-out, in a real browser. */
 test.describe('authentication', () => {
-  test('signs in through the emailed link', async ({ page }) => {
+  test('signs in through the emailed link, and /signin then sends home', async ({
+    page,
+  }) => {
     await signIn(page);
     // The account menu carries the signed-in address, so this is the right
     // user rather than merely a session.
     await expect(page.getByText(SEED_EMAIL)).toBeVisible();
+
+    /* Rendering the form to a signed-in user lets two sign-ins compete for one
+       PKCE verifier, which makes valid magic links read as invalid. */
+    await page.goto('/signin');
+    await page.waitForURL('**/');
+    await expect(
+      page.getByRole('navigation', { name: 'Sections' }),
+    ).toBeVisible();
   });
 
   test('the invite link signs the invitee in', async ({ page }) => {
@@ -70,18 +80,6 @@ test.describe('authentication', () => {
     await expect(
       page.getByRole('navigation', { name: 'Sections' }),
     ).toBeHidden();
-  });
-
-  test('a signed-in visitor to /signin is sent home', async ({ page }) => {
-    await signIn(page);
-
-    /* Rendering the form to a signed-in user lets two sign-ins compete for one
-       PKCE verifier, which makes valid magic links read as invalid. */
-    await page.goto('/signin');
-    await page.waitForURL('**/');
-    await expect(
-      page.getByRole('navigation', { name: 'Sections' }),
-    ).toBeVisible();
   });
 
   test('a second sign-in request supersedes the first link', async ({
