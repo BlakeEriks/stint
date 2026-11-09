@@ -3,9 +3,8 @@ import { join } from 'node:path';
 import { brand, theme, type } from '@stint/design-tokens';
 import { ImageResponse } from 'next/og';
 
-/* The preview a chat app or a social site shows for a shared link. At the
-   root, so every page inherits it; it reads no request, so the build renders
-   it once. Twitter's card falls back to it, so there is no `twitter-image`. */
+/* At the root, so every page inherits it; it reads no request, so the build
+   renders it once. */
 
 export const alt = 'Stint — time tracking and invoicing for solo contractors';
 export const size = { width: 1200, height: 630 };

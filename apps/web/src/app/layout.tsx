@@ -13,7 +13,6 @@ export const metadata: Metadata = {
     template: '%s · Stint',
   },
   description: 'Time tracking for solo contractors.',
-  // The image is `opengraph-image.tsx`; this card shows it full width.
   twitter: { card: 'summary_large_image' },
 };
 
