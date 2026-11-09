@@ -437,9 +437,10 @@ it exempts row triggers.
 ## What the database guarantees
 
 These are enforced by the schema itself, so they hold no matter which client
-writes — and each is covered by `apps/web/test/routes.test.ts` against a real
-Postgres with the real migrations. The tests are the record of *whether* they
-hold; this list is the record of *what* must.
+writes — and each is covered by a suite in `apps/web/test/` (routes,
+invoices, rates or RLS) against a real Postgres with the real migrations.
+The tests are the record of *whether* they hold; this list is the record of
+*what* must.
 
 - Settings are auto-created on user insert, by trigger.
 - A second concurrent timer is rejected; stop-then-start is not.
