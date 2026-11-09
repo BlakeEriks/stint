@@ -466,10 +466,13 @@ export const ZoomedOut: Story = {
   },
 };
 
-/** A pinch over the grid zooms it, and the browser's page zoom is refused. */
+/** A pinch over the grid zooms it, and the browser's page zoom is refused.
+    The heading says so, since nothing else does. */
 export const Pinch: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
+    const page = await calendar(canvasElement);
+    await expect(page.getByText('scroll to zoom')).toBeVisible();
     const { el, x, y } = await column(canvasElement);
     const before = el.getBoundingClientRect().height;
     const pinch = new WheelEvent('wheel', {

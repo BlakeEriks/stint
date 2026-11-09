@@ -10,6 +10,7 @@ import {
   PX_PER_HOUR,
 } from '@stint/core';
 import { Button } from '@/components/ui/button';
+import { Kbd } from '@/components/ui/kbd';
 import { useCalendar, type PositionedEntry } from '@/lib/client/use-calendar';
 import {
   useAllProjects,
@@ -166,6 +167,11 @@ export function Calendar() {
           </div>
 
           <div className="flex items-center gap-1">
+            {/* Nothing else says the grid zooms. Only where a pointer can
+              scroll: a touchscreen pinches, which needs no telling. */}
+            <span className="mr-2 hidden items-center gap-1.5 type-support text-muted pointer-fine:flex">
+              <Kbd>⌘</Kbd> scroll to zoom
+            </span>
             {/* The arrows step whatever unit is on screen, so "back" always
               means "the previous one of these". The labels say which. */}
             <Button
