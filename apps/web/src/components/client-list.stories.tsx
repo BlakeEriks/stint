@@ -23,24 +23,77 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Each client a heading, with its rate and summary line, its projects
-    beneath at their resolved rates; "No client" last. */
+/** Each client a heading flat on the panel, with its rate and summary
+    line and its actions, its projects beneath at their resolved rates;
+    "No client" last. Nothing is a card. */
 export const Desktop: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    const card = within(
+    const section = (
+      await page.findByRole('heading', { name: 'Northwind Trading' })
+    ).closest('section')!;
+    const group = within(section);
+    await expect(
+      group.getByText('$150.00/h · ap@northwind.test'),
+    ).toBeVisible();
+    // This screen manages clients; what is owed belongs to reports.
+    await expect(group.queryByText(/unbilled/)).toBeNull();
+    await expect(group.queryByText(/\d+ projects?/)).toBeNull();
+    // The adds sit in the heading, before the rows.
+    const add = group.getByRole('button', {
+      name: 'Project for Northwind Trading',
+    });
+    await expect(
+      add.compareDocumentPosition(group.getByText('Warehouse dashboard')),
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    await expect(getComputedStyle(section).backgroundColor).toBe(
+      'rgba(0, 0, 0, 0)',
+    );
+  },
+};
+
+/** The title bar stays while the list scrolls, and so does the heading of
+    the client whose rows are in view. */
+export const Scrolled: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await page.findByRole('heading', { name: 'Northwind Trading' });
+    const panel = canvasElement.querySelector<HTMLElement>(
+      '[data-content-panel]',
+    )!;
+    panel.scrollTop = panel.scrollHeight;
+    const top = panel.getBoundingClientRect().top;
+    await waitFor(() => {
+      const title = page.getByRole('heading', { name: 'Clients', level: 1 });
+      expect(title.getBoundingClientRect().top).toBeGreaterThan(top);
+      expect(title.getBoundingClientRect().top).toBeLessThan(top + 40);
+    });
+    const archived = page.getByRole('button', { name: 'Archived (1)' });
+    await expect(archived.getBoundingClientRect().top).toBeGreaterThan(top);
+  },
+};
+
+/** On a phone the heading keeps the name and its pencil; the adds sit under
+    the client's rows. */
+export const Phone: Story = {
+  ...phone,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const group = within(
       (await page.findByRole('heading', { name: 'Northwind Trading' })).closest(
         'section',
       )!,
     );
-    await expect(card.getByText('$150.00/h · ap@northwind.test')).toBeVisible();
-    // This screen manages clients; what is owed belongs to reports.
-    await expect(card.queryByText(/unbilled/)).toBeNull();
-    await expect(card.queryByText(/\d+ projects?/)).toBeNull();
+    const add = await group.findByRole('button', {
+      name: 'Project for Northwind Trading',
+    });
+    await expect(
+      group.getByText('Warehouse dashboard').compareDocumentPosition(add),
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   },
 };
-export const Phone: Story = { ...phone };
 export const Light: Story = { ...light };
 
 /** A client with no projects keeps its heading: this is the only list of
