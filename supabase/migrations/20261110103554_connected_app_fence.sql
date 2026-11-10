@@ -32,21 +32,21 @@ begin
   ] loop
     execute format(
       'create policy no_connected_app on %I as restrictive to authenticated
-         using (not connected_app()) with check (not connected_app())', t);
+         using (not (select connected_app())) with check (not (select connected_app()))', t);
   end loop;
 
   foreach t in array array['clients', 'projects', 'time_entries'] loop
     execute format(
       'create policy no_connected_app_insert on %I as restrictive
-         for insert to authenticated with check (not connected_app())', t);
+         for insert to authenticated with check (not (select connected_app()))', t);
     execute format(
       'create policy no_connected_app_delete on %I as restrictive
-         for delete to authenticated using (not connected_app())', t);
+         for delete to authenticated using (not (select connected_app()))', t);
   end loop;
 end $$;
 
 create policy no_connected_app_update on clients as restrictive
-  for update to authenticated using (not connected_app());
+  for update to authenticated using (not (select connected_app()));
 
 -- An app's update changes only the one column it renames. Named to fire
 -- before the other update triggers, which set columns of their own; a
@@ -73,8 +73,8 @@ create trigger t_entries_app_renames before update on time_entries
 create trigger t_projects_app_renames before update on projects
   for each row execute function connected_app_renames_only('name');
 
--- The lock read the invoice through the caller's RLS, so a caller who
--- can't see invoices, as an app can't, would find none and pass.
+-- Definer, so the billed lock sees the invoice even when the caller's RLS
+-- hides it, as it does from a connected app.
 alter function guard_billed_entry()
   security definer set search_path = public, pg_temp;
 

@@ -779,15 +779,24 @@ test('a connected app reads and renames, and writes nothing else', async () => {
   );
   assert.deepEqual(renamed.rows[0], { p: 'Renamed', t: 'Renamed' });
 
-  for (const sql of [
-    `update time_entries set task_name = 'x' where id = '${ALICE_ENTRY}'`,
-    `update projects set hourly_rate = 1`,
-    `update time_entries set ended_at = now()`,
-    `insert into time_entries (id,user_id,started_at) values ('018f0000-0000-7000-8000-0000000000ab','${ALICE}',now())`,
-    `select delete_account()`,
-    `select allocate_invoice_number('${ALICE}')`,
-  ]) {
-    await assert.rejects(() => asApp(sql), Error, sql);
+  for (const [sql, refusal] of [
+    [
+      `update time_entries set task_name = 'x' where id = '${ALICE_ENTRY}'`,
+      /billed on a sent invoice/,
+    ],
+    [`update projects set hourly_rate = 1`, /may change only name/],
+    [
+      `update time_entries set ended_at = now() where id = '018f0000-0000-7000-8000-0000000000aa'`,
+      /may change only task_name/,
+    ],
+    [
+      `insert into time_entries (id,user_id,started_at) values ('018f0000-0000-7000-8000-0000000000ab','${ALICE}',now())`,
+      /row-level security/,
+    ],
+    [`select delete_account()`, /Not signed in/],
+    [`select allocate_invoice_number('${ALICE}')`, /No settings row/],
+  ] as const) {
+    await assert.rejects(() => asApp(sql), refusal, sql);
   }
   // A restrictive policy hides the rows from a delete rather than raising.
   await asApp('delete from time_entries');

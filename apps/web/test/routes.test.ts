@@ -4987,14 +4987,26 @@ test('each MCP tool answers with its route, and a refusal is the tool’s error'
     [billed],
   );
 
-  for (const [name, args] of [
-    ['list_projects', {}],
-    ['rename_project', { id: projectId, name: 'Renamed' }],
-    ['list_task_names', {}],
-    ['list_entries', { projectId }],
-    ['rename_entry_task', { id: open, taskName: 'New name' }],
+  // Each tool's answer carries the field only its own handler returns.
+  type Body = Record<string, unknown>;
+  for (const [name, args, reached] of [
+    ['list_projects', {}, (b: Body) => Array.isArray(b.projects)],
+    [
+      'rename_project',
+      { id: projectId, name: 'Renamed' },
+      (b: Body) => b.name === 'Renamed',
+    ],
+    ['list_task_names', {}, (b: Body) => Array.isArray(b.taskNames)],
+    ['list_entries', { projectId }, (b: Body) => Array.isArray(b.entries)],
+    [
+      'rename_entry_task',
+      { id: open, taskName: 'New name' },
+      (b: Body) => b.taskName === 'New name',
+    ],
   ] as const) {
-    assert.equal((await tool(name, args)).isError, false, name);
+    const { isError, text } = await tool(name, args);
+    assert.equal(isError, false, name);
+    assert.ok(reached(JSON.parse(text)), name);
   }
 
   const locked = await tool('rename_entry_task', {
