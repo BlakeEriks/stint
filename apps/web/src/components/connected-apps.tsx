@@ -43,7 +43,7 @@ export function ConnectedApps() {
   return (
     <Section
       title="Connected apps"
-      description="Apps you approved to read your clients, projects and entries, and rename projects and tasks."
+      description="Apps you approved to read your clients, projects and entries, add and edit clients, add projects, and rename projects and tasks."
     >
       {apps.length === 0 ? (
         <p className="type-support text-subtle">

@@ -4961,7 +4961,7 @@ test('/api/mcp without a token points the client at its sign-in', async () => {
 });
 
 test('each MCP tool answers with its route, and a refusal is the tool’s error', async () => {
-  const { projectId } = await seedClientAndProject();
+  const { clientId, projectId } = await seedClientAndProject();
   const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
   const open = '018f0000-0000-7000-8000-000000000c01';
   const billed = '018f0000-0000-7000-8000-000000000c02';
@@ -5002,6 +5002,22 @@ test('each MCP tool answers with its route, and a refusal is the tool’s error'
       'rename_entry_task',
       { id: open, taskName: 'New name' },
       (b: Body) => b.taskName === 'New name',
+    ],
+    ['list_clients', {}, (b: Body) => Array.isArray(b.clients)],
+    [
+      'create_client',
+      { id: '018f0000-0000-7000-8000-000000000c03', name: 'Contoso' },
+      (b: Body) => b.name === 'Contoso',
+    ],
+    [
+      'update_client',
+      { id: clientId, paymentTermsDays: 15 },
+      (b: Body) => b.paymentTermsDays === 15,
+    ],
+    [
+      'create_project',
+      { clientId, name: 'Added' },
+      (b: Body) => b.name === 'Added' && b.clientId === clientId,
     ],
   ] as const) {
     const { isError, text } = await tool(name, args);

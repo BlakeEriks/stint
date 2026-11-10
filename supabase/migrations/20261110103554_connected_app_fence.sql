@@ -1,8 +1,9 @@
 -- A connected app's token (#715) is an ordinary `authenticated` JWT that
 -- also carries `client_id`, so it reaches the Data API like the user's own.
 -- `requireSession` fences it from the routes; this fences it from
--- PostgREST: it reads clients, projects and entries, and renames a project
--- or an entry's task, nothing else.
+-- PostgREST: it reads clients, projects and entries, adds clients and
+-- projects, edits a client, and renames a project or an entry's task,
+-- nothing else.
 
 -- Read from the claims PostgREST sets, not `auth.jwt()`, which the CI
 -- databases' `auth` stub doesn't define.
@@ -37,16 +38,13 @@ begin
 
   foreach t in array array['clients', 'projects', 'time_entries'] loop
     execute format(
-      'create policy no_connected_app_insert on %I as restrictive
-         for insert to authenticated with check (not (select connected_app()))', t);
-    execute format(
       'create policy no_connected_app_delete on %I as restrictive
          for delete to authenticated using (not (select connected_app()))', t);
   end loop;
 end $$;
 
-create policy no_connected_app_update on clients as restrictive
-  for update to authenticated using (not (select connected_app()));
+create policy no_connected_app_insert on time_entries as restrictive
+  for insert to authenticated with check (not (select connected_app()));
 
 -- An app's update changes only the one column it renames. Named to fire
 -- before the other update triggers, which set columns of their own; a
@@ -72,6 +70,27 @@ create trigger t_entries_app_renames before update on time_entries
   for each row execute function connected_app_renames_only('task_name');
 create trigger t_projects_app_renames before update on projects
   for each row execute function connected_app_renames_only('name');
+
+-- An app edits any client field the client form does, but archives none.
+create function connected_app_keeps() returns trigger
+language plpgsql
+as $$
+declare
+  col text;
+begin
+  if connected_app() then
+    foreach col in array tg_argv loop
+      if to_jsonb(new) -> col is distinct from to_jsonb(old) -> col then
+        raise exception 'A connected app may not change %', col
+          using errcode = 'insufficient_privilege';
+      end if;
+    end loop;
+  end if;
+  return new;
+end $$;
+
+create trigger t_clients_app_keeps before update on clients
+  for each row execute function connected_app_keeps('archived_at', 'user_id');
 
 -- Definer, so the billed lock sees the invoice even when the caller's RLS
 -- hides it, as it does from a connected app.

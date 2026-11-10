@@ -22,7 +22,7 @@ can see what is connected and cut it off.
 - Q: Can a connected app's token reach the rest of the API? → A: No. Every
   request refuses a token issued to a connected app, except the MCP tools'
   own calls, which the server marks in memory, never by a header a client
-  could send. The five tools are the whole surface. (decided autonomously)
+  could send. The tools are the whole surface. (decided autonomously)
 - Q: How is the token's audience checked, when Supabase tokens all say
   `authenticated`? → A: It isn't; the MCP spec's audience binding is
   unavailable, and that is accepted. What it guards against, a token meant
@@ -37,6 +37,9 @@ can see what is connected and cut it off.
 - Q: Does the free plan get it? → A: Yes. `docs/positioning.md` makes
   downloading an invoice the only paid thing, and these tools touch only
   tracking.
+- Q: How does Claude find the client to edit? → A: A `list_clients` tool
+  (`GET /clients`), since projects carry only a client's id. (decided
+  autonomously)
 - Q: Which tools' answers does Claude see? → A: The route's own JSON body,
   as text, and a refusal's code and message as the tool's error. No
   reshaping: one implementation (Principle III). (decided autonomously)
@@ -139,11 +142,26 @@ Revoke, and see Claude's next request refused.
 4. **Given** the server refuses the revoke, **Then** the app comes back to
    the list and the app-wide notice says why.
 
+### User Story 4 - Claude adds and edits clients and projects (Priority: P2)
+
+The owner asked for it at review: "I also want to be able to add a new
+client and edit data for a client", and to add projects.
+
+**Acceptance Scenarios**:
+
+1. **Given** a connected Claude, **When** it adds a client or a project,
+   **Then** it shows in Stint as if added there.
+2. **Given** a client, **When** Claude edits its details (rate, email,
+   address, payment terms, billing schedule), **Then** they are stored.
+3. **Given** a client, **When** Claude tries to archive it, **Then** it is
+   refused; archiving stays the user's.
+
 ### Edge Cases
 
 - A connected app's access is the tools, and only the tools: any other
   Stint route refuses its token, and the database lets it only read
-  clients, projects and entries and rename a project or an entry's task, so
+  clients, projects and entries, add clients and projects, edit a client
+  but not archive it, and rename a project or an entry's task, so
   it can't delete the account, send an invoice or start a timer through
   the API or the Data API. (decided autonomously)
 - Supabase's own Auth API still accepts its token for the user's account,
@@ -166,8 +184,9 @@ Revoke, and see Claude's next request refused.
   the metadata an MCP client follows to find the authorization server.
 - **FR-003**: Stint MUST publish protected-resource metadata naming its
   authorization server.
-- **FR-004**: Stint MUST offer five tools: list projects, rename a
-  project, list task names, list entries, rename an entry's task. Each MUST
+- **FR-004**: Stint MUST offer these tools: list projects, rename a
+  project, list task names, list entries, rename an entry's task, list
+  clients, add a client, edit a client, add a project. Each MUST
   give the same answer, and refuse for the same reason, as the app's own
   request for it.
 - **FR-005**: A refused tool call MUST come back to the client as an error

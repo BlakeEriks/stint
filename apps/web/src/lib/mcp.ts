@@ -4,6 +4,8 @@ import {
   McpServer,
 } from '@modelcontextprotocol/server';
 import { McpTools } from '@stint/schema';
+import * as clients from '@/app/api/v1/clients/route';
+import * as client from '@/app/api/v1/clients/[id]/route';
 import * as entries from '@/app/api/v1/entries/route';
 import * as entry from '@/app/api/v1/entries/[id]/route';
 import * as taskNames from '@/app/api/v1/entries/task-names/route';
@@ -24,12 +26,16 @@ function server(token: string): McpServer {
   async function call(
     handler: Handler,
     path: string,
-    { id, body }: { id?: string; body?: unknown } = {},
+    {
+      id,
+      body,
+      method = body ? 'PATCH' : 'GET',
+    }: { id?: string; body?: unknown; method?: string } = {},
   ): Promise<CallToolResult> {
     const req = toolCall(
       // Never sent: the handler reads it in-process.
       new Request(`http://stint/api/v1${path}`, {
-        method: body ? 'PATCH' : 'GET',
+        method,
         headers: {
           authorization: `Bearer ${token}`,
           'content-type': 'application/json',
@@ -101,6 +107,48 @@ function server(token: string): McpServer {
     },
     ({ id, taskName }) =>
       call(entry.PATCH, `/entries/${id}`, { id, body: { taskName } }),
+  );
+
+  s.registerTool(
+    'list_clients',
+    {
+      description:
+        'List your clients with their details, active ones unless asked for archived too.',
+      inputSchema: McpTools.list_clients,
+    },
+    (args) => call(clients.GET as Handler, `/clients${query(args)}`),
+  );
+
+  s.registerTool(
+    'create_project',
+    {
+      description:
+        'Add a project, under a client if `clientId` is given. Pass an `id` (a UUIDv7) so a retry adds it once.',
+      inputSchema: McpTools.create_project,
+    },
+    (body) =>
+      call(projects.POST as Handler, '/projects', { body, method: 'POST' }),
+  );
+
+  s.registerTool(
+    'create_client',
+    {
+      description:
+        'Add a client. Pass an `id` (a UUIDv7) so a retry adds it once.',
+      inputSchema: McpTools.create_client,
+    },
+    (body) =>
+      call(clients.POST as Handler, '/clients', { body, method: 'POST' }),
+  );
+
+  s.registerTool(
+    'update_client',
+    {
+      description:
+        "Edit a client's details: name, email, address, rates, currency, payment terms, billing schedule. Only the fields given change.",
+      inputSchema: McpTools.update_client,
+    },
+    ({ id, ...body }) => call(client.PATCH, `/clients/${id}`, { id, body }),
   );
 
   return s;

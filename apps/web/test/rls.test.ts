@@ -755,7 +755,7 @@ test('update_draft reaches only the caller’s own drafts', async () => {
 
 /* A connected app's token is the user's own JWT plus `client_id`, so the
    Data API is fenced here, not only in the routes. */
-test('a connected app reads and renames, and writes nothing else', async () => {
+test('a connected app writes only what its tools do', async () => {
   await issueAliceInvoice('sent');
   await admin.query(
     `insert into time_entries (id,user_id,task_name,started_at,ended_at)
@@ -779,12 +779,28 @@ test('a connected app reads and renames, and writes nothing else', async () => {
   );
   assert.deepEqual(renamed.rows[0], { p: 'Renamed', t: 'Renamed' });
 
+  // It adds clients and projects, and edits a client's details.
+  await asApp(
+    `insert into clients (id,user_id,name) values ('cc000000-0000-4000-8000-0000000000aa','${ALICE}','Added')`,
+  );
+  await asApp(
+    `insert into projects (id,user_id,client_id,name) values ('bb000000-0000-4000-8000-0000000000aa','${ALICE}','cc000000-0000-4000-8000-0000000000aa','Added')`,
+  );
+  await asApp(`update clients set hourly_rate = 175, payment_terms_days = 15`);
+  const added = await admin.query(
+    `select (select count(*)::int from projects where user_id = $1) p,
+            (select count(*)::int from clients where user_id = $1 and hourly_rate = 175) c`,
+    [ALICE],
+  );
+  assert.deepEqual(added.rows[0], { p: 2, c: 2 });
+
   for (const [sql, refusal] of [
     [
       `update time_entries set task_name = 'x' where id = '${ALICE_ENTRY}'`,
       /billed on a sent invoice/,
     ],
     [`update projects set hourly_rate = 1`, /may change only name/],
+    [`update clients set archived_at = now()`, /may not change archived_at/],
     [
       `update time_entries set ended_at = now() where id = '018f0000-0000-7000-8000-0000000000aa'`,
       /may change only task_name/,

@@ -33,9 +33,9 @@ Shared plumbing in `apps/web/src/lib/`:
   `toolCall()` marked the `Request`, which only `lib/mcp.ts` does. A route
   needs nothing to stay behind that fence. The same token reaches PostgREST
   directly, so the database fences it too: `connected_app()` policies let it
-  read clients, projects and entries and rename a project or an entry's
-  task. A tool
-  that needs more needs both.
+  read clients, projects and entries, add clients and projects, edit a
+  client but not archive it, and rename a project or an entry's task. A
+  tool that needs more needs both.
 - `errors.ts` — `handle()` wraps every route; `ApiError` answers with its
   code's status from `ERROR_STATUS` in `@stint/schema`, the one table of
   codes. A new code goes there, and in `docs/api.md`'s table, which
