@@ -463,9 +463,9 @@ same address as a custom connector in claude.ai.
 **The token fence.** `requireSession` refuses a token carrying `client_id`
 unless `toolCall()` marked the `Request`, which only `/api/mcp` does. The
 mark is an object in memory, so no client can send it. The token also
-reaches PostgREST, so the database fences it as well. Every table carries a
-`no_connected_app*` policy (`rls.test.ts` fails one that doesn't), which
-leaves the token:
+reaches PostgREST, so the database fences it as well. Every table is fenced
+by default (`pnpm verify:schema` fails one that isn't), which leaves the
+token:
 
 - reading clients, projects, entries and the user's phones (so a renamed
   running entry still reaches them)

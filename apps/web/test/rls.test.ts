@@ -826,29 +826,19 @@ test('a connected app writes only what its tools do', async () => {
   }
   // A restrictive policy hides the rows from a delete rather than raising.
   await asApp('delete from time_entries');
+  await assert.rejects(
+    () => asApp(`update push_devices set token = 'x'`),
+    /permission denied/,
+  );
+  await asApp('delete from push_devices');
+  const phone = await admin.query(
+    'select token from push_devices where user_id = $1',
+    [ALICE],
+  );
+  assert.deepEqual(phone.rows, [{ token: 'alice-phone' }]);
   const { rows } = await admin.query(
     'select count(*)::int n from time_entries where user_id = $1',
     [ALICE],
   );
   assert.equal(rows[0].n, 2, 'nothing deleted');
-});
-
-/* Deny by default: a table a later migration adds is closed to a connected
-   app until its own `no_connected_app` policy says what it may do. */
-test('every table a user reaches fences connected apps', async () => {
-  const { rows } = await admin.query(
-    `select c.relname from pg_class c
-     join pg_namespace n on n.oid = c.relnamespace
-     where n.nspname = 'public' and c.relkind = 'r'
-       and has_table_privilege('authenticated', c.oid, 'select, insert, update, delete')
-       and not exists (
-         select 1 from pg_policies p
-         where p.schemaname = 'public' and p.tablename = c.relname
-           and p.policyname like 'no_connected_app%')
-     order by 1`,
-  );
-  assert.deepEqual(
-    rows.map((r) => r.relname),
-    [],
-  );
 });

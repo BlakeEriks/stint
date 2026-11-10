@@ -1,9 +1,7 @@
 -- A connected app's token (#715) is an ordinary `authenticated` JWT that
 -- also carries `client_id`, so it reaches the Data API like the user's own.
 -- `requireSession` fences it from the routes; this fences it from
--- PostgREST: it reads clients, projects and entries, adds clients and
--- projects, edits a client, and renames a project or an entry's task,
--- nothing else.
+-- PostgREST. `docs/api.md` (MCP) lists what it leaves the token.
 
 -- Read from the claims PostgREST sets, not `auth.jwt()`, which the CI
 -- databases' `auth` stub doesn't define.
@@ -36,6 +34,8 @@ begin
          using (not (select connected_app())) with check (not (select connected_app()))', t);
   end loop;
 
+  -- push_devices is readable, so a rename of the running entry still
+  -- pushes; written only by the user.
   foreach t in array array['clients', 'projects', 'time_entries', 'push_devices'] loop
     execute format(
       'create policy no_connected_app_delete on %I as restrictive
@@ -48,10 +48,6 @@ begin
          for insert to authenticated with check (not (select connected_app()))', t);
   end loop;
 end $$;
-
--- Read, so renaming the running entry still tells the user's phones.
-create policy no_connected_app_update on push_devices as restrictive
-  for update to authenticated using (not (select connected_app()));
 
 -- An app's update changes only the columns its trigger names. Named to fire
 -- before the other update triggers, which set columns of their own; a
