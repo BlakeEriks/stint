@@ -56,7 +56,7 @@ export function ClientList() {
     queryFn: () => api.settings(),
   });
   const defaultRate = settings.data?.defaultHourlyRate ?? null;
-  /* One read for every card: recurring, waiting, and on an unpaid invoice. */
+  /* One read for every client: recurring, waiting, and on an unpaid invoice. */
   const expenses = useQuery({
     queryKey: keys.expenses(),
     queryFn: () => api.expenses(),
@@ -106,8 +106,8 @@ export function ClientList() {
         empty="Who's paying you? Add a client and what you charge them."
       >
         {(shown) => {
-          const group = (g: Group) => (
-            <Group
+          const render = (g: Group) => (
+            <ClientGroup
               key={g.client?.id ?? '__none__'}
               client={g.client}
               defaultRate={defaultRate}
@@ -134,12 +134,12 @@ export function ClientList() {
                   onRestore={() => restoreProject.mutate(project)}
                 />
               ))}
-            </Group>
+            </ClientGroup>
           );
           const archived = shown.filter((g) => g.client?.archivedAt);
           return (
             <div>
-              {shown.filter((g) => !g.client?.archivedAt).map(group)}
+              {shown.filter((g) => !g.client?.archivedAt).map(render)}
               {archived.length > 0 ? (
                 <div className="border-t border-edge-subtle pt-2">
                   <button
@@ -155,7 +155,7 @@ export function ClientList() {
                     />
                     Archived ({archived.length})
                   </button>
-                  {showArchived ? archived.map(group) : null}
+                  {showArchived ? archived.map(render) : null}
                 </div>
               ) : null}
             </div>
@@ -234,7 +234,7 @@ const SM = '(width >= 40rem)';
  * not yet assigned to a client and speculative work, and only
  * `isBillableDefault` tells them apart.
  */
-function Group({
+function ClientGroup({
   client,
   defaultRate,
   onEditClient,
@@ -373,7 +373,7 @@ function Row({
   const archived = project.archivedAt != null;
   /* Under an archived client a project bills nothing new either. */
   const recedes = archived || client?.archivedAt != null;
-  /* The row is the button, so a card has one Edit (the client's) rather
+  /* The row is the button, so a client has one Edit (its own) rather
      than one per project; the pencil says it opens where there's no hover
      (.claude/rules/web-ui.md). An archived row's Restore sits beside it,
      since a button cannot hold another. */

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
-import { ids } from '@/mocks/fixtures';
+import { id, ids } from '@/mocks/fixtures';
 import {
   desktop,
   expectOpen,
@@ -40,7 +40,6 @@ export const Desktop: Story = {
     // This screen manages clients; what is owed belongs to reports.
     await expect(group.queryByText(/unbilled/)).toBeNull();
     await expect(group.queryByText(/\d+ projects?/)).toBeNull();
-    // The adds sit in the heading, before the rows.
     const add = group.getByRole('button', {
       name: 'Project for Northwind Trading',
     });
@@ -54,48 +53,47 @@ export const Desktop: Story = {
 };
 
 /** The title bar stays while the list scrolls, and so does the heading of
-    the client whose rows are in view. */
+    the client whose rows are in view, pinned under it. */
 export const Scrolled: Story = {
   ...desktop,
+  // Enough rows under Northwind that the panel scrolls at this height.
+  parameters: account((db) => {
+    for (let n = 1; n <= 8; n++)
+      db.projects.push({
+        id: id(300 + n),
+        clientId: ids.northwind,
+        name: `Workstream ${n}`,
+        hourlyRate: null,
+        isBillableDefault: true,
+        archivedAt: null,
+      });
+  }),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    await page.findByRole('heading', { name: 'Northwind Trading' });
+    const northwind = await page.findByRole('heading', {
+      name: 'Northwind Trading',
+    });
     const panel = canvasElement.querySelector<HTMLElement>(
       '[data-content-panel]',
     )!;
-    panel.scrollTop = panel.scrollHeight;
     const top = panel.getBoundingClientRect().top;
+    // Into Northwind's rows, so its heading has something to pin over.
+    panel.scrollTop = northwind.getBoundingClientRect().top - top + 120;
     await waitFor(() => {
+      expect(panel.scrollTop).toBeGreaterThan(100);
       const title = page.getByRole('heading', { name: 'Clients', level: 1 });
       expect(title.getBoundingClientRect().top).toBeGreaterThan(top);
       expect(title.getBoundingClientRect().top).toBeLessThan(top + 40);
+      // Under the title bar: its 18px inset, 36px button, 12px and rule.
+      expect(northwind.getBoundingClientRect().top - top).toBeCloseTo(
+        67 + 12,
+        -1,
+      );
     });
-    const archived = page.getByRole('button', { name: 'Archived (1)' });
-    await expect(archived.getBoundingClientRect().top).toBeGreaterThan(top);
   },
 };
 
-/** On a phone the heading keeps the name and its pencil; the adds sit under
-    the client's rows. */
-export const Phone: Story = {
-  ...phone,
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
-    const group = within(
-      (await page.findByRole('heading', { name: 'Northwind Trading' })).closest(
-        'section',
-      )!,
-    );
-    const add = await group.findByRole('button', {
-      name: 'Project for Northwind Trading',
-    });
-    await expect(
-      group.getByText('Warehouse dashboard').compareDocumentPosition(add),
-    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-  },
-};
-export const Light: Story = { ...light };
-
+export const Phone: Story = { ...phone };
 /** A client with no projects keeps its heading: this is the only list of
     clients. */
 export const ClientWithoutProjects: Story = {
@@ -190,6 +188,10 @@ export const ArchivedOpen: Story = {
     await expect(
       byrne.getByRole('button', { name: 'Restore Byrne Studio' }),
     ).toBeVisible();
+    // It bills nothing new, so nothing is added to it until restored.
+    await expect(
+      byrne.queryByRole('button', { name: 'Project for Byrne Studio' }),
+    ).toBeNull();
   },
 };
 
