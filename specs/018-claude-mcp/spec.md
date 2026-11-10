@@ -15,6 +15,44 @@ connects Claude to it once, approves it on a Stint page, and Claude can
 list and rename projects and entries' task names on their behalf. The user
 can see what is connected and cut it off.
 
+## Clarifications
+
+### Session 2026-11-10
+
+- Q: Can a connected app's token reach the rest of the API? → A: No. Every
+  request refuses a token issued to a connected app, except the MCP tools'
+  own calls, which the server marks in memory, never by a header a client
+  could send. The five tools are the whole surface. (decided autonomously)
+- Q: How is the token's audience checked, when Supabase tokens all say
+  `authenticated`? → A: It isn't; the MCP spec's audience binding is
+  unavailable, and that is accepted. What it guards against, a token meant
+  for another resource being replayed here, is covered by the fence: a
+  connected app's token reaches nothing but the tools. (decided
+  autonomously)
+- Q: Does Revoke stop the app at once, or when its token expires? → A: At
+  once. Each MCP request checks the token with the Auth server, which
+  refuses a session whose grant was revoked. That costs one round trip per
+  tool call, which a person waiting on Claude won't notice. (decided
+  autonomously)
+- Q: Does the free plan get it? → A: Yes. `docs/positioning.md` makes
+  downloading an invoice the only paid thing, and these tools touch only
+  tracking.
+- Q: Which tools' answers does Claude see? → A: The route's own JSON body,
+  as text, and a refusal's code and message as the tool's error. No
+  reshaping: one implementation (Principle III). (decided autonomously)
+- Q: Where do the approval page and Connected apps get their data? → A:
+  The approval page talks to Supabase Auth from the browser, as the sign-in
+  form does: approving is a step of signing in, not Stint data. Connected
+  apps lists and revokes through `/api/v1/connected-apps`, so the rule that
+  every client goes through the API holds. (decided autonomously)
+
+## Design
+
+No design review: the approval page is the sign-in page's layout with the
+app's name and two buttons, and Connected apps is a Settings section
+listing rows with a button, as Payment details does. Neither has a choice
+of layout or hierarchy to review. (decided autonomously)
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Connect Claude and rename a project (Priority: P1)
