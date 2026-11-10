@@ -27,6 +27,10 @@ Shared plumbing in `apps/web/src/lib/`:
   `{ data: null, error: null }` — no error, no claims, and every bearer
   request 401s. The route tests inject `__TEST_DB__` and never exercise this
   path, so only a real token against a real server catches it.
+
+  A connected app's token (one with `client_id`) is refused unless
+  `toolCall()` marked the `Request`, which only `lib/mcp.ts` does. A route
+  needs nothing to stay behind that fence.
 - `errors.ts` — `handle()` wraps every route; `ApiError` answers with its
   code's status from `ERROR_STATUS` in `@stint/schema`, the one table of
   codes. A new code goes there, and in `docs/api.md`'s table, which

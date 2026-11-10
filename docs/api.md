@@ -3,7 +3,9 @@
 Every client (web and the macOS app) uses these endpoints, and an endpoint
 not built yet is marked `(not implemented)`. Auth is a Supabase JWT as
 `Authorization: Bearer <token>`, on every endpoint except `/health` and the
-Stripe webhook, which Stripe's signature authenticates instead. Request/response shapes are defined in
+Stripe webhook, which Stripe's signature authenticates instead. A connected
+app's token (one carrying `client_id`, from the OAuth server under
+[MCP](#mcp)) is `401` everywhere here; it reaches only the MCP tools. Request/response shapes are defined in
 `packages/schema/src/`, one file per resource — that is the source of truth, and every
 route parses its request against it; this document is the map.
 
@@ -14,7 +16,9 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 55 of 55, counting handlers rather than files.
+Every handler is covered — 57 of 57, counting handlers rather than files.
+`/connected-apps` needs a real Auth server, so `apps/web/test/auth.test.ts`
+covers it.
 
 ## Timer
 
@@ -419,6 +423,44 @@ preference — `.claude/rules/invoicing.md` has the reason.
   store the 9 digits; a number that is not 9 digits passing the ABA checksum
   is `422 VALIDATION_FAILED` (`validateRoutingNumber()` in `@stint/core`).
 - Deleting is archival, because clients and invoices reference profiles.
+
+## Connected apps
+
+Apps the user approved at `/oauth/consent`, such as Claude. Supabase Auth
+holds them; these call its grants API with the caller's token.
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/connected-apps` | `{ apps: [{ clientId, name, grantedAt }] }` |
+| `DELETE` | `/connected-apps/:clientId` | `204`. The app's tokens are refused from its next request. |
+
+## MCP
+
+`/api/mcp`, outside `/api/v1`, is a stateless Streamable HTTP MCP server.
+Supabase Auth's OAuth 2.1 server signs the client in, and
+`/.well-known/oauth-protected-resource` names it. Connect with
+`claude mcp add --transport http stint https://<domain>/api/mcp`, or add the
+same address as a custom connector in claude.ai.
+
+- No token, or one Auth refuses (`getUser()`, so a revoked app stops at
+  once): `401` with `WWW-Authenticate: Bearer resource_metadata=…`.
+- Each tool calls one route handler in-process with the caller's token, and
+  answers with its JSON body. A refusal is the tool's error,
+  `<code>: <message>`.
+
+| Tool | Route |
+|---|---|
+| `list_projects` | `GET /projects` |
+| `rename_project` | `PATCH /projects/:id` with `name` |
+| `list_task_names` | `GET /entries/task-names` |
+| `list_entries` | `GET /entries` |
+| `rename_entry_task` | `PATCH /entries/:id` with `taskName` |
+
+**The token fence.** `requireSession` refuses a token carrying `client_id`
+unless `toolCall()` marked the `Request`, which only `/api/mcp` does. The
+mark is an object in memory, so no client can send it. Supabase tokens all
+carry `aud: authenticated`, so MCP's audience binding is unavailable; the
+fence covers what it guards against.
 
 ## Health
 

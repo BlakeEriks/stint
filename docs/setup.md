@@ -27,7 +27,7 @@ release on the RLS event trigger before it was listed.
   event trigger in `public`, a backstop only: every table still declares its
   own RLS and policy in its migration (`docs/data-model.md`).
 - **Authentication → Sign In / Providers → Allow new users to sign up — OFF.**
-  Stint is invite-only (section 6).
+  Stint is invite-only (section 7).
 
 ## 2. Apply the migrations
 
@@ -123,7 +123,21 @@ file changes local only, until it's pasted again. Keep
 code for every magic link, and those calls show it, so the menu bar app's
 panel has a code to take.
 
-## 6. Invite people
+## 6. Connected apps
+
+Claude connects through Supabase Auth's OAuth 2.1 server, which
+`config.toml` turns on for local only. On each hosted project (production
+and `stint-test`):
+
+1. **Authentication → OAuth Server**: on, **Authorization Path**
+   `/oauth/consent`, **Allow Dynamic OAuth Apps** on.
+2. **Settings → JWT Keys**: the current key is asymmetric (ES256), so
+   Claude can verify tokens against the published keys.
+
+The approval page is at the **Site URL**, so a preview tested against
+`stint-test` needs that Site URL pointed at it.
+
+## 7. Invite people
 
 Sign-up is off, so an account exists only once it's invited from
 **Authentication → Users → Add user → Send invitation**. Each invitee gets
