@@ -37,7 +37,9 @@ export default async function Page({
     <Providers>
       <ConsentForm
         authorizationId={id}
-        app={data?.client.name ?? null}
+        // Claude Code registers as "Claude Code (<server name>)"; the server
+        // name is the user's own label, not the app's.
+        app={data?.client.name.replace(/ \(.*\)$/, '') ?? null}
         email={String(claims.claims.email ?? '')}
       />
     </Providers>
