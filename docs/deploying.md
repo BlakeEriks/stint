@@ -149,8 +149,8 @@ key; unset, a browser sees the change only when it polls.
 
 In the Stripe dashboard, once:
 
-- A product with one **yearly** price of $40 USD (`docs/positioning.md`);
-  its id is `STRIPE_PRICE_ID`.
+- A product with one **yearly** price of $39.96 USD, the $3.33/month billed
+  annually in `docs/positioning.md`; its id is `STRIPE_PRICE_ID`.
 - A webhook endpoint at `https://app.runstint.com/api/v1/billing/webhook`
   for `checkout.session.completed`, `customer.subscription.*`,
   `invoice.paid` and `invoice.payment_failed`; its signing secret is

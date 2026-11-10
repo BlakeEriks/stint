@@ -119,3 +119,4 @@ landing lines show the voice, not final copy.
 | Server error | Request failed. Tracked time is unaffected. [Retry] |
 | Sign-in email | Subject *Sign in to Stint*. [Sign in] Or enter this code in the Mac app: 482 913. The link and code work once and expire after 24 hours. If you didn't request this, ignore this email. |
 | Month-end notification | **October is over.** $6,180 of work is unbilled across 3 clients. Create the invoices. |
+| Paid plan | Once beta ends, downloading an invoice requires the paid plan: $3.33/month, billed annually. [Get the paid plan] |
