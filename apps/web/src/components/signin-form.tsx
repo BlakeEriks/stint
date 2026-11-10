@@ -18,11 +18,15 @@ export function SignInForm({
   error,
   deleted,
   inviteUrl,
+  next,
 }: {
   error?: string;
   deleted?: boolean;
   /** The landing page's invite request, where a stranger is sent. */
   inviteUrl: string;
+  /** Where the link lands once signed in; `/auth/callback` keeps it on
+      this site. */
+  next?: string;
 }) {
   /* The only way in for the next account, so nothing the last one kept in
      this browser survives past here (FR-009). */
@@ -56,7 +60,9 @@ export function SignInForm({
     const { error } = await db.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/auth/callback${
+          next ? `?next=${encodeURIComponent(next)}` : ''
+        }`,
         // Invite-only: an account comes from an invite, never this form.
         shouldCreateUser: false,
       },

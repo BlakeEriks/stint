@@ -25,6 +25,7 @@
     "storybook": "storybook dev --port 6006 --no-open"
   },
   "dependencies": {
+    "@modelcontextprotocol/server": "^2.4.0",
     "@react-pdf/renderer": "^4.9.0",
     "@sentry/core": "11.10.0",
     "@sentry/nextjs": "^11.10.0",
