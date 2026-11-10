@@ -210,7 +210,6 @@ actor API {
         let message: String
     }
 
-    /// Signed out: Stint mails the code (`/api/v1/auth/code`).
     func requestCode(email: String) async throws {
         let _: Empty = try await request("POST", "/auth/code", body: ["email": email], authorized: false)
     }

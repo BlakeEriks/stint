@@ -4451,12 +4451,20 @@ test('a sign-in code answers the same whether or not the address has an account'
   // GoTrue's per-address interval answers only for an address that exists.
   const again = await askCode('192.0.2.1', 429, {
     error_code: 'over_email_send_rate_limit',
+    msg: 'For security purposes, you can only request this after 52 seconds.',
   });
   assert.deepEqual(
     [known.status, unknown.status, again.status],
     [200, 200, 200],
   );
   assert.deepEqual(asked, [{ email: 'who@example.com', create_user: false }]);
+
+  // The project's email quota sends nobody a code, so it can't say one is coming.
+  const quota = await askCode('192.0.2.1', 429, {
+    error_code: 'over_email_send_rate_limit',
+    msg: 'email rate limit exceeded',
+  });
+  assert.equal(quota.status, 500);
 });
 
 test('one address gets five sign-in codes an hour, and another is unaffected', async () => {
@@ -4469,6 +4477,12 @@ test('one address gets five sign-in codes an hour, and another is unaffected', a
   assert.equal((await sixth.json()).code, 'RATE_LIMITED');
   assert.equal(asked.length, 5, 'the sixth never reaches GoTrue');
   assert.equal((await askCode('192.0.2.2')).status, 200);
+
+  // An IPv6 client holds its whole /64, so rotating within it gains nothing.
+  for (let i = 1; i <= 5; i++)
+    assert.equal((await askCode(`2001:db8:0:1::${i}`)).status, 200);
+  assert.equal((await askCode('2001:db8:0:1:ffff::9')).status, 429);
+  assert.equal((await askCode('2001:db8:0:2::1')).status, 200);
 
   // An hour on, the address has its five again.
   await pool.query(

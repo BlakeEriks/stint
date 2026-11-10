@@ -49,11 +49,17 @@ export const POST = handle(async (req: Request) => {
       body: JSON.stringify({ email, create_user: false }),
     },
   );
-  /* GoTrue's per-address interval (429) reaches only an address with an
-     account, so it answers as a sent code does: the last one still works. */
-  if (res.ok || res.status === 429) return NextResponse.json({});
-  const body = (await res.json().catch(() => ({}))) as { error_code?: string };
+  if (res.ok) return NextResponse.json({});
+  const body = (await res.json().catch(() => ({}))) as {
+    error_code?: string;
+    msg?: string;
+  };
   if (body.error_code === 'otp_disabled') return NextResponse.json({});
+  /* GoTrue's per-address interval reaches only an address with an account,
+     so it answers as a sent code does: the last one still works. Its other
+     429, the project's email quota, is an outage. */
+  if (res.status === 429 && body.msg?.startsWith('For security purposes'))
+    return NextResponse.json({});
   throw new Error(
     `GoTrue /otp answered ${res.status}: ${JSON.stringify(body)}`,
   );

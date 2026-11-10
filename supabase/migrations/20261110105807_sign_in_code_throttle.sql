@@ -18,7 +18,8 @@ create index sign_in_code_requests_by_ip
 alter table private.sign_in_code_requests enable row level security;
 
 -- Whether `p_ip` may ask for another code: five an hour. A granted slot is
--- counted at once. The advisory lock keeps two requests from one address
+-- counted at once. An IPv6 address counts as its /64, which one client
+-- holds whole and can rotate through. The advisory lock keeps two requests from one address
 -- from both reading four.
 create function public.take_sign_in_code_slot(p_ip text)
 returns table (allowed boolean)
@@ -26,6 +27,9 @@ language plpgsql security definer
 set search_path = public, pg_temp
 as $$
 begin
+  if p_ip like '%:%' then
+    p_ip := network(set_masklen(p_ip::inet, 64))::text;
+  end if;
   perform pg_advisory_xact_lock(hashtext('sign_in_code:' || p_ip));
   delete from private.sign_in_code_requests
     where requested_at < now() - interval '1 hour';

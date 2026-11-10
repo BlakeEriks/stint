@@ -201,7 +201,6 @@ struct TimerModelTests {
         await model.signOut()
     }
 
-    /// Stint's refusal is what the panel says.
     @Test func aSignInCodeIsAskedOfStint() async throws {
         let model = try await signedInModel()
         APIStub.routes["/auth/code"] = (200, Data("{}".utf8))
