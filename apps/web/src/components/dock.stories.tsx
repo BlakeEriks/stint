@@ -55,7 +55,7 @@ export const Column: Story = {
 };
 
 /** The invoice PDF is the paid tier: a paying account's invoice rows offer
-    Download; the seeded account, free with billing set up, gets none. */
+    Download; the seeded account, free with billing live, gets none. */
 export const InvoiceDownloads: Story = {
   ...desktop,
   parameters: account((db) => {

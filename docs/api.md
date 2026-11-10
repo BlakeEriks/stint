@@ -294,7 +294,7 @@ rate. `0` is a real rate, distinct from `null`, which means "fall back".
 | `PATCH` | `/invoices/:id` | **Drafts only.** Edits a draft: the body is `POST /invoices`'s, checked as it is, and `clientId` must be the draft's (`422 VALIDATION_FAILED` with `{ field: 'clientId' }`). Keeps the number. `paymentProfileId` freezes those payment details; absent, the draft keeps its own. Saving is a build: the draft holds its period's work that no other draft holds, as the preview with `draftId` showed it, and lets go of what it held outside the period. Returns the `Invoice` plus `lineItems`. `409 INVOICE_STATUS_CHANGED` for an invoice that isn't a draft; `404` for one not found. |
 | `POST` | `/invoices/:id/work` | **Drafts only.** Add to draft: holds the work `newWork` counts, all of it. Work another draft took meanwhile stays with it. `204`. `409 INVOICE_STATUS_CHANGED` for an invoice that isn't a draft; `404` for one not found. |
 | `DELETE` | `/invoices/:id` | **Drafts only** — `422 VALIDATION_FAILED` otherwise. An issued invoice must be voided, so numbering stays gapless. Deleting a draft lets go of the work it held. |
-| `GET` | `/invoices/:id/pdf` | A draft is priced first and the dates its render printed recorded, which Mark sent keeps; one with an unrated entry is `400 NO_RATE_CONFIGURED`, and one whose typed due date is before its issue date `422 VALIDATION_FAILED`. Streams `application/pdf` in the invoice's `template`, or for a draft the setting's, which its recorded render keeps, from the line items, `business`, `billTo` and payment details, then the frozen `supportingDetail` from page 2, in hours. `?download=1` for `attachment` rather than an inline preview. Both are the paid tier: `402 PAYMENT_REQUIRED` unless billing is not set up, the caller pays, or the invoice was generated while they paid. Previewing and generating stay free. |
+| `GET` | `/invoices/:id/pdf` | A draft is priced first and the dates its render printed recorded, which Mark sent keeps; one with an unrated entry is `400 NO_RATE_CONFIGURED`, and one whose typed due date is before its issue date `422 VALIDATION_FAILED`. Streams `application/pdf` in the invoice's `template`, or for a draft the setting's, which its recorded render keeps, from the line items, `business`, `billTo` and payment details, then the frozen `supportingDetail` from page 2, in hours. `?download=1` for `attachment` rather than an inline preview. Both are the paid tier: `402 PAYMENT_REQUIRED` unless billing is not live, the caller pays, or the invoice was generated while they paid. Previewing and generating stay free. |
 | `PATCH` | `/invoices/:id/status` | `{ status, sentAt?, paidAt? }`. Also how an invoice is marked sent: `send_draft` writes a draft's lines and totals as the work it holds stands, claims that work and lets go of the rest it held, dates it as its last PDF printed, else `issueDate` the send date in its zone and `dueDate` by its terms unless one was typed, freezes its `template` as its last PDF's, else the setting's, and sends it, in one transaction — `400 NO_RATE_CONFIGURED` if an entry has no rate, `422 VALIDATION_FAILED` if it has no lines, no zone (its own, the account's `billingTimeZone`, or `?tz`), or a typed due date before its issue date (`{ field: 'dueDate' }`), `409 ENTRY_ALREADY_INVOICED` if another invoice took one of its entries or expenses at the same moment. `422 VALIDATION_FAILED` on a transition the table below forbids, or if `paidAt` is later than now or earlier than the invoice's `sentAt`; `409 INVOICE_STATUS_CHANGED` if another request changed the status since this one read it. |
 
 A draft is priced in the zone stored when it was generated. A draft without
@@ -392,12 +392,14 @@ Sentry, and without `SUPABASE_SECRET_KEY` nothing is broadcast.
 One yearly subscription through Stripe (`docs/positioning.md` owns the
 price). Until `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` and
 `STRIPE_WEBHOOK_SECRET` are all set, `checkout`, `portal` and `sync` answer
-`503 BILLING_UNAVAILABLE`, the webhook answers a plain-text `503`, and
-`GET /billing` still answers `200` with `available: false`.
+`503 BILLING_UNAVAILABLE` and the webhook answers a plain-text `503`. Until
+`BILLING_LIVE` is also `true` (beta), `GET /billing` answers `200` with
+`available: false` and `checkout` and `portal` answer `503`; the webhook and
+`sync` still mirror Stripe.
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/billing` | `{ available, plan, status, periodEnd, cancelAtPeriodEnd, paymentFailed }`. `plan` is `paid` while Stripe's status is `active`, `trialing` or `past_due` (`planOf()` in `@stint/core`). Read from the stored mirror, so it answers with Stripe unset or down; `available` says whether billing is set up. |
+| `GET` | `/billing` | `{ available, plan, status, periodEnd, cancelAtPeriodEnd, paymentFailed }`. `plan` is `paid` while Stripe's status is `active`, `trialing` or `past_due` (`planOf()` in `@stint/core`). Read from the stored mirror, so it answers with Stripe unset or down; `available` says whether billing is live: false until `BILLING_LIVE` is `true`, even with the Stripe keys set. |
 | `POST` | `/billing/checkout` | `{ url }` of a Stripe Checkout page for the yearly price, returning to `/settings?checkout={CHECKOUT_SESSION_ID}`. `409 ALREADY_SUBSCRIBED` if paid. |
 | `POST` | `/billing/portal` | `{ url }` of the Stripe Customer Portal (cancel, resume, card, receipts). `409 NOT_SUBSCRIBED` with no Stripe customer. |
 | `POST` | `/billing/sync` | `{ sessionId }` → the caller's `Billing`, after storing what Stripe says about that Checkout session now. `404 CHECKOUT_NOT_FOUND` for an unknown session or another user's. |
@@ -506,9 +508,9 @@ the fence covers what it guards against.
 | `ALREADY_SUBSCRIBED` | 409 | Checkout for a user already paid. |
 | `NOT_SUBSCRIBED` | 409 | The portal for a user with no Stripe customer. |
 | `CHECKOUT_NOT_FOUND` | 404 | No such Checkout session for this user. |
-| `BILLING_UNAVAILABLE` | 503 | Stripe isn't configured on this deploy. |
+| `BILLING_UNAVAILABLE` | 503 | Stripe isn't configured on this deploy, or, from `checkout` and `portal`, `BILLING_LIVE` isn't `true`. |
 | `VALIDATION_FAILED` | 422 | Zod parse failure (`details` carries the issues), an illegal state change such as deleting an issued invoice or an invalid status transition, a `PATCH` body that parses but maps to no column, or a reference to a record that is missing or another user's, such as a project's `clientId`. |
-| `PAYMENT_REQUIRED` | 402 | The invoice PDF is the paid tier. Subscribe in Settings. |
+| `PAYMENT_REQUIRED` | 402 | While `BILLING_LIVE` is on (after the beta), the invoice PDF needs the paid plan. Subscribe in Settings. |
 | `INTERNAL` | 500 | Unhandled error. Not part of `ErrorCode` in the schema package. |
 
 `ENTRY_NOT_FOUND` is the generic 404 across resources — clients, projects,
