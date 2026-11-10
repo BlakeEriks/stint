@@ -9,7 +9,7 @@ import { Providers } from '@/components/providers';
 import { resetDb, type Scenario } from '@/mocks/db';
 import { handlers } from '@/mocks/handlers';
 import { problems } from '@/mocks/respond';
-import { stall } from '@/mocks/supabase';
+import { type Stallable, stall } from '@/mocks/supabase';
 import { NOW } from '@/mocks/time.mts';
 import '@/styles/globals.css';
 
@@ -36,8 +36,7 @@ const frame = () => new Promise((done) => requestAnimationFrame(done));
    leaves its control busy on purpose. */
 const busy = () =>
   stalls === 0 &&
-  !stall.signOut &&
-  !stall.oauth &&
+  !stall.has('signOut') &&
   document.querySelector('[aria-busy="true"]') !== null;
 /* Twice: a response often starts the request that depends on it. */
 async function quiet() {
@@ -108,8 +107,9 @@ const preview: Preview = {
   beforeEach: ({ parameters }) => {
     inFlight = 0;
     stalls = (parameters.stalls as number | undefined) ?? 0;
-    stall.signOut = parameters.stallSignOut === true;
-    stall.oauth = parameters.stallOAuth === true;
+    stall.clear();
+    for (const key of (parameters.stallAuth as Stallable[] | undefined) ?? [])
+      stall.add(key);
     problems.length = 0;
     const now = new Date(parameters.now ?? NOW);
     MockDate.set(now);

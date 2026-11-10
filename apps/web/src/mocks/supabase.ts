@@ -3,8 +3,11 @@ import { getDb } from './db';
 /** An address nobody invited, for the sign-in story that shows it. */
 export const NOT_INVITED = 'stranger@example.com';
 
-/** Holds a call pending, as a server that never answers: `stalled('signOut')`. */
-export const stall = { signOut: false, oauth: false };
+/** The auth calls a story can hold pending: `stalled('signOut')`. */
+export const STALLABLE = ['signOut', 'oauth'] as const;
+export type Stallable = (typeof STALLABLE)[number];
+/** Those held pending, as a server that never answers. */
+export const stall = new Set<Stallable>();
 
 /**
  * Stands in for `src/lib/client/supabase.ts` in Storybook: the signed-in
@@ -19,7 +22,7 @@ export function browserClient() {
         error: null,
       }),
       signOut: () =>
-        stall.signOut
+        stall.has('signOut')
           ? new Promise<{ error: null }>(() => {})
           : Promise.resolve({ error: null }),
       signInWithOtp: async ({ email }: { email: string }) =>
@@ -41,6 +44,6 @@ export function browserClient() {
 }
 
 const answer = () =>
-  stall.oauth
+  stall.has('oauth')
     ? new Promise<never>(() => {})
     : Promise.resolve({ data: {}, error: null });
