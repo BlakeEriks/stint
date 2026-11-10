@@ -91,6 +91,43 @@ try {
     else console.log(`  ✓ ${name} (${n})`);
   }
 
+  // ── connected apps are fenced by default ─────────────────────────
+  // A connected app's token is the user's JWT plus `client_id`, so
+  // a table the user reaches is open to it unless a restrictive policy says
+  // otherwise. Only the tables its MCP tools write may go unfenced; they are
+  // narrowed by `connected_app_changes_only` instead.
+  const APP_WRITES = ['clients', 'projects', 'time_entries'];
+  const APP_READS = ['push_devices'];
+  const { rows: fences } = await client.query(
+    `select c.relname as table,
+       array(select g from unnest(array['SELECT','INSERT','UPDATE','DELETE']) g
+             where has_table_privilege('authenticated', c.oid, g)) as granted,
+       array(select p.cmd from pg_policies p
+             where p.schemaname = 'public' and p.tablename = c.relname
+               and p.permissive = 'RESTRICTIVE'
+               and concat(p.qual, p.with_check) like '%connected_app()%') as fenced
+     from pg_class c join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = 'public' and c.relkind = 'r'
+       and has_table_privilege('authenticated', c.oid, 'select, insert, update, delete')
+     order by 1`,
+  );
+  console.log('\n  connected apps\n');
+  for (const { table, granted, fenced } of fences) {
+    if (APP_WRITES.includes(table)) continue;
+    const open = fenced.includes('ALL')
+      ? []
+      : granted.filter(
+          (cmd) =>
+            !fenced.includes(cmd) &&
+            !(cmd === 'SELECT' && APP_READS.includes(table)),
+        );
+    if (open.length > 0)
+      fail(
+        `${table} — a connected app may ${open.join(', ')}; add a restrictive \`not (select connected_app())\` policy.`,
+      );
+    else console.log(`  ✓ ${table}`);
+  }
+
   // ── the timer invariant ──────────────────────────────────────────
   const { rows: idx } = await client.query(
     `select indexdef from pg_indexes

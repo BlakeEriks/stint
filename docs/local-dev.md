@@ -320,7 +320,10 @@ the file that otherwise holds them is gitignored and absent in CI.
 It is separate from `verify:db` because it is the one suite that needs a real
 **Auth server** rather than a Postgres instance. The route suites inject
 `__TEST_DB__` and never reach `requireSession`'s bearer branch, the path the
-phone and macOS apps depend on; only a genuinely signed token proves it. In
+phone and macOS apps depend on; only a genuinely signed token proves it.
+It also connects an app through the OAuth server, as Claude does, and proves
+its token reaches the MCP tools, nothing else, and nothing once revoked. A
+stack started before `config.toml` turned that server on needs one restart. In
 CI it runs in the e2e job, right after `supabase start`.
 
 ## Running the browser tests

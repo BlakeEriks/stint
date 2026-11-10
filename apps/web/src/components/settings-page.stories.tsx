@@ -10,6 +10,9 @@ import {
   stalled,
   expectOpen,
 } from '@/mocks/screen';
+import { localDateKey } from '@stint/core';
+import { timeZone } from '@/lib/client/use-timer';
+import { shortDate } from './invoice-bits';
 import { SettingsPage } from './settings-page';
 
 const meta = {
@@ -420,5 +423,67 @@ export const Loading: Story = {
     await expect(
       Math.abs(word.top + word.height / 2 - (box.top + box.height / 2)),
     ).toBeLessThan(4);
+  },
+};
+
+const connectedApps = async (canvasElement: HTMLElement) => {
+  const heading = await within(canvasElement).findByRole('heading', {
+    name: 'Connected apps',
+  });
+  return within(heading.closest('section') as HTMLElement);
+};
+
+/** An approved app is listed with its date; Revoke takes it off once answered. */
+export const ConnectedApps: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const apps = await connectedApps(canvasElement);
+    await expect(apps.getByText('Claude Code')).toBeVisible();
+    const [app] = getDb().connectedApps;
+    if (!app) throw new Error('The fixture has no connected app.');
+    const day = shortDate(localDateKey(new Date(app.grantedAt), timeZone));
+    await expect(apps.getByText(`Approved ${day}`)).toBeVisible();
+    await userEvent.click(apps.getByRole('button', { name: 'Revoke' }));
+    await waitFor(() => expect(apps.queryByText('Claude Code')).toBeNull());
+  },
+};
+
+/** Revoke waits on the server, since it can't be taken back. */
+export const RevokePending: Story = {
+  ...desktop,
+  parameters: stalled('revokeConnectedApp'),
+  play: async ({ canvasElement }) => {
+    const apps = await connectedApps(canvasElement);
+    await userEvent.click(apps.getByRole('button', { name: 'Revoke' }));
+    await expect(
+      apps.getByRole('button', { name: 'Revoking…' }),
+    ).toBeDisabled();
+    await expect(apps.getByText('Claude Code')).toBeVisible();
+  },
+};
+
+/** None connected: it says how to connect Claude. */
+export const NoConnectedApps: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    db.connectedApps = [];
+  }),
+  play: async ({ canvasElement }) => {
+    const apps = await connectedApps(canvasElement);
+    await expect(apps.getByText(/\/api\/mcp$/)).toBeVisible();
+  },
+};
+
+/** A refused revoke says so in the notice. */
+export const RevokeRefused: Story = {
+  ...desktop,
+  parameters: failing('revokeConnectedApp'),
+  play: async ({ canvasElement }) => {
+    const apps = await connectedApps(canvasElement);
+    await userEvent.click(apps.getByRole('button', { name: 'Revoke' }));
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      await page.findByText(/Couldn’t revoke Claude Code/),
+    ).toBeVisible();
   },
 };
