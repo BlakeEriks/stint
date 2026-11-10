@@ -30,7 +30,8 @@ date, a count, a limit such as 24 hours.
 
 **Independent.** The reader runs a business of one and is in charge of it.
 The copy never borrows the furniture of software sold to companies: seats,
-teams, workspaces, members, features to unlock. It never upsells.
+teams, workspaces, members, features to unlock. It states a price once, with
+what it buys, and never pushes.
 
 **Unsentimental.** Facts, not feelings. A line that reassures, cheers,
 or leans on an idiom or catchphrase is cut: *time to bill*, *money on the
@@ -51,7 +52,7 @@ table*, *your hours are safe*. Humor is not part of the voice.
 
 | Moment | How it reads |
 | --- | --- |
-| Landing page | The most voice: short declaratives, and what is free. |
+| Landing page | The most voice: short declaratives, and the price with what it buys. |
 | Routine screens and empty states | An empty state names the job, and its button, where it has one, does it. |
 | A record to resolve | The fact with its figures, then each choice as a button. It never guesses or blames. |
 | Error | Impersonal: what failed, what it left untouched, and one action. |
@@ -78,6 +79,7 @@ One name for each thing, on every client.
 | Awaiting payment | Sent and not yet paid | outstanding, pending |
 | Inbox | Where a record to resolve waits | notifications, alerts |
 | Payment details | The ACH routing and account number an invoice carries | payment profile, bank info |
+| Paid plan | The plan that downloads invoices | Pro, premium, upgrade, subscription |
 
 ## Mechanics
 
@@ -97,6 +99,8 @@ The Google developer documentation style guide is the base. Stint adds:
 - **US formats**, as `packages/core/src/format.ts` and `duration.ts` write
   them: `$4,250.00` for a billed figure and `$6,180` for one read at a
   glance; `6:12 PM`; `14h 32m`.
+- **The price** is the monthly figure from `docs/positioning.md`,
+  $3.33/month, with *billed annually* beside it. Never the yearly total.
 
 ## Reference lines
 
@@ -105,7 +109,7 @@ landing lines show the voice, not final copy.
 
 | Moment | Text |
 | --- | --- |
-| Landing hero | **Time tracking and invoicing for solo contractors.** No seats, no team plan, no sales call. [Get started] *Free, invoices included. No card.* |
+| Landing hero | **Time tracking and invoicing for solo contractors.** No seats, no team plan, no sales call. *Free during beta. Then invoicing is $3.33/month, billed annually, and beta accounts keep that price for life.* [Get started] *No card.* |
 | Landing section | **The invoice your client gets.** Hours grouped by task, at the rate each was worked. Numbered, dated, ready to send. |
 | FAQ | **Does Stint email invoices to my clients?** No. You download the PDF and send it from your own address, so it stays out of spam. |
 | Empty client list | **Who's paying you?** Add a client and what you charge them. [Add client] |

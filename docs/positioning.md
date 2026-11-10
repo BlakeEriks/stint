@@ -22,7 +22,7 @@ tool that still costs what it costs next year.
 
 ## The one line
 
-**Built for one person, free, and the invoice is always right.**
+**Built for one person, priced like it, and the invoice is always right.**
 
 ## Three advantages, all structural
 
@@ -38,14 +38,15 @@ the bill grows when the month goes well.
 **The invoice is the product; the timer is the input.** Time tracking is a
 commodity given away free by Toggl, Clockify, Zoho, Paymo, and Harvest. The
 numbered, rate-frozen, ACH-bearing PDF is the part that is hard and the part
-worth money. What it offers is that its numbers are right, which is why the
-trust rules in the constitution (`.specify/memory/constitution.md`) are the
-product rather than engineering taste.
+worth money. We charge for the document, never for the tracking, so what the
+paid plan sells is that its numbers are right. That is why the trust rules in
+the constitution (`.specify/memory/constitution.md`) are the product rather
+than engineering taste.
 
-**Nothing goes behind a paywall later.** Whatever Stint charges once it has
-users comes with no seats, no usage metering, and no tier that unlocks a
-number you already earned. This is a promise the
-incumbents cannot currently make: Harvest moved to usage fees in 2026,
+**The price is published now, and it does not move.** $3.33 a month, billed
+annually, with no seats, no usage fees, and no tier that unlocks a number you
+already earned. An account made during beta keeps that price for life. This
+is a promise the incumbents cannot currently make: Harvest moved to usage fees in 2026,
 Clockify moved billable rates behind a paywall in April 2026, and FreshBooks
 raised prices in March 2026 with a one-cycle hold.
 
@@ -69,18 +70,29 @@ tracker that produces the invoice, not an invoicer with a timer attached.
 
 ## Price
 
-**Free, with open sign-up, until Stint has real usage.** Anyone can create an
-account. There is no paid plan, no invite list, and no card. Tracking, the
-money view, the exports and the invoice PDF are all included. What to charge
-is decided once there are users to ask, and this section changes first.
+**Invoicing is $3.33 a month, billed annually, and free during beta.** There
+is no monthly billing. Anyone can sign up: no invite list, and no card during
+beta.
 
-**Free costs Apple's fee.** The overhead is the Apple Developer Program's $99
-a year, which signs and notarizes the macOS app and publishes the iPhone app;
-hosting is $0 on Vercel Hobby and Supabase Free. Charging anything moves both
-to Pro, since Hobby forbids commercial use, and the overhead to $654 a year.
-Google Play's $25 is paid once, and push and app builds stay on free tiers.
-One more user costs about nothing until roughly a thousand accounts. A design
-that adds a fixed cost changes this section first.
+Time tracking is free and complete: unlimited clients, projects, entries and
+history, kept as long as the user needs it, with the money view and the
+exports included. **Once beta ends, downloading an invoice requires the paid
+plan**, and that is the only thing that does. The records get out free; the
+document is the product.
+
+**A beta account keeps its price for life.** An account made during beta
+pays $3.33 a month, billed annually, for invoicing once beta ends, and that
+never rises. An account made after beta pays the same from its first invoice.
+
+**The price covers the bill, not a margin.** During beta the overhead is the
+Apple Developer Program's $99 a year, which signs and notarizes the macOS app
+and publishes the iPhone app; hosting is $0 on Vercel Hobby and Supabase Free.
+Charging when beta ends moves both to Pro, since Hobby forbids commercial use,
+and from then on $654 a year is the whole overhead; net of Stripe's
+subscription fees **eighteen subscribers cover it.** Google Play's $25 is paid
+once, and push and app builds stay on free tiers. One more user costs about
+nothing until roughly a thousand accounts, which is why tracking can be free
+and whole. A design that adds a fixed cost changes this section first.
 
 ## Scope
 
@@ -92,8 +104,13 @@ folder keeps a copy. Competitors email invoices, so expect the comparison.
 
 ## What this is a bet on
 
-That hourly contractors would run their day on a free tracker whose invoice is
-correct. Usage comes first; what anyone would pay is the question after it.
+That eighteen contractors would pay $3.33 a month, billed annually, for an
+invoice that is correct, when the tracking around it is free. Beta is free so
+the first accounts can show whether that holds.
+
+Eighteen is the whole bar, and it is what makes this survivable: the product
+does not need to convert a market, only to cover a hosting bill and Apple's
+fee.
 
 **This is inference from the market, not from customers.** It is well
 supported by what the incumbents did in 2026 — three of them moved money
