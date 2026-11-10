@@ -37,8 +37,8 @@ async function resolve(req: Request): Promise<Session> {
     // The token must be passed EXPLICITLY — see verify().
     const claims = await verify(db, 'Invalid or expired token', token);
     /* A connected app's token (Supabase's OAuth server adds `client_id`)
-       reaches the MCP tools and nothing else, so it can't delete the
-       account or send an invoice. */
+       reaches only the MCP tools here; the database's `connected_app()`
+       policies fence the Data API. */
     if (claims.client_id && !toolCalls.has(req)) {
       throw new ApiError(
         'UNAUTHORIZED',

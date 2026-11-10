@@ -1,22 +1,16 @@
+import type { ConnectedApp } from '@stint/schema';
 import { ApiError } from './errors';
-
-/**
- * The apps a user approved through Supabase's OAuth server, read and
- * revoked through Auth's REST API with the user's own token.
- * `auth.oauth.listGrants()` would need a stored session, which a bearer
- * caller never has.
- */
-export interface ConnectedApp {
-  clientId: string;
-  name: string;
-  grantedAt: string;
-}
 
 interface Grant {
   client: { id: string; name: string };
   granted_at: string;
 }
 
+/**
+ * Auth's grants API with the user's own token, which
+ * `auth.oauth.listGrants()` can't take: it needs a stored session, and a
+ * bearer caller never has one.
+ */
 function grants(token: string, query = '', method = 'GET') {
   return fetch(
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/user/oauth/grants${query}`,

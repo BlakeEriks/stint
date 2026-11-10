@@ -21,7 +21,8 @@ import { Listing, Page } from './page';
 export function SettingsPage() {
   /* The page paints once, with its sections' data. Billing and connected
      apps only decide whether their sections show, so their failure leaves
-     the rest of the page working; the account's counts load only when its dialog opens. */
+     the rest of the page working; the account's counts load only when its
+     dialog opens. */
   const settings = useQuery({
     queryKey: keys.settings(),
     queryFn: api.settings,

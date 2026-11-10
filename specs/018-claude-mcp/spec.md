@@ -142,8 +142,13 @@ Revoke, and see Claude's next request refused.
 ### Edge Cases
 
 - A connected app's access is the tools, and only the tools: any other
-  Stint request carrying its token is refused, so it can't delete the
-  account, send an invoice or start a timer.
+  Stint route refuses its token, and the database lets it only read
+  clients, projects and entries and rename a project or an entry's task, so
+  it can't delete the account, send an invoice or start a timer through
+  the API or the Data API. (decided autonomously)
+- Supabase's own Auth API still accepts its token for the user's account,
+  such as `PUT /auth/v1/user`; Stint can't fence that, and the reviewer
+  decides whether it ships.
 - A request to the MCP address with no token, or an expired one, is refused
   with the pointer an MCP client follows to sign in.
 - A rename to an empty name is refused with the reason.

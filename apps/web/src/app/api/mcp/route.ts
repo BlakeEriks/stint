@@ -3,11 +3,7 @@ import { mcp } from '@/lib/mcp';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Stint's MCP endpoint (docs/api.md). Supabase Auth signs the client in;
- * a request without a token Auth accepts is pointed at the metadata that
- * says so.
- */
+/** `WWW-Authenticate` points the client at Supabase Auth, to sign in. */
 async function serve(req: Request): Promise<Response> {
   const token = await mcpCaller(req);
   if (!token) {

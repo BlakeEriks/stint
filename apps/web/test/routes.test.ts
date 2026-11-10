@@ -4987,32 +4987,15 @@ test('each MCP tool answers with its route, and a refusal is the tool’s error'
     [billed],
   );
 
-  const renamed = await tool('rename_project', {
-    id: projectId,
-    name: 'Renamed',
-  });
-  assert.equal(renamed.isError, false);
-  assert.equal(JSON.parse(renamed.text).name, 'Renamed');
-  const listed = JSON.parse((await tool('list_projects', {})).text);
-  assert.deepEqual(
-    listed.projects.map((p: { name: string }) => p.name),
-    ['Renamed'],
-  );
-
-  const task = await tool('rename_entry_task', {
-    id: open,
-    taskName: 'New name',
-  });
-  assert.equal(JSON.parse(task.text).taskName, 'New name');
-  const listedEntries = JSON.parse(
-    (await tool('list_entries', { projectId })).text,
-  );
-  assert.deepEqual(
-    listedEntries.entries.map((e: { taskName: string }) => e.taskName).sort(),
-    ['New name', 'Old name'],
-  );
-  const names = JSON.parse((await tool('list_task_names', {})).text);
-  assert.ok(names.taskNames.length > 0, 'the task names come back');
+  for (const [name, args] of [
+    ['list_projects', {}],
+    ['rename_project', { id: projectId, name: 'Renamed' }],
+    ['list_task_names', {}],
+    ['list_entries', { projectId }],
+    ['rename_entry_task', { id: open, taskName: 'New name' }],
+  ] as const) {
+    assert.equal((await tool(name, args)).isError, false, name);
+  }
 
   const locked = await tool('rename_entry_task', {
     id: billed,

@@ -42,7 +42,6 @@ function server(token: string): McpServer {
     });
     const text = await res.text();
     if (res.ok) return { content: [{ type: 'text', text }] };
-    // A refusal is the tool's error, never dropped (Principle I).
     const { code, message } = JSON.parse(text);
     return {
       isError: true,
