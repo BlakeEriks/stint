@@ -53,7 +53,7 @@ complete. The invoice and the headings are neutral.
 **Banned words**, because each carries no information or the wrong audience:
 seamless, effortless, powerful, intuitive; beautiful, well-designed;
 revolutionary, reimagined, next-generation; earned or revenue for unbilled
-work (it may never be paid); Pro, Premium, Upgrade (one price, no tiers);
+work (it may never be paid); Pro, Premium, Upgrade (no tiers);
 teams, collaborate, workspace. They bind the page's copy, not a screenshot,
 which shows the app's own labels.
 

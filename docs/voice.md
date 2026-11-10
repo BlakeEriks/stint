@@ -105,7 +105,7 @@ landing lines show the voice, not final copy.
 
 | Moment | Text |
 | --- | --- |
-| Landing hero | **Time tracking and invoicing for solo contractors.** No seats, no team plan, no sales call. [Sign up] *Free, invoices included. No card.* |
+| Landing hero | **Time tracking and invoicing for solo contractors.** No seats, no team plan, no sales call. [Get started] *Free, invoices included. No card.* |
 | Landing section | **The invoice your client gets.** Hours grouped by task, at the rate each was worked. Numbered, dated, ready to send. |
 | FAQ | **Does Stint email invoices to my clients?** No. You download the PDF and send it from your own address, so it stays out of spam. |
 | Empty client list | **Who's paying you?** Add a client and what you charge them. [Add client] |
