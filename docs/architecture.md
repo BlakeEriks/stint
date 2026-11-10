@@ -71,6 +71,9 @@ route handlers verify it identically.
   POST two endpoints. Sign in with Apple via `signInWithIdToken` would need a
   paid developer account, an App ID with the capability and a signed bundle,
   none of which a SwiftPM executable produces.
+- **Claude and other MCP clients** — Supabase Auth's OAuth 2.1 server signs
+  them in, approved at `/oauth/consent`, and its tokens reach only the MCP
+  tools at `/api/mcp` (`docs/api.md`).
 
 ## Live updates
 

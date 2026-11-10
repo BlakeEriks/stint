@@ -96,6 +96,7 @@ export type Settings = Res<schema.Settings>;
 export type Account = Res<schema.Account>;
 export type Billing = Res<schema.Billing>;
 export type PaymentProfile = Res<schema.PaymentProfile>;
+export type ConnectedApp = Res<schema.ConnectedApp>;
 export type InvoicePreview = Res<schema.InvoicePreview>;
 export type Invoice = Res<schema.Invoice>;
 export type Expense = Res<schema.Expense>;
@@ -440,6 +441,12 @@ export const api = {
 
   archivePaymentProfile: (id: string) =>
     request<void>('DELETE', `/payment-profiles/${id}`),
+
+  connectedApps: () =>
+    request<{ apps: ConnectedApp[] }>('GET', '/connected-apps'),
+
+  revokeConnectedApp: (clientId: string) =>
+    request<void>('DELETE', `/connected-apps/${clientId}`),
 
   account: () => request<Account>('GET', '/account'),
 

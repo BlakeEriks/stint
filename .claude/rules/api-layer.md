@@ -7,7 +7,8 @@ paths:
 
 ## API layer
 
-All routes live in `apps/web/src/app/api/v1/`.
+All routes live in `apps/web/src/app/api/v1/`, except the MCP endpoint
+(`api/mcp`) and the OAuth metadata it points to (`.well-known/`).
 
 **Every request shape comes from `@stint/schema`.** A route parses its body or
 query against a schema the package exports; it never declares one inline. A
@@ -27,6 +28,9 @@ Shared plumbing in `apps/web/src/lib/`:
   `{ data: null, error: null }` — no error, no claims, and every bearer
   request 401s. The route tests inject `__TEST_DB__` and never exercise this
   path, so only a real token against a real server catches it.
+
+  A connected app's token is fenced here and in the database, as `docs/api.md`
+  (MCP) says; a tool that needs more needs both.
 - `errors.ts` — `handle()` wraps every route; `ApiError` answers with its
   code's status from `ERROR_STATUS` in `@stint/schema`, the one table of
   codes. A new code goes there, and in `docs/api.md`'s table, which

@@ -176,6 +176,45 @@ describe('PaymentProfiles', () => {
     );
   });
 
+  /* A field the user emptied must clear the column, not save as '' or keep
+     the old value: the PDF would print a blank row or a stale account. */
+  it('saves what each field holds, a cleared one as null', async () => {
+    const fetch = vi.fn(
+      async (_url: string, _init?: RequestInit) =>
+        new Response(JSON.stringify({ paymentProfiles: [BASE] }), {
+          status: 200,
+        }),
+    );
+    vi.stubGlobal('fetch', fetch);
+    const user = userEvent.setup();
+    render(<PaymentProfiles />, { wrapper });
+
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    await user.clear(screen.getByLabelText('Bank name'));
+    await user.type(screen.getByLabelText(/^Label/), ' ');
+    await user.click(screen.getByLabelText('Account type'));
+    await user.click(screen.getByRole('option', { name: 'Not specified' }));
+    await user.click(
+      screen.getByRole('button', { name: /International details/ }),
+    );
+    await user.type(screen.getByLabelText('IBAN'), 'GB82WEST12345698765432');
+    await user.type(screen.getByLabelText('Local code'), '   ');
+    await user.click(screen.getByLabelText('Fee allocation'));
+    await user.click(screen.getByRole('option', { name: 'SHA — shared' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    const patch = fetch.mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(JSON.parse(String(patch?.[1]?.body))).toEqual({
+      ...BASE,
+      name: 'Chase business',
+      bankName: null,
+      accountType: null,
+      iban: 'GB82WEST12345698765432',
+      localCode: null,
+      feeAllocation: 'SHA',
+    });
+  });
+
   it('hides an archived profile', async () => {
     serve([
       {

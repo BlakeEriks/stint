@@ -995,6 +995,21 @@ export const handlers = {
     return ok(envelopes.paymentProfiles, { paymentProfiles });
   }),
 
+  connectedApps: http.get(`${API}/connected-apps`, () =>
+    ok(envelopes.connectedApps, { apps: getDb().connectedApps }),
+  ),
+
+  revokeConnectedApp: http.delete(
+    `${API}/connected-apps/:clientId`,
+    ({ params }) => {
+      const db = getDb();
+      const app = db.connectedApps.find((a) => a.clientId === params.clientId);
+      if (!app) return missing('Connected app');
+      db.connectedApps = db.connectedApps.filter((a) => a !== app);
+      return noContent();
+    },
+  ),
+
   /* The route's: the first live profile is the default whatever was asked,
      and one default holds, as the partial unique index enforces. */
   createPaymentProfile: http.post(

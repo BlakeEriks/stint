@@ -3,7 +3,9 @@
 Every client (web and the macOS app) uses these endpoints, and an endpoint
 not built yet is marked `(not implemented)`. Auth is a Supabase JWT as
 `Authorization: Bearer <token>`, on every endpoint except `/health` and the
-Stripe webhook, which Stripe's signature authenticates instead. Request/response shapes are defined in
+Stripe webhook, which Stripe's signature authenticates instead. A connected
+app's token (one carrying `client_id`, from the OAuth server under
+[MCP](#mcp)) is `401` everywhere here; it reaches only the MCP tools. Request/response shapes are defined in
 `packages/schema/src/`, one file per resource — that is the source of truth, and every
 route parses its request against it; this document is the map.
 
@@ -14,7 +16,9 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 55 of 55, counting handlers rather than files.
+Every handler is covered — 57 of 57, counting handlers rather than files.
+`/connected-apps` needs a real Auth server, so `apps/web/test/auth.test.ts`
+covers it.
 
 ## Timer
 
@@ -420,6 +424,59 @@ preference — `.claude/rules/invoicing.md` has the reason.
   is `422 VALIDATION_FAILED` (`validateRoutingNumber()` in `@stint/core`).
 - Deleting is archival, because clients and invoices reference profiles.
 
+## Connected apps
+
+Apps the user approved at `/oauth/consent`, such as Claude. Supabase Auth
+holds them; these call its grants API with the caller's token.
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/connected-apps` | `{ apps: [{ clientId, name, grantedAt }] }` |
+| `DELETE` | `/connected-apps/:clientId` | `204`. The app's tokens are refused from its next request. `404 ENTRY_NOT_FOUND` for an app the user hasn't approved. |
+
+## MCP
+
+`/api/mcp`, outside `/api/v1`, is a stateless Streamable HTTP MCP server.
+Supabase Auth's OAuth 2.1 server signs the client in, and
+`/.well-known/oauth-protected-resource` names it. Connect with
+`claude mcp add --transport http stint https://<domain>/api/mcp`, or add the
+same address as a custom connector in claude.ai.
+
+- No token, or one Auth refuses (`getUser()`, so a revoked app stops at
+  once): `401` with `WWW-Authenticate: Bearer resource_metadata=…`.
+- Each tool calls one route handler in-process with the caller's token, and
+  answers with its JSON body. A refusal is the tool's error,
+  `<code>: <message>`.
+
+| Tool | Route |
+|---|---|
+| `list_projects` | `GET /projects` |
+| `rename_project` | `PATCH /projects/:id` with `name` |
+| `list_task_names` | `GET /entries/task-names` |
+| `list_entries` | `GET /entries` |
+| `rename_entry_task` | `PATCH /entries/:id` with `taskName` |
+| `list_clients` | `GET /clients` |
+| `create_client` | `POST /clients` |
+| `update_client` | `PATCH /clients/:id`, without `archived` |
+| `create_project` | `POST /projects` |
+
+**The token fence.** `requireSession` refuses a token carrying `client_id`
+unless `toolCall()` marked the `Request`, which only `/api/mcp` does. The
+mark is an object in memory, so no client can send it. The token also
+reaches PostgREST, so the database fences it as well. Every table the token
+isn't meant to write carries a restrictive `connected_app()` policy
+(`pnpm verify:schema` fails one that doesn't), which leaves the token:
+
+- reading clients, projects, entries and the user's phones (so a renamed
+  running entry still reaches them)
+- adding clients and projects
+- changing only the client form's fields on a client, `name` on a project
+  and `task_name` on an entry, by the `connected_app_changes_only` trigger
+
+`delete_account()` refuses it. Supabase tokens
+all carry `aud: authenticated`, so MCP's audience binding is unavailable;
+the fence covers what it guards against.
+
 ## Health
 
 | Method | Path | Notes |
@@ -455,7 +512,8 @@ preference — `.claude/rules/invoicing.md` has the reason.
 | `INTERNAL` | 500 | Unhandled error. Not part of `ErrorCode` in the schema package. |
 
 `ENTRY_NOT_FOUND` is the generic 404 across resources — clients, projects,
-invoices, expenses, payment profiles and settings, not only time entries.
+invoices, expenses, payment profiles, settings and connected apps, not only
+time entries.
 
 **Success statuses:** `201` on a create, `200` on an idempotent replay of one
 (a duplicate-key insert with a client-supplied id), `204` on a delete, `200`
