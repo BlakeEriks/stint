@@ -185,5 +185,6 @@ export const Mark: Story = {
       await expect(getComputedStyle(tm, '::before').content).toContain('™');
     }
     await expect(canvas.getAllByText('Stint')).toHaveLength(2);
+    await expect(canvas.getByRole('img', { name: 'Stint' })).toBeVisible();
   },
 };
