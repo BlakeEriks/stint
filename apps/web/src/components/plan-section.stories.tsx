@@ -169,7 +169,7 @@ export const OpeningPortal: Story = {
   },
 };
 
-/** Billing not live, as during beta: no section. */
+/** Billing not live: no section. */
 export const Unavailable: Story = {
   ...desktop,
   parameters: account((db) => {

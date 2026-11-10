@@ -386,10 +386,12 @@ Sentry, and without `SUPABASE_SECRET_KEY` nothing is broadcast.
 ## Billing
 
 One yearly subscription through Stripe (`docs/positioning.md` owns the
-price). Until `BILLING_LIVE` is `true` and `STRIPE_SECRET_KEY`,
-`STRIPE_PRICE_ID` and `STRIPE_WEBHOOK_SECRET` are all set, `checkout`, `portal` and `sync` answer
-`503 BILLING_UNAVAILABLE`, the webhook answers a plain-text `503`, and
-`GET /billing` still answers `200` with `available: false`.
+price). Until `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` and
+`STRIPE_WEBHOOK_SECRET` are all set, `checkout`, `portal` and `sync` answer
+`503 BILLING_UNAVAILABLE` and the webhook answers a plain-text `503`. Until
+`BILLING_LIVE` is also `true` (beta), `GET /billing` answers `200` with
+`available: false` and `checkout` and `portal` answer `503`; the webhook and
+`sync` still mirror Stripe.
 
 | Method | Path | Notes |
 |---|---|---|

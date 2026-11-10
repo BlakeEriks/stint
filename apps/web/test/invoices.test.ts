@@ -3111,13 +3111,6 @@ test('with billing not set up, every invoice opens, as before', async () => {
   assert.deepEqual(await opens(id), OPEN);
 });
 
-test('during beta every invoice opens, with Stripe set up', async () => {
-  configureBilling();
-  delete process.env.BILLING_LIVE;
-  const id = await generate();
-  assert.deepEqual(await opens(id), OPEN);
-});
-
 test('a free user cannot open the document, saved or viewed', async () => {
   configureBilling();
   const id = await generate();

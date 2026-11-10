@@ -3926,6 +3926,30 @@ test('the webhook refuses a missing or forged signature and changes nothing', as
   assert.deepEqual(await subscriptionRows(), []);
 });
 
+test('during beta the webhook still mirrors Stripe, and nothing asks for payment', async () => {
+  configureBilling();
+  delete process.env.BILLING_LIVE;
+  stripeFake.state.subscriptions.push(subscription({ userId: USER }));
+  const res = await deliver('customer.subscription.created', {
+    customer: 'cus_1',
+  });
+  assert.equal(res.status, 200);
+  assert.equal((await subscriptionRows())[0].status, 'active');
+
+  const { POST: checkout } = await import(
+    '../src/app/api/v1/billing/checkout/route.ts'
+  );
+  const { POST: portal } = await import(
+    '../src/app/api/v1/billing/portal/route.ts'
+  );
+  for (const r of [
+    await checkout(req('/billing/checkout', {})),
+    await portal(req('/billing/portal', {})),
+  ])
+    assert.equal((await json(r)).body.code, 'BILLING_UNAVAILABLE');
+  assert.equal(stripeFake.state.created.length, 0);
+});
+
 test('a subscription event stores what Stripe says now, for the user in its metadata', async () => {
   configureBilling();
   stripeFake.state.subscriptions.push(subscription({ userId: USER }));

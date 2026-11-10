@@ -131,11 +131,14 @@ invoice PDF then answers `402 PAYMENT_REQUIRED` and the invoice screen
 offers Subscribe instead. Invoices generated before then aren't
 grandfathered.
 
-- `BILLING_LIVE=true`, `STRIPE_SECRET_KEY` (**sensitive**), `STRIPE_PRICE_ID`
-  and `STRIPE_WEBHOOK_SECRET` (**sensitive**). Any one unset hides the Plan
-  section and opens every invoice: `checkout`, `portal` and `sync` answer `503 BILLING_UNAVAILABLE`,
-  the webhook a plain-text `503`, and `GET /billing` answers `200` with
-  `available: false`.
+- `STRIPE_SECRET_KEY` (**sensitive**), `STRIPE_PRICE_ID` and
+  `STRIPE_WEBHOOK_SECRET` (**sensitive**). Any one unset turns billing off:
+  `checkout`, `portal` and `sync` answer `503 BILLING_UNAVAILABLE`, and the
+  webhook a plain-text `503`.
+- `BILLING_LIVE=true`. Unset, `GET /billing` answers `available: false`, so
+  the Plan section hides and every invoice opens, and `checkout` and
+  `portal` answer `503 BILLING_UNAVAILABLE`. The webhook and `sync` keep
+  mirroring Stripe, so an existing subscriber's events still land.
 - `SUPABASE_SECRET_KEY` (**sensitive**), the project's secret key: the
   Stripe webhook has no user session, so it writes `subscriptions` as
   `service_role`. Without it, the webhook and the Checkout return fail with

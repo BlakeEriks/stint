@@ -8,13 +8,10 @@ export interface BillingConfig {
 }
 
 /**
- * Stripe's settings, or null until all three are set and `BILLING_LIVE` is
- * `true`. Null keeps billing dark: every invoice opens, every billing write
- * answers 503, and no client asks for payment. Invoicing is free during
- * beta (`docs/positioning.md`), so ending beta is setting `BILLING_LIVE`.
+ * Stripe's settings, or null until all three are set. Null keeps billing
+ * dark: every billing write answers 503 and Settings shows no Plan section.
  */
 export function billingConfig(): BillingConfig | null {
-  if (process.env.BILLING_LIVE !== 'true') return null;
   const secretKey = process.env.STRIPE_SECRET_KEY;
   const priceId = process.env.STRIPE_PRICE_ID;
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -27,6 +24,22 @@ export function requireBillingConfig(): BillingConfig {
   const config = billingConfig();
   if (!config)
     throw new ApiError('BILLING_UNAVAILABLE', 'Billing is not set up yet');
+  return config;
+}
+
+/**
+ * False until `BILLING_LIVE` is `true`: ending beta is setting it. Stripe's
+ * webhook keeps mirroring meanwhile, so no subscriber's event is lost.
+ */
+export function billingLive(): boolean {
+  return process.env.BILLING_LIVE === 'true' && billingConfig() !== null;
+}
+
+/** The settings for a route that asks for payment, which beta refuses. */
+export function requireBillingLive(): BillingConfig {
+  const config = requireBillingConfig();
+  if (!billingLive())
+    throw new ApiError('BILLING_UNAVAILABLE', 'Billing is not live yet');
   return config;
 }
 
