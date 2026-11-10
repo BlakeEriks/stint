@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { api } from '@/lib/client/api';
@@ -68,6 +69,7 @@ export function DockStrip() {
  * pushes the Inbox below the top of the content beside it.
  */
 export function FoldButton() {
+  useEffect(() => claim(FOLD), []);
   return (
     <Button
       type="button"
@@ -94,8 +96,19 @@ const FOLD = 'dock-fold';
 const UNFOLD = 'dock-unfold';
 
 /* Each button hides itself, so focus moves to the one that takes it back
-   rather than falling to the page. */
+   rather than falling to the page. The fold button mounts with the Inbox,
+   after its data, so an unfold pressed before then is kept until it does. */
+let wanted: string | null = null;
+
 function toggle(folded: boolean, next: string) {
   setDockFolded(folded);
-  document.getElementById(next)?.focus();
+  wanted = next;
+  claim(next);
+}
+
+function claim(id: string) {
+  const button = document.getElementById(id);
+  if (!button || wanted !== id) return;
+  wanted = null;
+  button.focus();
 }
