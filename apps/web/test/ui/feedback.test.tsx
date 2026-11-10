@@ -70,9 +70,7 @@ describe('Feedback', () => {
     await user.type(box, 'The total looks short.');
     await user.click(screen.getByRole('button', { name: 'Send' }));
 
-    expect(
-      await screen.findByText('Thanks. Feedback sent.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Feedback sent.')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(sent[0]).toMatchObject({
       message: 'The total looks short.',

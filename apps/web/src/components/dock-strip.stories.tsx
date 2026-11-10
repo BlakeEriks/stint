@@ -122,7 +122,7 @@ export const StatsFailed: Story = {
     await userEvent.click(await page.findByRole('button', { name: 'Inbox' }));
     const fold = await page.findByRole('dialog', { name: 'Inbox' });
     await expect(
-      await within(fold).findByText('Could not load this. Try again.'),
+      await within(fold).findByText('Couldn’t load this. Try again.'),
     ).toBeVisible();
   },
 };

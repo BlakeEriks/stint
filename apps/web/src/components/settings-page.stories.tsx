@@ -103,7 +103,7 @@ export const Light: Story = {
   },
 };
 
-/** No payment details: invoices render without a payment block. */
+/** No payment details: invoices print without them. */
 export const NoPaymentProfiles: Story = {
   ...desktop,
   parameters: account((db) => {
@@ -111,9 +111,7 @@ export const NoPaymentProfiles: Story = {
   }),
   play: async ({ canvasElement }) => {
     await expect(
-      await within(canvasElement).findByText(
-        /Invoices will render without a payment block/,
-      ),
+      await within(canvasElement).findByText(/Invoices print without them/),
     ).toBeVisible();
   },
 };

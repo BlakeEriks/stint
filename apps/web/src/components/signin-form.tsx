@@ -76,7 +76,7 @@ export function SignInForm({
       setState('error');
       setMessage(
         error.code === 'captcha_failed'
-          ? 'Stint couldn’t confirm you’re not a bot. Try again.'
+          ? 'We couldn’t confirm you’re not a bot. Try again.'
           : error.message,
       );
       setCaptchaToken(null);
@@ -186,7 +186,7 @@ export function SignInForm({
  */
 const EXPLAIN: Record<string, string> = {
   invalid_link:
-    'That link could not be used. It may have already been opened, or another tab started a different sign-in. Request a new one below.',
+    'That link didn’t work. It may have been opened already, or another tab started a different sign-in. Request a new one below.',
   missing_code: 'That link was incomplete. Request a new one below.',
-  default: 'Something went wrong with that link. Request a new one below.',
+  default: 'That link didn’t work. Request a new one below.',
 };

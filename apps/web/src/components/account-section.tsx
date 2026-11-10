@@ -117,8 +117,7 @@ function DeleteAccountDialog({
         <DialogHeader>
           <DialogTitle>Delete your account?</DialogTitle>
           <DialogDescription>
-            Everything below is deleted now and cannot be recovered from the
-            app.
+            Everything below is deleted now and can’t be recovered from the app.
           </DialogDescription>
         </DialogHeader>
 
@@ -150,8 +149,8 @@ function DeleteAccountDialog({
           </ul>
 
           <p className="type-support text-muted">
-            Invoices you have sent are tax records. Download the PDFs you need
-            before you go. Backups keep a copy for 90 days, then it is gone.
+            Invoices you’ve sent are tax records. Download the PDFs you need
+            first. Backups keep a copy for 90 days, then delete it.
           </p>
 
           <Field label="Type your email to confirm" htmlFor="delete-confirm">

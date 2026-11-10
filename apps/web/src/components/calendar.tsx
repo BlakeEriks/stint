@@ -359,7 +359,7 @@ function CalendarStatus({
      has nothing in it. Neutral — a failed fetch is a condition, not a rejected
      action. */
   if (isError) {
-    return <p className={muted}>Could not load these entries. Try again.</p>;
+    return <p className={muted}>Couldn’t load these entries. Try again.</p>;
   }
   /* Says what is actually empty. "Nothing logged this week" over a single
      day's grid would be wrong whenever the rest of the week has hours in it. */

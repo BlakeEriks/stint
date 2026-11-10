@@ -130,11 +130,7 @@ export function ClientForm({
         />
       </Field>
 
-      <Field
-        label="Bill to"
-        htmlFor="client-address"
-        hint="Appears on the invoice."
-      >
+      <Field label="Bill to" htmlFor="client-address">
         <textarea
           id="client-address"
           rows={3}
@@ -152,7 +148,7 @@ export function ClientForm({
         <Field
           label="Hourly rate"
           htmlFor="client-rate"
-          hint="Defaults to your standard rate."
+          hint="Blank uses your default rate."
           error={check.error('client-rate')}
           className="flex-1 basis-40"
         >
@@ -212,7 +208,7 @@ export function ClientForm({
         <p role="alert" className="type-support text-danger">
           {save.error instanceof ApiError
             ? save.error.message
-            : 'Could not save this client.'}
+            : 'Couldn’t save this client.'}
         </p>
       ) : null}
 

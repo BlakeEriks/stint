@@ -179,7 +179,7 @@ export function PaymentProfileDialog({
             {existing ? 'Edit payment details' : 'Payment details'}
           </DialogTitle>
           <DialogDescription>
-            These render on the invoice PDF. Only the fields you fill in appear.
+            Only the fields you fill in print on the invoice.
           </DialogDescription>
         </DialogHeader>
 
@@ -298,7 +298,7 @@ export function PaymentProfileDialog({
             <p role="alert" className="type-support text-danger">
               {save.error instanceof ApiError
                 ? save.error.message
-                : 'Could not save these details.'}
+                : 'Couldn’t save these details.'}
             </p>
           ) : null}
 
