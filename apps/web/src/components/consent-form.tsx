@@ -53,9 +53,14 @@ export function ConsentForm({
       ) : (
         <>
           <h2 className="mt-8 type-title text-strong">Connect {app}?</h2>
+          <p className="mt-2 type-support text-muted">{app} will:</p>
+          <ul className="mt-1 list-disc pl-5 type-support text-muted">
+            <li>Read your clients, projects and time entries</li>
+            <li>Add clients and projects</li>
+            <li>Edit your clients</li>
+            <li>Rename projects and tasks</li>
+          </ul>
           <p className="mt-2 type-support text-muted">
-            {app} will read your clients, projects and time entries, add clients
-            and projects, edit your clients, and rename projects and tasks.
             Revoke it any time in Settings.
           </p>
           <p className="mt-2 type-meta text-subtle">Signed in as {email}</p>
