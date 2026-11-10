@@ -35,7 +35,7 @@ export function DockStrip() {
       <Button
         type="button"
         variant="ghost"
-        size="icon-sm"
+        size="xs"
         aria-label={
           count
             ? `Show Inbox and Today, ${count} ${count === 1 ? 'item' : 'items'}`
@@ -44,7 +44,7 @@ export function DockStrip() {
         title="Show Inbox and Today"
         id={UNFOLD}
         onClick={() => toggle(false, FOLD)}
-        className="relative text-muted [&_svg:not([class*='size-'])]:size-[18px]"
+        className={`relative ${FOLD_BUTTON}`}
       >
         <PanelRightOpen aria-hidden strokeWidth={1.75} />
         {/* The dock's own count pill, on the icon's corner; none at zero. */}
@@ -62,27 +62,33 @@ export function DockStrip() {
 }
 
 /**
- * The open dock's button that folds it, at the top right, where the strip's
- * button that unfolds it sits.
+ * The open dock's button that folds it, at the end of the Inbox's header,
+ * where the strip's button that unfolds it sits once folded. In the header
+ * rather than a row of its own: a row holding one icon is empty ground that
+ * pushes the Inbox below the top of the content beside it.
  */
 export function FoldButton() {
   return (
-    <div className="hidden justify-end xl:flex">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Hide Inbox and Today"
-        title="Hide Inbox and Today"
-        id={FOLD}
-        onClick={() => toggle(true, UNFOLD)}
-        className="text-muted [&_svg:not([class*='size-'])]:size-[18px]"
-      >
-        <PanelRightClose aria-hidden strokeWidth={1.75} />
-      </Button>
-    </div>
+    <Button
+      type="button"
+      variant="ghost"
+      size="xs"
+      aria-label="Hide Inbox and Today"
+      title="Hide Inbox and Today"
+      id={FOLD}
+      onClick={() => toggle(true, UNFOLD)}
+      className={`hidden xl:inline-flex ${FOLD_BUTTON}`}
+    >
+      <PanelRightClose aria-hidden strokeWidth={1.75} />
+    </Button>
   );
 }
+
+/* 24px square, the Inbox header's height with its count pill in it, so the
+   button adds no height to the row; `xs` for the dock's density, with the
+   icon at the header's own 16px. */
+const FOLD_BUTTON =
+  "size-6 p-0 text-muted has-[>svg]:px-0 [&_svg:not([class*='size-'])]:size-4";
 
 const FOLD = 'dock-fold';
 const UNFOLD = 'dock-unfold';

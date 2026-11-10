@@ -71,7 +71,6 @@ export function Dock() {
          it stays. */
       className="flex min-h-0 flex-none flex-col xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:w-[286px] xl:[[data-dock-folded]_&]:hidden"
     >
-      <FoldButton />
       {/* The inbox takes its share and scrolls within it. `min-h-0` is what
           lets it shrink below its content so the scroller engages rather than
           the column growing.
@@ -86,7 +85,7 @@ export function Dock() {
               className="xl:min-h-0 xl:shrink xl:overflow-y-auto"
               style={wide ? { flexBasis: `${split * 100}%` } : undefined}
             >
-              <Inbox stats={data} />
+              <Inbox stats={data} controls={<FoldButton />} />
             </div>
 
             {wide ? (
