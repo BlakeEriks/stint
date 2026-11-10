@@ -22,22 +22,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomBytes } from 'node:crypto';
-
-const url = process.env.SUPABASE_URL;
-const publishable = process.env.SUPABASE_PUBLISHABLE_KEY;
-const secret = process.env.SUPABASE_SECRET_KEY;
-
-if (!url || !publishable || !secret) {
-  throw new Error(
-    'The bearer-token test needs a running Auth server: SUPABASE_URL, ' +
-      'SUPABASE_PUBLISHABLE_KEY and SUPABASE_SECRET_KEY. Run `pnpm test:auth`, ' +
-      'which reads all three from `supabase status`.',
-  );
-}
-
-// `requireSession` builds its client from these at call time.
-process.env.NEXT_PUBLIC_SUPABASE_URL = url;
-process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = publishable;
+import { deleteUser, freshUser, publishable, url } from './auth-server.ts';
 
 const EMAIL = 'bearer-path@test.local';
 const PASSWORD = 'bearer-path-test-password';
@@ -47,41 +32,9 @@ let toolCall: typeof import('../src/lib/auth.ts').toolCall;
 let userId: string;
 let token: string;
 
-const admin = (path: string, init: RequestInit = {}) =>
-  fetch(`${url}/auth/v1${path}`, {
-    ...init,
-    headers: {
-      apikey: secret,
-      authorization: `Bearer ${secret}`,
-      'content-type': 'application/json',
-      ...(init.headers ?? {}),
-    },
-  });
-
 before(async () => {
   ({ requireSession, toolCall } = await import('../src/lib/auth.ts'));
-
-  // Left behind by an interrupted run; the address must be free to re-create.
-  const existing = await admin(
-    `/admin/users?filter=${encodeURIComponent(EMAIL)}`,
-  ).then((r) => r.json());
-  for (const u of existing.users ?? []) {
-    await admin(`/admin/users/${u.id}`, { method: 'DELETE' });
-  }
-
-  const created = await admin('/admin/users', {
-    method: 'POST',
-    body: JSON.stringify({
-      email: EMAIL,
-      password: PASSWORD,
-      email_confirm: true,
-    }),
-  }).then((r) => r.json());
-  userId = created.id;
-  assert.ok(
-    userId,
-    `could not create the test user: ${JSON.stringify(created)}`,
-  );
+  userId = await freshUser(EMAIL, { password: PASSWORD });
 
   const signedIn = await fetch(`${url}/auth/v1/token?grant_type=password`, {
     method: 'POST',
@@ -93,7 +46,7 @@ before(async () => {
 });
 
 after(async () => {
-  if (userId) await admin(`/admin/users/${userId}`, { method: 'DELETE' });
+  if (userId) await deleteUser(userId);
 });
 
 const withHeader = (authorization: string) =>

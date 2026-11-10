@@ -2,10 +2,11 @@
 
 Every client (web and the macOS app) uses these endpoints, and an endpoint
 not built yet is marked `(not implemented)`. Auth is a Supabase JWT as
-`Authorization: Bearer <token>`, on every endpoint except `/health` and the
-Stripe webhook, which Stripe's signature authenticates instead. A connected
-app's token (one carrying `client_id`, from the OAuth server under
-[MCP](#mcp)) is `401` everywhere here; it reaches only the MCP tools. Request/response shapes are defined in
+`Authorization: Bearer <token>`, on every endpoint except `/health`,
+`/auth/code` and the Stripe webhook, which Stripe's signature authenticates
+instead. A connected app's token (one carrying `client_id`, from the OAuth
+server under [MCP](#mcp)) is `401` everywhere here; it reaches only the MCP
+tools. Request/response shapes are defined in
 `packages/schema/src/`, one file per resource — that is the source of truth, and every
 route parses its request against it; this document is the map.
 
@@ -16,7 +17,7 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 57 of 57, counting handlers rather than files.
+Every handler is covered — 58 of 58, counting handlers rather than files.
 `/connected-apps` needs a real Auth server, so `apps/web/test/auth.test.ts`
 covers it.
 
@@ -479,6 +480,12 @@ isn't meant to write carries a restrictive `connected_app()` policy
 all carry `aud: authenticated`, so MCP's audience binding is unavailable;
 the fence covers what it guards against.
 
+## Sign-in
+
+| Method | Path | Notes |
+|---|---|---|
+| `POST` | `/auth/code` | **No auth.** `{ email }` → `200 {}`, whether or not the address has an account, so nobody learns which do, even while the project's email quota is spent, which goes to Sentry instead; GoTrue mails a sign-in code only to an existing one, which the macOS and phone apps then verify with GoTrue. It never creates an account. `429 RATE_LIMITED` past five a client address asks in an hour, an IPv6 address counting as its /64. Why it exists: `docs/setup.md` §7. Covered by `routes.test.ts`, and by `auth-code.test.ts` against a real Auth server with the CAPTCHA on. |
+
 ## Health
 
 | Method | Path | Notes |
@@ -511,6 +518,7 @@ the fence covers what it guards against.
 | `BILLING_UNAVAILABLE` | 503 | Stripe isn't configured on this deploy, or, from `checkout` and `portal`, `BILLING_LIVE` isn't `true`. |
 | `VALIDATION_FAILED` | 422 | Zod parse failure (`details` carries the issues), an illegal state change such as deleting an issued invoice or an invalid status transition, a `PATCH` body that parses but maps to no column, or a reference to a record that is missing or another user's, such as a project's `clientId`. |
 | `PAYMENT_REQUIRED` | 402 | While `BILLING_LIVE` is on (after the beta), the invoice PDF needs the paid plan. Subscribe in Settings. |
+| `RATE_LIMITED` | 429 | A sixth sign-in code from one address within the hour. |
 | `INTERNAL` | 500 | Unhandled error. Not part of `ErrorCode` in the schema package. |
 
 `ENTRY_NOT_FOUND` is the generic 404 across resources — clients, projects,
@@ -523,8 +531,8 @@ otherwise.
 
 **Retry policy:** 409, 5xx and network failures are worth retrying. Other 4xx
 are rejections on the merits — an unchanged request fails identically, so
-surface them rather than retrying. There is no rate limiting, so nothing here
-returns 429; if that changes, it joins the retryable list.
+surface them rather than retrying. The one 429, `RATE_LIMITED`, is one address
+asking for too many codes; its message says when to ask again.
 
 ## Timezones
 

@@ -116,6 +116,9 @@ Still set in the dashboard:
     `https://formspree.io/f/<form id>`. Submissions email you and list in
     the form's dashboard with when each was sent. Unset, the request fails
     and the page says it didn't send, so a preview never adds to the list.
+  - `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, for Production only: the sign-in
+    form's CAPTCHA (`docs/setup.md` §7). Unset, the form sends none, which
+    a preview's Auth server doesn't ask for.
   - `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN`, both the same DSN, for
     Production only (§3c): the server reports with the first, the browser
     with the second. Unset, Sentry stays off, so a preview never reports.
@@ -142,7 +145,8 @@ grandfathered.
 - `SUPABASE_SECRET_KEY` (**sensitive**), the project's secret key: the
   Stripe webhook has no user session, so it writes `subscriptions` as
   `service_role`. Without it, the webhook and the Checkout return fail with
-  `500`. Never `NEXT_PUBLIC_`.
+  `500`, and so does `/api/v1/auth/code`, which the macOS and phone apps
+  sign in through. Never `NEXT_PUBLIC_`.
 
 Push, for Production and Preview: `FCM_SERVICE_ACCOUNT` (**sensitive**),
 the whole JSON key of a Firebase service account allowed to send messages

@@ -13,7 +13,7 @@ export const metadata = legalMetadata('Privacy');
  */
 export default function Page() {
   return (
-    <LegalPage title="Privacy" updated="October 2026">
+    <LegalPage title="Privacy" updated="November 2026">
       <Clause heading="The short version">
         <p>
           Stint holds the data you put into it &mdash; your hours, your rates,
@@ -34,11 +34,6 @@ export default function Page() {
           entries, clients, projects, hourly rates, invoice details, the payment
           details you choose to put on your invoices, and feedback you send from
           the app, with the screen and app version it came from.
-        </p>
-        <p>
-          <strong className="text-primary">An invite request:</strong> the email
-          address you give on the home page. It goes to Formspree, the form
-          service that holds the list, and is used only to send you an invite.
         </p>
         <p>
           <strong className="text-primary">Ordinary server logs:</strong> IP
@@ -65,10 +60,11 @@ export default function Page() {
 
       <Clause heading="Who else can see it">
         <p>
-          Infrastructure providers who host the application and its database,
-          and the form service that holds invite requests, process data on
-          Stint&rsquo;s behalf and are bound to it. No one else receives your
-          data, and it is never sold.
+          Infrastructure providers who host the application and its database
+          process data on Stint&rsquo;s behalf and are bound to it. On the
+          sign-in page, Cloudflare Turnstile checks that a person is signing in,
+          and sees your IP address and browser details to do it. No one else
+          receives your data, and it is never sold.
         </p>
         <p>
           If you subscribe, Stripe processes your payment. Your card details go

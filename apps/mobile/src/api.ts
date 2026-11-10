@@ -19,6 +19,8 @@ const tz = (zone: string) => `tz=${encodeURIComponent(zone)}`;
 /** The reads and writes the phone makes, and nothing more (`docs/mobile.md`). */
 export function createApi(request: Request) {
   const api = {
+    sendCode: (email: string) =>
+      request<void>('POST', '/auth/code', { email }, { signed: false }),
     summary: (zone: string) => request<Summary>('GET', `/summary?${tz(zone)}`),
     stats: (zone: string) => request<Stats>('GET', `/stats?${tz(zone)}`),
     /** Archived included: a running entry on one still shows its name. */

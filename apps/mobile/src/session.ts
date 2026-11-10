@@ -2,8 +2,9 @@ import { ApiError } from '@stint/client';
 import { createListeners } from './listeners.ts';
 
 /**
- * Sign-in by emailed six-digit code, verified against GoTrue over `fetch`,
- * as the macOS app does (`docs/macos.md`, Sign-in): two POSTs need no SDK.
+ * Sign-in by emailed six-digit code, sent by Stint (`api.ts`'s `sendCode`)
+ * and verified against GoTrue over `fetch`, as the macOS app does
+ * (`docs/macos.md`, Sign-in): no SDK needed.
  *
  * **Only GoTrue rejecting the refresh token signs out.** Offline, a timeout,
  * a 5xx or a rate limit keeps the session and fails the one request, so a
@@ -139,23 +140,6 @@ export function createAuth({
     load,
     refresh,
     signInWithSession,
-
-    /** `create_user: false`: this app signs existing accounts in. */
-    async sendCode(email: string) {
-      const { status, body } = await post('/otp', {
-        email,
-        create_user: false,
-      });
-      if (status === 200) return;
-      // GoTrue's "no such account" names a server setting, not the fact.
-      if (body.error_code === 'otp_disabled')
-        throw new ApiError(status, {
-          code: 'NO_ACCOUNT',
-          message:
-            'Stint is invite-only during alpha. Request an invite at runstint.com.',
-        });
-      throw failure(status, body, 'Could not send the sign-in email.');
-    },
 
     /** `type: "email"`: `"magiclink"` is the link's hashed token and rejects a typed code. */
     async verifyCode(email: string, code: string) {
