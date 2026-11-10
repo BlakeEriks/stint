@@ -68,10 +68,14 @@ function placeholderSlack(input: HTMLInputElement) {
   const ctx = document.createElement('canvas').getContext('2d');
   if (!ctx) throw new Error('No 2D canvas');
   ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  // offsetWidth, not clientWidth: Chromium 1.65's clientWidth on an input
+  // already leaves out the padding.
   const box =
-    input.clientWidth -
+    input.offsetWidth -
+    Number.parseFloat(style.borderLeftWidth) -
     Number.parseFloat(style.paddingLeft) -
-    Number.parseFloat(style.paddingRight);
+    Number.parseFloat(style.paddingRight) -
+    Number.parseFloat(style.borderRightWidth);
   return box - 15 - ctx.measureText(input.placeholder).width;
 }
 

@@ -17,6 +17,9 @@ export type SaveState = 'idle' | 'pending' | 'saved' | 'error';
  * Saves are coalesced: edits during an in-flight request queue one more save
  * after it, rather than racing it. Without that, a fast typist can land an
  * older payload after a newer one.
+ *
+ * Nothing scheduled is dropped: unmounting sends what is unsent at once, so
+ * leaving the screen within the pause does not lose the edit.
  */
 export function useAutosave<T extends object>(
   save: (value: T) => Promise<unknown>,
@@ -36,18 +39,6 @@ export function useAutosave<T extends object>(
   // identity each render does not restart the debounce.
   const saveRef = useRef(save);
   saveRef.current = save;
-
-  // Set on mount, not just cleared on unmount: React StrictMode mounts,
-  // unmounts and remounts in development, and a ref that is only ever
-  // cleared stays false for the real mount — every save then completes
-  // silently and the indicator spins forever.
-  useEffect(() => {
-    alive.current = true;
-    return () => {
-      alive.current = false;
-      if (timer.current) clearTimeout(timer.current);
-    };
-  }, []);
 
   const flush = useCallback(async () => {
     if (inFlight.current) {
@@ -74,12 +65,25 @@ export function useAutosave<T extends object>(
       queued.current = false;
     } finally {
       inFlight.current = false;
-      if (queued.current && alive.current) {
+      if (queued.current) {
         queued.current = false;
         void flush();
       }
     }
   }, []);
+
+  // Set on mount, not just cleared on unmount: React StrictMode mounts,
+  // unmounts and remounts in development, and a ref that is only ever
+  // cleared stays false for the real mount — every save then completes
+  // silently and the indicator spins forever.
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      if (timer.current) clearTimeout(timer.current);
+      void flush();
+    };
+  }, [flush]);
 
   /** Call on every edit with the fields it changed. Marks pending immediately, persists after `delay`. */
   const schedule = useCallback(
