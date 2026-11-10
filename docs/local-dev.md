@@ -39,10 +39,6 @@ without it a web tab sees another client's change only when it polls. With the t
 too: a free account's invoice PDF answers `402 PAYMENT_REQUIRED`, and the
 invoice screen offers Subscribe in place of Download PDF.
 
-`NEXT_PUBLIC_INVITE_FORM_URL` stays unset, so the landing page's invite form
-says it didn't send and never reaches the real list. To see it succeed, point
-it at a local stub (`specs/006-invite-request/quickstart.md`).
-
 **No file on this machine points at production.** There is no `.env.local`;
 `pnpm migrate` and `pnpm verify:schema` reach a database only through `--url`
 or `SUPABASE_DB_URL`, and production is migrated by the release gate.

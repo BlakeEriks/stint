@@ -2,8 +2,8 @@
  * `|Stint|™` — the wordmark. `Foundations/Mark` draws it; `mark-bound` and
  * `mark-tm` carry the geometry so this and `Mark.swift` draw the same mark.
  *
- * `className` is a whole utility (`text-muted`), not a shade, so the bounds
- * keep tracking it through `currentColor`.
+ * `className` is a whole utility (`text-muted`), not a shade, and colors the
+ * letters; the bounds are always `--mark`.
  */
 export function Wordmark({
   className = 'text-strong',

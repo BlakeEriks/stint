@@ -109,8 +109,8 @@ landing lines show the voice, not final copy.
 
 | Moment | Text |
 | --- | --- |
-| Landing hero | **Time tracking and invoicing for solo contractors.** No seats, no team plan, no sales call. Track for free, invoice for $3.33/month. *(billed annually)* [Request an invite] *Invite-only during alpha. No card.* |
-| Landing section | **The invoice your client gets.** Hours grouped by task, at the rate each was worked. Numbered, dated, ready to send. |
+| Landing hero | **Time tracking and invoicing for solo contractors.** No seats, no team plan, no sales call. [Get started] *Free during beta. No card.* |
+| Landing section | **The invoice your client gets.** Built from your tracked hours, at the rate each was worked, with your expenses and ACH details. Nothing is retyped, and a sent invoice never changes. |
 | FAQ | **Does Stint email invoices to my clients?** No. You download the PDF and send it from your own address, so it stays out of spam. |
 | Empty client list | **Who's paying you?** Add a client and what you charge them. [Add client] |
 | Timer left running | **Your timer ran overnight.** 14h 32m since 6:12 PM Tuesday. Keep it, or set when you stopped. [Keep 14h 32m] [Set end time] |
