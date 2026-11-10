@@ -27,18 +27,13 @@ export function requireBillingConfig(): BillingConfig {
   return config;
 }
 
-/**
- * False until `BILLING_LIVE` is `true`: ending beta is setting it. Stripe's
- * webhook keeps mirroring meanwhile, so no subscriber's event is lost.
- */
 export function billingLive(): boolean {
   return process.env.BILLING_LIVE === 'true' && billingConfig() !== null;
 }
 
-/** The settings for a route that asks for payment, which beta refuses. */
 export function requireBillingLive(): BillingConfig {
   const config = requireBillingConfig();
-  if (!billingLive())
+  if (process.env.BILLING_LIVE !== 'true')
     throw new ApiError('BILLING_UNAVAILABLE', 'Billing is not live yet');
   return config;
 }

@@ -3106,9 +3106,15 @@ const LOCKED = {
   canDownload: false,
 };
 
-test('with billing not set up, every invoice opens, as before', async () => {
-  const id = await generate();
-  assert.deepEqual(await opens(id), OPEN);
+test('with billing not set up, or during beta, every invoice opens', async () => {
+  for (const beta of [false, true]) {
+    if (beta) {
+      configureBilling();
+      delete process.env.BILLING_LIVE;
+    }
+    const id = await generate();
+    assert.deepEqual(await opens(id), OPEN, beta ? 'beta' : 'not set up');
+  }
 });
 
 test('a free user cannot open the document, saved or viewed', async () => {
