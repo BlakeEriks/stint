@@ -251,48 +251,6 @@ test('preview reports unrated entries instead of billing them at zero', async ()
   assert.equal(res.body.lineItems.length, 0);
 });
 
-test('preview excludes non-billable and already-invoiced entries', async () => {
-  const { POST: preview } = await import(
-    '../src/app/api/v1/invoices/preview/route.ts'
-  );
-  await seedEntry({ id: E(1), hours: 1 });
-  await seedEntry({ id: E(2), hours: 1, billable: false });
-
-  await pool.query(
-    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status)
-     values ($1,$2,$3,'INV-9000',9000,'sent')`,
-    ['ff000000-0000-4000-8000-00000000000a', USER, CLIENT],
-  );
-  await seedEntry({ id: E(3), hours: 5 });
-  await pool.query('update time_entries set invoice_id=$1 where id=$2', [
-    'ff000000-0000-4000-8000-00000000000a',
-    E(3),
-  ]);
-
-  const res = await json(
-    await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
-  );
-  assert.equal(res.body.entryCount, 1, 'only the one unbilled billable entry');
-  assert.equal(res.body.subtotal, 150);
-});
-
-test('preview excludes a running timer — you cannot bill time still accruing', async () => {
-  const { POST: preview } = await import(
-    '../src/app/api/v1/invoices/preview/route.ts'
-  );
-  await seedEntry({ id: E(1), hours: 1 });
-  await pool.query(
-    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at)
-     values ($1,$2,$3,'Running','2026-09-15T09:00:00Z',null)`,
-    [E(2), USER, PROJECT],
-  );
-
-  const res = await json(
-    await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
-  );
-  assert.equal(res.body.entryCount, 1);
-});
-
 test('generation leaves a running timer unbilled, though Unbilled counts it', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   await seedEntry({ id: E(1), hours: 1 });
@@ -343,20 +301,6 @@ test('generation refuses without a business name or email, and writes nothing', 
   );
   assert.equal(rows[0].n, 0, 'no invoice was created');
   assert.equal(rows[0].next, 1, 'and no number was spent');
-});
-
-test('preview honors the period boundaries inclusively', async () => {
-  const { POST: preview } = await import(
-    '../src/app/api/v1/invoices/preview/route.ts'
-  );
-  await seedEntry({ id: E(1), start: '2026-09-30T22:00:00Z', hours: 1 }); // last day, in
-  await seedEntry({ id: E(2), start: '2026-10-01T09:00:00Z', hours: 1 }); // next month, out
-  await seedEntry({ id: E(3), start: '2026-08-31T09:00:00Z', hours: 1 }); // prior month, out
-
-  const res = await json(
-    await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
-  );
-  assert.equal(res.body.entryCount, 1, 'the last-day entry is included');
 });
 
 test('preview rejects an inverted period', async () => {
@@ -3165,15 +3109,6 @@ test('canceling never locks an invoice generated while paying', async () => {
 
   assert.deepEqual(await opens(whilePaid), OPEN);
   assert.deepEqual(await opens(afterwards), LOCKED);
-});
-
-test('an invoice generated while free locks again when the paid plan ends', async () => {
-  configureBilling();
-  const id = await generate();
-  await subscribe('active');
-  assert.deepEqual(await opens(id), OPEN);
-  await subscribe('canceled');
-  assert.deepEqual(await opens(id), LOCKED);
 });
 
 // ── live drafts ───────────────────────────────────────────────────

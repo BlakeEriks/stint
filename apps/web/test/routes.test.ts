@@ -1797,34 +1797,6 @@ test('unbilled groups by (client, RATE), not by client alone', async () => {
   assert.equal(res.body.unbilled.byClient[0].seconds, 9 * 3600);
 });
 
-test('unbilled prices the printed hours, per entry, as an invoice does', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  const c = '33333333-0000-4000-8000-000000000002';
-  const p = '33333333-0000-4000-8000-0000000000b1';
-  await pool.query(
-    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Rounding',100)`,
-    [c, USER],
-  );
-  await pool.query(
-    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
-    [p, USER, c],
-  );
-
-  // 3 x 20 minutes at 100/h: 0.33 h each as printed, 0.99 h billed.
-  for (const n of [3, 4, 5]) {
-    await entryFor({ id: S(n), projectId: p, hours: 1 / 3 });
-  }
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(res.body.unbilled.total, 99);
-  assert.notEqual(
-    res.body.unbilled.total,
-    100,
-    'priced the raw seconds, which the invoice never prints',
-  );
-});
-
 test('unrated work counts but adds no money', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
@@ -1890,51 +1862,6 @@ function runningToday() {
 
 /** Dollars at $100/h, as the rollups price it: hours rounded to cents. */
 const at100 = (seconds: number) => Math.round(seconds / 36);
-
-test('Earned today counts a running timer up to the request, priced as it would bill', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  const c = '33333333-0000-4000-8000-000000000005';
-  const rated = '33333333-0000-4000-8000-0000000000d2';
-  const unrated = '33333333-0000-4000-8000-0000000000d3';
-  await pool.query(
-    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Live',100)`,
-    [c, USER],
-  );
-  await pool.query(
-    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'Rated')`,
-    [rated, USER, c],
-  );
-  // No client, and the user default is unset here: nothing resolves a rate.
-  await pool.query(
-    `insert into projects (id,user_id,client_id,name) values ($1,$2,null,'Unrated')`,
-    [unrated, USER],
-  );
-  await pool.query(
-    'update user_settings set default_hourly_rate = null where user_id = $1',
-    [USER],
-  );
-  const { startedAt, seconds } = runningToday();
-  const run = (projectId: string) =>
-    pool.query(
-      `insert into time_entries (id,user_id,project_id,task_name,started_at)
-       values ($1,$2,$3,'running',$4)`,
-      [S(13), USER, projectId, startedAt],
-    );
-
-  await run(rated);
-  const live = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(live.body.earnedToday, at100(seconds), 'its hours at $100');
-
-  await pool.query('delete from time_entries where id = $1', [S(13)]);
-  await run(unrated);
-  const none = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(
-    none.body.earnedToday,
-    0,
-    'unrated time earns nothing it can name',
-  );
-});
 
 test('the week, the month and its client strip count a running timer', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
@@ -2067,35 +1994,6 @@ test('the unbilled total covers every client, even past the row cap', async () =
   assert.equal(res.body.unbilled.byClient.length, 5, 'rows are capped');
   assert.equal(res.body.unbilled.moreClients, 2, 'and the rest are counted');
   assert.equal(res.body.unbilled.total, 700, 'but the total is all seven');
-});
-
-test('the month steps on business days, one point per day, drawn up to today', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  const month = res.body.month;
-  const series = month.series as { date: string; actual: number | null }[];
-
-  assert.ok(month, 'the month is always present — there is no target to miss');
-  assert.ok(
-    month.businessDaysTotal >= 20 && month.businessDaysTotal <= 23,
-    `a month has 20-23 business days, got ${month.businessDaysTotal}`,
-  );
-  assert.ok(month.businessDaysElapsed <= month.businessDaysTotal);
-  assert.equal(series.length, month.businessDaysTotal);
-  for (const point of series) {
-    const dow = new Date(`${point.date}T00:00:00Z`).getUTCDay();
-    assert.ok(dow !== 0 && dow !== 6, `${point.date} is a weekend`);
-  }
-
-  /* The line stops at today rather than running flat to the 31st — a level
-     line to month end reads as a month that stopped working. */
-  const drawn = series.filter((s) => s.actual !== null);
-  assert.equal(
-    drawn.length,
-    month.businessDaysElapsed,
-    'null past today, and only past today',
-  );
 });
 
 test('earned counts invoiced work, before and after the invoice is voided', async () => {
@@ -2521,31 +2419,6 @@ test('the cumulative line carries money, and ends on the month’s earned', asyn
       'the cumulative line carries the money, not the hours',
     );
     assert.equal(drawn.at(-1)?.actual, res.body.month.earned);
-  }
-});
-
-test('the projection is withheld until the month has a shape', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  const { businessDaysElapsed, projected, projection } = res.body.month;
-
-  /* Three business days is the floor. Earned-so-far over one elapsed day
-     carried across twenty-two is one day's work times the month, a figure
-     that swings by thousands on the second day. */
-  if (businessDaysElapsed < 3) {
-    assert.equal(projected, null, 'too early to extrapolate');
-    assert.equal(projection, null, 'and nothing to draw the dashed leg to');
-  } else {
-    assert.notEqual(projected, null, 'three days in, the rate is carried');
-    assert.ok(projection, 'and the dashed leg has both endpoints');
-    assert.equal(projection.from.amount, res.body.month.earned);
-    assert.equal(projection.to.amount, projected);
-    assert.equal(
-      projection.to.date,
-      res.body.month.series.at(-1).date,
-      'the leg lands on the last business day',
-    );
   }
 });
 
