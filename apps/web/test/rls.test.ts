@@ -767,6 +767,12 @@ test('a connected app writes only what its tools do', async () => {
   assert.equal((await asApp('select id from time_entries')).length, 2);
   assert.equal((await asApp('select id from clients')).length, 1);
   assert.equal((await asApp('select id from invoices')).length, 0);
+  await seedPushDevices();
+  assert.equal(
+    (await asApp('select token from push_devices')).length,
+    1,
+    'a rename of the running entry still reaches the phone',
+  );
 
   await asApp(`update projects set name = 'Renamed'`);
   await asApp(
@@ -810,6 +816,10 @@ test('a connected app writes only what its tools do', async () => {
       /row-level security/,
     ],
     [`select delete_account()`, /Not signed in/],
+    [
+      `insert into push_devices (user_id,token,platform) values ('${ALICE}','app-phone','android')`,
+      /row-level security/,
+    ],
     [`select allocate_invoice_number('${ALICE}')`, /No settings row/],
   ] as const) {
     await assert.rejects(() => asApp(sql), refusal, sql);
@@ -821,4 +831,24 @@ test('a connected app writes only what its tools do', async () => {
     [ALICE],
   );
   assert.equal(rows[0].n, 2, 'nothing deleted');
+});
+
+/* Deny by default: a table a later migration adds is closed to a connected
+   app until its own `no_connected_app` policy says what it may do. */
+test('every table a user reaches fences connected apps', async () => {
+  const { rows } = await admin.query(
+    `select c.relname from pg_class c
+     join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = 'public' and c.relkind = 'r'
+       and has_table_privilege('authenticated', c.oid, 'select, insert, update, delete')
+       and not exists (
+         select 1 from pg_policies p
+         where p.schemaname = 'public' and p.tablename = c.relname
+           and p.policyname like 'no_connected_app%')
+     order by 1`,
+  );
+  assert.deepEqual(
+    rows.map((r) => r.relname),
+    [],
+  );
 });

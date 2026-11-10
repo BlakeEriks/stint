@@ -77,7 +77,7 @@ No `data-model.md`: no table changes.
 ### Source Code (repository root)
 
 ```text
-apps/web/src/lib/auth.ts                         # fence, toolCall(), mcpCaller(), sessionToken()
+apps/web/src/lib/auth.ts                         # fence, toolCall(), mcpCaller(), callerToken()
 apps/web/src/lib/mcp.ts                          # the five tools over the route handlers
 apps/web/src/lib/grants.ts                       # list and revoke via Auth's REST API
 apps/web/src/lib/next-path.ts                    # safeNext(): sign-in returns only to this site

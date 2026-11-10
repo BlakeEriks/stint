@@ -20,7 +20,7 @@ type Handler = (
 
 /**
  * Each tool is a route handler called in-process with the caller's token,
- * so a rename is refused for the same reasons the app's would be.
+ * so a call is refused for the same reasons the app’s would be.
  */
 function server(token: string): McpServer {
   async function call(

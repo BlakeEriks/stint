@@ -375,7 +375,6 @@ export function seed(now: Date): Db {
         archivedAt: null,
       },
     ],
-    // Claude Code, approved a week before today.
     connectedApps: [
       {
         clientId: '4522330a-c1ce-4a0c-8f0f-fbf0c742f72a',

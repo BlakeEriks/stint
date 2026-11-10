@@ -29,22 +29,29 @@ declare t text;
 begin
   foreach t in array array[
     'user_settings', 'invoices', 'invoice_line_items', 'payment_profiles',
-    'expenses', 'feedback', 'push_devices', 'subscriptions'
+    'expenses', 'feedback', 'subscriptions'
   ] loop
     execute format(
       'create policy no_connected_app on %I as restrictive to authenticated
          using (not (select connected_app())) with check (not (select connected_app()))', t);
   end loop;
 
-  foreach t in array array['clients', 'projects', 'time_entries'] loop
+  foreach t in array array['clients', 'projects', 'time_entries', 'push_devices'] loop
     execute format(
       'create policy no_connected_app_delete on %I as restrictive
          for delete to authenticated using (not (select connected_app()))', t);
   end loop;
+
+  foreach t in array array['time_entries', 'push_devices'] loop
+    execute format(
+      'create policy no_connected_app_insert on %I as restrictive
+         for insert to authenticated with check (not (select connected_app()))', t);
+  end loop;
 end $$;
 
-create policy no_connected_app_insert on time_entries as restrictive
-  for insert to authenticated with check (not (select connected_app()));
+-- Read, so renaming the running entry still tells the user's phones.
+create policy no_connected_app_update on push_devices as restrictive
+  for update to authenticated using (not (select connected_app()));
 
 -- An app's update changes only the columns its trigger names. Named to fire
 -- before the other update triggers, which set columns of their own; a

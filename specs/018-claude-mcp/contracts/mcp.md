@@ -29,8 +29,12 @@ text is the route's JSON body. A refusal is `isError: true` with
 | `list_projects` | `includeArchived?` | `GET /api/v1/projects` |
 | `rename_project` | `id`, `name` | `PATCH /api/v1/projects/:id` `{ name }` |
 | `list_task_names` | `projectId?`, `limit?` | `GET /api/v1/entries/task-names` |
-| `list_entries` | `from?`, `to?`, `projectId?`, `limit?` | `GET /api/v1/entries` |
+| `list_entries` | `from?`, `to?`, `projectId?`, `clientId?`, `limit?` | `GET /api/v1/entries` |
 | `rename_entry_task` | `id`, `taskName` | `PATCH /api/v1/entries/:id` `{ taskName }` |
+| `list_clients` | `includeArchived?` | `GET /api/v1/clients` |
+| `create_client` | the client form's fields, `id?` | `POST /api/v1/clients` |
+| `update_client` | `id`, the client form's fields | `PATCH /api/v1/clients/:id`, without `archived` |
+| `create_project` | `name`, `clientId?`, `hourlyRate?`, `isBillableDefault?`, `id?` | `POST /api/v1/projects` |
 
-Names say what each does: the tools only rename, so `rename_*` rather than
-the issue's `update_*`.
+Inputs are `McpTools` in `@stint/schema`. A tool that changes one field of a
+project or an entry is `rename_*`; one that edits a record is `update_*`.

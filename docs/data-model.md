@@ -393,11 +393,8 @@ take a raise back (`PATCH /settings`).
   an existing index already covers. Entries by user and start time is a plain
   index — every entry is a candidate there.
 - RLS on every table: `user_id = auth.uid()`; line items inherit from invoice.
-  A connected app's token (`connected_app()`, a JWT with `client_id`) is
-  narrowed by restrictive policies to reading clients, projects and entries
-  and adding clients and projects. Triggers let it change only
-  `projects.name`, `time_entries.task_name`, and a client's fields other
-  than `archived_at`.
+  A connected app's token is narrowed further by `no_connected_app*`
+  policies and a trigger (`docs/api.md`, MCP).
   The route tests turn off RLS (their subject is route logic);
   `apps/web/test/rls.test.ts` covers it against live policies.
 

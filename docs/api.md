@@ -463,10 +463,17 @@ same address as a custom connector in claude.ai.
 **The token fence.** `requireSession` refuses a token carrying `client_id`
 unless `toolCall()` marked the `Request`, which only `/api/mcp` does. The
 mark is an object in memory, so no client can send it. The token also
-reaches PostgREST, so the database fences it as well: `connected_app()`
-policies let it read clients, projects and entries, add clients and
-projects, edit a client but not archive it, and rename a project or an
-entry's task; `delete_account()` refuses it. Supabase tokens
+reaches PostgREST, so the database fences it as well. Every table carries a
+`no_connected_app*` policy (`rls.test.ts` fails one that doesn't), which
+leaves the token:
+
+- reading clients, projects, entries and the user's phones (so a renamed
+  running entry still reaches them)
+- adding clients and projects
+- changing only the client form's fields on a client, `name` on a project
+  and `task_name` on an entry, by the `connected_app_changes_only` trigger
+
+`delete_account()` refuses it. Supabase tokens
 all carry `aud: authenticated`, so MCP's audience binding is unavailable;
 the fence covers what it guards against.
 
