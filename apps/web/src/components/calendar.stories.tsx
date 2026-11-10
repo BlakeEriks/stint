@@ -326,6 +326,9 @@ export const EditEntry: Story = {
     });
     await userEvent.click(block as HTMLElement);
     await expectOpen(canvasElement, 'dialog', 'Edit entry');
+    await expect(page.getByLabelText('Task')).toHaveValue(
+      'Pairing on the ingest job',
+    );
   },
 };
 

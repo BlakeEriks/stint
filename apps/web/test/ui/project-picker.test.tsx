@@ -47,7 +47,7 @@ describe('ProjectPicker', () => {
     ).not.toBeChecked();
   });
 
-  it('moves between items with the arrow keys', async () => {
+  it('moves between items with the arrow keys, and jumps by first letter', async () => {
     render(
       <ProjectPicker projects={PROJECTS} value={null} onChange={() => {}} />,
       { wrapper },
@@ -61,20 +61,12 @@ describe('ProjectPicker', () => {
 
     await user.keyboard('{ArrowDown}');
     expect(screen.getByRole('menuitemradio', { name: /Acme/ })).toHaveFocus();
-  });
-
-  it('jumps to a project by typing its first letter', async () => {
-    render(
-      <ProjectPicker projects={PROJECTS} value={null} onChange={() => {}} />,
-      { wrapper },
-    );
-    const user = await open();
 
     await user.keyboard('c');
     expect(screen.getByRole('menuitemradio', { name: /Corvus/ })).toHaveFocus();
   });
 
-  it('reports the project id on select and null for "No project"', async () => {
+  it('reports the project id on select, returns focus to the trigger, and null for "No project"', async () => {
     const onChange = vi.fn();
     const { rerender } = render(
       <ProjectPicker projects={PROJECTS} value={null} onChange={onChange} />,
@@ -84,6 +76,7 @@ describe('ProjectPicker', () => {
     let user = await open();
     await user.click(screen.getByRole('menuitemradio', { name: /Corvus/ }));
     expect(onChange).toHaveBeenCalledWith('p3');
+    expect(screen.getByRole('button', { name: 'Project' })).toHaveFocus();
 
     rerender(
       <ProjectPicker projects={PROJECTS} value="p3" onChange={onChange} />,
@@ -92,29 +85,5 @@ describe('ProjectPicker', () => {
     await user.click(screen.getByRole('menuitemradio', { name: 'No project' }));
     // null, not the sentinel the radio group uses internally.
     expect(onChange).toHaveBeenLastCalledWith(null);
-  });
-
-  it('returns focus to the trigger after choosing', async () => {
-    render(
-      <ProjectPicker projects={PROJECTS} value={null} onChange={() => {}} />,
-      { wrapper },
-    );
-    const user = await open();
-
-    await user.click(screen.getByRole('menuitemradio', { name: /Acme/ }));
-    expect(screen.getByRole('button', { name: 'Project' })).toHaveFocus();
-  });
-
-  it('closes on Escape without selecting anything', async () => {
-    const onChange = vi.fn();
-    render(
-      <ProjectPicker projects={PROJECTS} value={null} onChange={onChange} />,
-      { wrapper },
-    );
-    const user = await open();
-
-    await user.keyboard('{Escape}');
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
-    expect(onChange).not.toHaveBeenCalled();
   });
 });

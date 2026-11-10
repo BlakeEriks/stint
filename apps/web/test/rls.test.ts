@@ -90,11 +90,18 @@ async function asUser<T = any>(
   userId: string,
   sql: string,
   params: unknown[] = [],
+  app = false,
 ): Promise<T[]> {
   const client = await tenant.connect();
   try {
     await client.query('begin');
     await client.query(`set local request.jwt.claim.sub = '${userId}'`);
+    // A connected app's token: the user's, plus the OAuth client.
+    if (app) {
+      await client.query(
+        `set local request.jwt.claims = '{"sub":"${userId}","client_id":"c"}'`,
+      );
+    }
     const result = await client.query(sql, params);
     await client.query('commit');
     return result.rows as T[];
@@ -172,30 +179,7 @@ async function seedPushDevices() {
 }
 
 // ── reads ──────────────────────────────────────────────────────────
-test('an unfiltered select returns only the caller’s rows', async () => {
-  await seedBoth();
-
-  // Deliberately no `where user_id = ...`: this is the query a route would
-  // issue if its scoping were dropped. RLS alone must contain it.
-  const alice = await asUser(ALICE, 'select name from clients');
-  const bob = await asUser(BOB, 'select name from clients');
-
-  assert.deepEqual(
-    alice.map((r) => r.name),
-    ['Alice Client'],
-  );
-  assert.deepEqual(
-    bob.map((r) => r.name),
-    ['Bob Client'],
-  );
-
-  const { rows: all } = await admin.query(
-    'select count(*)::int n from clients',
-  );
-  assert.equal(all[0].n, 2, 'both rows exist; RLS is filtering, not the seed');
-});
-
-test('every user-scoped table is isolated', async () => {
+test('every user-scoped table shows the caller only their own rows', async () => {
   await seedBoth();
   await admin.query(
     `insert into payment_profiles (id,user_id,name,is_default,account_number) values
@@ -209,12 +193,18 @@ test('every user-scoped table is isolated', async () => {
        ('ff000000-0000-4000-8000-00000000000b',$2,'cc000000-0000-4000-8000-00000000000b','INV-0001',1)`,
     [ALICE, BOB],
   );
-
+  await admin.query(
+    `insert into invoice_line_items (invoice_id,description,unit,quantity,unit_price,amount) values
+       ('ff000000-0000-4000-8000-00000000000a','Alice line','hour',1,150,150),
+       ('ff000000-0000-4000-8000-00000000000b','Bob line','hour',1,200,200)`,
+  );
   await seedExpenses();
   await seedFeedback();
   await seedSubscriptions();
   await seedPushDevices();
 
+  /* Deliberately no `where user_id = ...`: this is the query a route would
+     issue if its scoping were dropped. RLS alone must contain it. */
   for (const table of [
     'clients',
     'projects',
@@ -226,6 +216,8 @@ test('every user-scoped table is isolated', async () => {
     'feedback',
     'subscriptions',
     'push_devices',
+    // No user_id at all: its policy joins through the invoice.
+    'invoice_line_items',
   ]) {
     const seen = await asUser(ALICE, `select count(*)::int n from ${table}`);
     const total = await admin.query(`select count(*)::int n from ${table}`);
@@ -238,80 +230,27 @@ test('every user-scoped table is isolated', async () => {
   }
 });
 
-test('targeting another user’s row by id returns nothing, not their data', async () => {
-  await seedBoth();
-
-  // The attack a broken route enables: a valid id belonging to someone else.
-  const rows = await asUser(ALICE, 'select name from clients where id = $1', [
-    'cc000000-0000-4000-8000-00000000000b',
-  ]);
-  assert.equal(
-    rows.length,
-    0,
-    'a known-good id must not leak another tenant’s row',
-  );
-});
-
-test('invoice line items inherit isolation from their invoice', async () => {
-  await seedBoth();
-  await admin.query(
-    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no) values
-       ('ff000000-0000-4000-8000-00000000000a',$1,'cc000000-0000-4000-8000-00000000000a','INV-0001',1),
-       ('ff000000-0000-4000-8000-00000000000b',$2,'cc000000-0000-4000-8000-00000000000b','INV-0001',1)`,
-    [ALICE, BOB],
-  );
-  await admin.query(
-    `insert into invoice_line_items (invoice_id,description,unit,quantity,unit_price,amount) values
-       ('ff000000-0000-4000-8000-00000000000a','Alice line','hour',1,150,150),
-       ('ff000000-0000-4000-8000-00000000000b','Bob line','hour',1,200,200)`,
-  );
-
-  // invoice_line_items has no user_id at all — its policy joins through the
-  // invoice, so this is the one table where isolation is indirect.
-  const alice = await asUser(
-    ALICE,
-    'select description from invoice_line_items',
-  );
-  assert.deepEqual(
-    alice.map((r) => r.description),
-    ['Alice line'],
-  );
-});
-
 // ── writes ─────────────────────────────────────────────────────────
-test('a row cannot be inserted on another user’s behalf', async () => {
-  await assert.rejects(
-    () =>
-      asUser(ALICE, `insert into clients (user_id,name) values ($1,'Forged')`, [
-        BOB,
-      ]),
-    /row-level security/i,
-    'the WITH CHECK clause must reject a forged user_id',
-  );
-
-  const { rows } = await admin.query('select count(*)::int n from clients');
-  assert.equal(rows[0].n, 0, 'nothing was written');
-});
-
-test('an update cannot reach another user’s row', async () => {
+test('a row cannot be written on another user’s behalf', async () => {
   await seedBoth();
+  await seedExpenses();
 
-  const updated = await asUser(
-    ALICE,
-    `update clients set name = 'Hijacked' where id = $1 returning id`,
-    ['cc000000-0000-4000-8000-00000000000b'],
-  );
-  assert.equal(updated.length, 0, 'the update matched no visible row');
+  // Each table's WITH CHECK rejects a forged user_id.
+  for (const sql of [
+    `insert into clients (user_id,name) values ($1,'Forged')`,
+    `insert into expenses (user_id,client_id,spent_on,description,amount)
+     values ($1,'cc000000-0000-4000-8000-00000000000b','2026-09-12','Forged',1)`,
+    `insert into feedback (id,user_id,message,screen,client,app_version)
+     values ('${ALICE_FEEDBACK}',$1,'Forged','/','web','0.1.0')`,
+    `insert into push_devices (user_id,token,platform) values ($1,'forged','android')`,
+  ])
+    await assert.rejects(
+      () => asUser(ALICE, sql, [BOB]),
+      /row-level security/i,
+      sql,
+    );
 
-  const { rows } = await admin.query('select name from clients where id = $1', [
-    'cc000000-0000-4000-8000-00000000000b',
-  ]);
-  assert.equal(rows[0].name, 'Bob Client', 'Bob’s row is untouched');
-});
-
-test('an update cannot reassign a row to another user', async () => {
-  await seedBoth();
-
+  // Nor can a row be moved out of the caller's scope.
   await assert.rejects(
     () =>
       asUser(ALICE, `update clients set user_id = $1 where user_id = $2`, [
@@ -319,70 +258,92 @@ test('an update cannot reassign a row to another user', async () => {
         ALICE,
       ]),
     /row-level security/i,
-    'WITH CHECK must reject moving a row out of the caller’s scope',
+    'a client reassigned',
   );
-});
-
-test('a delete cannot reach another user’s row', async () => {
-  await seedBoth();
-
-  const deleted = await asUser(
-    ALICE,
-    'delete from clients where id = $1 returning id',
-    ['cc000000-0000-4000-8000-00000000000b'],
-  );
-  assert.equal(deleted.length, 0);
-
-  const { rows } = await admin.query('select count(*)::int n from clients');
-  assert.equal(rows[0].n, 2, 'both rows survive');
-});
-
-test('an unqualified delete removes only the caller’s rows', async () => {
-  await seedBoth();
-
-  // The worst-case bug: a route that forgets its WHERE entirely.
-  await asUser(ALICE, 'delete from time_entries');
-
-  const { rows } = await admin.query('select user_id from time_entries');
-  assert.equal(rows.length, 1, 'only Alice’s entry was deleted');
-  assert.equal(rows[0].user_id, BOB);
-});
-
-test('feedback cannot be sent on another user’s behalf', async () => {
   await assert.rejects(
     () =>
-      asUser(
-        ALICE,
-        `insert into feedback (id,user_id,message,screen,client,app_version)
-         values ($1,$2,'Forged','/','web','0.1.0')`,
-        [ALICE_FEEDBACK, BOB],
-      ),
-    /row-level security/i,
+      asUser(ALICE, `update expenses set user_id = $1 where id = $2`, [
+        BOB,
+        ALICE_EXPENSE,
+      ]),
+    /row-level security|expense_client_same_owner/i,
+    'an expense reassigned',
   );
 });
 
-test('a phone cannot be registered to, changed on or removed from another user', async () => {
+test('an update or delete reaches only the caller’s rows', async () => {
+  await seedBoth();
+  await seedExpenses();
   await seedPushDevices();
-  await assert.rejects(
-    () =>
-      asUser(
-        ALICE,
-        `insert into push_devices (user_id,token,platform) values ($1,'forged','android')`,
-        [BOB],
-      ),
-    /row-level security/i,
+
+  // The attack a broken route enables: a valid id belonging to someone else.
+  for (const [table, set, id] of [
+    ['clients', `name = 'Hijacked'`, 'cc000000-0000-4000-8000-00000000000b'],
+    ['expenses', 'amount = 1', BOB_EXPENSE],
+  ]) {
+    const updated = await asUser(
+      ALICE,
+      `update ${table} set ${set} where id = $1 returning id`,
+      [id],
+    );
+    const deleted = await asUser(
+      ALICE,
+      `delete from ${table} where id = $1 returning id`,
+      [id],
+    );
+    assert.deepEqual([updated.length, deleted.length], [0, 0], table);
+  }
+  const { rows: bob } = await admin.query(
+    `select (select name from clients where id = $1) as client,
+            (select amount::float from expenses where id = $2) as expense`,
+    ['cc000000-0000-4000-8000-00000000000b', BOB_EXPENSE],
   );
-  await assert.rejects(
-    () => asUser(ALICE, `update push_devices set token = 'moved'`),
-    /permission denied/i,
+  assert.deepEqual(bob[0], { client: 'Bob Client', expense: 299 });
+
+  // The worst case: a route that forgets its WHERE entirely.
+  for (const table of ['time_entries', 'push_devices']) {
+    await asUser(ALICE, `delete from ${table}`);
+    const { rows } = await admin.query(`select user_id from ${table}`);
+    assert.deepEqual(
+      rows.map((r) => r.user_id),
+      [BOB],
+      table,
+    );
+  }
+});
+
+test('feedback, phones and subscriptions refuse the writes their grants leave out', async () => {
+  await seedFeedback();
+  await seedPushDevices();
+  await seedSubscriptions();
+
+  /* Refused on the grant, before any policy runs: sent feedback is final,
+     even to its sender; a phone is registered again rather than edited; and
+     only the server writes a subscription, so no user can make themselves
+     paid. Alice's is canceled. */
+  for (const sql of [
+    `update feedback set message = 'Rewritten' where id = '${ALICE_FEEDBACK}'`,
+    `delete from feedback where id = '${ALICE_FEEDBACK}'`,
+    `update push_devices set token = 'moved'`,
+    `update subscriptions set status = 'active' where user_id = '${ALICE}'`,
+    `insert into subscriptions (user_id,stripe_customer_id,stripe_subscription_id,status,current_period_end)
+       values ('${ALICE}','cus_x','sub_x','active',now())`,
+    `delete from subscriptions where user_id = '${BOB}'`,
+  ])
+    await assert.rejects(() => asUser(ALICE, sql), /permission denied/i, sql);
+
+  const { rows } = await admin.query(
+    'select user_id, status from subscriptions order by user_id',
   );
-  await asUser(ALICE, 'delete from push_devices');
-  const { rows } = await admin.query('select token from push_devices');
-  assert.deepEqual(
-    rows.map((r) => r.token),
-    ['bob-phone'],
-    'an unfiltered delete takes only the caller’s phone',
+  assert.deepEqual(rows, [
+    { user_id: ALICE, status: 'canceled' },
+    { user_id: BOB, status: 'active' },
+  ]);
+  const { rows: feedback } = await admin.query(
+    'select message from feedback where id = $1',
+    [ALICE_FEEDBACK],
   );
+  assert.equal(feedback[0].message, 'Alice says');
 });
 
 /** Whether Realtime lets `userId` join `topic`: it sets the topic and asks
@@ -415,59 +376,6 @@ test('a user joins only their own timer topic', async () => {
   assert.equal(await mayJoin(BOB, `user:${ALICE}`), false);
   assert.equal(await mayJoin(ALICE, `user:${BOB}`), false);
   await admin.query('delete from realtime.messages');
-});
-
-test('sent feedback cannot be changed or deleted, even by its sender', async () => {
-  await seedFeedback();
-
-  await assert.rejects(
-    () =>
-      asUser(ALICE, `update feedback set message = 'Rewritten' where id = $1`, [
-        ALICE_FEEDBACK,
-      ]),
-    /permission denied/i,
-  );
-  await assert.rejects(
-    () => asUser(ALICE, 'delete from feedback where id = $1', [ALICE_FEEDBACK]),
-    /permission denied/i,
-  );
-
-  const { rows } = await admin.query(
-    'select message from feedback where id = $1',
-    [ALICE_FEEDBACK],
-  );
-  assert.equal(rows[0].message, 'Alice says');
-});
-
-test('no user can make themselves paid, or touch a subscription at all', async () => {
-  await seedSubscriptions();
-  // Alice's is canceled. Every way of writing it — or a new one — is refused
-  // on the grant, before any policy runs.
-  for (const sql of [
-    `update subscriptions set status = 'active' where user_id = '${ALICE}'`,
-    `insert into subscriptions (user_id,stripe_customer_id,stripe_subscription_id,status,current_period_end)
-       values ('${ALICE}','cus_x','sub_x','active',now())`,
-    `delete from subscriptions where user_id = '${BOB}'`,
-  ])
-    await assert.rejects(() => asUser(ALICE, sql), /permission denied/i, sql);
-
-  const { rows } = await admin.query(
-    'select user_id, status from subscriptions order by user_id',
-  );
-  assert.deepEqual(rows, [
-    { user_id: ALICE, status: 'canceled' },
-    { user_id: BOB, status: 'active' },
-  ]);
-});
-
-test('another user’s subscription is invisible, even by id', async () => {
-  await seedSubscriptions();
-  const seen = await asUser(
-    ALICE,
-    `select stripe_customer_id from subscriptions where user_id = $1`,
-    [BOB],
-  );
-  assert.deepEqual(seen, []);
 });
 
 test('an invoice carries the plan it was generated on, and no user can claim another', async () => {
@@ -512,54 +420,55 @@ test('an invoice carries the plan it was generated on, and no user can claim ano
 // RLS scopes what a query can SEE. It says nothing about what a row may
 // POINT AT, so these are a foreign key's job rather than a policy's — and
 // the hole they close returned 201 before `entry_project_same_owner`.
-test('an entry cannot reference another user’s project', async () => {
-  await seedBoth();
+test('a row cannot point at another user’s row', async () => {
+  await issueAliceInvoice('draft');
 
-  await assert.rejects(
-    () =>
-      asUser(
-        ALICE,
-        `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at)
-         values ($1,$2,$3,'Borrowed','2026-09-11T09:00:00Z','2026-09-11T10:00:00Z')`,
-        [
-          '018f0000-0000-7000-8000-00000000000c',
-          ALICE,
-          'bb000000-0000-4000-8000-00000000000b',
-        ],
-      ),
-    /entry_project_same_owner/,
-    'the composite FK must reject a project owned by someone else',
-  );
-
-  const { rows } = await admin.query(
-    'select count(*)::int n from time_entries where id = $1',
-    ['018f0000-0000-7000-8000-00000000000c'],
-  );
-  assert.equal(rows[0].n, 0, 'nothing was written');
-});
-
-test('an entry cannot be updated onto another user’s project', async () => {
-  await seedBoth();
-
-  await assert.rejects(
-    () =>
-      asUser(ALICE, `update time_entries set project_id = $1 where id = $2`, [
-        'bb000000-0000-4000-8000-00000000000b',
-        '018f0000-0000-7000-8000-00000000000a',
-      ]),
-    /entry_project_same_owner/,
-    'the column is writable by three routes; the constraint covers all of them',
-  );
-
-  const { rows } = await admin.query(
-    'select project_id from time_entries where id = $1',
-    ['018f0000-0000-7000-8000-00000000000a'],
-  );
-  assert.equal(
-    rows[0].project_id,
-    'bb000000-0000-4000-8000-00000000000a',
-    'Alice’s entry still points at her own project',
-  );
+  for (const { name, as, sql, constraint } of [
+    {
+      name: 'an entry inserted under their project',
+      as: ALICE,
+      sql: `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at)
+            values ('018f0000-0000-7000-8000-00000000000c','${ALICE}','bb000000-0000-4000-8000-00000000000b','Borrowed','2026-09-11T09:00:00Z','2026-09-11T10:00:00Z')`,
+      constraint: 'entry_project_same_owner',
+    },
+    {
+      // The column is writable by three routes; the constraint covers all.
+      name: 'an entry moved onto their project',
+      as: ALICE,
+      sql: `update time_entries set project_id = 'bb000000-0000-4000-8000-00000000000b'
+            where id = '${ALICE_ENTRY}'`,
+      constraint: 'entry_project_same_owner',
+    },
+    {
+      name: 'an expense under their client',
+      as: ALICE,
+      sql: `insert into expenses (user_id,client_id,spent_on,description,amount)
+            values ('${ALICE}','cc000000-0000-4000-8000-00000000000b','2026-09-12','Borrowed',1)`,
+      constraint: 'expense_client_same_owner',
+    },
+    {
+      name: 'an invoice to their client',
+      as: ALICE,
+      sql: `insert into invoices (user_id,client_id,invoice_number,sequence_no)
+            values ('${ALICE}','cc000000-0000-4000-8000-00000000000b','INV-0002',2)`,
+      constraint: 'invoice_client_same_owner',
+    },
+    {
+      name: 'a project under their client',
+      as: ALICE,
+      sql: `insert into projects (user_id,client_id,name)
+            values ('${ALICE}','cc000000-0000-4000-8000-00000000000b','Borrowed')`,
+      constraint: 'project_client_same_owner',
+    },
+    {
+      name: 'their draft holding my entry',
+      as: BOB,
+      sql: `update time_entries set draft_id = '${ALICE_INVOICE}'
+            where id = '018f0000-0000-7000-8000-00000000000b'`,
+      constraint: 'time_entries_draft_same_owner',
+    },
+  ])
+    await assert.rejects(() => asUser(as, sql), new RegExp(constraint), name);
 });
 
 test('a project cannot be handed to another user while entries reference it', async () => {
@@ -642,25 +551,15 @@ test('the one-running-timer index is per user, not global', async () => {
 });
 
 // ── no claim at all ────────────────────────────────────────────────
-test('an unauthenticated connection sees nothing', async () => {
+test('a missing or malformed claim fails closed', async () => {
   await seedBoth();
 
-  // No `request.jwt.claim.sub` set: auth.uid() is null, so `user_id = null`
-  // is never true and every policy denies.
   const client = await tenant.connect();
   try {
+    // No claim: auth.uid() is null, so `user_id = null` is never true.
     const { rows } = await client.query('select count(*)::int n from clients');
     assert.equal(rows[0].n, 0, 'a missing claim must fail closed, not open');
-  } finally {
-    client.release();
-  }
-});
 
-test('a malformed claim fails closed rather than erroring open', async () => {
-  await seedBoth();
-
-  const client = await tenant.connect();
-  try {
     await client.query('begin');
     await client.query(`set local request.jwt.claim.sub = 'not-a-uuid'`);
     await assert.rejects(
@@ -671,83 +570,6 @@ test('a malformed claim fails closed rather than erroring open', async () => {
   } finally {
     client.release();
   }
-});
-
-// ── expenses ───────────────────────────────────────────────────────
-test('another user’s expense is invisible, even by id', async () => {
-  await seedBoth();
-  await seedExpenses();
-
-  const all = await asUser(ALICE, 'select description from expenses');
-  assert.deepEqual(
-    all.map((r) => r.description),
-    ['Alice license'],
-  );
-  const byId = await asUser(ALICE, 'select id from expenses where id = $1', [
-    BOB_EXPENSE,
-  ]);
-  assert.equal(byId.length, 0, 'a known id must not leak');
-});
-
-test('an expense cannot be written, changed or removed across users', async () => {
-  await seedBoth();
-  await seedExpenses();
-
-  await assert.rejects(
-    () =>
-      asUser(
-        ALICE,
-        `insert into expenses (user_id,client_id,spent_on,description,amount)
-         values ($1,'cc000000-0000-4000-8000-00000000000b','2026-09-12','Forged',1)`,
-        [BOB],
-      ),
-    /row-level security/i,
-    'WITH CHECK must reject a forged user_id',
-  );
-
-  const updated = await asUser(
-    ALICE,
-    `update expenses set amount = 1 where id = $1 returning id`,
-    [BOB_EXPENSE],
-  );
-  assert.equal(updated.length, 0);
-  const deleted = await asUser(
-    ALICE,
-    'delete from expenses where id = $1 returning id',
-    [BOB_EXPENSE],
-  );
-  assert.equal(deleted.length, 0);
-
-  await assert.rejects(
-    () =>
-      asUser(ALICE, `update expenses set user_id = $1 where id = $2`, [
-        BOB,
-        ALICE_EXPENSE,
-      ]),
-    /row-level security|expense_client_same_owner/i,
-    'a row cannot be handed to another user',
-  );
-
-  const { rows } = await admin.query(
-    'select amount::float a from expenses where id = $1',
-    [BOB_EXPENSE],
-  );
-  assert.equal(rows[0].a, 299, 'Bob’s expense is untouched');
-});
-
-test('an expense cannot be filed under another user’s client', async () => {
-  await seedBoth();
-
-  await assert.rejects(
-    () =>
-      asUser(
-        ALICE,
-        `insert into expenses (user_id,client_id,spent_on,description,amount)
-         values ($1,'cc000000-0000-4000-8000-00000000000b','2026-09-12','Borrowed',1)`,
-        [ALICE],
-      ),
-    /expense_client_same_owner/,
-  );
 });
 
 // ── an issued invoice is frozen ────────────────────────────────────
@@ -858,21 +680,6 @@ test('deleting the account takes a sent invoice with it', async () => {
   );
 });
 
-test('a draft invoice and its lines stay editable', async () => {
-  await issueAliceInvoice('draft');
-
-  await asAlice(`update invoices set total = 99 where id = $1`);
-  await asAlice(
-    `update invoice_line_items set amount = 99 where invoice_id = $1`,
-  );
-  const [inv] = (
-    await admin.query(`select total::float from invoices where id = $1`, [
-      ALICE_INVOICE,
-    ])
-  ).rows;
-  assert.equal(inv.total, 99);
-});
-
 test('a status moves only along the transition table', async () => {
   await issueAliceInvoice('draft');
 
@@ -895,61 +702,6 @@ test('a status moves only along the transition table', async () => {
       () => asAlice(`update invoices set status = '${status}' where id = $1`),
       new RegExp(`cannot move from void to ${status}`),
     );
-});
-
-test('voiding releases what the invoice billed, in the same statement', async () => {
-  await issueAliceInvoice('sent');
-
-  await asAlice(`update invoices set status = 'void' where id = $1`);
-
-  const { rows } = await admin.query(
-    `select (select invoice_id from time_entries where id = $1) as entry,
-            (select invoice_id from expenses where id = $2) as expense`,
-    [ALICE_ENTRY, ALICE_EXPENSE],
-  );
-  assert.deepEqual(rows[0], { entry: null, expense: null });
-});
-
-test('another user’s draft cannot hold your work', async () => {
-  await issueAliceInvoice('draft');
-
-  await assert.rejects(
-    () =>
-      asUser(BOB, `update time_entries set draft_id = $1 where id = $2`, [
-        ALICE_INVOICE,
-        '018f0000-0000-7000-8000-00000000000b',
-      ]),
-    /time_entries_draft_same_owner/,
-  );
-});
-
-test('an invoice cannot reference another user’s client', async () => {
-  await seedBoth();
-
-  await assert.rejects(
-    () =>
-      asUser(
-        ALICE,
-        `insert into invoices (user_id,client_id,invoice_number,sequence_no)
-         values ($1,'cc000000-0000-4000-8000-00000000000b','INV-0001',1)`,
-        [ALICE],
-      ),
-    /invoice_client_same_owner/,
-  );
-});
-
-test('a project cannot reference another user’s client', async () => {
-  await seedBoth();
-
-  await assert.rejects(
-    () =>
-      asUser(
-        ALICE,
-        `insert into projects (user_id,client_id,name) values ($1,'cc000000-0000-4000-8000-00000000000b','Borrowed')`,
-        [ALICE],
-      ),
-    /project_client_same_owner/,
-  );
 });
 
 /* `send_draft` runs as the caller: another user's draft is out of its
@@ -999,4 +751,84 @@ test('update_draft reaches only the caller’s own drafts', async () => {
     ALICE_INVOICE,
   ]);
   await assert.rejects(() => asAlice(edit), /is sent and cannot be edited/);
+});
+
+/* A connected app's token is the user's own JWT plus `client_id`, so the
+   Data API is fenced here, not only in the routes. */
+test('a connected app writes only what its tools do', async () => {
+  await issueAliceInvoice('sent');
+  await admin.query(
+    `insert into time_entries (id,user_id,task_name,started_at,ended_at)
+     values ('018f0000-0000-7000-8000-0000000000aa',$1,'Free','2026-09-11T09:00:00Z','2026-09-11T10:00:00Z')`,
+    [ALICE],
+  );
+  const asApp = (sql: string) => asUser(ALICE, sql, [], true);
+
+  assert.equal((await asApp('select id from time_entries')).length, 2);
+  assert.equal((await asApp('select id from clients')).length, 1);
+  assert.equal((await asApp('select id from invoices')).length, 0);
+  await seedPushDevices();
+  assert.equal(
+    (await asApp('select token from push_devices')).length,
+    1,
+    'a rename of the running entry still reaches the phone',
+  );
+
+  await asApp(`update projects set name = 'Renamed'`);
+  await asApp(
+    `update time_entries set task_name = 'Renamed' where id = '018f0000-0000-7000-8000-0000000000aa'`,
+  );
+  const renamed = await admin.query(
+    `select (select name from projects where user_id = $1) p,
+            (select task_name from time_entries where id = '018f0000-0000-7000-8000-0000000000aa') t`,
+    [ALICE],
+  );
+  assert.deepEqual(renamed.rows[0], { p: 'Renamed', t: 'Renamed' });
+
+  // It adds clients and projects, and edits a client's details.
+  await asApp(
+    `insert into clients (id,user_id,name) values ('cc000000-0000-4000-8000-0000000000aa','${ALICE}','Added')`,
+  );
+  await asApp(
+    `insert into projects (id,user_id,client_id,name) values ('bb000000-0000-4000-8000-0000000000aa','${ALICE}','cc000000-0000-4000-8000-0000000000aa','Added')`,
+  );
+  await asApp(`update clients set hourly_rate = 175, payment_terms_days = 15`);
+  const added = await admin.query(
+    `select (select count(*)::int from projects where user_id = $1) p,
+            (select count(*)::int from clients where user_id = $1 and hourly_rate = 175) c`,
+    [ALICE],
+  );
+  assert.deepEqual(added.rows[0], { p: 2, c: 2 });
+
+  for (const [sql, refusal] of [
+    [
+      `update time_entries set task_name = 'x' where id = '${ALICE_ENTRY}'`,
+      /billed on a sent invoice/,
+    ],
+    [`update projects set hourly_rate = 1`, /may change only name/],
+    [`update clients set archived_at = now()`, /may change only name, email/],
+    [
+      `update time_entries set ended_at = now() where id = '018f0000-0000-7000-8000-0000000000aa'`,
+      /may change only task_name/,
+    ],
+    [
+      `insert into time_entries (id,user_id,started_at) values ('018f0000-0000-7000-8000-0000000000ab','${ALICE}',now())`,
+      /row-level security/,
+    ],
+    [`select delete_account()`, /Not signed in/],
+    [
+      `insert into push_devices (user_id,token,platform) values ('${ALICE}','app-phone','android')`,
+      /row-level security/,
+    ],
+    [`select allocate_invoice_number('${ALICE}')`, /No settings row/],
+  ] as const) {
+    await assert.rejects(() => asApp(sql), refusal, sql);
+  }
+  // A restrictive policy hides the rows from a delete rather than raising.
+  await asApp('delete from time_entries');
+  const { rows } = await admin.query(
+    'select count(*)::int n from time_entries where user_id = $1',
+    [ALICE],
+  );
+  assert.equal(rows[0].n, 2, 'nothing deleted');
 });

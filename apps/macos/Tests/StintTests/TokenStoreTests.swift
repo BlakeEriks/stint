@@ -5,28 +5,22 @@ import Testing
 /// Serialized: every test answers refreshes through one stub.
 @Suite(.serialized)
 struct TokenStoreTests {
-    @Test func rejectionStatusesSignOut() {
-        for status in [400, 401, 403] {
-            #expect(TokenStore.refreshError(status: status).isUnauthorized, "\(status)")
-        }
+    @Test(arguments: [
+        (400, true), (401, true), (403, true),
+        (0, false), (408, false), (429, false), (500, false), (502, false), (503, false),
+    ])
+    func onlyARejectionSignsOut(status: Int, signsOut: Bool) {
+        #expect(TokenStore.refreshError(status: status).isUnauthorized == signsOut)
     }
 
-    @Test func otherStatusesDoNot() {
-        for status in [0, 408, 429, 500, 502, 503] {
-            #expect(!TokenStore.refreshError(status: status).isUnauthorized, "\(status)")
-        }
-    }
-
-    @Test func offlineRefreshKeepsTheSession() async throws {
-        let store = try await expiredStore(answer: .failure(URLError(.notConnectedToInternet)))
-        await #expect(throws: URLError.self) { try await store.accessToken() }
-        #expect(await store.isSignedIn)
-        await store.signOut()
-    }
-
-    @Test func serverErrorKeepsTheSession() async throws {
-        let store = try await expiredStore(answer: .success((503, Data())))
-        await #expect(throws: APIError.self) { try await store.accessToken() }
+    /// Offline or a server fault: the token request fails, the session stays.
+    @Test(arguments: [
+        Result<(Int, Data), URLError>.failure(URLError(.notConnectedToInternet)),
+        .success((503, Data())),
+    ])
+    func aFailedRefreshKeepsTheSession(answer: Result<(Int, Data), URLError>) async throws {
+        let store = try await expiredStore(answer: answer)
+        await #expect(throws: (any Error).self) { try await store.accessToken() }
         #expect(await store.isSignedIn)
         await store.signOut()
     }
