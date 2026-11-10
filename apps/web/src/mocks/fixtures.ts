@@ -316,7 +316,7 @@ export function seed(now: Date): Db {
     entries,
     invoices,
     expenses,
-    // Billing set up, and this account on the free plan.
+    // Billing live, and this account on the free plan.
     billing: {
       available: true,
       plan: 'free',

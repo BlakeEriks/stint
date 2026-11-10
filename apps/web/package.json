@@ -20,6 +20,7 @@
     "sample:invoice": "node --experimental-strip-types scripts/render-sample-invoice.mjs",
     "test:rls": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/rls.test.ts",
     "test:auth": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/auth.test.ts test/preview-signin.test.ts",
+    "test:auth:captcha": "node --test --experimental-strip-types --import ./test/loader-register.mjs test/auth-code.test.ts",
     "test:e2e": "playwright test",
     "prestorybook": "pnpm --filter @stint/design-tokens build",
     "storybook": "storybook dev --port 6006 --no-open"

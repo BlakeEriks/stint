@@ -4,6 +4,7 @@ export type Request = <T>(
   method: string,
   path: string,
   body?: unknown,
+  options?: { signed?: boolean },
 ) => Promise<T>;
 
 interface Options {
@@ -32,6 +33,8 @@ interface Options {
  * Vercel's deployment protection answers 401 too, with its own page rather
  * than our JSON `code`: that is a missing or rotated bypass, which no
  * refresh mends, so it goes to `onProtected` instead.
+ *
+ * `{ signed: false }` sends no token, for the one route asked signed out.
  */
 export function createRequest({
   origin,
@@ -40,10 +43,14 @@ export function createRequest({
   onProtected,
   fetch: send = fetch,
 }: Options): Request {
-  const call = (method: string, path: string, body: unknown, token: string) => {
-    const headers: Record<string, string> = {
-      authorization: `Bearer ${token}`,
-    };
+  const call = (
+    method: string,
+    path: string,
+    body: unknown,
+    token: string | null,
+  ) => {
+    const headers: Record<string, string> = {};
+    if (token) headers.authorization = `Bearer ${token}`;
     if (body !== undefined) headers['content-type'] = 'application/json';
     const pass = bypass();
     if (pass) headers['x-vercel-protection-bypass'] = pass;
@@ -54,8 +61,18 @@ export function createRequest({
     });
   };
 
-  return async <T>(method: string, path: string, body?: unknown) => {
-    let res = await call(method, path, body, await auth.accessToken());
+  return async <T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    { signed = true }: { signed?: boolean } = {},
+  ) => {
+    let res = await call(
+      method,
+      path,
+      body,
+      signed ? await auth.accessToken() : null,
+    );
     if (await isVercels401(res)) {
       onProtected?.();
       throw new ApiError(401, {
@@ -63,7 +80,7 @@ export function createRequest({
         message: 'This preview needs its Vercel bypass.',
       });
     }
-    if (res.status === 401) {
+    if (signed && res.status === 401) {
       const { accessToken } = await auth.refresh();
       res = await call(method, path, body, accessToken);
       if (res.status === 401) await auth.signOut();

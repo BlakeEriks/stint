@@ -117,11 +117,13 @@ const STRIPE_ENV = [
   'STRIPE_SECRET_KEY',
   'STRIPE_PRICE_ID',
   'STRIPE_WEBHOOK_SECRET',
+  'BILLING_LIVE',
 ] as const;
 const WEBHOOK_SECRET = 'whsec_test';
 let stripeFake: ReturnType<typeof fakeStripe>;
 
 const configureBilling = () => {
+  process.env.BILLING_LIVE = 'true';
   process.env.STRIPE_SECRET_KEY = 'sk_test_unused';
   process.env.STRIPE_PRICE_ID = 'price_yearly';
   process.env.STRIPE_WEBHOOK_SECRET = WEBHOOK_SECRET;
@@ -3862,7 +3864,7 @@ const billing = async () => {
   return json(await GET(req('/billing')));
 };
 
-test('billing reads free with no subscription, and says whether Stripe is set up', async () => {
+test('billing reads free with no subscription, and says whether it is live', async () => {
   const free = {
     available: false,
     plan: 'free',
@@ -3874,6 +3876,9 @@ test('billing reads free with no subscription, and says whether Stripe is set up
   assert.deepEqual(await billing(), { status: 200, body: free });
   configureBilling();
   assert.deepEqual((await billing()).body, { ...free, available: true });
+  // Beta: Stripe set up, and still no client asks for payment.
+  delete process.env.BILLING_LIVE;
+  assert.deepEqual((await billing()).body, free);
 });
 
 test('every billing write answers 503 until Stripe is set up', async () => {
@@ -3919,6 +3924,30 @@ test('the webhook refuses a missing or forged signature and changes nothing', as
   );
   assert.equal(forged.status, 400);
   assert.deepEqual(await subscriptionRows(), []);
+});
+
+test('during beta the webhook still mirrors Stripe, and nothing asks for payment', async () => {
+  configureBilling();
+  delete process.env.BILLING_LIVE;
+  stripeFake.state.subscriptions.push(subscription({ userId: USER }));
+  const res = await deliver('customer.subscription.created', {
+    customer: 'cus_1',
+  });
+  assert.equal(res.status, 200);
+  assert.equal((await subscriptionRows())[0].status, 'active');
+
+  const { POST: checkout } = await import(
+    '../src/app/api/v1/billing/checkout/route.ts'
+  );
+  const { POST: portal } = await import(
+    '../src/app/api/v1/billing/portal/route.ts'
+  );
+  for (const r of [
+    await checkout(req('/billing/checkout', {})),
+    await portal(req('/billing/portal', {})),
+  ])
+    assert.equal((await json(r)).body.code, 'BILLING_UNAVAILABLE');
+  assert.equal(stripeFake.state.created.length, 0);
 });
 
 test('a subscription event stores what Stripe says now, for the user in its metadata', async () => {
@@ -4377,6 +4406,7 @@ test('the entries export reads past the 1,000-row page', async () => {
 const UNSIGNED_ROUTES = new Set([
   'health', // the uptime probe, answered for anyone
   'billing/webhook', // Stripe's call, proven by its signature instead
+  'auth/code', // asked before there is a session; mails existing accounts only
 ]);
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
 
@@ -4411,6 +4441,96 @@ test('every route answers an unsigned request with 401', async () => {
     answers.filter((a) => !a.endsWith(' 401')),
     [],
   );
+});
+
+/** `/auth/code` against a GoTrue that answers `status` with `body`, from
+ *  client address `ip`. Each call GoTrue saw is in `asked`. */
+async function askCode(
+  ip: string,
+  status = 200,
+  body: object = {},
+  asked: unknown[] = [],
+) {
+  const { POST } = await import('../src/app/api/v1/auth/code/route.ts');
+  configureBroadcast();
+  (globalThis as any).__TEST_GOTRUE__ = async (
+    _: string,
+    init: RequestInit,
+  ) => {
+    asked.push(JSON.parse(String(init.body)));
+    return Response.json(body, { status });
+  };
+  return POST(
+    new Request('http://t/api/v1/auth/code', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-real-ip': ip },
+      body: JSON.stringify({ email: 'who@example.com' }),
+    }),
+  );
+}
+
+test('a sign-in code answers the same whether or not the address has an account', async () => {
+  await pool.query('delete from private.sign_in_code_requests');
+  const asked: unknown[] = [];
+  const known = await askCode('192.0.2.1', 200, {}, asked);
+  const unknown = await askCode('192.0.2.1', 422, {
+    error_code: 'otp_disabled',
+    msg: 'Signups not allowed for otp',
+  });
+  // GoTrue's per-address interval answers only for an address that exists.
+  const again = await askCode('192.0.2.1', 429, {
+    error_code: 'over_email_send_rate_limit',
+    msg: 'For security purposes, you can only request this after 52 seconds.',
+  });
+  assert.deepEqual(
+    [known.status, unknown.status, again.status],
+    [200, 200, 200],
+  );
+  assert.deepEqual(asked, [{ email: 'who@example.com', create_user: false }]);
+
+  // The project's email quota answers the same too, and reaches Sentry.
+  const Sentry = await import('@sentry/nextjs');
+  const { close } = await import('@sentry/core');
+  const reported: (string | undefined)[] = [];
+  Sentry.init({
+    dsn: 'https://key@o0.ingest.sentry.io/0',
+    beforeSend(event) {
+      reported.push(event.exception?.values?.[0]?.value);
+      return null;
+    },
+  });
+  const quota = await askCode('192.0.2.1', 429, {
+    error_code: 'over_email_send_rate_limit',
+    msg: 'email rate limit exceeded',
+  });
+  await close(1000);
+  assert.equal(quota.status, 200);
+  assert.equal(reported.length, 1);
+  assert.match(reported[0] ?? '', /^GoTrue \/otp answered 429/);
+});
+
+test('one address gets five sign-in codes an hour, and another is unaffected', async () => {
+  await pool.query('delete from private.sign_in_code_requests');
+  const asked: unknown[] = [];
+  for (let i = 0; i < 5; i++)
+    assert.equal((await askCode('192.0.2.1', 200, {}, asked)).status, 200);
+  const sixth = await askCode('192.0.2.1', 200, {}, asked);
+  assert.equal(sixth.status, 429);
+  assert.equal((await sixth.json()).code, 'RATE_LIMITED');
+  assert.equal(asked.length, 5, 'the sixth never reaches GoTrue');
+  assert.equal((await askCode('192.0.2.2')).status, 200);
+
+  // An IPv6 client holds its whole /64, so rotating within it gains nothing.
+  for (let i = 1; i <= 5; i++)
+    assert.equal((await askCode(`2001:db8:0:1::${i}`)).status, 200);
+  assert.equal((await askCode('2001:db8:0:1:ffff::9')).status, 429);
+  assert.equal((await askCode('2001:db8:0:2::1')).status, 200);
+
+  // An hour on, the address has its five again.
+  await pool.query(
+    "update private.sign_in_code_requests set requested_at = now() - interval '61 minutes'",
+  );
+  assert.equal((await askCode('192.0.2.1')).status, 200);
 });
 
 // ── the macOS app's contract ───────────────────────────────────────

@@ -1,8 +1,12 @@
 import { resolve } from 'node:path';
 import type { Plugin } from 'vite';
 
-const real = resolve(import.meta.dirname, '../src/lib/client/supabase.ts');
-const fake = resolve(import.meta.dirname, '../src/mocks/supabase.ts');
+const src = (path: string) => resolve(import.meta.dirname, '../src', path);
+/** Each real module, by the name in its path, and what replaces it. */
+const FAKES = [
+  ['supabase', src('lib/client/supabase.ts'), src('mocks/supabase.ts')],
+  ['turnstile', src('components/turnstile.tsx'), src('mocks/turnstile.tsx')],
+] as const;
 
 const INVITE_FORM_URL = 'https://formspree.io/f/storybook';
 
@@ -14,6 +18,8 @@ const INVITE_FORM_URL = 'https://formspree.io/f/storybook';
  * - The Supabase browser client becomes `src/mocks/supabase.ts`. Matched on
  *   the resolved path, so `@/lib/client/supabase` and `./supabase` both land
  *   on it and the server-side `src/lib/supabase.ts` never does.
+ * - Cloudflare's Turnstile widget becomes `src/mocks/turnstile.tsx`, the
+ *   same way, so no story loads Cloudflare's script.
  * - The build label reads "storybook" rather than a commit, which a
  *   story has none of.
  * - The invite form posts to a stand-in Formspree URL that each story
@@ -22,15 +28,18 @@ const INVITE_FORM_URL = 'https://formspree.io/f/storybook';
 export function storyMocks(): Plugin[] {
   return [
     {
-      name: 'stint:mock-supabase',
+      name: 'stint:mock-modules',
       enforce: 'pre',
       async resolveId(source, importer, options) {
-        if (!source.includes('supabase') || importer === fake) return null;
+        const match = FAKES.find(
+          ([name, , fake]) => source.includes(name) && importer !== fake,
+        );
+        if (!match) return null;
         const resolved = await this.resolve(source, importer, {
           ...options,
           skipSelf: true,
         });
-        return resolved?.id === real ? fake : null;
+        return resolved?.id === match[1] ? match[2] : null;
       },
     },
     {

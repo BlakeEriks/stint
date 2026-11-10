@@ -1,5 +1,5 @@
 /**
- * Run the bearer-token test against the local Supabase stack.
+ * Run the Auth server suites against the local Supabase stack.
  *
  * The test needs a real Auth server — a signed token that `getClaims()`
  * verifies — so unlike the other suites it cannot run against a bare
@@ -34,7 +34,8 @@ if (!API_URL || !PUBLISHABLE_KEY || !SECRET_KEY) {
 
 const { status: code } = spawnSync(
   'pnpm',
-  ['--filter', '@stint/web', 'test:auth'],
+  // `test:auth` or `test:auth:captcha`, whichever ran this.
+  ['--filter', '@stint/web', process.env.npm_lifecycle_event],
   {
     stdio: 'inherit',
     env: {

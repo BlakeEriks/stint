@@ -99,8 +99,8 @@ The Google developer documentation style guide is the base. Stint adds:
 - **US formats**, as `packages/core/src/format.ts` and `duration.ts` write
   them: `$4,250.00` for a billed figure and `$6,180` for one read at a
   glance; `6:12 PM`; `14h 32m`.
-- **The price** is the monthly figure from `docs/positioning.md`, with
-  *billed annually* beside it.
+- **The price** is the monthly figure from `docs/positioning.md`,
+  $3.33/month, with *billed annually* beside it. Never the yearly total.
 
 ## Reference lines
 
@@ -119,4 +119,4 @@ landing lines show the voice, not final copy.
 | Server error | Request failed. Tracked time is unaffected. [Retry] |
 | Sign-in email | Subject *Sign in to Stint*. [Sign in] Or enter this code in the Mac app: 482 913. The link and code work once and expire after 24 hours. If you didn't request this, ignore this email. |
 | Month-end notification | **October is over.** $6,180 of work is unbilled across 3 clients. Create the invoices. |
-| Paid plan | Downloading an invoice requires the paid plan: $3.33/month, billed annually. [Get the paid plan] |
+| Paid plan | Once beta ends, downloading an invoice requires the paid plan: $3.33/month, billed annually. [Get the paid plan] |

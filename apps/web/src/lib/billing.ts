@@ -9,7 +9,7 @@ import {
 import type { Billing } from '@stint/schema';
 import { PG } from './errors';
 import { SUBSCRIPTION_COLUMNS, toBilling } from './rows';
-import { billingConfig, stripe } from './stripe';
+import { billingLive, stripe } from './stripe';
 import { serviceClient } from './supabase';
 
 /**
@@ -23,7 +23,7 @@ export async function entitlement(db: SupabaseClient): Promise<Billing> {
     .select(SUBSCRIPTION_COLUMNS)
     .maybeSingle();
   if (error) throw error;
-  return toBilling(data, billingConfig() !== null);
+  return toBilling(data, billingLive());
 }
 
 /**
