@@ -46,51 +46,37 @@ end $$;
 create policy no_connected_app_insert on time_entries as restrictive
   for insert to authenticated with check (not (select connected_app()));
 
--- An app's update changes only the one column it renames. Named to fire
+-- An app's update changes only the columns its trigger names. Named to fire
 -- before the other update triggers, which set columns of their own; a
 -- generated column is still null here, so it is left out.
-create function connected_app_renames_only() returns trigger
+create function connected_app_changes_only() returns trigger
 language plpgsql
 as $$
 declare
   skip text[] := array(
     select attname from pg_attribute
     where attrelid = tg_relid and attgenerated <> ''
-  ) || tg_argv[0];
+  ) || tg_argv;
 begin
   if connected_app()
      and to_jsonb(new) - skip is distinct from to_jsonb(old) - skip then
-    raise exception 'A connected app may change only %', tg_argv[0]
+    raise exception 'A connected app may change only %',
+      array_to_string(tg_argv, ', ')
       using errcode = 'insufficient_privilege';
   end if;
   return new;
 end $$;
 
-create trigger t_entries_app_renames before update on time_entries
-  for each row execute function connected_app_renames_only('task_name');
-create trigger t_projects_app_renames before update on projects
-  for each row execute function connected_app_renames_only('name');
-
--- An app edits any client field the client form does, but archives none.
-create function connected_app_keeps() returns trigger
-language plpgsql
-as $$
-declare
-  col text;
-begin
-  if connected_app() then
-    foreach col in array tg_argv loop
-      if to_jsonb(new) -> col is distinct from to_jsonb(old) -> col then
-        raise exception 'A connected app may not change %', col
-          using errcode = 'insufficient_privilege';
-      end if;
-    end loop;
-  end if;
-  return new;
-end $$;
-
-create trigger t_clients_app_keeps before update on clients
-  for each row execute function connected_app_keeps('archived_at', 'user_id');
+create trigger t_entries_app_changes before update on time_entries
+  for each row execute function connected_app_changes_only('task_name');
+create trigger t_projects_app_changes before update on projects
+  for each row execute function connected_app_changes_only('name');
+create trigger t_clients_app_changes before update on clients
+  for each row execute function connected_app_changes_only(
+    'name', 'email', 'address', 'hourly_rate', 'tax_rate', 'currency',
+    'color', 'payment_profile_id', 'payment_terms_days', 'billing_period',
+    'period_anchor'
+  );
 
 -- Definer, so the billed lock sees the invoice even when the caller's RLS
 -- hides it, as it does from a connected app.

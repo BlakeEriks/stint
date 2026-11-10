@@ -800,7 +800,7 @@ test('a connected app writes only what its tools do', async () => {
       /billed on a sent invoice/,
     ],
     [`update projects set hourly_rate = 1`, /may change only name/],
-    [`update clients set archived_at = now()`, /may not change archived_at/],
+    [`update clients set archived_at = now()`, /may change only name, email/],
     [
       `update time_entries set ended_at = now() where id = '018f0000-0000-7000-8000-0000000000aa'`,
       /may change only task_name/,
