@@ -23,7 +23,7 @@ import { InvoiceDetail } from './invoice-detail';
 const invoice = (seq: number) => id(300 + seq);
 
 /* A paying account, so every story but the locked ones shows the document.
-   The seeded account is free with billing set up. */
+   The seeded account is free with billing live. */
 const paying = (edit: (db: Db) => void = () => {}) =>
   account((db) => {
     db.billing = { ...db.billing, plan: 'paid', status: 'active' };
@@ -247,7 +247,7 @@ export const Void: Story = {
 };
 export const Missing: Story = { ...desktop, args: { id: invoice(99) } };
 
-/** Free, with billing set up: the document is the paid tier. The invoice
+/** Free, with billing live: the document is the paid tier. The invoice
     still shows in full; Download gives way to subscribing, and the page says
     the records stay free. */
 export const Locked: Story = {
@@ -267,7 +267,7 @@ export const Locked: Story = {
 };
 export const LockedPhone: Story = { ...phone, parameters: account('seeded') };
 
-/** Billing not set up: nothing is gated, as before billing existed. */
+/** Billing not live: nothing is gated, as during beta. */
 export const BillingNotSetUp: Story = {
   ...desktop,
   parameters: account((db) => {
