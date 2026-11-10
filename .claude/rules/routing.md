@@ -20,7 +20,8 @@ middleware convention is deprecated in Next 16 and renamed.
 
 The apex `/` is **rewritten**, so the visitor keeps the bare domain in the
 address bar and the first impression costs no extra round trip. Any other apex
-path **redirects** to the subdomain, so an old link still arrives.
+path **redirects** to the subdomain, so an old link still arrives, except a
+link preview's `opengraph-image`, which the proxy's matcher skips.
 
 Consequences worth knowing:
 
@@ -59,9 +60,9 @@ which shows the app's own labels.
 
 **The hero timer is the only motion.** It ticks from a plausible mid-session
 seed, never 0:00:00; the dot pulses on a 2s loop; `prefers-reduced-motion`
-stops both and the page is legible at rest. No scroll-triggered reveals —
-the first still frame is what a shared link previews. Hero height is its
-content, never `100vh`.
+stops both and the page is legible at rest. No scroll-triggered reveals:
+everything reads at rest without them. Hero height is its content, never
+`100vh`.
 
 **The invoice preview's total is near-black, not the light accent**, so the
 page keeps one green meaning; the PDF itself is unchanged. It is billed from
