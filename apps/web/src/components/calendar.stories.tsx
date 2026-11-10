@@ -467,7 +467,7 @@ export const ZoomedOut: Story = {
 };
 
 /** A pinch over the grid zooms it, and the browser's page zoom is refused.
-    The heading says so, since nothing else does. */
+    The legend row says so, since nothing else does. */
 export const Pinch: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {

@@ -167,11 +167,6 @@ export function Calendar() {
           </div>
 
           <div className="flex items-center gap-1">
-            {/* Nothing else says the grid zooms. Only where a pointer can
-              scroll: a touchscreen pinches, which needs no telling. */}
-            <span className="mr-2 hidden items-center gap-1.5 type-support text-muted pointer-fine:flex">
-              <Kbd>⌘</Kbd> scroll to zoom
-            </span>
             {/* The arrows step whatever unit is on screen, so "back" always
               means "the previous one of these". The labels say which. */}
             <Button
@@ -429,10 +424,14 @@ function Legend({
   }
 
   const ranked = [...seconds.entries()].sort((a, b) => b[1] - a[1]);
-  if (ranked.length === 0 && internalSeconds === 0) return null;
+  /* With nothing to name, the row holds only the hint, so it shows only
+     where the hint does. */
+  const empty = ranked.length === 0 && internalSeconds === 0;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-edge-subtle px-4 py-2.5">
+    <div
+      className={`${empty ? 'hidden pointer-fine:flex' : 'flex'} flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-edge-subtle px-4 py-2.5`}
+    >
       {ranked.map(([id]) => (
         <LegendItem
           key={id}
@@ -441,6 +440,11 @@ function Legend({
         />
       ))}
       {internalSeconds > 0 ? <LegendItem label="No client" /> : null}
+      {/* Nothing else says the grid zooms. Only where a pointer can scroll:
+          a touchscreen pinches, which needs no telling. */}
+      <span className="ml-auto hidden items-center gap-1.5 type-support text-muted pointer-fine:flex">
+        <Kbd>⌘</Kbd> scroll to zoom
+      </span>
     </div>
   );
 }
