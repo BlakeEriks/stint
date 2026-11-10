@@ -21,10 +21,10 @@ feature finds what is already stranded.
 
 ### Session 2026-10-29
 
-- Q: How far back does a client's first invoice look? → A: 30 days before the period starts, about one monthly period. #548 merged without the no-schedule Inbox row this once borrowed its age from, so 30 days stands on its own: older work is a period of its own, not a stray. (decided autonomously)
+- Q: How far back does a client's first invoice look? → A: It doesn't. A first invoice has no gap to catch, and she picks its dates. (decided autonomously)
 - Q: Which zone dates the work? → A: The zone the invoice bills in, `billingZone()` (#580), so the offer and the period agree on every entry's day. (decided autonomously)
 - Q: Does the offer show when a draft is edited (#571)? → A: Yes, on the same screen and by the same rule. The draft being edited neither ends the look-back nor counts as holding the work. (decided autonomously)
-- Q: What does "held by a draft" mean now that #596 removed `DRAFT_OVERLAPS`? → A: A draft holds its entries (`draft_id`), and two drafts may share dates, so Include is never refused. Earlier work another draft holds isn't stranded: the offer counts only work no draft holds, and names the draft only when every earlier entry is held by one. (decided autonomously)
+- Q: What does "held by a draft" mean now that #596 removed `DRAFT_OVERLAPS`? → A: A draft holds its entries (`draft_id`), and two drafts may share dates, so Include is never refused. Earlier work another draft holds isn't stranded, and the offer leaves it out. A draft can hold work dated outside its period only once a held entry is re-dated, which is that draft's fault to show, not this offer's. (decided autonomously)
 - Q: Does Include wait for the server? → A: No. It moves a date she can move back, so the period changes at once and the preview follows (Principle VI). (decided autonomously)
 - Q: Do expenses count? → A: No. A one-off expense already shows on the first draft whose period ends on or after its date, so none is left behind by a period's start. (decided autonomously)
 
@@ -37,9 +37,6 @@ feature finds what is already stranded.
   (several) button: "1 earlier entry, Sep 30, isn't on any invoice." or
   "3 earlier entries, Sep 28 – Sep 30, aren't on any invoice."
 - **None**: nothing shows.
-- **Held by a draft**: the line is a warning with no button: "1 earlier
-  entry, Sep 30, is on draft INV-0042. Open that draft to bill it.", the
-  number linking to the draft.
 - **After Include**: From reads the earliest entry's date, the preview's
   period and lines follow, and the offer is gone.
 
@@ -71,13 +68,10 @@ invoice for the next period, then press Include it.
    the offer goes away. The invoice she then generates bills that work.
 3. **Given** that offer, **When** she doesn't press Include, **Then** the
    period and the invoice stay as they were, and the work stays unbilled.
-4. **Given** no earlier invoice for the client, **Then** the offer looks
-   back only 30 days before the period starts.
-5. **Given** earlier work that another draft holds, and none it doesn't,
-   **Then** the offer doesn't offer Include. It names the draft that holds
-   that work and links to it.
-6. **Given** non-billable work, a running timer, work billed elsewhere, or
-   work on a sent or paid invoice, **Then** there is no offer.
+4. **Given** no earlier invoice for the client, **Then** there is no offer.
+5. **Given** non-billable work, a running timer, work billed elsewhere, work
+   on a sent or paid invoice, or work another draft holds, **Then** there is
+   no offer.
 
 ### Edge Cases
 
@@ -86,8 +80,9 @@ invoice for the next period, then press Include it.
   not a day either side.
 - She edits the start herself after Include: the offer is worked out again
   from the date she typed.
-- She edits a draft: the offer shows by the same rule, and the draft being
-  edited is left out of it.
+- She edits a draft: the offer shows by the same rule. The draft being
+  edited isn't the invoice the look-back starts from, and the work it holds
+  counts as free, as the preview's own lines do.
 - Earlier work spans several days: the offer reads its first and last
   dates, "3 earlier entries, Sep 28 – Sep 30, aren't on any invoice".
 
@@ -100,29 +95,24 @@ invoice for the next period, then press Include it.
   invoice that isn't void and starts before the period's start, and dated
   before the period's start. When that invoice reaches the period, there
   are none.
-- **FR-002**: With no such invoice, FR-001 MUST look back no more than 30
-  days before the period's start.
+- **FR-002**: With no such invoice, there MUST be no offer.
 - **FR-003**: When it finds any, New invoice MUST say above the preview how
   many there are and their dates, and offer Include.
 - **FR-004**: Include MUST move the period's start back to the earliest
   entry's date and keep its end. Nothing MUST be included without that
   press.
-- **FR-005**: FR-001's count MUST leave out work another draft holds. When
-  drafts hold all of it, the offer MUST name the draft holding the earliest
-  of it, count that draft's entries, and link to it instead of offering
-  Include.
+- **FR-005**: FR-001's count MUST leave out work another draft holds.
 - **FR-006**: An entry's date MUST be read in the zone the invoice bills in,
   the same zone that decides which entries the period holds.
 - **FR-007**: Include MUST change the period at once, with no wait on the
   server; the preview then follows.
 - **FR-008**: When a draft is edited, the offer MUST leave that draft out of
-  FR-001 and FR-005.
+  FR-001 and count the work it holds as free in FR-005.
 
 ### Key Entities
 
 - **Earlier work**: derived on each preview, never stored. The client's
-  entries found by FR-001, their first and last dates, and the open draft
-  holding them, if any.
+  entries found by FR-001 and their first and last dates.
 
 ## Success Criteria *(mandatory)*
 

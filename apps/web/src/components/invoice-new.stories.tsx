@@ -559,47 +559,6 @@ export const EarlierWorkLeavesWithClient: Story = {
   },
 };
 
-/** The stranded work is on another draft already: no Include, and the line
-    links to the draft that bills it. */
-export const EarlierWorkOnDraft: Story = {
-  ...desktop,
-  parameters: {
-    ...menuOpen,
-    msw: {
-      handlers: {
-        // A draft holds the look-back's work once a held entry is re-dated
-        // past its period, which the fake API's period-bound drafts never do.
-        previewInvoice: http.post(
-          handlers.previewInvoice.info.path,
-          async (info) => {
-            // `resolver` is protected in msw's types, and public at runtime.
-            const real = handlers.previewInvoice as unknown as {
-              resolver: (i: typeof info) => Promise<Response>;
-            };
-            const answer = await (await real.resolver(info)).json();
-            if (answer.earlierWork)
-              answer.earlierWork.draft = {
-                id: 'ff000000-0000-4000-8000-0000000000e1',
-                invoiceNumber: 'STINT-0042',
-              };
-            return Response.json(answer);
-          },
-        ),
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const page = await chooseNorthwind(canvasElement);
-    await expect(
-      await page.findByText(/earlier entries, Aug \d+ – Aug 31, are on draft/),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('link', { name: 'STINT-0042' }),
-    ).toHaveAttribute('href', '/invoices/ff000000-0000-4000-8000-0000000000e1');
-    await expect(page.queryByRole('button', { name: /^Include/ })).toBeNull();
-  },
-};
-
 /** A charge follows the time lines as 1 x its amount, so its row checks
     like every other. */
 export const WithCharge: Story = {

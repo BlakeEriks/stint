@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useLeaveGuard } from '@/lib/client/use-leave-guard';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   keepPreviousData,
@@ -1119,9 +1118,9 @@ const shortDate = (d: string) =>
     timeZone: 'UTC',
   }).format(new Date(`${d}T00:00:00Z`));
 
-/** Work dated after the client's last invoice and before this period, which
-    neither would bill. Include moves From back to it, and nothing is
-    included without the press (Constitution I). */
+/** Work no draft holds, dated after the client's last invoice and before
+    this period, which neither would bill. Include moves From back to it, and
+    nothing is included without the press (Constitution I). */
 function EarlierWorkOffer({
   work,
   onInclude,
@@ -1136,19 +1135,6 @@ function EarlierWorkOffer({
       ? shortDate(work.from)
       : `${shortDate(work.from)} – ${shortDate(work.to)}`;
   const what = `${work.entryCount} earlier entr${one ? 'y' : 'ies'}, ${dates},`;
-  if (work.draft)
-    return (
-      <p role="status" className="px-1 pb-2.5 type-support text-warning">
-        {what} {one ? 'is' : 'are'} on draft{' '}
-        <Link
-          href={`/invoices/${work.draft.id}`}
-          className="text-strong underline underline-offset-2"
-        >
-          {work.draft.invoiceNumber}
-        </Link>
-        . Open that draft to bill {one ? 'it' : 'them'}.
-      </p>
-    );
   return (
     <p
       role="status"

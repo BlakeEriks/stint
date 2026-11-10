@@ -406,7 +406,6 @@ const STATES = {
   none: 'No earlier work',
   one: 'One earlier entry',
   many: 'Several earlier entries',
-  held: 'Held by a draft',
   included: 'After Include',
 };
 let state = 'one';
@@ -419,7 +418,6 @@ const LINES = [
 function offer() {
   if (state === 'one') return ['', '1 earlier entry, Sep 30, isn’t on any invoice.', 'Include it'];
   if (state === 'many') return ['', '3 earlier entries, Sep 28 – Sep 30, aren’t on any invoice.', 'Include them'];
-  if (state === 'held') return ['warn', '1 earlier entry, Sep 30, is on draft <a class="link" href="#">INV-0042</a>. Open that draft to bill it.', null];
   return null;
 }
 function render() {

@@ -579,30 +579,19 @@ function previewEarlierWork(db: Db, body: PreviewRequest, tz: string) {
   const from = earlierWorkFrom(body.periodStart, others);
   if (!from) return null;
   const window = billingWindow(from, addDays(body.periodStart, -1), tz);
-  const work = earlierWork(
-    db.entries
-      .filter(
-        (e) =>
-          clientOf(db, e.projectId) === body.clientId &&
-          e.isBillable &&
-          isBillableEntry(e, window),
+  return earlierWork(
+    db.entries.filter((e) => {
+      if (
+        clientOf(db, e.projectId) !== body.clientId ||
+        !e.isBillable ||
+        !isBillableEntry(e, window)
       )
-      .map((e) => {
-        const draftId = entryHolder(db, e, body.clientId, tz);
-        return {
-          startedAt: e.startedAt,
-          draftId: draftId === body.draftId ? null : draftId,
-        };
-      }),
+        return false;
+      const holder = entryHolder(db, e, body.clientId, tz);
+      return holder === null || holder === body.draftId;
+    }),
     tz,
   );
-  if (!work) return null;
-  const { draftId, ...rest } = work;
-  const draft = others.find((i) => i.id === draftId);
-  return {
-    ...rest,
-    draft: draft ? { id: draft.id, invoiceNumber: draft.invoiceNumber } : null,
-  };
 }
 
 /** `POST /invoices/preview`: the client's work in the period that no other

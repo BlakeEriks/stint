@@ -218,11 +218,11 @@ test('preview offers the work after the last invoice and before the period, and 
   await seedEntry({ id: E(2), start: '2026-09-30T17:00:00Z', billable: false });
   await seedEntry({ id: E(3), start: '2026-10-05T15:00:00Z' });
   const october = { periodStart: '2026-10-01', periodEnd: '2026-10-31' };
-  const earlier = async (draftId?: string) =>
+  const earlier = async () =>
     (
       await json(
         await preview(
-          req('/invoices/preview', { clientId: CLIENT, ...october, draftId }),
+          req('/invoices/preview', { clientId: CLIENT, ...october }),
         ),
       )
     ).body.earlierWork;
@@ -231,7 +231,6 @@ test('preview offers the work after the last invoice and before the period, and 
     entryCount: 1,
     from: '2026-09-30',
     to: '2026-09-30',
-    draft: null,
   });
 
   // Include: the period starts on the earlier work's date.
@@ -251,56 +250,6 @@ test('preview offers the work after the last invoice and before the period, and 
     [E(1)],
   );
   assert.equal(rows[0].invoice_id, res.body.id);
-});
-
-test('preview names the draft holding the earlier work, unless it is the one edited', async () => {
-  const { POST: preview } = await import(
-    '../src/app/api/v1/invoices/preview/route.ts'
-  );
-  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
-  const { PATCH: edit } = await import(
-    '../src/app/api/v1/entries/[id]/route.ts'
-  );
-  await seedEntry({ id: E(1), start: '2026-09-10T15:00:00Z' });
-  const draft = await json(
-    await create(
-      req('/invoices', {
-        clientId: CLIENT,
-        periodStart: '2026-09-01',
-        periodEnd: '2026-09-15',
-      }),
-    ),
-  );
-  // Re-dated past its draft's period, the entry stays held by the draft.
-  const moved = await json(
-    await edit(
-      req(
-        `/entries/${E(1)}`,
-        {
-          startedAt: '2026-09-20T15:00:00Z',
-          endedAt: '2026-09-20T16:00:00Z',
-        },
-        'PATCH',
-      ),
-      { params: Promise.resolve({ id: E(1) }) },
-    ),
-  );
-  assert.equal(moved.status, 200, JSON.stringify(moved.body));
-  const october = { periodStart: '2026-10-01', periodEnd: '2026-10-31' };
-  const earlier = async (draftId?: string) =>
-    (
-      await json(
-        await preview(
-          req('/invoices/preview', { clientId: CLIENT, ...october, draftId }),
-        ),
-      )
-    ).body.earlierWork;
-
-  assert.deepEqual((await earlier())?.draft, {
-    id: draft.body.id,
-    invoiceNumber: draft.body.invoiceNumber,
-  });
-  assert.equal((await earlier(draft.body.id))?.draft, null);
 });
 
 /* The period is local dates, and the entries are instants. With a UTC window

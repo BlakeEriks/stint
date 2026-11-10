@@ -7,12 +7,12 @@
 ## Summary
 
 `POST /invoices/preview` gains `earlierWork`: the client's billable, finished,
-unbilled entries dated from the day after its last non-void invoice ending
-before the period (else 30 days back) up to the period's start, read in the
+unbilled entries no draft holds, dated from the day after its last non-void
+invoice ending before the period up to the period's start, read in the
 billing zone. Two pure functions in `@stint/core` decide it,
-`earlierWorkFrom()` (where the look-back starts) and `earlierWork()` (the
-count, first and last dates, and the draft holding it when one holds all of
-it). The route and the fake API both call them. New invoice shows it above
+`earlierWorkFrom()` (where the look-back starts, or nowhere) and
+`earlierWork()` (the count and the first and last dates). The route and the
+fake API both call them. New invoice shows it above
 the preview with Include, which sets From to the first date in the same
 frame. No migration.
 
@@ -38,9 +38,9 @@ frame. No migration.
 | II. Logic written twice has a parity test | No | One implementation, in core; the route and the mock both call it. |
 | III. Every client through `/api/v1` | Yes | The offer comes from the preview's answer. |
 | IV. `packages/core` does no I/O | Yes | Both functions take rows and dates. |
-| V. Tests first where a regression is silent | Yes | Core: none, one, several, all held, part held, the edited draft, the first-invoice bound, DST. Route: the preview's `earlierWork` and the invoice generated after Include billing the entry. Stories: one per state, with a `play` pressing Include. |
+| V. Tests first where a regression is silent | Yes | Core: the look-back after an invoice, spanning the start, with none; none, one, several, DST. Route: the preview's `earlierWork` and the invoice generated after Include billing the entry. Stories: one per state, with a `play` pressing Include. |
 | VI. Every press answers in the same frame | Yes | Include sets From at once; the preview follows. |
-| VII. A feature names what it removes | Yes | Nothing: no state, setting or path covers stranded work today. The spec cut the held case to work held by another draft, since #596 removed `DRAFT_OVERLAPS`. |
+| VII. A feature names what it removes | Yes | Nothing: no state, setting or path covers stranded work today. The spec cut the held case: #596 removed `DRAFT_OVERLAPS`, and a draft holding work outside its period is that draft's fault to show. |
 
 ## Source Code (repository root)
 
