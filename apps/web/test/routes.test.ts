@@ -4998,3 +4998,128 @@ test('the access token is fetched once for many sends', async () => {
   assert.equal(fcmFake.state.sent.length, 2);
   assert.equal(fcmFake.state.tokenRequests, 1);
 });
+
+// ── MCP ────────────────────────────────────────────────────────────
+/** One tool call to `/api/mcp`, and its result. */
+async function tool(name: string, args: Record<string, unknown>) {
+  const { POST } = await import('../src/app/api/mcp/route.ts');
+  const res = await POST(
+    new Request('http://t/api/mcp', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer test',
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: { name, arguments: args },
+      }),
+    }),
+  );
+  const text = await res.text();
+  // An SSE answer carries the JSON-RPC message on its `data:` line.
+  const message = JSON.parse(text.match(/^data: (.*)$/m)?.[1] ?? text);
+  const result = message.result;
+  return {
+    isError: result.isError === true,
+    text: result.content[0].text as string,
+  };
+}
+
+test('/api/mcp without a token points the client at its sign-in', async () => {
+  const { POST } = await import('../src/app/api/mcp/route.ts');
+  const res = await POST(new Request('http://t/api/mcp', { method: 'POST' }));
+  assert.equal(res.status, 401);
+  assert.equal(
+    res.headers.get('www-authenticate'),
+    'Bearer resource_metadata="http://t/.well-known/oauth-protected-resource/api/mcp"',
+  );
+
+  process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://supabase.test';
+  const { GET } = await import(
+    '../src/app/.well-known/oauth-protected-resource/[[...path]]/route.ts'
+  );
+  const metadata = await json(
+    GET(new Request('http://t/.well-known/oauth-protected-resource/api/mcp')),
+  );
+  assert.equal(metadata.body.resource, 'http://t/api/mcp');
+  assert.deepEqual(metadata.body.authorization_servers, [
+    'http://supabase.test/auth/v1',
+  ]);
+});
+
+test('each MCP tool answers with its route, and a refusal is the tool’s error', async () => {
+  const { clientId, projectId } = await seedClientAndProject();
+  const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
+  const open = '018f0000-0000-7000-8000-000000000c01';
+  const billed = '018f0000-0000-7000-8000-000000000c02';
+  for (const id of [open, billed]) {
+    await create(
+      req('/entries', {
+        id,
+        projectId,
+        taskName: 'Old name',
+        startedAt: '2026-09-11T09:00:00Z',
+        endedAt: '2026-09-11T10:00:00Z',
+      }),
+    );
+  }
+  await pool.query(
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status)
+     select 'ff000000-0000-4000-8000-0000000000c1',$1,client_id,'INV-0001',1,'sent'
+     from projects where id=$2`,
+    [USER, projectId],
+  );
+  await pool.query(
+    `update time_entries set invoice_id='ff000000-0000-4000-8000-0000000000c1' where id=$1`,
+    [billed],
+  );
+
+  // Each tool's answer carries the field only its own handler returns.
+  type Body = Record<string, unknown>;
+  for (const [name, args, reached] of [
+    ['list_projects', {}, (b: Body) => Array.isArray(b.projects)],
+    [
+      'rename_project',
+      { id: projectId, name: 'Renamed' },
+      (b: Body) => b.name === 'Renamed',
+    ],
+    ['list_task_names', {}, (b: Body) => Array.isArray(b.taskNames)],
+    ['list_entries', { projectId }, (b: Body) => Array.isArray(b.entries)],
+    [
+      'rename_entry_task',
+      { id: open, taskName: 'New name' },
+      (b: Body) => b.taskName === 'New name',
+    ],
+    ['list_clients', {}, (b: Body) => Array.isArray(b.clients)],
+    [
+      'create_client',
+      { id: '018f0000-0000-7000-8000-000000000c03', name: 'Contoso' },
+      (b: Body) => b.name === 'Contoso',
+    ],
+    [
+      'update_client',
+      { id: clientId, paymentTermsDays: 15 },
+      (b: Body) => b.paymentTermsDays === 15,
+    ],
+    [
+      'create_project',
+      { clientId, name: 'Added' },
+      (b: Body) => b.name === 'Added' && b.clientId === clientId,
+    ],
+  ] as const) {
+    const { isError, text } = await tool(name, args);
+    assert.equal(isError, false, name);
+    assert.ok(reached(JSON.parse(text)), name);
+  }
+
+  const locked = await tool('rename_entry_task', {
+    id: billed,
+    taskName: 'New name',
+  });
+  assert.equal(locked.isError, true);
+  assert.match(locked.text, /^ENTRY_LOCKED: /);
+});

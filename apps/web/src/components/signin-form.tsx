@@ -19,12 +19,16 @@ export function SignInForm({
   error,
   deleted,
   captchaSiteKey,
+  next,
 }: {
   error?: string;
   deleted?: boolean;
   /** Turnstile's site key where the Auth server asks for a CAPTCHA:
       production. Unset, the form sends none. */
   captchaSiteKey?: string;
+  /** Where the link lands once signed in; `/auth/callback` keeps it on
+      this site. */
+  next?: string;
 }) {
   /* The only way in for the next account, so nothing the last one kept in
      this browser survives past here (FR-009). */
@@ -61,7 +65,9 @@ export function SignInForm({
     const { error } = await db.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/auth/callback${
+          next ? `?next=${encodeURIComponent(next)}` : ''
+        }`,
         captchaToken: captchaToken ?? undefined,
       },
     });

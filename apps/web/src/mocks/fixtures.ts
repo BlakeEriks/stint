@@ -10,6 +10,7 @@ import {
 import type {
   Billing,
   Client,
+  ConnectedApp,
   Expense,
   Invoice,
   PaymentProfile,
@@ -84,6 +85,7 @@ export interface Db {
   invoices: StoredInvoice[];
   expenses: Expense[];
   paymentProfiles: PaymentProfile[];
+  connectedApps: ConnectedApp[];
   billing: Billing;
 }
 
@@ -371,6 +373,13 @@ export function seed(now: Date): Db {
         currency: 'USD',
         feeAllocation: 'SHA',
         archivedAt: null,
+      },
+    ],
+    connectedApps: [
+      {
+        clientId: '4522330a-c1ce-4a0c-8f0f-fbf0c742f72a',
+        name: 'Claude Code',
+        grantedAt: new Date(now.getTime() - 7 * 86_400_000).toISOString(),
       },
     ],
   };

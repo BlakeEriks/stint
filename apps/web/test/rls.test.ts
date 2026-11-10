@@ -90,11 +90,18 @@ async function asUser<T = any>(
   userId: string,
   sql: string,
   params: unknown[] = [],
+  app = false,
 ): Promise<T[]> {
   const client = await tenant.connect();
   try {
     await client.query('begin');
     await client.query(`set local request.jwt.claim.sub = '${userId}'`);
+    // A connected app's token: the user's, plus the OAuth client.
+    if (app) {
+      await client.query(
+        `set local request.jwt.claims = '{"sub":"${userId}","client_id":"c"}'`,
+      );
+    }
     const result = await client.query(sql, params);
     await client.query('commit');
     return result.rows as T[];
@@ -752,4 +759,84 @@ test('update_draft reaches only the caller’s own drafts', async () => {
     ALICE_INVOICE,
   ]);
   await assert.rejects(() => asAlice(edit), /is sent and cannot be edited/);
+});
+
+/* A connected app's token is the user's own JWT plus `client_id`, so the
+   Data API is fenced here, not only in the routes. */
+test('a connected app writes only what its tools do', async () => {
+  await issueAliceInvoice('sent');
+  await admin.query(
+    `insert into time_entries (id,user_id,task_name,started_at,ended_at)
+     values ('018f0000-0000-7000-8000-0000000000aa',$1,'Free','2026-09-11T09:00:00Z','2026-09-11T10:00:00Z')`,
+    [ALICE],
+  );
+  const asApp = (sql: string) => asUser(ALICE, sql, [], true);
+
+  assert.equal((await asApp('select id from time_entries')).length, 2);
+  assert.equal((await asApp('select id from clients')).length, 1);
+  assert.equal((await asApp('select id from invoices')).length, 0);
+  await seedPushDevices();
+  assert.equal(
+    (await asApp('select token from push_devices')).length,
+    1,
+    'a rename of the running entry still reaches the phone',
+  );
+
+  await asApp(`update projects set name = 'Renamed'`);
+  await asApp(
+    `update time_entries set task_name = 'Renamed' where id = '018f0000-0000-7000-8000-0000000000aa'`,
+  );
+  const renamed = await admin.query(
+    `select (select name from projects where user_id = $1) p,
+            (select task_name from time_entries where id = '018f0000-0000-7000-8000-0000000000aa') t`,
+    [ALICE],
+  );
+  assert.deepEqual(renamed.rows[0], { p: 'Renamed', t: 'Renamed' });
+
+  // It adds clients and projects, and edits a client's details.
+  await asApp(
+    `insert into clients (id,user_id,name) values ('cc000000-0000-4000-8000-0000000000aa','${ALICE}','Added')`,
+  );
+  await asApp(
+    `insert into projects (id,user_id,client_id,name) values ('bb000000-0000-4000-8000-0000000000aa','${ALICE}','cc000000-0000-4000-8000-0000000000aa','Added')`,
+  );
+  await asApp(`update clients set hourly_rate = 175, payment_terms_days = 15`);
+  const added = await admin.query(
+    `select (select count(*)::int from projects where user_id = $1) p,
+            (select count(*)::int from clients where user_id = $1 and hourly_rate = 175) c`,
+    [ALICE],
+  );
+  assert.deepEqual(added.rows[0], { p: 2, c: 2 });
+
+  for (const [sql, refusal] of [
+    [
+      `update time_entries set task_name = 'x' where id = '${ALICE_ENTRY}'`,
+      /billed on a sent invoice/,
+    ],
+    [`update projects set hourly_rate = 1`, /may change only name/],
+    [`update clients set archived_at = now()`, /may change only name, email/],
+    [
+      `update time_entries set ended_at = now() where id = '018f0000-0000-7000-8000-0000000000aa'`,
+      /may change only task_name/,
+    ],
+    [
+      `insert into time_entries (id,user_id,started_at) values ('018f0000-0000-7000-8000-0000000000ab','${ALICE}',now())`,
+      /row-level security/,
+    ],
+    [`select delete_account()`, /Not signed in/],
+    [
+      `insert into push_devices (user_id,token,platform) values ('${ALICE}','app-phone','android')`,
+      /row-level security/,
+    ],
+    [`select allocate_invoice_number('${ALICE}')`, /No settings row/],
+  ] as const) {
+    await assert.rejects(() => asApp(sql), refusal, sql);
+  }
+  // A restrictive policy hides the rows from a delete rather than raising.
+  await asApp('delete from time_entries');
+  const { rows } = await admin.query(
+    'select count(*)::int n from time_entries where user_id = $1',
+    [ALICE],
+  );
+  assert.equal(rows[0].n, 2, 'nothing deleted');
 });

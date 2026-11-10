@@ -104,7 +104,7 @@ beside the lockup whenever it is not local.
 ## Sign-in
 
 **An emailed six-digit code, typed into the panel.** The panel asks Stint's
-`/api/v1/auth/code` for it, not GoTrue's `/otp` (`docs/setup.md` §6). It verifies the
+`/api/v1/auth/code` for it, not GoTrue's `/otp` (`docs/setup.md` §7). It verifies the
 code in-process against GoTrue's `/verify` with `type: "email"` and the
 digits in the `token` field — `"magiclink"` is the type for the hashed token
 in a link and rejects a typed code.

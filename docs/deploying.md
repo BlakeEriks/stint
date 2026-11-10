@@ -117,7 +117,7 @@ Still set in the dashboard:
     the form's dashboard with when each was sent. Unset, the request fails
     and the page says it didn't send, so a preview never adds to the list.
   - `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, for Production only: the sign-in
-    form's CAPTCHA (`docs/setup.md` §6). Unset, the form sends none, which
+    form's CAPTCHA (`docs/setup.md` §7). Unset, the form sends none, which
     a preview's Auth server doesn't ask for.
   - `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN`, both the same DSN, for
     Production only (§3c): the server reports with the first, the browser

@@ -14,18 +14,20 @@ export const dynamic = 'force-dynamic';
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; deleted?: string }>;
+  searchParams: Promise<{ error?: string; deleted?: string; next?: string }>;
 }) {
+  const { error, deleted, next } = await searchParams;
+
   const db = await cookieClient();
   const { data } = await db.auth.getClaims();
   if (data?.claims?.sub) redirect('/');
 
-  const { error, deleted } = await searchParams;
   return (
     <SignInForm
       error={error}
       deleted={deleted != null}
       captchaSiteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+      next={next}
     />
   );
 }

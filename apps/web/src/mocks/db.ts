@@ -41,6 +41,7 @@ const scenarios: Record<
       invoices: [],
       expenses: [],
       paymentProfiles: [],
+      connectedApps: [],
     });
   },
   // A first sign-in: the welcome dialog has not been seen, and nothing is set.

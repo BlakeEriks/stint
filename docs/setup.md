@@ -27,7 +27,7 @@ release on the RLS event trigger before it was listed.
   event trigger in `public`, a backstop only: every table still declares its
   own RLS and policy in its migration (`docs/data-model.md`).
 - **Authentication → Sign In / Providers → Allow new users to sign up — ON**,
-  behind a CAPTCHA (section 6).
+  behind a CAPTCHA (section 7).
 
 ## 2. Apply the migrations
 
@@ -123,7 +123,21 @@ file changes local only, until it's pasted again. Keep
 code for every magic link, and those calls show it, so the menu bar app's
 panel has a code to take.
 
-## 6. Open sign-up behind a CAPTCHA
+## 6. Connected apps
+
+Claude connects through Supabase Auth's OAuth 2.1 server, which
+`config.toml` turns on for local only. On each hosted project (production
+and `stint-test`):
+
+1. **Authentication → OAuth Server**: on, **Authorization Path**
+   `/oauth/consent`, **Allow Dynamic OAuth Apps** on.
+2. **Settings → JWT Keys**: the current key is asymmetric (ES256), so
+   Claude can verify tokens against the published keys.
+
+The approval page is at the **Site URL**, so a preview tested against
+`stint-test` needs that Site URL pointed at it.
+
+## 7. Open sign-up behind a CAPTCHA
 
 Anyone who enters an email on the sign-in form gets an account, so anyone
 could make Stint send mail. Cloudflare Turnstile, which Supabase supports,
