@@ -1,6 +1,7 @@
 import { isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { redirect } from 'next/navigation';
 import { ConsentForm } from '@/components/consent-form';
+import { Providers } from '@/components/providers';
 import { cookieClient } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -31,11 +32,14 @@ export default async function Page({
   // An app approved before comes back with where to send the browser.
   if (data && 'redirect_url' in data) redirect(data.redirect_url);
 
+  // The form writes through the Query cache, which only the app shell mounts.
   return (
-    <ConsentForm
-      authorizationId={id}
-      app={data?.client.name ?? null}
-      email={String(claims.claims.email ?? '')}
-    />
+    <Providers persist={false}>
+      <ConsentForm
+        authorizationId={id}
+        app={data?.client.name ?? null}
+        email={String(claims.claims.email ?? '')}
+      />
+    </Providers>
   );
 }

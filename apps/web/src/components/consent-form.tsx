@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useOptimisticMutation } from '@stint/client';
 import { Button } from '@/components/ui/button';
 import { Wordmark } from '@/components/wordmark';
 import { browserClient } from '@/lib/client/supabase';
@@ -21,23 +21,21 @@ export function ConsentForm({
   app: string | null;
   email: string;
 }) {
-  const [pressed, setPressed] = useState<'approve' | 'deny' | null>(null);
-  const [failed, setFailed] = useState<string | null>(null);
-  const [done, setDone] = useState<'approve' | 'deny' | null>(null);
-
-  async function answer(choice: 'approve' | 'deny') {
-    setPressed(choice);
-    setFailed(null);
-    const { oauth } = browserClient().auth;
-    const { error } =
-      choice === 'approve'
-        ? await oauth.approveAuthorization(authorizationId)
-        : await oauth.denyAuthorization(authorizationId);
-    if (error) {
-      setPressed(null);
-      setFailed(error.message);
-    } else setDone(choice);
-  }
+  // Pending, not predicted: the server decides, and it can't be taken back.
+  const answer = useOptimisticMutation<'approve' | 'deny'>({
+    queryKey: () => ['oauth-consent', authorizationId],
+    inline: true,
+    mutationFn: async (choice) => {
+      const { oauth } = browserClient().auth;
+      const { error } =
+        choice === 'approve'
+          ? await oauth.approveAuthorization(authorizationId)
+          : await oauth.denyAuthorization(authorizationId);
+      if (error) throw new Error(error.message);
+    },
+  });
+  const pressed = answer.isPending ? answer.variables : null;
+  const done = answer.isSuccess ? answer.variables : null;
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-6">
@@ -73,24 +71,24 @@ export function ConsentForm({
               <Button
                 type="button"
                 variant="accent"
-                disabled={pressed !== null}
-                onClick={() => answer('approve')}
+                disabled={answer.isPending}
+                onClick={() => answer.mutate('approve')}
               >
                 {pressed === 'approve' ? 'Approving…' : 'Approve'}
               </Button>
               <Button
                 type="button"
-                disabled={pressed !== null}
-                onClick={() => answer('deny')}
+                disabled={answer.isPending}
+                onClick={() => answer.mutate('deny')}
               >
                 {pressed === 'deny' ? 'Denying…' : 'Deny'}
               </Button>
             </div>
           )}
 
-          {failed ? (
+          {answer.error ? (
             <p role="alert" className="mt-3 type-support text-danger">
-              {failed}
+              {answer.error.message}
             </p>
           ) : null}
         </>
