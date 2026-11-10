@@ -210,6 +210,22 @@ actor API {
         let message: String
     }
 
+    /// Asked before there is a session, so it carries no token. Stint, not
+    /// GoTrue's `/otp`, which production guards with a CAPTCHA the panel
+    /// can't solve; Stint mails existing accounts only.
+    func requestCode(email: String) async throws {
+        var req = URLRequest(url: URL(string: baseURL.absoluteString + "/api/v1/auth/code")!)
+        req.httpMethod = "POST"
+        if let bypass = Config.vercelBypass {
+            req.setValue(bypass, forHTTPHeaderField: "x-vercel-protection-bypass")
+        }
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONEncoder().encode(["email": email])
+        let (data, response) = try await session.data(for: req)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(status) else { throw Self.failure(data, status: status) }
+    }
+
     private func request<T: Decodable>(
         _ method: String,
         _ path: String,
@@ -232,12 +248,14 @@ actor API {
 
         let (data, response) = try await session.data(for: req)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        guard (200..<300).contains(status) else {
-            if let err = try? JSONDecoder().decode(ErrorBody.self, from: data) {
-                throw APIError(status: status, code: err.code, message: err.message)
-            }
-            throw APIError(status: status, code: "UNKNOWN", message: "The server returned \(status).")
-        }
+        guard (200..<300).contains(status) else { throw Self.failure(data, status: status) }
         return try Self.decoder.decode(T.self, from: data)
+    }
+
+    private static func failure(_ data: Data, status: Int) -> APIError {
+        if let err = try? JSONDecoder().decode(ErrorBody.self, from: data) {
+            return APIError(status: status, code: err.code, message: err.message)
+        }
+        return APIError(status: status, code: "UNKNOWN", message: "The server returned \(status).")
     }
 }

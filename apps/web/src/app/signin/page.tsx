@@ -1,7 +1,5 @@
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { cookieClient } from '@/lib/supabase';
-import { apexOf } from '@/proxy';
 import { SignInForm } from '@/components/signin-form';
 
 export const dynamic = 'force-dynamic';
@@ -22,12 +20,12 @@ export default async function Page({
   const { data } = await db.auth.getClaims();
   if (data?.claims?.sub) redirect('/');
 
-  // Scheme-relative, so it follows the page's.
-  const host = (await headers()).get('host') ?? '';
-  const inviteUrl = `//${apexOf(host)}/#invite`;
-
   const { error, deleted } = await searchParams;
   return (
-    <SignInForm error={error} deleted={deleted != null} inviteUrl={inviteUrl} />
+    <SignInForm
+      error={error}
+      deleted={deleted != null}
+      captchaSiteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+    />
   );
 }

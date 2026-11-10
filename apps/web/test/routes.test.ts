@@ -4377,6 +4377,7 @@ test('the entries export reads past the 1,000-row page', async () => {
 const UNSIGNED_ROUTES = new Set([
   'health', // the uptime probe, answered for anyone
   'billing/webhook', // Stripe's call, proven by its signature instead
+  'auth/code', // asked before there is a session; mails existing accounts only
 ]);
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
 

@@ -2,8 +2,9 @@
 
 Every client (web and the macOS app) uses these endpoints, and an endpoint
 not built yet is marked `(not implemented)`. Auth is a Supabase JWT as
-`Authorization: Bearer <token>`, on every endpoint except `/health` and the
-Stripe webhook, which Stripe's signature authenticates instead. Request/response shapes are defined in
+`Authorization: Bearer <token>`, on every endpoint except `/health`,
+`/auth/code` and the Stripe webhook, which Stripe's signature authenticates
+instead. Request/response shapes are defined in
 `packages/schema/src/`, one file per resource — that is the source of truth, and every
 route parses its request against it; this document is the map.
 
@@ -14,7 +15,7 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 55 of 55, counting handlers rather than files.
+Every handler is covered — 56 of 56, counting handlers rather than files.
 
 ## Timer
 
@@ -420,6 +421,12 @@ preference — `.claude/rules/invoicing.md` has the reason.
   is `422 VALIDATION_FAILED` (`validateRoutingNumber()` in `@stint/core`).
 - Deleting is archival, because clients and invoices reference profiles.
 
+## Sign-in
+
+| Method | Path | Notes |
+|---|---|---|
+| `POST` | `/auth/code` | **No auth.** `{ email }` → `200 {}` once GoTrue has mailed that account a sign-in code, which the macOS and phone apps then verify with GoTrue. Production's CAPTCHA guards GoTrue's own `/otp`, so the native apps ask here, and this asks with the secret key (`docs/setup.md` §6). It never creates an account: `404 NO_ACCOUNT` for an address with none, `429 RATE_LIMITED` while GoTrue's send interval holds. Covered by `apps/web/test/auth-code.test.ts`, against a real Auth server. |
+
 ## Health
 
 | Method | Path | Notes |
@@ -452,6 +459,8 @@ preference — `.claude/rules/invoicing.md` has the reason.
 | `BILLING_UNAVAILABLE` | 503 | Stripe isn't configured on this deploy. |
 | `VALIDATION_FAILED` | 422 | Zod parse failure (`details` carries the issues), an illegal state change such as deleting an issued invoice or an invalid status transition, a `PATCH` body that parses but maps to no column, or a reference to a record that is missing or another user's, such as a project's `clientId`. |
 | `PAYMENT_REQUIRED` | 402 | The invoice PDF is the paid tier. Subscribe in Settings. |
+| `NO_ACCOUNT` | 404 | A sign-in code for an address with no account. Sign up on the web. |
+| `RATE_LIMITED` | 429 | A sign-in code asked for again too soon. |
 | `INTERNAL` | 500 | Unhandled error. Not part of `ErrorCode` in the schema package. |
 
 `ENTRY_NOT_FOUND` is the generic 404 across resources — clients, projects,
@@ -463,8 +472,8 @@ otherwise.
 
 **Retry policy:** 409, 5xx and network failures are worth retrying. Other 4xx
 are rejections on the merits — an unchanged request fails identically, so
-surface them rather than retrying. There is no rate limiting, so nothing here
-returns 429; if that changes, it joins the retryable list.
+surface them rather than retrying. The one 429, `RATE_LIMITED`, is a person
+asking for a code twice; its message says when to ask again.
 
 ## Timezones
 

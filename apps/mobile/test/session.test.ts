@@ -5,6 +5,7 @@ import { memoryStore } from './memory-store.ts';
 import { ApiError } from '@stint/client';
 
 const URL = 'http://localhost:54321';
+const ORIGIN = 'http://localhost:3100';
 const NOW = 1_800_000_000_000;
 
 const gotrue = (n: number, over: object = {}) => ({
@@ -28,12 +29,18 @@ function server(reply: (call: Call) => Response | Promise<Response>) {
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status });
 
-function auth(fetch: typeof globalThis.fetch, store = memoryStore()) {
+function auth(
+  fetch: typeof globalThis.fetch,
+  store = memoryStore(),
+  pass: string | null = null,
+) {
   return {
     store,
     auth: createAuth({
       supabaseUrl: URL,
       supabaseKey: 'key',
+      origin: ORIGIN,
+      bypass: () => pass,
       store,
       fetch,
       now: () => NOW,
@@ -41,25 +48,31 @@ function auth(fetch: typeof globalThis.fetch, store = memoryStore()) {
   };
 }
 
-test('a code is asked for an existing account only', async () => {
+test('a code is asked of Stint, which mails existing accounts only', async () => {
   const s = server(() => json(200, {}));
-  await auth(s.fetch).auth.sendCode('builder@localhost.test');
-  assert.equal(s.calls[0]?.url, `${URL}/auth/v1/otp`);
+  await auth(s.fetch, memoryStore(), 'pass').auth.sendCode(
+    'builder@localhost.test',
+  );
+  // GoTrue's own /otp wants a CAPTCHA the app cannot solve.
+  assert.equal(s.calls[0]?.url, `${ORIGIN}/api/v1/auth/code`);
   assert.deepEqual(JSON.parse(String(s.calls[0]?.init.body)), {
     email: 'builder@localhost.test',
-    create_user: false,
   });
+  // A preview deployment refuses anything without its bypass.
+  const headers = s.calls[0]?.init.headers as Record<string, string>;
+  assert.equal(headers['x-vercel-protection-bypass'], 'pass');
 });
 
-test('no account reads as invite-only, not as a server setting', async () => {
+test('a refused code request says what Stint said', async () => {
   const s = server(() =>
-    json(422, {
-      error_code: 'otp_disabled',
-      msg: 'Signups not allowed for otp',
+    json(404, {
+      code: 'NO_ACCOUNT',
+      message: 'No Stint account uses this email.',
     }),
   );
   await assert.rejects(auth(s.fetch).auth.sendCode('who@x.test'), {
-    message: /invite-only/,
+    code: 'NO_ACCOUNT',
+    message: 'No Stint account uses this email.',
   });
 });
 
@@ -205,12 +218,16 @@ test('each backend keeps its own session', async () => {
   const local = createAuth({
     supabaseUrl: URL,
     supabaseKey: 'k',
+    origin: ORIGIN,
+    bypass: () => null,
     store,
     fetch: s.fetch,
   });
   const prod = createAuth({
     supabaseUrl: 'https://zwoceqydagxxmqoaqgbf.supabase.co',
     supabaseKey: 'k',
+    origin: ORIGIN,
+    bypass: () => null,
     store,
     fetch: s.fetch,
   });

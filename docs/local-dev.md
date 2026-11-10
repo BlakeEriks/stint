@@ -100,10 +100,10 @@ worktree's own URL and its link returns there.
 
 ## Signing in
 
-**Sign-up is off, as in production**, so an address works only once it has
-an account: `pnpm seed <email>` makes one with data, and `--clear` then
-empties it. Any other address gets "Stint is invite-only during alpha."
-Enter it on `/signin`, then open **Mailpit** and click the link. No mail
+**Sign-up is on, as in production**, without its CAPTCHA, so any address
+gets an account: an unknown one starts empty, and `pnpm seed <email>` makes
+one with data, which `--clear` then empties. Enter it on `/signin`, then
+open **Mailpit** and click the link. No mail
 leaves the machine, so there is nothing in your actual inbox and nothing to
 rate-limit.
 
@@ -280,8 +280,7 @@ here first. Two things worth running against local before a deploy:
 SUPABASE_DB_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres pnpm verify:schema
 ```
 
-and an invite from Studio (`pnpm dev:up:studio`, then **Authentication →
-Users → Add user → Send invitation**), which exercises
+and a sign-up, an unknown address on `/signin`, which exercises
 `create_default_settings`, a trigger that runs inside Supabase's own signup
 transaction, where only a real signup reaches it.
 
@@ -330,7 +329,6 @@ dev:up` plus `pnpm dev`; `ci.yml` says how CI starts its stack.
 
 They sign in for real, through Mailpit. `magicLink()` reads the **text** part
 of the email, because the HTML `href` escapes its separators as `&amp;`.
-`inviteLink()` reads the HTML `href` and decodes `&amp;` itself.
 
 Three things that bite:
 

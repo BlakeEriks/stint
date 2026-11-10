@@ -82,7 +82,7 @@ describe('the kept cache', () => {
   });
 
   it('is forgotten whenever the sign-in page opens', () => {
-    render(<SignInForm inviteUrl="/#invite" />);
+    render(<SignInForm />);
     expect(kept()).toBeNull();
   });
 });

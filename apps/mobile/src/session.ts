@@ -1,9 +1,10 @@
-import { ApiError } from '@stint/client';
+import { ApiError, readFailure } from '@stint/client';
 import { createListeners } from './listeners.ts';
 
 /**
- * Sign-in by emailed six-digit code, verified against GoTrue over `fetch`,
- * as the macOS app does (`docs/macos.md`, Sign-in): two POSTs need no SDK.
+ * Sign-in by emailed six-digit code, sent by Stint and verified against
+ * GoTrue over `fetch`, as the macOS app does (`docs/macos.md`, Sign-in):
+ * two POSTs need no SDK.
  *
  * **Only GoTrue rejecting the refresh token signs out.** Offline, a timeout,
  * a 5xx or a rate limit keeps the session and fails the one request, so a
@@ -29,6 +30,10 @@ export interface Store {
 interface Options {
   supabaseUrl: string;
   supabaseKey: string;
+  /** The web app's origin, which sends the sign-in code (`request.ts`). */
+  origin: string;
+  /** Vercel's protection bypass, on a preview build (`bypass.ts`). */
+  bypass: () => string | null;
   store: Store;
   fetch?: typeof fetch;
   now?: () => number;
@@ -51,6 +56,8 @@ const signedOut = () =>
 export function createAuth({
   supabaseUrl,
   supabaseKey,
+  origin,
+  bypass,
   store,
   fetch: send = fetch,
   now = Date.now,
@@ -140,21 +147,20 @@ export function createAuth({
     refresh,
     signInWithSession,
 
-    /** `create_user: false`: this app signs existing accounts in. */
+    /** Asked of Stint, not GoTrue, whose `/otp` wants a CAPTCHA this app
+        can't solve; Stint mails existing accounts only. */
     async sendCode(email: string) {
-      const { status, body } = await post('/otp', {
-        email,
-        create_user: false,
+      const headers: Record<string, string> = {
+        'content-type': 'application/json',
+      };
+      const pass = bypass();
+      if (pass) headers['x-vercel-protection-bypass'] = pass;
+      const res = await send(`${origin}/api/v1/auth/code`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email }),
       });
-      if (status === 200) return;
-      // GoTrue's "no such account" names a server setting, not the fact.
-      if (body.error_code === 'otp_disabled')
-        throw new ApiError(status, {
-          code: 'NO_ACCOUNT',
-          message:
-            'Stint is invite-only during alpha. Request an invite at runstint.com.',
-        });
-      throw failure(status, body, 'Could not send the sign-in email.');
+      if (!res.ok) throw await readFailure(res);
     },
 
     /** `type: "email"`: `"magiclink"` is the link's hashed token and rejects a typed code. */

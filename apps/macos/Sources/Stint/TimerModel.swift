@@ -413,7 +413,7 @@ final class TimerModel: Optimistic {
     // MARK: Auth
 
     func requestLink(email: String) async throws {
-        try await auth.requestLink(email: email)
+        try await api.requestCode(email: email)
     }
 
     func signIn(withCode code: String, email: String) async throws {
