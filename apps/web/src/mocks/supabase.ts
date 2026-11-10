@@ -6,6 +6,11 @@ export type Stallable = (typeof STALLABLE)[number];
 /** Those held pending, as a server that never answers. */
 export const stall = new Set<Stallable>();
 
+/** What `signInWithOtp` answers with; a story sets it in `beforeEach`. */
+export const otp: { error: { code: string; message: string } | null } = {
+  error: null,
+};
+
 /**
  * Stands in for `src/lib/client/supabase.ts` in Storybook: the signed-in
  * account is the fake one, and every auth call succeeds without a network.
@@ -22,7 +27,7 @@ export function browserClient() {
         stall.has('signOut')
           ? new Promise<{ error: null }>(() => {})
           : Promise.resolve({ error: null }),
-      signInWithOtp: async () => ({ data: {}, error: null }),
+      signInWithOtp: async () => ({ data: {}, error: otp.error }),
       oauth: {
         approveAuthorization: () => answer(),
         denyAuthorization: () => answer(),
