@@ -297,14 +297,6 @@ export function dueBeforeIssueError(issueDate: string, dueDate: string) {
   );
 }
 
-/**
- * What an invoice for a client and period bills now, priced from
- * database-resolved rates and the stored expenses, never a preview the
- * client cached: the preview, generation, every read of a draft and its
- * send all compute it here. `held` prices the work the draft holds;
- * otherwise it is a build, which takes the period's work no other draft
- * holds.
- */
 /** The text a summary keeps, by column; another grouping keeps none. */
 export const summaryColumns = (body: {
   groupingMode: GroupingMode;
@@ -315,6 +307,14 @@ export const summaryColumns = (body: {
     ? { summary_text: body.summaryText, summary_texts: body.summaryTexts }
     : { summary_text: null, summary_texts: [] };
 
+/**
+ * What an invoice for a client and period bills now, priced from
+ * database-resolved rates and the stored expenses, never a preview the
+ * client cached: the preview, generation, every read of a draft and its
+ * send all compute it here. `held` prices the work the draft holds;
+ * otherwise it is a build, which takes the period's work no other draft
+ * holds.
+ */
 export async function computeInvoice(
   db: SupabaseClient,
   opts: {

@@ -554,6 +554,8 @@ function Form({
     mutationFn: (_to?: string) => {
       const choices = {
         ...billed,
+        // A blank is a line cleared for a rate the period no longer bills.
+        summaryTexts: summaryTexts.filter((t) => t.text.trim() !== ''),
         schedules,
         // Only a typed one: otherwise the terms date it from the day it is
         // sent.
@@ -617,7 +619,6 @@ function Form({
     generating: generate.isPending,
     groupingMode,
     summaryText,
-    summaryTexts,
   });
   const summary = !lastPending && groupingMode === 'summary';
 
@@ -920,7 +921,7 @@ function cardEdits({
     client: () => void;
     newProfile: () => void;
   };
-  /** With one summary line: its text, and whether it lacks one. */
+  /** With one summary line: its text, and the lines typed themselves. */
   summary: { value: string; texts: SummaryText[] } | undefined;
   reference: string;
   waiting: Expense[];
@@ -1160,7 +1161,7 @@ function generateState(s: {
   /** Due is before the issue date, which the server refuses. */
   earlyDue: boolean;
   /** The server's answer for this client; `undefined` before one. */
-  preview: Pick<InvoicePreview, 'unratedEntryIds'> | undefined;
+  preview: Pick<InvoicePreview, 'unratedEntryIds' | 'lineItems'> | undefined;
   /** The form has changed since the answer, or the server is recomputing. */
   updating: boolean;
   failed: boolean;
@@ -1171,12 +1172,15 @@ function generateState(s: {
   generating: boolean;
   groupingMode: GroupingMode;
   summaryText: string;
-  summaryTexts: SummaryText[];
 }) {
+  /* A blank line the server printed: a rate's own text cleared. One for a
+     rate the period no longer bills prints nothing, so it blocks nothing. */
   const noSummaryText =
     s.groupingMode === 'summary' &&
     (s.summaryText.trim() === '' ||
-      s.summaryTexts.some((t) => t.text.trim() === ''));
+      (s.preview?.lineItems ?? []).some(
+        (li) => li.unit === 'hour' && li.description.trim() === '',
+      ));
   const blocked = blockedBy({ ...s, noSummaryText });
   const canGenerate =
     blocked === null &&

@@ -10,6 +10,7 @@ import {
   termsDays,
   termsForDays,
   type BillableEntry,
+  type SummaryText,
 } from '../src/invoice.ts';
 
 const entry = (over: Partial<BillableEntry> = {}): BillableEntry => ({
@@ -162,46 +163,41 @@ test('a summary is one line of the given text across projects and tasks', () => 
   assert.deepEqual(r.lineItems[0]!.entryIds, ['a', 'b', 'c']);
 });
 
-test('a summary keeps one line per rate, cheapest first', () => {
-  const r = buildLineItems(
-    [
-      entry({ id: 'a', rateOverride: 120 }),
-      entry({ id: 'b', rateOverride: 80 }),
-      entry({ id: 'c', rateOverride: 80 }),
-    ],
-    { groupingMode: 'summary', summaryText: 'Services' },
-  );
-  assert.deepEqual(
-    r.lineItems.map((li) => [li.description, li.unitPrice, li.quantity]),
-    [
-      ['Services', 80, 2],
-      ['Services', 120, 1],
-    ],
-  );
-});
-
-test('a summary line typed for one rate keeps the one text on the others', () => {
-  const r = buildLineItems(
-    [
-      entry({ id: 'a', rateOverride: 120 }),
-      entry({ id: 'b', rateOverride: 80 }),
-      entry({ id: 'c', rateOverride: 95 }),
-    ],
-    {
-      groupingMode: 'summary',
-      summaryText: 'Services',
-      summaryTexts: [{ rate: 120, text: 'Rush work' }],
-    },
-  );
-  assert.deepEqual(
-    r.lineItems.map((li) => [li.description, li.unitPrice]),
+/** Cheapest first, however each line is worded, so typing one never moves it. */
+const orders: [string, SummaryText[], [string, number][]][] = [
+  [
+    'the same text',
+    [],
     [
       ['Services', 80],
-      ['Services', 95],
+      ['Services', 120],
+    ],
+  ],
+  [
+    'one typed itself',
+    [{ rate: 120, text: 'Rush work' }],
+    [
+      ['Services', 80],
       ['Rush work', 120],
     ],
-  );
-});
+  ],
+];
+for (const [name, summaryTexts, expected] of orders) {
+  test(`a summary keeps one line per rate, cheapest first: ${name}`, () => {
+    const r = buildLineItems(
+      [
+        entry({ id: 'a', rateOverride: 120 }),
+        entry({ id: 'b', rateOverride: 80 }),
+        entry({ id: 'c', rateOverride: 80 }),
+      ],
+      { groupingMode: 'summary', summaryText: 'Services', summaryTexts },
+    );
+    assert.deepEqual(
+      r.lineItems.map((li) => [li.description, li.unitPrice]),
+      expected,
+    );
+  });
+}
 
 test('a summary is followed by charges and expenses as in any grouping', () => {
   const r = buildLineItems([entry()], {

@@ -1090,6 +1090,38 @@ test('each summary line keeps the text typed for its rate', async () => {
   ]);
 });
 
+test('a blank summary line previews blank and is refused at generation', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1), hours: 2, rateOverride: 100 });
+  await seedEntry({
+    id: E(2),
+    hours: 1,
+    rateOverride: 150,
+    start: '2026-09-11T09:00:00Z',
+  });
+  const body = {
+    clientId: CLIENT,
+    ...PERIOD,
+    groupingMode: 'summary',
+    summaryText: 'Services',
+    summaryTexts: [{ rate: 150, text: '' }],
+  };
+  const shown = await json(await preview(req('/invoices/preview', body)));
+  assert.equal(shown.status, 200, JSON.stringify(shown.body));
+  assert.deepEqual(
+    shown.body.lineItems.map((li: any) => [li.description, li.unitPrice]),
+    [
+      ['Services', 100],
+      ['', 150],
+    ],
+  );
+  const res = await json(await create(req('/invoices', body)));
+  assert.equal(res.status, 422);
+});
+
 test('the summary text belongs to a summary invoice only', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   await seedEntry({ id: E(1) });

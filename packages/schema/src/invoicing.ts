@@ -25,15 +25,11 @@ export const GroupingMode = z.enum([
   'day',
 ]);
 
-/** One summary line's own text, keyed by the rate it prints. */
-export const SummaryTexts = z
-  .array(
-    z.object({
-      rate: z.number().nonnegative(),
-      text: z.string().trim().min(1).max(200),
-    }),
-  )
-  .max(50);
+/** One summary line's own text, keyed by the rate it prints. A preview
+ *  takes a blank, which prints the line blank; generation refuses it. */
+const summaryTexts = (text: z.ZodString) =>
+  z.array(z.object({ rate: z.number().nonnegative(), text })).max(50);
+export const SummaryTexts = summaryTexts(z.string().trim().max(200));
 
 export const InvoicePreviewRequest = z.object({
   clientId: uuid,
@@ -218,6 +214,9 @@ export const CreateInvoice = InvoicePreviewRequest.omit({
   draftId: true,
 })
   .extend({
+    summaryTexts: summaryTexts(
+      z.string().trim().min(1, 'A summary line needs its text').max(200),
+    ).default([]),
     /** Typed by the user. Absent, it follows the terms from the day the draft
      *  is sent, which is also its issue date. */
     dueDate: z.iso.date().optional(),
