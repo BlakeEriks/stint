@@ -2,7 +2,8 @@
 
 Every client (web and the macOS app) uses these endpoints, and an endpoint
 not built yet is marked `(not implemented)`. Auth is a Supabase JWT as
-`Authorization: Bearer <token>`, on every endpoint except `/health`. Request/response shapes are defined in
+`Authorization: Bearer <token>`, on every endpoint except `/health` and the
+Stripe webhook, which Stripe's signature authenticates instead. Request/response shapes are defined in
 `packages/schema/src/`, one file per resource — that is the source of truth, and every
 route parses its request against it; this document is the map.
 
@@ -206,7 +207,8 @@ Standard CRUD: `GET|POST /clients`, `GET|PATCH|DELETE /clients/:id`, same for
 `GET /account` counts what deleting it would remove — `{ entries, clients,
 projects, invoices }`, archived rows included. `DELETE /account` removes the
 caller and every row they own in one transaction, issued invoices included,
-and returns `204`; a failure removes nothing. The caller's token still
+and returns `204`; a failure removes nothing. A live Stripe subscription is
+canceled first, and if Stripe refuses, nothing is deleted. The caller's token still
 verifies until it expires, so a client signs out locally after the `204`.
 
 `POST` on all three accepts an optional client-supplied `id` (UUIDv7); a
@@ -284,11 +286,11 @@ rate. `0` is a real rate, distinct from `null`, which means "fall back".
 | `GET` | `/invoices` | `?clientId&status&limit` (1–200, default 50), newest first — ordered by invoice sequence, not issue date. A draft's totals and dates are priced from the work it holds now, without writing. |
 | `POST` | `/invoices/preview` | **No side effects.** `{ clientId, periodStart, periodEnd, groupingMode?, summaryText?, tz?, manualLines?, excludedExpenseIds?, draftId? }`, where `draftId` names the draft being edited, so the work it holds counts as free to take; work another draft holds never does → `lineItems`, `subtotal`, `taxRate`, `taxAmount`, `expensesSubtotal`, `total`, `entryCount`, `unratedEntryIds`, `overlappingEntryIds` (entries to bill that share a minute or more with each other or with billed time), `schedules` (every supporting-detail table with `summary`, else null), plus `clientId`, `clientName`, `currency`, the echoed period and `groupingMode`. `400 INVALID_PERIOD` if `periodEnd < periodStart`; `422 VALIDATION_FAILED` if `tz` is not an IANA zone. |
 | `POST` | `/invoices` | Creates a draft, in one transaction: allocates the number, stores what the user chose and its charges, and freezes **payment details** and the From and Bill to blocks (`business`, `billTo`) from settings and the client as they are now. It holds the entries and one-off expenses it built, so no other draft takes them, and bills none until it is sent; its lines are priced from them on every read. Keeps the client's `paymentTermsDays`, else the user's, as its terms. Also accepts `dueDate` (absent, the terms from the day it is sent; before today in its zone, `422 VALIDATION_FAILED` with `{ field: 'dueDate' }`), `notes`, `tz`, `reference` (the PO, contract or SOW, at most 200 characters; blank is none), and `schedules` (`project | week | date`, with `summary` only), which freezes those tables as `supportingDetail`. `paymentProfileId` picks the payment details to freeze; absent, the client's profile, else the default. Returns the `Invoice` plus `lineItems` and `entryCount`. A draft with nothing to bill is created; sending it is refused. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate; `422 VALIDATION_FAILED` for `summary` with an empty `summaryText`, `schedules` with another grouping, or a `paymentProfileId` archived or not found; `422 VALIDATION_FAILED` on an invalid `tz`, or while settings have no business name or email, before anything is written. |
-| `GET` | `/invoices/:id` | Invoice, with its frozen `business` and `billTo`, and `template`: null for a draft, frozen once sent; + its line items. A draft is priced from the work it holds, dated as if sent today, with the terms its dates make (`Net N`, or `Due on receipt`), and writes nothing; `unratedEntries` (`{ id, taskName, startedAt }`) names the billable entries no rate prices, which it leaves out. `dueBeforeIssue` (`{ download, send }`) says whether its typed due date is before the issue date a new PDF would print, today, and the one Mark sent would, its last PDF's. `refuses` (`{ download, send }`) is what the PDF and Mark sent refuse now, for either reason, and Mark sent for a draft with no lines. `choices` (`{ dueDate, excludedExpenseIds, manualLines }`) is what an edit opens with that the rest doesn't say: the due date typed, else null, the expenses left off, and the charges; null once issued. `entryCount` is how many entries Mark sent locks, and `newWork` (`{ entries, expenses, hours, amount }`) the billable work in its period it doesn't hold, which `POST /invoices/:id/work` adds; both null once issued, and `newWork` null when there is none. Returned **flat**, like every other detail route. These `lineItems` carry no `rateSource` or `entryIds`, which a preview or a generation returns. |
+| `GET` | `/invoices/:id` | Invoice, with its frozen `business` and `billTo`, and `template`: null for a draft, frozen once sent; + its line items, and `canDownload`: whether the caller's plan opens the PDF below. A draft is priced from the work it holds, dated as if sent today, with the terms its dates make (`Net N`, or `Due on receipt`), and writes nothing; `unratedEntries` (`{ id, taskName, startedAt }`) names the billable entries no rate prices, which it leaves out. `dueBeforeIssue` (`{ download, send }`) says whether its typed due date is before the issue date a new PDF would print, today, and the one Mark sent would, its last PDF's. `refuses` (`{ download, send }`) is what the PDF and Mark sent refuse now, for either reason, and Mark sent for a draft with no lines. `choices` (`{ dueDate, excludedExpenseIds, manualLines }`) is what an edit opens with that the rest doesn't say: the due date typed, else null, the expenses left off, and the charges; null once issued. `entryCount` is how many entries Mark sent locks, and `newWork` (`{ entries, expenses, hours, amount }`) the billable work in its period it doesn't hold, which `POST /invoices/:id/work` adds; both null once issued, and `newWork` null when there is none. Returned **flat**, like every other detail route. These `lineItems` carry no `rateSource` or `entryIds`, which a preview or a generation returns. |
 | `PATCH` | `/invoices/:id` | **Drafts only.** Edits a draft: the body is `POST /invoices`'s, checked as it is, and `clientId` must be the draft's (`422 VALIDATION_FAILED` with `{ field: 'clientId' }`). Keeps the number. `paymentProfileId` freezes those payment details; absent, the draft keeps its own. Saving is a build: the draft holds its period's work that no other draft holds, as the preview with `draftId` showed it, and lets go of what it held outside the period. Returns the `Invoice` plus `lineItems`. `409 INVOICE_STATUS_CHANGED` for an invoice that isn't a draft; `404` for one not found. |
 | `POST` | `/invoices/:id/work` | **Drafts only.** Add to draft: holds the work `newWork` counts, all of it. Work another draft took meanwhile stays with it. `204`. `409 INVOICE_STATUS_CHANGED` for an invoice that isn't a draft; `404` for one not found. |
 | `DELETE` | `/invoices/:id` | **Drafts only** — `422 VALIDATION_FAILED` otherwise. An issued invoice must be voided, so numbering stays gapless. Deleting a draft lets go of the work it held. |
-| `GET` | `/invoices/:id/pdf` | A draft is priced first and the dates its render printed recorded, which Mark sent keeps; one with an unrated entry is `400 NO_RATE_CONFIGURED`, and one whose typed due date is before its issue date `422 VALIDATION_FAILED`. Streams `application/pdf` in the invoice's `template`, or for a draft the setting's, which its recorded render keeps, from the line items, `business`, `billTo` and payment details, then the frozen `supportingDetail` from page 2, in hours. `?download=1` for `attachment` rather than an inline preview. |
+| `GET` | `/invoices/:id/pdf` | A draft is priced first and the dates its render printed recorded, which Mark sent keeps; one with an unrated entry is `400 NO_RATE_CONFIGURED`, and one whose typed due date is before its issue date `422 VALIDATION_FAILED`. Streams `application/pdf` in the invoice's `template`, or for a draft the setting's, which its recorded render keeps, from the line items, `business`, `billTo` and payment details, then the frozen `supportingDetail` from page 2, in hours. `?download=1` for `attachment` rather than an inline preview. Both are the paid tier: `402 PAYMENT_REQUIRED` unless billing is not set up, the caller pays, or the invoice was generated while they paid. Previewing and generating stay free. |
 | `PATCH` | `/invoices/:id/status` | `{ status, sentAt?, paidAt? }`. Also how an invoice is marked sent: `send_draft` writes a draft's lines and totals as the work it holds stands, claims that work and lets go of the rest it held, dates it as its last PDF printed, else `issueDate` the send date in its zone and `dueDate` by its terms unless one was typed, freezes its `template` as its last PDF's, else the setting's, and sends it, in one transaction — `400 NO_RATE_CONFIGURED` if an entry has no rate, `422 VALIDATION_FAILED` if it has no lines, no zone (its own, the account's `billingTimeZone`, or `?tz`), or a typed due date before its issue date (`{ field: 'dueDate' }`), `409 ENTRY_ALREADY_INVOICED` if another invoice took one of its entries or expenses at the same moment. `422 VALIDATION_FAILED` on a transition the table below forbids, or if `paidAt` is later than now or earlier than the invoice's `sentAt`; `409 INVOICE_STATUS_CHANGED` if another request changed the status since this one read it. |
 
 A draft is priced in the zone stored when it was generated. A draft without
@@ -381,6 +383,22 @@ Sentry, and without `SUPABASE_SECRET_KEY` nothing is broadcast.
 | `POST` | `/push-devices` | `{ token, platform }` → `204`, the same when already registered. `platform` is `android`; iPhone is #471. `422` for an empty token or one over 4,096 characters. |
 | `DELETE` | `/push-devices` | `{ token }` → `204`, the same when it was never registered. `422` for an empty token or one over 4,096 characters. |
 
+## Billing
+
+One yearly subscription through Stripe (`docs/positioning.md` owns the
+price). Until `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` and
+`STRIPE_WEBHOOK_SECRET` are all set, `checkout`, `portal` and `sync` answer
+`503 BILLING_UNAVAILABLE`, the webhook answers a plain-text `503`, and
+`GET /billing` still answers `200` with `available: false`.
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/billing` | `{ available, plan, status, periodEnd, cancelAtPeriodEnd, paymentFailed }`. `plan` is `paid` while Stripe's status is `active`, `trialing` or `past_due` (`planOf()` in `@stint/core`). Read from the stored mirror, so it answers with Stripe unset or down; `available` says whether billing is set up. |
+| `POST` | `/billing/checkout` | `{ url }` of a Stripe Checkout page for the yearly price, returning to `/settings?checkout={CHECKOUT_SESSION_ID}`. `409 ALREADY_SUBSCRIBED` if paid. |
+| `POST` | `/billing/portal` | `{ url }` of the Stripe Customer Portal (cancel, resume, card, receipts). `409 NOT_SUBSCRIBED` with no Stripe customer. |
+| `POST` | `/billing/sync` | `{ sessionId }` → the caller's `Billing`, after storing what Stripe says about that Checkout session now. `404 CHECKOUT_NOT_FOUND` for an unknown session or another user's. |
+| `POST` | `/billing/webhook` | **No session**: called by Stripe and authenticated by the `stripe-signature` header against the raw body (`400` if missing or invalid). Each subscription event re-reads the customer from Stripe and stores that, so a duplicate or late event changes nothing. `500` on a failed sync, so Stripe retries. |
+
 ## Payment details
 
 Bank details live on the **invoice PDF**, and the placement is not a user
@@ -428,7 +446,12 @@ preference — `.claude/rules/invoicing.md` has the reason.
 | `INVALID_PERIOD` | 400 | |
 | `UNAUTHORIZED` | 401 | |
 | `IMPORT_FILE_UNRECOGNIZED` | 422 | Not a Toggl export, or a row in it cannot be read; `message` names the line. |
+| `ALREADY_SUBSCRIBED` | 409 | Checkout for a user already paid. |
+| `NOT_SUBSCRIBED` | 409 | The portal for a user with no Stripe customer. |
+| `CHECKOUT_NOT_FOUND` | 404 | No such Checkout session for this user. |
+| `BILLING_UNAVAILABLE` | 503 | Stripe isn't configured on this deploy. |
 | `VALIDATION_FAILED` | 422 | Zod parse failure (`details` carries the issues), an illegal state change such as deleting an issued invoice or an invalid status transition, a `PATCH` body that parses but maps to no column, or a reference to a record that is missing or another user's, such as a project's `clientId`. |
+| `PAYMENT_REQUIRED` | 402 | The invoice PDF is the paid tier. Subscribe in Settings. |
 | `INTERNAL` | 500 | Unhandled error. Not part of `ErrorCode` in the schema package. |
 
 `ENTRY_NOT_FOUND` is the generic 404 across resources — clients, projects,

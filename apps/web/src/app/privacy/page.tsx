@@ -13,7 +13,7 @@ export const metadata = legalMetadata('Privacy');
  */
 export default function Page() {
   return (
-    <LegalPage title="Privacy" updated="November 2026">
+    <LegalPage title="Privacy" updated="October 2026">
       <Clause heading="The short version">
         <p>
           Stint holds the data you put into it &mdash; your hours, your rates,
@@ -69,6 +69,11 @@ export default function Page() {
           and the form service that holds invite requests, process data on
           Stint&rsquo;s behalf and are bound to it. No one else receives your
           data, and it is never sold.
+        </p>
+        <p>
+          If you subscribe, Stripe processes your payment. Your card details go
+          to Stripe directly and never reach Stint; Stint keeps only whether you
+          are subscribed and until when.
         </p>
         <p>
           Data may be disclosed if the law requires it &mdash; a court order or

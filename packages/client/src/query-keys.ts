@@ -30,6 +30,7 @@ export const keys = {
   taskNames: (opts?: { projectId?: string | null }) =>
     opts ? (['task-names', opts] as const) : (['task-names'] as const),
   account: () => ['account'] as const,
+  billing: () => ['billing'] as const,
   /** The Supabase session, which sign-out ends. */
   session: () => ['session'] as const,
   invoices: () => ['invoices'] as const,

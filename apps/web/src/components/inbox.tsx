@@ -19,6 +19,7 @@ import {
   invalidateEntryData,
 } from '@stint/client';
 import {
+  documentOpens,
   formatCompact,
   formatCurrency,
   isPeriod,
@@ -173,6 +174,17 @@ export function Inbox({ stats }: { stats: Stats }) {
     queryFn: () => api.projects(),
     select: (r) => r.projects,
   });
+
+  /* The PDF is the paid tier, and the server refuses it to a free user. The
+     rows don't carry the plan each invoice was generated on, so a free user
+     loses the shortcut even for one generated while paying; its page still
+     offers the download. Unknown counts as open: the server decides. */
+  const { data: billing } = useQuery({
+    queryKey: keys.billing(),
+    queryFn: api.billing,
+  });
+  const downloads =
+    !billing || documentOpens(billing.available, billing.plan, null);
 
   const statusWrite = {
     ...rowPress,
@@ -365,6 +377,7 @@ export function Inbox({ stats }: { stats: Stats }) {
               <Row
                 key={r.id}
                 entry={r}
+                downloads={downloads}
                 onStatus={(v) => {
                   leave(v.id);
                   setStatus.mutate(v);
@@ -422,6 +435,7 @@ type SettingsRowId = Extract<InboxRow, { kind: 'rate' | 'terms' }>['id'];
 type ItemRow = Exclude<InboxRow, { kind: SettingsRowId }>;
 
 type Handlers = {
+  downloads: boolean;
   onStatus: (v: { id: string; status: InvoiceStatus }) => void;
   onSend: (d: StaleDraft) => void;
   onOpen: (v: { id: string; focus: 'task' | 'project' }) => void;
@@ -447,14 +461,14 @@ function Row({
 function itemFor(r: ItemRow, h: Handlers): ItemProps {
   switch (r.kind) {
     case 'overdue':
-      return invoiceItem(r.row, {
+      return invoiceItem(r.row, h, {
         detail: `${r.row.daysLate} ${r.row.daysLate === 1 ? 'day' : 'days'} late`,
         tone: 'danger',
         status: 'paid',
         onMark: () => h.onStatus({ id: r.row.invoiceId, status: 'paid' }),
       });
     case 'draft':
-      return invoiceItem(r.row, {
+      return invoiceItem(r.row, h, {
         detail: r.row.refuses.send
           ? `Draft, ${r.row.ageDays}d old, can’t be sent yet`
           : `Draft, ${r.row.ageDays}d old`,
@@ -485,6 +499,7 @@ const MARK = {
 
 function invoiceItem(
   i: Attention['overdueInvoices'][number] | StaleDraft,
+  h: Handlers,
   {
     detail,
     tone,
@@ -513,7 +528,7 @@ function invoiceItem(
             onClick={onMark}
           />
         )}
-        {!refuses.download ? (
+        {h.downloads && !refuses.download ? (
           <Action
             label="Download"
             context={i.invoiceNumber}

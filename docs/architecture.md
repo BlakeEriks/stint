@@ -96,6 +96,9 @@ Vercel (Next.js + route handlers) and Supabase (Postgres, Auth, Storage).
 - Invoice PDFs: `@react-pdf/renderer` — ~2MB, sub-500ms, no Chromium cold
   start. Puppeteer is only warranted if pixel-exact HTML fidelity is ever
   needed.
+- Billing: Stripe's hosted Checkout and Customer Portal, per transaction
+  with no fixed fee. Stripe sends the receipts and dunning mail; the webhook
+  mirrors each subscription into `subscriptions` (`docs/api.md` §Billing).
 - **Invite requests go to Formspree**, on its free plan: the landing page's
   form posts the visitor's email there, and invites go out from its list.
   No table and no route, since an unauthenticated write to our database

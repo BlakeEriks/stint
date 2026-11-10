@@ -1,4 +1,4 @@
-import { handle, refused } from '@/lib/errors';
+import { ApiError, handle, refused } from '@/lib/errors';
 import { unratedRefusal } from '@stint/core';
 import { requireSession } from '@/lib/auth';
 import { recordDownload, dueBeforeIssueError } from '@/lib/drafts';
@@ -21,7 +21,8 @@ type Ctx = { params: Promise<{ id: string }> };
  *
  * This is how an invoice reaches a client: the user downloads it and emails
  * it themselves, from their own address. `?download=1` forces a save rather
- * than a browser preview.
+ * than a browser preview. Both are the document, so both are the paid tier:
+ * gating only the download would leave the viewer's save button.
  */
 export const GET = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
@@ -29,7 +30,16 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
 
   const { tz } = parseQuery(req, InvoiceReadQuery);
 
-  const { invoice, pdfData, draft } = await loadPdfData(db, id, tz);
+  const { invoice, pdfData, canDownload, draft } = await loadPdfData(
+    db,
+    id,
+    tz,
+  );
+  if (!canDownload)
+    throw new ApiError(
+      'PAYMENT_REQUIRED',
+      'Downloading an invoice is on the paid plan. Subscribe in Settings.',
+    );
   if (draft?.unratedEntries.length)
     throw refused(unratedRefusal(draft.unratedEntries.map((e) => e.id)));
   if (draft?.dueBeforeIssue.download)

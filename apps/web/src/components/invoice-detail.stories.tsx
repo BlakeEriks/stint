@@ -6,7 +6,7 @@ import { keys } from '@stint/client';
 import { delay, http } from 'msw';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
-import { id } from '@/mocks/fixtures';
+import { type Db, id } from '@/mocks/fixtures';
 import { handlers } from '@/mocks/handlers';
 import {
   desktop,
@@ -22,11 +22,20 @@ import { InvoiceDetail } from './invoice-detail';
    invoice voided, and Download is there in every status. */
 const invoice = (seq: number) => id(300 + seq);
 
+/* A paying account, so every story but the locked ones shows the document.
+   The seeded account is free with billing set up. */
+const paying = (edit: (db: Db) => void = () => {}) =>
+  account((db) => {
+    db.billing = { ...db.billing, plan: 'paid', status: 'active' };
+    edit(db);
+  });
+
 const route = screen(`/invoices/${invoice(15)}`);
 const meta = {
   title: 'Screens/Invoices/Detail',
   component: InvoiceDetail,
   ...route,
+  parameters: { ...route.parameters, ...paying() },
   args: { id: invoice(15) },
 } satisfies Meta<typeof InvoiceDetail>;
 
@@ -62,7 +71,7 @@ export const Draft: Story = {
 export const DraftPhone: Story = { ...phone };
 
 /* The draft as the server sends it once work landed in its period. */
-const newWork = account((db) => {
+const newWork = paying((db) => {
   const draft = db.invoices.find((i) => i.id === invoice(15));
   if (draft)
     draft.newWork = { entries: 2, expenses: 0, hours: 2.5, amount: 275 };
@@ -87,7 +96,7 @@ export const DraftNewWork: Story = {
 };
 export const DraftNewWorkPhone: Story = { ...phone, parameters: newWork };
 
-const fourteen = account((db) => {
+const fourteen = paying((db) => {
   const draft = db.invoices.find((i) => i.id === invoice(15));
   if (draft) draft.entryCount = 14;
 });
@@ -140,7 +149,7 @@ export const MarkSentPending: Story = {
 };
 
 /* The draft as the server sends it with work no rate prices. */
-const unrated = account((db) => {
+const unrated = paying((db) => {
   const draft = db.invoices.find((i) => i.id === invoice(15));
   if (!draft) return;
   draft.unratedEntries = [
@@ -168,7 +177,7 @@ export const DraftUnrated: Story = {
   },
 };
 
-const dueBefore = account((db) => {
+const dueBefore = paying((db) => {
   const draft = db.invoices.find((i) => i.id === invoice(15));
   if (!draft) return;
   draft.dueDate = addDays(draft.issueDate, -3);
@@ -189,7 +198,7 @@ export const DraftDueBeforeIssue: Story = {
   },
 };
 
-const dueSinceDownload = account((db) => {
+const dueSinceDownload = paying((db) => {
   const draft = db.invoices.find((i) => i.id === invoice(15));
   if (!draft) return;
   draft.dueDate = addDays(draft.issueDate, -3);
@@ -237,6 +246,39 @@ export const Void: Story = {
   },
 };
 export const Missing: Story = { ...desktop, args: { id: invoice(99) } };
+
+/** Free, with billing set up: the document is the paid tier. The invoice
+    still shows in full; Download gives way to subscribing, and the page says
+    the records stay free. */
+export const Locked: Story = {
+  ...desktop,
+  parameters: account('seeded'),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const subscribe = await page.findByRole('link', {
+      name: 'Subscribe to download',
+    });
+    await expect(subscribe).toHaveAttribute('href', '/settings#plan');
+    await expect(page.getByText(/on the paid plan, \$40 a year/)).toBeVisible();
+    await expect(page.getByText(/exporting them included/)).toBeVisible();
+    await expect(page.queryByRole('link', { name: /Download PDF/ })).toBeNull();
+    await expect(page.getByText('Amount due')).toBeVisible();
+  },
+};
+export const LockedPhone: Story = { ...phone, parameters: account('seeded') };
+
+/** Billing not set up: nothing is gated, as before billing existed. */
+export const BillingNotSetUp: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    db.billing = { ...db.billing, available: false };
+  }),
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByRole('link', { name: /Download PDF/ }),
+    ).toBeVisible();
+  },
+};
 
 /** Opens a confirm from the header and returns its dialog. */
 const ask = async (canvasElement: HTMLElement, trigger: string) => {
@@ -316,7 +358,7 @@ export const VoidRefusedPhone: Story = {
 /** A fixed charge prints as 1 x its amount, so its row checks like the rest. */
 export const WithCharge: Story = {
   ...desktop,
-  parameters: account((db) => {
+  parameters: paying((db) => {
     const draft = db.invoices.find((i) => i.id === invoice(15));
     if (!draft) return;
     draft.lineItems.push({
@@ -346,7 +388,7 @@ export const WithExpenses: Story = {
 export const WithReference: Story = {
   ...desktop,
   args: { id: invoice(14) },
-  parameters: account((db) => {
+  parameters: paying((db) => {
     const sent = db.invoices.find((i) => i.id === invoice(14));
     if (sent) sent.reference = 'PO 4471';
   }),
@@ -361,7 +403,7 @@ export const WithReference: Story = {
     scenario 8). */
 export const WithSupportingDetail: Story = {
   ...desktop,
-  parameters: account((db) => {
+  parameters: paying((db) => {
     const draft = db.invoices.find((i) => i.id === invoice(15));
     if (!draft) return;
     draft.groupingMode = 'summary';
@@ -387,7 +429,7 @@ export const WithSupportingDetail: Story = {
 export const AsPrinted: Story = {
   ...desktop,
   args: { id: invoice(14) },
-  parameters: account((db) => {
+  parameters: paying((db) => {
     const sent = db.invoices.find((i) => i.id === invoice(14));
     if (!sent) return;
     sent.notes = 'Thank you for the work this month.';
@@ -469,9 +511,10 @@ export const OpenedFromList: Story = {
     await expect(page.getAllByText('Meridian Labs')[0]).toBeVisible();
     await expect(page.getByRole('button', { name: 'Mark paid' })).toBeVisible();
     await expect(page.queryByText('Amount due')).toBeNull();
-    /* The lists don't say whether the PDF is refused, so Download
-       waits rather than showing and then going. */
+    /* The lists don't say whether the PDF opens, so neither action shows
+       yet rather than one that turns into the other. */
     await expect(page.queryByRole('link', { name: /Download PDF/ })).toBeNull();
+    await expect(page.queryByRole('link', { name: /Subscribe/ })).toBeNull();
   },
 };
 

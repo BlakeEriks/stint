@@ -41,7 +41,8 @@ do $$ begin
   if not exists (select 1 from pg_roles where rolname = 'authenticated') then
     create role authenticated nologin;
   end if;
-  -- Supabase's own role, which an early migration grants to.
+  -- The server's own role (`serviceClient()`), granted by the migrations
+  -- that let it write, as the billing webhook does.
   if not exists (select 1 from pg_roles where rolname = 'service_role') then
     create role service_role nologin bypassrls;
   end if;

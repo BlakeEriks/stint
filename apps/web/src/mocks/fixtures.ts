@@ -8,6 +8,7 @@ import {
   localDayOfWeek,
 } from '@stint/core';
 import type {
+  Billing,
   Client,
   Expense,
   Invoice,
@@ -83,6 +84,7 @@ export interface Db {
   invoices: StoredInvoice[];
   expenses: Expense[];
   paymentProfiles: PaymentProfile[];
+  billing: Billing;
 }
 
 /** A fixed id per record, valid for `@stint/schema`'s strict `uuid`. */
@@ -312,6 +314,15 @@ export function seed(now: Date): Db {
     entries,
     invoices,
     expenses,
+    // Billing set up, and this account on the free plan.
+    billing: {
+      available: true,
+      plan: 'free',
+      status: null,
+      periodEnd: null,
+      cancelAtPeriodEnd: false,
+      paymentFailed: false,
+    },
     paymentProfiles: [
       {
         id: ids.ach,
