@@ -45,6 +45,7 @@ public enum Tokens {
         static let timerIdle = Color(hex: "#666D79")
         static let timerWarning = Color(hex: "#5CABF2")
         static let success = Color(hex: "#36C52A")
+        static let mark = Color(hex: "#36C52A")
         static let warning = Color(hex: "#5CABF2")
         static let warningMuted = Color(hex: "#162B40")
         static let danger = Color(hex: "#F64B66")
@@ -80,6 +81,7 @@ public enum Tokens {
         static let timerIdle = Color(hex: "#938E86")
         static let timerWarning = Color(hex: "#1C6DAD")
         static let success = Color(hex: "#457036")
+        static let mark = Color(hex: "#457036")
         static let warning = Color(hex: "#1C6DAD")
         static let warningMuted = Color(hex: "#E3EEF8")
         static let danger = Color(hex: "#C21F43")
@@ -107,6 +109,7 @@ public enum Tokens {
         public static let boundRadius: CGFloat = 999
         public static let tmSize: CGFloat = 0.6
         public static let tmRise: CGFloat = 0.35
+        public static let tmOpacity: CGFloat = 0.5
     }
 
     /// The type scale. A view names a role; it never assembles one.

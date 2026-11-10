@@ -110,12 +110,6 @@ Still set in the dashboard:
   - `NEXT_PUBLIC_APP_ORIGIN` — `https://app.runstint.com`. The code
     falls back to `''`, so an unset one costs a redirect hop on the landing
     page's Sign in link rather than failing the build.
-  - `NEXT_PUBLIC_INVITE_FORM_URL`, for Production only — the landing
-    page's invite request posts here. Create a free form at formspree.io
-    with your address as the recipient, and paste its endpoint,
-    `https://formspree.io/f/<form id>`. Submissions email you and list in
-    the form's dashboard with when each was sent. Unset, the request fails
-    and the page says it didn't send, so a preview never adds to the list.
   - `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, for Production only: the sign-in
     form's CAPTCHA (`docs/setup.md` §7). Unset, the form sends none, which
     a preview's Auth server doesn't ask for.
