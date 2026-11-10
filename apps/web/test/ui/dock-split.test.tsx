@@ -104,11 +104,20 @@ afterEach(() => {
 });
 
 describe('the dock split', () => {
-  it('starts at half', async () => {
+  /* Storage is the user's and survives a change to the bounds, so a value
+     from a previous range is clamped rather than trusted, and junk is
+     ignored. */
+  it.each([
+    ['nothing stored', null, '50'],
+    ['a stored ratio', '0.7', '70'],
+    ['a value outside the range', '0.95', '75'],
+    ['junk', 'not a number', '50'],
+  ])('starts from %s', async (_, stored, now) => {
+    if (stored !== null) localStorage.setItem(KEY, stored);
     serve();
     render(<Dock />, { wrapper });
 
-    expect(await handle()).toHaveAttribute('aria-valuenow', '50');
+    expect(await handle()).toHaveAttribute('aria-valuenow', now);
   });
 
   it('moves with the arrow keys and remembers where it landed', async () => {
@@ -135,32 +144,6 @@ describe('the dock split', () => {
 
     el = await press('ArrowUp', 40);
     expect(el).toHaveAttribute('aria-valuenow', '25');
-  });
-
-  it('restores the stored ratio', async () => {
-    localStorage.setItem(KEY, '0.7');
-    serve();
-    render(<Dock />, { wrapper });
-
-    expect(await handle()).toHaveAttribute('aria-valuenow', '70');
-  });
-
-  it('ignores a stored value outside the range', async () => {
-    /* Storage is the user's and survives a change to the bounds, so a value
-       from a previous range is clamped rather than trusted. */
-    localStorage.setItem(KEY, '0.95');
-    serve();
-    render(<Dock />, { wrapper });
-
-    expect(await handle()).toHaveAttribute('aria-valuenow', '75');
-  });
-
-  it('ignores junk in storage', async () => {
-    localStorage.setItem(KEY, 'not a number');
-    serve();
-    render(<Dock />, { wrapper });
-
-    expect(await handle()).toHaveAttribute('aria-valuenow', '50');
   });
 
   it('Home recenters and forgets the preference', async () => {

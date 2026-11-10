@@ -141,7 +141,9 @@ export const CLIENT_COLUMNS = columns<ClientRow>()(
 
 /** The schedule is one value on the wire and two columns, written together
  *  so the pair cannot break (`billing_period_anchor`). */
-export function toBillingSchedule(r: ClientRow): BillingSchedule | null {
+function toBillingSchedule(
+  r: Pick<ClientRow, 'billing_period' | 'period_anchor'>,
+): BillingSchedule | null {
   if (!r.billing_period) return null;
   return needsAnchor(r.billing_period)
     ? { period: r.billing_period, anchor: r.period_anchor! }
@@ -568,5 +570,144 @@ export function toBilling(
     periodEnd: r ? new Date(r.current_period_end).toISOString() : null,
     cancelAtPeriodEnd: r?.cancel_at_period_end ?? false,
     paymentFailed: paymentFailed(status),
+  };
+}
+
+// ── home stats ─────────────────────────────────────────────────────
+/** A project as Home reads it: its name for the inbox, its client for the
+ *  week's split. */
+export type ProjectNameRow = Pick<ProjectRow, 'id' | 'name' | 'client_id'>;
+
+export const PROJECT_NAME_COLUMNS = columns<ProjectNameRow>()(
+  'id, name, client_id',
+);
+
+/** Project id -> its client. */
+export const toClientOf = (rows: ProjectNameRow[]) =>
+  new Map(rows.map((p) => [p.id, p.client_id]));
+
+/** A stopped entry on no invoice, as the overlap and late-work rows read it. */
+export interface UninvoicedEntryRow {
+  id: string;
+  task_name: string;
+  started_at: string;
+  ended_at: string;
+  duration_seconds: number;
+  is_billable: boolean;
+  project_id: string | null;
+}
+
+export const UNINVOICED_ENTRY_COLUMNS = columns<UninvoicedEntryRow>()(
+  'id, task_name, started_at, ended_at, duration_seconds, is_billable, project_id',
+);
+
+export function toUninvoicedEntry(
+  r: UninvoicedEntryRow,
+  clientOf: Map<string, string | null>,
+) {
+  return {
+    id: r.id,
+    taskName: r.task_name,
+    startedAt: new Date(r.started_at).toISOString(),
+    durationSeconds: r.duration_seconds,
+    isBillable: r.is_billable,
+    clientId: r.project_id ? (clientOf.get(r.project_id) ?? null) : null,
+  };
+}
+
+/** A session as the week's per-client stack reads it. */
+export interface WeekEntryRow {
+  started_at: string;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  project_id: string | null;
+  is_billable: boolean;
+}
+
+export const WEEK_ENTRY_COLUMNS = columns<WeekEntryRow>()(
+  'started_at, ended_at, duration_seconds, project_id, is_billable',
+);
+
+export function toWeekEntry(r: WeekEntryRow) {
+  return {
+    startedAt: r.started_at,
+    endedAt: r.ended_at,
+    durationSeconds: r.duration_seconds,
+    projectId: r.project_id,
+    isBillable: r.is_billable,
+  };
+}
+
+/** A sent or paid invoice's period, for work dated inside it. */
+export type IssuedPeriodRow = Pick<
+  InvoiceRow,
+  'id' | 'invoice_number' | 'client_id' | 'period_start' | 'period_end' | 'tz'
+>;
+
+export const ISSUED_PERIOD_COLUMNS = columns<IssuedPeriodRow>()(
+  'id, invoice_number, client_id, period_start, period_end, tz',
+);
+
+export function toIssuedPeriod(r: IssuedPeriodRow) {
+  return {
+    id: r.id,
+    invoiceNumber: r.invoice_number,
+    clientId: r.client_id,
+    periodStart: r.period_start,
+    periodEnd: r.period_end,
+    tz: r.tz,
+  };
+}
+
+/** Any invoice's period, for whether it covers a client's due period. */
+export function toInvoicePeriod(
+  r: Pick<InvoiceRow, 'status' | 'client_id' | 'period_start' | 'period_end'>,
+) {
+  return {
+    status: r.status,
+    clientId: r.client_id,
+    periodStart: r.period_start,
+    periodEnd: r.period_end,
+  };
+}
+
+/** An active client's billing schedule. */
+export type ScheduledClientRow = Pick<
+  ClientRow,
+  'id' | 'name' | 'billing_period' | 'period_anchor'
+>;
+
+export const SCHEDULED_CLIENT_COLUMNS = columns<ScheduledClientRow>()(
+  'id, name, billing_period, period_anchor',
+);
+
+export function toScheduledClient(r: ScheduledClientRow) {
+  return { id: r.id, name: r.name, schedule: toBillingSchedule(r) };
+}
+
+/** The settings Home reads; null before the user has saved any. */
+export type HomeSettingsRow = Pick<
+  SettingsRow,
+  | 'currency'
+  | 'min_entry_seconds'
+  | 'max_entry_hours'
+  | 'week_starts_on'
+  | 'default_hourly_rate'
+  | 'billing_time_zone'
+> & { legacy_payment_terms: string | null };
+
+export const HOME_SETTINGS_COLUMNS = columns<HomeSettingsRow>()(
+  'currency, min_entry_seconds, max_entry_hours, week_starts_on, default_hourly_rate, legacy_payment_terms, billing_time_zone',
+);
+
+export function toHomeSettings(r: HomeSettingsRow | null) {
+  return {
+    currency: r?.currency ?? 'USD',
+    minEntrySeconds: r?.min_entry_seconds ?? null,
+    maxEntryHours: num(r?.max_entry_hours),
+    weekStartsOn: r?.week_starts_on ?? 1,
+    defaultHourlyRate: num(r?.default_hourly_rate),
+    legacyPaymentTerms: r?.legacy_payment_terms ?? null,
+    billingTimeZone: r?.billing_time_zone ?? null,
   };
 }

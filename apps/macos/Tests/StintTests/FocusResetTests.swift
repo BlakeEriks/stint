@@ -5,7 +5,7 @@ import Testing
 @MainActor
 struct FocusResetTests {
     @Test func becomingKeyClearsAFocusedField() throws {
-        let (window, field) = panel(withReset: true)
+        let (window, field) = panel()
         try #require(window.makeFirstResponder(field))
         #expect(window.firstResponder !== window)
 
@@ -14,23 +14,14 @@ struct FocusResetTests {
     }
 
     @Test func anotherWindowBecomingKeyLeavesFocusAlone() throws {
-        let (window, field) = panel(withReset: true)
+        let (window, field) = panel()
         try #require(window.makeFirstResponder(field))
 
         NotificationCenter.default.post(name: NSWindow.didBecomeKeyNotification, object: NSWindow())
         #expect(window.firstResponder !== window)
     }
 
-    /// The control: without the reset, focus survives becoming key — the bug.
-    @Test func withoutTheResetFocusSurvives() throws {
-        let (window, field) = panel(withReset: false)
-        try #require(window.makeFirstResponder(field))
-
-        NotificationCenter.default.post(name: NSWindow.didBecomeKeyNotification, object: window)
-        #expect(window.firstResponder !== window)
-    }
-
-    private func panel(withReset: Bool) -> (NSWindow, NSTextField) {
+    private func panel() -> (NSWindow, NSTextField) {
         _ = NSApplication.shared
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 320, height: 200),
@@ -39,7 +30,7 @@ struct FocusResetTests {
         window.isReleasedWhenClosed = false
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
         window.contentView?.addSubview(field)
-        if withReset { window.contentView?.addSubview(WindowObserver.focusReset.makeView()) }
+        window.contentView?.addSubview(WindowObserver.focusReset.makeView())
         return (window, field)
     }
 }

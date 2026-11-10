@@ -507,6 +507,9 @@ export const OpenedFromList: Story = {
     ).toBeVisible();
     await expect(page.getByText('Updating…')).toBeVisible();
     await expect(page.queryByText('Loading…')).toBeNull();
+    // The client is drawn from the cached list before the invoice lands.
+    await expect(page.getAllByText('Meridian Labs')[0]).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Mark paid' })).toBeVisible();
     await expect(page.queryByText('Amount due')).toBeNull();
     /* The lists don't say whether the PDF opens, so neither action shows
        yet rather than one that turns into the other. */
