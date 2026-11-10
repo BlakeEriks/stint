@@ -22,6 +22,8 @@ const EXPECTED = [
   'payment_profiles',
   'projects',
   'push_devices',
+  // Unread, but holds user rows until a later migration drops it.
+  'subscriptions',
   'time_entries',
   'user_settings',
 ];

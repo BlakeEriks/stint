@@ -54,7 +54,6 @@ export const Column: Story = {
   },
 };
 
-/** Every invoice row offers Download. */
 export const InvoiceDownloads: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {

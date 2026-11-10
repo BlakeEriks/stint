@@ -272,6 +272,12 @@ policy, `join_own_user_topic`, lets `authenticated` join only the private
 topic `user:<its id>`; there is no insert policy, since only the server
 broadcasts, as the secret key.
 
+### Left from billing
+`subscriptions` and `invoices.issued_subscription_status` are no longer read
+or written. They stay until the build that stopped using them is live, so
+the build before it keeps answering through a release; a later migration
+drops them.
+
 ## Integrity rules
 
 ### The timer invariant
