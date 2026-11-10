@@ -218,11 +218,11 @@ test('preview offers the work after the last invoice and before the period, and 
   await seedEntry({ id: E(2), start: '2026-09-30T17:00:00Z', billable: false });
   await seedEntry({ id: E(3), start: '2026-10-05T15:00:00Z' });
   const october = { periodStart: '2026-10-01', periodEnd: '2026-10-31' };
-  const earlier = async () =>
+  const earlier = async (draftId?: string) =>
     (
       await json(
         await preview(
-          req('/invoices/preview', { clientId: CLIENT, ...october }),
+          req('/invoices/preview', { clientId: CLIENT, ...october, draftId }),
         ),
       )
     ).body.earlierWork;
@@ -244,6 +244,14 @@ test('preview offers the work after the last invoice and before the period, and 
     ),
   );
   assert.equal(res.status, 201, JSON.stringify(res.body));
+  // Editing that draft over October: it neither ends the look-back nor hides
+  // the entry it holds, which it would let go of if saved so.
+  assert.equal(await earlier(), null);
+  assert.deepEqual(await earlier(res.body.id), {
+    entryCount: 1,
+    from: '2026-09-30',
+    to: '2026-09-30',
+  });
   await send(res.body.id);
   const { rows } = await pool.query(
     'select invoice_id from time_entries where id=$1',
