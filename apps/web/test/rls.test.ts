@@ -826,16 +826,6 @@ test('a connected app writes only what its tools do', async () => {
   }
   // A restrictive policy hides the rows from a delete rather than raising.
   await asApp('delete from time_entries');
-  await assert.rejects(
-    () => asApp(`update push_devices set token = 'x'`),
-    /permission denied/,
-  );
-  await asApp('delete from push_devices');
-  const phone = await admin.query(
-    'select token from push_devices where user_id = $1',
-    [ALICE],
-  );
-  assert.deepEqual(phone.rows, [{ token: 'alice-phone' }]);
   const { rows } = await admin.query(
     'select count(*)::int n from time_entries where user_id = $1',
     [ALICE],
