@@ -201,6 +201,21 @@ struct TimerModelTests {
         await model.signOut()
     }
 
+    @Test func aSignInCodeIsAskedOfStint() async throws {
+        let model = try await signedInModel()
+        APIStub.routes["/auth/code"] = (200, Data("{}".utf8))
+        try await model.requestLink(email: "builder@localhost.test")
+        let body = try #require(APIStub.bodies["/auth/code"])
+        let sent = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+        #expect(sent?["email"] as? String == "builder@localhost.test")
+
+        APIStub.routes["/auth/code"] = (429, Data(#"{"code":"RATE_LIMITED","message":"Too many sign-in codes from here."}"#.utf8))
+        await #expect(throws: APIError(status: 429, code: "RATE_LIMITED", message: "Too many sign-in codes from here.")) {
+            try await model.requestLink(email: "who@x.test")
+        }
+        await model.signOut()
+    }
+
     /// A model over a stubbed backend, signed in with a token that needs no
     /// refresh. Its own Keychain account, cleared by `signOut()`.
     private func signedInModel() async throws -> TimerModel {

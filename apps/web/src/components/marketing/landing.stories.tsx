@@ -26,21 +26,18 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Both calls to action ask for an invite; only the header signs in. */
+/** Both calls to action and the header lead to sign-in. */
 export const Desktop: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     await expect(
-      page.getAllByRole('button', { name: 'Request an invite' }),
+      page.getAllByRole('link', { name: 'Get started' }),
     ).toHaveLength(2);
     await expect(page.getByRole('link', { name: 'Sign in' })).toHaveAttribute(
       'href',
       '/signin',
     );
-    await expect(
-      page.getByRole('img', { name: /Stint's home screen/ }),
-    ).toBeVisible();
     await expect(
       page.getByRole('img', { name: /Stint's Mac menu bar panel/ }),
     ).toBeVisible();

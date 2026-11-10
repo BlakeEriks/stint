@@ -70,8 +70,8 @@ test data. The answer to a leak is rotating the bypass in Vercel
 
 ## Sign-in
 
-The macOS app's emailed six-digit code (`docs/macos.md`, Sign-in), over
-`fetch` to GoTrue. **The session lives in secure storage**: the Keychain on
+The macOS app's emailed six-digit code (`docs/macos.md`, Sign-in): asked
+of Stint's `/api/v1/auth/code`, verified with GoTrue over `fetch`. **The session lives in secure storage**: the Keychain on
 iOS, Keystore-encrypted storage on Android, one entry per backend host. On
 iOS, a press outside the app refreshes it in Swift and stores the result; a
 refresh in the app reads the stored session first and takes that one.
@@ -197,6 +197,33 @@ It needs, once:
    (`npx eas-cli init` in `apps/mobile`).
 2. GitHub secret `EXPO_TOKEN` (expo.dev → Access tokens).
 3. GitHub variables `EXPO_OWNER` (the Expo account or organization that owns the project) and `EAS_PROJECT_ID`.
+
+### On an iPhone
+
+EAS builds only Android, since a signed iOS build needs the Apple Developer
+Program. So the iPhone's Stint Preview is sideloaded from a Mac, signed with
+a free Apple ID, and scans the same QR. From a `main` checkout, in
+`apps/mobile`, with the phone on USB and Developer Mode on:
+
+```bash
+STINT_TARGET=preview EAS_PROJECT_ID=<id> EXPO_OWNER=<owner> \
+  npx expo run:ios --device
+```
+
+Without `EAS_PROJECT_ID` the build takes no updates (`app.config.ts`). The
+first time, open `ios/StintPreview.xcworkspace` in Xcode and set each
+target's Signing team to your Personal Team. On first launch, paste
+Vercel's bypass.
+
+The `android` label gates the update for both phones, so a PR previewed
+only on an iPhone still carries it. Its comment names the iOS fingerprint
+the update needs. To print the checkout's, run
+`npx expo-updates fingerprint:generate --platform ios` with the same
+variables. When the two differ, the PR changed native code: rebuild from
+its branch.
+
+A free Apple ID's profile lasts 7 days and signs 3 apps per device, so the
+build is reinstalled weekly.
 
 ## Releasing
 

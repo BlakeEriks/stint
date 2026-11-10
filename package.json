@@ -26,6 +26,7 @@
     "test:ui": "pnpm --filter @stint/web test:ui",
     "test:rls": "pnpm --filter @stint/web test:rls",
     "test:auth": "node scripts/test-auth.mjs",
+    "test:auth:captcha": "node scripts/test-auth.mjs",
     "check:type": "pnpm --filter @stint/web check:type",
     "detox": "pnpm --filter @stint/web detox",
     "typecheck": "npx tsc --noEmit -p tsconfig.json && pnpm --filter @stint/web typecheck && pnpm --filter @stint/mobile typecheck",
@@ -39,14 +40,14 @@
     "*.{js,mjs,ts,tsx,json,jsonc,css}": "biome check --write --no-errors-on-unmatched"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.4",
+    "@biomejs/biome": "^2.6.6",
     "@types/node": "^24.19.2",
     "husky": "^9.1.7",
     "jscpd": "^5.4.2",
-    "knip": "^6.44.0",
+    "knip": "^6.44.1",
     "lint-staged": "^17.6.0",
     "pg": "^8.23.1",
-    "supabase": "2.122.0",
+    "supabase": "2.122.1",
     "typescript": "^6.0.3"
   },
   "pnpm": {

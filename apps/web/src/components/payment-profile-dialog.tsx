@@ -55,6 +55,64 @@ const missingIn = (draft: Draft): Missing => {
   };
 };
 
+/** The body to send: a field left blank clears its column. */
+const toInput = (draft: Draft): PaymentProfileInput => {
+  const blank = (v: unknown) =>
+    typeof v === 'string' && v.trim() === '' ? null : v;
+  const body = Object.fromEntries(
+    Object.entries(draft).map(([k, v]) => [k, blank(v)]),
+  ) as PaymentProfileInput;
+  return { ...body, name: draft.name.trim() };
+};
+
+type SetDraft = <K extends keyof Draft>(key: K, value: Draft[K]) => void;
+
+/** The columns a plain text input edits. */
+type TextKey = {
+  [K in keyof Draft]-?: string extends NonNullable<Draft[K]> ? K : never;
+}[keyof Draft];
+
+/** A text input's `value` and `onChange` for one column. */
+const binder =
+  (draft: Draft, set: SetDraft) =>
+  <K extends TextKey>(key: K) => ({
+    value: draft[key] ?? '',
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+      set(key, e.target.value as Draft[K]),
+  });
+
+/** A Select over a nullable column, its "Not specified" row being null. */
+function NullableSelect<T extends string>({
+  id,
+  value,
+  onChange,
+  options,
+}: {
+  id: string;
+  value: T | null | undefined;
+  onChange: (value: T | null) => void;
+  options: [T, string][];
+}) {
+  return (
+    <Select
+      value={value ?? UNSET}
+      onValueChange={(v) => onChange(v === UNSET ? null : (v as T))}
+    >
+      <SelectTrigger id={id} className={inputClass}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={UNSET}>Not specified</SelectItem>
+        {options.map(([v, label]) => (
+          <SelectItem key={v} value={v}>
+            {label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 /**
  * Bank details.
  *
@@ -88,8 +146,9 @@ export function PaymentProfileDialog({
     );
   }, [open, existing, check.reset]);
 
-  const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
+  const set: SetDraft = (key, value) =>
     setDraft((d) => ({ ...d, [key]: value }));
+  const bind = binder(draft, set);
 
   /* Pending: the server validates the bank details, and the dialog stays
      open to say what it refused. */
@@ -109,12 +168,7 @@ export function PaymentProfileDialog({
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!check.passes()) return;
-    const blank = (v: unknown) =>
-      typeof v === 'string' && v.trim() === '' ? null : v;
-    const body = Object.fromEntries(
-      Object.entries(draft).map(([k, v]) => [k, blank(v)]),
-    ) as PaymentProfileInput;
-    save.mutate({ ...body, name: draft.name.trim() });
+    save.mutate(toInput(draft));
   };
 
   return (
@@ -141,8 +195,7 @@ export function PaymentProfileDialog({
               id="pp-name"
               required
               autoFocus
-              value={draft.name}
-              onChange={(e) => set('name', e.target.value)}
+              {...bind('name')}
               placeholder="Chase business"
             />
           </Field>
@@ -150,19 +203,13 @@ export function PaymentProfileDialog({
           <Field label="Account holder" htmlFor="pp-holder">
             <Input
               id="pp-holder"
-              value={draft.accountHolderName ?? ''}
-              onChange={(e) => set('accountHolderName', e.target.value)}
+              {...bind('accountHolderName')}
               placeholder="Your name or LLC"
             />
           </Field>
 
           <Field label="Bank name" htmlFor="pp-bank">
-            <Input
-              id="pp-bank"
-              value={draft.bankName ?? ''}
-              onChange={(e) => set('bankName', e.target.value)}
-              placeholder="Chase"
-            />
+            <Input id="pp-bank" {...bind('bankName')} placeholder="Chase" />
           </Field>
 
           <div className="flex flex-wrap gap-4">
@@ -173,8 +220,7 @@ export function PaymentProfileDialog({
             >
               <Input
                 id="pp-acct"
-                value={draft.accountNumber ?? ''}
-                onChange={(e) => set('accountNumber', e.target.value)}
+                {...bind('accountNumber')}
                 inputMode="numeric"
               />
             </Field>
@@ -188,32 +234,22 @@ export function PaymentProfileDialog({
             >
               <Input
                 id="pp-routing"
-                value={draft.routingNumber ?? ''}
-                onChange={(e) => set('routingNumber', e.target.value)}
+                {...bind('routingNumber')}
                 inputMode="numeric"
               />
             </Field>
           </div>
 
           <Field label="Account type" htmlFor="pp-type">
-            <Select
-              value={draft.accountType ?? UNSET}
-              onValueChange={(v) =>
-                set(
-                  'accountType',
-                  (v === UNSET ? null : v) as PaymentProfile['accountType'],
-                )
-              }
-            >
-              <SelectTrigger id="pp-type" className={inputClass}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={UNSET}>Not specified</SelectItem>
-                <SelectItem value="checking">Checking</SelectItem>
-                <SelectItem value="savings">Savings</SelectItem>
-              </SelectContent>
-            </Select>
+            <NullableSelect
+              id="pp-type"
+              value={draft.accountType}
+              onChange={(v) => set('accountType', v)}
+              options={[
+                ['checking', 'Checking'],
+                ['savings', 'Savings'],
+              ]}
+            />
           </Field>
 
           <div className="flex flex-wrap gap-4">
@@ -224,8 +260,7 @@ export function PaymentProfileDialog({
             >
               <Input
                 id="pp-link-label"
-                value={draft.paymentLinkLabel ?? ''}
-                onChange={(e) => set('paymentLinkLabel', e.target.value)}
+                {...bind('paymentLinkLabel')}
                 placeholder="Pay online"
               />
             </Field>
@@ -237,8 +272,7 @@ export function PaymentProfileDialog({
               <Input
                 id="pp-link-url"
                 type="url"
-                value={draft.paymentLinkUrl ?? ''}
-                onChange={(e) => set('paymentLinkUrl', e.target.value)}
+                {...bind('paymentLinkUrl')}
                 placeholder="https://…"
               />
             </Field>
@@ -257,125 +291,7 @@ export function PaymentProfileDialog({
           </div>
 
           {showInternational ? (
-            <div className="flex flex-col gap-4 rounded-lg border border-edge-subtle p-4">
-              <div className="flex flex-wrap gap-4">
-                <Field
-                  label="IBAN"
-                  htmlFor="pp-iban"
-                  className="flex-1 basis-44"
-                >
-                  <Input
-                    id="pp-iban"
-                    value={draft.iban ?? ''}
-                    onChange={(e) => set('iban', e.target.value)}
-                  />
-                </Field>
-                <Field
-                  label="SWIFT / BIC"
-                  htmlFor="pp-swift"
-                  className="flex-1 basis-44"
-                >
-                  <Input
-                    id="pp-swift"
-                    value={draft.swiftBic ?? ''}
-                    onChange={(e) => set('swiftBic', e.target.value)}
-                  />
-                </Field>
-              </div>
-
-              <div className="flex flex-wrap gap-4">
-                <Field
-                  label="Local code label"
-                  htmlFor="pp-local-label"
-                  hint="e.g. Sort code, BSB, IFSC."
-                  className="flex-1 basis-44"
-                >
-                  <Input
-                    id="pp-local-label"
-                    value={draft.localCodeLabel ?? ''}
-                    onChange={(e) => set('localCodeLabel', e.target.value)}
-                  />
-                </Field>
-                <Field
-                  label="Local code"
-                  htmlFor="pp-local"
-                  className="flex-1 basis-44"
-                >
-                  <Input
-                    id="pp-local"
-                    value={draft.localCode ?? ''}
-                    onChange={(e) => set('localCode', e.target.value)}
-                  />
-                </Field>
-              </div>
-
-              <Field label="Intermediary bank" htmlFor="pp-int-bank">
-                <Input
-                  id="pp-int-bank"
-                  value={draft.intermediaryBankName ?? ''}
-                  onChange={(e) => set('intermediaryBankName', e.target.value)}
-                />
-              </Field>
-
-              <div className="flex flex-wrap gap-4">
-                <Field
-                  label="Intermediary SWIFT"
-                  htmlFor="pp-int-swift"
-                  className="flex-1 basis-44"
-                >
-                  <Input
-                    id="pp-int-swift"
-                    value={draft.intermediarySwiftBic ?? ''}
-                    onChange={(e) =>
-                      set('intermediarySwiftBic', e.target.value)
-                    }
-                  />
-                </Field>
-                <Field
-                  label="Intermediary account"
-                  htmlFor="pp-int-acct"
-                  className="flex-1 basis-44"
-                >
-                  <Input
-                    id="pp-int-acct"
-                    value={draft.intermediaryAccountNumber ?? ''}
-                    onChange={(e) =>
-                      set('intermediaryAccountNumber', e.target.value)
-                    }
-                  />
-                </Field>
-              </div>
-
-              <Field
-                label="Fee allocation"
-                htmlFor="pp-fees"
-                hint="Who pays the wire fees."
-              >
-                <Select
-                  value={draft.feeAllocation ?? UNSET}
-                  onValueChange={(v) =>
-                    set(
-                      'feeAllocation',
-                      (v === UNSET
-                        ? null
-                        : v) as PaymentProfile['feeAllocation'],
-                    )
-                  }
-                >
-                  <SelectTrigger id="pp-fees" className={inputClass}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={UNSET}>Not specified</SelectItem>
-                    <SelectItem value="OUR">OUR — you pay all fees</SelectItem>
-                    <SelectItem value="SHA">SHA — shared</SelectItem>
-                    <SelectItem value="BEN">
-                      BEN — client pays all fees
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
+            <InternationalFields draft={draft} set={set} />
           ) : null}
 
           {save.error ? (
@@ -409,5 +325,82 @@ export function PaymentProfileDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** IBAN, SWIFT, a labeled national code, and an intermediary bank. */
+function InternationalFields({ draft, set }: { draft: Draft; set: SetDraft }) {
+  const bind = binder(draft, set);
+  return (
+    <div className="flex flex-col gap-4 rounded-lg border border-edge-subtle p-4">
+      <div className="flex flex-wrap gap-4">
+        <Field label="IBAN" htmlFor="pp-iban" className="flex-1 basis-44">
+          <Input id="pp-iban" {...bind('iban')} />
+        </Field>
+        <Field
+          label="SWIFT / BIC"
+          htmlFor="pp-swift"
+          className="flex-1 basis-44"
+        >
+          <Input id="pp-swift" {...bind('swiftBic')} />
+        </Field>
+      </div>
+
+      <div className="flex flex-wrap gap-4">
+        <Field
+          label="Local code label"
+          htmlFor="pp-local-label"
+          hint="e.g. Sort code, BSB, IFSC."
+          className="flex-1 basis-44"
+        >
+          <Input id="pp-local-label" {...bind('localCodeLabel')} />
+        </Field>
+        <Field
+          label="Local code"
+          htmlFor="pp-local"
+          className="flex-1 basis-44"
+        >
+          <Input id="pp-local" {...bind('localCode')} />
+        </Field>
+      </div>
+
+      <Field label="Intermediary bank" htmlFor="pp-int-bank">
+        <Input id="pp-int-bank" {...bind('intermediaryBankName')} />
+      </Field>
+
+      <div className="flex flex-wrap gap-4">
+        <Field
+          label="Intermediary SWIFT"
+          htmlFor="pp-int-swift"
+          className="flex-1 basis-44"
+        >
+          <Input id="pp-int-swift" {...bind('intermediarySwiftBic')} />
+        </Field>
+        <Field
+          label="Intermediary account"
+          htmlFor="pp-int-acct"
+          className="flex-1 basis-44"
+        >
+          <Input id="pp-int-acct" {...bind('intermediaryAccountNumber')} />
+        </Field>
+      </div>
+
+      <Field
+        label="Fee allocation"
+        htmlFor="pp-fees"
+        hint="Who pays the wire fees."
+      >
+        <NullableSelect
+          id="pp-fees"
+          value={draft.feeAllocation}
+          onChange={(v) => set('feeAllocation', v)}
+          options={[
+            ['OUR', 'OUR — you pay all fees'],
+            ['SHA', 'SHA — shared'],
+            ['BEN', 'BEN — client pays all fees'],
+          ]}
+        />
+      </Field>
+    </div>
   );
 }

@@ -80,6 +80,10 @@ export const BillingSync = z.object({
 /** Where to send the browser: Checkout or the Customer Portal. */
 export const BillingRedirect = z.object({ url: z.url() });
 
+// ── sign-in ────────────────────────────────────────────────────────
+/** A native app asking for a sign-in code (`POST /auth/code`). */
+export const RequestCode = z.object({ email: z.email() });
+
 // ── feedback ───────────────────────────────────────────────────────
 /** The limits match the `feedback` table's checks. */
 export const FEEDBACK_MAX = 2000;
@@ -94,6 +98,7 @@ export const CreateFeedback = z.object({
 export type Settings = z.infer<typeof Settings>;
 export type Account = z.infer<typeof Account>;
 export type CreateFeedback = z.infer<typeof CreateFeedback>;
+export type RequestCode = z.infer<typeof RequestCode>;
 export type Billing = z.infer<typeof Billing>;
 export type BillingSync = z.infer<typeof BillingSync>;
 export type BillingRedirect = z.infer<typeof BillingRedirect>;

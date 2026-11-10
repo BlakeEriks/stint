@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { ApiError, handle } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { entitlement } from '@/lib/billing';
-import { requireBillingConfig, stripe } from '@/lib/stripe';
+import { requireBillingLive, stripe } from '@/lib/stripe';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
  */
 export const POST = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
-  const { priceId } = requireBillingConfig();
+  const { priceId } = requireBillingLive();
 
   const current = await entitlement(db);
   if (current.plan === 'paid')
