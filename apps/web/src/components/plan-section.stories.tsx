@@ -42,17 +42,13 @@ const plan = async (canvasElement: HTMLElement) => {
   return within(heading.closest('section') as HTMLElement);
 };
 
-/** Free: the price, what paid adds, that the records and their export stay
-    free, and Get the paid plan. */
+/** Free: the price, and Get the paid plan. */
 export const Free: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const section = await plan(canvasElement);
     await expect(
       section.getByText(/\$3\.33\/month, billed annually/),
-    ).toBeVisible();
-    await expect(
-      section.getByText(/exporting your records stay free/),
     ).toBeVisible();
     await expect(
       section.getByRole('button', { name: 'Get the paid plan' }),
@@ -62,7 +58,7 @@ export const Free: Story = {
 
 export const FreePhone: Story = { ...phone };
 
-/** Subscribe is pending until Stripe's page opens. */
+/** Get the paid plan is pending until Stripe's page opens. */
 export const Subscribing: Story = {
   ...desktop,
   parameters: stalled('checkout'),

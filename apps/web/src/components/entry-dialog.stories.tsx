@@ -93,7 +93,7 @@ export const ConfirmDelete: Story = {
     // Inside a dialog still fading in, so visibility is waited for.
     await waitFor(async () =>
       expect(
-        await page.findByRole('button', { name: 'Delete entry' }),
+        await page.findByRole('button', { name: 'Keep it' }),
       ).toBeVisible(),
     );
   },
@@ -109,6 +109,7 @@ export const Deleting: Story = {
     await userEvent.click(
       await page.findByRole('button', { name: 'Delete entry' }),
     );
+    await page.findByRole('button', { name: 'Keep it' });
     await userEvent.click(
       await page.findByRole('button', { name: 'Delete entry' }),
     );

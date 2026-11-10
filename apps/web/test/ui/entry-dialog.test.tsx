@@ -256,6 +256,7 @@ describe('EntryDialog', () => {
     open(entry());
 
     await user.click(screen.getByRole('button', { name: 'Delete entry' }));
+    expect(screen.getByRole('button', { name: 'Keep it' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Delete entry' })).toHaveFocus();
     await user.click(screen.getByRole('button', { name: 'Keep it' }));
     expect(screen.getByRole('button', { name: 'Delete entry' })).toHaveFocus();
@@ -263,6 +264,7 @@ describe('EntryDialog', () => {
     /* Deleting a logged entry is irreversible and the row is one click away
        from the duration, so the first click must only ask. */
     await user.click(screen.getByRole('button', { name: 'Delete entry' }));
+    expect(screen.getByRole('button', { name: 'Keep it' })).toBeVisible();
     expect(calls.some((c) => c.method === 'DELETE')).toBe(false);
 
     await user.click(screen.getByRole('button', { name: 'Delete entry' }));
