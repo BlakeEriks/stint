@@ -2,10 +2,10 @@ import type { Metadata } from 'next';
 import { Laptop, Monitor, Smartphone } from 'lucide-react';
 import Image from 'next/image';
 import { DemoTimer } from '@/components/marketing/demo-timer';
-import { InviteRequest } from '@/components/marketing/invite-request';
 import { ScrollRegion } from '@/components/marketing/scroll-region';
+import { Button } from '@/components/ui/button';
 import { Wordmark } from '@/components/wordmark';
-import homeUnbilled from './home-unbilled.png';
+import { DemoMonth } from '@/components/marketing/demo-month';
 import macTimer from './mac-timer.png';
 
 /**
@@ -25,11 +25,11 @@ export const metadata: Metadata = {
     absolute: 'Stint — time tracking and invoicing for solo contractors',
   },
   description:
-    'Time tracking and invoicing for solo contractors. Tracking is free; invoices are $40 a year. One timer, your rates, and an invoice your client takes seriously. No teams, no seats.',
+    'Time tracking and invoicing for solo contractors. No seats, no team plan, no sales call. Free during beta.',
   openGraph: {
-    title: 'Time tracking and invoicing for solo contractors. That’s it.',
+    title: 'Time tracking and invoicing for solo contractors.',
     description:
-      'Track hours, know what you are owed, send the invoice. Tracking is free.',
+      'Track the hours, see what you’re owed, send the invoice. Free during beta.',
     type: 'website',
   },
 };
@@ -110,38 +110,34 @@ function Header() {
 /**
  * One screen, one green object, live.
  *
- * The accent is spent on the timer and on the invite button, the action this
+ * The accent is spent on the timer and on Get started, the action this
  * page exists to complete. It never marks anything else on this page.
  */
 function Hero() {
   return (
     <Container className="pt-12 pb-24 sm:pt-20 sm:pb-32">
       {/* Two columns above `lg`: the argument on the left, the product on the
-          right. Stacked below it, where a side-by-side would starve both. */}
+          right. Stacked below it, where a side-by-side would starve both. The
+          left is wide enough to set the headline on two lines. */}
       {/* `grid-cols-[minmax(0,1fr)]` at every breakpoint, not just `lg`: a
           grid item defaults to `min-width: auto`, so the timer card's
           intrinsic width sets the single column on a phone and the whole page
           scrolls sideways. The explicit track is what lets it shrink. */}
-      <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-16">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-12 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] lg:gap-12">
         <div className="flex min-w-0 flex-col gap-6">
-          {/* The headline names the COMPOUND JOB, not the two features:
-              what differentiates Stint is that it knows the rates, so the
-              hours are already money, and that belongs in the first sentence. */}
-          <h1 className="type-hero text-balance text-strong">
-            Start the timer, and the invoice takes care of itself.
-          </h1>
-          <p className="type-lede max-w-md text-muted">
-            Stint knows what you charge each client, so a month of hours becomes
-            a numbered invoice you can send &mdash; instead of a CSV export and
-            a spreadsheet full of arithmetic.
-          </p>
+          <div className="flex flex-col gap-3">
+            <h1 className="type-hero text-balance text-strong">
+              Time tracking and invoicing for solo contractors.
+            </h1>
+            <p className="type-lede max-w-md text-muted">
+              No seats, no team plan, no sales call.
+            </p>
+          </div>
 
-          {/* `#invite` is where the sign-in refusal sends a stranger. */}
-          <div id="invite" className="mt-4 flex flex-col gap-3">
-            <InviteRequest />
+          <div className="mt-4 flex flex-col items-start gap-3">
+            <GetStarted />
             <span className="type-meta text-subtle">
-              Tracking is free, no card. Invoices are $40 a year. Invite-only
-              during alpha.
+              Free during beta. No card.
             </span>
           </div>
         </div>
@@ -163,14 +159,14 @@ function SplitSection({
   title,
   lede,
   aside,
-  footnote,
+  below,
   recessed = false,
   reverse = false,
 }: {
   title: string;
   lede: React.ReactNode;
   aside: React.ReactNode;
-  footnote?: React.ReactNode;
+  below?: React.ReactNode;
   recessed?: boolean;
   reverse?: boolean;
 }) {
@@ -180,12 +176,8 @@ function SplitSection({
         <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-16">
           <div className={`min-w-0 ${reverse ? 'lg:order-2' : ''}`}>
             <h2 className="type-display text-balance text-strong">{title}</h2>
-            <div className="type-body mt-4 max-w-md text-muted">{lede}</div>
-            {footnote ? (
-              <p className="type-support mt-5 max-w-md text-subtle">
-                {footnote}
-              </p>
-            ) : null}
+            <div className="type-body mt-2 max-w-md text-muted">{lede}</div>
+            {below ? <div className="mt-8">{below}</div> : null}
           </div>
           <div className={`min-w-0 ${reverse ? 'lg:order-1' : ''}`}>
             {aside}
@@ -202,32 +194,20 @@ function SplitSection({
  */
 function Unbilled() {
   return (
-    <SplitSection
-      recessed
-      /* Asks the question the visitor already asks themselves, rather than
-         arguing with a competitor's roadmap. */
-      title="How much work is sitting there, unbilled?"
-      lede={
-        <>
-          Most trackers only count hours, so they can&rsquo;t tell you. Stint
-          knows your rates, so it can &mdash; on the home screen, every time you
-          open it.
-        </>
-      }
-      aside={
-        /* The home's month figures, captured from the seeded local account
-           (`pnpm seed`) at 2x in the dark theme the page is set in, and shown
-           at 1:1 so their labels stay legible. The chart beside them is left
-           out: its projection ends in a green dot, and green here means a
-           running timer. Retake it when the month region changes. */
-        <Image
-          src={homeUnbilled}
-          alt="Stint's home screen: this month's billable total, what it is on track for, the unbilled total, and what is awaiting payment"
-          sizes="19.5rem"
-          className="mx-auto h-auto w-full max-w-78 rounded-xl shadow-float"
-        />
-      }
-    />
+    <section className="bg-surface-recessed">
+      {/* The heading above, not beside: the month region needs the full
+          width to lay out as it does on Home at laptop width. */}
+      <Container className="py-20 sm:py-28">
+        <h2 className="type-display text-balance text-strong">
+          Unbilled work, in dollars.
+        </h2>
+        <p className="type-body mt-2 max-w-md text-muted">
+          Every hour is priced at its client&rsquo;s rate, so the home screen
+          shows what&rsquo;s unbilled and what the month is on track for.
+        </p>
+        <DemoMonth />
+      </Container>
+    </section>
   );
 }
 
@@ -243,53 +223,20 @@ function Invoice() {
       <Container className="py-20 sm:py-28">
         <div className="mx-auto max-w-xl text-center">
           <h2 className="type-display text-balance text-strong">
-            One click, and this is what your client gets.
+            The invoice your client gets.
           </h2>
-          <p className="type-body mt-4 text-muted">
-            Your hours, grouped by task, at the rate each one was worked &mdash;
-            numbered, dated and ready to send.
+          <p className="type-body mt-2 text-muted">
+            Built from your tracked hours, at the rate each was worked, with
+            your expenses and ACH details. Nothing is retyped, and a sent
+            invoice never changes.
           </p>
         </div>
 
         <div className="mt-12">
           <InvoicePreview />
         </div>
-
-        {/* The no-email decision MUST be stated here: a visitor who discovers
-            it after signing up reads it as a missing feature, where said up
-            front it is a reason to trust the product. */}
-        <div className="mt-10 grid gap-8 sm:grid-cols-2">
-          <Aside title="You send it, from your address.">
-            Stint gives you the PDF and stays out of the way. Sent by you, it
-            carries your own domain&rsquo;s reputation &mdash; not a shared app
-            domain&rsquo;s spam score.
-          </Aside>
-          {/* Framed as what the client sees rather than as invoice fraud,
-              which arrives out of nowhere for a reader not thinking about
-              it. */}
-          <Aside title="Your bank details, already on it.">
-            ACH routing and account number, rendered the same way every month
-            &mdash; so your client can pay it without emailing you to ask how.
-          </Aside>
-        </div>
       </Container>
     </section>
-  );
-}
-
-/** A titled note beside an exhibit. Not a card — cards would compete. */
-function Aside({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="border-l-2 border-edge-control pl-5">
-      <p className="type-heading text-strong">{title}</p>
-      <p className="type-support mt-1.5 text-muted">{children}</p>
-    </div>
   );
 }
 
@@ -303,35 +250,40 @@ function Aside({
  * put a second green meaning on this page beside the CTA.
  */
 function InvoicePreview() {
-  const lines = [
+  /* The standard template's sections, filled as a real month would fill
+     them: two rates, an expense, terms and the ACH block. */
+  const services = [
     ['Onboarding email sequence rework', '12.25', '$175.00', '$2,143.75'],
     ['Checkout validation fixes', '8.50', '$175.00', '$1,487.50'],
     ['Q4 retainer scoping call', '1.75', '$220.00', '$385.00'],
   ];
+  const payment = [
+    ['Account holder', 'Your name here'],
+    ['Bank', 'Your bank'],
+    ['Account number', '000123456789'],
+    ['Routing number (ACH)', '000000000'],
+    ['Account type', 'Checking'],
+    ['Payment reference', 'INV-0042'],
+  ];
+  const label = 'type-label text-print-faint';
+  const muted = 'type-support text-print-muted';
 
   return (
     /* The invoice needs 34rem to stay legible, so on a phone it scrolls
-       inside its own container rather than shrinking into unreadability.
-
-       That scroll has to be ADVERTISED. Without the hint below, a phone
-       visitor sees the description column and nothing else — the amount due,
-       the two different rates and the payment block are all off-screen with
-       nothing indicating they exist, which loses every persuasive element of
-       the page's strongest asset. */
+       inside its own container rather than shrinking into unreadability. */
     <div className="mt-2">
       <ScrollRegion
         aria-label="Sample invoice"
         className="overflow-x-auto rounded-lg shadow-float"
       >
-        <div className="min-w-[34rem] bg-print-ground p-6 text-print-ink">
+        <div className="min-w-[34rem] bg-print-ground p-6 text-print-ink sm:p-8">
           <div className="flex items-start justify-between gap-4">
             {/* A generic example, never a real person: this page is public and
               the invoice carries a name, an email and bank details. */}
             <div className="flex flex-col">
               <span className="type-heading">Your name here</span>
-              <span className="type-support text-print-muted">
-                you@yourdomain.com
-              </span>
+              <span className={muted}>Austin, TX</span>
+              <span className={muted}>you@yourdomain.com</span>
             </div>
             <div className="text-right">
               <div className="type-section">INVOICE</div>
@@ -339,28 +291,51 @@ function InvoicePreview() {
             </div>
           </div>
 
+          <div className="mt-6 flex items-start justify-between gap-6">
+            <div className="flex flex-col">
+              <span className={label}>BILL TO</span>
+              <span className="type-control mt-1 font-semibold">
+                Northwind Trading
+              </span>
+              <span className={muted}>Portland, OR</span>
+              <span className={muted}>ap@northwind.example</span>
+            </div>
+            <div className="flex flex-col items-end gap-3 text-right">
+              <div className="flex gap-7">
+                <div className="flex flex-col items-end">
+                  <span className={label}>ISSUED</span>
+                  <span className="type-control mt-1">Nov 1, 2026</span>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className={label}>DUE</span>
+                  <span className="type-control mt-1 font-semibold">
+                    Nov 15, 2026
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-col items-end">
+                <span className={label}>SERVICE PERIOD</span>
+                <span className={`${muted} mt-1`}>
+                  Oct 1, 2026 &ndash; Oct 31, 2026
+                </span>
+              </div>
+            </div>
+          </div>
+
           <table className="mt-6 w-full border-collapse">
             <thead>
-              <tr className="border-b border-print-rule">
-                <th className="type-label pb-2 text-left text-print-faint">
-                  Description
-                </th>
-                <th className="type-label pb-2 text-right text-print-faint">
-                  Hours
-                </th>
-                <th className="type-label pb-2 text-right text-print-faint">
-                  Rate
-                </th>
-                <th className="type-label pb-2 text-right text-print-faint">
-                  Amount
-                </th>
+              <tr className="border-b border-print-ink">
+                <th className={`${label} pb-2 text-left`}>DESCRIPTION</th>
+                <th className={`${label} pb-2 text-right`}>QTY</th>
+                <th className={`${label} pb-2 text-right`}>RATE</th>
+                <th className={`${label} pb-2 text-right`}>AMOUNT</th>
               </tr>
             </thead>
             <tbody>
-              {lines.map(([desc, hours, rate, amount]) => (
+              {services.map(([desc, qty, rate, amount]) => (
                 <tr key={desc} className="border-b border-print-hairline">
                   <td className="type-control py-2">{desc}</td>
-                  <td className="type-duration py-2 text-right">{hours}</td>
+                  <td className="type-duration py-2 text-right">{qty}</td>
                   <td className="type-duration py-2 text-right">{rate}</td>
                   <td className="type-duration py-2 text-right">{amount}</td>
                 </tr>
@@ -368,22 +343,57 @@ function InvoicePreview() {
             </tbody>
           </table>
 
-          {/* Two rates on one invoice, deliberately: it proves rate resolution
-            at a glance, and the rate is always part of the grouping key. */}
-          <div className="mt-4 flex items-baseline justify-end gap-6">
-            <span className="type-body">Amount due</span>
-            <span className="type-amount-hero">$6,779.16</span>
+          <table className="mt-4 w-full border-collapse">
+            <thead>
+              <tr className="border-b border-print-ink">
+                <th className={`${label} pb-2 text-left`}>EXPENSES</th>
+                <th className={`${label} pb-2 text-right`}>DATE</th>
+                <th className={`${label} pb-2 text-right`}>AMOUNT</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-print-hairline">
+                <td className="type-control py-2">Staging server</td>
+                <td className="type-duration py-2 text-right">Oct 14, 2026</td>
+                <td className="type-duration py-2 text-right">$48.00</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div className="mt-4 ml-auto flex w-64 flex-col">
+            <div className="flex justify-between py-0.5">
+              <span className={muted}>Services</span>
+              <span className="type-duration">$4,016.25</span>
+            </div>
+            <div className="flex justify-between py-0.5">
+              <span className={muted}>Expenses</span>
+              <span className="type-duration">$48.00</span>
+            </div>
+            <div className="mt-2 flex items-baseline justify-between border-t border-print-ink pt-2">
+              <span className="type-body font-semibold">Amount due</span>
+              <span className="type-amount-hero">$4,064.25</span>
+            </div>
+            <span className="type-meta mt-1 text-print-faint">Net 15</span>
           </div>
 
           <div className="mt-6 border-l-2 border-print-ink bg-print-band p-3">
             <p className="type-heading">Payment details</p>
+            <dl className="mt-2 grid grid-cols-3 gap-x-3 gap-y-2">
+              {payment.map(([k, v]) => (
+                <div key={k} className="flex flex-col">
+                  <dt className="type-label text-print-muted">
+                    {k.toUpperCase()}
+                  </dt>
+                  <dd className="type-duration">{v}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
         </div>
       </ScrollRegion>
 
-      {/* Only where the scroll actually happens. `lg:hidden` would be a lie
-          on a tablet, where 34rem still overflows. */}
-      <p className="type-meta mt-3 text-center text-subtle xl:hidden">
+      {/* Only below sm, where the content box is narrower than 34rem. */}
+      <p className="type-meta mt-3 text-center text-subtle sm:hidden">
         Scroll the invoice to see the rates and the total &rarr;
       </p>
     </div>
@@ -392,8 +402,8 @@ function InvoicePreview() {
 
 function Platforms() {
   const surfaces = [
-    { icon: Laptop, label: 'Web', detail: 'Everything, everywhere' },
-    { icon: Monitor, label: 'Mac', detail: 'Menu bar, always there' },
+    { icon: Laptop, label: 'Web', detail: 'Every screen' },
+    { icon: Monitor, label: 'Mac', detail: 'Menu bar' },
     { icon: Smartphone, label: 'Phone', detail: 'Start and stop anywhere' },
   ];
 
@@ -402,14 +412,23 @@ function Platforms() {
       recessed
       reverse
       title="Start it in the menu bar. Stop it from your phone."
-      lede={
-        <>
-          One timer, one truth. The apps aren&rsquo;t shrunken copies of each
-          other &mdash; each does the thing only it can do.
-        </>
+      lede={<>One timer on the web, your Mac and your phone.</>}
+      below={
+        <div className="grid gap-3 sm:grid-cols-3">
+          {surfaces.map(({ icon: Icon, label, detail }) => (
+            <div
+              key={label}
+              className="flex flex-col gap-2 rounded-lg bg-surface-primary p-4 shadow-card"
+            >
+              <Icon aria-hidden className="size-4 text-muted" />
+              <span className="type-heading text-strong">{label}</span>
+              <span className="type-support text-muted">{detail}</span>
+            </div>
+          ))}
+        </div>
       }
       aside={
-        <div className="flex flex-col gap-6">
+        <>
           {/* The Mac panel, captured with `apps/macos/qa.sh shot` signed in
               as the seeded local account, then cropped to its timer and
               today: below that it lists task names. */}
@@ -419,120 +438,97 @@ function Platforms() {
             sizes="20rem"
             className="mx-auto h-auto w-full max-w-xs rounded-xl shadow-float"
           />
-          <div className="grid gap-3 sm:grid-cols-3">
-            {surfaces.map(({ icon: Icon, label, detail }) => (
-              <div
-                key={label}
-                className="flex flex-col gap-2 rounded-lg bg-surface-primary p-4 shadow-card"
-              >
-                <Icon aria-hidden className="size-4 text-muted" />
-                <span className="type-heading text-strong">{label}</span>
-                <span className="type-support text-muted">{detail}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        </>
       }
     />
   );
 }
 
+/** The page's one action. Sign-in creates the account on first use. */
+function GetStarted() {
+  return (
+    <Button asChild variant="accent" className="h-10 px-5">
+      <a href={SIGN_IN_URL}>Get started</a>
+    </Button>
+  );
+}
+
 /**
- * The price and the promises: a centered statement with three short pillars,
- * one of the two shapes that break the page's split-section rhythm.
+ * The price: a centered statement over the two things a user pays for or
+ * doesn't, side by side, so free tracking reads as part of the price.
  */
 function Price() {
+  const plans = [
+    {
+      label: 'TRACKING',
+      figure: 'Free',
+      detail: 'Clients, hours, your records and every export.',
+    },
+    {
+      label: 'INVOICING',
+      figure: '$3.33/month',
+      detail: 'Billed annually, once beta ends.',
+    },
+  ];
+
   return (
     <section>
       <Container className="py-20 sm:py-28">
         <div className="mx-auto max-w-xl text-center">
           <h2 className="type-display text-balance text-strong">
-            Free to track. $40 a year to invoice.
+            Free during beta.
           </h2>
-          <p className="type-body mt-4 text-muted">
-            Downloading the invoice is the only thing the paid plan buys, billed
-            yearly. Everything else is free for as long as you need it.
+          <p className="type-body mt-2 text-muted">
+            Accounts made during beta keep this price for life.
           </p>
         </div>
 
-        <dl className="mt-12 grid gap-8 sm:grid-cols-3 sm:gap-10">
-          <Pillar term="Your records are never held back.">
-            Clients, hours, the money view and every export stay free, so
-            leaving costs you nothing.
-          </Pillar>
-          <Pillar term="Your hours are never edited.">
-            Left the timer running overnight? Stint shows you and asks.
-          </Pillar>
-          <Pillar term="Your rates freeze on the invoice.">
-            Raise your rate next year and the invoices you already sent
-            don&rsquo;t change.
-          </Pillar>
+        <dl className="mx-auto mt-12 grid max-w-2xl divide-y divide-edge-control overflow-hidden rounded-lg bg-surface-primary shadow-card sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+          {plans.map(({ label, figure, detail }) => (
+            <div key={label} className="flex flex-col gap-2 p-6 sm:p-8">
+              <dt className="type-label text-subtle">{label}</dt>
+              <dd className="type-amount-hero text-strong">{figure}</dd>
+              <dd className="type-support text-muted">{detail}</dd>
+            </div>
+          ))}
         </dl>
       </Container>
     </section>
   );
 }
 
-/** One of three. Centered, no rule — the row IS the structure here. */
-function Pillar({
-  term,
-  children,
-}: {
-  term: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="min-w-0">
-      <dt className="type-heading text-strong">{term}</dt>
-      <dd className="type-support mt-2 text-muted">{children}</dd>
-    </div>
-  );
-}
-
-/**
- * Objection handling, plainly.
- *
- * "Will this exist in a year?" is the hardest question a new billing tool
- * faces, and it is severe rather than idle: an invoice is a tax record. The
- * answer is not a promise about longevity — a promise from an unknown party
- * is worth nothing — but the fact that every invoice is a PDF the user has
- * already downloaded and sent. The no-email decision answered this before
- * anyone asked it.
- */
+/** What a contractor asks before switching, answered in a sentence or two. */
 function Questions() {
-  /* Answers are one or two sentences, so the one that matters ("what if Stint
-     goes away") is read. */
   const qs: { q: string; a: React.ReactNode }[] = [
     {
-      q: 'Does it email the invoice for me?',
+      q: 'Can I bring my hours from Toggl?',
       a: (
         <>
-          No, deliberately. Mail from a shared app domain gets spam-filtered on
-          the way to your client. You send the PDF yourself, from your address.
+          Yes. Export a detailed report from Toggl Track as CSV, review what it
+          adds, then import it.
         </>
       ),
     },
     {
-      q: 'What if Stint goes away?',
+      q: 'Does Stint email invoices to my clients?',
       a: (
         <>
-          Every invoice is a PDF you already downloaded, so it doesn&rsquo;t
-          depend on us existing. Export the rest any time.
+          No. Mail from a shared app domain gets spam-filtered on the way to
+          your client, so you send the PDF yourself, from your address.
         </>
       ),
     },
     {
-      q: 'Does it do taxes, expenses or mileage?',
-      a: <>No. Hours and invoices. The PDF drops into your books fine.</>,
+      q: 'Can I export my data?',
+      a: <>Yes. Your entries and invoices download as CSV any time.</>,
+    },
+    {
+      q: 'Does it do taxes or mileage?',
+      a: <>No. Hours, expenses and invoices.</>,
     },
     {
       q: 'Can I use it outside the US?',
-      a: (
-        <>
-          You can, but it&rsquo;s built US-first &mdash; USD, ACH, 1099/W-9, no
-          VAT. The defaults will fight you.
-        </>
-      ),
+      a: <>You can, but it&rsquo;s built US-first: USD and ACH. No VAT.</>,
     },
   ];
 
@@ -571,13 +567,13 @@ function Closing() {
         {/* The close asks for the decision rather than restating the pitch —
             the last line before a CTA lowers the cost of clicking. */}
         <h2 className="type-hero text-balance text-strong">
-          Your next invoice could build itself.
+          Track the hours. Send the invoice.
         </h2>
         <div className="mt-8 flex flex-col items-center gap-3">
-          <InviteRequest />
+          <GetStarted />
           <span className="type-meta max-w-sm text-subtle">
-            Invite-only during alpha. Nothing to install, no card, and your data
-            exports whenever you want it.
+            Free during beta. Nothing to install, no card, and your data exports
+            whenever you want it.
           </span>
         </div>
       </Container>

@@ -29,8 +29,8 @@ Consequences worth knowing:
   not add a session check to it.
 - **Cross-origin links are plain `<a>`, not `next/link`.** `next/link` would
   try to route a subdomain jump client-side within the current origin. The
-  header's Sign in link points at `NEXT_PUBLIC_APP_ORIGIN`; the calls to
-  action are the invite form, which posts to `NEXT_PUBLIC_INVITE_FORM_URL`.
+  header's Sign in link and both Get started calls to action point at
+  `NEXT_PUBLIC_APP_ORIGIN`.
 - **Locally, bare `localhost` is the app**, so `pnpm dev` is unchanged. Any
   other `*.localhost` is the apex — `http://stint.localhost:3100` previews the
   landing page with no hosts-file entry, because browsers resolve every
@@ -46,7 +46,7 @@ because the reader is trusting it with their rates: the invoice is shown
 rather than described, and a competitor's bill is named but never the
 competitor. Its current conventions, which a redesign may change:
 
-**Green marks a running timer and the invite button**: the hero timer, the
+**Green marks a running timer and Get started**: the hero timer, the
 one in the Mac panel's screenshot, and the action the page exists to
 complete. The invoice and the headings are neutral.
 

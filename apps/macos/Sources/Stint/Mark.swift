@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// `|Stint|™` in one color. Geometry comes from `Tokens.Mark`, so this and
+/// `|Stint|™`: green bounds, the letters in `color`. Geometry comes from `Tokens.Mark`, so this and
 /// the web app's `Wordmark` are one drawing; ratios of the font size, so one
 /// definition serves every placement.
 struct Lockup: View {
@@ -21,6 +21,7 @@ struct Lockup: View {
                 .font(tm.font)
                 .tracking(tm.tracking)
                 .offset(y: -size * Tokens.Mark.tmRise)
+                .opacity(Tokens.Mark.tmOpacity)
         }
         .font(role.font)
         .tracking(role.tracking)
@@ -31,8 +32,8 @@ struct Lockup: View {
 
     private var bound: some View {
         RoundedRectangle(cornerRadius: .infinity, style: .continuous)
-            .fill(color)
-            .frame(width: max(1, size * Tokens.Mark.boundWidth), height: size * Tokens.Mark.boundHeight)
+            .fill(Tokens.Dark.mark)
+            .frame(width: max(1, (size * Tokens.Mark.boundWidth).rounded()), height: size * Tokens.Mark.boundHeight)
             .padding(.horizontal, size * Tokens.Mark.boundGap)
     }
 }

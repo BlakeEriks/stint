@@ -33,6 +33,7 @@
     --timer-idle: #666D79;
     --timer-warning: #5CABF2;
     --success: #36C52A;
+    --mark: #36C52A;
     --warning: #5CABF2;
     --warning-muted: #162B40;
     --danger: #F64B66;
@@ -60,6 +61,7 @@
     --mark-bound-radius: 999px;
     --mark-tm-size: 0.6;
     --mark-tm-rise: 0.35em;
+    --mark-tm-opacity: 0.5;
 
     --proj-1: #DA8188;
     --proj-2: #D38B59;
@@ -113,6 +115,7 @@
     --timer-idle: #938E86;
     --timer-warning: #1C6DAD;
     --success: #457036;
+    --mark: #457036;
     --warning: #1C6DAD;
     --warning-muted: #E3EEF8;
     --danger: #C21F43;
@@ -296,7 +299,7 @@
 }
 
 /* ── The mark ──────────────────────────────────────────────────────
-   `|Stint|™` — one color, bounds included, inherited via currentColor.
+   `|Stint|™` — green bounds, the letters in the text color.
    Set a font-size on .mark and everything scales from it. */
 .mark {
     font-family: var(--font-mono);
@@ -312,11 +315,11 @@
     content: '';
     display: inline-block;
     flex: none;
-    width: var(--mark-bound-width);
+    width: max(1px, round(var(--mark-bound-width), 1px));
     height: var(--mark-bound-height);
     margin: 0 var(--mark-bound-gap);
     border-radius: var(--mark-bound-radius);
-    background: currentColor;
+    background: var(--mark);
 }
 /* `<span class="mark">Stint<span class="mark-tm">™</span></span>`: `order`
    moves the ™ past the closing bound, which is the ::after. */
@@ -326,5 +329,6 @@
     font-size: calc(var(--mark-tm-size) * 1em);
     line-height: 1;
     letter-spacing: 0;
+    opacity: var(--mark-tm-opacity);
     translate: 0 calc(-1 * var(--mark-tm-rise) / var(--mark-tm-size));
 }

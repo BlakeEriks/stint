@@ -32,10 +32,10 @@ export function Wordmark({ large = false }: { large?: boolean }) {
   const role = large ? 'wordmark' : 'wordmark-small';
   const size = text(role).fontSize ?? 18;
   const bound = {
-    width: Math.max(1.5, size * mark.boundWidth),
+    width: Math.max(1, Math.round(size * mark.boundWidth)),
     height: size * mark.boundHeight,
     borderRadius: mark.boundRadius,
-    backgroundColor: c['text-strong'],
+    backgroundColor: c.mark,
   };
   const tmSize = size * mark.tmSize;
   return (
@@ -55,6 +55,7 @@ export function Wordmark({ large = false }: { large?: boolean }) {
           lineHeight: tmSize,
           letterSpacing: 0,
           color: c['text-strong'],
+          opacity: mark.tmOpacity,
           transform: [{ translateY: -size * mark.tmRise }],
         }}
       >
