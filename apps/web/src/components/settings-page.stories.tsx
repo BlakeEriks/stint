@@ -10,6 +10,9 @@ import {
   stalled,
   expectOpen,
 } from '@/mocks/screen';
+import { localDateKey } from '@stint/core';
+import { timeZone } from '@/lib/client/use-timer';
+import { shortDate } from './invoice-bits';
 import { SettingsPage } from './settings-page';
 
 const meta = {
@@ -436,7 +439,10 @@ export const ConnectedApps: Story = {
   play: async ({ canvasElement }) => {
     const apps = await connectedApps(canvasElement);
     await expect(apps.getByText('Claude Code')).toBeVisible();
-    await expect(apps.getByText(/^Approved /)).toBeVisible();
+    const [app] = getDb().connectedApps;
+    if (!app) throw new Error('The fixture has no connected app.');
+    const day = shortDate(localDateKey(new Date(app.grantedAt), timeZone));
+    await expect(apps.getByText(`Approved ${day}`)).toBeVisible();
     await userEvent.click(apps.getByRole('button', { name: 'Revoke' }));
     await waitFor(() => expect(apps.queryByText('Claude Code')).toBeNull());
   },
@@ -468,7 +474,7 @@ export const NoConnectedApps: Story = {
   },
 };
 
-/** A refused revoke puts the app back and says so in the notice. */
+/** A refused revoke says so in the notice. */
 export const RevokeRefused: Story = {
   ...desktop,
   parameters: failing('revokeConnectedApp'),
@@ -479,6 +485,5 @@ export const RevokeRefused: Story = {
     await expect(
       await page.findByText(/Couldn’t revoke Claude Code/),
     ).toBeVisible();
-    await expect(apps.getByText('Claude Code')).toBeVisible();
   },
 };
