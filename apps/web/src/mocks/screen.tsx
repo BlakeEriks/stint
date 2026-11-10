@@ -68,13 +68,17 @@ export function failing(...keys: (keyof typeof handlers)[]) {
 /**
  * These calls never answer, so a story shows a press still pending: each
  * endpoint is called once, and the preview judges the story with that many
- * requests still open. `'signOut'` is the Supabase auth call, not `/api/v1`.
+ * requests still open. `'signOut'` and `'oauth'` are Supabase auth calls, not
+ * `/api/v1`.
  */
-export function stalled(...keys: (keyof typeof handlers | 'signOut')[]) {
-  const api = keys.filter((key) => key !== 'signOut');
+export function stalled(
+  ...keys: (keyof typeof handlers | 'signOut' | 'oauth')[]
+) {
+  const api = keys.filter((key) => key !== 'signOut' && key !== 'oauth');
   return {
     stalls: api.length,
     stallSignOut: keys.includes('signOut'),
+    stallOAuth: keys.includes('oauth'),
     msw: {
       handlers: Object.fromEntries(
         api.map((key) => {

@@ -3,8 +3,8 @@ import { getDb } from './db';
 /** An address nobody invited, for the sign-in story that shows it. */
 export const NOT_INVITED = 'stranger@example.com';
 
-/** Holds sign-out pending, as a server that never answers: `stalled('signOut')`. */
-export const stall = { signOut: false };
+/** Holds a call pending, as a server that never answers: `stalled('signOut')`. */
+export const stall = { signOut: false, oauth: false };
 
 /**
  * Stands in for `src/lib/client/supabase.ts` in Storybook: the signed-in
@@ -32,12 +32,15 @@ export function browserClient() {
               },
             }
           : { data: {}, error: null },
-      /* The real calls send the browser back to the app, so the page never
-         sees an answer. */
       oauth: {
-        approveAuthorization: () => new Promise<never>(() => {}),
-        denyAuthorization: () => new Promise<never>(() => {}),
+        approveAuthorization: () => answer(),
+        denyAuthorization: () => answer(),
       },
     },
   };
 }
+
+const answer = () =>
+  stall.oauth
+    ? new Promise<never>(() => {})
+    : Promise.resolve({ data: {}, error: null });

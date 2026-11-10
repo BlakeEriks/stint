@@ -37,6 +37,7 @@ const frame = () => new Promise((done) => requestAnimationFrame(done));
 const busy = () =>
   stalls === 0 &&
   !stall.signOut &&
+  !stall.oauth &&
   document.querySelector('[aria-busy="true"]') !== null;
 /* Twice: a response often starts the request that depends on it. */
 async function quiet() {
@@ -108,6 +109,7 @@ const preview: Preview = {
     inFlight = 0;
     stalls = (parameters.stalls as number | undefined) ?? 0;
     stall.signOut = parameters.stallSignOut === true;
+    stall.oauth = parameters.stallOAuth === true;
     problems.length = 0;
     const now = new Date(parameters.now ?? NOW);
     MockDate.set(now);

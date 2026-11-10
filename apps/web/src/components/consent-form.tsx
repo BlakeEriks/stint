@@ -7,8 +7,9 @@ import { browserClient } from '@/lib/client/supabase';
 
 /**
  * Approving an app such as Claude, from Supabase's OAuth server
- * (`/oauth/consent`). Supabase sends the browser back to the app either
- * way, so a press stays pending until the page leaves.
+ * (`/oauth/consent`). Supabase then sends the browser to the app's callback,
+ * which for Claude Code is a localhost server that doesn't leave this page,
+ * so an answered press says it's done.
  */
 export function ConsentForm({
   authorizationId,
@@ -22,6 +23,7 @@ export function ConsentForm({
 }) {
   const [pressed, setPressed] = useState<'approve' | 'deny' | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
+  const [done, setDone] = useState<'approve' | 'deny' | null>(null);
 
   async function answer(choice: 'approve' | 'deny') {
     setPressed(choice);
@@ -34,7 +36,7 @@ export function ConsentForm({
     if (error) {
       setPressed(null);
       setFailed(error.message);
-    }
+    } else setDone(choice);
   }
 
   return (
@@ -61,23 +63,30 @@ export function ConsentForm({
           </p>
           <p className="mt-2 type-meta text-subtle">Signed in as {email}</p>
 
-          <div className="mt-6 flex gap-2">
-            <Button
-              type="button"
-              variant="accent"
-              disabled={pressed !== null}
-              onClick={() => answer('approve')}
-            >
-              {pressed === 'approve' ? 'Approving…' : 'Approve'}
-            </Button>
-            <Button
-              type="button"
-              disabled={pressed !== null}
-              onClick={() => answer('deny')}
-            >
-              {pressed === 'deny' ? 'Denying…' : 'Deny'}
-            </Button>
-          </div>
+          {done ? (
+            <p role="status" className="mt-6 type-support text-strong">
+              {done === 'approve' ? 'Connected.' : 'Not connected.'} You can
+              close this tab.
+            </p>
+          ) : (
+            <div className="mt-6 flex gap-2">
+              <Button
+                type="button"
+                variant="accent"
+                disabled={pressed !== null}
+                onClick={() => answer('approve')}
+              >
+                {pressed === 'approve' ? 'Approving…' : 'Approve'}
+              </Button>
+              <Button
+                type="button"
+                disabled={pressed !== null}
+                onClick={() => answer('deny')}
+              >
+                {pressed === 'deny' ? 'Denying…' : 'Deny'}
+              </Button>
+            </div>
+          )}
 
           {failed ? (
             <p role="alert" className="mt-3 type-support text-danger">
