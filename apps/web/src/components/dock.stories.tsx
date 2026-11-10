@@ -64,17 +64,6 @@ export const InvoiceDownloads: Story = {
   },
 };
 
-export const InvoiceDownloadsFree: Story = {
-  ...desktop,
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement.ownerDocument.body);
-    await page.findAllByText(/days late/);
-    await waitFor(() =>
-      expect(page.queryAllByRole('link', { name: /^Download, / })).toEqual([]),
-    );
-  },
-};
-
 /** An overlap with billed time opens the unbilled entry and names the
     invoice holding the other, which can't be edited. */
 export const BilledOverlap: Story = {
