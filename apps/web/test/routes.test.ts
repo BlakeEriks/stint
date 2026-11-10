@@ -117,11 +117,13 @@ const STRIPE_ENV = [
   'STRIPE_SECRET_KEY',
   'STRIPE_PRICE_ID',
   'STRIPE_WEBHOOK_SECRET',
+  'BILLING_LIVE',
 ] as const;
 const WEBHOOK_SECRET = 'whsec_test';
 let stripeFake: ReturnType<typeof fakeStripe>;
 
 const configureBilling = () => {
+  process.env.BILLING_LIVE = 'true';
   process.env.STRIPE_SECRET_KEY = 'sk_test_unused';
   process.env.STRIPE_PRICE_ID = 'price_yearly';
   process.env.STRIPE_WEBHOOK_SECRET = WEBHOOK_SECRET;
@@ -3862,7 +3864,7 @@ const billing = async () => {
   return json(await GET(req('/billing')));
 };
 
-test('billing reads free with no subscription, and says whether Stripe is set up', async () => {
+test('billing reads free with no subscription, and says whether it is live', async () => {
   const free = {
     available: false,
     plan: 'free',
@@ -3874,6 +3876,9 @@ test('billing reads free with no subscription, and says whether Stripe is set up
   assert.deepEqual(await billing(), { status: 200, body: free });
   configureBilling();
   assert.deepEqual((await billing()).body, { ...free, available: true });
+  // Beta: Stripe set up, and still no client asks for payment.
+  delete process.env.BILLING_LIVE;
+  assert.deepEqual((await billing()).body, free);
 });
 
 test('every billing write answers 503 until Stripe is set up', async () => {
@@ -3919,6 +3924,30 @@ test('the webhook refuses a missing or forged signature and changes nothing', as
   );
   assert.equal(forged.status, 400);
   assert.deepEqual(await subscriptionRows(), []);
+});
+
+test('during beta the webhook still mirrors Stripe, and nothing asks for payment', async () => {
+  configureBilling();
+  delete process.env.BILLING_LIVE;
+  stripeFake.state.subscriptions.push(subscription({ userId: USER }));
+  const res = await deliver('customer.subscription.created', {
+    customer: 'cus_1',
+  });
+  assert.equal(res.status, 200);
+  assert.equal((await subscriptionRows())[0].status, 'active');
+
+  const { POST: checkout } = await import(
+    '../src/app/api/v1/billing/checkout/route.ts'
+  );
+  const { POST: portal } = await import(
+    '../src/app/api/v1/billing/portal/route.ts'
+  );
+  for (const r of [
+    await checkout(req('/billing/checkout', {})),
+    await portal(req('/billing/portal', {})),
+  ])
+    assert.equal((await json(r)).body.code, 'BILLING_UNAVAILABLE');
+  assert.equal(stripeFake.state.created.length, 0);
 });
 
 test('a subscription event stores what Stripe says now, for the user in its metadata', async () => {
