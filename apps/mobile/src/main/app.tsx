@@ -26,14 +26,12 @@ import { BypassScreen } from '../screens/bypass-screen.tsx';
 import { SignInContainer } from './sign-in-container.tsx';
 import { TimerContainer } from './timer-container.tsx';
 
-const bypass = createBypass(secureStore);
 const auth = createAuth({
   supabaseUrl: target.supabaseUrl,
   supabaseKey: target.supabaseKey,
-  origin,
-  bypass: bypass.current,
   store: secureStore,
 });
+const bypass = createBypass(secureStore);
 const api = createApi(
   createRequest({
     origin,
@@ -239,7 +237,7 @@ export function App() {
             onNotificationsOn={redrawSurfaces}
           />
         ) : (
-          <SignInContainer auth={auth} />
+          <SignInContainer auth={auth} sendCode={api.sendCode} />
         )}
       </QueryClientProvider>
     </SafeAreaProvider>

@@ -322,6 +322,10 @@ It is separate from `verify:db` because it is the one suite that needs a real
 phone and macOS apps depend on; only a genuinely signed token proves it. In
 CI it runs in the e2e job, right after `supabase start`.
 
+`pnpm test:auth:captcha` runs `auth-code.test.ts`, which needs the stack's
+CAPTCHA on, as production's is. Locally it is off, so this one runs in CI:
+the e2e job's last step turns it on and restarts the stack.
+
 ## Running the browser tests
 
 `pnpm test:e2e` needs the local stack and the app already running — `pnpm

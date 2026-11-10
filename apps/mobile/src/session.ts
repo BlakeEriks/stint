@@ -1,10 +1,10 @@
-import { ApiError, readFailure } from '@stint/client';
+import { ApiError } from '@stint/client';
 import { createListeners } from './listeners.ts';
 
 /**
- * Sign-in by emailed six-digit code, sent by Stint and verified against
- * GoTrue over `fetch`, as the macOS app does (`docs/macos.md`, Sign-in):
- * two POSTs need no SDK.
+ * Sign-in by emailed six-digit code, sent by Stint (`api.ts`'s `sendCode`)
+ * and verified against GoTrue over `fetch`, as the macOS app does
+ * (`docs/macos.md`, Sign-in): no SDK needed.
  *
  * **Only GoTrue rejecting the refresh token signs out.** Offline, a timeout,
  * a 5xx or a rate limit keeps the session and fails the one request, so a
@@ -30,10 +30,6 @@ export interface Store {
 interface Options {
   supabaseUrl: string;
   supabaseKey: string;
-  /** The web app's origin, which sends the sign-in code (`request.ts`). */
-  origin: string;
-  /** Vercel's protection bypass, on a preview build (`bypass.ts`). */
-  bypass: () => string | null;
   store: Store;
   fetch?: typeof fetch;
   now?: () => number;
@@ -56,8 +52,6 @@ const signedOut = () =>
 export function createAuth({
   supabaseUrl,
   supabaseKey,
-  origin,
-  bypass,
   store,
   fetch: send = fetch,
   now = Date.now,
@@ -146,22 +140,6 @@ export function createAuth({
     load,
     refresh,
     signInWithSession,
-
-    /** Asked of Stint, not GoTrue, whose `/otp` wants a CAPTCHA this app
-        can't solve; Stint mails existing accounts only. */
-    async sendCode(email: string) {
-      const headers: Record<string, string> = {
-        'content-type': 'application/json',
-      };
-      const pass = bypass();
-      if (pass) headers['x-vercel-protection-bypass'] = pass;
-      const res = await send(`${origin}/api/v1/auth/code`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ email }),
-      });
-      if (!res.ok) throw await readFailure(res);
-    },
 
     /** `type: "email"`: `"magiclink"` is the link's hashed token and rejects a typed code. */
     async verifyCode(email: string, code: string) {

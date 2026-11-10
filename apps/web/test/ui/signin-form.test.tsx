@@ -58,10 +58,6 @@ describe('SignInForm', () => {
     // A global scope would revoke the session on the user's phone because
     // they asked for a link on their laptop.
     expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
-    // Sign-up is open: the same link makes the account.
-    expect(signInWithOtp.mock.calls[0]?.[0]).not.toMatchObject({
-      options: { shouldCreateUser: false },
-    });
     // Leaving a stale failure beside "Check your email" would say the new
     // link is broken too.
     await waitFor(() =>

@@ -201,8 +201,7 @@ struct TimerModelTests {
         await model.signOut()
     }
 
-    /// GoTrue's `/otp` wants a CAPTCHA the panel can't solve, so the code is
-    /// Stint's to send, and its refusal is what the panel says.
+    /// Stint's refusal is what the panel says.
     @Test func aSignInCodeIsAskedOfStint() async throws {
         let model = try await signedInModel()
         APIStub.routes["/auth/code"] = (200, Data("{}".utf8))
@@ -211,8 +210,8 @@ struct TimerModelTests {
         let sent = try JSONSerialization.jsonObject(with: body) as? [String: Any]
         #expect(sent?["email"] as? String == "builder@localhost.test")
 
-        APIStub.routes["/auth/code"] = (404, Data(#"{"code":"NO_ACCOUNT","message":"No Stint account uses this email."}"#.utf8))
-        await #expect(throws: APIError(status: 404, code: "NO_ACCOUNT", message: "No Stint account uses this email.")) {
+        APIStub.routes["/auth/code"] = (429, Data(#"{"code":"RATE_LIMITED","message":"Too many sign-in codes from here."}"#.utf8))
+        await #expect(throws: APIError(status: 429, code: "RATE_LIMITED", message: "Too many sign-in codes from here.")) {
             try await model.requestLink(email: "who@x.test")
         }
         await model.signOut()

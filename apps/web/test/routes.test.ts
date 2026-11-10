@@ -4414,6 +4414,69 @@ test('every route answers an unsigned request with 401', async () => {
   );
 });
 
+/** `/auth/code` against a GoTrue that answers `status` with `body`, from
+ *  client address `ip`. Each call GoTrue saw is in `asked`. */
+async function askCode(
+  ip: string,
+  status = 200,
+  body: object = {},
+  asked: unknown[] = [],
+) {
+  const { POST } = await import('../src/app/api/v1/auth/code/route.ts');
+  configureBroadcast();
+  (globalThis as any).__TEST_GOTRUE__ = async (
+    _: string,
+    init: RequestInit,
+  ) => {
+    asked.push(JSON.parse(String(init.body)));
+    return Response.json(body, { status });
+  };
+  return POST(
+    new Request('http://t/api/v1/auth/code', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-real-ip': ip },
+      body: JSON.stringify({ email: 'who@example.com' }),
+    }),
+  );
+}
+
+test('a sign-in code answers the same whether or not the address has an account', async () => {
+  await pool.query('delete from private.sign_in_code_requests');
+  const asked: unknown[] = [];
+  const known = await askCode('192.0.2.1', 200, {}, asked);
+  const unknown = await askCode('192.0.2.1', 422, {
+    error_code: 'otp_disabled',
+    msg: 'Signups not allowed for otp',
+  });
+  // GoTrue's per-address interval answers only for an address that exists.
+  const again = await askCode('192.0.2.1', 429, {
+    error_code: 'over_email_send_rate_limit',
+  });
+  assert.deepEqual(
+    [known.status, unknown.status, again.status],
+    [200, 200, 200],
+  );
+  assert.deepEqual(asked, [{ email: 'who@example.com', create_user: false }]);
+});
+
+test('one address gets five sign-in codes an hour, and another is unaffected', async () => {
+  await pool.query('delete from private.sign_in_code_requests');
+  const asked: unknown[] = [];
+  for (let i = 0; i < 5; i++)
+    assert.equal((await askCode('192.0.2.1', 200, {}, asked)).status, 200);
+  const sixth = await askCode('192.0.2.1', 200, {}, asked);
+  assert.equal(sixth.status, 429);
+  assert.equal((await sixth.json()).code, 'RATE_LIMITED');
+  assert.equal(asked.length, 5, 'the sixth never reaches GoTrue');
+  assert.equal((await askCode('192.0.2.2')).status, 200);
+
+  // An hour on, the address has its five again.
+  await pool.query(
+    "update private.sign_in_code_requests set requested_at = now() - interval '61 minutes'",
+  );
+  assert.equal((await askCode('192.0.2.1')).status, 200);
+});
+
 // ── the macOS app's contract ───────────────────────────────────────
 // `API.swift` restates the response shapes by hand. This test keeps each
 // answer the app decodes in `apps/macos/Tests/StintTests/Fixtures`, which

@@ -1,96 +1,66 @@
 /**
- * `POST /api/v1/auth/code`, against a real Auth server: the native apps'
- * only way to ask for a sign-in code once production's CAPTCHA guards
- * GoTrue's `/otp`. It must mail an existing account and never create one.
+ * `POST /api/v1/auth/code` against an Auth server with the CAPTCHA on, as
+ * production's is: the route must get past it to mail an existing account,
+ * and must never create one.
  *
- * Needs the same three variables as `auth.test.ts`; `pnpm test:auth` runs both.
+ * `pnpm test:auth:captcha` runs it; CI turns the CAPTCHA on first with
+ * Turnstile's always-pass test secret, which still rejects a missing token.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-
-const url = process.env.SUPABASE_URL;
-const publishable = process.env.SUPABASE_PUBLISHABLE_KEY;
-const secret = process.env.SUPABASE_SECRET_KEY;
-
-if (!url || !publishable || !secret) {
-  throw new Error(
-    'The sign-in code test needs a running Auth server. Run `pnpm test:auth`.',
-  );
-}
-
-process.env.NEXT_PUBLIC_SUPABASE_URL = url;
-process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = publishable;
-process.env.SUPABASE_SECRET_KEY = secret;
+import { randomUUID } from 'node:crypto';
+import {
+  deleteUser,
+  freshUser,
+  publishable,
+  url,
+  usersNamed,
+} from './auth-server.ts';
 
 const EMAIL = 'auth-code@test.local';
 const STRANGER = 'auth-code-stranger@test.local';
+// Its own address each run, so a rerun within the hour is not throttled.
+const IP = `test-${randomUUID()}`;
 
 let POST: typeof import('../src/app/api/v1/auth/code/route.ts').POST;
 let userId: string;
 
-const admin = (path: string, init: RequestInit = {}) =>
-  fetch(`${url}/auth/v1${path}`, {
-    ...init,
-    headers: {
-      apikey: secret,
-      authorization: `Bearer ${secret}`,
-      'content-type': 'application/json',
-      ...(init.headers ?? {}),
-    },
-  });
-
-const usersNamed = async (email: string): Promise<{ id: string }[]> =>
-  ((
-    await admin(`/admin/users?filter=${encodeURIComponent(email)}`).then((r) =>
-      r.json(),
-    )
-  ).users ?? []) as { id: string }[];
-
-const ask = (body: unknown) =>
+const ask = (email: string) =>
   POST(
     new Request('http://localhost/api/v1/auth/code', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
+      headers: { 'content-type': 'application/json', 'x-real-ip': IP },
+      body: JSON.stringify({ email }),
     }),
   );
 
 before(async () => {
   ({ POST } = await import('../src/app/api/v1/auth/code/route.ts'));
-  for (const email of [EMAIL, STRANGER])
-    for (const u of await usersNamed(email))
-      await admin(`/admin/users/${u.id}`, { method: 'DELETE' });
-
-  const created = await admin('/admin/users', {
-    method: 'POST',
-    body: JSON.stringify({ email: EMAIL, email_confirm: true }),
-  }).then((r) => r.json());
-  userId = created.id;
-  assert.ok(
-    userId,
-    `could not create the test user: ${JSON.stringify(created)}`,
-  );
+  userId = await freshUser(EMAIL);
+  for (const u of await usersNamed(STRANGER)) await deleteUser(u.id);
 });
 
 after(async () => {
-  if (userId) await admin(`/admin/users/${userId}`, { method: 'DELETE' });
-  for (const u of await usersNamed(STRANGER))
-    await admin(`/admin/users/${u.id}`, { method: 'DELETE' });
+  if (userId) await deleteUser(userId);
+  for (const u of await usersNamed(STRANGER)) await deleteUser(u.id);
 });
 
-test('an existing account is sent a code', async () => {
-  const res = await ask({ email: EMAIL });
+test('the CAPTCHA is on: GoTrue refuses a code asked without a token', async () => {
+  const res = await fetch(`${url}/auth/v1/otp`, {
+    method: 'POST',
+    headers: { apikey: publishable, 'content-type': 'application/json' },
+    body: JSON.stringify({ email: EMAIL, create_user: false }),
+  });
+  assert.equal((await res.json()).error_code, 'captcha_failed');
+});
+
+test('an existing account is sent a code past the CAPTCHA', async () => {
+  const res = await ask(EMAIL);
   assert.equal(res.status, 200, await res.clone().text());
 });
 
-test('an unknown address is told it has no account, and none is made', async () => {
-  const res = await ask({ email: STRANGER });
-  assert.equal(res.status, 404);
-  assert.equal((await res.json()).code, 'NO_ACCOUNT');
+test('an unknown address gets the same answer, and no account', async () => {
+  const res = await ask(STRANGER);
+  assert.equal(res.status, 200, await res.clone().text());
   assert.deepEqual(await usersNamed(STRANGER), []);
-});
-
-test('a body that is not an email is refused before GoTrue', async () => {
-  const res = await ask({ email: 'not-an-email' });
-  assert.equal(res.status, 422);
 });

@@ -58,8 +58,6 @@ export function SignInForm({
        session here — the page redirects home if there is. */
     await db.auth.signOut({ scope: 'local' });
 
-    /* An unknown address gets an account: the link both signs up and signs
-       in. */
     const { error } = await db.auth.signInWithOtp({
       email,
       options: {

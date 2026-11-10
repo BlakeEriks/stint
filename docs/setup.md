@@ -128,8 +128,9 @@ panel has a code to take.
 Anyone who enters an email on the sign-in form gets an account, so anyone
 could make Stint send mail. Cloudflare Turnstile, which Supabase supports,
 guards GoTrue's `/otp`. The macOS and phone apps can't solve it, so they ask
-`/api/v1/auth/code` for a code instead, which passes it with the secret key
-and mails only an existing account (`docs/api.md`, Sign-in).
+`/api/v1/auth/code` for a code instead, which passes it with the secret key,
+mails only an existing account, and allows five codes an hour per client
+address (`docs/api.md`, Sign-in).
 
 In this order, so sign-in never breaks partway through:
 

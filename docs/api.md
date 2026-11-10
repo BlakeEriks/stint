@@ -425,7 +425,7 @@ preference — `.claude/rules/invoicing.md` has the reason.
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST` | `/auth/code` | **No auth.** `{ email }` → `200 {}` once GoTrue has mailed that account a sign-in code, which the macOS and phone apps then verify with GoTrue. Production's CAPTCHA guards GoTrue's own `/otp`, so the native apps ask here, and this asks with the secret key (`docs/setup.md` §6). It never creates an account: `404 NO_ACCOUNT` for an address with none, `429 RATE_LIMITED` while GoTrue's send interval holds. Covered by `apps/web/test/auth-code.test.ts`, against a real Auth server. |
+| `POST` | `/auth/code` | **No auth.** `{ email }` → `200 {}`, whether or not the address has an account, so nobody learns which do; GoTrue mails a sign-in code only to an existing one, which the macOS and phone apps then verify with GoTrue. It never creates an account. `429 RATE_LIMITED` past five a client address asks in an hour. Why it exists: `docs/setup.md` §6. Covered by `routes.test.ts`, and by `auth-code.test.ts` against a real Auth server with the CAPTCHA on. |
 
 ## Health
 
@@ -459,8 +459,7 @@ preference — `.claude/rules/invoicing.md` has the reason.
 | `BILLING_UNAVAILABLE` | 503 | Stripe isn't configured on this deploy. |
 | `VALIDATION_FAILED` | 422 | Zod parse failure (`details` carries the issues), an illegal state change such as deleting an issued invoice or an invalid status transition, a `PATCH` body that parses but maps to no column, or a reference to a record that is missing or another user's, such as a project's `clientId`. |
 | `PAYMENT_REQUIRED` | 402 | The invoice PDF is the paid tier. Subscribe in Settings. |
-| `NO_ACCOUNT` | 404 | A sign-in code for an address with no account. Sign up on the web. |
-| `RATE_LIMITED` | 429 | A sign-in code asked for again too soon. |
+| `RATE_LIMITED` | 429 | A sixth sign-in code from one address within the hour. |
 | `INTERNAL` | 500 | Unhandled error. Not part of `ErrorCode` in the schema package. |
 
 `ENTRY_NOT_FOUND` is the generic 404 across resources — clients, projects,
@@ -472,8 +471,8 @@ otherwise.
 
 **Retry policy:** 409, 5xx and network failures are worth retrying. Other 4xx
 are rejections on the merits — an unchanged request fails identically, so
-surface them rather than retrying. The one 429, `RATE_LIMITED`, is a person
-asking for a code twice; its message says when to ask again.
+surface them rather than retrying. The one 429, `RATE_LIMITED`, is one address
+asking for too many codes; its message says when to ask again.
 
 ## Timezones
 

@@ -190,7 +190,7 @@ actor API {
         )
     }
 
-    private struct Empty: Encodable {}
+    private struct Empty: Codable {}
 
     func stopTimer(timeZone: TimeZone = .current) async throws -> Pressed {
         try await request("POST", "/timer/stop?include=summary&tz=\(timeZone.identifier)", body: Empty())
@@ -210,34 +210,25 @@ actor API {
         let message: String
     }
 
-    /// Asked before there is a session, so it carries no token. Stint, not
-    /// GoTrue's `/otp`, which production guards with a CAPTCHA the panel
-    /// can't solve; Stint mails existing accounts only.
+    /// Signed out: Stint mails the code (`/api/v1/auth/code`).
     func requestCode(email: String) async throws {
-        var req = URLRequest(url: URL(string: baseURL.absoluteString + "/api/v1/auth/code")!)
-        req.httpMethod = "POST"
-        if let bypass = Config.vercelBypass {
-            req.setValue(bypass, forHTTPHeaderField: "x-vercel-protection-bypass")
-        }
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try JSONEncoder().encode(["email": email])
-        let (data, response) = try await session.data(for: req)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        guard (200..<300).contains(status) else { throw Self.failure(data, status: status) }
+        let _: Empty = try await request("POST", "/auth/code", body: ["email": email], authorized: false)
     }
 
     private func request<T: Decodable>(
         _ method: String,
         _ path: String,
-        body: (any Encodable)? = nil
+        body: (any Encodable)? = nil,
+        authorized: Bool = true
     ) async throws -> T {
-        guard let token = try await tokens.accessToken() else {
-            throw APIError(status: 401, code: "UNAUTHORIZED", message: "Not signed in")
-        }
-
         var req = URLRequest(url: URL(string: baseURL.absoluteString + "/api/v1" + path)!)
         req.httpMethod = method
-        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if authorized {
+            guard let token = try await tokens.accessToken() else {
+                throw APIError(status: 401, code: "UNAUTHORIZED", message: "Not signed in")
+            }
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
         if let bypass = Config.vercelBypass {
             req.setValue(bypass, forHTTPHeaderField: "x-vercel-protection-bypass")
         }
@@ -248,14 +239,12 @@ actor API {
 
         let (data, response) = try await session.data(for: req)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        guard (200..<300).contains(status) else { throw Self.failure(data, status: status) }
-        return try Self.decoder.decode(T.self, from: data)
-    }
-
-    private static func failure(_ data: Data, status: Int) -> APIError {
-        if let err = try? JSONDecoder().decode(ErrorBody.self, from: data) {
-            return APIError(status: status, code: err.code, message: err.message)
+        guard (200..<300).contains(status) else {
+            if let err = try? JSONDecoder().decode(ErrorBody.self, from: data) {
+                throw APIError(status: status, code: err.code, message: err.message)
+            }
+            throw APIError(status: status, code: "UNKNOWN", message: "The server returned \(status).")
         }
-        return APIError(status: status, code: "UNKNOWN", message: "The server returned \(status).")
+        return try Self.decoder.decode(T.self, from: data)
     }
 }

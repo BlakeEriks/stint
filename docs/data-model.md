@@ -286,6 +286,13 @@ paid. Whether a status is paid is `planOf()` in `@stint/core`, not SQL. It
 goes with the account (`on delete cascade`), after `DELETE /account` has
 canceled any live subscription at Stripe.
 
+### `private.sign_in_code_requests`
+When each client address asked `POST /auth/code` for a sign-in code, for
+its five-an-hour throttle. No user's data: it lives in `private`, which the
+API doesn't serve, with RLS on and no policy, and only
+`take_sign_in_code_slot()`, which only `service_role` may call, reads or
+writes it. Rows older than an hour are deleted as each request arrives.
+
 ## Integrity rules
 
 ### The timer invariant
