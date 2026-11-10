@@ -7,7 +7,8 @@ paths:
 
 ## API layer
 
-All routes live in `apps/web/src/app/api/v1/`.
+All routes live in `apps/web/src/app/api/v1/`, except the MCP endpoint
+(`api/mcp`) and the OAuth metadata it points to (`.well-known/`).
 
 **Every request shape comes from `@stint/schema`.** A route parses its body or
 query against a schema the package exports; it never declares one inline. A
@@ -32,7 +33,8 @@ Shared plumbing in `apps/web/src/lib/`:
   `toolCall()` marked the `Request`, which only `lib/mcp.ts` does. A route
   needs nothing to stay behind that fence. The same token reaches PostgREST
   directly, so the database fences it too: `connected_app()` policies let it
-  read clients, projects and entries and rename one column each. A tool
+  read clients, projects and entries and rename a project or an entry's
+  task. A tool
   that needs more needs both.
 - `errors.ts` — `handle()` wraps every route; `ApiError` answers with its
   code's status from `ERROR_STATUS` in `@stint/schema`, the one table of

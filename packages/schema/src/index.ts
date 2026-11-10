@@ -8,6 +8,7 @@
 
 export * from './clients.ts';
 export * from './connected-apps.ts';
+export * from './mcp.ts';
 export * from './entries.ts';
 export * from './errors.ts';
 export * from './expenses.ts';

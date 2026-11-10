@@ -432,7 +432,7 @@ holds them; these call its grants API with the caller's token.
 | Method | Path | Notes |
 |---|---|---|
 | `GET` | `/connected-apps` | `{ apps: [{ clientId, name, grantedAt }] }` |
-| `DELETE` | `/connected-apps/:clientId` | `204`. The app's tokens are refused from its next request. |
+| `DELETE` | `/connected-apps/:clientId` | `204`. The app's tokens are refused from its next request. `404 ENTRY_NOT_FOUND` for an app the user hasn't approved. |
 
 ## MCP
 
@@ -500,7 +500,8 @@ the fence covers what it guards against.
 | `INTERNAL` | 500 | Unhandled error. Not part of `ErrorCode` in the schema package. |
 
 `ENTRY_NOT_FOUND` is the generic 404 across resources — clients, projects,
-invoices, expenses, payment profiles and settings, not only time entries.
+invoices, expenses, payment profiles, settings and connected apps, not only
+time entries.
 
 **Success statuses:** `201` on a create, `200` on an idempotent replay of one
 (a duplicate-key insert with a client-supplied id), `204` on a delete, `200`

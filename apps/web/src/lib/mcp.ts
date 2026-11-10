@@ -3,7 +3,7 @@ import {
   createMcpHandler,
   McpServer,
 } from '@modelcontextprotocol/server';
-import { z } from 'zod';
+import { McpTools } from '@stint/schema';
 import * as entries from '@/app/api/v1/entries/route';
 import * as entry from '@/app/api/v1/entries/[id]/route';
 import * as taskNames from '@/app/api/v1/entries/task-names/route';
@@ -56,7 +56,7 @@ function server(token: string): McpServer {
     {
       description:
         'List your Stint projects, active ones unless asked for archived too.',
-      inputSchema: z.object({ includeArchived: z.boolean().optional() }),
+      inputSchema: McpTools.list_projects,
     },
     (args) => call(projects.GET as Handler, `/projects${query(args)}`),
   );
@@ -65,7 +65,7 @@ function server(token: string): McpServer {
     'rename_project',
     {
       description: 'Rename one project.',
-      inputSchema: z.object({ id: z.string(), name: z.string() }),
+      inputSchema: McpTools.rename_project,
     },
     ({ id, name }) =>
       call(project.PATCH, `/projects/${id}`, { id, body: { name } }),
@@ -76,10 +76,7 @@ function server(token: string): McpServer {
     {
       description:
         'List your recent task names, most recent first, ranked for a project if one is given.',
-      inputSchema: z.object({
-        projectId: z.string().optional(),
-        limit: z.number().int().optional(),
-      }),
+      inputSchema: McpTools.list_task_names,
     },
     (args) =>
       call(taskNames.GET as Handler, `/entries/task-names${query(args)}`),
@@ -90,12 +87,7 @@ function server(token: string): McpServer {
     {
       description:
         'List time entries, newest first. `from` and `to` are ISO timestamps on the start time; `projectId` may be "none" for entries with no project.',
-      inputSchema: z.object({
-        from: z.string().optional(),
-        to: z.string().optional(),
-        projectId: z.string().optional(),
-        limit: z.number().int().optional(),
-      }),
+      inputSchema: McpTools.list_entries,
     },
     (args) => call(entries.GET as Handler, `/entries${query(args)}`),
   );
@@ -105,7 +97,7 @@ function server(token: string): McpServer {
     {
       description:
         "Rename one entry's task. An entry on an issued invoice can't be changed.",
-      inputSchema: z.object({ id: z.string(), taskName: z.string() }),
+      inputSchema: McpTools.rename_entry_task,
     },
     ({ id, taskName }) =>
       call(entry.PATCH, `/entries/${id}`, { id, body: { taskName } }),
