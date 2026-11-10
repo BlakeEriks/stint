@@ -21,7 +21,6 @@ export function ConsentForm({
   app: string | null;
   email: string;
 }) {
-  // Pending, not predicted: the server decides, and it can't be taken back.
   const answer = useOptimisticMutation<'approve' | 'deny'>({
     queryKey: () => ['oauth-consent', authorizationId],
     inline: true,

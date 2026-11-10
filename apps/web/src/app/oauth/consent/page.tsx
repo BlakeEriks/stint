@@ -34,7 +34,7 @@ export default async function Page({
 
   // The form writes through the Query cache, which only the app shell mounts.
   return (
-    <Providers persist={false}>
+    <Providers>
       <ConsentForm
         authorizationId={id}
         app={data?.client.name ?? null}
