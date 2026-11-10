@@ -430,7 +430,7 @@ const connectedApps = async (canvasElement: HTMLElement) => {
   return within(heading.closest('section') as HTMLElement);
 };
 
-/** An approved app is listed with its date; Revoke takes it off at once. */
+/** An approved app is listed with its date; Revoke takes it off once answered. */
 export const ConnectedApps: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -439,6 +439,20 @@ export const ConnectedApps: Story = {
     await expect(apps.getByText(/^Approved /)).toBeVisible();
     await userEvent.click(apps.getByRole('button', { name: 'Revoke' }));
     await waitFor(() => expect(apps.queryByText('Claude Code')).toBeNull());
+  },
+};
+
+/** Revoke waits on the server, since it can't be taken back. */
+export const RevokePending: Story = {
+  ...desktop,
+  parameters: stalled('revokeConnectedApp'),
+  play: async ({ canvasElement }) => {
+    const apps = await connectedApps(canvasElement);
+    await userEvent.click(apps.getByRole('button', { name: 'Revoke' }));
+    await expect(
+      apps.getByRole('button', { name: 'Revoking…' }),
+    ).toBeDisabled();
+    await expect(apps.getByText('Claude Code')).toBeVisible();
   },
 };
 

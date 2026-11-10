@@ -2,16 +2,12 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { keys, useOptimisticMutation } from '@stint/client';
+import { localDateKey } from '@stint/core';
 import { Button } from '@/components/ui/button';
-import { api, type ConnectedApp } from '@/lib/client/api';
+import { api } from '@/lib/client/api';
+import { timeZone } from '@/lib/client/use-timer';
 import { Section } from './field';
-
-const approvedOn = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
+import { shortDate } from './invoice-bits';
 
 /** Apps approved at `/oauth/consent`, such as Claude, and the way to cut one off. */
 export function ConnectedApps() {
@@ -21,11 +17,8 @@ export function ConnectedApps() {
   });
   const apps = data?.apps ?? [];
 
-  const revoke = useOptimisticMutation<
-    string,
-    unknown,
-    { apps: ConnectedApp[] }
-  >({
+  // Pending, not predicted: a revoke can't be taken back (Constitution VI).
+  const revoke = useOptimisticMutation<string>({
     queryKey: () => keys.connectedApps(),
     mutationFn: (clientId) =>
       api.revokeConnectedApp(clientId).catch((e: Error) => {
@@ -33,8 +26,6 @@ export function ConnectedApps() {
           apps.find((a) => a.clientId === clientId)?.name ?? 'that app';
         throw new Error(`Couldn’t revoke ${name}. ${e.message}`);
       }),
-    predict: (current, clientId) =>
-      current && { apps: current.apps.filter((a) => a.clientId !== clientId) },
   });
 
   // Unloaded only when the list failed: the section stays out, not empty.
@@ -59,16 +50,20 @@ export function ConnectedApps() {
               <div className="min-w-0 flex-1">
                 <p className="truncate type-control text-primary">{app.name}</p>
                 <p className="mt-0.5 type-meta text-subtle">
-                  Approved {approvedOn(app.grantedAt)}
+                  Approved{' '}
+                  {shortDate(localDateKey(new Date(app.grantedAt), timeZone))}
                 </p>
               </div>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
+                disabled={revoke.isPending}
                 onClick={() => revoke.mutate(app.clientId)}
               >
-                Revoke
+                {revoke.isPending && revoke.variables === app.clientId
+                  ? 'Revoking…'
+                  : 'Revoke'}
               </Button>
             </li>
           ))}
