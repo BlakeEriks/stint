@@ -127,6 +127,7 @@ const STRIPE_ENV = [
   'STRIPE_SECRET_KEY',
   'STRIPE_PRICE_ID',
   'STRIPE_WEBHOOK_SECRET',
+  'BILLING_LIVE',
 ] as const;
 
 const PERIOD = { periodStart: '2026-09-01', periodEnd: '2026-09-30' };
@@ -3041,6 +3042,7 @@ test('an invoice made in the evening west of UTC is dated today, not tomorrow', 
 
 // ── the paid tier: the document ───────────────────────────────────
 const configureBilling = () => {
+  process.env.BILLING_LIVE = 'true';
   process.env.STRIPE_SECRET_KEY = 'sk_test_unused';
   process.env.STRIPE_PRICE_ID = 'price_yearly';
   process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
@@ -3105,6 +3107,13 @@ const LOCKED = {
 };
 
 test('with billing not set up, every invoice opens, as before', async () => {
+  const id = await generate();
+  assert.deepEqual(await opens(id), OPEN);
+});
+
+test('during beta every invoice opens, with Stripe set up', async () => {
+  configureBilling();
+  delete process.env.BILLING_LIVE;
   const id = await generate();
   assert.deepEqual(await opens(id), OPEN);
 });

@@ -117,11 +117,13 @@ const STRIPE_ENV = [
   'STRIPE_SECRET_KEY',
   'STRIPE_PRICE_ID',
   'STRIPE_WEBHOOK_SECRET',
+  'BILLING_LIVE',
 ] as const;
 const WEBHOOK_SECRET = 'whsec_test';
 let stripeFake: ReturnType<typeof fakeStripe>;
 
 const configureBilling = () => {
+  process.env.BILLING_LIVE = 'true';
   process.env.STRIPE_SECRET_KEY = 'sk_test_unused';
   process.env.STRIPE_PRICE_ID = 'price_yearly';
   process.env.STRIPE_WEBHOOK_SECRET = WEBHOOK_SECRET;
@@ -3862,7 +3864,7 @@ const billing = async () => {
   return json(await GET(req('/billing')));
 };
 
-test('billing reads free with no subscription, and says whether Stripe is set up', async () => {
+test('billing reads free with no subscription, and says whether it is live', async () => {
   const free = {
     available: false,
     plan: 'free',
@@ -3874,6 +3876,9 @@ test('billing reads free with no subscription, and says whether Stripe is set up
   assert.deepEqual(await billing(), { status: 200, body: free });
   configureBilling();
   assert.deepEqual((await billing()).body, { ...free, available: true });
+  // Beta: Stripe set up, and still no client asks for payment.
+  delete process.env.BILLING_LIVE;
+  assert.deepEqual((await billing()).body, free);
 });
 
 test('every billing write answers 503 until Stripe is set up', async () => {

@@ -169,7 +169,7 @@ export const OpeningPortal: Story = {
   },
 };
 
-/** Billing not set up, as on every deploy until Stripe is: no section. */
+/** Billing not live, as during beta: no section. */
 export const Unavailable: Story = {
   ...desktop,
   parameters: account((db) => {

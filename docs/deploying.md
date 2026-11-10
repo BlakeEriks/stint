@@ -125,14 +125,15 @@ Still set in the dashboard:
     the build skips the upload and stacks stay minified.
 
 Billing, for Production only (Preview uses Stripe test-mode keys if billing
-is being tried there). **Setting them is the launch:** with all three set,
-a free user's invoice PDF answers `402 PAYMENT_REQUIRED` and the invoice
-screen offers Subscribe instead. Invoices generated before then aren't
+is being tried there). Invoicing is free during beta, so billing stays
+off until `BILLING_LIVE` is set. **Setting it ends beta:** a free user's
+invoice PDF then answers `402 PAYMENT_REQUIRED` and the invoice screen
+offers Subscribe instead. Invoices generated before then aren't
 grandfathered.
 
-- `STRIPE_SECRET_KEY` (**sensitive**), `STRIPE_PRICE_ID` and
-  `STRIPE_WEBHOOK_SECRET` (**sensitive**). Any one unset hides the Plan
-  section: `checkout`, `portal` and `sync` answer `503 BILLING_UNAVAILABLE`,
+- `BILLING_LIVE=true`, `STRIPE_SECRET_KEY` (**sensitive**), `STRIPE_PRICE_ID`
+  and `STRIPE_WEBHOOK_SECRET` (**sensitive**). Any one unset hides the Plan
+  section and opens every invoice: `checkout`, `portal` and `sync` answer `503 BILLING_UNAVAILABLE`,
   the webhook a plain-text `503`, and `GET /billing` answers `200` with
   `available: false`.
 - `SUPABASE_SECRET_KEY` (**sensitive**), the project's secret key: the
