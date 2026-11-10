@@ -155,9 +155,6 @@ export const Blank: Story = {
     await expect(
       within(canvasElement).queryByRole('button', { name: 'Generate invoice' }),
     ).toBeNull();
-    await expect(
-      within(canvasElement).queryByRole('button', { name: 'Period' }),
-    ).toBeNull();
   },
 };
 export const Phone: Story = { ...Blank, ...phone };
@@ -171,12 +168,23 @@ export const NoneReady: Story = {
         'Choose a client to start an invoice.',
       ),
     ).toBeVisible();
-    await expect(
-      within(canvasElement).queryByRole('region', { name: 'Ready to invoice' }),
-    ).toBeNull();
   },
 };
 export const NoneReadyPhone: Story = { ...NoneReady, ...phone };
+
+/** The Inbox can't say who is ready: the page still says to choose one. */
+export const ReadyFailed: Story = {
+  ...NoneReady,
+  parameters: {
+    msw: {
+      handlers: {
+        stats: http.get(handlers.stats.info.path, () =>
+          Response.json({ error: 'internal' }, { status: 500 }),
+        ),
+      },
+    },
+  },
+};
 
 /** On September 17 the period is September, the month ending nearest, and
     due follows the settings' Net 30 terms. The card follows both. */

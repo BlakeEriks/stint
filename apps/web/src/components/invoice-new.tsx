@@ -16,7 +16,7 @@ import {
   invalidateEntryData,
 } from '@stint/client';
 import { Button } from '@/components/ui/button';
-import { Field, inputClass } from './field';
+import { Field, TriggerChevron, triggerClass } from './field';
 import { ClientDialog } from './client-dialog';
 import { ClientPicker } from './client-picker';
 import {
@@ -28,7 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ChevronDown, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import {
   addDays,
   BILLING_PERIOD_LABELS,
@@ -632,7 +632,6 @@ function Form({
           <h1 className="type-title whitespace-nowrap text-strong">
             {editing ? `Edit ${editing.invoiceNumber}` : 'New invoice'}
           </h1>
-          {/* Nothing to generate until a client is chosen. */}
           {client ? (
             <div className={`flex items-center gap-4 ${PHONE_BAR}`}>
               <Due preview={current} updating={updating} />
@@ -1042,16 +1041,11 @@ function TemplateControl({
       <button
         type="button"
         id="inv-template"
-        className={`${inputClass} flex items-center justify-between gap-2 text-left
-                    focus:border-edge-focus focus:ring-[3px] focus:ring-edge-focus`}
+        className={triggerClass}
         onClick={() => setChanging(true)}
       >
         <span className="truncate">{templateName(template)}</span>
-        <ChevronDown
-          aria-hidden
-          className="size-4 flex-none text-muted opacity-60"
-          strokeWidth={2}
-        />
+        <TriggerChevron />
       </button>
       {changing ? (
         <TemplateDialog onOpenChange={setChanging} template={template} />
@@ -1351,17 +1345,9 @@ function GroupingPicker({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        id="inv-group"
-        className={`${inputClass} flex items-center justify-between gap-2 text-left
-                    focus:border-edge-focus focus:ring-[3px] focus:ring-edge-focus`}
-      >
+      <DropdownMenuTrigger id="inv-group" className={triggerClass}>
         <span className="truncate">{selected?.label}</span>
-        <ChevronDown
-          aria-hidden
-          className="size-4 flex-none text-muted opacity-60"
-          strokeWidth={2}
-        />
+        <TriggerChevron />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="start" className="w-72">

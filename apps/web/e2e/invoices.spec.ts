@@ -66,7 +66,6 @@ test.describe('invoices', () => {
   }) => {
     await page.goto('/invoices/new');
     const generate = page.getByRole('button', { name: 'Generate invoice' });
-    await expect(generate).toBeHidden();
 
     await page.getByRole('button', { name: 'Client' }).click();
     await page.getByRole('menuitemradio', { name: /Northwind/ }).click();

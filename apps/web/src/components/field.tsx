@@ -1,5 +1,6 @@
 'use client';
 
+import { ChevronDown } from 'lucide-react';
 import { cloneElement, isValidElement, useCallback } from 'react';
 import { Label } from '@/components/ui/label';
 
@@ -182,6 +183,26 @@ export const inputClass =
   'h-9 w-full rounded-md border border-edge-default bg-transparent px-3 type-control ' +
   'text-strong placeholder:text-placeholder outline-none focus-visible:border-edge-focus ' +
   'focus-visible:ring-[3px] focus-visible:ring-edge-focus';
+
+/**
+ * A field that opens a menu, popover or dialog, shaped like `inputClass`.
+ * `focus:` as well as `focus-visible:`: a control focused PROGRAMMATICALLY is
+ * never `:focus-visible`, which the browser reserves for keyboard-driven
+ * focus, so without the pair the cursor is really there with nothing on
+ * screen saying so.
+ */
+export const triggerClass = `${inputClass} flex items-center justify-between gap-2 text-left disabled:opacity-60 focus:border-edge-focus focus:ring-[3px] focus:ring-edge-focus`;
+
+/** The chevron that ends a `triggerClass` field. */
+export function TriggerChevron() {
+  return (
+    <ChevronDown
+      aria-hidden
+      className="size-4 flex-none text-muted opacity-60"
+      strokeWidth={2}
+    />
+  );
+}
 
 /**
  * A field on a signed-out page (sign-in, the landing page), which has no

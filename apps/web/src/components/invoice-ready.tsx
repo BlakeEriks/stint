@@ -19,7 +19,7 @@ import { Swatch } from './swatch';
  * open with. Rows wait until every one can say its amount.
  */
 export function ReadyToInvoice({ clients }: { clients: Client[] }) {
-  const { data } = useQuery({
+  const { data, isPending } = useQuery({
     queryKey: keys.stats(tz),
     queryFn: () => api.stats(tz),
   });
@@ -38,7 +38,8 @@ export function ReadyToInvoice({ clients }: { clients: Client[] }) {
       };
     }),
   });
-  const known = data !== undefined && amounts.every((a) => !a.isPending);
+  // A failed query still says to choose a client.
+  const known = !isPending && amounts.every((a) => !a.isPending);
 
   return (
     // Letter-shaped, so it is the page a client fills, not a box around a

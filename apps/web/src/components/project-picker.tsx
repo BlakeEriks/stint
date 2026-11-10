@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ProjectDialog } from './project-dialog';
-import { inputClass } from './field';
+import { TriggerChevron, triggerClass } from './field';
 import { Swatch } from './swatch';
 import type { Project } from '@/lib/client/api';
 import {
@@ -148,14 +148,7 @@ export function ProjectPicker({
                exists because the project is missing, this is the field they
                came for. */
             autoFocus={autoFocus}
-            /* `focus:` as well as `focus-visible:`. A control focused
-               PROGRAMMATICALLY — as the inbox's unprojected row does on open
-               — is never `:focus-visible`, which the browser reserves for
-               keyboard-driven focus. Without this the cursor is really there
-               and arrow keys work, but nothing on screen says so. */
-            className={`${inputClass} flex items-center justify-between gap-2 text-left
-                        disabled:opacity-60
-                        focus:border-edge-focus focus:ring-[3px] focus:ring-edge-focus`}
+            className={triggerClass}
           >
             {selected ? (
               <Row
@@ -166,11 +159,7 @@ export function ProjectPicker({
             ) : (
               <span className="truncate text-subtle">No project</span>
             )}
-            <ChevronDown
-              aria-hidden
-              className="size-4 flex-none text-muted opacity-60"
-              strokeWidth={2}
-            />
+            <TriggerChevron />
           </DropdownMenuTrigger>
         )}
 
