@@ -181,10 +181,7 @@ block) and the `client_*` columns (Bill to) are copied from `user_settings`
 and the client by a trigger on insert, so editing either never reprints an
 invoice. `summary_text` is the line text of a `summary`
 invoice and is set exactly then; `reference` is the PO, contract, or SOW the
-header prints. `issued_subscription_status` is the user's `subscriptions.status`
-when the invoice was inserted, copied by a trigger whatever the insert says
-and never changed after, so an invoice generated while paying keeps its PDF
-when the paid plan ends (`documentOpens()` in `@stint/core`).
+header prints.
 
 **Three kinds of line, one arithmetic.** `unit` is `hour`, `fixed` (a fee, a
 deposit, a retainer) or `expense` (a reimbursement), and every line is
@@ -274,17 +271,6 @@ Realtime's own table, where the browsers hear of a timer change. One
 policy, `join_own_user_topic`, lets `authenticated` join only the private
 topic `user:<its id>`; there is no insert policy, since only the server
 broadcasts, as the secret key.
-
-### `subscriptions`
-A mirror of the user's Stripe subscription, one row per user, keyed on
-`user_id`: the Stripe customer and subscription, Stripe's `status`, the
-`current_period_end` it renews or ends at, and `cancel_at_period_end`. Stripe
-is the source of truth: only the server writes it, as `service_role`, from
-Stripe's current record (`syncCustomer()`, `apps/web/src/lib/billing.ts`).
-`authenticated` may only `select` its own row, so no client can make itself
-paid. Whether a status is paid is `planOf()` in `@stint/core`, not SQL. It
-goes with the account (`on delete cascade`), after `DELETE /account` has
-canceled any live subscription at Stripe.
 
 ## Integrity rules
 
@@ -385,8 +371,6 @@ take a raise back (`PATCH /settings`).
   **except `invoice_line_items`, `feedback` and `push_devices`**, which have
   no such column: each is written once and never edited, so a "last
   modified" timestamp would be a field that can only ever lie.
-  `subscriptions` has the column but no trigger: its one writer, the Stripe
-  sync's upsert in `apps/web/src/lib/billing.ts`, sets it.
 - Partial indexes back the hot paths: active clients, projects and profiles,
   unbilled entries, and `invoices_user_paid_at_idx` on `(user_id, paid_at)`
   where the invoice is paid — payments are read by date, not by the status
@@ -403,11 +387,6 @@ nothing to `anon`. **A grant decides whether the role may use the table at
 all; RLS decides which rows it sees once it may.** Enabling RLS on a new table
 without granting it produces a `42501` that looks nothing like a policy
 problem.
-
-One table is written outside RLS: `subscriptions` grants `select`, `insert`
-and `update` to `service_role`, which bypasses RLS. Only `serviceClient()`
-(`apps/web/src/lib/supabase.ts`) uses that role, from `syncCustomer()`, for
-the Stripe webhook and the Checkout return.
 
 Supabase's **"Automatically expose new tables" must stay OFF** — the grants
 are explicit here so that a new table is unreachable until someone decides
@@ -478,17 +457,15 @@ alone must still contain the query.
 | Check | Result |
 |---|---|
 | An unfiltered `select` returns only the caller's rows | isolated |
-| All ten user-scoped tables isolate | isolated |
+| All nine user-scoped tables isolate | isolated |
 | A known-good id belonging to another user returns nothing | no leak |
 | Line items inherit isolation through their invoice | isolated |
 | Insert with a forged `user_id` | rejected by `WITH CHECK` |
 | Update or delete targeting another user's row | matches nothing |
 | Reassigning a row to another user | rejected by `WITH CHECK` |
 | Changing or deleting sent feedback, even your own | refused by the grant |
-| Writing any subscription, your own included | refused by the grant |
 | Registering a phone to another user, or changing a registered one | rejected by `WITH CHECK`, refused by the grant |
 | Joining another user's Realtime topic | no row, so refused |
-| Claiming or changing the plan an invoice was generated on | overwritten at insert, refused on update |
 | An expense filed under another user's client | rejected by `expense_client_same_owner` |
 | An invoice billed to another user's client | rejected by `invoice_client_same_owner` |
 | A project under another user's client | rejected by `project_client_same_owner` |

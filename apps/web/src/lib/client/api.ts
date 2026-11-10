@@ -94,7 +94,6 @@ async function failure(res: globalThis.Response): Promise<ApiError> {
 export type ClientWithScale = Res<schema.ClientWithScale>;
 export type Settings = Res<schema.Settings>;
 export type Account = Res<schema.Account>;
-export type Billing = Res<schema.Billing>;
 export type PaymentProfile = Res<schema.PaymentProfile>;
 export type InvoicePreview = Res<schema.InvoicePreview>;
 export type Invoice = Res<schema.Invoice>;
@@ -324,7 +323,6 @@ export const api = {
     request<
       Invoice & {
         lineItems: InvoiceLineItem[];
-        canDownload: boolean;
         unratedEntries: UnratedEntry[];
         dueBeforeIssue: { download: boolean; send: boolean };
         refuses: { download: boolean; send: boolean };
@@ -444,17 +442,4 @@ export const api = {
   account: () => request<Account>('GET', '/account'),
 
   deleteAccount: () => request<void>('DELETE', '/account'),
-
-  billing: () => request<Billing>('GET', '/billing'),
-
-  /** A Stripe Checkout URL for the yearly price. */
-  checkout: () => request<schema.BillingRedirect>('POST', '/billing/checkout'),
-
-  /** A Stripe Customer Portal URL: cancel, resume, card, receipts. */
-  billingPortal: () =>
-    request<schema.BillingRedirect>('POST', '/billing/portal'),
-
-  /** Back from Checkout: store what Stripe says about that session now. */
-  syncCheckout: (sessionId: string) =>
-    request<Billing>('POST', '/billing/sync', { sessionId }),
 };

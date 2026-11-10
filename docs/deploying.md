@@ -124,44 +124,13 @@ Still set in the dashboard:
     build uploads its source maps with it, so stacks read as source. Unset,
     the build skips the upload and stacks stay minified.
 
-Billing, for Production only (Preview uses Stripe test-mode keys if billing
-is being tried there). **Setting them is the launch:** with all three set,
-a free user's invoice PDF answers `402 PAYMENT_REQUIRED` and the invoice
-screen offers Subscribe instead. Invoices generated before then aren't
-grandfathered.
-
-- `STRIPE_SECRET_KEY` (**sensitive**), `STRIPE_PRICE_ID` and
-  `STRIPE_WEBHOOK_SECRET` (**sensitive**). Any one unset hides the Plan
-  section: `checkout`, `portal` and `sync` answer `503 BILLING_UNAVAILABLE`,
-  the webhook a plain-text `503`, and `GET /billing` answers `200` with
-  `available: false`.
-- `SUPABASE_SECRET_KEY` (**sensitive**), the project's secret key: the
-  Stripe webhook has no user session, so it writes `subscriptions` as
-  `service_role`. Without it, the webhook and the Checkout return fail with
-  `500`. Never `NEXT_PUBLIC_`.
-
 Push, for Production and Preview: `FCM_SERVICE_ACCOUNT` (**sensitive**),
 the whole JSON key of a Firebase service account allowed to send messages
 (`docs/mobile.md`, Push). Unset, no phone is pushed and every timer route
 answers as before. The browsers hear of the same change through
-`SUPABASE_SECRET_KEY`, so Preview needs it too, as the preview project's
-key; unset, a browser sees the change only when it polls.
-
-In the Stripe dashboard, once:
-
-- A product with one **yearly** price of $40 USD (`docs/positioning.md`);
-  its id is `STRIPE_PRICE_ID`.
-- A webhook endpoint at `https://app.runstint.com/api/v1/billing/webhook`
-  for `checkout.session.completed`, `customer.subscription.*`,
-  `invoice.paid` and `invoice.payment_failed`; its signing secret is
-  `STRIPE_WEBHOOK_SECRET`.
-- Billing → Customer portal: allow cancel at period end, resume, card
-  update and invoice history.
-- Billing → Revenue recovery: Smart Retries, 8 attempts over 2 weeks, then
-  cancel the subscription; emails on failed payment and before renewal.
-- Settings → Public details: the terms URL `https://runstint.com/terms`,
-  which Checkout asks the user to accept.
-- Stripe Tax stays off (no sales tax at launch).
+`SUPABASE_SECRET_KEY` (**sensitive**, never `NEXT_PUBLIC_`), the project's
+secret key, and Preview's is the preview project's; unset, a browser sees
+the change only when it polls.
 
 `SUPABASE_DB_URL` does **not** belong here. The app never uses it; only the
 migration scripts do, and they run in Actions.

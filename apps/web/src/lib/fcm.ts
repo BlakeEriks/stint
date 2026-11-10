@@ -42,7 +42,7 @@ export function fcm(): PushProvider | null {
 }
 
 /** The route tests answer FCM and Google's token endpoint in memory
- *  (`test/fake-fcm.ts`), as `__TEST_STRIPE__` answers for Stripe. */
+ *  (`test/fake-fcm.ts`). */
 function transport(): typeof fetch {
   return (globalThis as { __TEST_FCM__?: typeof fetch }).__TEST_FCM__ ?? fetch;
 }

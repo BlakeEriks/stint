@@ -70,7 +70,6 @@ after(async () => {
 beforeEach(async () => {
   await admin.query('delete from push_devices');
   await admin.query('delete from feedback');
-  await admin.query('delete from subscriptions');
   await admin.query('update expenses set invoice_id = null');
   await admin.query('delete from expenses');
   await admin.query('update time_entries set invoice_id = null');
@@ -152,16 +151,6 @@ async function seedFeedback() {
   );
 }
 
-/** One subscription each. Only the server writes these. */
-async function seedSubscriptions() {
-  await admin.query(
-    `insert into subscriptions (user_id,stripe_customer_id,stripe_subscription_id,status,current_period_end) values
-       ($1,'cus_alice','sub_alice','canceled',now()),
-       ($2,'cus_bob','sub_bob','active',now())`,
-    [ALICE, BOB],
-  );
-}
-
 /** One phone each. */
 async function seedPushDevices() {
   await admin.query(
@@ -193,7 +182,6 @@ test('every user-scoped table shows the caller only their own rows', async () =>
   );
   await seedExpenses();
   await seedFeedback();
-  await seedSubscriptions();
   await seedPushDevices();
 
   /* Deliberately no `where user_id = ...`: this is the query a route would
@@ -207,7 +195,6 @@ test('every user-scoped table shows the caller only their own rows', async () =>
     'user_settings',
     'expenses',
     'feedback',
-    'subscriptions',
     'push_devices',
     // No user_id at all: its policy joins through the invoice.
     'invoice_line_items',
@@ -305,33 +292,20 @@ test('an update or delete reaches only the caller’s rows', async () => {
   }
 });
 
-test('feedback, phones and subscriptions refuse the writes their grants leave out', async () => {
+test('feedback and phones refuse the writes their grants leave out', async () => {
   await seedFeedback();
   await seedPushDevices();
-  await seedSubscriptions();
 
   /* Refused on the grant, before any policy runs: sent feedback is final,
-     even to its sender; a phone is registered again rather than edited; and
-     only the server writes a subscription, so no user can make themselves
-     paid. Alice's is canceled. */
+     even to its sender; and a phone is registered again rather than
+     edited. */
   for (const sql of [
     `update feedback set message = 'Rewritten' where id = '${ALICE_FEEDBACK}'`,
     `delete from feedback where id = '${ALICE_FEEDBACK}'`,
     `update push_devices set token = 'moved'`,
-    `update subscriptions set status = 'active' where user_id = '${ALICE}'`,
-    `insert into subscriptions (user_id,stripe_customer_id,stripe_subscription_id,status,current_period_end)
-       values ('${ALICE}','cus_x','sub_x','active',now())`,
-    `delete from subscriptions where user_id = '${BOB}'`,
   ])
     await assert.rejects(() => asUser(ALICE, sql), /permission denied/i, sql);
 
-  const { rows } = await admin.query(
-    'select user_id, status from subscriptions order by user_id',
-  );
-  assert.deepEqual(rows, [
-    { user_id: ALICE, status: 'canceled' },
-    { user_id: BOB, status: 'active' },
-  ]);
   const { rows: feedback } = await admin.query(
     'select message from feedback where id = $1',
     [ALICE_FEEDBACK],
@@ -369,44 +343,6 @@ test('a user joins only their own timer topic', async () => {
   assert.equal(await mayJoin(BOB, `user:${ALICE}`), false);
   assert.equal(await mayJoin(ALICE, `user:${BOB}`), false);
   await admin.query('delete from realtime.messages');
-});
-
-test('an invoice carries the plan it was generated on, and no user can claim another', async () => {
-  await seedBoth();
-  await seedSubscriptions();
-  const insert = (user: string, client: string, id: string) =>
-    asUser(
-      user,
-      `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,period_start,period_end,issued_subscription_status)
-       values ('${id}','${user}','${client}','INV-0001',1,'2026-09-01','2026-09-30','active')`,
-    );
-  // Alice's subscription is canceled; she claims `active` and gets her own.
-  await insert(
-    ALICE,
-    'cc000000-0000-4000-8000-00000000000a',
-    'aa000000-0000-4000-8000-00000000000a',
-  );
-  await insert(
-    BOB,
-    'cc000000-0000-4000-8000-00000000000b',
-    'aa000000-0000-4000-8000-00000000000b',
-  );
-  await assert.rejects(
-    () =>
-      asUser(
-        ALICE,
-        `update invoices set issued_subscription_status = 'active' where user_id = '${ALICE}'`,
-      ),
-    /keeps the plan it was generated on/,
-  );
-
-  const { rows } = await admin.query(
-    'select user_id, issued_subscription_status from invoices order by user_id',
-  );
-  assert.deepEqual(rows, [
-    { user_id: ALICE, issued_subscription_status: 'canceled' },
-    { user_id: BOB, issued_subscription_status: 'active' },
-  ]);
 });
 
 // ── references across a tenant boundary ────────────────────────────

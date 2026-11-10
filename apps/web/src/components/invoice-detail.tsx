@@ -18,7 +18,6 @@ import {
   DollarSign,
   Download,
   Loader2,
-  Lock,
   Pencil,
   Plus,
   Trash2,
@@ -29,7 +28,6 @@ import { shortDate, StatusBadge } from './invoice-bits';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
 import { entries, markSentAsk } from './mark-sent-dialog';
-import { PRICE } from './plan-section';
 import {
   attachedSchedules,
   formatCurrency,
@@ -48,11 +46,9 @@ import {
 } from '@/lib/client/api';
 import { DetailPage, Listing } from './page';
 
-/** An invoice; the lines, and whether its PDF opens, are absent until they
-    load. */
+/** An invoice; the lines and what it refuses are absent until they load. */
 type Shown = Invoice & {
   lineItems?: InvoiceLineItem[];
-  canDownload?: boolean;
   entryCount?: number | null;
   newWork?: NewWork | null;
   unratedEntries?: UnratedEntry[];
@@ -271,10 +267,10 @@ function Loaded({
           ) : null}
 
           {/* Downloading is how an invoice reaches a client: the app sends no
-              mail, so it is last, as the primary action. Neither shows until
-              the invoice itself answers: the lists it first draws from don't
-              say whether its PDF opens. */}
-          {invoice.canDownload === true && !refuses.download ? (
+              mail, so it is last, as the primary action. It waits for the
+              invoice itself: the lists it first draws from don't say whether
+              a draft refuses its PDF. */}
+          {invoice.refuses && !refuses.download ? (
             <Button asChild>
               <a
                 href={api.invoicePdfUrl(invoice.id, true)}
@@ -283,14 +279,6 @@ function Loaded({
                 <Download aria-hidden strokeWidth={1.75} />
                 Download PDF
               </a>
-            </Button>
-          ) : null}
-          {invoice.canDownload === false ? (
-            <Button asChild>
-              <Link href="/settings#plan">
-                <Lock aria-hidden strokeWidth={1.75} />
-                Subscribe to download
-              </Link>
             </Button>
           ) : null}
         </div>
@@ -368,14 +356,6 @@ function Notices({
           due={invoice.dueDate!}
           downloaded={!invoice.dueBeforeIssue.send}
         />
-      ) : null}
-      {/* The document is the paid tier; the records never are, and saying
-          so here keeps the two rules from reading as one. */}
-      {invoice.canDownload === false ? (
-        <p className="type-support text-muted">
-          Downloading the invoice is on the paid plan, {PRICE}. Tracking and
-          your records, exporting them included, stay free.
-        </p>
       ) : null}
       <ActionError error={error} />
     </div>

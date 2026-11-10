@@ -1,14 +1,10 @@
 import {
-  paymentFailed,
   needsAnchor,
-  planOf,
   type BillingPeriod,
   type BillingSchedule,
   type PrintedDates,
-  type SubscriptionStatus,
 } from '@stint/core';
 import type {
-  Billing,
   GroupingMode,
   Invoice,
   InvoiceStatus,
@@ -332,7 +328,6 @@ export interface InvoiceRow {
   sent_at: string | null;
   paid_at: string | null;
   created_at: string;
-  issued_subscription_status: SubscriptionStatus | null;
   /** The zone and expenses a draft is derived with, and its last render;
    *  never sent to a client. */
   tz: string | null;
@@ -341,7 +336,7 @@ export interface InvoiceRow {
 }
 
 export const INVOICE_COLUMNS = columns<InvoiceRow>()(
-  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency, notes, payment_terms, grouping_mode, summary_text, reference, template, supporting_detail, payment_details, business_name, business_address, business_email, logo_url, client_name, client_email, client_address, sent_at, paid_at, created_at, issued_subscription_status, tz, excluded_expense_ids, downloaded_snapshot',
+  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency, notes, payment_terms, grouping_mode, summary_text, reference, template, supporting_detail, payment_details, business_name, business_address, business_email, logo_url, client_name, client_email, client_address, sent_at, paid_at, created_at, tz, excluded_expense_ids, downloaded_snapshot',
 );
 
 export function toInvoice(r: InvoiceRow) {
@@ -542,31 +537,3 @@ export const PAYMENT_PROFILE_FIELDS = {
   currency: 'currency',
   feeAllocation: 'fee_allocation',
 } as const;
-
-// ── subscriptions ──────────────────────────────────────────────────
-export interface SubscriptionRow {
-  stripe_customer_id: string;
-  stripe_subscription_id: string;
-  status: SubscriptionStatus;
-  current_period_end: string;
-  cancel_at_period_end: boolean;
-}
-
-export const SUBSCRIPTION_COLUMNS = columns<SubscriptionRow>()(
-  'stripe_customer_id, stripe_subscription_id, status, current_period_end, cancel_at_period_end',
-);
-
-export function toBilling(
-  r: SubscriptionRow | null,
-  available: boolean,
-): Billing {
-  const status = r?.status ?? null;
-  return {
-    available,
-    plan: planOf(status),
-    status,
-    periodEnd: r ? new Date(r.current_period_end).toISOString() : null,
-    cancelAtPeriodEnd: r?.cancel_at_period_end ?? false,
-    paymentFailed: paymentFailed(status),
-  };
-}

@@ -75,7 +75,7 @@ function serve(
           /* FLAT, matching the route: a stub is only as good as its
              fidelity to the endpoint. */
           ...invoice(status, sentAt),
-          canDownload: true,
+          refuses: { download: false, send: false },
           ...extra,
           lineItems: [
             {

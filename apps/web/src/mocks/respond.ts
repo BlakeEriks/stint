@@ -88,7 +88,6 @@ export const envelopes = {
 
 export const invoiceDetail = schema.Invoice.extend({
   lineItems: z.array(schema.InvoiceLineItem),
-  canDownload: z.boolean(),
   entryCount: z.number().int().nullable(),
   newWork: schema.NewWork.nullable(),
   unratedEntries: z.array(schema.UnratedEntry),

@@ -1,4 +1,3 @@
-import { SUBSCRIPTION_STATUSES } from '@stint/core';
 import { z } from 'zod';
 import { InvoiceTemplate } from './invoicing.ts';
 import {
@@ -61,25 +60,6 @@ export const Account = z.object({
   invoices: z.number().int().nonnegative(),
 });
 
-// ── billing ────────────────────────────────────────────────────────
-/** The caller's plan. `available` is false until Stripe is configured. */
-export const Billing = z.object({
-  available: z.boolean(),
-  plan: z.enum(['free', 'paid']),
-  status: z.enum(SUBSCRIPTION_STATUSES).nullable(),
-  periodEnd: iso.nullable(),
-  cancelAtPeriodEnd: z.boolean(),
-  paymentFailed: z.boolean(),
-});
-
-/** Back from Checkout: the session the user just paid. */
-export const BillingSync = z.object({
-  sessionId: z.string().min(1).max(255),
-});
-
-/** Where to send the browser: Checkout or the Customer Portal. */
-export const BillingRedirect = z.object({ url: z.url() });
-
 // ── feedback ───────────────────────────────────────────────────────
 /** The limits match the `feedback` table's checks. */
 export const FEEDBACK_MAX = 2000;
@@ -94,6 +74,3 @@ export const CreateFeedback = z.object({
 export type Settings = z.infer<typeof Settings>;
 export type Account = z.infer<typeof Account>;
 export type CreateFeedback = z.infer<typeof CreateFeedback>;
-export type Billing = z.infer<typeof Billing>;
-export type BillingSync = z.infer<typeof BillingSync>;
-export type BillingRedirect = z.infer<typeof BillingRedirect>;

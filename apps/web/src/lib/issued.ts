@@ -6,8 +6,6 @@
  * one place that reads live data.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { documentOpens } from '@stint/core';
-import { entitlement } from './billing';
 import { chosenTemplate, deriveDraft } from './drafts';
 import { ApiError } from './errors';
 import {
@@ -50,17 +48,11 @@ export async function loadPdfData(
   if (!stored) throw new ApiError('ENTRY_NOT_FOUND', 'Invoice not found');
   const row = stored as InvoiceRow;
 
-  const [billing, draft, template] = await Promise.all([
-    entitlement(db),
+  const [draft, template] = await Promise.all([
     deriveDraft(db, row, requestTz),
     // A draft prints in the template picked now; a sent one in its own.
     row.status === 'draft' ? chosenTemplate(db) : row.template,
   ]);
-  const canDownload = documentOpens(
-    billing.available,
-    billing.plan,
-    row.issued_subscription_status,
-  );
   const invoice = toInvoice(draft?.row ?? row);
   const lineItems = draft
     ? draft.lines.map(
@@ -77,7 +69,6 @@ export async function loadPdfData(
 
   return {
     invoice,
-    canDownload,
     draft,
     pdfData: {
       invoiceNumber: invoice.invoiceNumber,

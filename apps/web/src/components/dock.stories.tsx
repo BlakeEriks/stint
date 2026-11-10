@@ -54,13 +54,9 @@ export const Column: Story = {
   },
 };
 
-/** The invoice PDF is the paid tier: a paying account's invoice rows offer
-    Download; the seeded account, free with billing set up, gets none. */
+/** Every invoice row offers Download. */
 export const InvoiceDownloads: Story = {
   ...desktop,
-  parameters: account((db) => {
-    db.billing = { ...db.billing, plan: 'paid', status: 'active' };
-  }),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await expect(

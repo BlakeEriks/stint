@@ -33,8 +33,7 @@ export const dynamic = 'force-dynamic';
 type Ctx = { params: Promise<{ id: string }> };
 
 /**
- * GET /api/v1/invoices/:id — the invoice with its line items, and whether its
- * PDF opens for the caller, so the screen knows before a press. A draft is
+ * GET /api/v1/invoices/:id — the invoice with its line items. A draft is
  * the work it holds now: it names the entries it can't price, how many
  * entries Mark sent locks, and the work in its period it doesn't hold.
  */
@@ -44,15 +43,10 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
 
   const { tz } = parseQuery(req, InvoiceReadQuery);
 
-  const { invoice, pdfData, canDownload, draft } = await loadPdfData(
-    db,
-    id,
-    tz,
-  );
+  const { invoice, pdfData, draft } = await loadPdfData(db, id, tz);
 
   return NextResponse.json({
     ...invoice,
-    canDownload,
     unratedEntries: draft?.unratedEntries ?? [],
     dueBeforeIssue: draft?.dueBeforeIssue ?? { download: false, send: false },
     refuses: draft ? draftRefusals(draft) : { download: false, send: false },

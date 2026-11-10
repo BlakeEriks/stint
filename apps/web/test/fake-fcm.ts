@@ -1,7 +1,6 @@
 /**
  * FCM HTTP v1 and Google's token endpoint, in memory. Set as `__TEST_FCM__`
- * in place of `fetch`, the way `__TEST_STRIPE__` stands in for Stripe, so no
- * test reaches Google. The token endpoint checks the assertion's signature
+ * in place of `fetch`, so no test reaches Google. The token endpoint checks the assertion's signature
  * against the service account's key, so a wrongly signed JWT fails here as
  * it would there.
  */
