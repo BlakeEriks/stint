@@ -45,6 +45,7 @@ import {
   startOfLocalWeek,
   startOfNextLocalMonth,
   type UnbilledRow,
+  type SummaryText,
   splitByLocalDay,
 } from '@stint/core';
 import type { Expense, TimeEntry } from '@/lib/client/api';
@@ -505,6 +506,7 @@ export interface PreviewRequest {
   periodEnd: string;
   groupingMode?: GroupingMode;
   summaryText?: string;
+  summaryTexts?: SummaryText[];
   tz?: string;
   manualLines?: ManualLine[];
   excludedExpenseIds?: string[];
@@ -644,6 +646,7 @@ export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
     ...buildLineItems(rated, {
       groupingMode,
       summaryText: body.summaryText?.trim() ?? '',
+      summaryTexts: body.summaryTexts,
       taxRate: client.taxRate ?? 0,
       tz,
       manualLines: body.manualLines,

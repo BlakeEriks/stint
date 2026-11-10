@@ -894,7 +894,8 @@ export const OneSummaryLine: Story = {
   },
 };
 
-/** Two rates are two lines of the same text (US1 scenario 2). */
+/** Two rates are two lines of the same text until the second is typed
+    itself; emptied, it is an error at that line, and Generate waits. */
 export const SummaryTwoRates: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -907,6 +908,22 @@ export const SummaryTwoRates: Story = {
     await expect(
       card(page).getAllByRole('cell', { name: 'Software consulting services' }),
     ).toHaveLength(2);
+    const second = page.getByLabelText('Summary line at $195.00/h');
+    await userEvent.clear(second);
+    await expect(
+      await page.findByText('Give the summary line its text.'),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Generate invoice' }),
+    ).toBeDisabled();
+    await userEvent.type(second, 'Peak season fixes');
+    await settled(page);
+    await expect(
+      card(page).getAllByRole('cell', { name: 'Software consulting services' }),
+    ).toHaveLength(1);
+    await expect(
+      card(page).getByRole('cell', { name: 'Peak season fixes' }),
+    ).toBeVisible();
   },
 };
 

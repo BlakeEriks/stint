@@ -180,7 +180,8 @@ sending freezes them, so a renamed project or a void never changes them. The `bu
 block) and the `client_*` columns (Bill to) are copied from `user_settings`
 and the client by a trigger on insert, so editing either never reprints an
 invoice. `summary_text` is the line text of a `summary`
-invoice and is set exactly then; `reference` is the PO, contract, or SOW the
+invoice and is set exactly then, and `summary_texts` (JSONB, `[{ rate, text
+}]`) the lines typed their own text, by rate; `reference` is the PO, contract, or SOW the
 header prints. `issued_subscription_status` is the user's `subscriptions.status`
 when the invoice was inserted, copied by a trigger whatever the insert says
 and never changed after, so an invoice generated while paying keeps its PDF

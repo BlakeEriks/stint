@@ -6,6 +6,7 @@ import {
   type BillingSchedule,
   type PrintedDates,
   type SubscriptionStatus,
+  type SummaryText,
 } from '@stint/core';
 import type {
   Billing,
@@ -318,6 +319,7 @@ export interface InvoiceRow {
   payment_terms: string | null;
   grouping_mode: z.infer<typeof GroupingMode>;
   summary_text: string | null;
+  summary_texts: SummaryText[];
   reference: string | null;
   template: InvoiceTemplate;
   supporting_detail: z.infer<typeof Schedules> | null;
@@ -341,7 +343,7 @@ export interface InvoiceRow {
 }
 
 export const INVOICE_COLUMNS = columns<InvoiceRow>()(
-  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency, notes, payment_terms, grouping_mode, summary_text, reference, template, supporting_detail, payment_details, business_name, business_address, business_email, logo_url, client_name, client_email, client_address, sent_at, paid_at, created_at, issued_subscription_status, tz, excluded_expense_ids, downloaded_snapshot',
+  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency, notes, payment_terms, grouping_mode, summary_text, summary_texts, reference, template, supporting_detail, payment_details, business_name, business_address, business_email, logo_url, client_name, client_email, client_address, sent_at, paid_at, created_at, issued_subscription_status, tz, excluded_expense_ids, downloaded_snapshot',
 );
 
 export function toInvoice(r: InvoiceRow) {
@@ -365,6 +367,7 @@ export function toInvoice(r: InvoiceRow) {
     paymentTerms: r.payment_terms,
     groupingMode: r.grouping_mode,
     summaryText: r.summary_text,
+    summaryTexts: r.summary_texts,
     reference: r.reference,
     // A draft follows the setting; its column is written when it is sent.
     template: r.status === 'draft' ? null : r.template,

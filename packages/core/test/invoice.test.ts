@@ -180,6 +180,29 @@ test('a summary keeps one line per rate, cheapest first', () => {
   );
 });
 
+test('a summary line typed for one rate keeps the one text on the others', () => {
+  const r = buildLineItems(
+    [
+      entry({ id: 'a', rateOverride: 120 }),
+      entry({ id: 'b', rateOverride: 80 }),
+      entry({ id: 'c', rateOverride: 95 }),
+    ],
+    {
+      groupingMode: 'summary',
+      summaryText: 'Services',
+      summaryTexts: [{ rate: 120, text: 'Rush work' }],
+    },
+  );
+  assert.deepEqual(
+    r.lineItems.map((li) => [li.description, li.unitPrice]),
+    [
+      ['Services', 80],
+      ['Services', 95],
+      ['Rush work', 120],
+    ],
+  );
+});
+
 test('a summary is followed by charges and expenses as in any grouping', () => {
   const r = buildLineItems([entry()], {
     groupingMode: 'summary',

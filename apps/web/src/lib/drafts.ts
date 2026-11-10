@@ -36,6 +36,7 @@ import type {
   GroupingMode,
   ManualLine,
   ScheduleKind,
+  SummaryText,
 } from '@stint/core';
 
 /** numeric columns arrive from PostgREST as strings. */
@@ -304,6 +305,16 @@ export function dueBeforeIssueError(issueDate: string, dueDate: string) {
  * otherwise it is a build, which takes the period's work no other draft
  * holds.
  */
+/** The text a summary keeps, by column; another grouping keeps none. */
+export const summaryColumns = (body: {
+  groupingMode: GroupingMode;
+  summaryText: string;
+  summaryTexts: SummaryText[];
+}) =>
+  body.groupingMode === 'summary'
+    ? { summary_text: body.summaryText, summary_texts: body.summaryTexts }
+    : { summary_text: null, summary_texts: [] };
+
 export async function computeInvoice(
   db: SupabaseClient,
   opts: {
@@ -315,6 +326,7 @@ export async function computeInvoice(
     tz: string | { device: string | undefined };
     groupingMode: GroupingMode;
     summaryText?: string;
+    summaryTexts?: SummaryText[];
     manualLines: ManualLine[];
     excludedExpenseIds: string[];
     schedules: ScheduleKind[];
@@ -363,6 +375,7 @@ export async function computeInvoice(
   const totals = buildLineItems(entries, {
     groupingMode: opts.groupingMode,
     summaryText: opts.summaryText,
+    summaryTexts: opts.summaryTexts,
     taxRate: client.tax_rate == null ? 0 : Number(client.tax_rate),
     tz,
     manualLines: opts.manualLines,
@@ -450,6 +463,7 @@ export async function deriveDraft(
     tz: row.tz ?? { device: send ? requestTz : (requestTz ?? 'UTC') },
     groupingMode: row.grouping_mode,
     summaryText: row.summary_text ?? undefined,
+    summaryTexts: row.summary_texts,
     manualLines,
     excludedExpenseIds: row.excluded_expense_ids,
     schedules: attachedSchedules(row.supporting_detail),

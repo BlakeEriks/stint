@@ -1037,6 +1037,59 @@ test('a summary invoice stores its text and reads back as issued', async () => {
   );
 });
 
+test('each summary line keeps the text typed for its rate', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { GET: detail, PATCH: edit } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  await seedEntry({ id: E(1), hours: 2, rateOverride: 100 });
+  await seedEntry({
+    id: E(2),
+    hours: 1,
+    rateOverride: 150,
+    start: '2026-09-11T09:00:00Z',
+  });
+  const body = {
+    clientId: CLIENT,
+    ...PERIOD,
+    groupingMode: 'summary',
+    summaryText: 'Services',
+    summaryTexts: [{ rate: 150, text: 'Rush work' }],
+  };
+  const lines = (b: any) =>
+    b.lineItems.map((li: any) => [li.description, li.unitPrice]);
+
+  const res = await json(await create(req('/invoices', body)));
+  assert.equal(res.status, 201, JSON.stringify(res.body));
+  assert.deepEqual(res.body.summaryTexts, [{ rate: 150, text: 'Rush work' }]);
+  assert.deepEqual(lines(res.body), [
+    ['Services', 100],
+    ['Rush work', 150],
+  ]);
+
+  // An edit replaces them, and the other rate prints the one text again.
+  const params = { params: Promise.resolve({ id: res.body.id }) };
+  const edited = await json(
+    await edit(
+      req(
+        `/invoices/${res.body.id}`,
+        { ...body, summaryTexts: [{ rate: 100, text: 'Support' }] },
+        'PATCH',
+      ),
+      params,
+    ),
+  );
+  assert.equal(edited.status, 200, JSON.stringify(edited.body));
+  const read = await json(
+    await detail(req(`/invoices/${res.body.id}`), params),
+  );
+  assert.deepEqual(read.body.summaryTexts, [{ rate: 100, text: 'Support' }]);
+  assert.deepEqual(lines(read.body), [
+    ['Support', 100],
+    ['Services', 150],
+  ]);
+});
+
 test('the summary text belongs to a summary invoice only', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   await seedEntry({ id: E(1) });

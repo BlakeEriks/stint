@@ -25,6 +25,16 @@ export const GroupingMode = z.enum([
   'day',
 ]);
 
+/** One summary line's own text, keyed by the rate it prints. */
+export const SummaryTexts = z
+  .array(
+    z.object({
+      rate: z.number().nonnegative(),
+      text: z.string().trim().min(1).max(200),
+    }),
+  )
+  .max(50);
+
 export const InvoicePreviewRequest = z.object({
   clientId: uuid,
   periodStart: z.iso.date(),
@@ -33,6 +43,9 @@ export const InvoicePreviewRequest = z.object({
   /** The one line's text with `summary`; the other modes ignore it. Empty
    *  previews the line blank, and generation refuses it. */
   summaryText: z.string().trim().max(200).default(''),
+  /** With `summary`: the lines typed themselves, by the rate they print.
+   *  A rate with none prints `summaryText`. */
+  summaryTexts: SummaryTexts.default([]),
   /**
    * The period is local dates, so the window is resolved in this zone — and
    * it decides which entries land on the invoice. Rejected rather than
@@ -274,6 +287,8 @@ export const Invoice = z.object({
   groupingMode: GroupingMode,
   /** The summary line's text; set exactly when `groupingMode` is `summary`. */
   summaryText: z.string().nullable(),
+  /** The summary lines typed themselves, by rate; empty otherwise. */
+  summaryTexts: SummaryTexts,
   /** The PO, contract or SOW, printed under the service period. */
   reference: z.string().nullable(),
   /** Frozen when sent; null while a draft, which follows the setting. */
