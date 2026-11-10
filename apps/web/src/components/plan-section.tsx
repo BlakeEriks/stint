@@ -11,7 +11,7 @@ import { api, type Billing } from '@/lib/client/api';
 
 /* `docs/positioning.md` owns the price; the Stripe price Checkout charges
    must say the same. */
-export const PRICE = '$40 a year';
+export const PRICE = '$3.33/month, billed annually';
 
 const longDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', {

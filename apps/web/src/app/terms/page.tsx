@@ -52,9 +52,9 @@ export default function Page() {
         <p>
           Tracking time is free, and during the beta so is everything else.
           After it, where a feature needs the paid plan, the app says so before
-          you use it. The paid plan costs $40 a year, billed yearly in advance,
-          in US dollars. Payments are handled by Stripe; Stint never sees your
-          card number.
+          you use it. The paid plan costs $3.33/month, billed annually in
+          advance, in US dollars. Payments are handled by Stripe; Stint never
+          sees your card number.
         </p>
         <p>
           <strong className="text-primary">

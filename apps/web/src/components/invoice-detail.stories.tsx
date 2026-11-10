@@ -259,7 +259,9 @@ export const Locked: Story = {
       name: 'Subscribe to download',
     });
     await expect(subscribe).toHaveAttribute('href', '/settings#plan');
-    await expect(page.getByText(/on the paid plan, \$40 a year/)).toBeVisible();
+    await expect(
+      page.getByText(/on the paid plan, \$3\.33\/month, billed annually/),
+    ).toBeVisible();
     await expect(page.getByText(/exporting them included/)).toBeVisible();
     await expect(page.queryByRole('link', { name: /Download PDF/ })).toBeNull();
     await expect(page.getByText('Amount due')).toBeVisible();

@@ -48,7 +48,9 @@ export const Free: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const section = await plan(canvasElement);
-    await expect(section.getByText(/\$40 a year/)).toBeVisible();
+    await expect(
+      section.getByText(/\$3\.33\/month, billed annually/),
+    ).toBeVisible();
     await expect(section.getByText(/exporting them included/)).toBeVisible();
     await expect(
       section.getByRole('button', { name: 'Subscribe' }),
@@ -121,7 +123,9 @@ export const Paid: Story = {
   play: async ({ canvasElement }) => {
     const section = await plan(canvasElement);
     await expect(
-      section.getByText('Paid. Renews on October 12, 2027 at $40 a year.'),
+      section.getByText(
+        'Paid. Renews on October 12, 2027 at $3.33/month, billed annually.',
+      ),
     ).toBeVisible();
     await expect(
       section.getByRole('button', { name: 'Manage billing' }),
