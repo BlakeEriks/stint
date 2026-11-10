@@ -257,7 +257,7 @@ function InvoicePreview() {
     ['Checkout validation fixes', '8.50', '$175.00', '$1,487.50'],
     ['Q4 retainer scoping call', '1.75', '$220.00', '$385.00'],
   ];
-  const payment = [
+  const payment: [string, string][] = [
     ['Account holder', 'Your name here'],
     ['Bank', 'Your bank'],
     ['Account number', '000123456789'],
@@ -294,9 +294,7 @@ function InvoicePreview() {
           <div className="mt-6 flex items-start justify-between gap-6">
             <div className="flex flex-col">
               <span className={label}>BILL TO</span>
-              <span className="type-control mt-1 font-semibold">
-                Northwind Trading
-              </span>
+              <span className="type-heading mt-1">Northwind Trading</span>
               <span className={muted}>Portland, OR</span>
               <span className={muted}>ap@northwind.example</span>
             </div>
@@ -308,9 +306,7 @@ function InvoicePreview() {
                 </div>
                 <div className="flex flex-col items-end">
                   <span className={label}>DUE</span>
-                  <span className="type-control mt-1 font-semibold">
-                    Nov 15, 2026
-                  </span>
+                  <span className="type-heading mt-1">Nov 15, 2026</span>
                 </div>
               </div>
               <div className="flex flex-col items-end">
@@ -370,7 +366,7 @@ function InvoicePreview() {
               <span className="type-duration">$48.00</span>
             </div>
             <div className="mt-2 flex items-baseline justify-between border-t border-print-ink pt-2">
-              <span className="type-body font-semibold">Amount due</span>
+              <span className="type-heading">Amount due</span>
               <span className="type-amount-hero">$4,064.25</span>
             </div>
             <span className="type-meta mt-1 text-print-faint">Net 15</span>

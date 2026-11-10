@@ -110,6 +110,9 @@ Still set in the dashboard:
   - `NEXT_PUBLIC_APP_ORIGIN` — `https://app.runstint.com`. The code
     falls back to `''`, so an unset one costs a redirect hop on the landing
     page's Sign in link rather than failing the build.
+  - `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, for Production only: the sign-in
+    form's CAPTCHA (`docs/setup.md` §7). Unset, the form sends none, which
+    a preview's Auth server doesn't ask for.
   - `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN`, both the same DSN, for
     Production only (§3c): the server reports with the first, the browser
     with the second. Unset, Sentry stays off, so a preview never reports.
@@ -119,20 +122,25 @@ Still set in the dashboard:
     the build skips the upload and stacks stay minified.
 
 Billing, for Production only (Preview uses Stripe test-mode keys if billing
-is being tried there). **Setting them is the launch:** with all three set,
-a free user's invoice PDF answers `402 PAYMENT_REQUIRED` and the invoice
-screen offers Subscribe instead. Invoices generated before then aren't
+is being tried there). Invoicing is free during beta, so nothing asks for
+payment until `BILLING_LIVE` is set. **Setting it ends beta:** a free user's
+invoice PDF then answers `402 PAYMENT_REQUIRED` and the invoice screen
+offers Subscribe instead. Invoices generated before then aren't
 grandfathered.
 
 - `STRIPE_SECRET_KEY` (**sensitive**), `STRIPE_PRICE_ID` and
-  `STRIPE_WEBHOOK_SECRET` (**sensitive**). Any one unset hides the Plan
-  section: `checkout`, `portal` and `sync` answer `503 BILLING_UNAVAILABLE`,
-  the webhook a plain-text `503`, and `GET /billing` answers `200` with
-  `available: false`.
+  `STRIPE_WEBHOOK_SECRET` (**sensitive**). Any one unset turns billing off:
+  `checkout`, `portal` and `sync` answer `503 BILLING_UNAVAILABLE`, and the
+  webhook a plain-text `503`.
+- `BILLING_LIVE=true`. Unset, `GET /billing` answers `available: false`, so
+  the Plan section hides and every invoice opens, and `checkout` and
+  `portal` answer `503 BILLING_UNAVAILABLE`. The webhook and `sync` keep
+  mirroring Stripe, so an existing subscriber's events still land.
 - `SUPABASE_SECRET_KEY` (**sensitive**), the project's secret key: the
   Stripe webhook has no user session, so it writes `subscriptions` as
   `service_role`. Without it, the webhook and the Checkout return fail with
-  `500`. Never `NEXT_PUBLIC_`.
+  `500`, and so does `/api/v1/auth/code`, which the macOS and phone apps
+  sign in through. Never `NEXT_PUBLIC_`.
 
 Push, for Production and Preview: `FCM_SERVICE_ACCOUNT` (**sensitive**),
 the whole JSON key of a Firebase service account allowed to send messages
@@ -143,8 +151,8 @@ key; unset, a browser sees the change only when it polls.
 
 In the Stripe dashboard, once:
 
-- A product with one **yearly** price of $40 USD (`docs/positioning.md`);
-  its id is `STRIPE_PRICE_ID`.
+- A product with one **yearly** price of $39.96 USD, the $3.33/month billed
+  annually in `docs/positioning.md`; its id is `STRIPE_PRICE_ID`.
 - A webhook endpoint at `https://app.runstint.com/api/v1/billing/webhook`
   for `checkout.session.completed`, `customer.subscription.*`,
   `invoice.paid` and `invoice.payment_failed`; its signing secret is

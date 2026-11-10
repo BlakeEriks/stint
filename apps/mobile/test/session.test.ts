@@ -41,28 +41,6 @@ function auth(fetch: typeof globalThis.fetch, store = memoryStore()) {
   };
 }
 
-test('a code is asked for an existing account only', async () => {
-  const s = server(() => json(200, {}));
-  await auth(s.fetch).auth.sendCode('builder@localhost.test');
-  assert.equal(s.calls[0]?.url, `${URL}/auth/v1/otp`);
-  assert.deepEqual(JSON.parse(String(s.calls[0]?.init.body)), {
-    email: 'builder@localhost.test',
-    create_user: false,
-  });
-});
-
-test('no account reads as invite-only, not as a server setting', async () => {
-  const s = server(() =>
-    json(422, {
-      error_code: 'otp_disabled',
-      msg: 'Signups not allowed for otp',
-    }),
-  );
-  await assert.rejects(auth(s.fetch).auth.sendCode('who@x.test'), {
-    message: /invite-only/,
-  });
-});
-
 test('a typed code is verified as type email and the session kept', async () => {
   const s = server(() => json(200, gotrue(1)));
   const { auth: a, store } = auth(s.fetch);

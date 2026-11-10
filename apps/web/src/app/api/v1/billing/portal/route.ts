@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ApiError, handle } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
-import { requireBillingConfig, stripe } from '@/lib/stripe';
+import { requireBillingLive, stripe } from '@/lib/stripe';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
  */
 export const POST = handle(async (req: Request) => {
   const { db } = await requireSession(req);
-  requireBillingConfig();
+  requireBillingLive();
 
   const { data: row, error } = await db
     .from('subscriptions')

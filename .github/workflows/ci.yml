@@ -416,6 +416,16 @@ jobs:
       - name: End-to-end tests
         run: cd apps/web && pnpm test:e2e
 
+      # Last, because it restarts the stack with production's CAPTCHA on,
+      # which the password sign-ins above cannot pass. Turnstile's always-pass
+      # secret still rejects a request with no token.
+      - name: Sign-in codes past the CAPTCHA
+        run: |
+          printf '\n[auth.captcha]\nenabled = true\nprovider = "turnstile"\nsecret = "1x0000000000000000000000000000000AA"\n' >> supabase/config.toml
+          npx supabase stop
+          npx supabase start -x studio,postgres-meta
+          pnpm test:auth:captcha
+
       # The trace and screenshots are what make a CI-only failure diagnosable.
       - uses: actions/upload-artifact@v7
         if: failure()

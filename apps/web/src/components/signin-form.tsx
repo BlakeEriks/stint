@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { elevatedInputClass } from '@/components/field';
 import { Button } from '@/components/ui/button';
+import { Turnstile } from '@/components/turnstile';
 import { Wordmark } from '@/components/wordmark';
 import { forgetCache } from '@/lib/client/query-cache';
 import { browserClient } from '@/lib/client/supabase';
@@ -17,13 +18,14 @@ import { browserClient } from '@/lib/client/supabase';
 export function SignInForm({
   error,
   deleted,
-  inviteUrl,
+  captchaSiteKey,
   next,
 }: {
   error?: string;
   deleted?: boolean;
-  /** The landing page's invite request, where a stranger is sent. */
-  inviteUrl: string;
+  /** Turnstile's site key where the Auth server asks for a CAPTCHA:
+      production. Unset, the form sends none. */
+  captchaSiteKey?: string;
   /** Where the link lands once signed in; `/auth/callback` keeps it on
       this site. */
   next?: string;
@@ -36,7 +38,10 @@ export function SignInForm({
   const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'error'>(
     'idle',
   );
-  const [message, setMessage] = useState<React.ReactNode>('');
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  // A token is spent by the request it rides on; a new key draws a new one.
+  const [attempt, setAttempt] = useState(0);
+  const [message, setMessage] = useState('');
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -63,25 +68,19 @@ export function SignInForm({
         emailRedirectTo: `${window.location.origin}/auth/callback${
           next ? `?next=${encodeURIComponent(next)}` : ''
         }`,
-        // Invite-only: an account comes from an invite, never this form.
-        shouldCreateUser: false,
+        captchaToken: captchaToken ?? undefined,
       },
     });
 
     if (error) {
       setState('error');
       setMessage(
-        error.code === 'otp_disabled' ? (
-          <>
-            Stint is invite-only during alpha.{' '}
-            <a href={inviteUrl} className="underline hover:text-strong">
-              Request an invite
-            </a>
-          </>
-        ) : (
-          error.message
-        ),
+        error.code === 'captcha_failed'
+          ? 'Stint couldn’t confirm you’re not a bot. Try again.'
+          : error.message,
       );
+      setCaptchaToken(null);
+      setAttempt((n) => n + 1);
       return;
     }
     setState('sent');
@@ -137,9 +136,29 @@ export function SignInForm({
             />
           </label>
 
+          {captchaSiteKey ? (
+            <Turnstile
+              key={attempt}
+              siteKey={captchaSiteKey}
+              onToken={setCaptchaToken}
+              onUnloaded={() => {
+                setState('error');
+                setMessage(
+                  'The check that you’re not a bot didn’t load. Allow challenges.cloudflare.com, then reload.',
+                );
+              }}
+            />
+          ) : null}
+
           {/* The one action this screen exists to complete, so it takes the
               accent. */}
-          <Button type="submit" variant="accent" disabled={state === 'sending'}>
+          <Button
+            type="submit"
+            variant="accent"
+            disabled={
+              state === 'sending' || (captchaSiteKey != null && !captchaToken)
+            }
+          >
             {state === 'sending' ? 'Sending…' : 'Email me a sign-in link'}
           </Button>
 

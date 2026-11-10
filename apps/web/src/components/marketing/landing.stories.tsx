@@ -39,9 +39,6 @@ export const Desktop: Story = {
       '/signin',
     );
     await expect(
-      page.getByRole('img', { name: /Stint's home screen/ }),
-    ).toBeVisible();
-    await expect(
       page.getByRole('img', { name: /Stint's Mac menu bar panel/ }),
     ).toBeVisible();
   },

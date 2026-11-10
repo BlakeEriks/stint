@@ -71,8 +71,8 @@ test data. The answer to a leak is rotating the bypass in Vercel
 
 ## Sign-in
 
-The macOS app's emailed six-digit code (`docs/macos.md`, Sign-in), over
-`fetch` to GoTrue. **The session lives in secure storage**: the Keychain on
+The macOS app's emailed six-digit code (`docs/macos.md`, Sign-in): asked
+of Stint's `/api/v1/auth/code`, verified with GoTrue over `fetch`. **The session lives in secure storage**: the Keychain on
 iOS, Keystore-encrypted storage on Android, one entry per backend host. On
 iOS, a press outside the app refreshes it in Swift and stores the result; a
 refresh in the app reads the stored session first and takes that one.

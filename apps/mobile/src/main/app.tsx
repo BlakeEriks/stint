@@ -237,7 +237,7 @@ export function App() {
             onNotificationsOn={redrawSurfaces}
           />
         ) : (
-          <SignInContainer auth={auth} />
+          <SignInContainer auth={auth} sendCode={api.sendCode} />
         )}
       </QueryClientProvider>
     </SafeAreaProvider>

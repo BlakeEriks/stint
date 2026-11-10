@@ -3,7 +3,6 @@ import { test, expect } from '@playwright/test';
 import {
   signIn,
   clearInbox,
-  inviteLink,
   magicLink,
   requestLink,
   SEED_EMAIL,
@@ -39,26 +38,22 @@ test.describe('authentication', () => {
     ).toBeVisible();
   });
 
-  test('the invite link signs the invitee in', async ({ page }) => {
-    const email = `invitee-${Date.now()}@localhost.test`;
+  test('a new address signs up through the same form', async ({ page }) => {
+    const email = `signup-${Date.now()}@localhost.test`;
     const headers = serviceHeaders();
-    await clearInbox();
-    const invitedAt = Date.now();
-
-    const res = await fetch(`${AUTH}/invite`, {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-    expect(res.ok).toBe(true);
-    const { id } = await res.json();
-
     try {
-      await page.goto(await inviteLink(invitedAt));
-      await page.waitForURL('**/');
+      await signIn(page, email);
       await expect(page.getByText(email)).toBeVisible();
     } finally {
-      await fetch(`${AUTH}/admin/users/${id}`, { method: 'DELETE', headers });
+      const { users = [] } = await fetch(
+        `${AUTH}/admin/users?filter=${encodeURIComponent(email)}`,
+        { headers },
+      ).then((r) => r.json());
+      for (const u of users as { id: string }[])
+        await fetch(`${AUTH}/admin/users/${u.id}`, {
+          method: 'DELETE',
+          headers,
+        });
     }
   });
 

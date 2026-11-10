@@ -18,11 +18,22 @@
                 android:layout_weight="1" android:contentDescription="Stint">
                 <ImageView android:id="@+id/mark_bounds" android:layout_width="wrap_content"
                     android:layout_height="wrap_content" android:importantForAccessibility="no"
+<<<<<<< HEAD
                     android:src="@drawable/stint_mark_bounds" />
                 <ImageView android:id="@+id/mark_name" android:layout_width="wrap_content"
                     android:layout_height="wrap_content" android:importantForAccessibility="no"
                     android:src="@drawable/stint_mark_name" />
             </FrameLayout>
+=======
+                    android:fontFamily="@font/ibm_plex_mono_600" android:letterSpacing="0.12"
+                    android:text="STINT" android:textColor="#8F96A4" android:textSize="18sp" />
+                <TextView android:id="@+id/wordmark_tm" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:layout_gravity="top"
+                    android:importantForAccessibility="no"
+                    android:fontFamily="@font/ibm_plex_mono_600" android:includeFontPadding="false"
+                    android:text="™" android:textColor="#8F96A4" android:alpha="0.5" android:textSize="10.8sp" />
+            </LinearLayout>
+>>>>>>> origin/main
             <include layout="@layout/stint_button" />
         </LinearLayout>
         <ImageView android:id="@+id/live" android:layout_width="0dp"
