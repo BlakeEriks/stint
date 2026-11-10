@@ -313,18 +313,16 @@ export function Inbox({
             className="size-3.5 flex-none text-subtle"
           />
           <h2 className="type-label truncate text-subtle">Inbox</h2>
-        </div>
-        <div className="flex flex-none items-center gap-1.5">
-          {/* A pill on the same fill the cards use, so the header reads as
-              naming the set below it. No badge color — at zero the slot is
-              empty, because "Nothing needs you" already says it. */}
+          {/* A pill on the same fill the cards use, beside the name it
+              counts. No badge color — at zero the slot is empty, because
+              "Nothing needs you" already says it. */}
           {count ? (
             <span className="inline-flex h-[17px] min-w-[17px] flex-none items-center justify-center rounded-full bg-surface-elevated px-1.5 type-meta text-primary">
               {count}
             </span>
           ) : null}
-          {controls}
         </div>
+        {controls}
       </header>
 
       {count === 0 ? (
