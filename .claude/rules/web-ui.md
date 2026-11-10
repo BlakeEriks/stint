@@ -289,12 +289,14 @@ region. A page's title, primary action and tabs are its frame and paint at
 once; a figure in its header waits with the content (`useLoaded`), never a
 0 that changes.
 
-**`TaskSuggest` is the exception, deliberately** — its query renders nothing
+**A shortcut is the exception, deliberately** — `TaskSuggest`'s query renders nothing
 while loading and nothing on failure. A suggestion is an accelerator nobody
 asked for, so a spinner or a failure panel flashing over the timer bar reports
 a problem the user was not waiting on, in front of the field they are typing
 into. Absent, the list is simply not offered and the field still works. Do not
-"fix" it back to `Listing`.
+"fix" it back to `Listing`. `ReadyToInvoice` on New invoice is the same kind
+of shortcut: it runs its own queries and renders nothing until every row can
+say its amount, so New invoice never waits on it.
 
 ### Invoices
 
