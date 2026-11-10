@@ -632,17 +632,20 @@ function Form({
           <h1 className="type-title whitespace-nowrap text-strong">
             {editing ? `Edit ${editing.invoiceNumber}` : 'New invoice'}
           </h1>
-          <div className={`flex items-center gap-4 ${PHONE_BAR}`}>
-            {client ? <Due preview={current} updating={updating} /> : null}
-            <Button
-              type="button"
-              variant="accent"
-              onClick={() => generate.mutate()}
-              disabled={!canGenerate}
-            >
-              {pressLabel(editing !== undefined, generate.isPending)}
-            </Button>
-          </div>
+          {/* Nothing to generate until a client is chosen. */}
+          {client ? (
+            <div className={`flex items-center gap-4 ${PHONE_BAR}`}>
+              <Due preview={current} updating={updating} />
+              <Button
+                type="button"
+                variant="accent"
+                onClick={() => generate.mutate()}
+                disabled={!canGenerate}
+              >
+                {pressLabel(editing !== undefined, generate.isPending)}
+              </Button>
+            </div>
+          ) : null}
         </div>
 
         <Controls
@@ -650,7 +653,11 @@ function Form({
           clients={clients}
           draft={draft}
           setDraft={setDraft}
-          shown={client ? { today: issued, lastPending, groupingMode } : null}
+          shown={
+            client
+              ? { today: issued, lastPending, groupingMode, settings }
+              : null
+          }
           period={{ periodStart, periodEnd }}
         />
 
@@ -691,11 +698,6 @@ function Form({
             payment={payment}
             schedules={schedules}
             updating={updating}
-            footnote={
-              editing
-                ? 'Saving keeps its number.'
-                : 'Generating assigns a number and holds these entries for this draft.'
-            }
             edit={cardEdits({
               draft,
               set,
@@ -716,12 +718,7 @@ function Form({
               profiles,
               profile,
             })}
-          >
-            <p className="type-support text-subtle">
-              Dashed is yours to fill, and prints only once filled.
-            </p>
-            <TemplateLine settings={settings} />
-          </InvoicePreviewCard>
+          />
         ) : (
           <ReadyToInvoice clients={clients} />
         )}
@@ -773,8 +770,8 @@ function Form({
   );
 }
 
-/** What decides the lines, so it leads; the rest is on the page. Period and
-    Show time as wait for a client; `shown` is null until there is one. */
+/** What decides the lines, and how the page looks, so it leads; the rest is
+    on the page. All but Client wait for one; `shown` is null until then. */
 function Controls({
   editing,
   clients,
@@ -791,11 +788,13 @@ function Controls({
     today: string;
     lastPending: boolean;
     groupingMode: GroupingMode;
+    settings: Settings | undefined;
   } | null;
   period: Period;
 }) {
   return (
-    <div className="grid gap-4 @min-[560px]/new:grid-cols-3">
+    // Period is widest, so it reads in full: "Oct 1 – Oct 31, 2026".
+    <div className="grid gap-4 @min-[560px]/new:grid-cols-2 @min-[760px]/new:grid-cols-[1fr_1.4fr_1fr_1fr]">
       <Field label="Client" htmlFor="inv-client" required>
         {/* A draft keeps its client: another is a new invoice. */}
         <ClientPicker
@@ -832,6 +831,11 @@ function Controls({
             value={shown.groupingMode}
             onChange={(mode) => setDraft((d) => ({ ...d, groupingMode: mode }))}
           />
+        </Field>
+      ) : null}
+      {shown?.settings ? (
+        <Field label="Template" htmlFor="inv-template">
+          <TemplateControl template={shown.settings.invoiceTemplate} />
         </Field>
       ) : null}
     </div>
@@ -1027,27 +1031,32 @@ function Due({
 
 /** The account's template, changed in a dialog: it is a setting, not a
     field of this draft. */
-function TemplateLine({ settings }: { settings: Settings | undefined }) {
+function TemplateControl({
+  template,
+}: {
+  template: Settings['invoiceTemplate'];
+}) {
   const [changing, setChanging] = useState(false);
-  if (!settings) return null;
   return (
-    <p className="type-support text-subtle">
-      {templateName(settings.invoiceTemplate)} template ·{' '}
+    <>
       <button
         type="button"
-        className="text-strong underline underline-offset-2"
-        aria-label="Change template"
+        id="inv-template"
+        className={`${inputClass} flex items-center justify-between gap-2 text-left
+                    focus:border-edge-focus focus:ring-[3px] focus:ring-edge-focus`}
         onClick={() => setChanging(true)}
       >
-        Change
+        <span className="truncate">{templateName(template)}</span>
+        <ChevronDown
+          aria-hidden
+          className="size-4 flex-none text-muted opacity-60"
+          strokeWidth={2}
+        />
       </button>
       {changing ? (
-        <TemplateDialog
-          onOpenChange={setChanging}
-          template={settings.invoiceTemplate}
-        />
+        <TemplateDialog onOpenChange={setChanging} template={template} />
       ) : null}
-    </p>
+    </>
   );
 }
 

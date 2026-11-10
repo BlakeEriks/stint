@@ -127,9 +127,7 @@ export function InvoicePreviewCard({
   notes,
   heading = true,
   noSender = false,
-  footnote,
   edit,
-  children,
 }: {
   preview: CardFigures | undefined;
   client: Pick<Client, 'name' | 'address' | 'email'>;
@@ -151,11 +149,7 @@ export function InvoicePreviewCard({
   heading?: boolean;
   /** No business name or email yet: a draft marks where they will print. */
   noSender?: boolean;
-  /** Under the card, after `children`. */
-  footnote?: string;
   edit?: CardEdits;
-  /** Under the card: what is said about it but never printed. */
-  children?: React.ReactNode;
 }) {
   const terms =
     paymentTerms === undefined ? termsFrom(issued, due) : paymentTerms;
@@ -176,7 +170,7 @@ export function InvoicePreviewCard({
           {updating ? 'Updating…' : null}
         </p>
       )}
-      <div className="@container/card flex flex-col gap-5 rounded-lg border border-edge-subtle bg-surface-elevated p-6">
+      <div className={`@container/card flex flex-col gap-5 ${SHEET}`}>
         <From
           business={business}
           noSender={noSender}
@@ -216,8 +210,6 @@ export function InvoicePreviewCard({
           onChange={edit?.schedules?.onChange}
         />
       </div>
-
-      <UnderCard footnote={footnote}>{children}</UnderCard>
     </section>
   );
 }
@@ -247,23 +239,6 @@ function Dims({
 /** The terms generation will freeze, made from `issued` and `due`. */
 function termsFrom(issued: string, due: string): string | null {
   return due && due >= issued ? paymentTermsText(issued, due) : null;
-}
-
-/** The card reads as the PDF will, so anything that won't print goes here,
-    below it. */
-function UnderCard({
-  footnote,
-  children,
-}: {
-  footnote: string | undefined;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1 px-1 pt-2.5 empty:hidden">
-      {children}
-      {footnote ? <p className="type-support text-subtle">{footnote}</p> : null}
-    </div>
-  );
 }
 
 /** What the user fills in, marked as theirs: it prints only once filled. */
@@ -760,6 +735,10 @@ function Lines({
     </>
   );
 }
+
+/** The Letter page: New invoice shows it before a client is chosen too. */
+export const SHEET =
+  'rounded-lg border border-edge-subtle bg-surface-elevated p-6';
 
 /** The id of New invoice's notice that the summary line is empty. */
 export const SUMMARY_ERROR = 'inv-summary-error';

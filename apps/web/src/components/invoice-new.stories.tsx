@@ -127,8 +127,9 @@ const scheduled = (
 
 // ── states ─────────────────────────────────────────────────────────
 
-/** No client yet: Generate waits, and in place of a page each client
-    ready to invoice is a row that opens with its client and period. */
+/** No client yet: only Client shows, with no Generate, and the page lists
+    each client ready to invoice as a row that opens with its client and
+    period. */
 export const Blank: Story = {
   ...desktop,
   parameters: scheduled(ids.northwind, { period: 'semimonthly' }),
@@ -152,11 +153,30 @@ export const Blank: Story = {
       within(canvasElement).queryByText('Give the summary line its text.'),
     ).toBeNull();
     await expect(
-      within(canvasElement).getByRole('button', { name: 'Generate invoice' }),
-    ).toBeDisabled();
+      within(canvasElement).queryByRole('button', { name: 'Generate invoice' }),
+    ).toBeNull();
+    await expect(
+      within(canvasElement).queryByRole('button', { name: 'Period' }),
+    ).toBeNull();
   },
 };
-export const Phone: Story = { ...phone };
+export const Phone: Story = { ...Blank, ...phone };
+
+/** No client ready to invoice: the page says to choose one. */
+export const NoneReady: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByText(
+        'Choose a client to start an invoice.',
+      ),
+    ).toBeVisible();
+    await expect(
+      within(canvasElement).queryByRole('region', { name: 'Ready to invoice' }),
+    ).toBeNull();
+  },
+};
+export const NoneReadyPhone: Story = { ...NoneReady, ...phone };
 
 /** On September 17 the period is September, the month ending nearest, and
     due follows the settings' Net 30 terms. The card follows both. */
@@ -415,8 +435,7 @@ export const NoScheduleNoHint: Story = {
 };
 
 /** A client chosen: the card is the invoice as the PDF prints it, and
-    follows the form without a Preview button (US3 scenario 1). What
-    generating does reads under the card, not on it. */
+    follows the form without a Preview button (US3 scenario 1). */
 export const ClientChosen: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -424,9 +443,6 @@ export const ClientChosen: Story = {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
     await expect(card(page).getByText('Service period')).toBeVisible();
-    const footnote = card(page).getByText(/^Generating assigns a number/);
-    await expect(footnote).toBeVisible();
-    await expect(sheet(page).contains(footnote)).toBe(false);
     await expect(page.queryByRole('button', { name: 'Preview' })).toBeNull();
   },
 };
@@ -845,8 +861,8 @@ export const ChangeNumberRefused: Story = {
   },
 };
 
-/** Under the page the template shows by name; Change picks another in a
-    dialog, saved to Settings, and the draft being built stays as it was. */
+/** Template shows the account's by name and opens a dialog to pick
+    another, saved to Settings; the draft being built stays as it was. */
 export const ChangeTemplate: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -854,10 +870,9 @@ export const ChangeTemplate: Story = {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
     await userEvent.type(page.getByLabelText('Reference'), 'PO-7');
-    await expect(page.getByText(/^Standard template/)).toBeVisible();
-    await userEvent.click(
-      page.getByRole('button', { name: 'Change template' }),
-    );
+    const template = page.getByRole('button', { name: 'Template' });
+    await expect(template).toHaveTextContent('Standard');
+    await userEvent.click(template);
     const dialog = await page.findByRole('dialog', {
       name: 'Invoice template',
     });
@@ -866,7 +881,7 @@ export const ChangeTemplate: Story = {
     await userEvent.click(form.getByRole('radio', { name: 'Classic' }));
     await userEvent.click(form.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
-    await expect(page.getByText(/^Classic template/)).toBeVisible();
+    await expect(template).toHaveTextContent('Classic');
     await expect(page.getByLabelText('Reference')).toHaveValue('PO-7');
   },
 };
@@ -1303,8 +1318,6 @@ export const DetailsMissing: Story = {
     await expect(
       card(page).getByRole('button', { name: 'Add your business' }),
     ).toBeVisible();
-    const hint = page.getByText(/^Dashed is yours to fill/);
-    await expect(sheet(page).contains(hint)).toBe(false);
     await expect(
       page.getByRole('button', { name: 'Generate invoice' }),
     ).toBeDisabled();
