@@ -1,6 +1,7 @@
 import { projectColors, type } from '@stint/design-tokens';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, within } from 'storybook/test';
+import { MarkOutline } from './mark-outline';
 import { Wordmark } from './wordmark';
 
 /**
@@ -160,12 +161,19 @@ export const Type: Story = {
 };
 
 /** `|Stint|™`: the bounds and the ™ are the `brand.mark` token, one drawing
-    across the web and macOS. */
+    across the web and macOS. Last, its outlines at the default size, which
+    the error page, the link preview and the widgets draw; they should match
+    the first. */
 export const Mark: Story = {
   render: () => (
     <div className="flex flex-col items-start gap-8">
       <Wordmark />
       <Wordmark size="small" />
+      <MarkOutline
+        size={type.wordmark.size}
+        bounds="var(--mark)"
+        name="var(--text-strong)"
+      />
     </div>
   ),
   play: async ({ canvasElement }) => {
