@@ -32,6 +32,12 @@ export function browserClient() {
               },
             }
           : { data: {}, error: null },
+      /* The real calls send the browser back to the app, so the page never
+         sees an answer. */
+      oauth: {
+        approveAuthorization: () => new Promise<never>(() => {}),
+        denyAuthorization: () => new Promise<never>(() => {}),
+      },
     },
   };
 }

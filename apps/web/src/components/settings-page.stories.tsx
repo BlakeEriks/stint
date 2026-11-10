@@ -422,3 +422,49 @@ export const Loading: Story = {
     ).toBeLessThan(4);
   },
 };
+
+const connectedApps = async (canvasElement: HTMLElement) => {
+  const heading = await within(canvasElement).findByRole('heading', {
+    name: 'Connected apps',
+  });
+  return within(heading.closest('section') as HTMLElement);
+};
+
+/** An approved app is listed with its date; Revoke takes it off at once. */
+export const ConnectedApps: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const apps = await connectedApps(canvasElement);
+    await expect(apps.getByText('Claude Code')).toBeVisible();
+    await expect(apps.getByText(/^Approved /)).toBeVisible();
+    await userEvent.click(apps.getByRole('button', { name: 'Revoke' }));
+    await waitFor(() => expect(apps.queryByText('Claude Code')).toBeNull());
+  },
+};
+
+/** None connected: it says how to connect Claude. */
+export const NoConnectedApps: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    db.connectedApps = [];
+  }),
+  play: async ({ canvasElement }) => {
+    const apps = await connectedApps(canvasElement);
+    await expect(apps.getByText(/\/api\/mcp$/)).toBeVisible();
+  },
+};
+
+/** A refused revoke puts the app back and says so in the notice. */
+export const RevokeRefused: Story = {
+  ...desktop,
+  parameters: failing('revokeConnectedApp'),
+  play: async ({ canvasElement }) => {
+    const apps = await connectedApps(canvasElement);
+    await userEvent.click(apps.getByRole('button', { name: 'Revoke' }));
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      await page.findByText(/Couldn’t revoke Claude Code/),
+    ).toBeVisible();
+    await expect(apps.getByText('Claude Code')).toBeVisible();
+  },
+};

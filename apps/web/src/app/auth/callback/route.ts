@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { cookieClient } from '@/lib/supabase';
+import { sameOriginURL } from '@/lib/preview';
 
 /**
  * Magic-link landing. Exchanges the one-time code for a cookie session and
- * redirects home.
+ * redirects to `next` on this site, or home.
  *
  * `/` is the app's own root here: auth lives on the app subdomain, where the
  * marketing page is not routed at all.
@@ -26,5 +27,7 @@ export async function GET(req: Request) {
       new URL('/signin?error=invalid_link', url.origin),
     );
   }
-  return NextResponse.redirect(new URL('/', url.origin));
+  return NextResponse.redirect(
+    sameOriginURL(url.searchParams.get('next'), url.origin),
+  );
 }
