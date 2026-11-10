@@ -4459,12 +4459,25 @@ test('a sign-in code answers the same whether or not the address has an account'
   );
   assert.deepEqual(asked, [{ email: 'who@example.com', create_user: false }]);
 
-  // The project's email quota sends nobody a code, so it can't say one is coming.
+  // The project's email quota answers the same too, and reaches Sentry.
+  const Sentry = await import('@sentry/nextjs');
+  const { close } = await import('@sentry/core');
+  const reported: (string | undefined)[] = [];
+  Sentry.init({
+    dsn: 'https://key@o0.ingest.sentry.io/0',
+    beforeSend(event) {
+      reported.push(event.exception?.values?.[0]?.value);
+      return null;
+    },
+  });
   const quota = await askCode('192.0.2.1', 429, {
     error_code: 'over_email_send_rate_limit',
     msg: 'email rate limit exceeded',
   });
-  assert.equal(quota.status, 500);
+  await close(1000);
+  assert.equal(quota.status, 200);
+  assert.equal(reported.length, 1);
+  assert.match(reported[0] ?? '', /^GoTrue \/otp answered 429/);
 });
 
 test('one address gets five sign-in codes an hour, and another is unaffected', async () => {

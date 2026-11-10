@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { RequestCode } from '@stint/schema';
-import { ApiError, handle } from '@/lib/errors';
+import { ApiError, handle, report } from '@/lib/errors';
 import { serviceClient } from '@/lib/supabase';
 import { parseBody } from '@/lib/validate';
 
@@ -18,7 +18,8 @@ const gotrue = () =>
  *
  * Past the CAPTCHA, two things stand in for it: five codes an hour per
  * client address (`take_sign_in_code_slot`), and one answer for every
- * address, so nobody can learn which have an account.
+ * address, so nobody can learn which have an account, even while the
+ * project's email quota is spent.
  */
 export const POST = handle(async (req: Request) => {
   const { email } = await parseBody(req, RequestCode);
@@ -55,11 +56,15 @@ export const POST = handle(async (req: Request) => {
     msg?: string;
   };
   if (body.error_code === 'otp_disabled') return NextResponse.json({});
-  /* GoTrue's per-address interval reaches only an address with an account,
-     so it answers as a sent code does: the last one still works. Its other
-     429, the project's email quota, is an outage. */
-  if (res.status === 429 && body.msg?.startsWith('For security purposes'))
+  /* GoTrue's mailer, and so both its 429s, reach only an address with an
+     account, so each answers as a sent code does. The per-address interval
+     leaves the last code working; the project's email quota is an outage,
+     reported out of band, since a different answer would name the account. */
+  if (res.status === 429) {
+    if (!body.msg?.startsWith('For security purposes'))
+      report(new Error(`GoTrue /otp answered 429: ${JSON.stringify(body)}`));
     return NextResponse.json({});
+  }
   throw new Error(
     `GoTrue /otp answered ${res.status}: ${JSON.stringify(body)}`,
   );
