@@ -395,7 +395,7 @@ price). Until `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` and
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/billing` | `{ available, plan, status, periodEnd, cancelAtPeriodEnd, paymentFailed }`. `plan` is `paid` while Stripe's status is `active`, `trialing` or `past_due` (`planOf()` in `@stint/core`). Read from the stored mirror, so it answers with Stripe unset or down; `available` says whether billing is set up. |
+| `GET` | `/billing` | `{ available, plan, status, periodEnd, cancelAtPeriodEnd, paymentFailed }`. `plan` is `paid` while Stripe's status is `active`, `trialing` or `past_due` (`planOf()` in `@stint/core`). Read from the stored mirror, so it answers with Stripe unset or down; `available` says whether billing is live: false until `BILLING_LIVE` is `true`, even with the Stripe keys set. |
 | `POST` | `/billing/checkout` | `{ url }` of a Stripe Checkout page for the yearly price, returning to `/settings?checkout={CHECKOUT_SESSION_ID}`. `409 ALREADY_SUBSCRIBED` if paid. |
 | `POST` | `/billing/portal` | `{ url }` of the Stripe Customer Portal (cancel, resume, card, receipts). `409 NOT_SUBSCRIBED` with no Stripe customer. |
 | `POST` | `/billing/sync` | `{ sessionId }` → the caller's `Billing`, after storing what Stripe says about that Checkout session now. `404 CHECKOUT_NOT_FOUND` for an unknown session or another user's. |
@@ -451,7 +451,7 @@ preference — `.claude/rules/invoicing.md` has the reason.
 | `ALREADY_SUBSCRIBED` | 409 | Checkout for a user already paid. |
 | `NOT_SUBSCRIBED` | 409 | The portal for a user with no Stripe customer. |
 | `CHECKOUT_NOT_FOUND` | 404 | No such Checkout session for this user. |
-| `BILLING_UNAVAILABLE` | 503 | Stripe isn't configured on this deploy. |
+| `BILLING_UNAVAILABLE` | 503 | Stripe isn't configured on this deploy, or, from `checkout` and `portal`, `BILLING_LIVE` isn't `true`. |
 | `VALIDATION_FAILED` | 422 | Zod parse failure (`details` carries the issues), an illegal state change such as deleting an issued invoice or an invalid status transition, a `PATCH` body that parses but maps to no column, or a reference to a record that is missing or another user's, such as a project's `clientId`. |
 | `PAYMENT_REQUIRED` | 402 | The invoice PDF is the paid tier. Subscribe in Settings. |
 | `INTERNAL` | 500 | Unhandled error. Not part of `ErrorCode` in the schema package. |
