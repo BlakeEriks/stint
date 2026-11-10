@@ -1,8 +1,8 @@
 # Time Tracking — working notes
 
-Time tracking and invoicing for one contractor. Tracking is free; the invoice
-is what gets paid for. **`docs/positioning.md` owns who it's for, the
-competitors and the price**, and wins any conflict about the product.
+Time tracking and invoicing for one contractor. **`docs/positioning.md` owns
+who it's for, the competitors and the price**, and wins any conflict about
+the product.
 
 This file holds what every session needs before touching any file. Before
 adding to it, name the doc that owns the claim:

@@ -15,15 +15,14 @@ already invoices for them.
 countries are additive, never the baseline, and never inferred from sample
 data or a developer's location.
 
-They are not price-shopping — at $100k+ a year, $40 is what a billable
-minute costs them. **Price is not why they arrive; it is why they distrust
+They are not price-shopping. **Price is not why they arrive; it is why they distrust
 what they have.** A bill that moved, a rate that went behind a paywall, a tier
 that appeared. What they want is the number on the invoice to be right, and a
 tool that still costs what it costs next year.
 
 ## The one line
 
-**Built for one person, priced like it, and the invoice is always right.**
+**Built for one person, free, and the invoice is always right.**
 
 ## Three advantages, all structural
 
@@ -39,13 +38,13 @@ the bill grows when the month goes well.
 **The invoice is the product; the timer is the input.** Time tracking is a
 commodity given away free by Toggl, Clockify, Zoho, Paymo, and Harvest. The
 numbered, rate-frozen, ACH-bearing PDF is the part that is hard and the part
-worth money. We charge for the document, never for the tracking — so what the
-paid tier sells is that its numbers are right, which is why the trust rules in
-the constitution (`.specify/memory/constitution.md`) are the product rather
-than engineering taste.
+worth money. What it offers is that its numbers are right, which is why the
+trust rules in the constitution (`.specify/memory/constitution.md`) are the
+product rather than engineering taste.
 
-**The price is knowable in advance and stays.** No seats, no usage metering,
-no tier that unlocks a number you already earned. This is a promise the
+**Nothing goes behind a paywall later.** Whatever Stint charges once it has
+users comes with no seats, no usage metering, and no tier that unlocks a
+number you already earned. This is a promise the
 incumbents cannot currently make: Harvest moved to usage fees in 2026,
 Clockify moved billable rates behind a paywall in April 2026, and FreshBooks
 raised prices in March 2026 with a one-cycle hold.
@@ -70,26 +69,18 @@ tracker that produces the invoice, not an invoicer with a timer attached.
 
 ## Price
 
-**$40 a year — $3.33 a month, billed annually.** There is no monthly option.
+**Free, with open sign-up, until Stint has real usage.** Anyone can create an
+account. There is no paid plan, no invite list, and no card. Tracking, the
+money view, the exports and the invoice PDF are all included. What to charge
+is decided once there are users to ask, and this section changes first.
 
-Time tracking is free and complete: unlimited clients, projects, entries and
-history, kept as long as the user needs it, with the money view and the
-exports included. **Downloading an invoice requires the paid tier**, and that
-is the only thing that does — the records get out free, the document is the
-product.
-
-**During Alpha, an account comes only by invite**; sign-up is closed.
-
-**The price covers the bill, not a margin.** Until Stint makes money, the
-overhead is the Apple Developer Program's $99 a year, which signs and
-notarizes the macOS app and publishes the iPhone app; hosting is $0 on Vercel
-Hobby and Supabase Free. The first revenue moves both to Pro, since Hobby
-forbids commercial use, and from then on $654 a year is the whole overhead;
-net of Stripe's subscription fees **eighteen subscribers cover it.** Google
-Play's $25 is paid once, and push and app builds stay on free tiers. One more
-user costs about nothing until roughly a thousand accounts, which is why
-the free tier can be whole. A design that adds a fixed cost changes this
-section first.
+**Free costs Apple's fee.** The overhead is the Apple Developer Program's $99
+a year, which signs and notarizes the macOS app and publishes the iPhone app;
+hosting is $0 on Vercel Hobby and Supabase Free. Charging anything moves both
+to Pro, since Hobby forbids commercial use, and the overhead to $654 a year.
+Google Play's $25 is paid once, and push and app builds stay on free tiers.
+One more user costs about nothing until roughly a thousand accounts. A design
+that adds a fixed cost changes this section first.
 
 ## Scope
 
@@ -101,12 +92,8 @@ folder keeps a copy. Competitors email invoices, so expect the comparison.
 
 ## What this is a bet on
 
-That eighteen contractors will pay $40 a year for an invoice that is correct,
-when the tracking around it is free.
-
-Eighteen is the whole bar, and it is what makes this survivable: the product
-does not need to convert a market, only to cover a hosting bill and Apple's
-fee.
+That hourly contractors would run their day on a free tracker whose invoice is
+correct. Usage comes first; what anyone would pay is the question after it.
 
 **This is inference from the market, not from customers.** It is well
 supported by what the incumbents did in 2026 — three of them moved money
