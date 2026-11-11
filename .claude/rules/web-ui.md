@@ -78,8 +78,8 @@ color fact is text on the accent (`--text-on-accent`, `tokens:validate`).
   head, or a row they can act on.**
 - **Motion reports a change; it never announces one.** Every duration honors
   `prefers-reduced-motion`.
-- **The mark takes one color**: `text-strong` in the app header, `text-muted`
-  where it recedes. The invoice PDF and the macOS status item carry none.
+- **The mark's bounds are always `--mark` green; its letters take one text
+  color**: `text-strong` in the app header, `text-muted` where it recedes. The invoice PDF and the macOS status item carry none.
 
 ### Typography comes from the scale
 
@@ -127,9 +127,10 @@ by the 18px `INSET`; `flush` is for a screen whose regions carry the inset
 themselves (Home, the calendar), so it is never doubled. `wide` is for a
 screen that needs the room (Home), not a preference.
 `workspace` is for a screen that is a tool rather than a page to read (New
-invoice, the calendar): at `xl` it takes the dock's room and the dock folds
-to a 44px strip (`DockStrip`), because the frame reads `data-workspace`
-through `:has()`. Below `xl` the dock is a band under the content and stays.
+invoice, the calendar): it drops the measure and takes the column's width.
+**No screen folds the dock.** At `xl` the user folds it to a 44px strip
+(`DockStrip`) and unfolds it, and the choice holds on every screen
+(`setDockFolded`). Below `xl` the dock is a band under the content and stays.
 `DetailPage`'s `letter` is for a screen whose content is a printed page
 (New invoice): one centered column, 816px at most, a US letter's width.
 The card keeps its size, so the frame never jolts between screens. The page
@@ -186,11 +187,11 @@ anticipation of one.
   `next dev` passes.
 - **User-visible text follows `docs/voice.md`.**
 - **Every action carries a visible label.** Four exceptions, each with an
-  `aria-label`: a destructive first step, a dense repeating row, the
-  folded dock's strip, which is 44px by design, and `KeyboardAdd`, the "+"
-  that shows only on keyboard focus because a pointer draws on the grid. A glyph is always
-  `aria-hidden`. An `aria-label` holds the visible text, in order, so saying
-  what is on screen presses it (WCAG 2.5.3): `Mark paid, STINT-0001`.
+  `aria-label`: a destructive first step, a dense repeating row, the dock's
+  fold and unfold buttons, the strip being 44px by design, and
+  `KeyboardAdd`, the "+" that shows only on keyboard focus because a pointer
+  draws on the grid. A glyph is always `aria-hidden`. An `aria-label` holds
+  the visible text, in order, so saying what is on screen presses it (WCAG 2.5.3): `Mark paid, STINT-0001`.
 - **A destructive action is quiet until it is the confirm**: a ghost in
   `text-danger`, then `destructive` naming what goes.
   Destructive means it removes something saved; dropping a line from a form

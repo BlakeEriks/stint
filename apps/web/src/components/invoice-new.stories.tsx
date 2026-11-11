@@ -20,6 +20,7 @@ import {
   stalled,
   tablet,
   wide,
+  foldDock,
 } from '@/mocks/screen';
 import { NewInvoice } from './invoice-new';
 
@@ -432,11 +433,12 @@ export const ClientChosen: Story = {
 };
 export const ClientChosenPhone: Story = { ...ClientChosen, ...phone };
 
-/** The screen is a workspace: the dock folds to a strip, and the page is
-    a US letter's width, 816px at most. */
+/** With the dock folded, at 2xl the page is a US letter's width: 700px at
+    least (it is ~430px beside the open dock), 816px at most. */
 export const Workspace: Story = {
   ...ClientChosen,
   ...wide,
+  beforeEach: foldDock,
   play: async (ctx) => {
     await ClientChosen.play?.(ctx);
     const page = within(ctx.canvasElement.ownerDocument.body);

@@ -30,18 +30,14 @@ Those are Supabase's fixed local development credentials — identical on every
 machine, published in Supabase's own docs, stable across resets. Nothing here
 is a secret.
 
-Billing stays hidden locally until Stripe **test-mode** keys are added here
-too: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` and `STRIPE_WEBHOOK_SECRET` (from
+Billing stays hidden locally until `BILLING_LIVE=true` and Stripe
+**test-mode** keys are added here too: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` and `STRIPE_WEBHOOK_SECRET` (from
 `stripe listen --forward-to localhost:3100/api/v1/billing/webhook`), plus
 `SUPABASE_SECRET_KEY` from `supabase status`, which the webhook writes
 with. The same key is what the server broadcasts timer changes with, so
-without it a web tab sees another client's change only when it polls. With the three Stripe keys set, the invoice gate is on
+without it a web tab sees another client's change only when it polls. With billing live, the invoice gate is on
 too: a free account's invoice PDF answers `402 PAYMENT_REQUIRED`, and the
 invoice screen offers Subscribe in place of Download PDF.
-
-`NEXT_PUBLIC_INVITE_FORM_URL` stays unset, so the landing page's invite form
-says it didn't send and never reaches the real list. To see it succeed, point
-it at a local stub (`specs/006-invite-request/quickstart.md`).
 
 **No file on this machine points at production.** There is no `.env.local`;
 `pnpm migrate` and `pnpm verify:schema` reach a database only through `--url`
@@ -100,10 +96,10 @@ worktree's own URL and its link returns there.
 
 ## Signing in
 
-**Sign-up is off, as in production**, so an address works only once it has
-an account: `pnpm seed <email>` makes one with data, and `--clear` then
-empties it. Any other address gets "Stint is invite-only during alpha."
-Enter it on `/signin`, then open **Mailpit** and click the link. No mail
+**Sign-up is on, as in production**, without its CAPTCHA, so any address
+gets an account: an unknown one starts empty, and `pnpm seed <email>` makes
+one with data, which `--clear` then empties. Enter it on `/signin`, then
+open **Mailpit** and click the link. No mail
 leaves the machine, so there is nothing in your actual inbox and nothing to
 rate-limit.
 
@@ -280,8 +276,7 @@ here first. Two things worth running against local before a deploy:
 SUPABASE_DB_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres pnpm verify:schema
 ```
 
-and an invite from Studio (`pnpm dev:up:studio`, then **Authentication →
-Users → Add user → Send invitation**), which exercises
+and a sign-up, an unknown address on `/signin`, which exercises
 `create_default_settings`, a trigger that runs inside Supabase's own signup
 transaction, where only a real signup reaches it.
 
@@ -320,8 +315,15 @@ the file that otherwise holds them is gitignored and absent in CI.
 It is separate from `verify:db` because it is the one suite that needs a real
 **Auth server** rather than a Postgres instance. The route suites inject
 `__TEST_DB__` and never reach `requireSession`'s bearer branch, the path the
-phone and macOS apps depend on; only a genuinely signed token proves it. In
+phone and macOS apps depend on; only a genuinely signed token proves it.
+It also connects an app through the OAuth server, as Claude does, and proves
+its token reaches the MCP tools, nothing else, and nothing once revoked. A
+stack started before `config.toml` turned that server on needs one restart. In
 CI it runs in the e2e job, right after `supabase start`.
+
+`pnpm test:auth:captcha` runs `auth-code.test.ts`, which needs the stack's
+CAPTCHA on, as production's is. Locally it is off, so this one runs in CI:
+the e2e job's last step turns it on and restarts the stack.
 
 ## Running the browser tests
 
@@ -330,7 +332,6 @@ dev:up` plus `pnpm dev`; `ci.yml` says how CI starts its stack.
 
 They sign in for real, through Mailpit. `magicLink()` reads the **text** part
 of the email, because the HTML `href` escapes its separators as `&amp;`.
-`inviteLink()` reads the HTML `href` and decodes `&amp;` itself.
 
 Three things that bite:
 

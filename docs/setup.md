@@ -1,6 +1,6 @@
 # Set up the Supabase project
 
-The hosted project, from creation to the first invite. Every step was
+The hosted project, from creation to the first sign-up. Every step was
 verified by applying the migrations to a clean Postgres and confirming a new
 user gets default settings.
 
@@ -26,8 +26,8 @@ release on the RLS event trigger before it was listed.
 - **Auto-enable RLS on new tables — ON.** This installs an `rls_auto_enable`
   event trigger in `public`, a backstop only: every table still declares its
   own RLS and policy in its migration (`docs/data-model.md`).
-- **Authentication → Sign In / Providers → Allow new users to sign up — OFF.**
-  Stint is invite-only (section 6).
+- **Authentication → Sign In / Providers → Allow new users to sign up — ON**,
+  behind a CAPTCHA (section 7).
 
 ## 2. Apply the migrations
 
@@ -98,7 +98,7 @@ rejected on return without saying why. `docs/deploying.md` §4 sets it.
 ## 5. Sign-in email
 
 Supabase's default sender is capped at a few messages an hour and its
-template can't be edited, so production sends sign-in and invite mail through
+template can't be edited, so production sends sign-in mail through
 Resend's free tier (100 a day) as `Stint <signin@runstint.com>`.
 
 1. **Resend → Domains**: add `runstint.com` in `us-east-1`, put its DKIM,
@@ -123,19 +123,41 @@ file changes local only, until it's pasted again. Keep
 code for every magic link, and those calls show it, so the menu bar app's
 panel has a code to take.
 
-## 6. Invite people
+## 6. Connected apps
 
-Sign-up is off, so an account exists only once it's invited from
-**Authentication → Users → Add user → Send invitation**. Each invitee gets
-their own account.
+Claude connects through Supabase Auth's OAuth 2.1 server, which
+`config.toml` turns on for local only. On each hosted project (production
+and `stint-test`):
 
-**Authentication → Emails → Invite user**: subject `You're invited to Stint`,
-body `supabase/templates/invite.html`. Like the magic-link template, the
-dashboard's copy doesn't track the file.
+1. **Authentication → OAuth Server**: on, **Authorization Path**
+   `/oauth/consent`, **Allow Dynamic OAuth Apps** on.
+2. **Settings → JWT Keys**: the current key is asymmetric (ES256), so
+   Claude can verify tokens against the published keys.
 
-The invite button carries `{{ .TokenHash }}` to `/auth/confirm`, which
-verifies it on the server and signs the invitee in. The default template
-links to `supabase.co` instead, which returns the session in a URL fragment
-the app ignores, and which spam filters flag in mail from `runstint.com`.
-The link works once: if a mail scanner opens it first, the invitee lands on
-`/signin` and signs in with their email.
+The approval page is at the **Site URL**, so a preview tested against
+`stint-test` needs that Site URL pointed at it.
+
+## 7. Open sign-up behind a CAPTCHA
+
+Anyone who enters an email on the sign-in form gets an account, so anyone
+could make Stint send mail. Cloudflare Turnstile, which Supabase supports,
+guards GoTrue's `/otp`. The macOS and phone apps can't solve it, so they ask
+`/api/v1/auth/code` for a code instead, which passes it with the secret key,
+mails only an existing account, and allows five codes an hour per client
+address (`docs/api.md`, Sign-in).
+
+In this order, so sign-in never breaks partway through:
+
+1. **Cloudflare → Turnstile → Add widget**: name `Stint`, hostname
+   `app.runstint.com`, mode **Managed**. Keep the site key and secret key.
+2. **Vercel → Settings → Environment Variables**:
+   `NEXT_PUBLIC_TURNSTILE_SITE_KEY` is the site key, for Production only,
+   then redeploy. The sign-in form now shows the widget and sends its token,
+   which GoTrue ignores until step 3.
+3. **Supabase → Authentication → Attack Protection → Enable CAPTCHA
+   protection**: provider Turnstile, the secret key. The macOS and phone apps
+   in use must already ask `/api/v1/auth/code`; an older build asks GoTrue
+   directly and is refused.
+4. **Authentication → Sign In / Providers → Allow new users to sign up — ON.**
+
+Local and CI run with sign-up on and no CAPTCHA (`supabase/config.toml`).

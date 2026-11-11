@@ -4,6 +4,8 @@ import { delay, http } from 'msw';
 import { AppShell } from '@/components/app-shell';
 import { handlers } from './handlers';
 import { fail } from './respond';
+import { setDockFolded } from '@/lib/client/dock-fold';
+import { STALLABLE, type Stallable } from './supabase';
 
 /**
  * A route as the app renders it: inside the real frame, at its own path, so
@@ -45,6 +47,11 @@ export const laptop = { globals: { viewport: { value: 'laptop' } } };
 export const desktop = { globals: { viewport: { value: 'desktop' } } };
 export const macbook = { globals: { viewport: { value: 'macbook' } } };
 export const macbook16 = { globals: { viewport: { value: 'macbook16' } } };
+/** A story's `beforeEach`: the dock folded, and open again after. */
+export const foldDock = () => {
+  setDockFolded(true);
+  return () => setDockFolded(false);
+};
 export const wide = { globals: { viewport: { value: 'wide' } } };
 export const light = {
   globals: { viewport: { value: 'desktop' }, theme: 'light' },
@@ -68,13 +75,16 @@ export function failing(...keys: (keyof typeof handlers)[]) {
 /**
  * These calls never answer, so a story shows a press still pending: each
  * endpoint is called once, and the preview judges the story with that many
- * requests still open. `'signOut'` is the Supabase auth call, not `/api/v1`.
+ * requests still open. A `STALLABLE` key is a Supabase auth call, not
+ * `/api/v1`.
  */
-export function stalled(...keys: (keyof typeof handlers | 'signOut')[]) {
-  const api = keys.filter((key) => key !== 'signOut');
+export function stalled(...keys: (keyof typeof handlers | Stallable)[]) {
+  const isAuth = (key: string): key is Stallable =>
+    (STALLABLE as readonly string[]).includes(key);
+  const api = keys.filter((key) => !isAuth(key)) as (keyof typeof handlers)[];
   return {
     stalls: api.length,
-    stallSignOut: keys.includes('signOut'),
+    stallAuth: keys.filter(isAuth),
     msw: {
       handlers: Object.fromEntries(
         api.map((key) => {

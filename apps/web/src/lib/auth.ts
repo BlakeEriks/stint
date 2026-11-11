@@ -1,4 +1,7 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  isAuthRetryableFetchError,
+  type SupabaseClient,
+} from '@supabase/supabase-js';
 // `@sentry/core`, not `@sentry/nextjs`, for the reason in `errors.ts`.
 import { setUser } from '@sentry/core';
 import { cookieClient, bearerClient, testDb } from './supabase';
@@ -28,17 +31,72 @@ async function resolve(req: Request): Promise<Session> {
   const injected = testDb();
   if (injected) return { userId: TEST_USER_ID, db: injected };
 
-  const header = req.headers.get('authorization');
-
-  if (header?.startsWith('Bearer ')) {
-    const token = header.slice(7);
+  const token = bearerToken(req);
+  if (token) {
     const db = bearerClient(token);
     // The token must be passed EXPLICITLY — see verify().
-    return { userId: await verify(db, 'Invalid or expired token', token), db };
+    const claims = await verify(db, 'Invalid or expired token', token);
+    /* A connected app's token (Supabase's OAuth server adds `client_id`)
+       reaches only the MCP tools here; the database's `connected_app()`
+       policies fence the Data API. */
+    if (claims.client_id && !toolCalls.has(req)) {
+      throw new ApiError(
+        'UNAUTHORIZED',
+        'A connected app’s token only reaches its MCP tools',
+      );
+    }
+    return { userId: claims.sub, db };
   }
 
   const db = await cookieClient();
-  return { userId: await verify(db, 'Not signed in'), db };
+  return { userId: (await verify(db, 'Not signed in')).sub, db };
+}
+
+/**
+ * Requests the MCP endpoint built for its tools. Object identity can't
+ * cross HTTP, so no client can forge membership, as it could a header.
+ */
+const toolCalls = new WeakSet<Request>();
+
+/** Marks `req` as an MCP tool's call, which a connected app may make. */
+export function toolCall(req: Request): Request {
+  toolCalls.add(req);
+  return req;
+}
+
+/**
+ * The MCP caller's token, or null when Auth refuses it.
+ *
+ * `getUser()`, not `getClaims()`: a revoked app's token keeps a valid
+ * signature until it expires, and only Auth knows its session is gone.
+ */
+export async function mcpCaller(req: Request): Promise<string | null> {
+  const token = bearerToken(req);
+  if (!token || testDb()) return token;
+  const { data, error } = await bearerClient(token).auth.getUser(token);
+  // Auth answering is a refusal; Auth unreachable is a failure.
+  if (isAuthRetryableFetchError(error)) throw error;
+  return data.user ? token : null;
+}
+
+/**
+ * The caller's access token, for a call to Auth's own API on their behalf.
+ * `requireSession` has verified it already.
+ */
+export async function callerToken(
+  req: Request,
+  db: SupabaseClient,
+): Promise<string> {
+  const token = bearerToken(req);
+  if (token) return token;
+  const { data } = await db.auth.getSession();
+  if (!data.session) throw new ApiError('UNAUTHORIZED', 'Not signed in');
+  return data.session.access_token;
+}
+
+function bearerToken(req: Request): string | null {
+  const header = req.headers.get('authorization');
+  return header?.startsWith('Bearer ') ? header.slice(7) : null;
 }
 
 /**
@@ -63,11 +121,11 @@ async function verify(
   db: SupabaseClient,
   message: string,
   token?: string,
-): Promise<string> {
+): Promise<{ sub: string; client_id?: string }> {
   const { data, error } = await db.auth.getClaims(token);
-  const sub = data?.claims?.sub;
-  if (error || !sub) {
+  const claims = data?.claims;
+  if (error || !claims?.sub) {
     throw new ApiError('UNAUTHORIZED', message);
   }
-  return sub;
+  return { sub: claims.sub, client_id: claims.client_id as string | undefined };
 }

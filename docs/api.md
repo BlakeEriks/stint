@@ -2,8 +2,11 @@
 
 Every client (web and the macOS app) uses these endpoints, and an endpoint
 not built yet is marked `(not implemented)`. Auth is a Supabase JWT as
-`Authorization: Bearer <token>`, on every endpoint except `/health` and the
-Stripe webhook, which Stripe's signature authenticates instead. Request/response shapes are defined in
+`Authorization: Bearer <token>`, on every endpoint except `/health`,
+`/auth/code` and the Stripe webhook, which Stripe's signature authenticates
+instead. A connected app's token (one carrying `client_id`, from the OAuth
+server under [MCP](#mcp)) is `401` everywhere here; it reaches only the MCP
+tools. Request/response shapes are defined in
 `packages/schema/src/`, one file per resource — that is the source of truth, and every
 route parses its request against it; this document is the map.
 
@@ -14,7 +17,9 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 55 of 55, counting handlers rather than files.
+Every handler is covered — 58 of 58, counting handlers rather than files.
+`/connected-apps` needs a real Auth server, so `apps/web/test/auth.test.ts`
+covers it.
 
 ## Timer
 
@@ -290,7 +295,7 @@ rate. `0` is a real rate, distinct from `null`, which means "fall back".
 | `PATCH` | `/invoices/:id` | **Drafts only.** Edits a draft: the body is `POST /invoices`'s, checked as it is, and `clientId` must be the draft's (`422 VALIDATION_FAILED` with `{ field: 'clientId' }`). Keeps the number. `paymentProfileId` freezes those payment details; absent, the draft keeps its own. Saving is a build: the draft holds its period's work that no other draft holds, as the preview with `draftId` showed it, and lets go of what it held outside the period. Returns the `Invoice` plus `lineItems`. `409 INVOICE_STATUS_CHANGED` for an invoice that isn't a draft; `404` for one not found. |
 | `POST` | `/invoices/:id/work` | **Drafts only.** Add to draft: holds the work `newWork` counts, all of it. Work another draft took meanwhile stays with it. `204`. `409 INVOICE_STATUS_CHANGED` for an invoice that isn't a draft; `404` for one not found. |
 | `DELETE` | `/invoices/:id` | **Drafts only** — `422 VALIDATION_FAILED` otherwise. An issued invoice must be voided, so numbering stays gapless. Deleting a draft lets go of the work it held. |
-| `GET` | `/invoices/:id/pdf` | A draft is priced first and the dates its render printed recorded, which Mark sent keeps; one with an unrated entry is `400 NO_RATE_CONFIGURED`, and one whose typed due date is before its issue date `422 VALIDATION_FAILED`. Streams `application/pdf` in the invoice's `template`, or for a draft the setting's, which its recorded render keeps, from the line items, `business`, `billTo` and payment details, then the frozen `supportingDetail` from page 2, in hours. `?download=1` for `attachment` rather than an inline preview. Both are the paid tier: `402 PAYMENT_REQUIRED` unless billing is not set up, the caller pays, or the invoice was generated while they paid. Previewing and generating stay free. |
+| `GET` | `/invoices/:id/pdf` | A draft is priced first and the dates its render printed recorded, which Mark sent keeps; one with an unrated entry is `400 NO_RATE_CONFIGURED`, and one whose typed due date is before its issue date `422 VALIDATION_FAILED`. Streams `application/pdf` in the invoice's `template`, or for a draft the setting's, which its recorded render keeps, from the line items, `business`, `billTo` and payment details, then the frozen `supportingDetail` from page 2, in hours. `?download=1` for `attachment` rather than an inline preview. Both are the paid tier: `402 PAYMENT_REQUIRED` unless billing is not live, the caller pays, or the invoice was generated while they paid. Previewing and generating stay free. |
 | `PATCH` | `/invoices/:id/status` | `{ status, sentAt?, paidAt? }`. Also how an invoice is marked sent: `send_draft` writes a draft's lines and totals as the work it holds stands, claims that work and lets go of the rest it held, dates it as its last PDF printed, else `issueDate` the send date in its zone and `dueDate` by its terms unless one was typed, freezes its `template` as its last PDF's, else the setting's, and sends it, in one transaction — `400 NO_RATE_CONFIGURED` if an entry has no rate, `422 VALIDATION_FAILED` if it has no lines, no zone (its own, the account's `billingTimeZone`, or `?tz`), or a typed due date before its issue date (`{ field: 'dueDate' }`), `409 ENTRY_ALREADY_INVOICED` if another invoice took one of its entries or expenses at the same moment. `422 VALIDATION_FAILED` on a transition the table below forbids, or if `paidAt` is later than now or earlier than the invoice's `sentAt`; `409 INVOICE_STATUS_CHANGED` if another request changed the status since this one read it. |
 
 A draft is priced in the zone stored when it was generated. A draft without
@@ -389,12 +394,14 @@ Sentry, and without `SUPABASE_SECRET_KEY` nothing is broadcast.
 One yearly subscription through Stripe (`docs/positioning.md` owns the
 price). Until `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` and
 `STRIPE_WEBHOOK_SECRET` are all set, `checkout`, `portal` and `sync` answer
-`503 BILLING_UNAVAILABLE`, the webhook answers a plain-text `503`, and
-`GET /billing` still answers `200` with `available: false`.
+`503 BILLING_UNAVAILABLE` and the webhook answers a plain-text `503`. Until
+`BILLING_LIVE` is also `true` (beta), `GET /billing` answers `200` with
+`available: false` and `checkout` and `portal` answer `503`; the webhook and
+`sync` still mirror Stripe.
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/billing` | `{ available, plan, status, periodEnd, cancelAtPeriodEnd, paymentFailed }`. `plan` is `paid` while Stripe's status is `active`, `trialing` or `past_due` (`planOf()` in `@stint/core`). Read from the stored mirror, so it answers with Stripe unset or down; `available` says whether billing is set up. |
+| `GET` | `/billing` | `{ available, plan, status, periodEnd, cancelAtPeriodEnd, paymentFailed }`. `plan` is `paid` while Stripe's status is `active`, `trialing` or `past_due` (`planOf()` in `@stint/core`). Read from the stored mirror, so it answers with Stripe unset or down; `available` says whether billing is live: false until `BILLING_LIVE` is `true`, even with the Stripe keys set. |
 | `POST` | `/billing/checkout` | `{ url }` of a Stripe Checkout page for the yearly price, returning to `/settings?checkout={CHECKOUT_SESSION_ID}`. `409 ALREADY_SUBSCRIBED` if paid. |
 | `POST` | `/billing/portal` | `{ url }` of the Stripe Customer Portal (cancel, resume, card, receipts). `409 NOT_SUBSCRIBED` with no Stripe customer. |
 | `POST` | `/billing/sync` | `{ sessionId }` → the caller's `Billing`, after storing what Stripe says about that Checkout session now. `404 CHECKOUT_NOT_FOUND` for an unknown session or another user's. |
@@ -420,6 +427,65 @@ preference — `.claude/rules/invoicing.md` has the reason.
   store the 9 digits; a number that is not 9 digits passing the ABA checksum
   is `422 VALIDATION_FAILED` (`validateRoutingNumber()` in `@stint/core`).
 - Deleting is archival, because clients and invoices reference profiles.
+
+## Connected apps
+
+Apps the user approved at `/oauth/consent`, such as Claude. Supabase Auth
+holds them; these call its grants API with the caller's token.
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/connected-apps` | `{ apps: [{ clientId, name, grantedAt }] }` |
+| `DELETE` | `/connected-apps/:clientId` | `204`. The app's tokens are refused from its next request. `404 ENTRY_NOT_FOUND` for an app the user hasn't approved. |
+
+## MCP
+
+`/api/mcp`, outside `/api/v1`, is a stateless Streamable HTTP MCP server.
+Supabase Auth's OAuth 2.1 server signs the client in, and
+`/.well-known/oauth-protected-resource` names it. Connect with
+`claude mcp add --transport http stint https://<domain>/api/mcp`, or add the
+same address as a custom connector in claude.ai.
+
+- No token, or one Auth refuses (`getUser()`, so a revoked app stops at
+  once): `401` with `WWW-Authenticate: Bearer resource_metadata=…`.
+- Each tool calls one route handler in-process with the caller's token, and
+  answers with its JSON body. A refusal is the tool's error,
+  `<code>: <message>`.
+
+| Tool | Route |
+|---|---|
+| `list_projects` | `GET /projects` |
+| `rename_project` | `PATCH /projects/:id` with `name` |
+| `list_task_names` | `GET /entries/task-names` |
+| `list_entries` | `GET /entries` |
+| `rename_entry_task` | `PATCH /entries/:id` with `taskName` |
+| `list_clients` | `GET /clients` |
+| `create_client` | `POST /clients` |
+| `update_client` | `PATCH /clients/:id`, without `archived` |
+| `create_project` | `POST /projects` |
+
+**The token fence.** `requireSession` refuses a token carrying `client_id`
+unless `toolCall()` marked the `Request`, which only `/api/mcp` does. The
+mark is an object in memory, so no client can send it. The token also
+reaches PostgREST, so the database fences it as well. Every table the token
+isn't meant to write carries a restrictive `connected_app()` policy
+(`pnpm verify:schema` fails one that doesn't), which leaves the token:
+
+- reading clients, projects, entries and the user's phones (so a renamed
+  running entry still reaches them)
+- adding clients and projects
+- changing only the client form's fields on a client, `name` on a project
+  and `task_name` on an entry, by the `connected_app_changes_only` trigger
+
+`delete_account()` refuses it. Supabase tokens
+all carry `aud: authenticated`, so MCP's audience binding is unavailable;
+the fence covers what it guards against.
+
+## Sign-in
+
+| Method | Path | Notes |
+|---|---|---|
+| `POST` | `/auth/code` | **No auth.** `{ email }` → `200 {}`, whether or not the address has an account, so nobody learns which do, even while the project's email quota is spent, which goes to Sentry instead; GoTrue mails a sign-in code only to an existing one, which the macOS and phone apps then verify with GoTrue. It never creates an account. `429 RATE_LIMITED` past five a client address asks in an hour, an IPv6 address counting as its /64. Why it exists: `docs/setup.md` §7. Covered by `routes.test.ts`, and by `auth-code.test.ts` against a real Auth server with the CAPTCHA on. |
 
 ## Health
 
@@ -450,13 +516,15 @@ preference — `.claude/rules/invoicing.md` has the reason.
 | `ALREADY_SUBSCRIBED` | 409 | Checkout for a user already paid. |
 | `NOT_SUBSCRIBED` | 409 | The portal for a user with no Stripe customer. |
 | `CHECKOUT_NOT_FOUND` | 404 | No such Checkout session for this user. |
-| `BILLING_UNAVAILABLE` | 503 | Stripe isn't configured on this deploy. |
+| `BILLING_UNAVAILABLE` | 503 | Stripe isn't configured on this deploy, or, from `checkout` and `portal`, `BILLING_LIVE` isn't `true`. |
 | `VALIDATION_FAILED` | 422 | Zod parse failure (`details` carries the issues), an illegal state change such as deleting an issued invoice or an invalid status transition, a `PATCH` body that parses but maps to no column, or a reference to a record that is missing or another user's, such as a project's `clientId`. |
-| `PAYMENT_REQUIRED` | 402 | The invoice PDF is the paid tier. Subscribe in Settings. |
+| `PAYMENT_REQUIRED` | 402 | While `BILLING_LIVE` is on (after the beta), the invoice PDF needs the paid plan. Subscribe in Settings. |
+| `RATE_LIMITED` | 429 | A sixth sign-in code from one address within the hour. |
 | `INTERNAL` | 500 | Unhandled error. Not part of `ErrorCode` in the schema package. |
 
 `ENTRY_NOT_FOUND` is the generic 404 across resources — clients, projects,
-invoices, expenses, payment profiles and settings, not only time entries.
+invoices, expenses, payment profiles, settings and connected apps, not only
+time entries.
 
 **Success statuses:** `201` on a create, `200` on an idempotent replay of one
 (a duplicate-key insert with a client-supplied id), `204` on a delete, `200`
@@ -464,8 +532,8 @@ otherwise.
 
 **Retry policy:** 409, 5xx and network failures are worth retrying. Other 4xx
 are rejections on the merits — an unchanged request fails identically, so
-surface them rather than retrying. There is no rate limiting, so nothing here
-returns 429; if that changes, it joins the retryable list.
+surface them rather than retrying. The one 429, `RATE_LIMITED`, is one address
+asking for too many codes; its message says when to ask again.
 
 ## Timezones
 

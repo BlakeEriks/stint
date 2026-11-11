@@ -68,7 +68,7 @@ test.describe('invoices', () => {
     const generate = page.getByRole('button', { name: 'Generate invoice' });
     await expect(generate).toBeDisabled();
 
-    await page.getByRole('button', { name: 'Client' }).click();
+    await page.getByRole('button', { name: 'Client', exact: true }).click();
     await page.getByRole('menuitemradio', { name: /Northwind/ }).click();
     await page.getByRole('button', { name: 'Add a charge' }).click();
     const charge = page.getByRole('dialog', { name: 'New charge' });

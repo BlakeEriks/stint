@@ -7,8 +7,7 @@ import { formatClock } from '@stint/core';
 const SEED_SECONDS = 1 * 3600 + 47 * 60 + 32;
 
 /**
- * The hero's running timer — the page's only client component, and the only
- * place the accent appears besides the CTA.
+ * The hero's running timer.
  *
  * It is a demonstration, not a real timer: nothing is tracked, nothing is
  * saved, and no session is involved. It exists because motion is the one

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { fontVariables } from './fonts';
-import { THEME_SCRIPT } from '@/lib/theme-script';
+import { DOCK_FOLD_SCRIPT, THEME_SCRIPT } from '@/lib/theme-script';
 import '@/styles/globals.css';
 
 /* The landing page overrides both of these; the app's own screens inherit
@@ -13,6 +13,7 @@ export const metadata: Metadata = {
     template: '%s · Stint',
   },
   description: 'Time tracking for solo contractors.',
+  twitter: { card: 'summary_large_image' },
 };
 
 export default function RootLayout({
@@ -32,7 +33,8 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        {/* Applies the stored theme BEFORE first paint.
+        {/* Applies the stored theme BEFORE first paint, and the dock's fold,
+            so a folded dock never paints open and reflows the frame.
 
             The choice lives in localStorage, so the server cannot know it and
             the markup is always rendered dark, the default. Without this
@@ -46,7 +48,7 @@ export default function RootLayout({
         <script
           // biome-ignore lint/security/noDangerouslySetInnerHtml: must run before paint
           dangerouslySetInnerHTML={{
-            __html: THEME_SCRIPT,
+            __html: `${THEME_SCRIPT};${DOCK_FOLD_SCRIPT}`,
           }}
         />
       </head>
