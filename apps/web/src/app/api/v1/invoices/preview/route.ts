@@ -19,8 +19,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export const dynamic = 'force-dynamic';
 
 /** The client's billable work New invoice offers to include
-    (`earlierWork()`): the edited draft neither ends the look-back nor holds
-    the work. */
+    (`earlierWork()`). The edited draft doesn't end the look-back, and what
+    it holds counts as free, as the preview's own lines do. */
 async function loadEarlierWork(
   db: SupabaseClient,
   opts: { clientId: string; periodStart: string; tz: string; draftId?: string },
@@ -29,7 +29,7 @@ async function loadEarlierWork(
     await Promise.all([
       db
         .from('invoices')
-        .select('id, invoice_number, period_start, period_end')
+        .select('id, period_start, period_end')
         .eq('client_id', opts.clientId)
         .neq('status', 'void'),
       db.from('projects').select('id').eq('client_id', opts.clientId),
@@ -46,10 +46,10 @@ async function loadEarlierWork(
   );
   if (!from) return null;
   const window = billingWindow(from, addDays(opts.periodStart, -1), opts.tz);
-  const rows = await selectAll(() =>
-    db
+  const rows = await selectAll(() => {
+    const q = db
       .from('time_entries')
-      .select('started_at, draft_id')
+      .select('started_at')
       .in(
         'project_id',
         (projects ?? []).map((p) => p.id as string),
@@ -59,29 +59,15 @@ async function loadEarlierWork(
       .eq('is_billable', true)
       .not('ended_at', 'is', null)
       .gte('started_at', window.start.toISOString())
-      .lt('started_at', window.end.toISOString())
-      .order('started_at', { ascending: true }),
-  );
-  const work = earlierWork(
-    rows.map((r) => ({
-      startedAt: r.started_at as string,
-      draftId:
-        r.draft_id === opts.draftId ? null : (r.draft_id as string | null),
-    })),
+      .lt('started_at', window.end.toISOString());
+    return opts.draftId
+      ? q.or(`draft_id.is.null,draft_id.eq.${opts.draftId}`)
+      : q.is('draft_id', null);
+  });
+  return earlierWork(
+    rows.map((r) => ({ startedAt: r.started_at as string })),
     opts.tz,
   );
-  if (!work) return null;
-  const { draftId, ...rest } = work;
-  const draft = others.find((i) => i.id === draftId);
-  return {
-    ...rest,
-    draft: draft
-      ? {
-          id: draft.id as string,
-          invoiceNumber: draft.invoice_number as string,
-        }
-      : null,
-  };
 }
 
 /**
