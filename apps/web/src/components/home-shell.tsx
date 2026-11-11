@@ -157,7 +157,9 @@ export function FigLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** A figure and its quiet second unit on one baseline. */
+/** A figure and its quiet second unit on one baseline. `nowrap` because the
+    unit has a space in it, and while the dock slides open the column passes
+    through widths where "25h 10m" would break at it. */
 export function PairLine({
   children,
   className = '',
@@ -166,7 +168,9 @@ export function PairLine({
   className?: string;
 }) {
   return (
-    <span className={`flex min-w-0 items-baseline gap-2 ${className}`}>
+    <span
+      className={`flex min-w-0 items-baseline gap-2 whitespace-nowrap ${className}`}
+    >
       {children}
     </span>
   );
