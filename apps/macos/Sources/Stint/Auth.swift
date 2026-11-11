@@ -27,7 +27,7 @@ actor Auth {
             throw Self.error(from: data, status: status)
                 ?? APIError(
                     status: status, code: "INVALID_CODE",
-                    message: "That code did not work. Codes expire after 24 hours and can only be used once."
+                    message: "That code didn’t work. Codes work once and expire after 24 hours."
                 )
         }
         await tokens.store(try JSONDecoder().decode(Session.self, from: data))
@@ -41,7 +41,7 @@ actor Auth {
         )
         guard status == 200 else {
             throw Self.error(from: data, status: status)
-                ?? APIError(status: status, code: "UNKNOWN", message: "Could not sign in as \(email).")
+                ?? APIError(status: status, code: "UNKNOWN", message: "Couldn’t sign in as \(email).")
         }
         await tokens.store(try JSONDecoder().decode(Session.self, from: data))
     }

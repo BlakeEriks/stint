@@ -129,7 +129,7 @@ actor TokenStore {
         if (400..<500).contains(status), status != 408, status != 429 {
             return APIError(status: 401, code: "UNAUTHORIZED", message: "Session expired")
         }
-        return APIError(status: status, code: "UNKNOWN", message: "The sign-in server returned \(status).")
+        return APIError(status: status, code: "UNKNOWN", message: "Request failed (HTTP \(status)). Tracked time is unaffected.")
     }
 
     private func refresh(_ refreshToken: String) async throws -> Session {
