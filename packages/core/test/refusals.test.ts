@@ -134,7 +134,7 @@ const cases: [string, Refusal | null, Want | null][] = [
   [
     'a billed expense modified',
     refusals.expenseLocked('modified'),
-    { code: 'EXPENSE_LOCKED' },
+    { code: 'EXPENSE_LOCKED', message: /be edited\./ },
   ],
   [
     'a second timer',
