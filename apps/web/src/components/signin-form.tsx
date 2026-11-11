@@ -5,11 +5,14 @@ import { elevatedInputClass } from '@/components/field';
 import { Button } from '@/components/ui/button';
 import { Turnstile } from '@/components/turnstile';
 import { Wordmark } from '@/components/wordmark';
+import { ApiError, api } from '@/lib/client/api';
 import { forgetCache } from '@/lib/client/query-cache';
 import { browserClient } from '@/lib/client/supabase';
+import { sameOriginURL } from '@/lib/preview';
 
 /**
- * Magic link sign-in.
+ * Magic link sign-in. When the CAPTCHA fails, an existing account signs in
+ * with an emailed code instead, as the macOS and phone apps do.
  *
  * Apple and Google can be added later as additional buttons — they are
  * independent Supabase providers, and accounts sharing an email address link
@@ -39,6 +42,12 @@ export function SignInForm({
     'idle',
   );
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  /* A blocker or network kept the CAPTCHA from Cloudflare. `/auth/code`
+     needs none, and mails only an account that exists, so it can't open
+     sign-up to bots. */
+  const [captchaFailed, setCaptchaFailed] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [code, setCode] = useState('');
   // A token is spent by the request it rides on; a new key draws a new one.
   const [attempt, setAttempt] = useState(0);
   const [message, setMessage] = useState('');
@@ -62,6 +71,8 @@ export function SignInForm({
        session here — the page redirects home if there is. */
     await db.auth.signOut({ scope: 'local' });
 
+    if (captchaFailed) return requestCode();
+
     const { error } = await db.auth.signInWithOtp({
       email,
       options: {
@@ -84,6 +95,44 @@ export function SignInForm({
       return;
     }
     setState('sent');
+  }
+
+  async function requestCode() {
+    try {
+      await api.requestCode({ email });
+    } catch (e) {
+      // A refusal, or a network that also blocks this site.
+      if (!(e instanceof ApiError || e instanceof TypeError)) throw e;
+      setState('error');
+      setMessage(
+        e instanceof ApiError ? e.message : 'Request failed. Try again.',
+      );
+      return;
+    }
+    setCodeSent(true);
+    setState('idle');
+  }
+
+  async function verify(e: React.FormEvent) {
+    e.preventDefault();
+    setState('sending');
+    // `email`: `magiclink` is the link's hashed token and rejects a typed code.
+    const { error } = await browserClient().auth.verifyOtp({
+      email,
+      token: code.replace(/\D/g, ''),
+      type: 'email',
+    });
+    if (error) {
+      setState('error');
+      setMessage(
+        'That code didn’t work. Codes work once and expire after 24 hours.',
+      );
+      return;
+    }
+    // A full load, so the server renders the session it now reads.
+    window.location.replace(
+      sameOriginURL(next ?? null, window.location.origin),
+    );
   }
 
   return (
@@ -113,7 +162,47 @@ export function SignInForm({
         </p>
       ) : null}
 
-      {state === 'sent' ? (
+      {codeSent ? (
+        <form onSubmit={verify} className="mt-8 flex flex-col gap-3">
+          <p className="type-support text-muted">
+            If {email} has an account, a code is on its way.
+          </p>
+          <label className="flex flex-col gap-1.5">
+            <span className="type-label text-subtle">Sign-in code</span>
+            <input
+              required
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="\d{3} ?\d{3}"
+              maxLength={7}
+              // biome-ignore lint/a11y/noAutofocus: the code is the only thing left to type
+              autoFocus
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              className={`py-2 ${elevatedInputClass}`}
+            />
+          </label>
+          <Button type="submit" variant="accent" disabled={state === 'sending'}>
+            {state === 'sending' ? 'Signing in…' : 'Sign in'}
+          </Button>
+          {state === 'error' ? (
+            <p role="alert" className="type-support text-danger">
+              {message}
+            </p>
+          ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              setCodeSent(false);
+              setCode('');
+              setState('idle');
+            }}
+          >
+            Send a new code
+          </Button>
+        </form>
+      ) : state === 'sent' ? (
         <div className="mt-8 rounded-lg border border-edge-subtle bg-surface-base p-4">
           <p className="type-control text-primary">Check your email.</p>
           <p className="mt-1 type-support text-muted">
@@ -141,13 +230,16 @@ export function SignInForm({
               key={attempt}
               siteKey={captchaSiteKey}
               onToken={setCaptchaToken}
-              onUnloaded={() => {
-                setState('error');
-                setMessage(
-                  'The check that you’re not a bot didn’t load. Allow challenges.cloudflare.com, then reload.',
-                );
-              }}
+              onFailed={() => setCaptchaFailed(true)}
             />
+          ) : null}
+
+          {captchaFailed ? (
+            <p role="alert" className="type-support text-muted">
+              The check that you’re not a bot didn’t load. An existing account
+              can sign in with a code by email. To sign up, allow
+              challenges.cloudflare.com, then reload.
+            </p>
           ) : null}
 
           {/* The one action this screen exists to complete, so it takes the
@@ -156,10 +248,15 @@ export function SignInForm({
             type="submit"
             variant="accent"
             disabled={
-              state === 'sending' || (captchaSiteKey != null && !captchaToken)
+              state === 'sending' ||
+              (captchaSiteKey != null && !captchaToken && !captchaFailed)
             }
           >
-            {state === 'sending' ? 'Sending…' : 'Email me a sign-in link'}
+            {state === 'sending'
+              ? 'Sending…'
+              : captchaFailed
+                ? 'Email me a code'
+                : 'Email me a sign-in link'}
           </Button>
 
           {state === 'error' ? (

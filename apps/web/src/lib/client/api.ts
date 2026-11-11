@@ -405,6 +405,10 @@ export const api = {
   sendFeedback: (body: schema.CreateFeedback) =>
     request<{ id: string }>('POST', '/feedback', body),
 
+  /** Mails a sign-in code to an existing account only. */
+  requestCode: (body: schema.RequestCode) =>
+    request<void>('POST', '/auth/code', body),
+
   updateExpense: (id: string, body: Partial<ExpenseInput>) =>
     request<Expense>('PATCH', `/expenses/${id}`, body),
 

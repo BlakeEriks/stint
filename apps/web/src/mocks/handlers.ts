@@ -924,6 +924,8 @@ export const handlers = {
     return csvResponse('invoices', tz, invoicesCsv(getDb(), tz));
   }),
 
+  requestCode: http.post(`${API}/auth/code`, () => HttpResponse.json({})),
+
   sendFeedback: http.post(`${API}/feedback`, async ({ request }) => {
     const input = schema.CreateFeedback.safeParse(await request.json());
     if (!input.success) return fail('VALIDATION_FAILED');

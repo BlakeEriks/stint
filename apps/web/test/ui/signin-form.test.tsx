@@ -17,8 +17,16 @@ const signInWithOtp = vi.fn(
   },
 );
 
+const verifyOtp = vi.fn(
+  async (
+    _: unknown,
+  ): Promise<{ error: { code: string; message: string } | null }> => ({
+    error: null,
+  }),
+);
+
 vi.mock('@/lib/client/supabase', () => ({
-  browserClient: () => ({ auth: { signOut, signInWithOtp } }),
+  browserClient: () => ({ auth: { signOut, signInWithOtp, verifyOtp } }),
 }));
 
 /* Cloudflare's widget, as a button that hands out a token. Each mount's
@@ -27,12 +35,23 @@ let mounts = 0;
 vi.mock('@/components/turnstile', async () => {
   const { useState } = await import('react');
   return {
-    Turnstile: ({ onToken }: { onToken: (t: string) => void }) => {
+    Turnstile: ({
+      onToken,
+      onFailed,
+    }: {
+      onToken: (t: string) => void;
+      onFailed: () => void;
+    }) => {
       const [n] = useState(() => ++mounts);
       return (
-        <button type="button" onClick={() => onToken(`token-${n}`)}>
-          I am human
-        </button>
+        <>
+          <button type="button" onClick={() => onToken(`token-${n}`)}>
+            I am human
+          </button>
+          <button type="button" onClick={onFailed}>
+            Fail
+          </button>
+        </>
       );
     },
   };
@@ -95,5 +114,45 @@ describe('SignInForm', () => {
         options: { captchaToken: 'token-2' },
       }),
     );
+  });
+
+  it('signs an existing account in with an emailed code when the CAPTCHA fails', async () => {
+    const user = userEvent.setup();
+    const replace = vi.fn();
+    vi.stubGlobal('location', { ...window.location, replace });
+    const fetch = vi.fn(async () => Response.json({}));
+    vi.stubGlobal('fetch', fetch);
+    render(<SignInForm captchaSiteKey="site-key" next="/invoices" />);
+
+    await user.click(screen.getByRole('button', { name: 'Fail' }));
+    await user.type(screen.getByLabelText('Email'), 'dev@localhost.test');
+    await user.click(screen.getByRole('button', { name: 'Email me a code' }));
+
+    // The endpoint mails existing accounts only, so it never makes one.
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith('/api/v1/auth/code', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'dev@localhost.test' }),
+      }),
+    );
+    expect(signInWithOtp).not.toHaveBeenCalled();
+
+    await user.type(await screen.findByLabelText('Sign-in code'), '123 456');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    // `type: 'email'`: `magiclink` rejects a typed code.
+    await waitFor(() =>
+      expect(verifyOtp).toHaveBeenCalledWith({
+        email: 'dev@localhost.test',
+        token: '123456',
+        type: 'email',
+      }),
+    );
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith(
+        `${window.location.origin}/invoices`,
+      ),
+    );
+    vi.unstubAllGlobals();
   });
 });

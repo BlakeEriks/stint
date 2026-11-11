@@ -140,7 +140,7 @@ grandfathered.
   Stripe webhook has no user session, so it writes `subscriptions` as
   `service_role`. Without it, the webhook and the Checkout return fail with
   `500`, and so does `/api/v1/auth/code`, which the macOS and phone apps
-  sign in through. Never `NEXT_PUBLIC_`.
+  sign in through, and the web form when its CAPTCHA fails. Never `NEXT_PUBLIC_`.
 
 Push, for Production and Preview: `FCM_SERVICE_ACCOUNT` (**sensitive**),
 the whole JSON key of a Firebase service account allowed to send messages

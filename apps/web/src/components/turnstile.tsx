@@ -41,24 +41,24 @@ function load(): Promise<Widget> {
 /**
  * The CAPTCHA in front of sign-in. A token is good for one request, so a
  * caller remounts this (a new `key`) for the next.
- * `onToken(null)` when the last one expired or the challenge failed, which
- * the widget explains itself; `onUnloaded` when the script never arrived,
- * which nothing on the page would.
+ * `onToken(null)` when the last one expired; `onFailed` too when the script
+ * never arrived or the widget reports its own error, such as a blocker
+ * keeping it from Cloudflare, so the caller can offer another way in.
  */
 export function Turnstile({
   siteKey,
   onToken,
-  onUnloaded,
+  onFailed,
 }: {
   siteKey: string;
   onToken: (token: string | null) => void;
-  onUnloaded: () => void;
+  onFailed: () => void;
 }) {
   const el = useRef<HTMLDivElement>(null);
   const report = useRef(onToken);
   report.current = onToken;
-  const unloaded = useRef(onUnloaded);
-  unloaded.current = onUnloaded;
+  const failed = useRef(onFailed);
+  failed.current = onFailed;
 
   useEffect(() => {
     let id: string | undefined;
@@ -72,11 +72,14 @@ export function Turnstile({
           size: 'flexible',
           callback: (token) => report.current(token),
           'expired-callback': none,
-          'error-callback': none,
+          'error-callback': () => {
+            none();
+            failed.current();
+          },
         });
       },
       () => {
-        if (!gone) unloaded.current();
+        if (!gone) failed.current();
       },
     );
     return () => {

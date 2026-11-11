@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, userEvent, within } from 'storybook/test';
 import { desktop, light, phone } from '@/mocks/screen';
-import { otp } from '@/mocks/supabase';
+import { code, otp } from '@/mocks/supabase';
 import { turnstile } from '@/mocks/turnstile';
 import { SignInForm } from './signin-form';
 
@@ -84,7 +84,8 @@ export const CaptchaFailed: Story = {
   },
 };
 
-/** Cloudflare's script was blocked: nothing on the page would say why. */
+/** The CAPTCHA was blocked or couldn't connect: an existing account can
+    still ask for a code, and the button needs no token. */
 export const CaptchaUnloaded: Story = {
   ...desktop,
   args: { captchaSiteKey: 'storybook' },
@@ -99,5 +100,49 @@ export const CaptchaUnloaded: Story = {
     await expect(await page.findByRole('alert')).toHaveTextContent(
       /didn’t load/,
     );
+    await userEvent.type(page.getByLabelText('Email'), 'a@x.test');
+    await expect(
+      page.getByRole('button', { name: 'Email me a code' }),
+    ).toBeEnabled();
+  },
+};
+
+/** The code is on its way: the email step gives way to the code. */
+export const CodeSent: Story = {
+  ...CaptchaUnloaded,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await userEvent.type(await page.findByLabelText('Email'), 'a@x.test');
+    await userEvent.click(
+      page.getByRole('button', { name: 'Email me a code' }),
+    );
+    await expect(await page.findByLabelText('Sign-in code')).toBeVisible();
+    await expect(page.getByText(/If a@x.test has an account/)).toBeVisible();
+  },
+};
+
+/** A wrong or spent code: the code step stays, and says why. */
+export const CodeFailed: Story = {
+  ...CaptchaUnloaded,
+  beforeEach: () => {
+    turnstile.loads = false;
+    code.error = { code: 'otp_expired', message: 'Token has expired' };
+    return () => {
+      turnstile.loads = true;
+      code.error = null;
+    };
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await userEvent.type(await page.findByLabelText('Email'), 'a@x.test');
+    await userEvent.click(
+      page.getByRole('button', { name: 'Email me a code' }),
+    );
+    await userEvent.type(await page.findByLabelText('Sign-in code'), '000000');
+    await userEvent.click(page.getByRole('button', { name: 'Sign in' }));
+    await expect(await page.findByRole('alert')).toHaveTextContent(
+      /That code didn’t work/,
+    );
+    await expect(page.getByLabelText('Sign-in code')).toBeVisible();
   },
 };
