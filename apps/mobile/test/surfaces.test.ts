@@ -152,8 +152,8 @@ test('on the first day, Start begins an unnamed timer on no project', async () =
     color: null,
     next: { taskName: '', projectId: null },
     why: null,
-    tile: 'Start: a timer',
-    shortcut: 'Start: a timer',
+    tile: 'Start a timer',
+    shortcut: 'Start a timer',
   });
 });
 

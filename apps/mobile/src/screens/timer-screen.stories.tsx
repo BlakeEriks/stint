@@ -185,14 +185,18 @@ export const NotificationsOff: Story = {
     running,
     notice: {
       tone: 'warning',
-      message: 'Notifications are off, so a running timer isn’t pinned.',
-      action: { label: 'Turn on', onPress: fn() },
+      message: 'Notifications are off, so a running timer has no notification.',
+      action: { label: 'Turn on notifications', onPress: fn() },
     },
   },
   play: async ({ canvasElement, args }) => {
     const screen = within(canvasElement);
-    await expect(screen.getByRole('alert')).toHaveTextContent(/isn’t pinned/);
-    await userEvent.click(screen.getByRole('button', { name: 'Turn on' }));
+    await expect(screen.getByRole('alert')).toHaveTextContent(
+      /has no notification/,
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Turn on notifications' }),
+    );
     await expect(args.notice?.action?.onPress).toHaveBeenCalled();
   },
 };

@@ -127,7 +127,11 @@ export function createAuth({
         await save(null);
         throw signedOut();
       }
-      throw failure(status, body, 'Could not reach Stint.');
+      throw failure(
+        status,
+        body,
+        `Request failed (HTTP ${status}). Tracked time is unaffected.`,
+      );
     })().finally(() => {
       refreshing = null;
     });
@@ -158,7 +162,7 @@ export function createAuth({
         throw failure(
           status,
           body,
-          'That code did not work. Codes expire after 24 hours and can only be used once.',
+          'That code didn’t work. Codes work once and expire after 24 hours.',
         );
       await signInWithSession(body as GoTrueSession);
     },
@@ -169,7 +173,7 @@ export function createAuth({
         password,
       });
       if (status !== 200)
-        throw failure(status, body, `Could not sign in as ${email}.`);
+        throw failure(status, body, `Couldn’t sign in as ${email}.`);
       await signInWithSession(body as GoTrueSession);
     },
 

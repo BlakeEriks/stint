@@ -123,8 +123,8 @@ test('notifications off say so, with a way to turn them on', () => {
   const open = () => {};
   assert.deepEqual(chooseNotice(null, null, open), {
     tone: 'warning',
-    message: 'Notifications are off, so a running timer isn’t pinned.',
-    action: { label: 'Turn on', onPress: open },
+    message: 'Notifications are off, so a running timer has no notification.',
+    action: { label: 'Turn on notifications', onPress: open },
   });
 });
 
