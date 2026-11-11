@@ -3,7 +3,7 @@ import {
   getRouter,
   useSearchParams,
 } from '@storybook/nextjs-vite/navigation.mock';
-import { delay, http } from 'msw';
+import { http } from 'msw';
 import { useEffect, useReducer } from 'react';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account, getDb } from '@/mocks/db';
@@ -18,6 +18,7 @@ import {
   screen,
   skipping,
   stalled,
+  stalledWhen,
   tablet,
   wide,
 } from '@/mocks/screen';
@@ -369,26 +370,13 @@ export const Updating: Story = {
     /* The dimmed figures are the ones the next answer replaces, held back on
        purpose; axe reads their half opacity as low contrast. */
     a11y: skipping('aria-hidden-focus', 'color-contrast'),
-    stalls: 1,
-    msw: {
-      handlers: {
-        // The play's By project never answers; every other preview does.
-        previewInvoice: http.post(
-          handlers.previewInvoice.info.path,
-          async (info) => {
-            const body = (await info.request.clone().json()) as {
-              groupingMode?: string;
-            };
-            if (body.groupingMode === 'project') await delay('infinite');
-            // `resolver` is protected in msw's types, and public at runtime.
-            const real = handlers.previewInvoice as unknown as {
-              resolver: (i: typeof info) => Promise<Response>;
-            };
-            return real.resolver(info);
-          },
-        ),
-      },
-    },
+    // The play's By project never answers; every other preview does.
+    ...stalledWhen('previewInvoice', async (info) => {
+      const body = (await info.request.clone().json()) as {
+        groupingMode?: string;
+      };
+      return body.groupingMode === 'project';
+    }),
   },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
@@ -529,25 +517,12 @@ export const EarlierWorkLeavesWithClient: Story = {
   ...desktop,
   parameters: {
     a11y: skipping('aria-hidden-focus', 'color-contrast'),
-    stalls: 1,
-    msw: {
-      handlers: {
-        previewInvoice: http.post(
-          handlers.previewInvoice.info.path,
-          async (info) => {
-            const body = (await info.request.clone().json()) as {
-              clientId: string;
-            };
-            if (body.clientId === ids.meridian) await delay('infinite');
-            // `resolver` is protected in msw's types, and public at runtime.
-            const real = handlers.previewInvoice as unknown as {
-              resolver: (i: typeof info) => Promise<Response>;
-            };
-            return real.resolver(info);
-          },
-        ),
-      },
-    },
+    ...stalledWhen('previewInvoice', async (info) => {
+      const body = (await info.request.clone().json()) as {
+        clientId: string;
+      };
+      return body.clientId === ids.meridian;
+    }),
   },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);

@@ -1,6 +1,6 @@
 import type { Decorator } from '@storybook/nextjs-vite';
 import { expect, waitFor, within } from 'storybook/test';
-import { delay, http } from 'msw';
+import { delay, http, type HttpResponseResolver } from 'msw';
 import { AppShell } from '@/components/app-shell';
 import { handlers } from './handlers';
 import { fail } from './respond';
@@ -83,6 +83,34 @@ export function stalled(...keys: (keyof typeof handlers | 'signOut')[]) {
           return [key, http[verb](path, () => delay('infinite'))];
         }),
       ),
+    },
+  };
+}
+
+/**
+ * `stalled()` for one endpoint whose other calls must still answer: the
+ * request `held` picks never does, and the rest get the real answer through
+ * msw's public `run()`.
+ */
+export function stalledWhen(
+  key: keyof typeof handlers,
+  held: (
+    info: Parameters<HttpResponseResolver>[0],
+  ) => boolean | Promise<boolean>,
+) {
+  const handler = handlers[key];
+  const { method, path } = handler.info;
+  const verb = String(method).toLowerCase() as 'get';
+  return {
+    stalls: 1,
+    msw: {
+      handlers: {
+        [key]: http[verb](path, async (info) => {
+          if (await held(info)) await delay('infinite');
+          const { request, requestId } = info;
+          return (await handler.run({ request, requestId }))?.response;
+        }),
+      },
     },
   };
 }
