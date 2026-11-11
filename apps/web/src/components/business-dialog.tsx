@@ -16,10 +16,10 @@ export const missingBusiness = (s: Settings | undefined) =>
   s !== undefined && (!s.businessName?.trim() || !s.businessEmail?.trim());
 
 /**
- * Who the invoice is from, asked on New invoice rather than sending the
- * user to Settings.
+ * Who the invoice is from, asked or corrected on New invoice rather than
+ * sending the user to Settings.
  */
-function BusinessDialog({
+export function BusinessDialog({
   onOpenChange,
   settings,
 }: {
@@ -34,7 +34,7 @@ function BusinessDialog({
     <SettingsDialog
       onOpenChange={onOpenChange}
       title="Who is this invoice from?"
-      description="Your name and email go at the top of every invoice. Saved to Settings, so you're asked once."
+      description="Your name and email go at the top of every invoice. Saved to Settings, for this invoice and every one after it."
       missing={{
         'biz-dialog-name':
           name.trim() === '' ? 'Enter your business name.' : undefined,

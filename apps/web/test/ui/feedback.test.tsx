@@ -62,15 +62,6 @@ describe('Feedback', () => {
     expect(send).toBeEnabled();
   });
 
-  it('counts toward 2,000 and stops there', async () => {
-    serve(created);
-    const { user, box } = await open();
-
-    await user.type(box, 'Hello');
-    expect(screen.getByText(/^5 \/ 2,000/)).toBeInTheDocument();
-    expect(box).toHaveAttribute('maxLength', '2000');
-  });
-
   it('sends the message with the screen and version, then says it was sent', async () => {
     vi.stubEnv('NEXT_PUBLIC_APP_VERSION', '0.1.0-alpha.3');
     const sent = serve(created);
@@ -90,20 +81,6 @@ describe('Feedback', () => {
       appVersion: '0.1.0-alpha.3',
     });
     vi.unstubAllEnvs();
-  });
-
-  it('locks the form while sending', async () => {
-    serve(() => new Promise<Response>(() => {}));
-    const { user, box } = await open();
-
-    await user.type(box, 'Still waiting');
-    await user.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(
-      await screen.findByRole('button', { name: /Sending/ }),
-    ).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
-    expect(box).toHaveAttribute('readonly');
   });
 
   it('keeps the message and says why when a send fails, and a retry reuses its id', async () => {

@@ -286,6 +286,13 @@ paid. Whether a status is paid is `planOf()` in `@stint/core`, not SQL. It
 goes with the account (`on delete cascade`), after `DELETE /account` has
 canceled any live subscription at Stripe.
 
+### `private.sign_in_code_requests`
+When each client address asked `POST /auth/code` for a sign-in code, for
+its five-an-hour throttle; an IPv6 address is kept as its /64. No user's data: it lives in `private`, which the
+API doesn't serve, with RLS on and no policy, and only
+`take_sign_in_code_slot()`, which only `service_role` may call, reads or
+writes it. Rows older than an hour are deleted as each request arrives.
+
 ## Integrity rules
 
 ### The timer invariant
@@ -393,6 +400,8 @@ take a raise back (`PATCH /settings`).
   an existing index already covers. Entries by user and start time is a plain
   index — every entry is a candidate there.
 - RLS on every table: `user_id = auth.uid()`; line items inherit from invoice.
+  A connected app's token is narrowed further by `no_connected_app*`
+  policies and a trigger (`docs/api.md`, MCP).
   The route tests turn off RLS (their subject is route logic);
   `apps/web/test/rls.test.ts` covers it against live policies.
 
@@ -437,9 +446,10 @@ it exempts row triggers.
 ## What the database guarantees
 
 These are enforced by the schema itself, so they hold no matter which client
-writes — and each is covered by `apps/web/test/routes.test.ts` against a real
-Postgres with the real migrations. The tests are the record of *whether* they
-hold; this list is the record of *what* must.
+writes — and each is covered by a suite in `apps/web/test/` (routes,
+invoices, rates or RLS) against a real Postgres with the real migrations.
+The tests are the record of *whether* they hold; this list is the record of
+*what* must.
 
 - Settings are auto-created on user insert, by trigger.
 - A second concurrent timer is rejected; stop-then-start is not.

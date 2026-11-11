@@ -158,40 +158,7 @@ describe('Calendar', () => {
     expect(screen.getByText(/^3:00:0[1-9]$/)).toBeInTheDocument();
   });
 
-  it('gives overlapping entries their own lanes so neither is hidden', async () => {
-    serve([
-      {
-        date: '2026-09-07',
-        totalSeconds: 10_800,
-        entries: [
-          entry({
-            id: 'a',
-            taskName: 'First',
-            startedAt: '2026-09-07T09:00:00.000Z',
-            endedAt: '2026-09-07T11:00:00.000Z',
-          }),
-          entry({
-            id: 'b',
-            taskName: 'Second',
-            startedAt: '2026-09-07T10:00:00.000Z',
-            endedAt: '2026-09-07T12:00:00.000Z',
-          }),
-        ],
-      },
-    ]);
-    render(<Calendar />, { wrapper });
-
-    const first = await screen.findByText('First');
-    const second = screen.getByText('Second');
-    const boxOf = (el: HTMLElement) => el.closest('[style]') as HTMLElement;
-
-    // Half width each, at different offsets — not stacked on top of each other.
-    expect(boxOf(first).style.width).toBe('50%');
-    expect(boxOf(second).style.width).toBe('50%');
-    expect(boxOf(first).style.left).not.toBe(boxOf(second).style.left);
-  });
-
-  it('narrows only the entries that overlap, not the whole day', async () => {
+  it('gives overlapping entries their own lanes, narrowing only those, not the whole day', async () => {
     serve([
       {
         date: '2026-09-07',
@@ -227,25 +194,13 @@ describe('Calendar', () => {
     const boxOf = (el: HTMLElement) => el.closest('[style]') as HTMLElement;
 
     expect(boxOf(afternoon).style.width).toBe('100%');
-    expect(boxOf(screen.getByText('Morning')).style.width).toBe('50%');
-    expect(boxOf(screen.getByText('Also morning')).style.width).toBe('50%');
-  });
-
-  it('keeps a single entry full width', async () => {
-    serve([
-      {
-        date: '2026-09-07',
-        totalSeconds: 7200,
-        entries: [entry({ taskName: 'Alone' })],
-      },
-    ]);
-    render(<Calendar />, { wrapper });
-
-    const box = (await screen.findByText('Alone')).closest(
-      '[style]',
-    ) as HTMLElement;
-    expect(box.style.width).toBe('100%');
-    expect(box.style.left).toBe('0%');
+    expect(boxOf(afternoon).style.left).toBe('0%');
+    // Half width each, at different offsets — not stacked on top of each other.
+    const morning = boxOf(screen.getByText('Morning'));
+    const also = boxOf(screen.getByText('Also morning'));
+    expect(morning.style.width).toBe('50%');
+    expect(also.style.width).toBe('50%');
+    expect(morning.style.left).not.toBe(also.style.left);
   });
 
   it('moves to the previous week and back', async () => {
@@ -285,7 +240,7 @@ describe('the calendar legend', () => {
   const legendFor = (name: string) =>
     screen.getByText(name, { selector: 'span' });
 
-  it('names one entry per CLIENT, not per project', async () => {
+  it('names one entry per CLIENT with time this week, not per project', async () => {
     serve(week(), { projects: CLIENT_PROJECTS, clients: CLIENTS });
     render(<Calendar />, { wrapper });
 
@@ -294,13 +249,6 @@ describe('the calendar legend', () => {
        are different. */
     expect(await screen.findAllByText('Northwind Trading')).toHaveLength(1);
     expect(legendFor('Byrne Studio')).toBeInTheDocument();
-  });
-
-  it('describes the week in view, not the whole client list', async () => {
-    serve(week(), { projects: CLIENT_PROJECTS, clients: CLIENTS });
-    render(<Calendar />, { wrapper });
-
-    await screen.findAllByText('Northwind Trading');
     /* `Absent Co` exists and has a color, but no time this week. Naming it
        would make the legend a client directory rather than a key to what is
        actually on screen. */
@@ -395,23 +343,21 @@ describe('the calendar on a narrow viewport', () => {
     },
   ];
 
-  it('shows only the selected day, not the whole week', async () => {
+  it('shows and totals only the selected day, and steps ONE DAY with the arrows', async () => {
     matchMediaMock(true);
     serve(week());
+    const { default: userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     render(<Calendar />, { wrapper });
 
     /* Today is Wednesday the 9th in these tests, so that day's entry shows
        and Monday's does not — the grid is one column, not seven. */
     expect(await screen.findByText('Wednesday work')).toBeInTheDocument();
     expect(screen.queryByText('Monday work')).toBeNull();
-  });
-
-  it('steps ONE DAY with the arrows, not one week', async () => {
-    matchMediaMock(true);
-    serve(week());
-    const { default: userEvent } = await import('@testing-library/user-event');
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    render(<Calendar />, { wrapper });
+    /* Wednesday is 1h of the week's 3h. Showing the week's total over a
+       single day's grid would misreport what is being looked at. */
+    expect(screen.getByText('1:00:00')).toBeInTheDocument();
+    expect(screen.queryByText('3:00:00')).toBeNull();
 
     await screen.findByText(/Wed, Sep 9/);
     await user.click(screen.getByRole('button', { name: 'Previous day' }));
@@ -419,29 +365,6 @@ describe('the calendar on a narrow viewport', () => {
     /* The 8th, not the 2nd. This is the whole reason the breakpoint is a JS
        decision: the arrows step whatever unit is on screen. */
     expect(await screen.findByText(/Tue, Sep 8/)).toBeInTheDocument();
-  });
-
-  it('totals the day on screen, not the week around it', async () => {
-    matchMediaMock(true);
-    serve(week());
-    render(<Calendar />, { wrapper });
-
-    /* Wednesday is 1h of the week's 3h. Showing the week's total over a
-       single day's grid would misreport what is being looked at. */
-    expect(await screen.findByText('1:00:00')).toBeInTheDocument();
-    expect(screen.queryByText('3:00:00')).toBeNull();
-  });
-
-  it('still steps one week when the viewport is wide', async () => {
-    matchMediaMock(false);
-    serve(week());
-    const { default: userEvent } = await import('@testing-library/user-event');
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    render(<Calendar />, { wrapper });
-
-    await screen.findByText('September 2026');
-    await user.click(screen.getByRole('button', { name: 'Previous week' }));
-    expect(await screen.findByText('August 2026')).toBeInTheDocument();
   });
 });
 
@@ -469,28 +392,7 @@ describe('the mobile day grid crops to the hours in use', () => {
       (e) => e.textContent,
     );
 
-  it('omits the empty night before the first entry', async () => {
-    matchMediaMock(true);
-    /* Work from 09:00. Rendering from midnight would put a quarter of the
-       grid above the first block — scroll spent on nothing. */
-    serve(
-      dayWith([
-        entry({
-          id: 'a',
-          startedAt: '2026-09-09T09:00:00.000Z',
-          endedAt: '2026-09-09T11:00:00.000Z',
-          durationSeconds: 7200,
-        }),
-      ]),
-    );
-    render(<Calendar />, { wrapper });
-
-    await screen.findByText(/Wed, Sep 9/);
-    expect(hourLabels()).not.toContain('00');
-    expect(hourLabels()).not.toContain('03');
-  });
-
-  it('pads an hour either side, so a block is never flush against the edge', async () => {
+  it('omits the empty night, and pads an hour either side so a block is never flush against the edge', async () => {
     matchMediaMock(true);
     /* A 2h block in a 10h minimum window sits 1h in: its top should be about
        1/10 of the column. Asserting an UPPER bound as well as a lower one is
@@ -509,6 +411,10 @@ describe('the mobile day grid crops to the hours in use', () => {
     render(<Calendar />, { wrapper });
 
     await screen.findByText(/Wed, Sep 9/);
+    /* Work from 09:00. Rendering from midnight would put a quarter of the
+       grid above the first block — scroll spent on nothing. */
+    expect(hourLabels()).not.toContain('00');
+    expect(hourLabels()).not.toContain('03');
     const box = screen
       .getByText('Work')
       .closest('[style*="top"]') as HTMLElement;

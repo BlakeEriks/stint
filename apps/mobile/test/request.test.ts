@@ -185,3 +185,22 @@ test("Vercel's own 401 is the bypass, not the session: no refresh, and it asks a
   assert.equal(auth.signedOut, false);
   assert.equal(protectedCalls, 1);
 });
+
+test('a signed-out request carries no token, and a 401 is not refreshed', async () => {
+  const s = server([unauthorized]);
+  const auth = fakeAuth();
+  const request = createRequest({
+    origin: '',
+    auth,
+    bypass: () => 'pass',
+    fetch: s.fetch,
+  });
+  await assert.rejects(
+    request('POST', '/auth/code', { email: 'a@x.test' }, { signed: false }),
+    { code: 'UNAUTHORIZED' },
+  );
+  assert.equal(s.calls.length, 1);
+  assert.equal(s.calls[0]?.headers.authorization, undefined);
+  assert.equal(s.calls[0]?.headers['x-vercel-protection-bypass'], 'pass');
+  assert.equal(auth.signedOut, false);
+});

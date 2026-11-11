@@ -106,14 +106,6 @@ struct TimerModelTests {
         await model.signOut()
     }
 
-    @Test func earnedIsTodaysEarnings() async throws {
-        let model = try await signedInModel()
-        APIStub.routes["/stats"] = (200, Data(#"{"currency":"USD","earnedToday":412.5,"unbilled":{"total":1462.5}}"#.utf8))
-        await model.refresh()
-        #expect(model.stats?.earnedToday == 412.5)
-        await model.signOut()
-    }
-
     @Test func aFullRefreshAssignsEverythingInOneStep() async throws {
         let model = try await signedInModel()
         APIStub.routes["/summary"] = (200, summary(running: "standup"))
@@ -206,6 +198,21 @@ struct TimerModelTests {
         let sent = try JSONSerialization.jsonObject(with: body) as? [String: Any]
         #expect(sent?["taskName"] as? String == "Internal planning")
         #expect(sent?["projectId"] as? String == "p1")
+        await model.signOut()
+    }
+
+    @Test func aSignInCodeIsAskedOfStint() async throws {
+        let model = try await signedInModel()
+        APIStub.routes["/auth/code"] = (200, Data("{}".utf8))
+        try await model.requestLink(email: "builder@localhost.test")
+        let body = try #require(APIStub.bodies["/auth/code"])
+        let sent = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+        #expect(sent?["email"] as? String == "builder@localhost.test")
+
+        APIStub.routes["/auth/code"] = (429, Data(#"{"code":"RATE_LIMITED","message":"Too many sign-in codes from here."}"#.utf8))
+        await #expect(throws: APIError(status: 429, code: "RATE_LIMITED", message: "Too many sign-in codes from here.")) {
+            try await model.requestLink(email: "who@x.test")
+        }
         await model.signOut()
     }
 

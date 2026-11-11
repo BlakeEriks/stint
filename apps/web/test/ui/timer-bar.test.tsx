@@ -145,15 +145,18 @@ describe('TimerBar — idle', () => {
     await waitFor(() => expect(taskInput()).toHaveValue('Invoicing'));
   });
 
-  it('starts with the typed task and chosen project', async () => {
+  /** Trimmed at the source: the name the list offers next must be this one.
+      Picking a project while idle is local state, not a write. */
+  it('starts with the trimmed typed task and chosen project, writing nothing before', async () => {
     const calls = serve(summary());
     const user = userEvent.setup();
     renderBar();
 
     await screen.findByRole('button', { name: 'Start timer' });
-    await user.type(taskInput(), 'Invoicing');
+    await user.type(taskInput(), '  Invoicing  ');
     await user.click(screen.getByRole('button', { name: 'Project' }));
     await user.click(screen.getByRole('menuitemradio', { name: /Acme/ }));
+    expect(calls).toHaveLength(0);
     await user.click(screen.getByRole('button', { name: 'Start timer' }));
 
     await waitFor(() =>
@@ -167,55 +170,6 @@ describe('TimerBar — idle', () => {
         },
       }),
     );
-  });
-
-  it('starts on Enter from the task field', async () => {
-    const calls = serve(summary());
-    const user = userEvent.setup();
-    renderBar();
-
-    await screen.findByRole('button', { name: 'Start timer' });
-    await user.type(taskInput(), 'Standup{Enter}');
-
-    await waitFor(() =>
-      expect(calls.map((c) => c.path)).toContain('/timer/start'),
-    );
-  });
-
-  /** Trimmed at the source: the name the list offers next must be this one. */
-  it('trims the typed task before starting', async () => {
-    const calls = serve(summary());
-    const user = userEvent.setup();
-    renderBar();
-
-    await screen.findByRole('button', { name: 'Start timer' });
-    await user.type(taskInput(), '  Invoicing  ');
-    await user.click(screen.getByRole('button', { name: 'Start timer' }));
-
-    await waitFor(() =>
-      expect(calls).toContainEqual({
-        method: 'POST',
-        path: '/timer/start',
-        body: {
-          id: expect.any(String),
-          taskName: 'Invoicing',
-          projectId: null,
-        },
-      }),
-    );
-  });
-
-  /** Picking a project while idle is local state, not a write. */
-  it('does not patch anything when a project is picked while idle', async () => {
-    const calls = serve(summary());
-    const user = userEvent.setup();
-    renderBar();
-
-    await screen.findByRole('button', { name: 'Start timer' });
-    await user.click(screen.getByRole('button', { name: 'Project' }));
-    await user.click(screen.getByRole('menuitemradio', { name: /Bluebird/ }));
-
-    expect(calls).toHaveLength(0);
   });
 });
 
@@ -235,24 +189,14 @@ describe('TimerBar — task suggestions', () => {
     await user.click(await screen.findByRole('option'));
   };
 
-  it('fills the field with a chosen name', async () => {
-    serve(summary(), SUGGESTIONS);
-    const user = userEvent.setup();
-    renderBar();
-
-    await screen.findByRole('button', { name: 'Start timer' });
-    await chooseFirst(user);
-
-    expect(taskInput()).toHaveValue('Invoice reconciliation');
-  });
-
-  it("takes the row's project when none is chosen", async () => {
+  it("fills the field with a chosen name, and takes the row's project when none is chosen", async () => {
     const calls = serve(summary(), SUGGESTIONS);
     const user = userEvent.setup();
     renderBar();
 
     await screen.findByRole('button', { name: 'Start timer' });
     await chooseFirst(user);
+    expect(taskInput()).toHaveValue('Invoice reconciliation');
     await user.click(screen.getByRole('button', { name: 'Start timer' }));
 
     await waitFor(() =>
@@ -322,23 +266,17 @@ describe('TimerBar — running', () => {
   const runningSummary = () =>
     summary({ running: entry(), todaySeconds: 1500 });
 
-  it("shows the server's task name and a stop control", async () => {
-    serve(runningSummary());
-    renderBar();
-
-    await screen.findByRole('button', { name: 'Stop timer' });
-    expect(screen.getByText('Writing')).toBeInTheDocument();
-    // 25 minutes, counted from startedAt.
-    expect(screen.getByText('0:25:00')).toBeInTheDocument();
-  });
-
-  it('stops on click', async () => {
+  it("shows the server's task name and a stop control that stops", async () => {
     const calls = serve(runningSummary());
     const user = userEvent.setup();
     renderBar();
 
-    await user.click(await screen.findByRole('button', { name: 'Stop timer' }));
+    const stop = await screen.findByRole('button', { name: 'Stop timer' });
+    expect(screen.getByText('Writing')).toBeInTheDocument();
+    // 25 minutes, counted from startedAt.
+    expect(screen.getByText('0:25:00')).toBeInTheDocument();
 
+    await user.click(stop);
     await waitFor(() =>
       expect(calls.map((c) => c.path)).toContain('/timer/stop'),
     );

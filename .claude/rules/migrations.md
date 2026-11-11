@@ -43,7 +43,9 @@ user's rows, and nothing else in the stack notices.
 each (RLS with no policies denies everything), and the invariants a migration
 can silently undo — the partial unique index behind the timer rule, the
 composite key keeping an entry's project with its owner, that money is
-`numeric(12,2)` and no column is a float, that no application function is executable by `anon`, and the signup trigger. CI runs it in the `database` job
+`numeric(12,2)` and no column is a float, that no application function is executable by `anon`, that every table a
+connected app shouldn't write carries a restrictive `connected_app()`
+policy, and the signup trigger. CI runs it in the `database` job
 against the RLS database, so a migration creating a table without RLS fails
 before it reaches a real project. It takes `--url` or `SUPABASE_DB_URL` from
 the environment — a secret that bypasses RLS, kept in no file on disk.

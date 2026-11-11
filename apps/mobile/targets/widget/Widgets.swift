@@ -152,17 +152,8 @@ struct Square: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
       HStack(alignment: .top) {
-        HStack(alignment: .center, spacing: 1) {
-          Text("STINT")
-            .font(.system(size: 18, weight: .semibold, design: .monospaced))
-            .tracking(18 * 0.12)
-          Text("™")
-            .font(.system(size: 18 * 0.6, weight: .semibold, design: .monospaced))
-            .offset(y: -18 * 0.35)
-        }
-        .foregroundStyle(p["text-subtle"])
-        .accessibilityElement()
-        .accessibilityLabel("Stint")
+        StintMark(bounds: p["mark"], name: p["text-subtle"])
+          .frame(height: StintMark.height(18))
         Spacer()
         PressButton(surface: surface, p: p)
       }

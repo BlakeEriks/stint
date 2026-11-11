@@ -8,13 +8,11 @@ import { signIn } from './mailpit';
  * component, so jsdom cannot check it; `test/ui/error-boundary.test.tsx`
  * covers what the boundary renders.
  */
-test.beforeEach(async ({ page }) => {
-  await signIn(page);
-});
-
-test('a failed screen keeps the frame, and the timer inside it', async ({
+test('a failed screen keeps the frame and the timer, and Go home leaves it', async ({
   page,
 }) => {
+  await signIn(page);
+
   // Start a timer, so there is something running to lose.
   await page.getByPlaceholder('What are you working on?').fill('Boundary test');
   await page.getByRole('button', { name: 'Start timer' }).click();
@@ -34,22 +32,14 @@ test('a failed screen keeps the frame, and the timer inside it', async ({
   ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Stop timer' })).toBeVisible();
 
+  /* "Try again" cannot recover /throw, which throws every time, so the exit
+     that matters is Go home: a boundary whose only action re-runs what just
+     failed is a trap. */
+  await page.getByRole('link', { name: /go home/i }).click();
+  await page.waitForURL('**/');
+  await expect(page.getByText(/didn't load/i)).toHaveCount(0);
+
   // Clean up: the timer must not outlive the test.
   await page.getByRole('button', { name: 'Stop timer' }).click();
   await expect(page.getByRole('button', { name: 'Start timer' })).toBeVisible();
-});
-
-test('the boundary offers a way out that is not a dead end', async ({
-  page,
-}) => {
-  await page.goto('/throw');
-  await expect(page.getByText(/didn't load/i)).toBeVisible();
-
-  /* "Try again" cannot recover /throw — it throws every time, by design — so
-     the test that matters here is the OTHER exit. A boundary whose only
-     action re-runs the thing that just failed is a trap. */
-  await page.getByRole('link', { name: /go home/i }).click();
-
-  await page.waitForURL('**/');
-  await expect(page.getByText(/didn't load/i)).toHaveCount(0);
 });

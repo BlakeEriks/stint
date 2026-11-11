@@ -23,7 +23,7 @@ import { InvoiceDetail } from './invoice-detail';
 const invoice = (seq: number) => id(300 + seq);
 
 /* A paying account, so every story but the locked ones shows the document.
-   The seeded account is free with billing set up. */
+   The seeded account is free with billing live. */
 const paying = (edit: (db: Db) => void = () => {}) =>
   account((db) => {
     db.billing = { ...db.billing, plan: 'paid', status: 'active' };
@@ -247,7 +247,7 @@ export const Void: Story = {
 };
 export const Missing: Story = { ...desktop, args: { id: invoice(99) } };
 
-/** Free, with billing set up: the document is the paid tier. The invoice
+/** Free, with billing live: the document is the paid tier. The invoice
     still shows in full; Download gives way to subscribing, and the page says
     the records stay free. */
 export const Locked: Story = {
@@ -259,7 +259,9 @@ export const Locked: Story = {
       name: 'Subscribe to download',
     });
     await expect(subscribe).toHaveAttribute('href', '/settings#plan');
-    await expect(page.getByText(/on the paid plan, \$40 a year/)).toBeVisible();
+    await expect(
+      page.getByText(/on the paid plan, \$3\.33\/month, billed annually/),
+    ).toBeVisible();
     await expect(page.getByText(/exporting them included/)).toBeVisible();
     await expect(page.queryByRole('link', { name: /Download PDF/ })).toBeNull();
     await expect(page.getByText('Amount due')).toBeVisible();
@@ -267,7 +269,7 @@ export const Locked: Story = {
 };
 export const LockedPhone: Story = { ...phone, parameters: account('seeded') };
 
-/** Billing not set up: nothing is gated, as before billing existed. */
+/** Billing not live: nothing is gated, as during beta. */
 export const BillingNotSetUp: Story = {
   ...desktop,
   parameters: account((db) => {
@@ -507,6 +509,9 @@ export const OpenedFromList: Story = {
     ).toBeVisible();
     await expect(page.getByText('Updating…')).toBeVisible();
     await expect(page.queryByText('Loading…')).toBeNull();
+    // The client is drawn from the cached list before the invoice lands.
+    await expect(page.getAllByText('Meridian Labs')[0]).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Mark paid' })).toBeVisible();
     await expect(page.queryByText('Amount due')).toBeNull();
     /* The lists don't say whether the PDF opens, so neither action shows
        yet rather than one that turns into the other. */

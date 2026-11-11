@@ -106,6 +106,9 @@ export const Blank: Story = {
     await expect(
       within(canvasElement).queryByText('Give the summary line its text.'),
     ).toBeNull();
+    await expect(
+      within(canvasElement).getByRole('button', { name: 'Generate invoice' }),
+    ).toBeDisabled();
   },
 };
 export const Phone: Story = { ...phone };
@@ -153,9 +156,9 @@ export const EarlyDue: Story = {
     const due = page.getByLabelText('Due');
     await userEvent.clear(due);
     await userEvent.type(due, '2026-09-10');
-    await expect(
-      await page.findByText("Due can't be before the issue date."),
-    ).toBeVisible();
+    const early = await page.findByText("Due can't be before the issue date.");
+    await expect(early).toBeVisible();
+    await expect(early).toHaveAttribute('role', 'alert');
     await expect(
       page.getByRole('button', { name: 'Generate invoice' }),
     ).toBeDisabled();
@@ -415,6 +418,9 @@ export const Unrated: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await expect(await page.findByText(/no rate/i)).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Generate invoice' }),
+    ).toBeDisabled();
   },
 };
 
@@ -1089,6 +1095,10 @@ export const Loading: Story = {
     await expect(await region.findByRole('status')).toHaveTextContent(
       'Loading',
     );
+    // Generate is never there to press before Due can be filled.
+    await expect(
+      region.queryByRole('button', { name: /generate/i }),
+    ).toBeNull();
   },
 };
 
@@ -1149,7 +1159,7 @@ export const AddDetails: Story = {
     await expect(
       page.queryByText('Your business details are missing'),
     ).toBeNull();
-    await expect(page.getByText('Sam Rivera Consulting')).toBeVisible();
+    await expect(card(page).getByText('Sam Rivera Consulting')).toBeVisible();
     await settled(page);
   },
 };
@@ -1289,3 +1299,33 @@ export const LeavingBlocked: Story = {
     ).toBeDisabled();
   },
 };
+
+/** Your business, atop the form, opens the same dialog, filled from
+ *  Settings: correcting it reprints the preview and leaves the draft as it
+ *  was. */
+export const EditSender: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    await userEvent.type(page.getByLabelText('Reference'), 'PO-7');
+    await userEvent.click(page.getByRole('button', { name: 'Edit business' }));
+    const dialog = await page.findByRole('dialog', {
+      name: 'Who is this invoice from?',
+    });
+    await waitFor(() => expect(dialog).toBeVisible());
+    const form = within(dialog);
+    const email = form.getByRole('textbox', { name: /Email/ });
+    await expect(email).toHaveValue('billing@samrivera.test');
+    await userEvent.clear(email);
+    await userEvent.type(email, 'sam@samrivera.test');
+    await userEvent.click(form.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+    await expect(
+      await card(page).findByText(/sam@samrivera\.test/),
+    ).toBeVisible();
+    await expect(page.getByLabelText('Reference')).toHaveValue('PO-7');
+  },
+};
+export const EditSenderPhone: Story = { ...EditSender, ...phone };

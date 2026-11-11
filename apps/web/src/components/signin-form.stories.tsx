@@ -1,14 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, userEvent, within } from 'storybook/test';
 import { desktop, light, phone } from '@/mocks/screen';
-import { NOT_INVITED } from '@/mocks/supabase';
+import { otp } from '@/mocks/supabase';
+import { turnstile } from '@/mocks/turnstile';
 import { SignInForm } from './signin-form';
 
 /** Signed out: no frame, one field, a link by email. */
 const meta = {
   title: 'Screens/SignIn',
   component: SignInForm,
-  args: { inviteUrl: 'https://runstint.com/#invite' },
   parameters: {
     layout: 'fullscreen',
     nextjs: { navigation: { pathname: '/signin' } },
@@ -49,17 +49,55 @@ export const InvalidLink: Story = {
 /** Where deleting an account lands. */
 export const Deleted: Story = { ...desktop, args: { deleted: true } };
 
-/** An email nobody invited: it links to the invite request. */
-export const NotInvited: Story = {
+/** Production asks for a CAPTCHA: the button waits for its token. */
+export const Captcha: Story = {
   ...desktop,
+  args: { captchaSiteKey: 'storybook' },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    await userEvent.type(await page.findByLabelText('Email'), NOT_INVITED);
+    const send = await page.findByRole('button', { name: /Email me/ });
+    await expect(send).toBeDisabled();
+    await userEvent.click(page.getByRole('button', { name: /not a bot/ }));
+    await expect(send).toBeEnabled();
+  },
+};
+
+/** GoTrue refused the token: it says so, and draws a new check. */
+export const CaptchaFailed: Story = {
+  ...desktop,
+  args: { captchaSiteKey: 'storybook' },
+  beforeEach: () => {
+    otp.error = { code: 'captcha_failed', message: 'captcha protection' };
+    return () => {
+      otp.error = null;
+    };
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await userEvent.type(await page.findByLabelText('Email'), 'a@x.test');
+    await userEvent.click(page.getByRole('button', { name: /not a bot/ }));
     await userEvent.click(page.getByRole('button', { name: /Email me/ }));
-    const alert = await page.findByRole('alert');
-    await expect(alert).toHaveTextContent('Stint is invite-only during alpha.');
-    await expect(
-      within(alert).getByRole('link', { name: 'Request an invite' }),
-    ).toHaveAttribute('href', 'https://runstint.com/#invite');
+    await expect(await page.findByRole('alert')).toHaveTextContent(
+      /couldn’t confirm you’re not a bot/,
+    );
+    await expect(page.getByRole('button', { name: /Email me/ })).toBeDisabled();
+  },
+};
+
+/** Cloudflare's script was blocked: nothing on the page would say why. */
+export const CaptchaUnloaded: Story = {
+  ...desktop,
+  args: { captchaSiteKey: 'storybook' },
+  beforeEach: () => {
+    turnstile.loads = false;
+    return () => {
+      turnstile.loads = true;
+    };
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(await page.findByRole('alert')).toHaveTextContent(
+      /didn’t load/,
+    );
   },
 };

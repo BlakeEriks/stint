@@ -5,6 +5,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { markOutline, pathData, swiftPath } from './mark-outline.js';
 import { renderSwatches } from './swatches.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -16,7 +17,11 @@ const kebab = (s) => s.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
 /* `tmSize` stays unitless: `mark-tm` scales its own font-size by it, and
    divides `tmRise` by it to lift in the lockup's em rather than its own. */
 const markUnit = (k, v) =>
-  k === 'boundRadius' ? `${v}px` : k === 'tmSize' ? `${v}` : `${v}em`;
+  k === 'boundRadius'
+    ? `${v}px`
+    : k === 'tmSize' || k === 'tmOpacity'
+      ? `${v}`
+      : `${v}em`;
 
 /** Resolve "neutral.300" against the primitive tree; pass literal hex through. */
 function resolve(ref) {
@@ -132,6 +137,7 @@ const typeUtilities = () =>
         `  font-weight: ${t.weight};`,
       ];
       if (t.tracking) lines.push(`  letter-spacing: ${t.tracking};`);
+      if (t.leading) lines.push(`  line-height: ${t.leading};`);
       /* A role may step up at a breakpoint. The hero is the only one today:
          30px would force a horizontal scroll on a narrow phone, and a
          component writing `sm:text-3xl` itself is the one-off this replaces. */
@@ -168,7 +174,7 @@ ${Object.entries(tokens.radius)
 ${motionVars('  ')}
 
   /* The mark's geometry, in em so one definition serves every size it is
-     set at. No color here — the mark takes one, via currentColor. */
+     set at. */
 ${Object.entries(tokens.brand.mark)
   .map(([k, v]) => `  --mark-${kebab(k)}: ${markUnit(k, v)};`)
   .join('\n')}
@@ -215,16 +221,16 @@ ${typeUtilities()}
 /* The bound that makes |Stint| a mark rather than a word. A drawn rule, not
    a \`|\` glyph: the pipe carries its own side bearings and sits on the text
    baseline, so it renders short of the cap height and too far from the
-   letters. Sized in em off the mark's own font-size, and \`currentColor\` so
-   one mark works on any ground. */
+   letters. Sized in em off the mark's own font-size, its width rounded to
+   whole pixels so both bounds render alike wherever they land. */
 @utility mark-bound {
   display: inline-block;
   flex: none;
-  width: var(--mark-bound-width);
+  width: max(1px, round(var(--mark-bound-width), 1px));
   height: var(--mark-bound-height);
   margin-inline: var(--mark-bound-gap);
   border-radius: var(--mark-bound-radius);
-  background: currentColor;
+  background: var(--mark);
 }
 
 /* The ™ after the closing bound, clear of it by the bound's own gap.
@@ -235,6 +241,7 @@ ${typeUtilities()}
   font-size: calc(var(--mark-tm-size) * 1em);
   line-height: 1;
   letter-spacing: 0;
+  opacity: var(--mark-tm-opacity);
   translate: 0 calc(-1 * var(--mark-tm-rise) / var(--mark-tm-size));
   &::before {
     content: '™' / '';
@@ -242,6 +249,11 @@ ${typeUtilities()}
 }
 `;
 writeFileSync(join(out, 'tokens.css'), css);
+
+const outline = markOutline(
+  tokens.brand.mark,
+  Number.parseFloat(tokens.type.scale.wordmark.tracking),
+);
 
 // ── TypeScript (Expo + web logic) ──────────────────────────────────
 const themeObj = (theme) =>
@@ -279,6 +291,20 @@ ${Object.entries(tokens.primitive.print)
 } as const;
 
 export const brand = ${JSON.stringify(tokens.brand, null, 2)} as const;
+
+/** \`|Stint|™\` as outlines, for a surface with no webfont. Path data in a
+    \`0 0 width height\` viewBox, in thousandths of the mark's font size. */
+export const markOutline = ${JSON.stringify(
+  {
+    width: outline.width,
+    height: outline.height,
+    ...Object.fromEntries(
+      Object.entries(outline.layers).map(([k, l]) => [k, pathData(l)]),
+    ),
+  },
+  null,
+  2,
+)} as const;
 
 export const font = ${JSON.stringify(tokens.type.fontFamily, null, 2)} as const;
 export const type = ${JSON.stringify(tokens.type.scale, null, 2)} as const;
@@ -508,7 +534,7 @@ ${Object.entries(tokens.type.scale)
   .join('\n\n')}
 
 /* ── The mark ──────────────────────────────────────────────────────
-   \`|Stint|™\` — one color, bounds included, inherited via currentColor.
+   \`|Stint|™\` — green bounds, the letters in the text color.
    Set a font-size on .mark and everything scales from it. */
 .mark {
     font-family: var(--font-mono);
@@ -524,11 +550,11 @@ ${Object.entries(tokens.type.scale)
     content: '';
     display: inline-block;
     flex: none;
-    width: var(--mark-bound-width);
+    width: max(1px, round(var(--mark-bound-width), 1px));
     height: var(--mark-bound-height);
     margin: 0 var(--mark-bound-gap);
     border-radius: var(--mark-bound-radius);
-    background: currentColor;
+    background: var(--mark);
 }
 /* \`<span class="mark">Stint<span class="mark-tm">™</span></span>\`: \`order\`
    moves the ™ past the closing bound, which is the ::after. */
@@ -538,6 +564,7 @@ ${Object.entries(tokens.type.scale)
     font-size: calc(var(--mark-tm-size) * 1em);
     line-height: 1;
     letter-spacing: 0;
+    opacity: var(--mark-tm-opacity);
     translate: 0 calc(-1 * var(--mark-tm-rise) / var(--mark-tm-size));
 }
 `;
@@ -659,6 +686,89 @@ if (existsSync(dirname(phoneAssets))) {
     );
 }
 
+// ── The widgets' mark (the outlines, in each platform's own form) ───
+/* Committed beside each widget, like the icons: neither build reads dist/.
+ * Two layers each, so the bounds take `mark` and the name the text color. */
+const { width: mw, height: mh, layers } = outline;
+const tmOpacity = tokens.brand.mark.tmOpacity;
+
+const iosMark = `// GENERATED by packages/design-tokens (\`pnpm tokens\`) — do not edit by hand.
+import SwiftUI
+
+/// \`|Stint|™\` traced from IBM Plex Mono 600, so the widget draws the web's mark.
+struct StintMark: View {
+  let bounds: Color
+  let name: Color
+
+  var body: some View {
+    ZStack {
+      Layer(kind: .bounds).fill(bounds)
+      Layer(kind: .name).fill(name)
+      Layer(kind: .tm).fill(name).opacity(${tmOpacity})
+    }
+    .aspectRatio(${mw} / ${mh}, contentMode: .fit)
+    .accessibilityElement()
+    .accessibilityLabel("Stint")
+  }
+
+  /// The mark's height at a font size.
+  static func height(_ size: CGFloat) -> CGFloat { size * ${mh / 1000} }
+
+  private struct Layer: Shape {
+    enum Kind { case bounds, name, tm }
+    let kind: Kind
+
+    func path(in rect: CGRect) -> Path {
+      let s = rect.height / ${mh}
+      func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+        CGPoint(x: rect.minX + x * s, y: rect.minY + y * s)
+      }
+      var p = Path()
+      switch kind {
+${Object.entries(layers)
+  .map(([k, l]) => `      case .${k}:\n${swiftPath(l, '        ')}`)
+  .join('\n')}
+      }
+      return p
+    }
+  }
+}
+`;
+const iosWidget = join(
+  import.meta.dirname,
+  '../../../apps/mobile/targets/widget',
+);
+if (existsSync(iosWidget))
+  writeFileSync(join(iosWidget, 'StintMark.swift'), iosMark);
+
+/* At the widget's `wordmark-small` size; the layout keeps the drawable's own. */
+const dp = (n) =>
+  Math.round((n / 1000) * tokens.type.scale['wordmark-small'].size * 100) / 100;
+const vector = (paths) => `<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED by packages/design-tokens (\`pnpm tokens\`) — do not edit by hand. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="${dp(mw)}dp" android:height="${dp(mh)}dp"
+    android:viewportWidth="${mw}" android:viewportHeight="${mh}">
+${paths}
+</vector>
+`;
+const vpath = (layer, alpha) =>
+  `    <path android:fillColor="#FFFFFFFF"${alpha ? ` android:fillAlpha="${alpha}"` : ''} android:pathData="${pathData(layer)}" />`;
+const androidRes = join(
+  import.meta.dirname,
+  '../../../apps/mobile/modules/stint-surfaces/android/src/main/res/drawable',
+);
+if (existsSync(androidRes)) {
+  writeFileSync(
+    join(androidRes, 'stint_mark_bounds.xml'),
+    vector(vpath(layers.bounds)),
+  );
+  writeFileSync(
+    join(androidRes, 'stint_mark_name.xml'),
+    vector(`${vpath(layers.name)}\n${vpath(layers.tm, tmOpacity)}`),
+  );
+}
+
 console.log(
-  'generated: tokens.css, tokens.ts, Tokens.swift, swatches.html, mockup.css, icon.svg, phone icons',
+  'generated: tokens.css, tokens.ts, Tokens.swift, swatches.html, mockup.css, icon.svg, phone icons, widget marks',
 );

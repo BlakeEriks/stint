@@ -3,7 +3,6 @@ import { test, expect } from '@playwright/test';
 import {
   signIn,
   clearInbox,
-  inviteLink,
   magicLink,
   requestLink,
   SEED_EMAIL,
@@ -22,33 +21,39 @@ function serviceHeaders(): Record<string, string> {
 
 /** Sign-in and sign-out, in a real browser. */
 test.describe('authentication', () => {
-  test('signs in through the emailed link', async ({ page }) => {
+  test('signs in through the emailed link, and /signin then sends home', async ({
+    page,
+  }) => {
     await signIn(page);
     // The account menu carries the signed-in address, so this is the right
     // user rather than merely a session.
     await expect(page.getByText(SEED_EMAIL)).toBeVisible();
+
+    /* Rendering the form to a signed-in user lets two sign-ins compete for one
+       PKCE verifier, which makes valid magic links read as invalid. */
+    await page.goto('/signin');
+    await page.waitForURL('**/');
+    await expect(
+      page.getByRole('navigation', { name: 'Sections' }),
+    ).toBeVisible();
   });
 
-  test('the invite link signs the invitee in', async ({ page }) => {
-    const email = `invitee-${Date.now()}@localhost.test`;
+  test('a new address signs up through the same form', async ({ page }) => {
+    const email = `signup-${Date.now()}@localhost.test`;
     const headers = serviceHeaders();
-    await clearInbox();
-    const invitedAt = Date.now();
-
-    const res = await fetch(`${AUTH}/invite`, {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-    expect(res.ok).toBe(true);
-    const { id } = await res.json();
-
     try {
-      await page.goto(await inviteLink(invitedAt));
-      await page.waitForURL('**/');
+      await signIn(page, email);
       await expect(page.getByText(email)).toBeVisible();
     } finally {
-      await fetch(`${AUTH}/admin/users/${id}`, { method: 'DELETE', headers });
+      const { users = [] } = await fetch(
+        `${AUTH}/admin/users?filter=${encodeURIComponent(email)}`,
+        { headers },
+      ).then((r) => r.json());
+      for (const u of users as { id: string }[])
+        await fetch(`${AUTH}/admin/users/${u.id}`, {
+          method: 'DELETE',
+          headers,
+        });
     }
   });
 
@@ -70,18 +75,6 @@ test.describe('authentication', () => {
     await expect(
       page.getByRole('navigation', { name: 'Sections' }),
     ).toBeHidden();
-  });
-
-  test('a signed-in visitor to /signin is sent home', async ({ page }) => {
-    await signIn(page);
-
-    /* Rendering the form to a signed-in user lets two sign-ins compete for one
-       PKCE verifier, which makes valid magic links read as invalid. */
-    await page.goto('/signin');
-    await page.waitForURL('**/');
-    await expect(
-      page.getByRole('navigation', { name: 'Sections' }),
-    ).toBeVisible();
   });
 
   test('a second sign-in request supersedes the first link', async ({

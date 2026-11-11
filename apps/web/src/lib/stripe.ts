@@ -27,6 +27,17 @@ export function requireBillingConfig(): BillingConfig {
   return config;
 }
 
+export function billingLive(): boolean {
+  return process.env.BILLING_LIVE === 'true' && billingConfig() !== null;
+}
+
+export function requireBillingLive(): BillingConfig {
+  const config = requireBillingConfig();
+  if (process.env.BILLING_LIVE !== 'true')
+    throw new ApiError('BILLING_UNAVAILABLE', 'Billing is not live yet');
+  return config;
+}
+
 /**
  * The Stripe client. The route tests set `__TEST_STRIPE__` to an in-memory
  * fake (`test/fake-stripe.ts`), as they set `__TEST_DB__`, so the handlers

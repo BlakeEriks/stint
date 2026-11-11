@@ -1,10 +1,9 @@
 'use client';
 
-import { brand } from '@stint/design-tokens';
+import { theme } from '@stint/design-tokens';
 import { useEffect } from 'react';
+import { MarkOutline } from '@/components/mark-outline';
 import { reportError } from '@/lib/client/report-error';
-
-const tm = brand.mark;
 
 /**
  * The last resort: the root layout itself failed, so this renders its own
@@ -46,31 +45,13 @@ export default function GlobalError({
       >
         <div style={{ maxWidth: '32rem' }}>
           {/* The wordmark, so the failure is still recognisably this app and
-              not a blank browser error. One flat color, as everywhere. */}
-          <div
-            style={{
-              fontFamily:
-                'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-              fontSize: '19px',
-              fontWeight: 600,
-              letterSpacing: '0.12em',
-              marginBottom: '20px',
-            }}
-          >
-            |Stint|
-            <span
-              aria-hidden
-              style={{
-                display: 'inline-block',
-                fontSize: `${tm.tmSize}em`,
-                lineHeight: 1,
-                letterSpacing: 0,
-                verticalAlign: 'middle',
-                transform: `translateY(-${tm.tmRise / tm.tmSize}em)`,
-              }}
-            >
-              ™
-            </span>
+              not a blank browser error. */}
+          <div style={{ marginBottom: '20px' }}>
+            <MarkOutline
+              size={19}
+              bounds={theme.dark.mark}
+              name={theme.dark['text-strong']}
+            />
           </div>
 
           <h1 style={{ fontSize: '24px', fontWeight: 600, margin: '0 0 8px' }}>
