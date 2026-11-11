@@ -65,7 +65,7 @@ export function paidAtRefusal(
   if (new Date(paidAt) > now)
     return refusal(
       'VALIDATION_FAILED',
-      "The paid date can't be in the future.",
+      'The paid date can’t be in the future.',
       {
         paidAt,
       },
@@ -73,7 +73,7 @@ export function paidAtRefusal(
   if (sentAt && after(sentAt, paidAt))
     return refusal(
       'VALIDATION_FAILED',
-      "The paid date can't be before the invoice was sent.",
+      'The paid date can’t be before the invoice was sent.',
       { paidAt, sentAt },
     );
   return null;
@@ -86,13 +86,13 @@ export function invoiceRequestRefusal(
   today: string,
 ) {
   if (r.periodEnd < r.periodStart)
-    return refusal('INVALID_PERIOD', "The period can't end before it starts.");
+    return refusal('INVALID_PERIOD', 'The period can’t end before it starts.');
   /* The issue date is the send date, so a typed due date is held to today:
      it can only move further behind. */
   if (r.dueDate && r.dueDate < today)
     return refusal(
       'VALIDATION_FAILED',
-      "The due date can't be before the issue date.",
+      'The due date can’t be before the issue date.',
       { field: 'dueDate' },
     );
   return null;
@@ -135,7 +135,7 @@ export function nextNumberRefusal(
       field: 'nextInvoiceNumber',
       current,
     });
-  if (next > max) return refused(`The next number can't go above ${max}.`);
+  if (next > max) return refused(`The next number can’t go above ${max}.`);
   if (highest && next <= highest.sequenceNo)
     return refused(
       `Must be higher than ${highest.invoiceNumber}, your latest invoice.`,
@@ -148,19 +148,19 @@ export function nextNumberRefusal(
 export const refusals = {
   /** `guard_issued_invoice`'s. */
   transition: (from: InvoiceStatus, to: InvoiceStatus) =>
-    refusal('VALIDATION_FAILED', `A ${from} invoice can't be marked ${to}.`, {
+    refusal('VALIDATION_FAILED', `A ${from} invoice can’t be marked ${to}.`, {
       from,
       to,
     }),
   entryLocked: (verb: 'modified' | 'deleted') =>
     refusal(
       'ENTRY_LOCKED',
-      `This entry is on a sent invoice, so it can't be ${verb === 'modified' ? 'edited' : verb}. Void the invoice to change it.`,
+      `This entry is on a sent invoice, so it can’t be ${verb === 'modified' ? 'edited' : verb}. Void the invoice to change it.`,
     ),
   expenseLocked: (verb: 'modified' | 'deleted') =>
     refusal(
       'EXPENSE_LOCKED',
-      `This expense is on a sent invoice, so it can't be ${verb === 'modified' ? 'edited' : verb}. Void the invoice to change it.`,
+      `This expense is on a sent invoice, so it can’t be ${verb === 'modified' ? 'edited' : verb}. Void the invoice to change it.`,
     ),
   timerRunning: (running: unknown) =>
     refusal(

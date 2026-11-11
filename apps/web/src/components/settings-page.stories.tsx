@@ -221,7 +221,7 @@ export const NextNumberCeiling: Story = {
     await userEvent.clear(field);
     await userEvent.type(field, '1000000');
     await expect(
-      await page.findByText(/can't go above 999999/, {}, { timeout: 3000 }),
+      await page.findByText(/go above 999999/, {}, { timeout: 3000 }),
     ).toBeVisible();
     await expect(field).toHaveValue(16);
   },

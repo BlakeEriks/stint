@@ -27,6 +27,7 @@ import {
   pickSchedules,
   resolvePaymentProfile,
   draftDates,
+  formatDate,
   nothingToSend,
   unratedRefusal,
 } from '@stint/core';
@@ -287,19 +288,11 @@ export function draftRefusals(d: {
   };
 }
 
-const usDate = (iso: string) =>
-  new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'UTC',
-  });
-
 /** Printed, it would read `Net -N`. */
 export function dueBeforeIssueError(issueDate: string, dueDate: string) {
   return new ApiError(
     'VALIDATION_FAILED',
-    `The due date, ${usDate(dueDate)}, is before the issue date, ${usDate(issueDate)}. Edit the draft and set a later due date.`,
+    `The due date, ${formatDate(dueDate)}, is before the issue date, ${formatDate(issueDate)}. Edit the draft and set a later due date.`,
     { field: 'dueDate' },
   );
 }

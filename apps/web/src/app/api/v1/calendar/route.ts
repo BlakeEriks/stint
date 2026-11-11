@@ -26,7 +26,7 @@ export const GET = handle(async (req: Request) => {
   if (new Date(q.to) < new Date(q.from)) {
     throw new ApiError(
       'INVALID_PERIOD',
-      "The range can't end before it starts.",
+      'The range can’t end before it starts.',
     );
   }
 

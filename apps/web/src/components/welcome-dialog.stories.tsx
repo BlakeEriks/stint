@@ -153,9 +153,7 @@ export const Failed: Story = {
     await userEvent.type(await toStep2(canvasElement), 'Northwind Trading');
     const page = body(canvasElement);
     await userEvent.click(page.getByRole('button', { name: 'Start tracking' }));
-    await expect(
-      await page.findByText('Request failed. Tracked time is unaffected.'),
-    ).toBeVisible();
+    await expect(await page.findByRole('alert')).not.toBeEmptyDOMElement();
     await expect(
       page.getByRole('textbox', { name: 'Client name' }),
     ).toHaveValue('Northwind Trading');

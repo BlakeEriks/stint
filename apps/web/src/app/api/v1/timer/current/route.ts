@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { handle, ApiError, dbCode, refused } from '@/lib/errors';
+import { handle, dbCode, refused } from '@/lib/errors';
 import { refusals } from '@stint/core';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';

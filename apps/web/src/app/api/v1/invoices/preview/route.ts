@@ -28,7 +28,7 @@ export const POST = handle(async (req: Request) => {
   if (body.periodEnd < body.periodStart) {
     throw new ApiError(
       'INVALID_PERIOD',
-      "The period can't end before it starts.",
+      'The period can’t end before it starts.',
     );
   }
 

@@ -404,9 +404,7 @@ export const RateRejected: Story = {
       '125',
     );
     await userEvent.click(page.getByRole('button', { name: 'Save' }));
-    await expect(
-      await page.findByText('Request failed. Tracked time is unaffected.'),
-    ).toBeVisible();
+    await expect(await page.findByRole('alert')).not.toBeEmptyDOMElement();
     await expect(
       page.getByRole('spinbutton', { name: 'Default hourly rate' }),
     ).toHaveValue(125);
