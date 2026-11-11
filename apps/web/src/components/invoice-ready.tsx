@@ -7,7 +7,12 @@ import { keys } from '@stint/client';
 import { formatCompact, formatCurrency } from '@stint/core';
 import { api, type Client } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
-import { newInvoiceHref, periodName } from './invoice-bits';
+import {
+  carriedFrom,
+  lastInvoiceQuery,
+  newInvoiceHref,
+  periodName,
+} from './invoice-bits';
 import { SHEET } from './invoice-preview-card';
 import { rowBleed, rowButton } from './row-button';
 import { Swatch } from './swatch';
@@ -24,22 +29,38 @@ export function ReadyToInvoice({ clients }: { clients: Client[] }) {
     queryFn: () => api.stats(tz),
   });
   const due = data?.attention.unbilledDue ?? [];
+  const lasts = useQueries({
+    queries: due.map((d) => lastInvoiceQuery(d.clientId)),
+  });
   const amounts = useQueries({
-    queries: due.map((d) => {
+    queries: due.map((d, i) => {
+      const last = lasts[i];
+      const { groupingMode, summaryText } = carriedFrom(last?.data);
+      // New invoice's first ask, key for key, so the row's amount is the
+      // one it opens with and it opens on this answer.
       const body = {
         clientId: d.clientId,
         periodStart: d.periodStart,
         periodEnd: d.periodEnd,
+        groupingMode,
+        summaryText,
         tz,
+        manualLines: [],
+        excludedExpenseIds: [],
       };
       return {
         queryKey: keys.invoicePreview(body),
         queryFn: () => api.previewInvoice(body),
+        enabled: last !== undefined && !last.isPending,
+        // A row that fails says so with a dash, not by holding the list.
+        retry: false,
       };
     }),
   });
-  // A failed query still says to choose a client.
-  const known = !isPending && amounts.every((a) => !a.isPending);
+  const known =
+    !isPending &&
+    lasts.every((l) => !l.isPending) &&
+    amounts.every((a) => !a.isPending);
 
   return (
     // Letter-shaped, so it is the page a client fills, not a box around a
@@ -77,7 +98,7 @@ export function ReadyToInvoice({ clients }: { clients: Client[] }) {
                     <span className="flex-none type-duration text-strong">
                       {preview
                         ? formatCurrency(preview.total, preview.currency)
-                        : ''}
+                        : '—'}
                     </span>
                     <ChevronRight
                       aria-hidden

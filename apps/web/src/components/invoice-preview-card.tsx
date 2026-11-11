@@ -90,11 +90,15 @@ export type CardEdits = {
   expenses: {
     /** The client's waiting expenses this invoice can bill. */
     waiting: Expense[];
+    /** The day a recurring one prints. */
+    periodEnd: string;
     excluded: string[];
     onToggle: (id: string, bill: boolean) => void;
     onOpen: (expense: Expense) => void;
     onAdd: () => void;
   };
+  /** The invoice's, for the charges before the server's first answer. */
+  currency: string;
   /** Wraps the payment block, or its add button, in the menu it opens. */
   paymentMenu: (trigger: React.ReactElement) => React.ReactNode;
 };
@@ -186,9 +190,12 @@ export function InvoicePreviewCard({
           edit={edit}
         />
 
-        {preview?.lineItems ? (
+        {/* On New invoice what the user edits stands before the server's
+            first answer; only the figures wait for it. */}
+        {edit || preview?.lineItems ? (
           <Lines
-            preview={{ ...preview, lineItems: preview.lineItems }}
+            preview={preview}
+            currency={preview?.currency ?? edit?.currency ?? 'USD'}
             terms={terms}
             updating={updating}
             edit={edit}
@@ -602,62 +609,69 @@ type ExpenseLine = {
   billed: boolean;
 };
 
-/** The expense rows: the server's lines, and on New invoice each waiting
-    expense too, unticked ones included so they can be ticked again. */
+/** The expense rows: the server's lines, or on New invoice each expense it
+    can bill, unticked ones included so they can be ticked again, in the
+    order they print. Only their amounts wait for the server. */
 function expenseLines(lines: Line[], edit: CardEdits | undefined) {
   const served = lines.filter((li) => li.unit === 'expense');
-  const rows: ExpenseLine[] = served.map((li, i) => ({
-    key: li.expenseId ?? `line-${i}`,
-    description: li.description,
-    spentOn: li.spentOn,
-    amount: li.amount,
-    expense: edit?.expenses.waiting.find((e) => e.id === li.expenseId),
-    billed: !edit?.expenses.excluded.includes(li.expenseId ?? ''),
-  }));
-  for (const e of edit?.expenses.waiting ?? []) {
-    if (rows.some((r) => r.key === e.id)) continue;
-    rows.push({
+  if (!edit)
+    return served.map((li, i) => ({
+      key: li.expenseId ?? `line-${i}`,
+      description: li.description,
+      spentOn: li.spentOn,
+      amount: li.amount,
+      billed: true,
+    }));
+  return edit.expenses.waiting.map((e): ExpenseLine => {
+    const line = served.find((li) => li.expenseId === e.id);
+    return {
       key: e.id,
       description: e.description,
-      spentOn: e.spentOn,
-      amount: e.amount,
+      spentOn: line?.spentOn ?? e.spentOn ?? edit.expenses.periodEnd,
+      amount: line?.amount ?? e.amount,
       expense: e,
-      billed: !edit?.expenses.excluded.includes(e.id),
-    });
-  }
-  return rows;
+      billed: !edit.expenses.excluded.includes(e.id),
+    };
+  });
 }
 
 function Lines({
   preview,
+  currency: cur,
   terms,
   updating,
   edit,
 }: {
-  preview: CardFigures & { lineItems: Line[] };
+  /** Undefined on New invoice until the server first answers. */
+  preview: CardFigures | undefined;
+  currency: string;
   terms: string | null | undefined;
   updating: boolean;
   edit: CardEdits | undefined;
 }) {
   const dim = updating ? DIM : '';
-  const cur = preview.currency;
+  const lineItems = preview?.lineItems ?? [];
   /* On New invoice the charges are the user's, listed as they are now;
      the server's copy of them lags a keystroke. */
-  const services = preview.lineItems.filter(
+  const services = lineItems.filter(
     (li) => li.unit !== 'expense' && !(edit && li.unit === 'fixed'),
   );
   const charges = edit?.charges.list ?? [];
-  const expenses = expenseLines(preview.lineItems, edit);
+  const expenses = expenseLines(lineItems, edit);
+  /* Typed whatever the hours: the server refuses a summary invoice without
+     its text. */
+  const summaryOnly = edit?.summary !== undefined && services.length === 0;
   const empty =
     services.length === 0 && charges.length === 0 && expenses.length === 0;
 
   return (
     <>
-      {empty ? (
+      {empty && preview?.lineItems ? (
         <p className="type-support text-subtle">
           Nothing to bill in this period.
         </p>
-      ) : (
+      ) : null}
+      {empty && !summaryOnly ? null : (
         <table className="w-full type-support">
           <thead>
             <tr className="border-b border-edge-default text-left">
@@ -676,6 +690,14 @@ function Lines({
             </tr>
           </thead>
           <tbody>
+            {summaryOnly ? (
+              <ServiceRow
+                currency={cur}
+                dim={dim}
+                summary={edit?.summary}
+                first
+              />
+            ) : null}
             {services.map((li, i) => (
               <ServiceRow
                 key={i}
@@ -722,7 +744,7 @@ function Lines({
         </div>
       ) : null}
 
-      {empty ? null : (
+      {empty || !preview?.lineItems ? null : (
         <Dims updating={updating}>
           <Totals
             preview={preview}
@@ -750,7 +772,8 @@ function ServiceRow({
   summary,
   first,
 }: {
-  line: Line;
+  /** Absent for the summary line before any hours: its figures are blank. */
+  line?: Line;
   currency: string;
   /** The server's figures dim while it recomputes; typed text never does. */
   dim: string;
@@ -775,17 +798,17 @@ function ServiceRow({
             className={`type-support ${typedClass(true)} aria-invalid:border-danger`}
           />
         ) : (
-          line.description
+          line?.description
         )}
       </td>
       <td className={`${TD} text-muted ${dim}`}>
-        {formatQuantity(line.unit, line.quantity)}
+        {line ? formatQuantity(line.unit, line.quantity) : null}
       </td>
       <td className={`${TD} text-muted ${RATE} ${dim}`}>
-        {formatCurrency(line.unitPrice, currency)}
+        {line ? formatCurrency(line.unitPrice, currency) : null}
       </td>
       <td className={`${TD} text-strong ${dim}`}>
-        {formatCurrency(line.amount, currency)}
+        {line ? formatCurrency(line.amount, currency) : null}
       </td>
     </tr>
   );

@@ -111,6 +111,7 @@ const EXPENSES = [
     invoiceId: null,
     invoiceNumber: null,
     invoiceStatus: null,
+    draftId: null,
   },
   {
     id: 'x2',
@@ -122,6 +123,7 @@ const EXPENSES = [
     invoiceId: null,
     invoiceNumber: null,
     invoiceStatus: null,
+    draftId: null,
   },
 ];
 

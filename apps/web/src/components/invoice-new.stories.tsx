@@ -365,6 +365,32 @@ export const PressedFromTheInbox: Story = {
   },
 };
 
+/** A row whose amount can't be had says so with a dash, and the rest of
+    the list stands. */
+export const ReadyRowFailed: Story = {
+  ...Blank,
+  parameters: {
+    ...Blank.parameters,
+    msw: {
+      handlers: {
+        previewInvoice: http.post(handlers.previewInvoice.info.path, () =>
+          Response.json({ error: 'internal' }, { status: 500 }),
+        ),
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const ready = within(
+      await within(canvasElement).findByRole('region', {
+        name: 'Ready to invoice',
+      }),
+    );
+    await expect(
+      ready.getByRole('link', { name: /^Northwind Trading/ }),
+    ).toHaveTextContent('—');
+  },
+};
+
 /** A preset sets both ends, and Period names the one it matches. On
     September 17 the last two weeks end yesterday. */
 export const PeriodPreset: Story = {
@@ -1103,7 +1129,7 @@ export const OnlyExpenses: Story = {
 };
 
 /** Unticking one asks the server again and leaves it off the bill, faint
-    on the page so it can be ticked again. */
+    on the page, in its place, so it can be ticked again. */
 export const UntickExpense: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -1114,12 +1140,124 @@ export const UntickExpense: Story = {
     const tick = page.getByRole('checkbox', {
       name: 'Bill Figma license, annual',
     });
+    const order = () =>
+      card(page)
+        .getAllByRole('checkbox')
+        .map((c) => c.getAttribute('aria-label'));
+    const before = order();
     await userEvent.click(tick);
     await settled(page);
     await expect(tick).not.toBeChecked();
     await expect(due(page).getByText(/^\$[\d,]+\.\d\d$/).textContent).not.toBe(
       total,
     );
+    // It stays where it was, not at the bottom once the answer lands.
+    await expect(order()).toEqual(before);
+  },
+};
+
+/** A one-off another draft holds is that draft's: Byrne's August draft
+    holds its stock photography, so a new invoice doesn't offer it. */
+export const HeldByAnotherDraft: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(await page.findByRole('button', { name: 'Client' }));
+    await userEvent.click(
+      await page.findByRole('menuitemradio', { name: /Byrne/ }),
+    );
+    await waitFor(() => expect(page.queryByRole('menu')).toBeNull());
+    await settled(page);
+    await expect(
+      card(page).queryByRole('checkbox', { name: 'Bill Stock photography' }),
+    ).toBeNull();
+  },
+};
+
+/** Before the server's first answer, everything the user edits on the page
+    is there: the summary line, the expense ticks and both Add buttons. */
+export const EditsBeforeFigures: Story = {
+  ...desktop,
+  parameters: { ...menuOpen, ...stalled('previewInvoice') },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await pickGrouping(page, /One summary line/);
+    await expect(await page.findByLabelText('Summary line')).toBeVisible();
+    await expect(
+      page.getByRole('checkbox', { name: 'Bill Figma license, annual' }),
+    ).toBeChecked();
+    await expect(
+      page.getByRole('button', { name: 'Add a charge' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Add an expense' }),
+    ).toBeVisible();
+  },
+};
+
+/** Nothing in the period to bill: the page says so. */
+export const NothingToBill: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      for (const e of db.entries) e.isBillable = false;
+      db.expenses = [];
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(
+      await card(page).findByText('Nothing to bill in this period.'),
+    ).toBeVisible();
+  },
+};
+
+/** One summary line with no hours to bill still has its field: the server
+    refuses a summary invoice without its text. */
+export const SummaryWithoutHours: Story = {
+  ...OnlyExpenses,
+  play: async ({ canvasElement }) => {
+    const page = await summaryFor(canvasElement, 'Retainer');
+    await settled(page);
+    await expect(page.getByLabelText('Summary line')).toHaveValue('Retainer');
+  },
+};
+
+/** Switching clients, the last client's lines leave with it: none of its
+    expenses sits under the new Bill to while that client loads. */
+export const SwitchingClients: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    stalls: 1,
+    msw: {
+      handlers: {
+        // Meridian's last invoice never answers; every other does.
+        invoices: http.get(handlers.invoices.info.path, async (info) => {
+          const url = new URL(info.request.url);
+          if (url.searchParams.get('clientId') === ids.meridian)
+            await delay('infinite');
+          // `resolver` is protected in msw's types, and public at runtime.
+          const real = handlers.invoices as unknown as {
+            resolver: (i: typeof info) => Promise<Response>;
+          };
+          return real.resolver(info);
+        }),
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    await chooseMeridian(canvasElement);
+    await card(page).findByRole('button', { name: /^Edit Bill to Meridian/ });
+    await expect(
+      card(page).queryByRole('checkbox', {
+        name: 'Bill Figma license, annual',
+      }),
+    ).toBeNull();
   },
 };
 

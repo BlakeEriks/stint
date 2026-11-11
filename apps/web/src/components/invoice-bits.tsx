@@ -1,7 +1,8 @@
 'use client';
 
-import { isPeriod } from '@stint/core';
-import type { InvoiceStatus } from '@/lib/client/api';
+import { keys } from '@stint/client';
+import { attachedSchedules, isPeriod } from '@stint/core';
+import { api, type Invoice, type InvoiceStatus } from '@/lib/client/api';
 
 /**
  * Invoice dates are plain `YYYY-MM-DD`, so they carry no zone to convert.
@@ -75,3 +76,25 @@ export function periodName(start: string, end: string) {
       : date(end, short);
   return `${date(start, short)} – ${to}`;
 }
+
+/** A client's newest invoice that isn't void, which the next one carries
+ *  from. Shared, so a ready row and New invoice ask once. */
+export const lastInvoiceQuery = (clientId: string) => ({
+  queryKey: [...keys.invoices(), { clientId }],
+  // Newest first.
+  queryFn: () => api.invoices({ clientId }),
+  enabled: clientId !== '',
+  select: (r: Awaited<ReturnType<typeof api.invoices>>) =>
+    r.invoices.find((i) => i.status !== 'void'),
+});
+
+/** What a client's last invoice carries into the next, so a monthly invoice
+ *  isn't retyped. A first invoice is one summary line: itemizing is the
+ *  exception. Its text starts shown in the field, so it is the user's to
+ *  change, never filled in at save. */
+export const carriedFrom = (last: Invoice | undefined) => ({
+  groupingMode: last?.groupingMode ?? 'summary',
+  summaryText: last?.summaryText ?? 'Contracting services',
+  schedules: attachedSchedules(last?.supportingDetail ?? null),
+  reference: last?.reference ?? '',
+});

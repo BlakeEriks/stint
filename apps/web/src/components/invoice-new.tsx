@@ -40,6 +40,7 @@ import {
   isPeriod,
   localDateKey,
   resolvePaymentProfile,
+  billableExpenses,
   type Period,
   type ScheduleKind,
 } from '@stint/core';
@@ -50,7 +51,6 @@ import {
   type Client,
   type Expense,
   type GroupingMode,
-  type Invoice,
   type InvoicePreview,
   type PaymentProfile,
   type Settings,
@@ -67,6 +67,7 @@ import {
 import { InvoiceDatesDialog } from './invoice-dates-dialog';
 import { PeriodPicker } from './invoice-period';
 import { ReadyToInvoice } from './invoice-ready';
+import { carriedFrom, lastInvoiceQuery } from './invoice-bits';
 import { summarize } from './payment-profiles';
 import {
   businessOf,
@@ -251,17 +252,6 @@ function ScheduleHint({
   );
 }
 
-/** What a client's last invoice carries into the next, so a monthly invoice
- *  isn't retyped. A first invoice is one summary line: itemizing is the
- *  exception. Its text starts shown in the field, so it is the user's to
- *  change, never filled in at save. */
-const carriedFrom = (last: Invoice | undefined) => ({
-  groupingMode: last?.groupingMode ?? 'summary',
-  summaryText: last?.summaryText ?? 'Contracting services',
-  schedules: attachedSchedules(last?.supportingDetail ?? null),
-  reference: last?.reference ?? '',
-});
-
 /** `key` `'new'` adds the charge; any other replaces the charge it names. */
 const putCharge = (
   charges: DraftCharge[],
@@ -275,13 +265,7 @@ const putCharge = (
 /** What the draft takes from the client's last invoice until the user sets
  *  its own, and whether that invoice has answered yet. */
 function useCarried(draft: Draft) {
-  /* Newest first. */
-  const lastInvoice = useQuery({
-    queryKey: [...keys.invoices(), { clientId: draft.clientId }],
-    queryFn: () => api.invoices({ clientId: draft.clientId }),
-    enabled: draft.clientId !== '',
-    select: (r) => r.invoices.find((i) => i.status !== 'void'),
-  });
+  const lastInvoice = useQuery(lastInvoiceQuery(draft.clientId));
   const carried = carriedFrom(lastInvoice.data);
   const groupingMode = draft.groupingMode ?? carried.groupingMode;
   return {
@@ -294,18 +278,29 @@ function useCarried(draft: Draft) {
   };
 }
 
-/** What this invoice can bill of the client's expenses: every recurring one,
- *  and every one-off paid by the period's end. */
-function useWaitingExpenses(clientId: string, periodEnd: string) {
+/** What this invoice can bill of the client's expenses, ticked or not, in
+ *  the order its lines print: the server's rule, so a one-off another draft
+ *  holds is not offered. */
+function useWaitingExpenses(
+  clientId: string,
+  periodEnd: string,
+  draftId: string | undefined,
+) {
   const { data } = useQuery({
     queryKey: [...keys.expenses(), { clientId, status: 'unbilled' }],
     queryFn: () => api.expenses({ clientId, status: 'unbilled' }),
     enabled: clientId !== '',
     select: (r) => r.expenses,
   });
-  return (data ?? []).filter(
-    (e) => e.recurring || (e.spentOn as string) <= periodEnd,
+  const all = data ?? [];
+  const billable = billableExpenses(
+    all,
+    { id: draftId, periodEnd, excludedExpenseIds: [] },
+    false,
   );
+  return billable
+    .sort((a, b) => a.spentOn.localeCompare(b.spentOn))
+    .map((b) => all.find((e) => e.id === b.id) as Expense);
 }
 
 /**
@@ -315,8 +310,9 @@ function useWaitingExpenses(clientId: string, periodEnd: string) {
  */
 function useLivePreview(
   billed: Parameters<typeof api.previewInvoice>[0],
-  chosen: boolean,
+  clientId: string,
 ) {
+  const chosen = clientId !== '';
   const settled = useSettled(billed, SETTLE_MS);
   /* A query rather than a press: it writes nothing, so an answer that no
      longer matches the form is simply dropped, and the last one stays on
@@ -332,7 +328,11 @@ function useLivePreview(
     (JSON.stringify(billed) !== JSON.stringify(settled) ||
       preview.isFetching ||
       preview.isPlaceholderData);
-  return { preview, current: chosen ? preview.data : undefined, updating };
+  /* Another client's answer, held over a switch, is never shown under this
+     one: its expense ticks would exclude that client's ids from this. */
+  const current =
+    preview.data?.clientId === clientId ? preview.data : undefined;
+  return { preview, current, updating };
 }
 
 /** The number Generate takes, and the due date the client's payment terms,
@@ -485,7 +485,7 @@ function Form({
   const { lastPending, groupingMode, summaryText, schedules, reference } =
     useCarried(draft);
   const { periodStart, periodEnd } = periodOf(draft, client, issued);
-  const waiting = useWaitingExpenses(draft.clientId, periodEnd);
+  const waiting = useWaitingExpenses(draft.clientId, periodEnd, editing?.id);
   /* `undefined` adds an expense; an expense, edits it. */
   const expenseDialog = useDialog<Expense | undefined>();
   /* `'new'` adds a charge; a key, edits that one. */
@@ -515,7 +515,7 @@ function Form({
   const { preview, current, updating } = useLivePreview(
     // Priced as itself, so it keeps the expenses it shows.
     { ...billed, draftId: editing?.id },
-    draft.clientId !== '',
+    draft.clientId,
   );
 
   const terms = fromSettings(settings, issued, client);
@@ -687,7 +687,8 @@ function Form({
             noSender={noSender}
             preview={current}
             client={client}
-            business={businessOf(settings)}
+            // A draft prints the sender frozen on it, as sending keeps it.
+            business={editing?.business ?? businessOf(settings)}
             number={number}
             issued={issued}
             due={due}
@@ -711,6 +712,8 @@ function Form({
                 : undefined,
               reference,
               waiting,
+              periodEnd,
+              currency: client.currency ?? settings?.currency ?? 'USD',
               chargeDialog,
               expenseDialog,
               profiles,
@@ -894,6 +897,8 @@ function cardEdits({
   summary,
   reference,
   waiting,
+  periodEnd,
+  currency,
   chargeDialog,
   expenseDialog,
   profiles,
@@ -912,6 +917,8 @@ function cardEdits({
   summary: { value: string; invalid: boolean } | undefined;
   reference: string;
   waiting: Expense[];
+  periodEnd: string;
+  currency: string;
   chargeDialog: { show: (key: string) => void };
   expenseDialog: { show: (expense: Expense | undefined) => void };
   profiles: PaymentProfile[];
@@ -930,6 +937,7 @@ function cardEdits({
     onBusiness: editing ? undefined : open.sender,
     onDates: open.dates,
     onClient: open.client,
+    currency,
     reference: { value: reference, onChange: (v) => set('reference', v) },
     notes: { value: draft.notes, onChange: (v) => set('notes', v) },
     summary: summary && { ...summary, onChange: (v) => set('summaryText', v) },
@@ -943,6 +951,7 @@ function cardEdits({
     },
     expenses: {
       waiting,
+      periodEnd,
       excluded: draft.excludedExpenseIds,
       onToggle: toggleExpense,
       onOpen: expenseDialog.show,
