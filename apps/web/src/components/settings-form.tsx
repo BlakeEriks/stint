@@ -11,7 +11,7 @@ import { Field, Section, textareaClass } from './field';
 import { parseRate, RateInput, UnitInput } from './rate-input';
 import { SaveIndicator } from './save-indicator';
 import { useAutosave } from '@/lib/client/use-autosave';
-import { TemplatePicker, useTemplateChoice } from './template-picker';
+import { TemplateChooser, useTemplateChoice } from './template-picker';
 import { ZoneSelect } from './zone-select';
 import {
   api,
@@ -294,7 +294,7 @@ function TemplateSection() {
       title="Invoice template"
       description="How your invoices look. Every template prints the same details."
     >
-      <TemplatePicker value={template} onChange={choose} />
+      <TemplateChooser value={template} onChange={choose} />
       <p className="type-support text-subtle">
         Drafts use it right away. A sent invoice keeps the template it was sent
         with.

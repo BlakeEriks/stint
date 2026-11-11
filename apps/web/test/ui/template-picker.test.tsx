@@ -5,14 +5,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { keys } from '@stint/client';
 import type { ReactNode } from 'react';
 import {
-  TemplatePicker,
+  TemplateChooser,
   useTemplateChoice,
 } from '@/components/template-picker';
 
-/** The picker on Settings, which saves each press. */
+/** The chooser on Settings, which saves each press. */
 function Picker() {
   const { template, choose } = useTemplateChoice();
-  return <TemplatePicker value={template} onChange={choose} />;
+  return <TemplateChooser value={template} onChange={choose} />;
 }
 
 function setup(answer: (body: unknown) => Promise<Response>) {
@@ -41,8 +41,8 @@ const checked = () =>
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe('TemplatePicker', () => {
-  it('saves a press and Use; Preview saves nothing', async () => {
+describe('TemplateChooser on Settings', () => {
+  it('saves each press', async () => {
     const user = userEvent.setup();
     const sent: unknown[] = [];
     setup((body) => {
@@ -50,11 +50,8 @@ describe('TemplatePicker', () => {
       return new Promise(() => {}); // never answers
     });
 
-    await user.click(screen.getByRole('button', { name: 'Preview Modern' }));
-    expect(sent).toEqual([]);
-
-    await user.click(screen.getByRole('button', { name: 'Use Modern' }));
-    await user.click(screen.getByRole('radio', { name: /Classic/ }));
+    await user.click(screen.getByRole('radio', { name: 'Modern' }));
+    await user.click(screen.getByRole('radio', { name: 'Classic' }));
 
     expect(sent).toEqual([
       { invoiceTemplate: 'modern' },
