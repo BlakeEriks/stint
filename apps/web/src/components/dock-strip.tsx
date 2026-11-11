@@ -116,5 +116,8 @@ function claim(id: string) {
   const button = document.getElementById(id);
   if (!button || wanted !== id) return;
   wanted = null;
-  button.focus();
+  /* Never scroll to it: unfolding, the dock is 286px in a track still 44px
+     wide, and scrolling that overflow into view throws the whole frame
+     sideways for the length of the slide. */
+  button.focus({ preventScroll: true });
 }
