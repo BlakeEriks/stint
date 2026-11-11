@@ -10,6 +10,7 @@ import {
   SCHEDULE_TITLES,
   type ScheduleKind,
   type Schedules,
+  type SummaryText,
 } from '@stint/core';
 import { Pencil, Plus } from 'lucide-react';
 import type {
@@ -78,8 +79,16 @@ export type CardEdits = {
   onClient: () => void;
   reference: Typed;
   notes: Typed;
-  /** With one summary line: its text, typed on the line. */
-  summary?: Typed & { invalid: boolean };
+  /** With one summary line: its text, typed on each rate's line. The first
+   *  line is the text every line prints unless typed itself. */
+  summary?: {
+    value: string;
+    texts: SummaryText[];
+    /** The first line, with its rate. */
+    onChange: (value: string, rate: number) => void;
+    /** Any other line's own text. */
+    onChangeAt: (rate: number, value: string) => void;
+  };
   /** With one summary line: the supporting detail it attaches. */
   schedules?: { onChange: (value: ScheduleKind[]) => void };
   charges: {
@@ -755,21 +764,30 @@ function ServiceRow({
   /** The server's figures dim while it recomputes; typed text never does. */
   dim: string;
   summary: CardEdits['summary'];
-  /** Each rate is a line of the same text, typed once on the first. */
+  /** The first line's text is every line's until one is typed itself. */
   first: boolean;
 }) {
+  const own = summary?.texts.find((t) => t.rate === line.unitPrice);
+  const value = own?.text ?? summary?.value ?? '';
+  const empty = value.trim() === '';
   return (
     <tr className={ROW}>
       <td className="py-2.5 text-primary">
-        {summary && !first ? (
-          summary.value
-        ) : summary ? (
+        {summary ? (
           <input
-            aria-label="Summary line"
-            aria-invalid={summary.invalid || undefined}
-            aria-describedby={summary.invalid ? SUMMARY_ERROR : undefined}
-            value={summary.value}
-            onChange={(e) => summary.onChange(e.target.value)}
+            aria-label={
+              first
+                ? 'Summary line'
+                : `Summary line at ${formatCurrency(line.unitPrice, currency)}/h`
+            }
+            aria-invalid={empty || undefined}
+            aria-describedby={empty ? SUMMARY_ERROR : undefined}
+            value={value}
+            onChange={(e) =>
+              first
+                ? summary.onChange(e.target.value, line.unitPrice)
+                : summary.onChangeAt(line.unitPrice, e.target.value)
+            }
             placeholder="Professional services"
             maxLength={200}
             className={`type-support ${typedClass(true)} aria-invalid:border-danger`}

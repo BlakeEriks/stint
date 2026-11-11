@@ -114,6 +114,7 @@ export const POST = handle(async (req: Request) => {
     tz: { device: body.tz },
     groupingMode: body.groupingMode,
     summaryText: body.summaryText,
+    summaryTexts: body.summaryTexts,
     manualLines: body.manualLines,
     excludedExpenseIds: body.excludedExpenseIds,
     schedules: [],

@@ -17,6 +17,7 @@ import {
 import { requireSession } from '@/lib/auth';
 import {
   computeInvoice,
+  summaryColumns,
   deriveDraft,
   draftNewWork,
   draftRefusals,
@@ -97,6 +98,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
     tz: { device: body.tz },
     groupingMode: body.groupingMode,
     summaryText: body.summaryText,
+    summaryTexts: body.summaryTexts,
     manualLines: body.manualLines,
     excludedExpenseIds: body.excludedExpenseIds,
     schedules: body.schedules,
@@ -119,7 +121,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
       period_end: body.periodEnd,
       notes: body.notes ?? null,
       grouping_mode: body.groupingMode,
-      summary_text: body.groupingMode === 'summary' ? body.summaryText : null,
+      ...summaryColumns(body),
       supporting_detail: computed.supportingDetail,
       reference: body.reference ?? null,
       payment_details: body.paymentProfileId
