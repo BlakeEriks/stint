@@ -1,6 +1,5 @@
 'use client';
 
-import { isAuthError } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
 import { elevatedInputClass } from '@/components/field';
 import { Button } from '@/components/ui/button';
@@ -124,7 +123,6 @@ export function SignInForm({
       type: 'email',
     });
     if (error) {
-      if (!isAuthError(error)) throw error;
       setState('error');
       setMessage(
         WRONG_CODE.has(error.code ?? '')
