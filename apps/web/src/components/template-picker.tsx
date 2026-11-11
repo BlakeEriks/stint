@@ -1,9 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { keys, useOptimisticMutation } from '@stint/client';
 import type { InvoiceTemplate } from '@stint/schema';
-import { api, type Settings } from '@/lib/client/api';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import Image, { type ImageProps } from 'next/image';
 import standard from './template-thumbs/standard.png';
@@ -33,27 +30,6 @@ const TEMPLATES: Array<{
     line: 'Shapes, rings and a ticket stub.',
   },
 ];
-
-/**
- * The account's template, and the press on Settings that changes it. The
- * choice shows at once; a refused save puts the saved one back and the
- * app-wide notice says why.
- */
-export function useTemplateChoice() {
-  const { data: settings } = useQuery({
-    queryKey: keys.settings(),
-    queryFn: api.settings,
-  });
-  const template = settings?.invoiceTemplate ?? 'standard';
-  const choose = useOptimisticMutation({
-    queryKey: () => keys.settings(),
-    mutationFn: (invoiceTemplate: InvoiceTemplate) =>
-      api.updateSettings({ invoiceTemplate }),
-    predict: (current: Settings | undefined, invoiceTemplate) =>
-      current && { ...current, invoiceTemplate },
-  });
-  return { template, choose: (t: InvoiceTemplate) => choose.mutate(t) };
-}
 
 /* Page 1 of each template's sample PDF, rendered by `pnpm sample:invoice`:
    the sample is the invoice, so it cannot drift. */

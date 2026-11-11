@@ -76,8 +76,7 @@ import {
   InvoicePreviewCard,
   SUMMARY_ERROR,
 } from './invoice-preview-card';
-import { TemplateDialog } from './template-dialog';
-import { templateName } from './template-picker';
+import { TemplateControl } from './template-dialog';
 import { ConfirmDialog } from './confirm-dialog';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
@@ -838,7 +837,10 @@ function Controls({
       ) : null}
       {shown?.settings ? (
         <Field label="Template" htmlFor="inv-template">
-          <TemplateControl template={shown.settings.invoiceTemplate} />
+          <TemplateControl
+            id="inv-template"
+            template={shown.settings.invoiceTemplate}
+          />
         </Field>
       ) : null}
     </div>
@@ -1035,32 +1037,6 @@ function Due({
         </span>
       ) : null}
     </span>
-  );
-}
-
-/** The account's template, changed in a dialog: it is a setting, not a
-    field of this draft. */
-function TemplateControl({
-  template,
-}: {
-  template: Settings['invoiceTemplate'];
-}) {
-  const [changing, setChanging] = useState(false);
-  return (
-    <>
-      <button
-        type="button"
-        id="inv-template"
-        className={triggerClass}
-        onClick={() => setChanging(true)}
-      >
-        <span className="truncate">{templateName(template)}</span>
-        <TriggerChevron />
-      </button>
-      {changing ? (
-        <TemplateDialog onOpenChange={setChanging} template={template} />
-      ) : null}
-    </>
   );
 }
 
