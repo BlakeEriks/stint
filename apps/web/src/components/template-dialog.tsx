@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { InvoiceTemplate } from '@stint/schema';
 import { SettingsDialog } from './settings-dialog';
-import { TemplatePicker } from './template-picker';
+import { TemplateChooser } from './template-picker';
 
 /** The account's invoice template, changed from New invoice. */
 export function TemplateDialog({
@@ -19,11 +19,11 @@ export function TemplateDialog({
       onOpenChange={onOpenChange}
       title="Invoice template"
       description="How your invoices look: the type, the layout and the colors. Saved to Settings, for every draft."
-      className="sm:max-w-2xl"
+      className="sm:max-w-3xl"
       missing={{}}
       patch={() => ({ invoiceTemplate: chosen })}
     >
-      {() => <TemplatePicker value={chosen} onChange={setChosen} />}
+      {() => <TemplateChooser value={chosen} onChange={setChosen} />}
     </SettingsDialog>
   );
 }

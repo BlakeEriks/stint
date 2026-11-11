@@ -870,7 +870,9 @@ export const ChangeNumberRefused: Story = {
 };
 
 /** Template shows the account's by name and opens a dialog to pick
-    another, saved to Settings; the draft being built stays as it was. */
+    another: choosing swaps the large sample in place, with no dialog over
+    it, and Save keeps it in Settings. The draft being built stays as it
+    was. */
 export const ChangeTemplate: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -886,13 +888,21 @@ export const ChangeTemplate: Story = {
     });
     await waitFor(() => expect(dialog).toBeVisible());
     const form = within(dialog);
+    await expect(
+      form.getByRole('img', { name: 'A sample invoice in Standard' }),
+    ).toBeVisible();
+    await expect(form.queryByRole('button', { name: /^Preview/ })).toBeNull();
     await userEvent.click(form.getByRole('radio', { name: 'Classic' }));
+    await expect(
+      form.getByRole('img', { name: 'A sample invoice in Classic' }),
+    ).toBeVisible();
     await userEvent.click(form.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
     await expect(template).toHaveTextContent('Classic');
     await expect(page.getByLabelText('Reference')).toHaveValue('PO-7');
   },
 };
+export const ChangeTemplatePhone: Story = { ...ChangeTemplate, ...phone };
 
 // ── one summary line ───────────────────────────────────────────────
 
@@ -1245,8 +1255,9 @@ export const EditClientHere: Story = {
   },
 };
 
-/** "+ Add a charge" asks for a description and an amount; Save with
-    neither marks both and moves to the first (US5 scenario 3). */
+/** "+ Add a charge" asks for a description and an amount, which shows the
+    invoice's currency; Save with neither marks both and moves to the first
+    (US5 scenario 3). */
 export const NewCharge: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -1258,6 +1269,7 @@ export const NewCharge: Story = {
     const dialog = within(
       await page.findByRole('dialog', { name: 'New charge' }),
     );
+    await expect(dialog.getByText('$')).toBeVisible();
     await userEvent.click(dialog.getByRole('button', { name: 'Save' }));
     const description = dialog.getByRole('textbox', { name: /Description/ });
     await expect(description).toHaveFocus();

@@ -759,6 +759,7 @@ function Form({
         charge={draft.charges.find((c) => c.key === chargeDialog.subject)}
         onSave={saveCharge}
         onRemove={chargeDialog.subject !== 'new' ? removeCharge : undefined}
+        currency={current?.currency ?? 'USD'}
       />
       <PaymentProfileDialog
         open={newProfileOpen}

@@ -194,3 +194,73 @@ export function TemplatePicker({
     </>
   );
 }
+
+/**
+ * The four templates by name and line, beside a large sample page of the
+ * chosen one, which swaps in place: one dialog, nothing nested. Native
+ * radios, so arrow keys move the choice.
+ */
+export function TemplateChooser({
+  value,
+  onChange,
+}: {
+  value: InvoiceTemplate;
+  onChange: (t: InvoiceTemplate) => void;
+}) {
+  const scrollerFocus = useScrollerFocus('all');
+  const chosen = TEMPLATES.find((t) => t.id === value) ?? TEMPLATES[0]!;
+  return (
+    <div className="grid items-start gap-4 sm:grid-cols-[13.75rem_1fr]">
+      <div
+        role="radiogroup"
+        aria-label="Invoice template"
+        className="grid grid-cols-2 gap-1.5 sm:grid-cols-1"
+      >
+        {TEMPLATES.map((t) => {
+          const on = t.id === value;
+          return (
+            <label
+              key={t.id}
+              className={`flex cursor-pointer flex-col gap-0.5 rounded-lg border px-3 py-2.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-edge-focus ${
+                on
+                  ? 'border-accent-default ring-1 ring-accent-default'
+                  : 'border-edge-default hover:bg-surface-hover'
+              }`}
+            >
+              <input
+                type="radio"
+                name="invoice-template-choice"
+                value={t.id}
+                checked={on}
+                onChange={() => onChange(t.id)}
+                aria-label={t.name}
+                className="sr-only"
+              />
+              <span
+                className={`type-control ${on ? 'text-strong' : 'text-muted'}`}
+              >
+                {t.name}
+              </span>
+              <span className="type-meta text-subtle max-sm:hidden">
+                {t.line}
+              </span>
+            </label>
+          );
+        })}
+      </div>
+      <div
+        tabIndex={scrollerFocus}
+        className="max-h-[62vh] overflow-y-auto rounded-sm bg-surface-recessed p-3"
+      >
+        <Image
+          src={THUMBS[chosen.id]}
+          alt={`A sample invoice in ${chosen.name}`}
+          width={1224}
+          height={1584}
+          sizes="(min-width: 640px) 460px, 100vw"
+          className="h-auto w-full rounded-sm shadow-card"
+        />
+      </div>
+    </div>
+  );
+}

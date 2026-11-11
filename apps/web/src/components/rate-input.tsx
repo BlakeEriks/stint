@@ -28,17 +28,21 @@ export function RateInput({
   );
 }
 
-/** A number with its unit printed inside the field, after it. */
+/** A number with its unit printed inside the field, after it, and its
+    currency, if any, before it. */
 export function UnitInput({
   unit,
   prefix,
   large = false,
+  alignRight = false,
   className = '',
   ...props
 }: React.ComponentProps<'input'> & {
-  unit: string;
+  unit?: string;
   prefix?: string;
   large?: boolean;
+  /** The number at the field's right edge, as an amount column reads. */
+  alignRight?: boolean;
 }) {
   const inset = large ? 'left-3.5' : 'left-2.5';
   return (
@@ -53,18 +57,20 @@ export function UnitInput({
       ) : null}
       <Input
         className={`type-amount text-strong placeholder:text-placeholder ${
-          large ? 'h-12 pr-16' : 'pr-14'
-        } ${prefix ? (large ? 'pl-8' : 'pl-6') : ''}`}
+          unit ? (large ? 'h-12 pr-16' : 'pr-14') : large ? 'h-12' : ''
+        } ${prefix ? (large ? 'pl-8' : 'pl-6') : ''} ${alignRight ? 'text-right' : ''}`}
         {...props}
       />
-      <span
-        aria-hidden
-        className={`pointer-events-none absolute top-1/2 -translate-y-1/2 type-meta text-subtle ${
-          large ? 'right-3.5' : 'right-2.5'
-        }`}
-      >
-        {unit}
-      </span>
+      {unit ? (
+        <span
+          aria-hidden
+          className={`pointer-events-none absolute top-1/2 -translate-y-1/2 type-meta text-subtle ${
+            large ? 'right-3.5' : 'right-2.5'
+          }`}
+        >
+          {unit}
+        </span>
+      ) : null}
     </div>
   );
 }
