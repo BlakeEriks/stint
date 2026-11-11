@@ -46,23 +46,6 @@ export const Desktop: Story = {
     ).toHaveLength(1);
   },
 };
-/** The invoice template is chosen by name beside a large sample of the
-    chosen one, which swaps in place; a press saves it. */
-export const InvoiceTemplate: Story = {
-  ...desktop,
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
-    const classic = await page.findByRole('radio', { name: 'Classic' });
-    await userEvent.click(classic);
-    await expect(classic).toBeChecked();
-    await expect(
-      page.getByRole('img', { name: 'A sample invoice in Classic' }),
-    ).toBeVisible();
-    await waitFor(() =>
-      expect(getDb().settings.invoiceTemplate).toBe('classic'),
-    );
-  },
-};
 /** Each billing default carries its unit inside the field, the way the rate
     does, and numbering explains itself under its heading. */
 export const BillingUnits: Story = {

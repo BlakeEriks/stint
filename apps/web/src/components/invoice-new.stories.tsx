@@ -1196,21 +1196,25 @@ export const EditsBeforeFigures: Story = {
   },
 };
 
-/** Nothing in the period to bill: the page says so. */
-export const NothingToBill: Story = {
+/** Before the server's first answer an empty page is not yet "nothing to
+    bill": it says nothing until the answer does. */
+export const NothingYet: Story = {
   ...desktop,
   parameters: {
     ...menuOpen,
+    ...stalled('previewInvoice'),
     ...account((db) => {
-      for (const e of db.entries) e.isBillable = false;
       db.expenses = [];
     }),
   },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await expect(
-      await card(page).findByText('Nothing to bill in this period.'),
+      await page.findByRole('button', { name: 'Add a charge' }),
     ).toBeVisible();
+    await expect(
+      card(page).queryByText('Nothing to bill in this period.'),
+    ).toBeNull();
   },
 };
 
@@ -1226,7 +1230,7 @@ export const SummaryWithoutHours: Story = {
 };
 
 /** Switching clients, the last client's lines leave with it: none of its
-    expenses sits under the new Bill to while that client loads. */
+    figures sits under the new Bill to while that client loads. */
 export const SwitchingClients: Story = {
   ...desktop,
   parameters: {
@@ -1253,11 +1257,7 @@ export const SwitchingClients: Story = {
     await settled(page);
     await chooseMeridian(canvasElement);
     await card(page).findByRole('button', { name: /^Edit Bill to Meridian/ });
-    await expect(
-      card(page).queryByRole('checkbox', {
-        name: 'Bill Figma license, annual',
-      }),
-    ).toBeNull();
+    await expect(card(page).queryByText('Subtotal')).toBeNull();
   },
 };
 

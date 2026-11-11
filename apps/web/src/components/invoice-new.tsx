@@ -41,6 +41,7 @@ import {
   localDateKey,
   resolvePaymentProfile,
   billableExpenses,
+  expensePrintOrder,
   type Period,
   type ScheduleKind,
 } from '@stint/core';
@@ -299,7 +300,7 @@ function useWaitingExpenses(
     false,
   );
   return billable
-    .sort((a, b) => a.spentOn.localeCompare(b.spentOn))
+    .sort(expensePrintOrder)
     .map((b) => all.find((e) => e.id === b.id) as Expense);
 }
 
