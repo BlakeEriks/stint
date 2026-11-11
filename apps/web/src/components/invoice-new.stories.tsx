@@ -433,8 +433,8 @@ export const ClientChosen: Story = {
 };
 export const ClientChosenPhone: Story = { ...ClientChosen, ...phone };
 
-/** With the dock folded, at 2xl the page is a US letter's width: 700px at
-    least (it is ~430px beside the open dock), 816px at most. */
+/** With the dock folded, At a glance is gone; the page is a US letter's
+    width, 816px at most. */
 export const Workspace: Story = {
   ...ClientChosen,
   ...wide,
