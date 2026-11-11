@@ -1,5 +1,6 @@
 'use client';
 
+import { isAuthError } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
 import { elevatedInputClass } from '@/components/field';
 import { Button } from '@/components/ui/button';
@@ -123,9 +124,12 @@ export function SignInForm({
       type: 'email',
     });
     if (error) {
+      if (!isAuthError(error)) throw error;
       setState('error');
       setMessage(
-        'That code didn’t work. Codes work once and expire after 24 hours.',
+        WRONG_CODE.has(error.code ?? '')
+          ? 'That code didn’t work. Codes work once and expire after 24 hours.'
+          : error.message,
       );
       return;
     }
@@ -229,7 +233,11 @@ export function SignInForm({
             <Turnstile
               key={attempt}
               siteKey={captchaSiteKey}
-              onToken={setCaptchaToken}
+              onToken={(token) => {
+                setCaptchaToken(token);
+                // Turnstile retries its own errors; a token means it recovered.
+                if (token) setCaptchaFailed(false);
+              }}
               onFailed={() => setCaptchaFailed(true)}
             />
           ) : null}
@@ -287,3 +295,6 @@ const EXPLAIN: Record<string, string> = {
   missing_code: 'That link was incomplete. Request a new one below.',
   default: 'Something went wrong with that link. Request a new one below.',
 };
+
+/** GoTrue's answers to a code that is wrong, spent or expired. */
+const WRONG_CODE = new Set(['otp_expired', 'invalid_credentials']);

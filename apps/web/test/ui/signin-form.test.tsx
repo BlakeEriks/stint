@@ -155,4 +155,19 @@ describe('SignInForm', () => {
     );
     vi.unstubAllGlobals();
   });
+
+  it('goes back to the link once the CAPTCHA recovers from an error', async () => {
+    const user = userEvent.setup();
+    render(<SignInForm captchaSiteKey="site-key" />);
+    await user.click(screen.getByRole('button', { name: 'Fail' }));
+    await user.click(screen.getByRole('button', { name: 'I am human' }));
+    await user.type(screen.getByLabelText('Email'), 'new@example.com');
+    // A new visitor who passed the check can still sign up.
+    await user.click(screen.getByRole('button', { name: /sign-in link/ }));
+    await waitFor(() =>
+      expect(signInWithOtp.mock.calls[0]?.[0]).toMatchObject({
+        options: { captchaToken: 'token-1' },
+      }),
+    );
+  });
 });

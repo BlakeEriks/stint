@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { AuthApiError } from '@supabase/supabase-js';
 import { expect, userEvent, within } from 'storybook/test';
 import { desktop, light, phone } from '@/mocks/screen';
 import { code, otp } from '@/mocks/supabase';
@@ -126,7 +127,7 @@ export const CodeFailed: Story = {
   ...CaptchaUnloaded,
   beforeEach: () => {
     turnstile.loads = false;
-    code.error = { code: 'otp_expired', message: 'Token has expired' };
+    code.error = new AuthApiError('Token has expired', 403, 'otp_expired');
     return () => {
       turnstile.loads = true;
       code.error = null;

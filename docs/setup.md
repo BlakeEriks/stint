@@ -144,9 +144,10 @@ could make Stint send mail. Cloudflare Turnstile, which Supabase supports,
 guards GoTrue's `/otp`. The macOS and phone apps can't solve it, so they ask
 `/api/v1/auth/code` for a code instead, which passes it with the secret key,
 mails only an existing account, and allows five codes an hour per client
-address (`docs/api.md`, Sign-in). The web form asks there too when its
-CAPTCHA can't load or connect, so a blocker never locks an existing account
-out.
+address (`docs/api.md`, Sign-in). The web form asks there too when the
+CAPTCHA's script doesn't load or the widget reports an error, so a blocker
+never locks an existing account out. A token from a widget that recovers
+puts the form back on the link.
 
 In this order, so sign-in never breaks partway through:
 

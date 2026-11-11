@@ -1,3 +1,4 @@
+import type { AuthError } from '@supabase/supabase-js';
 import { getDb } from './db';
 
 /** The auth calls a story can hold pending: `stalled('signOut')`. */
@@ -12,7 +13,7 @@ export const otp: { error: { code: string; message: string } | null } = {
 };
 
 /** What `verifyOtp` answers a typed code with; a story sets it. */
-export const code: { error: { code: string; message: string } | null } = {
+export const code: { error: AuthError | null } = {
   error: null,
 };
 
