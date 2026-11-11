@@ -23,26 +23,25 @@ export function formatCurrency(
   currency = 'USD',
   { whole = false }: { whole?: boolean } = {},
 ): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency || 'USD',
-    currencyDisplay: 'narrowSymbol',
-    ...(whole ? { minimumFractionDigits: 0, maximumFractionDigits: 0 } : {}),
-  }).format(amount ?? 0);
+  return money(currency, whole).format(amount ?? 0);
 }
 
 /** The symbol `formatCurrency` puts before an amount: `$` for USD. */
 export function currencySymbol(currency = 'USD'): string {
   return (
-    new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency || 'USD',
-      currencyDisplay: 'narrowSymbol',
-    })
+    money(currency)
       .formatToParts(0)
       .find((p) => p.type === 'currency')?.value ?? ''
   );
 }
+
+const money = (currency: string, whole = false) =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency || 'USD',
+    currencyDisplay: 'narrowSymbol',
+    ...(whole ? { minimumFractionDigits: 0, maximumFractionDigits: 0 } : {}),
+  });
 
 /** `1.50` — a line item's billed hours, at the 2dp the amount was computed from. */
 export function formatHours(hours: number): string {

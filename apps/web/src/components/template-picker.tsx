@@ -80,8 +80,7 @@ export const templateName = (id: InvoiceTemplate) =>
 
 /**
  * The four templates as a radio group of thumbnail cards, with a line on
- * each. Native radios, so arrow keys move the choice as they would in any
- * radio group. Each has a Preview that shows its sample page at full size.
+ * each. Each has a Preview that shows its sample page at full size.
  */
 export function TemplatePicker({
   value,
@@ -100,57 +99,29 @@ export function TemplatePicker({
         aria-label="Invoice template"
         className="grid grid-cols-2 gap-3 sm:grid-cols-4"
       >
-        {TEMPLATES.map((t) => {
-          const on = t.id === value;
-          return (
-            /* The radio covers the card, named by the template alone: the
-             thumbnail is a picture, and its text is not the radio's name. */
-            <div
-              key={t.id}
-              className={`relative flex flex-col gap-2 rounded-md border bg-surface-elevated p-2 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-edge-focus ${
-                on
-                  ? 'border-accent-default ring-1 ring-accent-default'
-                  : 'border-edge-default hover:bg-surface-hover'
-              }`}
+        {TEMPLATES.map((t) => (
+          <TemplateOption
+            key={t.id}
+            template={t}
+            on={t.id === value}
+            onChange={onChange}
+            group="invoice-template"
+            className="gap-2 bg-surface-elevated p-2"
+            thumb={<Sample id={t.id} sizes="200px" />}
+          >
+            {/* Above the radio, so a press previews without choosing. */}
+            <Button
+              type="button"
+              size="xs"
+              variant="default"
+              onClick={() => setPreviewing(t.id)}
+              aria-label={`Preview ${t.name}`}
+              className="relative z-10 self-start"
             >
-              <Image
-                src={THUMBS[t.id]}
-                alt=""
-                // The image's size, which Vitest's image import doesn't carry.
-                width={1224}
-                height={1584}
-                sizes="200px"
-                className="h-auto w-full rounded-sm shadow-card"
-              />
-              <span
-                className={`type-control ${on ? 'text-strong' : 'text-muted'}`}
-              >
-                {t.name}
-              </span>
-              <span className="type-meta text-subtle">{t.line}</span>
-              <input
-                type="radio"
-                name="invoice-template"
-                value={t.id}
-                checked={on}
-                onChange={() => onChange(t.id)}
-                aria-label={t.name}
-                className="absolute inset-0 cursor-pointer appearance-none rounded-md"
-              />
-              {/* Above the radio, so a press previews without choosing. */}
-              <Button
-                type="button"
-                size="xs"
-                variant="default"
-                onClick={() => setPreviewing(t.id)}
-                aria-label={`Preview ${t.name}`}
-                className="relative z-10 self-start"
-              >
-                Preview
-              </Button>
-            </div>
-          );
-        })}
+              Preview
+            </Button>
+          </TemplateOption>
+        ))}
       </div>
       <Dialog
         open={shown !== undefined}
@@ -166,13 +137,10 @@ export function TemplatePicker({
               tabIndex={scrollerFocus}
               className="max-h-[70vh] overflow-y-auto rounded-sm"
             >
-              <Image
-                src={THUMBS[shown.id]}
-                alt={`A sample invoice in ${shown.name}`}
-                width={1224}
-                height={1584}
+              <Sample
+                id={shown.id}
+                named
                 sizes="(min-width: 640px) 624px, 100vw"
-                className="h-auto w-full"
               />
             </div>
             {shown.id === value ? null : (
@@ -197,8 +165,7 @@ export function TemplatePicker({
 
 /**
  * The four templates by name and line, beside a large sample page of the
- * chosen one, which swaps in place: one dialog, nothing nested. Native
- * radios, so arrow keys move the choice.
+ * chosen one, which swaps in place.
  */
 export function TemplateChooser({
   value,
@@ -208,7 +175,6 @@ export function TemplateChooser({
   onChange: (t: InvoiceTemplate) => void;
 }) {
   const scrollerFocus = useScrollerFocus('all');
-  const chosen = TEMPLATES.find((t) => t.id === value) ?? TEMPLATES[0]!;
   return (
     <div className="grid items-start gap-4 sm:grid-cols-[13.75rem_1fr]">
       <div
@@ -216,51 +182,99 @@ export function TemplateChooser({
         aria-label="Invoice template"
         className="grid grid-cols-2 gap-1.5 sm:grid-cols-1"
       >
-        {TEMPLATES.map((t) => {
-          const on = t.id === value;
-          return (
-            <label
-              key={t.id}
-              className={`flex cursor-pointer flex-col gap-0.5 rounded-lg border px-3 py-2.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-edge-focus ${
-                on
-                  ? 'border-accent-default ring-1 ring-accent-default'
-                  : 'border-edge-default hover:bg-surface-hover'
-              }`}
-            >
-              <input
-                type="radio"
-                name="invoice-template-choice"
-                value={t.id}
-                checked={on}
-                onChange={() => onChange(t.id)}
-                aria-label={t.name}
-                className="sr-only"
-              />
-              <span
-                className={`type-control ${on ? 'text-strong' : 'text-muted'}`}
-              >
-                {t.name}
-              </span>
-              <span className="type-meta text-subtle max-sm:hidden">
-                {t.line}
-              </span>
-            </label>
-          );
-        })}
+        {TEMPLATES.map((t) => (
+          <TemplateOption
+            key={t.id}
+            template={t}
+            on={t.id === value}
+            onChange={onChange}
+            group="invoice-template-choice"
+            className="gap-0.5 px-3 py-2.5"
+            lineClassName="max-sm:hidden"
+          />
+        ))}
       </div>
       <div
         tabIndex={scrollerFocus}
         className="max-h-[62vh] overflow-y-auto rounded-sm bg-surface-recessed p-3"
       >
-        <Image
-          src={THUMBS[chosen.id]}
-          alt={`A sample invoice in ${chosen.name}`}
-          width={1224}
-          height={1584}
-          sizes="(min-width: 640px) 460px, 100vw"
-          className="h-auto w-full rounded-sm shadow-card"
-        />
+        <Sample id={value} named sizes="(min-width: 640px) 460px, 100vw" />
       </div>
     </div>
+  );
+}
+
+/**
+ * One template as a radio card. Native radios, so arrow keys move the
+ * choice as they would in any radio group. The radio covers the card, named
+ * by the template alone: a thumbnail is a picture, and its text is not the
+ * radio's name.
+ */
+function TemplateOption({
+  template: t,
+  on,
+  onChange,
+  group,
+  className,
+  lineClassName = '',
+  thumb,
+  children,
+}: {
+  template: (typeof TEMPLATES)[number];
+  on: boolean;
+  onChange: (t: InvoiceTemplate) => void;
+  group: string;
+  className: string;
+  lineClassName?: string;
+  thumb?: React.ReactNode;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div
+      className={`relative flex flex-col rounded-md border has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-edge-focus ${className} ${
+        on
+          ? 'border-accent-default ring-1 ring-accent-default'
+          : 'border-edge-default hover:bg-surface-hover'
+      }`}
+    >
+      {thumb}
+      <span className={`type-control ${on ? 'text-strong' : 'text-muted'}`}>
+        {t.name}
+      </span>
+      <span className={`type-meta text-subtle ${lineClassName}`}>{t.line}</span>
+      <input
+        type="radio"
+        name={group}
+        value={t.id}
+        checked={on}
+        onChange={() => onChange(t.id)}
+        aria-label={t.name}
+        className="absolute inset-0 cursor-pointer appearance-none rounded-md"
+      />
+      {children}
+    </div>
+  );
+}
+
+/** A template's sample page; `named` when it is the subject, not a thumbnail. */
+function Sample({
+  id,
+  named = false,
+  sizes,
+}: {
+  id: InvoiceTemplate;
+  named?: boolean;
+  sizes: string;
+}) {
+  return (
+    <Image
+      src={THUMBS[id]}
+      alt={named ? `A sample invoice in ${templateName(id)}` : ''}
+      // The image's size, which Vitest's image import doesn't carry.
+      width={1224}
+      height={1584}
+      sizes={sizes}
+      className="h-auto w-full rounded-sm shadow-card"
+    />
   );
 }

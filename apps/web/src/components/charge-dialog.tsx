@@ -43,8 +43,7 @@ export function ChargeDialog({
   charge?: Charge;
   onSave: (charge: Charge) => void;
   onRemove?: () => void;
-  /** The invoice's, as its money prints. */
-  currency: string;
+  currency?: string;
 }) {
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');

@@ -41,7 +41,6 @@ export function UnitInput({
   unit?: string;
   prefix?: string;
   large?: boolean;
-  /** The number at the field's right edge, as an amount column reads. */
   alignRight?: boolean;
 }) {
   const inset = large ? 'left-3.5' : 'left-2.5';
