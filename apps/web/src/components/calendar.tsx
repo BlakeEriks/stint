@@ -63,7 +63,7 @@ export function Calendar() {
   /* One day on a phone. At 375px a week gives each day 42px, under the ~44px a
      finger needs; a single day gets ~295px. */
   const byDay = useMediaQuery('(max-width: 639px)');
-  const scrollerFocus = useScrollerFocus();
+  const scrollerFocus = useScrollerFocus('all');
   const cal = useCalendar(1, byDay);
   const { colorByProject, clientByProject } = useProjectClients();
 
