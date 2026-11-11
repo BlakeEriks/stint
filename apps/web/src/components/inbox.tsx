@@ -96,7 +96,15 @@ type InboxRow =
  * invoice happens on its page, where the whole document is in view; Mark paid
  * and Mark sent are here because they are what legitimately clears a row.
  */
-export function Inbox({ stats }: { stats: Stats }) {
+export function Inbox({
+  stats,
+  controls,
+}: {
+  stats: Stats;
+  /** After the count: the dock's fold button, which belongs to the column
+      and not to this region, so the dock passes it in. */
+  controls?: React.ReactNode;
+}) {
   const {
     overdueInvoices,
     staleDrafts,
@@ -305,15 +313,16 @@ export function Inbox({ stats }: { stats: Stats }) {
             className="size-3.5 flex-none text-subtle"
           />
           <h2 className="type-label truncate text-subtle">Inbox</h2>
+          {/* A pill on the same fill the cards use, beside the name it
+              counts. No badge color — at zero the slot is empty, because
+              "Nothing needs you" already says it. */}
+          {count ? (
+            <span className="inline-flex h-[17px] min-w-[17px] flex-none items-center justify-center rounded-full bg-surface-elevated px-1.5 type-meta text-primary">
+              {count}
+            </span>
+          ) : null}
         </div>
-        {/* A pill on the same fill the cards use, so the header reads as
-            naming the set below it. No badge color — at zero the slot is
-            empty, because "Nothing needs you" already says it. */}
-        {count ? (
-          <span className="inline-flex h-[17px] min-w-[17px] flex-none items-center justify-center rounded-full bg-surface-elevated px-1.5 type-meta text-primary">
-            {count}
-          </span>
-        ) : null}
+        {controls}
       </header>
 
       {count === 0 ? (

@@ -59,16 +59,13 @@ export function Page({
   fills?: boolean;
   /**
    * For a screen that is a tool rather than a page to read: it takes the
-   * dock's room too. `AppShell` sees `data-workspace` and folds the dock to a
-   * strip at `xl`, so a screen opts in here and the frame never checks a
-   * route.
+   * column's whole width, with no measure.
    */
   workspace?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <main
-      data-workspace={workspace || undefined}
       className={`mx-auto ${flush ? '' : `${INSET} py-[18px] `}${
         workspace ? 'max-w-none' : wide ? 'max-w-6xl' : 'max-w-3xl'
       }${fills ? ' xl:flex xl:h-full xl:min-h-0 xl:flex-col' : ''}`}

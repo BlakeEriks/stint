@@ -28,8 +28,10 @@ const time = (at: Date | string) => formatLocalTime(at, tz);
  */
 const SLOT_LABEL_PX = Math.ceil(type.meta.size * 1.25) + 2;
 
-/** The hour gutter's width, which the calendar's heading row matches. */
+/** The hour gutter's width, which the calendar's heading row matches.
+    `w-10` is `GUTTER_PX`: change the two together. */
 export const GUTTER_CLASS = 'w-10 flex-none';
+export const GUTTER_PX = 40;
 
 export type HourMark = { hour: number; pct: number };
 

@@ -12,6 +12,7 @@ import {
   stalled,
   tablet,
   wide,
+  foldDock,
   expectOpen,
 } from '@/mocks/screen';
 import { AppShell } from './app-shell';
@@ -105,27 +106,27 @@ const workspace = (
   </Page>
 );
 
-/** At `xl` a workspace screen folds the dock to a 44px strip; the card stays
-    as it is. `Parts/Dock Strip` has the strip's states. */
+/** At `xl` the dock is open on every screen, a workspace too, until the user
+    folds it. `Parts/Dock Strip` has the folded states. */
 export const Workspace: Story = {
   ...wide,
   args: { children: workspace },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
-    await page.findByRole('heading', { name: 'A workspace' });
     await expect(
-      page.queryByRole('complementary', { name: 'At a glance' }),
+      await page.findByRole('complementary', { name: 'At a glance' }),
+    ).toBeVisible();
+    await expect(
+      page.queryByRole('complementary', { name: 'Inbox and Today' }),
     ).toBeNull();
-    const strip = page.getByRole('complementary', { name: 'Inbox and Today' });
-    await expect(strip.getBoundingClientRect().width).toBeLessThanOrEqual(44);
   },
 };
 
-/** Below `xl` the dock is a band under the content, which costs a workspace
-    no width, so it shows as on every screen and the strip does not. */
-export const WorkspacePhone: Story = {
+/** Below `xl` the dock is a band under the content, which costs no width, so
+    it shows even when the user folded it. */
+export const FoldedPhone: Story = {
   ...phone,
-  args: { children: workspace },
+  beforeEach: foldDock,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await expect(
