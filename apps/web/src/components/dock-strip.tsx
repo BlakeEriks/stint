@@ -15,7 +15,9 @@ import { inboxCount } from './inbox';
  * was, with the Inbox's count in view and the button that unfolds it.
  *
  * It shows only while `<html>` carries `data-dock-folded`, read by CSS, as the
- * dock and the frame's column width are. Below `xl` the dock is a band under
+ * dock and the frame's column width are. It shares the dock's cell and
+ * cross-fades with it while the column slides; the visibility delays are
+ * the dock's, mirrored. Below `xl` the dock is a band under
  * the content and the choice does not apply.
  *
  * Icon-only by design, an exception in `.claude/rules/web-ui.md`: the button
@@ -31,7 +33,7 @@ export function DockStrip() {
   return (
     <aside
       aria-label="Inbox and Today"
-      className="hidden flex-col items-center xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:[[data-dock-folded]_&]:flex"
+      className="hidden flex-col items-center [transition:opacity_200ms,visibility_0s_200ms] motion-reduce:[transition:none] xl:invisible xl:flex xl:opacity-0 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:[[data-dock-folded]_&]:visible xl:[[data-dock-folded]_&]:opacity-100 xl:[[data-dock-folded]_&]:[transition:opacity_200ms,visibility_0s]"
     >
       <Button
         type="button"
@@ -88,9 +90,13 @@ export function FoldButton() {
 
 /* 24px square, the Inbox header's height with its count pill in it, so the
    button adds no height to the row; `xs` for the dock's density, with the
-   icon at the header's own 16px. */
+   icon at the header's own 16px.
+
+   `transition-colors`, not the Button's `transition-all`: `all` would ease
+   the `visibility` it inherits from its fading aside, and a button still
+   easing in from hidden refuses the focus `claim` hands it on the press. */
 const FOLD_BUTTON =
-  "size-6 p-0 text-muted has-[>svg]:px-0 [&_svg:not([class*='size-'])]:size-4";
+  "size-6 p-0 text-muted transition-colors has-[>svg]:px-0 [&_svg:not([class*='size-'])]:size-4";
 
 const FOLD = 'dock-fold';
 const UNFOLD = 'dock-unfold';

@@ -63,15 +63,18 @@ export const Toggle: Story = {
     await expect(
       await page.findByRole('complementary', { name: 'At a glance' }),
     ).toBeVisible();
-    await expect(
-      page.queryByRole('complementary', { name: 'Inbox and Today' }),
-    ).toBeNull();
+    // The strip fades out, so it leaves the tree a moment after the click.
+    await waitFor(() =>
+      expect(
+        page.queryByRole('complementary', { name: 'Inbox and Today' }),
+      ).toBeNull(),
+    );
     const hide = page.getByRole('button', { name: 'Hide Inbox and Today' });
     await expect(hide).toHaveFocus();
 
     await userEvent.click(hide);
     await strip(page);
-    await expect(dock(page)).toBeNull();
+    await waitFor(() => expect(dock(page)).toBeNull());
     await expect(
       page.getByRole('button', { name: /^Show Inbox and Today/ }),
     ).toHaveFocus();

@@ -68,8 +68,14 @@ export function Dock() {
 
          At `xl` the user can fold it to `DockStrip`, on every screen alike.
          Below `xl` it is a band under the content, which costs no width, so
-         it stays. */
-      className="flex min-h-0 flex-none flex-col xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:w-[286px] xl:[[data-dock-folded]_&]:hidden"
+         it stays.
+
+         Folded, it fades rather than unmounts, so the strip can take its
+         place while the column slides. `invisible` keeps it out of the
+         accessibility tree and off the tab order, delayed until the fade
+         ends; unfolding, it is visible at once, so its button can take focus
+         on the press. */
+      className="flex min-h-0 flex-none flex-col [transition:opacity_200ms,visibility_0s] motion-reduce:[transition:none] xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:w-[286px] xl:[[data-dock-folded]_&]:invisible xl:[[data-dock-folded]_&]:opacity-0 xl:[[data-dock-folded]_&]:[transition:opacity_200ms,visibility_0s_200ms]"
     >
       {/* The inbox takes its share and scrolls within it. `min-h-0` is what
           lets it shrink below its content so the scroller engages rather than

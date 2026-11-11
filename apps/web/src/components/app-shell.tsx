@@ -45,7 +45,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           capped width.
 
           Folding the dock (`data-dock-folded` on `<html>`) narrows its
-          column to 44px and keeps the card as it is. */}
+          column to 44px and keeps the card as it is. The column slides, and
+          the dock and strip cross-fade in it, over the same 200ms. */}
       <div className="flex min-h-dvh flex-col bg-surface-base sm:h-dvh sm:min-h-0 sm:overflow-hidden 2xl:items-center 2xl:bg-surface-recessed 2xl:p-6">
         <div className="flex min-h-dvh w-full flex-col bg-surface-base sm:h-full sm:min-h-0 sm:overflow-hidden 2xl:mx-auto 2xl:max-h-[940px] 2xl:max-w-[1440px] 2xl:rounded-2xl 2xl:border 2xl:border-edge-subtle 2xl:shadow-float">
           <AppHeader />
@@ -72,7 +73,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div
             className="flex min-h-0 flex-1 flex-col gap-4 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-4 sm:pb-4
                      lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)_auto]
-                     xl:grid-cols-[12rem_minmax(0,1fr)_286px] xl:[[data-dock-folded]_&]:grid-cols-[12rem_minmax(0,1fr)_44px]"
+                     xl:grid-cols-[12rem_minmax(0,1fr)_286px] xl:[[data-dock-folded]_&]:grid-cols-[12rem_minmax(0,1fr)_44px]
+                     xl:[transition:grid-template-columns_200ms] motion-reduce:[transition:none]"
           >
             <Nav />
             <Version />
