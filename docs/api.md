@@ -484,7 +484,7 @@ the fence covers what it guards against.
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST` | `/auth/code` | **No auth.** `{ email }` → `200 {}`, whether or not the address has an account, so nobody learns which do, even while the project's email quota is spent, which goes to Sentry instead; GoTrue mails a sign-in code only to an existing one, which the macOS and phone apps then verify with GoTrue. It never creates an account. `429 RATE_LIMITED` past five a client address asks in an hour, an IPv6 address counting as its /64. Why it exists: `docs/setup.md` §7. Covered by `routes.test.ts`, and by `auth-code.test.ts` against a real Auth server with the CAPTCHA on. |
+| `POST` | `/auth/code` | **No auth.** `{ email }` → `200 {}`, whether or not the address has an account, so nobody learns which do, even while the project's email quota is spent, which goes to Sentry instead; GoTrue mails a sign-in code only to an existing one, which the macOS and phone apps then verify with GoTrue. It never creates an account. `429 RATE_LIMITED` past five a client address asks in an hour, an IPv6 address counting as its /64. Why it exists: `docs/setup.md` §7. Covered by `routes.test.ts`. |
 
 ## Health
 

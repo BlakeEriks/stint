@@ -226,8 +226,7 @@ token_verifications = 30
 # Number of Web3 logins that can be made in a 5 minute interval per IP address.
 web3 = 30
 
-# Off locally: production's Turnstile (`docs/setup.md`) would make every
-# local and CI sign-in solve a challenge from Cloudflare.
+# Off, as in production; `docs/setup.md` §7 says how to turn it on.
 # [auth.captcha]
 # enabled = true
 # provider = "hcaptcha"

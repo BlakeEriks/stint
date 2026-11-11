@@ -22,12 +22,5 @@ export default async function Page({
   const { data } = await db.auth.getClaims();
   if (data?.claims?.sub) redirect('/');
 
-  return (
-    <SignInForm
-      error={error}
-      deleted={deleted != null}
-      captchaSiteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
-      next={next}
-    />
-  );
+  return <SignInForm error={error} deleted={deleted != null} next={next} />;
 }
