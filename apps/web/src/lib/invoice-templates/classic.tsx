@@ -274,7 +274,7 @@ function First({ data }: { data: Data }) {
         ) : null}
       </View>
 
-      <TotalsView data={data} s={totals} label="Balance due" wrap={false} />
+      <TotalsView data={data} s={totals} label="Amount due" wrap={false} />
 
       {data.payment ? (
         <PaymentView payment={data.payment} s={payStyles(s)} />

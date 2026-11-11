@@ -262,7 +262,7 @@ function BillTo({ data }: { data: Data }) {
   return (
     <View style={styles.meta}>
       <View style={styles.metaCol}>
-        <Text style={styles.label}>BILL TO</Text>
+        <Text style={styles.label}>BILLED TO</Text>
         <Text style={styles.strong}>{data.client.name}</Text>
         <Lines text={data.client.address} style={styles.bizLine} />
         {data.client.email ? (
@@ -291,7 +291,7 @@ function Dates({ data }: { data: Data }) {
       </View>
       {period(data) ? (
         <View style={[styles.dateCell, { marginTop: 12 }]}>
-          <Text style={styles.label}>SERVICE PERIOD</Text>
+          <Text style={styles.label}>PERIOD</Text>
           <Text style={styles.bizLine}>{period(data)}</Text>
         </View>
       ) : null}
