@@ -27,6 +27,7 @@ const WIDGET = [
   'timer-running',
   'timer-idle',
   'danger',
+  'mark',
 ] as const;
 const pick = (colors: Record<string, string>) =>
   Object.fromEntries(WIDGET.map((name) => [name, colors[name]]));

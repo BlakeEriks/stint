@@ -13,29 +13,6 @@ actor Auth {
         self.tokens = tokens
     }
 
-    /// `create_user: false` — this app signs existing accounts in; an
-    /// account comes from an invite. A struct, so the bool is not sent quoted.
-    func requestLink(email: String) async throws {
-        struct Body: Encodable {
-            let email: String
-            let create_user: Bool
-        }
-        let (data, status) = try await post("/auth/v1/otp", Body(email: email, create_user: false))
-        guard status == 200 else {
-            let reported = Self.error(from: data, status: status)
-            // GoTrue's answer for "no such account" is "Signups not allowed
-            // for otp", which names a server setting rather than the fact.
-            if reported?.code == "otp_disabled" {
-                throw APIError(
-                    status: status, code: "NO_ACCOUNT",
-                    message: "Stint is invite-only during alpha. Request an invite at runstint.com."
-                )
-            }
-            throw reported
-                ?? APIError(status: status, code: "UNKNOWN", message: "Could not send the sign-in email.")
-        }
-    }
-
     /// `type: "email"`, not `"magiclink"`: that is the type for the hashed
     /// token in a link and rejects a typed code.
     func signIn(withCode code: String, email: String) async throws {

@@ -36,16 +36,6 @@ export function magicLink(after: number): Promise<string> {
   );
 }
 
-/** The invite button's link, decoded as a browser would on click. */
-export function inviteLink(after: number): Promise<string> {
-  return linkIn(after, (m) =>
-    m.HTML?.match(/href="([^"]*token_hash[^"]*)"/)?.[1]?.replaceAll(
-      '&amp;',
-      '&',
-    ),
-  );
-}
-
 async function linkIn(
   after: number,
   find: (message: { Text?: string; HTML?: string }) => string | undefined,

@@ -103,18 +103,15 @@ beside the lockup whenever it is not local.
 
 ## Sign-in
 
-**An emailed six-digit code, typed into the panel**, verified in-process
-against GoTrue's `/verify` with `type: "email"` and the digits in the `token`
-field — `"magiclink"` is the type for the hashed token in a link and rejects a
-typed code. The request sends no `redirect_to`.
+**An emailed six-digit code, typed into the panel.** The panel asks Stint's
+`/api/v1/auth/code` for it, not GoTrue's `/otp` (`docs/setup.md` §7). It verifies the
+code in-process against GoTrue's `/verify` with `type: "email"` and the
+digits in the `token` field — `"magiclink"` is the type for the hashed token
+in a link and rejects a typed code.
 
 GoTrue generates a code for every magic link whether the email shows it or
 not; `supabase/templates/magic_link.html` puts it in front of the user via
 `{{ .Token }}`.
-
-`create_user` must be a real bool in an `Encodable` struct — a
-`[String: String]` literal sends it quoted and GoTrue answers "cannot
-unmarshal string into Go struct field OtpParams.create_user of type bool".
 
 `supabase-swift` is not a dependency; two POSTs do not need an SDK.
 

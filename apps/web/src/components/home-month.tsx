@@ -33,7 +33,10 @@ export function Month({
   stats,
   hues,
 }: {
-  stats: Stats;
+  stats: Pick<
+    Stats,
+    'month' | 'currency' | 'unbilled' | 'awaitingPayment' | 'openInvoiceCount'
+  >;
   /** The panel's one palette, so a band matches its bar and its key. */
   hues: Map<string, Hue>;
 }) {

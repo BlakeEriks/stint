@@ -13,6 +13,7 @@ export const metadata: Metadata = {
     template: '%s · Stint',
   },
   description: 'Time tracking for solo contractors.',
+  twitter: { card: 'summary_large_image' },
 };
 
 export default function RootLayout({

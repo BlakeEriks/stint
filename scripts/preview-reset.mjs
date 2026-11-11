@@ -15,8 +15,9 @@
  * cannot be un-applied, so the only way back to one branch's schema is
  * through empty.
  *
- * Drops what the migrations create in `public` — tables, views, types and
- * functions — and every `pr-<n>@preview.test` user. Extensions' objects and
+ * Drops what the migrations create: in `public` its tables, views, types and
+ * functions, the whole `private` schema, which the migrations recreate, and
+ * every `pr-<n>@preview.test` user. Extensions' objects and
  * event-trigger functions stay: Supabase's automatic RLS lives in one, and no
  * migration recreates either.
  */
@@ -81,6 +82,7 @@ try {
                                    where d.objid = t.oid and d.deptype = 'e') loop
         execute 'drop type if exists public.' || r.name || ' cascade';
       end loop;
+      drop schema if exists private cascade;
     end $$;
   `);
   const { rowCount } = await db.query(
@@ -88,7 +90,7 @@ try {
   );
   await db.query('commit');
   console.log(
-    `Emptied ${short(url)}: public schema, ${rowCount} PR account(s).`,
+    `Emptied ${short(url)}: public and private schemas, ${rowCount} PR account(s).`,
   );
 } catch (error) {
   await db.query('rollback').catch(() => {});

@@ -24,6 +24,7 @@ export const ERROR_STATUS = {
   CHECKOUT_NOT_FOUND: 404,
   BILLING_UNAVAILABLE: 503,
   PAYMENT_REQUIRED: 402,
+  RATE_LIMITED: 429,
 } as const;
 
 type Code = keyof typeof ERROR_STATUS;

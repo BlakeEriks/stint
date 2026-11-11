@@ -14,7 +14,7 @@ struct SignInPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(sent ? "Sent to \(email)." : "We'll email you a six-digit code.")
+            Text(sent ? "If \(email) has an account, a code is on its way." : "We'll email you a six-digit code.")
                 .role(.body)
                 .foregroundStyle(Tokens.Dark.textMuted)
                 .fixedSize(horizontal: false, vertical: true)

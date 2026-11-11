@@ -63,8 +63,8 @@ jobs:
       # gitignored — diffing that path can only ever report nothing, so the
       # check that pointed there passed on a tampered file. These are
       # written outside dist/ precisely because their consumers (SwiftPM,
-      # Next's icon convention, a docs page opened from disk) cannot read an
-      # ignored directory; being tracked is what makes them checkable. The
+      # Next's icon convention, a docs page opened from disk, the widgets'
+      # builds) cannot read an ignored directory; being tracked is what makes them checkable. The
       # phone icons' PNGs are left out: they follow their SVGs only where
       # the SVG changed (generate.js).
       - name: Design tokens are up to date
@@ -75,7 +75,10 @@ jobs:
             apps/web/src/app/icon.svg \
             apps/mobile/assets/icon.svg \
             apps/mobile/assets/icon-dev.svg \
-            docs/design/_mockup.css
+            docs/design/_mockup.css \
+            apps/mobile/targets/widget/StintMark.swift \
+            apps/mobile/modules/stint-surfaces/android/src/main/res/drawable/stint_mark_bounds.xml \
+            apps/mobile/modules/stint-surfaces/android/src/main/res/drawable/stint_mark_name.xml
 
       # Guards white-on-accent (1.37:1) and the AA floors, and re-derives both
       # neutral ramps so a hand-edited hex fails naming its step.
@@ -412,6 +415,16 @@ jobs:
 
       - name: End-to-end tests
         run: cd apps/web && pnpm test:e2e
+
+      # Last, because it restarts the stack with production's CAPTCHA on,
+      # which the password sign-ins above cannot pass. Turnstile's always-pass
+      # secret still rejects a request with no token.
+      - name: Sign-in codes past the CAPTCHA
+        run: |
+          printf '\n[auth.captcha]\nenabled = true\nprovider = "turnstile"\nsecret = "1x0000000000000000000000000000000AA"\n' >> supabase/config.toml
+          npx supabase stop
+          npx supabase start -x studio,postgres-meta
+          pnpm test:auth:captcha
 
       # The trace and screenshots are what make a CI-only failure diagnosable.
       - uses: actions/upload-artifact@v7

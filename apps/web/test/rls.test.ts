@@ -346,6 +346,14 @@ test('feedback, phones and subscriptions refuse the writes their grants leave ou
   assert.equal(feedback[0].message, 'Alice says');
 });
 
+test('no user reads or spends the sign-in code throttle', async () => {
+  for (const sql of [
+    'select * from private.sign_in_code_requests',
+    `select * from take_sign_in_code_slot('1.2.3.4')`,
+  ])
+    await assert.rejects(() => asUser(ALICE, sql), /permission denied/i, sql);
+});
+
 /** Whether Realtime lets `userId` join `topic`: it sets the topic and asks
  *  whether the user's select on `realtime.messages` sees a row. */
 async function mayJoin(userId: string, topic: string) {

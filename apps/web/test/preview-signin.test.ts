@@ -7,19 +7,7 @@
 import { test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-
-const url = process.env.SUPABASE_URL;
-const publishable = process.env.SUPABASE_PUBLISHABLE_KEY;
-const secret = process.env.SUPABASE_SECRET_KEY;
-
-if (!url || !publishable || !secret) {
-  throw new Error(
-    'The preview sign-in test needs a running Auth server. Run `pnpm test:auth`.',
-  );
-}
-
-process.env.NEXT_PUBLIC_SUPABASE_URL = url;
-process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = publishable;
+import { deleteUser, freshUser } from './auth-server.ts';
 
 const PR = '990001';
 const EMAIL = `pr-${PR}@preview.test`;
@@ -32,17 +20,6 @@ let GET: typeof import('../src/app/preview/signin/route.ts').GET;
 let PREVIEW_PASSWORD: string;
 const userIds: string[] = [];
 
-const admin = (path: string, init: RequestInit = {}) =>
-  fetch(`${url}/auth/v1${path}`, {
-    ...init,
-    headers: {
-      apikey: secret,
-      authorization: `Bearer ${secret}`,
-      'content-type': 'application/json',
-      ...(init.headers ?? {}),
-    },
-  });
-
 const signIn = (query: string) =>
   GET(new Request(`https://stint-git-x.vercel.app/preview/signin?${query}`));
 
@@ -50,33 +27,12 @@ before(async () => {
   ({ GET } = await import('../src/app/preview/signin/route.ts'));
   ({ PREVIEW_PASSWORD } = await import('../src/lib/preview.ts'));
 
-  for (const email of [EMAIL, SCENARIO_EMAIL]) {
-    const existing = await admin(
-      `/admin/users?filter=${encodeURIComponent(email)}`,
-    ).then((r) => r.json());
-    for (const u of existing.users ?? []) {
-      await admin(`/admin/users/${u.id}`, { method: 'DELETE' });
-    }
-    const created = await admin('/admin/users', {
-      method: 'POST',
-      body: JSON.stringify({
-        email,
-        password: PREVIEW_PASSWORD,
-        email_confirm: true,
-      }),
-    }).then((r) => r.json());
-    assert.ok(
-      created.id,
-      `could not create the test user: ${JSON.stringify(created)}`,
-    );
-    userIds.push(created.id);
-  }
+  for (const email of [EMAIL, SCENARIO_EMAIL])
+    userIds.push(await freshUser(email, { password: PREVIEW_PASSWORD }));
 });
 
 after(async () => {
-  for (const id of userIds) {
-    await admin(`/admin/users/${id}`, { method: 'DELETE' });
-  }
+  for (const id of userIds) await deleteUser(id);
 });
 
 afterEach(() => {

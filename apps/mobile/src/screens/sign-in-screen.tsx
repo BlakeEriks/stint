@@ -62,7 +62,7 @@ export function SignInScreen(props: SignInScreenProps) {
         </View>
         <Text style={[text('body'), { color: c['text-muted'] }]}>
           {props.sentTo
-            ? `Sent to ${props.sentTo}.`
+            ? `If ${props.sentTo} has an account, a code is on its way.`
             : 'We’ll email you a six-digit code.'}
         </Text>
         {props.sentTo ? (
