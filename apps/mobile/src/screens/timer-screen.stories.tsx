@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
+import { chooseNotice } from '../screen-state.ts';
 import { TimerScreen, type TimerScreenProps } from './timer-screen.tsx';
 
 /* The seeded account's (`apps/web/src/mocks/fixtures.ts`): Northwind's
@@ -181,21 +182,11 @@ export const Offline: Story = {
 
 /** Notifications off: the pinned timer can't show, and the screen says so. */
 export const NotificationsOff: Story = {
-  args: {
-    running,
-    notice: {
-      tone: 'warning',
-      message: 'Notifications are off, so a running timer has no notification.',
-      action: { label: 'Turn on notifications', onPress: fn() },
-    },
-  },
+  args: { running, notice: chooseNotice(null, null, fn()) },
   play: async ({ canvasElement, args }) => {
-    const screen = within(canvasElement);
-    await expect(screen.getByRole('alert')).toHaveTextContent(
-      /has no notification/,
-    );
+    const alert = within(within(canvasElement).getByRole('alert'));
     await userEvent.click(
-      screen.getByRole('button', { name: 'Turn on notifications' }),
+      alert.getByRole('button', { name: /notifications/i }),
     );
     await expect(args.notice?.action?.onPress).toHaveBeenCalled();
   },

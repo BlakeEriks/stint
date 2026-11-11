@@ -53,7 +53,7 @@ public final class StintPress: Optimistic {
         action == "start" ? ["id": id, "taskName": task, "projectId": project ?? NSNull()] : [:]
       let (status, data) = try await api.request(path, try JSONSerialization.data(withJSONObject: fields))
       guard (200..<300).contains(status) else {
-        throw Backend.Refusal(message: Self.reason(Backend.json(data)) ?? "request failed (HTTP \(status))")
+        throw Backend.Refusal(message: Self.reason(Backend.json(data)) ?? "Request failed (HTTP \(status))")
       }
       return true
     }
