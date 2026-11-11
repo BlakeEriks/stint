@@ -38,7 +38,9 @@ const STATUS = { ...schema.ERROR_STATUS, INTERNAL: 500 };
 /** An error in the API's own shape, code and status. */
 export function fail(
   code: Code,
-  message = code === 'INTERNAL' ? 'Internal server error' : code,
+  message = code === 'INTERNAL'
+    ? 'Request failed. Tracked time is unaffected.'
+    : code,
   details?: unknown,
 ) {
   return HttpResponse.json(
@@ -63,7 +65,7 @@ export async function parse<S extends z.ZodType>(
     ? parsed.data
     : fail(
         'VALIDATION_FAILED',
-        'Request body failed validation',
+        'A field isn’t valid, so nothing was saved.',
         z.treeifyError(parsed.error),
       );
 }

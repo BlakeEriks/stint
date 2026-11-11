@@ -564,7 +564,7 @@ export const RestoreRefused: Story = {
       await page.findByRole('button', { name: 'Edit Old Engagement Co' }),
     );
     await userEvent.click(await page.findByRole('button', { name: 'Restore' }));
-    await expect(await page.findByText(/Internal server error/)).toBeVisible();
+    await expect(await page.findByText(/Request failed/)).toBeVisible();
     const old = await card(canvasElement, 'Old Engagement Co');
     await expect(old.getAllByText('Archived')).toHaveLength(2);
   },
@@ -688,7 +688,7 @@ export const DeleteExpenseRefused: Story = {
       page.getByRole('button', { name: 'Delete for good' }),
     );
     await expect(await page.findByRole('alert')).toHaveTextContent(
-      'Internal server error',
+      'Request failed. Tracked time is unaffected.',
     );
     // The alert lands a render before the press stops pending.
     const cancel = page.getByRole('button', { name: 'Cancel' });

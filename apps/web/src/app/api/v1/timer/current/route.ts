@@ -51,10 +51,7 @@ export const PATCH = handle(async (req: Request) => {
 
   if (error) {
     if (dbCode(error) === 'ENTRY_LOCKED') {
-      throw new ApiError(
-        'ENTRY_LOCKED',
-        'This entry is billed and cannot be modified',
-      );
+      throw refused(refusals.entryLocked('modified'));
     }
     throw error;
   }

@@ -68,7 +68,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
     if (dbCode(error) === 'TIMER_ALREADY_RUNNING') {
       throw new ApiError(
         'TIMER_ALREADY_RUNNING',
-        'Reopening this entry would leave two timers running',
+        'Another timer is running. Stop it before reopening this entry.',
       );
     }
     throw error;

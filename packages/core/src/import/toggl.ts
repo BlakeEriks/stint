@@ -30,12 +30,13 @@ function date(s: string, line: number): string {
   const us = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (us)
     return `${us[3]}-${us[1]?.padStart(2, '0')}-${us[2]?.padStart(2, '0')}`;
-  throw new ImportFormatError(`Line ${line}: unreadable date "${s}"`);
+  throw new ImportFormatError(`Line ${line}: can't read the date "${s}".`);
 }
 
 function time(s: string, line: number): string {
   const m = s.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?$/);
-  if (!m) throw new ImportFormatError(`Line ${line}: unreadable time "${s}"`);
+  if (!m)
+    throw new ImportFormatError(`Line ${line}: can't read the time "${s}".`);
   let h = Number(m[1]);
   const meridiem = m[4]?.toLowerCase();
   if (meridiem === 'pm' && h < 12) h += 12;
@@ -47,7 +48,9 @@ function duration(s: string, line: number): number | null {
   if (!s.trim()) return null;
   const m = s.trim().match(/^(\d+):(\d{2}):(\d{2})$/);
   if (!m)
-    throw new ImportFormatError(`Line ${line}: unreadable duration "${s}"`);
+    throw new ImportFormatError(
+      `Line ${line}: can't read the duration "${s}".`,
+    );
   return Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]);
 }
 

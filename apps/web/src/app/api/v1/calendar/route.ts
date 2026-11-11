@@ -24,7 +24,10 @@ export const GET = handle(async (req: Request) => {
   const q = parseQuery(req, CalendarQuery);
 
   if (new Date(q.to) < new Date(q.from)) {
-    throw new ApiError('INVALID_PERIOD', '`to` must not precede `from`');
+    throw new ApiError(
+      'INVALID_PERIOD',
+      "The range can't end before it starts.",
+    );
   }
 
   const data = await selectAll(() =>

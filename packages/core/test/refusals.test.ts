@@ -129,12 +129,12 @@ const cases: [string, Refusal | null, Want | null][] = [
   [
     'a billed entry deleted',
     refusals.entryLocked('deleted'),
-    { code: 'ENTRY_LOCKED', message: /cannot be deleted$/ },
+    { code: 'ENTRY_LOCKED', message: /can't be deleted\./ },
   ],
   [
     'a billed expense modified',
     refusals.expenseLocked('modified'),
-    { code: 'EXPENSE_LOCKED', message: /cannot be modified$/ },
+    { code: 'EXPENSE_LOCKED', message: /can't be edited\./ },
   ],
   [
     'a second timer',

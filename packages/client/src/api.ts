@@ -53,7 +53,10 @@ export async function readFailure(res: Response): Promise<ApiError> {
   }
   return new ApiError(
     res.status,
-    body ?? { code: 'UNKNOWN', message: res.statusText },
+    body ?? {
+      code: 'UNKNOWN',
+      message: 'Request failed. Tracked time is unaffected.',
+    },
   );
 }
 

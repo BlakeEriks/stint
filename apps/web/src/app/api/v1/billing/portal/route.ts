@@ -19,7 +19,7 @@ export const POST = handle(async (req: Request) => {
     .maybeSingle();
   if (error) throw error;
   if (!row)
-    throw new ApiError('NOT_SUBSCRIBED', 'There is no subscription to manage');
+    throw new ApiError('NOT_SUBSCRIBED', 'You’re not on the paid plan.');
 
   const session = await stripe().billingPortal.sessions.create({
     customer: row.stripe_customer_id,
