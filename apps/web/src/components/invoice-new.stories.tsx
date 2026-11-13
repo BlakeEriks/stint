@@ -129,64 +129,34 @@ const scheduled = (
 
 // ── states ─────────────────────────────────────────────────────────
 
-/** No client yet: only Client shows, with no Generate, and the page lists
-    each client ready to invoice as a row that opens with its client and
-    period. */
+/** No client yet: every control is there and Client has focus, since it
+    comes first. The page prints what it already knows, Bill to says what
+    is left to choose, and Generate waits. */
 export const Blank: Story = {
   ...desktop,
-  parameters: scheduled(ids.northwind, { period: 'semimonthly' }),
   play: async ({ canvasElement }) => {
-    const ready = within(
-      await within(canvasElement).findByRole('region', {
-        name: 'Ready to invoice',
-      }),
-    );
+    const page = within(canvasElement);
     await expect(
-      ready.getByRole('link', { name: /^Northwind Trading/ }),
-    ).toHaveAttribute(
-      'href',
-      `/invoices/new?client=${ids.northwind}&from=2026-09-01&to=2026-09-15`,
-    );
+      await page.findByRole('button', { name: 'Client' }),
+    ).toHaveFocus();
+    for (const name of ['Period', 'Show time as', 'Template'])
+      await expect(page.getByRole('button', { name })).toBeVisible();
     await expect(
-      within(canvasElement).queryByRole('region', { name: 'Preview' }),
-    ).toBeNull();
+      page.getByRole('button', { name: /^Edit Sam Rivera/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Choose a client' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Generate invoice' }),
+    ).toBeDisabled();
     // No client, no format yet: nothing to fault.
     await expect(
-      within(canvasElement).queryByText('Give the summary line its text.'),
-    ).toBeNull();
-    await expect(
-      within(canvasElement).queryByRole('button', { name: 'Generate invoice' }),
+      page.queryByText('Give the summary line its text.'),
     ).toBeNull();
   },
 };
 export const Phone: Story = { ...Blank, ...phone };
-
-/** No client ready to invoice: the page says to choose one. */
-export const NoneReady: Story = {
-  ...desktop,
-  play: async ({ canvasElement }) => {
-    await expect(
-      await within(canvasElement).findByText(
-        'Choose a client to start an invoice.',
-      ),
-    ).toBeVisible();
-  },
-};
-export const NoneReadyPhone: Story = { ...NoneReady, ...phone };
-
-/** The Inbox can't say who is ready: the page still says to choose one. */
-export const ReadyFailed: Story = {
-  ...NoneReady,
-  parameters: {
-    msw: {
-      handlers: {
-        stats: http.get(handlers.stats.info.path, () =>
-          Response.json({ error: 'internal' }, { status: 500 }),
-        ),
-      },
-    },
-  },
-};
 
 /** On September 17 the period is September, the month ending nearest, and
     due follows the settings' Net 30 terms. The card follows both. */
@@ -363,32 +333,6 @@ export const PressedFromTheInbox: Story = {
       page.getByRole('button', { name: 'Client' }),
     ).toHaveTextContent('Northwind');
     await settled(page);
-  },
-};
-
-/** A row whose amount can't be had says so with a dash, and the rest of
-    the list stands. */
-export const ReadyRowFailed: Story = {
-  ...Blank,
-  parameters: {
-    ...Blank.parameters,
-    msw: {
-      handlers: {
-        previewInvoice: http.post(handlers.previewInvoice.info.path, () =>
-          Response.json({ error: 'internal' }, { status: 500 }),
-        ),
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const ready = within(
-      await within(canvasElement).findByRole('region', {
-        name: 'Ready to invoice',
-      }),
-    );
-    await expect(
-      ready.getByRole('link', { name: /^Northwind Trading/ }),
-    ).toHaveTextContent('—');
   },
 };
 

@@ -76,6 +76,9 @@ export type CardEdits = {
   onBusiness?: () => void;
   onDates: () => void;
   onClient: () => void;
+  /** The period chosen on the form, which prints before the server echoes
+   *  it. */
+  period: { periodStart: string; periodEnd: string };
   reference: Typed;
   notes: Typed;
   /** With one summary line: its text, typed on the line. */
@@ -87,7 +90,8 @@ export type CardEdits = {
     onOpen: (key: string) => void;
     onAdd: () => void;
   };
-  expenses: {
+  /** Absent until a client is chosen: an expense is the client's. */
+  expenses?: {
     /** The client's waiting expenses this invoice can bill. */
     waiting: Expense[];
     /** The day a recurring one prints. */
@@ -134,7 +138,8 @@ export function InvoicePreviewCard({
   edit,
 }: {
   preview: CardFigures | undefined;
-  client: Pick<Client, 'name' | 'address' | 'email'>;
+  /** Undefined on New invoice before one is chosen. */
+  client: Pick<Client, 'name' | 'address' | 'email'> | undefined;
   /** Undefined while it loads. */
   business: Business | undefined;
   /** A prediction: generation allocates the number. */
@@ -387,17 +392,30 @@ function To({
   reference,
   edit,
 }: {
-  client: Pick<Client, 'name' | 'address' | 'email'>;
+  client: Pick<Client, 'name' | 'address' | 'email'> | undefined;
   preview: CardFigures | undefined;
   reference: string;
   edit: CardEdits | undefined;
 }) {
+  const period = edit?.period ?? preview;
   return (
     <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
-      <Block onPress={edit?.onClient} className="min-w-0 flex-[1_1_200px]">
-        <span className={`${LABEL} mb-2`}>Bill to</span>
-        <Party name={client.name} lines={[client.address, client.email]} />
-      </Block>
+      {client ? (
+        <Block onPress={edit?.onClient} className="min-w-0 flex-[1_1_200px]">
+          <span className={`${LABEL} mb-2`}>Bill to</span>
+          <Party name={client.name} lines={[client.address, client.email]} />
+        </Block>
+      ) : (
+        /* Where the client prints, marked as the first thing to choose. */
+        <div className="flex min-w-0 flex-[1_1_200px] flex-col">
+          <span className={`${LABEL} mb-2`}>Bill to</span>
+          <AddButton
+            label="Choose a client"
+            onClick={edit?.onClient}
+            className="min-h-14 w-full"
+          />
+        </div>
+      )}
       <div className="min-w-0 flex-[1_1_200px]">
         <span className={`${LABEL} mb-2`}>Engagement</span>
         <dl className="flex flex-col gap-1 type-support">
@@ -405,8 +423,8 @@ function To({
           <Meta
             label="Service period"
             value={
-              preview
-                ? `${shortDate(preview.periodStart)} – ${shortDate(preview.periodEnd)}`
+              period?.periodStart && period.periodEnd
+                ? `${shortDate(period.periodStart)} – ${shortDate(period.periodEnd)}`
                 : '—'
             }
           />
@@ -614,7 +632,8 @@ type ExpenseLine = {
     order they print. Only their amounts wait for the server. */
 function expenseLines(lines: Line[], edit: CardEdits | undefined) {
   const served = lines.filter((li) => li.unit === 'expense');
-  if (!edit)
+  const expenses = edit?.expenses;
+  if (!expenses)
     return served.map((li, i) => ({
       key: li.expenseId ?? `line-${i}`,
       description: li.description,
@@ -622,15 +641,15 @@ function expenseLines(lines: Line[], edit: CardEdits | undefined) {
       amount: li.amount,
       billed: true,
     }));
-  return edit.expenses.waiting.map((e): ExpenseLine => {
+  return expenses.waiting.map((e): ExpenseLine => {
     const line = served.find((li) => li.expenseId === e.id);
     return {
       key: e.id,
       description: e.description,
-      spentOn: line?.spentOn ?? e.spentOn ?? edit.expenses.periodEnd,
+      spentOn: line?.spentOn ?? e.spentOn ?? expenses.periodEnd,
       amount: line?.amount ?? e.amount,
       expense: e,
-      billed: !edit.expenses.excluded.includes(e.id),
+      billed: !expenses.excluded.includes(e.id),
     };
   });
 }
@@ -740,7 +759,9 @@ function Lines({
       {edit ? (
         <div className="flex flex-wrap gap-2">
           <AddButton label="Add a charge" onClick={edit.charges.onAdd} />
-          <AddButton label="Add an expense" onClick={edit.expenses.onAdd} />
+          {edit.expenses ? (
+            <AddButton label="Add an expense" onClick={edit.expenses.onAdd} />
+          ) : null}
         </div>
       ) : null}
 
@@ -859,24 +880,23 @@ function ExpenseRowLine({
 }) {
   const faint = row.billed ? '' : 'text-subtle line-through';
   const { expense } = row;
+  const expenses = edit?.expenses;
   return (
     <tr className={ROW}>
       <td className={`py-1 ${faint || 'text-primary'}`}>
-        {edit ? (
+        {expenses ? (
           <span className="flex items-center gap-2">
             <input
               type="checkbox"
               checked={row.billed}
-              onChange={(ev) =>
-                edit.expenses.onToggle(row.key, ev.target.checked)
-              }
+              onChange={(ev) => expenses.onToggle(row.key, ev.target.checked)}
               aria-label={`Bill ${row.description}`}
               className="size-4 flex-none accent-[var(--text-muted)]"
             />
             {expense ? (
               <button
                 type="button"
-                onClick={() => edit.expenses.onOpen(expense)}
+                onClick={() => expenses.onOpen(expense)}
                 className={`${rowButton} -ml-0.5 min-w-0 flex-1 py-1.5 pr-7`}
               >
                 <span className="sr-only">Edit</span> {row.description}

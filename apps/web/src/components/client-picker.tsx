@@ -48,6 +48,7 @@ export function ClientPicker({
   placeholder = 'No client — internal work',
   id,
   disabled,
+  autoFocus,
 }: {
   clients: Client[];
   value: string | null;
@@ -58,12 +59,19 @@ export function ClientPicker({
   placeholder?: string;
   id?: string;
   disabled?: boolean;
+  /** Focused on mount: the first thing a screen needs chosen. */
+  autoFocus?: boolean;
 }) {
   const selected = value ? clients.find((c) => c.id === value) : undefined;
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger id={id} disabled={disabled} className={triggerClass}>
+      <DropdownMenuTrigger
+        id={id}
+        disabled={disabled}
+        autoFocus={autoFocus}
+        className={triggerClass}
+      >
         {selected ? (
           <Row client={selected} />
         ) : (

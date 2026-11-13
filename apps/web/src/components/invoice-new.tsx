@@ -67,7 +67,6 @@ import {
 } from './business-dialog';
 import { InvoiceDatesDialog } from './invoice-dates-dialog';
 import { PeriodPicker } from './invoice-period';
-import { ReadyToInvoice } from './invoice-ready';
 import { carriedFrom, lastInvoiceQuery } from './invoice-bits';
 import { summarize } from './payment-profiles';
 import {
@@ -269,7 +268,7 @@ function useCarried(draft: Draft) {
   const carried = carriedFrom(lastInvoice.data);
   const groupingMode = draft.groupingMode ?? carried.groupingMode;
   return {
-    lastPending: lastInvoice.isPending,
+    lastPending: draft.clientId !== '' && lastInvoice.isPending,
     groupingMode,
     summaryText: draft.summaryText ?? carried.summaryText,
     reference: draft.reference ?? carried.reference,
@@ -631,19 +630,17 @@ function Form({
           <h1 className="type-title whitespace-nowrap text-strong">
             {editing ? `Edit ${editing.invoiceNumber}` : 'New invoice'}
           </h1>
-          {client ? (
-            <div className={`flex items-center gap-4 ${PHONE_BAR}`}>
-              <Due preview={current} updating={updating} />
-              <Button
-                type="button"
-                variant="accent"
-                onClick={() => generate.mutate()}
-                disabled={!canGenerate}
-              >
-                {pressLabel(editing !== undefined, generate.isPending)}
-              </Button>
-            </div>
-          ) : null}
+          <div className={`flex items-center gap-4 ${PHONE_BAR}`}>
+            <Due preview={current} updating={updating} />
+            <Button
+              type="button"
+              variant="accent"
+              onClick={() => generate.mutate()}
+              disabled={!canGenerate}
+            >
+              {pressLabel(editing !== undefined, generate.isPending)}
+            </Button>
+          </div>
         </div>
 
         <Controls
@@ -651,78 +648,73 @@ function Form({
           clients={clients}
           draft={draft}
           setDraft={setDraft}
-          shown={
-            client
-              ? { today: issued, lastPending, groupingMode, settings }
-              : null
-          }
+          shown={{ today: issued, lastPending, groupingMode, settings }}
           period={{ periodStart, periodEnd }}
         />
 
-        {client ? (
-          <Notices
-            settings={settings}
-            client={client}
-            period={{ periodStart, periodEnd }}
-            // Gone the moment From or the client changes, not when the next
-            // answer lands.
-            earlierWork={
-              current?.periodStart === periodStart &&
-              current.clientId === draft.clientId
-                ? current.earlierWork
-                : null
-            }
-            onStartFrom={(from) =>
-              setDraft((d) => ({ ...d, periodStart: from, periodEnd }))
-            }
-            noSummaryText={noSummaryText && !lastPending}
-            earlyDue={earlyDue}
-            preview={current}
-            error={generate.error ?? preview.error}
-          />
-        ) : null}
+        <Notices
+          settings={settings}
+          client={client}
+          period={{ periodStart, periodEnd }}
+          // Gone the moment From or the client changes, not when the next
+          // answer lands.
+          earlierWork={
+            current?.periodStart === periodStart &&
+            current.clientId === draft.clientId
+              ? current.earlierWork
+              : null
+          }
+          onStartFrom={(from) =>
+            setDraft((d) => ({ ...d, periodStart: from, periodEnd }))
+          }
+          // No client, no format yet: nothing to fault.
+          noSummaryText={noSummaryText && !lastPending && client !== undefined}
+          earlyDue={earlyDue}
+          preview={current}
+          error={generate.error ?? preview.error}
+        />
 
-        {client ? (
-          <InvoicePreviewCard
-            noSender={noSender}
-            preview={current}
-            client={client}
-            // A draft prints the sender frozen on it, as sending keeps it.
-            business={editing?.business ?? businessOf(settings)}
-            number={number}
-            issued={issued}
-            due={due}
-            reference={reference.trim()}
-            notes={draft.notes.trim()}
-            payment={payment}
-            schedules={schedules}
-            updating={updating}
-            edit={cardEdits({
-              draft,
-              set,
-              editing: editing !== undefined,
-              open: {
-                sender: () => setEditingSender(true),
-                dates: () => setEditingDates(true),
-                client: () => setEditingClient(true),
-                newProfile: () => setNewProfileOpen(true),
-              },
-              summary: summary
-                ? { value: summaryText, invalid: noSummaryText }
-                : undefined,
-              reference,
-              waiting,
-              periodEnd,
-              currency: client.currency ?? settings?.currency ?? 'USD',
-              chargeDialog,
-              expenseDialog,
-              profiles,
-              profile,
-            })}
-          />
-        ) : (
-          <ReadyToInvoice clients={clients} />
-        )}
+        {/* The page is there before a client is: what doesn't depend on
+            one prints, and Bill to says what is still to choose. */}
+        <InvoicePreviewCard
+          noSender={noSender}
+          preview={current}
+          client={client}
+          // A draft prints the sender frozen on it, as sending keeps it.
+          business={editing?.business ?? businessOf(settings)}
+          number={number}
+          issued={issued}
+          due={due}
+          reference={reference.trim()}
+          notes={draft.notes.trim()}
+          payment={payment}
+          schedules={schedules}
+          updating={updating}
+          edit={cardEdits({
+            draft,
+            set,
+            editing: editing !== undefined,
+            open: {
+              sender: () => setEditingSender(true),
+              dates: () => setEditingDates(true),
+              // Without a client, the press goes to where one is chosen.
+              client: () => (client ? setEditingClient(true) : focusClient()),
+              newProfile: () => setNewProfileOpen(true),
+            },
+            summary: summary
+              ? { value: summaryText, invalid: noSummaryText }
+              : undefined,
+            reference,
+            waiting,
+            period: { periodStart, periodEnd },
+            currency: client?.currency ?? settings?.currency ?? 'USD',
+            chargeDialog,
+            // An expense is the client's, so none is added before one.
+            expenseDialog: client ? expenseDialog : undefined,
+            profiles,
+            profile,
+          })}
+        />
       </div>
 
       {editingSender && settings ? (
@@ -773,7 +765,7 @@ function Form({
 }
 
 /** What decides the lines, and how the page looks, so it leads; the rest is
-    on the page. All but Client wait for one; `shown` is null until then. */
+    on the page. Client comes first, so it has focus on a new invoice. */
 function Controls({
   editing,
   clients,
@@ -791,7 +783,7 @@ function Controls({
     lastPending: boolean;
     groupingMode: GroupingMode;
     settings: Settings | undefined;
-  } | null;
+  };
   period: Period;
 }) {
   return (
@@ -804,6 +796,7 @@ function Controls({
           disabled={editing}
           clients={clients}
           value={draft.clientId || null}
+          autoFocus={!editing && draft.clientId === ''}
           // Another client brings its own payment details.
           onChange={(id) =>
             setDraft((d) => ({
@@ -815,19 +808,17 @@ function Controls({
           placeholder="Choose a client…"
         />
       </Field>
-      {shown ? (
-        <Field label="Period" htmlFor="inv-period">
-          <PeriodPicker
-            id="inv-period"
-            today={shown.today}
-            value={period}
-            onChange={(p) => setDraft((d) => ({ ...d, ...p }))}
-          />
-        </Field>
-      ) : null}
+      <Field label="Period" htmlFor="inv-period">
+        <PeriodPicker
+          id="inv-period"
+          today={shown.today}
+          value={period}
+          onChange={(p) => setDraft((d) => ({ ...d, ...p }))}
+        />
+      </Field>
       {/* Shown once the client's last invoice says its format, so a carried
           grouping never flips in after a default. */}
-      {shown && !shown.lastPending ? (
+      {!shown.lastPending ? (
         <Field label="Show time as" htmlFor="inv-group">
           <GroupingPicker
             value={shown.groupingMode}
@@ -835,7 +826,7 @@ function Controls({
           />
         </Field>
       ) : null}
-      {shown?.settings ? (
+      {shown.settings ? (
         <Field label="Template" htmlFor="inv-template">
           <TemplateControl
             id="inv-template"
@@ -861,7 +852,7 @@ function Notices({
   error,
 }: {
   settings: Settings | undefined;
-  client: Client;
+  client: Client | undefined;
   period: Period;
   earlierWork: InvoicePreview['earlierWork'];
   onStartFrom: (from: string) => void;
@@ -900,7 +891,7 @@ function cardEdits({
   summary,
   reference,
   waiting,
-  periodEnd,
+  period,
   currency,
   chargeDialog,
   expenseDialog,
@@ -920,10 +911,10 @@ function cardEdits({
   summary: { value: string; invalid: boolean } | undefined;
   reference: string;
   waiting: Expense[];
-  periodEnd: string;
+  period: { periodStart: string; periodEnd: string };
   currency: string;
   chargeDialog: { show: (key: string) => void };
-  expenseDialog: { show: (expense: Expense | undefined) => void };
+  expenseDialog: { show: (expense: Expense | undefined) => void } | undefined;
   profiles: PaymentProfile[];
   profile: PaymentProfile | null;
 }): CardEdits {
@@ -940,6 +931,7 @@ function cardEdits({
     onBusiness: editing ? undefined : open.sender,
     onDates: open.dates,
     onClient: open.client,
+    period,
     currency,
     reference: { value: reference, onChange: (v) => set('reference', v) },
     notes: { value: draft.notes, onChange: (v) => set('notes', v) },
@@ -952,9 +944,9 @@ function cardEdits({
       onOpen: chargeDialog.show,
       onAdd: () => chargeDialog.show('new'),
     },
-    expenses: {
+    expenses: expenseDialog && {
       waiting,
-      periodEnd,
+      periodEnd: period.periodEnd,
       excluded: draft.excludedExpenseIds,
       onToggle: toggleExpense,
       onOpen: expenseDialog.show,
@@ -1005,6 +997,10 @@ function paymentOf({
 
 const PHONE_BAR =
   '@max-[560px]/new:sticky @max-[560px]/new:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] @max-[560px]/new:z-10 @max-[560px]/new:order-last @max-[560px]/new:justify-between @max-[560px]/new:rounded-lg @max-[560px]/new:border @max-[560px]/new:border-edge-subtle @max-[560px]/new:bg-surface-primary @max-[560px]/new:px-3 @max-[560px]/new:py-2.5';
+
+/** Where a client is chosen: the first control, which a press on the
+    page's empty Bill to returns to. */
+const focusClient = () => document.getElementById('inv-client')?.focus();
 
 const pressLabel = (editing: boolean, pending: boolean) => {
   if (editing) return pending ? 'Saving…' : 'Save draft';

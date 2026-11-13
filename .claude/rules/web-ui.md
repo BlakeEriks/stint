@@ -295,9 +295,7 @@ while loading and nothing on failure. A suggestion is an accelerator nobody
 asked for, so a spinner or a failure panel flashing over the timer bar reports
 a problem the user was not waiting on, in front of the field they are typing
 into. Absent, the list is simply not offered and the field still works. Do not
-"fix" it back to `Listing`. `ReadyToInvoice` on New invoice is the same kind
-of shortcut: it runs its own queries and leaves its page blank until every
-row can say its amount, so New invoice never waits on it.
+"fix" it back to `Listing`.
 
 ### Invoices
 
