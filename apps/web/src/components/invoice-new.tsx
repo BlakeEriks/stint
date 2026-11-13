@@ -891,6 +891,21 @@ function Form({
               payment={payment}
               schedules={schedules}
               updating={updating}
+              offer={
+                <EarlierWorkOffer
+                  // Gone the moment From or the client changes, not when the next
+                  // answer lands.
+                  work={
+                    current?.periodStart === periodStart &&
+                    current.clientId === draft.clientId
+                      ? current.earlierWork
+                      : null
+                  }
+                  onStartFrom={(from) =>
+                    setDraft((d) => ({ ...d, periodStart: from, periodEnd }))
+                  }
+                />
+              }
               footnote={
                 editing
                   ? 'Saving keeps its number.'
@@ -1141,6 +1156,46 @@ function blockedBy(s: {
   if (s.earlyDue) return "due can't be before the issue date.";
   if (s.failed) return "the preview couldn't be built.";
   return null;
+}
+
+const shortDate = (d: string) =>
+  new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${d}T00:00:00Z`));
+
+/** Work no draft holds, dated after the client's last invoice and before
+    this period, which neither would bill. The button names the date From
+    moves back to, since that is all the press does, and nothing moves
+    without it (Constitution I). */
+function EarlierWorkOffer({
+  work,
+  onStartFrom,
+}: {
+  work: InvoicePreview['earlierWork'];
+  onStartFrom: (from: string) => void;
+}) {
+  if (!work) return null;
+  const one = work.entryCount === 1;
+  const dates =
+    work.from === work.to
+      ? shortDate(work.from)
+      : `${shortDate(work.from)} – ${shortDate(work.to)}`;
+  const what = `${work.entryCount} earlier entr${one ? 'y' : 'ies'}, ${dates},`;
+  return (
+    <p
+      role="status"
+      className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 px-1 pb-2.5 type-support"
+    >
+      <span>
+        {what} {one ? "isn't" : "aren't"} on any invoice.
+      </span>
+      <Button type="button" size="sm" onClick={() => onStartFrom(work.from)}>
+        Start from {shortDate(work.from)}
+      </Button>
+    </p>
+  );
 }
 
 function PreviewNotices({

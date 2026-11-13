@@ -4,10 +4,71 @@ import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import { computeInvoice } from '@/lib/drafts';
 import { loadBilledSpans } from '@/lib/billed-spans';
-import { buildOverlaps, buildSchedules } from '@stint/core';
+import { selectAll } from '@/lib/select-all';
+import {
+  addDays,
+  billingWindow,
+  buildOverlaps,
+  buildSchedules,
+  earlierWork,
+  earlierWorkFrom,
+} from '@stint/core';
 import { InvoicePreviewRequest } from '@stint/schema';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
+
+/** The client's billable work New invoice offers to include
+    (`earlierWork()`). The edited draft doesn't end the look-back, and what
+    it holds counts as free, as the preview's own lines do. */
+async function loadEarlierWork(
+  db: SupabaseClient,
+  opts: { clientId: string; periodStart: string; tz: string; draftId?: string },
+) {
+  const [{ data: invoices, error }, { data: projects, error: projectError }] =
+    await Promise.all([
+      db
+        .from('invoices')
+        .select('id, period_start, period_end')
+        .eq('client_id', opts.clientId)
+        .neq('status', 'void'),
+      db.from('projects').select('id').eq('client_id', opts.clientId),
+    ]);
+  if (error) throw error;
+  if (projectError) throw projectError;
+  const others = (invoices ?? []).filter((i) => i.id !== opts.draftId);
+  const from = earlierWorkFrom(
+    opts.periodStart,
+    others.map((i) => ({
+      periodStart: i.period_start as string,
+      periodEnd: i.period_end as string,
+    })),
+  );
+  if (!from) return null;
+  const window = billingWindow(from, addDays(opts.periodStart, -1), opts.tz);
+  const rows = await selectAll(() => {
+    const q = db
+      .from('time_entries')
+      .select('started_at')
+      .in(
+        'project_id',
+        (projects ?? []).map((p) => p.id as string),
+      )
+      .is('invoice_id', null)
+      .eq('invoiced_elsewhere', false)
+      .eq('is_billable', true)
+      .not('ended_at', 'is', null)
+      .gte('started_at', window.start.toISOString())
+      .lt('started_at', window.end.toISOString());
+    return opts.draftId
+      ? q.or(`draft_id.is.null,draft_id.eq.${opts.draftId}`)
+      : q.is('draft_id', null);
+  });
+  return earlierWork(
+    rows.map((r) => ({ startedAt: r.started_at as string })),
+    opts.tz,
+  );
+}
 
 /**
  * POST /api/v1/invoices/preview
@@ -74,6 +135,12 @@ export const POST = handle(async (req: Request) => {
     overlappingEntryIds: toBill
       .map((e) => e.id)
       .filter((id) => overlapping.has(id)),
+    earlierWork: await loadEarlierWork(db, {
+      clientId: body.clientId,
+      periodStart: body.periodStart,
+      tz,
+      draftId: body.draftId,
+    }),
     schedules:
       body.groupingMode === 'summary'
         ? buildSchedules(entries, {

@@ -88,6 +88,7 @@ export function InvoicePreviewCard({
   heading = true,
   noSender = false,
   footnote,
+  offer,
   children,
 }: {
   preview: CardFigures | undefined;
@@ -112,6 +113,8 @@ export function InvoicePreviewCard({
   noSender?: boolean;
   /** Under the card, after `children`. */
   footnote?: string;
+  /** Above the card, where it is read before what it would change. */
+  offer?: React.ReactNode;
   /** Warnings and errors, under the card. */
   children?: React.ReactNode;
 }) {
@@ -139,6 +142,8 @@ export function InvoicePreviewCard({
           </span>
         ) : null}
       </div>
+
+      {client ? offer : null}
 
       {client ? (
         /* The scroller is around the card, not in it: the card moves as one

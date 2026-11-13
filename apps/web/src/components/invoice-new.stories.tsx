@@ -3,7 +3,7 @@ import {
   getRouter,
   useSearchParams,
 } from '@storybook/nextjs-vite/navigation.mock';
-import { delay, http } from 'msw';
+import { http } from 'msw';
 import { useEffect, useReducer } from 'react';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account, getDb } from '@/mocks/db';
@@ -18,6 +18,7 @@ import {
   screen,
   skipping,
   stalled,
+  stalledWhen,
   tablet,
   wide,
   foldDock,
@@ -374,26 +375,13 @@ export const Updating: Story = {
     /* The dimmed figures are the ones the next answer replaces, held back on
        purpose; axe reads their half opacity as low contrast. */
     a11y: skipping('aria-hidden-focus', 'color-contrast'),
-    stalls: 1,
-    msw: {
-      handlers: {
-        // The play's By project never answers; every other preview does.
-        previewInvoice: http.post(
-          handlers.previewInvoice.info.path,
-          async (info) => {
-            const body = (await info.request.clone().json()) as {
-              groupingMode?: string;
-            };
-            if (body.groupingMode === 'project') await delay('infinite');
-            // `resolver` is protected in msw's types, and public at runtime.
-            const real = handlers.previewInvoice as unknown as {
-              resolver: (i: typeof info) => Promise<Response>;
-            };
-            return real.resolver(info);
-          },
-        ),
-      },
-    },
+    // The play's By project never answers; every other preview does.
+    ...stalledWhen('previewInvoice', async (info) => {
+      const body = (await info.request.clone().json()) as {
+        groupingMode?: string;
+      };
+      return body.groupingMode === 'project';
+    }),
   },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
@@ -463,6 +451,98 @@ export const Overlapping: Story = {
     const warning = await page.findByText(/entries overlap other time/);
     await expect(warning).toBeVisible();
     await expect(sheet(page).contains(warning)).toBe(false);
+  },
+};
+
+/** Northwind's last invoice ended Aug 15, so its work from then to the
+    period is on no invoice. New invoice says so above the card. */
+export const EarlierWork: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(
+      await page.findByText(
+        /^\d+ earlier entries, Aug \d+ – Aug 31, aren't on any invoice\.$/,
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /^Start from Aug \d+$/ }),
+    ).toBeVisible();
+  },
+};
+export const EarlierWorkPhone: Story = { ...EarlierWork, ...phone };
+
+/** The client's ids of the work Aug 16 – 31, the gap after its last invoice. */
+const strays = (db: Db) => {
+  const northwind = new Set(
+    db.projects.filter((p) => p.clientId === ids.northwind).map((p) => p.id),
+  );
+  return db.entries.filter(
+    (e) =>
+      northwind.has(e.projectId as string) &&
+      e.isBillable &&
+      e.invoiceId === null &&
+      e.startedAt >= '2026-08-16' &&
+      e.startedAt < '2026-09-01',
+  );
+};
+
+/** One entry stranded: Start from moves From back to its day, the offer
+    goes, and the card bills it. */
+export const StartFromEarlierWork: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      const keep = strays(db).at(-1);
+      for (const e of strays(db))
+        if (e !== keep) db.entries.splice(db.entries.indexOf(e), 1);
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    const offer = await page.findByText(
+      /^1 earlier entry, Aug 31, isn't on any invoice\.$/,
+    );
+    await settled(page);
+    const before = card(page).getByText(/^\d+ entries$/).textContent;
+    await userEvent.click(
+      page.getByRole('button', { name: 'Start from Aug 31' }),
+    );
+    await expect(page.getByLabelText('From')).toHaveValue('2026-08-31');
+    await expect(offer).not.toBeInTheDocument();
+    await settled(page);
+    await waitFor(() =>
+      expect(card(page).getByText(/^\d+ entries$/).textContent).not.toBe(
+        before,
+      ),
+    );
+  },
+};
+
+/** Another client chosen over the same dates: Northwind's offer goes at
+    once, before Meridian's answer, which here never lands. */
+export const EarlierWorkLeavesWithClient: Story = {
+  ...desktop,
+  parameters: {
+    a11y: skipping('aria-hidden-focus', 'color-contrast'),
+    ...stalledWhen('previewInvoice', async (info) => {
+      const body = (await info.request.clone().json()) as {
+        clientId: string;
+      };
+      return body.clientId === ids.meridian;
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await page.findByRole('button', { name: /^Start from/ });
+    const from = (page.getByLabelText('From') as HTMLInputElement).value;
+    await chooseMeridian(canvasElement);
+    await expect(page.getByLabelText('From')).toHaveValue(from);
+    await expect(
+      page.queryByRole('button', { name: /^Start from/ }),
+    ).toBeNull();
   },
 };
 
