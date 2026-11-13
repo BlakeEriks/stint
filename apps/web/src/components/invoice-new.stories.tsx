@@ -459,7 +459,7 @@ export const EarlierWork: Story = {
       ),
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Include them' }),
+      page.getByRole('button', { name: /^Start from Aug \d+$/ }),
     ).toBeVisible();
   },
 };
@@ -480,9 +480,9 @@ const strays = (db: Db) => {
   );
 };
 
-/** One entry stranded: Include it moves From back to its day, the offer
+/** One entry stranded: Start from moves From back to its day, the offer
     goes, and the card bills it. */
-export const IncludeEarlierWork: Story = {
+export const StartFromEarlierWork: Story = {
   ...desktop,
   parameters: {
     ...menuOpen,
@@ -499,7 +499,9 @@ export const IncludeEarlierWork: Story = {
     );
     await settled(page);
     const before = card(page).getByText(/^\d+ entries$/).textContent;
-    await userEvent.click(page.getByRole('button', { name: 'Include it' }));
+    await userEvent.click(
+      page.getByRole('button', { name: 'Start from Aug 31' }),
+    );
     await expect(page.getByLabelText('From')).toHaveValue('2026-08-31');
     await expect(offer).not.toBeInTheDocument();
     await settled(page);
@@ -526,11 +528,13 @@ export const EarlierWorkLeavesWithClient: Story = {
   },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
-    await page.findByRole('button', { name: 'Include them' });
+    await page.findByRole('button', { name: /^Start from/ });
     const from = (page.getByLabelText('From') as HTMLInputElement).value;
     await chooseMeridian(canvasElement);
     await expect(page.getByLabelText('From')).toHaveValue(from);
-    await expect(page.queryByRole('button', { name: /^Include/ })).toBeNull();
+    await expect(
+      page.queryByRole('button', { name: /^Start from/ }),
+    ).toBeNull();
   },
 };
 
