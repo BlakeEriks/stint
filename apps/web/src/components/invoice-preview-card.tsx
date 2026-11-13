@@ -337,7 +337,12 @@ function From({
         noSender={noSender}
         onPress={edit?.onBusiness}
       />
-      <Block onPress={edit?.onDates} className="self-start pr-7">
+      {/* The other half, so the row has no dead middle; its rows stay
+          right-aligned. */}
+      <Block
+        onPress={edit?.onDates}
+        className="min-w-0 flex-[1_1_200px] self-start pr-7"
+      >
         <dl className="flex flex-col gap-1 type-support">
           <Meta label="No." value={number} mono right />
           <Meta label="Issued" value={shortDate(issued)} right />
@@ -525,7 +530,7 @@ function Meta({
   right?: boolean;
 }) {
   return (
-    <div className={`flex gap-3 ${right ? 'justify-end' : ''}`}>
+    <div className={`flex gap-3 ${right ? 'justify-between' : ''}`}>
       <dt className={`flex-none text-subtle ${right ? '' : 'w-26'}`}>
         {label}
       </dt>
