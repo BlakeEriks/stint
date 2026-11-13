@@ -181,15 +181,12 @@ export function InvoicePreviewCard({
         </p>
       )}
       <div className={`@container/card flex flex-col gap-5 ${SHEET}`}>
-        <From
+        <Header
           business={business}
           noSender={noSender}
           number={number}
           issued={issued}
           due={due}
-          edit={edit}
-        />
-        <To
           client={client}
           preview={preview}
           reference={reference}
@@ -258,6 +255,28 @@ function termsFrom(issued: string, due: string): string | null {
 const DASHED =
   'rounded-md border border-dashed border-edge-control text-muted hover:bg-surface-hover hover:text-strong focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none';
 
+/*
+ * The sheet's box model (`.claude/rules/web-ui.md`): text sits on the text
+ * margin, and a box around it, highlight or dashed, bleeds 8px past it
+ * sideways and 6px above and below. The box is never what the grid places:
+ * a plain cell is, and the box bleeds inside it with its own width, so the
+ * columns divide alike on every row. A dashed box carries its 1px border
+ * inside the same box, so its padding is a pixel less and its text lands
+ * where a highlight's does. `inline` sizes a box to its text, for a row of
+ * them (`ADD_ROW`), whose gap allows for the bleed. `SheetAligned` in the
+ * New invoice stories measures all of this.
+ */
+const bleed = (inline = false) =>
+  `-mx-2 -my-1.5 px-2 py-1.5 ${inline ? '' : 'w-[calc(100%+1rem)]'}`;
+const dashedBleed = (inline = false) =>
+  `-mx-2 -my-1.5 px-[calc(0.5rem-1px)] py-[calc(0.375rem-1px)] ${
+    inline ? '' : 'w-[calc(100%+1rem)]'
+  }`;
+/** Boxes in a row: 24px apart in the grid, 8px apart as seen. */
+const ADD_ROW = 'flex flex-wrap gap-x-6 gap-y-5';
+/** Boxes in a column: 16px apart in the grid, 4px apart as seen. */
+const STACK = 'flex flex-col gap-4';
+
 /**
  * A block that opens its editor is itself the button (`.claude/rules/
  * web-ui.md`): it highlights whole, and a faint pencil at its top right says
@@ -272,12 +291,13 @@ function Block({
   className?: string;
   children: React.ReactNode;
 }) {
-  if (!onPress) return <div className={className}>{children}</div>;
+  if (!onPress)
+    return <div className={`${bleed()} ${className}`}>{children}</div>;
   return (
     <button
       type="button"
       onClick={onPress}
-      className={`${rowButton} -mx-2 -my-1.5 py-1.5 ${className}`}
+      className={`${rowButton} ${bleed()} pr-7 ${className}`}
     >
       <span className="sr-only">Edit</span> {children}
       <EditMark />
@@ -298,17 +318,20 @@ function EditMark() {
 function AddButton({
   label,
   onClick,
+  inline = false,
   className = '',
 }: {
   label: string;
   onClick?: () => void;
+  /** Sized to its text, in an `ADD_ROW`; otherwise it fills its cell. */
+  inline?: boolean;
   className?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`${DASHED} flex items-center gap-1.5 self-start px-2.5 py-1.5 type-support ${className}`}
+      className={`${DASHED} ${dashedBleed(inline)} flex items-center gap-1.5 type-support ${className}`}
     >
       <Plus aria-hidden strokeWidth={2.25} className="size-3.5" />
       {label}
@@ -316,13 +339,18 @@ function AddButton({
   );
 }
 
-/** The business, and the invoice's number and dates. */
-function From({
+/** The business and the number and dates, then Bill to and the engagement:
+    four plain cells on one grid, so the gutter is one line down the sheet
+    and every box inside a cell bleeds alike. */
+function Header({
   business,
   noSender,
   number,
   issued,
   due,
+  client,
+  preview,
+  reference,
   edit,
 }: {
   business: Business | undefined;
@@ -330,27 +358,76 @@ function From({
   number: string;
   issued: string;
   due: string;
+  client: Pick<Client, 'name' | 'address' | 'email'> | undefined;
+  preview: CardFigures | undefined;
+  reference: string;
   edit: CardEdits | undefined;
 }) {
+  const period = edit?.period ?? preview;
   return (
-    <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
-      <Sender
-        business={business}
-        noSender={noSender}
-        onPress={edit?.onBusiness}
-      />
-      {/* The other half, so the row has no dead middle; its rows stay
-          right-aligned. */}
-      <Block
-        onPress={edit?.onDates}
-        className="min-w-0 flex-[1_1_200px] self-start pr-7"
-      >
-        <dl className="flex flex-col gap-1 type-support">
-          <Meta label="No." value={number} mono right />
-          <Meta label="Issued" value={shortDate(issued)} right />
-          <Meta label="Due" value={shortDate(due)} right />
-        </dl>
-      </Block>
+    <div className="grid gap-x-8 gap-y-5 @min-[480px]/card:grid-cols-2">
+      <div className="min-w-0">
+        <Sender
+          business={business}
+          noSender={noSender}
+          onPress={edit?.onBusiness}
+        />
+      </div>
+      <div className="min-w-0">
+        <Block onPress={edit?.onDates}>
+          {/* Packed to the right, where an invoice keeps its number. */}
+          <dl className="grid grid-cols-[auto_auto] justify-end gap-x-3 gap-y-1 type-support">
+            <Figure label="No." value={number} mono />
+            <Figure label="Issued" value={shortDate(issued)} />
+            <Figure label="Due" value={shortDate(due)} />
+          </dl>
+        </Block>
+      </div>
+      <div className="min-w-0">
+        {client ? (
+          <Block onPress={edit?.onClient}>
+            <span className={`${LABEL} mb-2`}>Bill to</span>
+            <Party name={client.name} lines={[client.address, client.email]} />
+          </Block>
+        ) : (
+          <>
+            {/* Where the client prints, marked as the first thing to choose. */}
+            <span className={`${LABEL} mb-2`}>Bill to</span>
+            <AddButton
+              label="Choose a client"
+              onClick={edit?.onClient}
+              className="min-h-14"
+            />
+          </>
+        )}
+      </div>
+      <div className="min-w-0">
+        <span className={`${LABEL} mb-2`}>Engagement</span>
+        <div className={STACK}>
+          {/* The period prints here once, never under a line. */}
+          <Block onPress={edit?.onPeriod}>
+            <dl className="type-support">
+              <Meta
+                label="Service period"
+                value={
+                  period?.periodStart && period.periodEnd
+                    ? `${shortDate(period.periodStart)} – ${shortDate(period.periodEnd)}`
+                    : '—'
+                }
+              />
+            </dl>
+          </Block>
+          {edit ? (
+            <dl className="type-support">
+              <TypedReference reference={edit.reference} />
+            </dl>
+          ) : reference ? (
+            <dl className="type-support">
+              <Meta label="Reference" value={reference} />
+            </dl>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }
@@ -364,16 +441,12 @@ function Sender({
   noSender: boolean;
   onPress: (() => void) | undefined;
 }) {
-  /* Half the sheet once the row no longer wraps, so its pencil sits at the
-     gutter Bill to's does, not beside the number. */
-  const room =
-    'min-w-0 flex-[1_1_200px] @min-[480px]/card:max-w-[calc(50%-1rem)]';
   if (noSender && onPress)
     return (
       <AddButton
         label="Add your business"
         onClick={onPress}
-        className={`${room} min-h-14`}
+        className="min-h-14"
       />
     );
   /* Where the sender prints, marked as missing rather than left blank. */
@@ -381,11 +454,11 @@ function Sender({
     return (
       <div
         aria-hidden
-        className={`${room} min-h-14 self-start rounded-md border border-dashed border-edge-control`}
+        className={`${dashedBleed()} min-h-14 rounded-md border border-dashed border-edge-control`}
       />
     );
   return (
-    <Block onPress={onPress} className={`${room} self-start`}>
+    <Block onPress={onPress}>
       <Party
         name={business ? (business.name ?? 'Invoice') : ''}
         lines={[business?.address, business?.email]}
@@ -394,63 +467,24 @@ function Sender({
   );
 }
 
-/** Who is billed, and for which engagement. */
-function To({
-  client,
-  preview,
-  reference,
-  edit,
+/** One of the number and dates: a label and its value, right-aligned, in
+    the two columns their list lays out. */
+function Figure({
+  label,
+  value,
+  mono,
 }: {
-  client: Pick<Client, 'name' | 'address' | 'email'> | undefined;
-  preview: CardFigures | undefined;
-  reference: string;
-  edit: CardEdits | undefined;
+  label: string;
+  value: string;
+  mono?: boolean;
 }) {
-  const period = edit?.period ?? preview;
   return (
-    <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
-      {client ? (
-        <Block onPress={edit?.onClient} className="min-w-0 flex-[1_1_200px]">
-          <span className={`${LABEL} mb-2`}>Bill to</span>
-          <Party name={client.name} lines={[client.address, client.email]} />
-        </Block>
-      ) : (
-        /* Where the client prints, marked as the first thing to choose. */
-        <div className="flex min-w-0 flex-[1_1_200px] flex-col">
-          <span className={`${LABEL} mb-2`}>Bill to</span>
-          <AddButton
-            label="Choose a client"
-            onClick={edit?.onClient}
-            className="min-h-14 w-full"
-          />
-        </div>
-      )}
-      <div className="min-w-0 flex-[1_1_200px]">
-        <span className={`${LABEL} mb-2`}>Engagement</span>
-        {/* The period prints here once, never under a line. */}
-        <Block onPress={edit?.onPeriod} className="pr-7">
-          <dl className="type-support">
-            <Meta
-              label="Service period"
-              value={
-                period?.periodStart && period.periodEnd
-                  ? `${shortDate(period.periodStart)} – ${shortDate(period.periodEnd)}`
-                  : '—'
-              }
-            />
-          </dl>
-        </Block>
-        {edit ? (
-          <dl className="mt-1 type-support">
-            <TypedReference reference={edit.reference} />
-          </dl>
-        ) : reference ? (
-          <dl className="mt-1 type-support">
-            <Meta label="Reference" value={reference} />
-          </dl>
-        ) : null}
-      </div>
-    </div>
+    <>
+      <dt className="text-subtle">{label}</dt>
+      <dd className={`text-right text-primary ${mono ? 'type-duration' : ''}`}>
+        {value}
+      </dd>
+    </>
   );
 }
 
@@ -458,8 +492,8 @@ function To({
     while empty. */
 const typedClass = (filled: boolean) =>
   filled
-    ? 'w-full min-w-0 border-0 border-b border-dashed border-edge-control bg-transparent text-primary outline-none focus-visible:border-edge-focus'
-    : `${DASHED} w-full min-w-0 bg-transparent px-2.5 py-1.5 placeholder:text-muted outline-none focus-visible:placeholder:text-subtle`;
+    ? `${bleed()} min-w-0 border-0 border-b border-dashed border-edge-control bg-transparent text-primary outline-none focus-visible:border-edge-focus`
+    : `${DASHED} ${dashedBleed()} min-w-0 bg-transparent placeholder:text-muted outline-none focus-visible:placeholder:text-subtle`;
 
 function TypedReference({ reference }: { reference: Typed }) {
   const filled = reference.value.trim() !== '';
@@ -530,25 +564,15 @@ function Meta({
   label,
   value,
   mono,
-  right,
 }: {
   label: string;
   value: string;
   mono?: boolean;
-  right?: boolean;
 }) {
   return (
-    <div className={`flex gap-3 ${right ? 'justify-between' : ''}`}>
-      <dt className={`flex-none text-subtle ${right ? '' : 'w-26'}`}>
-        {label}
-      </dt>
-      <dd
-        className={`text-primary ${right ? 'min-w-24 text-right' : ''} ${
-          mono ? 'type-duration' : ''
-        }`}
-      >
-        {value}
-      </dd>
+    <div className="flex gap-3">
+      <dt className="w-26 flex-none text-subtle">{label}</dt>
+      <dd className={`text-primary ${mono ? 'type-duration' : ''}`}>{value}</dd>
     </div>
   );
 }
@@ -571,16 +595,13 @@ function PaymentBlock({
   if (!payment)
     return (
       <div className="border-t border-edge-subtle pt-4">
-        {edit.paymentMenu(<AddButton label="Add payment details" />)}
+        {edit.paymentMenu(<AddButton label="Add payment details" inline />)}
       </div>
     );
   return (
-    <div className="border-t border-edge-subtle pt-2.5">
+    <div className="border-t border-edge-subtle pt-4">
       {edit.paymentMenu(
-        <button
-          type="button"
-          className={`${rowButton} -mx-2 w-[calc(100%+1rem)] py-1.5`}
-        >
+        <button type="button" className={`${rowButton} ${bleed()} pr-7`}>
           <span className="sr-only">Edit</span>{' '}
           <PaymentFieldsBlock payment={payment} />
           <EditMark />
@@ -791,9 +812,13 @@ function Lines({
       }
 
       {edit ? (
-        <div className="flex flex-wrap gap-2">
-          <AddButton label="Add a charge" onClick={edit.charges.onAdd} />
-          <AddButton label="Add an expense" onClick={edit.expenses.onAdd} />
+        <div className={ADD_ROW}>
+          <AddButton label="Add a charge" onClick={edit.charges.onAdd} inline />
+          <AddButton
+            label="Add an expense"
+            onClick={edit.expenses.onAdd}
+            inline
+          />
         </div>
       ) : null}
 

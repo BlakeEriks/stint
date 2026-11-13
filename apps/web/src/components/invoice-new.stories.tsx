@@ -164,6 +164,39 @@ export const Blank: Story = {
 };
 export const Phone: Story = { ...Blank, ...phone };
 
+/** One box model on the sheet: every box, highlight, dashed or typed,
+    reaches the same 8px past its column, so edges line up down each half
+    and the gutter is one line. Measured, since a drift of a few pixels
+    passes every other check. */
+export const SheetAligned: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const box = (el: HTMLElement) => el.getBoundingClientRect();
+    const business = box(
+      await page.findByRole('button', { name: /^Edit Sam Rivera/ }),
+    );
+    const client = box(page.getByRole('button', { name: 'Choose a client' }));
+    const dates = box(page.getByRole('button', { name: /^Edit No\./ }));
+    const period = box(
+      page.getByRole('button', { name: /^Edit Service period/ }),
+    );
+    const reference = box(page.getByRole('textbox', { name: 'Reference' }));
+    const near = (a: number, b: number) =>
+      expect(Math.abs(a - b)).toBeLessThanOrEqual(1);
+    // The left half: a highlight and a dashed box share both edges.
+    near(business.left, client.left);
+    near(business.right, client.right);
+    // The right half: the two rows start on one line, and a highlight and
+    // a typed field end on one.
+    near(dates.left, period.left);
+    near(dates.right, reference.right);
+    near(period.right, reference.right);
+    // Stacked boxes never overlap.
+    expect(period.bottom).toBeLessThanOrEqual(reference.top);
+  },
+};
+
 /** On September 17 the period is September, the month ending nearest, and
     due follows the settings' Net 30 terms. The card follows both. */
 export const Defaults: Story = {

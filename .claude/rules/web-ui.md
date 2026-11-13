@@ -214,6 +214,12 @@ anticipation of one.
   press does: a rounded, padded highlight that bleeds past the column so the
   text stays in line with the rest of it (`rowButton` and `rowBleed` in
   `components/row-button.ts`).
+- **On the invoice sheet every box bleeds alike**: a highlight, a dashed box
+  or a typed field reaches 8px past its text sideways and 6px above and
+  below, inside a plain cell the grid places (`bleed()` and `dashedBleed()`
+  in `invoice-preview-card.tsx`). The box is never the grid's item, so the
+  columns divide alike on every row; a column of boxes keeps `STACK`'s gap
+  and a row of them `ADD_ROW`'s. The `SheetAligned` story measures it.
 - **A failure renders beside the thing that failed**, and a failed load is
   neutral, never red — it is a condition, and the answer is to try again.
 - **Home's empty Today grid has no empty-state line** once the account
