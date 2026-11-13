@@ -61,9 +61,7 @@ export default function Page() {
       <Clause heading="Who else can see it">
         <p>
           Infrastructure providers who host the application and its database
-          process data on Stint&rsquo;s behalf and are bound to it. On the
-          sign-in page, Cloudflare Turnstile checks that a person is signing in,
-          and sees your IP address and browser details to do it. No one else
+          process data on Stint&rsquo;s behalf and are bound to it. No one else
           receives your data, and it is never sold.
         </p>
         <p>

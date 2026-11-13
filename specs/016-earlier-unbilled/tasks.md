@@ -12,8 +12,8 @@
 
 - [x] T004 [US1] Route test first in `apps/web/test/invoices.test.ts`: the preview's `earlierWork` (one entry after a sent invoice, a non-billable one left out, a void invoice ignored), and the invoice generated from the moved start bills it
 - [x] T005 [US1] The reads and the call in `apps/web/src/app/api/v1/invoices/preview/route.ts` and `apps/web/src/mocks/derive.ts`
-- [x] T006 [US1] Stories first in `apps/web/src/components/invoice-new.stories.tsx`: one entry, several, and Include's `play`
-- [x] T007 [US1] The offer and Include in `apps/web/src/components/invoice-new.tsx`
+- [x] T006 [US1] Stories first in `apps/web/src/components/invoice-new.stories.tsx`: one entry, several, and Start from's `play`
+- [x] T007 [US1] The offer and Start from in `apps/web/src/components/invoice-new.tsx`
 
 ## Phase 3: Polish
 

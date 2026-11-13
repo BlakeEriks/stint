@@ -15,4 +15,4 @@
 ## Work another draft holds
 
 - **Decision**: left out of the count.
-- **Rationale**: #596 made drafts hold their work and dropped `DRAFT_OVERLAPS`, so held work is on an invoice already and Include is never refused. A draft holds work dated before the period only once a held entry is re-dated; showing that is the draft's job, not a second state here.
+- **Rationale**: #596 made drafts hold their work and dropped `DRAFT_OVERLAPS`, so held work is on an invoice already and Start from is never refused. A draft holds work dated before the period only once a held entry is re-dated; showing that is the draft's job, not a second state here.

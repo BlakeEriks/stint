@@ -672,7 +672,7 @@ function Form({
                 ? current.earlierWork
                 : null
             }
-            onInclude={(from) =>
+            onStartFrom={(from) =>
               setDraft((d) => ({ ...d, periodStart: from, periodEnd }))
             }
             noSummaryText={noSummaryText && !lastPending}
@@ -854,7 +854,7 @@ function Notices({
   client,
   period,
   earlierWork,
-  onInclude,
+  onStartFrom,
   noSummaryText,
   earlyDue,
   preview,
@@ -864,7 +864,7 @@ function Notices({
   client: Client;
   period: Period;
   earlierWork: InvoicePreview['earlierWork'];
-  onInclude: (from: string) => void;
+  onStartFrom: (from: string) => void;
   noSummaryText: boolean;
   earlyDue: boolean;
   preview: InvoicePreview | undefined;
@@ -875,7 +875,7 @@ function Notices({
       {/* First: it is why Generate is disabled. */}
       <SenderNotice settings={settings} />
       <ScheduleHint client={client} {...period} />
-      <EarlierWorkOffer work={earlierWork} onInclude={onInclude} />
+      <EarlierWorkOffer work={earlierWork} onStartFrom={onStartFrom} />
       {noSummaryText ? (
         <p id={SUMMARY_ERROR} role="alert" className="type-support text-danger">
           Give the summary line its text.
@@ -1171,14 +1171,15 @@ const shortDate = (d: string) =>
   }).format(new Date(`${d}T00:00:00Z`));
 
 /** Work no draft holds, dated after the client's last invoice and before
-    this period, which neither would bill. Include moves From back to it, and
-    nothing is included without the press (Constitution I). */
+    this period, which neither would bill. The button names the date From
+    moves back to, since that is all the press does, and nothing moves
+    without it (Constitution I). */
 function EarlierWorkOffer({
   work,
-  onInclude,
+  onStartFrom,
 }: {
   work: InvoicePreview['earlierWork'];
-  onInclude: (from: string) => void;
+  onStartFrom: (from: string) => void;
 }) {
   if (!work) return null;
   const one = work.entryCount === 1;
@@ -1195,8 +1196,8 @@ function EarlierWorkOffer({
       <span>
         {what} {one ? "isn't" : "aren't"} on any invoice.
       </span>
-      <Button type="button" size="sm" onClick={() => onInclude(work.from)}>
-        Include {one ? 'it' : 'them'}
+      <Button type="button" size="sm" onClick={() => onStartFrom(work.from)}>
+        Start from {shortDate(work.from)}
       </Button>
     </p>
   );

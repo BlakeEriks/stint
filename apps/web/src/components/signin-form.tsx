@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { elevatedInputClass } from '@/components/field';
 import { Button } from '@/components/ui/button';
-import { Turnstile } from '@/components/turnstile';
 import { Wordmark } from '@/components/wordmark';
 import { forgetCache } from '@/lib/client/query-cache';
 import { browserClient } from '@/lib/client/supabase';
@@ -18,14 +17,10 @@ import { browserClient } from '@/lib/client/supabase';
 export function SignInForm({
   error,
   deleted,
-  captchaSiteKey,
   next,
 }: {
   error?: string;
   deleted?: boolean;
-  /** Turnstile's site key where the Auth server asks for a CAPTCHA:
-      production. Unset, the form sends none. */
-  captchaSiteKey?: string;
   /** Where the link lands once signed in; `/auth/callback` keeps it on
       this site. */
   next?: string;
@@ -38,9 +33,6 @@ export function SignInForm({
   const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'error'>(
     'idle',
   );
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  // A token is spent by the request it rides on; a new key draws a new one.
-  const [attempt, setAttempt] = useState(0);
   const [message, setMessage] = useState('');
 
   async function submit(e: React.FormEvent) {
@@ -68,19 +60,12 @@ export function SignInForm({
         emailRedirectTo: `${window.location.origin}/auth/callback${
           next ? `?next=${encodeURIComponent(next)}` : ''
         }`,
-        captchaToken: captchaToken ?? undefined,
       },
     });
 
     if (error) {
       setState('error');
-      setMessage(
-        error.code === 'captcha_failed'
-          ? 'Stint couldn’t confirm you’re not a bot. Try again.'
-          : error.message,
-      );
-      setCaptchaToken(null);
-      setAttempt((n) => n + 1);
+      setMessage(error.message);
       return;
     }
     setState('sent');
@@ -136,29 +121,9 @@ export function SignInForm({
             />
           </label>
 
-          {captchaSiteKey ? (
-            <Turnstile
-              key={attempt}
-              siteKey={captchaSiteKey}
-              onToken={setCaptchaToken}
-              onUnloaded={() => {
-                setState('error');
-                setMessage(
-                  'The check that you’re not a bot didn’t load. Allow challenges.cloudflare.com, then reload.',
-                );
-              }}
-            />
-          ) : null}
-
           {/* The one action this screen exists to complete, so it takes the
               accent. */}
-          <Button
-            type="submit"
-            variant="accent"
-            disabled={
-              state === 'sending' || (captchaSiteKey != null && !captchaToken)
-            }
-          >
+          <Button type="submit" variant="accent" disabled={state === 'sending'}>
             {state === 'sending' ? 'Sending…' : 'Email me a sign-in link'}
           </Button>
 

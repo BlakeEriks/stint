@@ -3,7 +3,7 @@ import {
   getRouter,
   useSearchParams,
 } from '@storybook/nextjs-vite/navigation.mock';
-import { delay, http } from 'msw';
+import { http } from 'msw';
 import { useEffect, useReducer } from 'react';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account, getDb } from '@/mocks/db';
@@ -18,6 +18,7 @@ import {
   screen,
   skipping,
   stalled,
+  stalledWhen,
   tablet,
   wide,
   foldDock,
@@ -511,26 +512,13 @@ export const Updating: Story = {
     /* The dimmed figures are the ones the next answer replaces, held back on
        purpose; axe reads their half opacity as low contrast. */
     a11y: skipping('aria-hidden-focus', 'color-contrast'),
-    stalls: 1,
-    msw: {
-      handlers: {
-        // The play's By project never answers; every other preview does.
-        previewInvoice: http.post(
-          handlers.previewInvoice.info.path,
-          async (info) => {
-            const body = (await info.request.clone().json()) as {
-              groupingMode?: string;
-            };
-            if (body.groupingMode === 'project') await delay('infinite');
-            // `resolver` is protected in msw's types, and public at runtime.
-            const real = handlers.previewInvoice as unknown as {
-              resolver: (i: typeof info) => Promise<Response>;
-            };
-            return real.resolver(info);
-          },
-        ),
-      },
-    },
+    // The play's By project never answers; every other preview does.
+    ...stalledWhen('previewInvoice', async (info) => {
+      const body = (await info.request.clone().json()) as {
+        groupingMode?: string;
+      };
+      return body.groupingMode === 'project';
+    }),
   },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
@@ -616,7 +604,7 @@ export const EarlierWork: Story = {
       ),
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Include them' }),
+      page.getByRole('button', { name: /^Start from Aug \d+$/ }),
     ).toBeVisible();
   },
 };
@@ -637,9 +625,9 @@ const strays = (db: Db) => {
   );
 };
 
-/** One entry stranded: Include it moves From back to its day, the offer
+/** One entry stranded: Start from moves From back to its day, the offer
     goes, and the card bills it. */
-export const IncludeEarlierWork: Story = {
+export const StartFromEarlierWork: Story = {
   ...desktop,
   parameters: {
     ...menuOpen,
@@ -656,7 +644,9 @@ export const IncludeEarlierWork: Story = {
     );
     await settled(page);
     const before = due(page).getByText(/^\d+ entries$/).textContent;
-    await userEvent.click(page.getByRole('button', { name: 'Include it' }));
+    await userEvent.click(
+      page.getByRole('button', { name: 'Start from Aug 31' }),
+    );
     await expect(offer).not.toBeInTheDocument();
     await period(page);
     await expect(page.getByLabelText('From')).toHaveValue('2026-08-31');
@@ -674,35 +664,24 @@ export const EarlierWorkLeavesWithClient: Story = {
   ...desktop,
   parameters: {
     a11y: skipping('aria-hidden-focus', 'color-contrast'),
-    stalls: 1,
-    msw: {
-      handlers: {
-        previewInvoice: http.post(
-          handlers.previewInvoice.info.path,
-          async (info) => {
-            const body = (await info.request.clone().json()) as {
-              clientId: string;
-            };
-            if (body.clientId === ids.meridian) await delay('infinite');
-            // `resolver` is protected in msw's types, and public at runtime.
-            const real = handlers.previewInvoice as unknown as {
-              resolver: (i: typeof info) => Promise<Response>;
-            };
-            return real.resolver(info);
-          },
-        ),
-      },
-    },
+    ...stalledWhen('previewInvoice', async (info) => {
+      const body = (await info.request.clone().json()) as {
+        clientId: string;
+      };
+      return body.clientId === ids.meridian;
+    }),
   },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
-    await page.findByRole('button', { name: 'Include them' });
+    await page.findByRole('button', { name: /^Start from/ });
     const range = page.getByRole('button', { name: 'Period' }).textContent;
     await chooseMeridian(canvasElement);
     await expect(
       page.getByRole('button', { name: 'Period' }),
     ).toHaveTextContent(range as string);
-    await expect(page.queryByRole('button', { name: /^Include/ })).toBeNull();
+    await expect(
+      page.queryByRole('button', { name: /^Start from/ }),
+    ).toBeNull();
   },
 };
 
@@ -1235,22 +1214,12 @@ export const SwitchingClients: Story = {
   ...desktop,
   parameters: {
     ...menuOpen,
-    stalls: 1,
-    msw: {
-      handlers: {
-        // Meridian's last invoice never answers; every other does.
-        invoices: http.get(handlers.invoices.info.path, async (info) => {
-          const url = new URL(info.request.url);
-          if (url.searchParams.get('clientId') === ids.meridian)
-            await delay('infinite');
-          // `resolver` is protected in msw's types, and public at runtime.
-          const real = handlers.invoices as unknown as {
-            resolver: (i: typeof info) => Promise<Response>;
-          };
-          return real.resolver(info);
-        }),
-      },
-    },
+    // Meridian's last invoice never answers; every other does.
+    ...stalledWhen(
+      'invoices',
+      (info) =>
+        new URL(info.request.url).searchParams.get('clientId') === ids.meridian,
+    ),
   },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
