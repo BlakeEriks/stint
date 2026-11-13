@@ -1023,8 +1023,9 @@ function Due({
 }) {
   if (!preview && !updating) return null;
   return (
-    <span className="flex items-baseline gap-3">
-      <span className="type-support text-subtle">
+    // In the phone bar the count stands under the amount, so neither wraps.
+    <span className="flex items-baseline gap-3 @max-[560px]/new:flex-col @max-[560px]/new:items-start @max-[560px]/new:gap-0">
+      <span className="whitespace-nowrap type-support text-subtle">
         {updating ? 'Updating…' : preview ? billedCount(preview) : null}
       </span>
       {preview ? (

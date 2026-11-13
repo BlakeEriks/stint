@@ -357,7 +357,10 @@ function Sender({
   noSender: boolean;
   onPress: (() => void) | undefined;
 }) {
-  const room = 'min-w-0 flex-[1_1_200px]';
+  /* Half the sheet once the row no longer wraps, so its pencil sits at the
+     gutter Bill to's does, not beside the number. */
+  const room =
+    'min-w-0 flex-[1_1_200px] @min-[480px]/card:max-w-[calc(50%-1rem)]';
   if (noSender && onPress)
     return (
       <AddButton
