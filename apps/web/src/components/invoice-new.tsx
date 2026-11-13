@@ -714,8 +714,9 @@ function Form({
             period: { periodStart, periodEnd },
             currency: client?.currency ?? settings?.currency ?? 'USD',
             chargeDialog,
-            // An expense is the client's, so none is added before one.
-            expenseDialog: client ? expenseDialog : undefined,
+            // An expense is the client's: before one is chosen, Add an
+            // expense goes to where one is, as Bill to does.
+            expenseDialog: client ? expenseDialog : { show: focusClient },
             profiles,
             profile,
           })}
@@ -919,7 +920,7 @@ function cardEdits({
   period: { periodStart: string; periodEnd: string };
   currency: string;
   chargeDialog: { show: (key: string) => void };
-  expenseDialog: { show: (expense: Expense | undefined) => void } | undefined;
+  expenseDialog: { show: (expense: Expense | undefined) => void };
   profiles: PaymentProfile[];
   profile: PaymentProfile | null;
 }): CardEdits {
@@ -949,7 +950,7 @@ function cardEdits({
       onOpen: chargeDialog.show,
       onAdd: () => chargeDialog.show('new'),
     },
-    expenses: expenseDialog && {
+    expenses: {
       waiting,
       periodEnd: period.periodEnd,
       excluded: draft.excludedExpenseIds,

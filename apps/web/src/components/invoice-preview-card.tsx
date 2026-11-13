@@ -90,8 +90,7 @@ export type CardEdits = {
     onOpen: (key: string) => void;
     onAdd: () => void;
   };
-  /** Absent until a client is chosen: an expense is the client's. */
-  expenses?: {
+  expenses: {
     /** The client's waiting expenses this invoice can bill. */
     waiting: Expense[];
     /** The day a recurring one prints. */
@@ -632,8 +631,7 @@ type ExpenseLine = {
     order they print. Only their amounts wait for the server. */
 function expenseLines(lines: Line[], edit: CardEdits | undefined) {
   const served = lines.filter((li) => li.unit === 'expense');
-  const expenses = edit?.expenses;
-  if (!expenses)
+  if (!edit)
     return served.map((li, i) => ({
       key: li.expenseId ?? `line-${i}`,
       description: li.description,
@@ -641,15 +639,15 @@ function expenseLines(lines: Line[], edit: CardEdits | undefined) {
       amount: li.amount,
       billed: true,
     }));
-  return expenses.waiting.map((e): ExpenseLine => {
+  return edit.expenses.waiting.map((e): ExpenseLine => {
     const line = served.find((li) => li.expenseId === e.id);
     return {
       key: e.id,
       description: e.description,
-      spentOn: line?.spentOn ?? e.spentOn ?? expenses.periodEnd,
+      spentOn: line?.spentOn ?? e.spentOn ?? edit.expenses.periodEnd,
       amount: line?.amount ?? e.amount,
       expense: e,
-      billed: !expenses.excluded.includes(e.id),
+      billed: !edit.expenses.excluded.includes(e.id),
     };
   });
 }
@@ -759,9 +757,7 @@ function Lines({
       {edit ? (
         <div className="flex flex-wrap gap-2">
           <AddButton label="Add a charge" onClick={edit.charges.onAdd} />
-          {edit.expenses ? (
-            <AddButton label="Add an expense" onClick={edit.expenses.onAdd} />
-          ) : null}
+          <AddButton label="Add an expense" onClick={edit.expenses.onAdd} />
         </div>
       ) : null}
 
@@ -880,23 +876,24 @@ function ExpenseRowLine({
 }) {
   const faint = row.billed ? '' : 'text-subtle line-through';
   const { expense } = row;
-  const expenses = edit?.expenses;
   return (
     <tr className={ROW}>
       <td className={`py-1 ${faint || 'text-primary'}`}>
-        {expenses ? (
+        {edit ? (
           <span className="flex items-center gap-2">
             <input
               type="checkbox"
               checked={row.billed}
-              onChange={(ev) => expenses.onToggle(row.key, ev.target.checked)}
+              onChange={(ev) =>
+                edit.expenses.onToggle(row.key, ev.target.checked)
+              }
               aria-label={`Bill ${row.description}`}
               className="size-4 flex-none accent-[var(--text-muted)]"
             />
             {expense ? (
               <button
                 type="button"
-                onClick={() => expenses.onOpen(expense)}
+                onClick={() => edit.expenses.onOpen(expense)}
                 className={`${rowButton} -ml-0.5 min-w-0 flex-1 py-1.5 pr-7`}
               >
                 <span className="sr-only">Edit</span> {row.description}

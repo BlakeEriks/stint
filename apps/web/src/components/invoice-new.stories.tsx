@@ -148,6 +148,9 @@ export const Blank: Story = {
     await expect(
       page.getByRole('button', { name: 'Save draft' }),
     ).toBeDisabled();
+    // An expense is the client's: the press goes to where one is chosen.
+    await userEvent.click(page.getByRole('button', { name: 'Add an expense' }));
+    await expect(page.getByRole('button', { name: 'Client' })).toHaveFocus();
     // No client, no format yet: nothing to fault.
     await expect(
       page.queryByText('Give the summary line its text.'),
