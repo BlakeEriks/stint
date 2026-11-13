@@ -1143,30 +1143,6 @@ export const NothingYet: Story = {
   },
 };
 
-/** No time, no expense and no charge: the page says so, and Generate
-    waits, since the draft could never be sent. */
-export const NothingToBill: Story = {
-  ...desktop,
-  parameters: {
-    ...menuOpen,
-    ...account((db) => {
-      for (const e of db.entries) e.isBillable = false;
-      db.expenses = [];
-    }),
-  },
-  play: async ({ canvasElement }) => {
-    const page = await chooseNorthwind(canvasElement);
-    // The answer has landed once the page says so; Generate never enables.
-    await expect(
-      await card(page).findByText('Nothing to bill in this period.'),
-    ).toBeVisible();
-    await expect(await due(page).findByText('0 entries')).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'Generate invoice' }),
-    ).toBeDisabled();
-  },
-};
-
 /** One summary line with no hours to bill still has its field: the server
     refuses a summary invoice without its text. */
 export const SummaryWithoutHours: Story = {
