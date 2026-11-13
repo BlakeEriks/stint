@@ -616,8 +616,18 @@ function PaymentFieldsBlock({ payment }: { payment: PaymentDetails }) {
 }
 
 function PaymentFields({ fields }: { fields: PaymentDetails['fields'] }) {
+  /* As many columns as spread the fields evenly over the fewest rows of at
+     most four, so six print 3 + 3 and seven 4 + 3, never 5 + 1. Each column
+     still needs 140px, so a narrow card gets fewer. */
+  const cols = Math.ceil(fields.length / Math.ceil(fields.length / 4));
+  const min = `calc((100% - ${cols - 1} * 1rem) / ${cols} - 1px)`;
   return (
-    <dl className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-x-4 gap-y-3">
+    <dl
+      className="grid gap-x-4 gap-y-3"
+      style={{
+        gridTemplateColumns: `repeat(auto-fill, minmax(max(140px, ${min}), 1fr))`,
+      }}
+    >
       {fields.map((f) => (
         <div key={f.label}>
           <dt className="text-subtle">{f.label}</dt>
