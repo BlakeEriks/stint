@@ -151,6 +151,11 @@ export const Blank: Story = {
     // An expense is the client's: the press goes to where one is chosen.
     await userEvent.click(page.getByRole('button', { name: 'Add an expense' }));
     await expect(page.getByRole('button', { name: 'Client' })).toHaveFocus();
+    // The period is set above the page: Service period goes there.
+    await userEvent.click(
+      page.getByRole('button', { name: /^Edit Service period/ }),
+    );
+    await expect(page.getByRole('button', { name: 'Period' })).toHaveFocus();
     // No client, no format yet: nothing to fault.
     await expect(
       page.queryByText('Give the summary line its text.'),

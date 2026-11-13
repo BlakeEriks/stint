@@ -937,6 +937,7 @@ function cardEdits({
     onBusiness: editing ? undefined : open.sender,
     onDates: open.dates,
     onClient: open.client,
+    onPeriod: focusPeriod,
     period,
     currency,
     reference: { value: reference, onChange: (v) => set('reference', v) },
@@ -1004,9 +1005,11 @@ function paymentOf({
 const PHONE_BAR =
   '@max-[560px]/new:sticky @max-[560px]/new:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] @max-[560px]/new:z-10 @max-[560px]/new:order-last @max-[560px]/new:justify-between @max-[560px]/new:rounded-lg @max-[560px]/new:border @max-[560px]/new:border-edge-subtle @max-[560px]/new:bg-surface-primary @max-[560px]/new:px-3 @max-[560px]/new:py-2.5';
 
-/** Where a client is chosen: the first control, which a press on the
-    page's empty Bill to returns to. */
-const focusClient = () => document.getElementById('inv-client')?.focus();
+/** A press on the page for something set above it goes to that control:
+    Bill to and Add an expense to Client, Service period to Period. */
+const focusControl = (id: string) => () => document.getElementById(id)?.focus();
+const focusClient = focusControl('inv-client');
+const focusPeriod = focusControl('inv-period');
 
 /** One label for a new draft and an edit: both save a draft, which Mark
     sent issues. */

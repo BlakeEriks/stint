@@ -76,6 +76,8 @@ export type CardEdits = {
   onBusiness?: () => void;
   onDates: () => void;
   onClient: () => void;
+  /** The period is set above the page: the press goes to that control. */
+  onPeriod: () => void;
   /** The period chosen on the form, which prints before the server echoes
    *  it. */
   period: { periodStart: string; periodEnd: string };
@@ -425,22 +427,28 @@ function To({
       )}
       <div className="min-w-0 flex-[1_1_200px]">
         <span className={`${LABEL} mb-2`}>Engagement</span>
-        <dl className="flex flex-col gap-1 type-support">
-          {/* The period prints here once, never under a line. */}
-          <Meta
-            label="Service period"
-            value={
-              period?.periodStart && period.periodEnd
-                ? `${shortDate(period.periodStart)} – ${shortDate(period.periodEnd)}`
-                : '—'
-            }
-          />
-          {edit ? (
+        {/* The period prints here once, never under a line. */}
+        <Block onPress={edit?.onPeriod} className="pr-7">
+          <dl className="type-support">
+            <Meta
+              label="Service period"
+              value={
+                period?.periodStart && period.periodEnd
+                  ? `${shortDate(period.periodStart)} – ${shortDate(period.periodEnd)}`
+                  : '—'
+              }
+            />
+          </dl>
+        </Block>
+        {edit ? (
+          <dl className="mt-1 type-support">
             <TypedReference reference={edit.reference} />
-          ) : reference ? (
+          </dl>
+        ) : reference ? (
+          <dl className="mt-1 type-support">
             <Meta label="Reference" value={reference} />
-          ) : null}
-        </dl>
+          </dl>
+        ) : null}
       </div>
     </div>
   );
