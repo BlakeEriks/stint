@@ -1017,13 +1017,10 @@ function Due({
   updating: boolean;
 }) {
   if (!preview && !updating) return null;
-  const entries = preview?.entryCount ?? 0;
   return (
     <span className="flex items-baseline gap-3">
       <span className="type-support text-subtle">
-        {updating
-          ? 'Updating…'
-          : `${entries} entr${entries === 1 ? 'y' : 'ies'}`}
+        {updating ? 'Updating…' : preview ? billedCount(preview) : null}
       </span>
       {preview ? (
         <span
@@ -1104,6 +1101,19 @@ function LeaveDialog({
   );
 }
 
+/** What the figure is made of: its entries, and its expenses when there
+    are any, so a total with no time doesn't read as a mistake. */
+function billedCount(preview: InvoicePreview) {
+  const entries = preview.entryCount;
+  const expenses = preview.lineItems.filter((l) => l.unit === 'expense').length;
+  const parts = [];
+  if (entries > 0 || expenses === 0)
+    parts.push(`${entries} entr${entries === 1 ? 'y' : 'ies'}`);
+  if (expenses > 0)
+    parts.push(`${expenses} expense${expenses === 1 ? '' : 's'}`);
+  return parts.join(' · ');
+}
+
 /**
  * Whether Generate can be pressed, and why not when the user can fix it.
  * Generating freezes what the card shows, so it waits for a current answer
@@ -1114,7 +1124,7 @@ function generateState(s: {
   /** Due is before the issue date, which the server refuses. */
   earlyDue: boolean;
   /** The server's answer for this client; `undefined` before one. */
-  preview: Pick<InvoicePreview, 'unratedEntryIds'> | undefined;
+  preview: Pick<InvoicePreview, 'unratedEntryIds' | 'lineItems'> | undefined;
   /** The form has changed since the answer, or the server is recomputing. */
   updating: boolean;
   failed: boolean;
@@ -1146,13 +1156,16 @@ function blockedBy(s: {
   earlyDue: boolean;
   failed: boolean;
   noSummaryText: boolean;
-  preview: Pick<InvoicePreview, 'unratedEntryIds'> | undefined;
+  preview: Pick<InvoicePreview, 'unratedEntryIds' | 'lineItems'> | undefined;
 }): string | null {
   if (!s.hasClient) return 'choose a client.';
   if (!s.hasSender) return 'add your business name and email.';
   const unrated = s.preview?.unratedEntryIds.length ?? 0;
   if (unrated > 0)
     return `${unrated} entr${unrated === 1 ? 'y has' : 'ies have'} no rate.`;
+  // The page already says so; a draft with no lines could never be sent.
+  if (s.preview && s.preview.lineItems.length === 0)
+    return 'there is nothing to bill in this period.';
   if (s.noSummaryText) return 'give the summary line its text.';
   if (s.earlyDue) return "due can't be before the issue date.";
   if (s.failed) return "the preview couldn't be built.";

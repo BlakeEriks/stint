@@ -587,7 +587,7 @@ export const StartFromEarlierWork: Story = {
       /^1 earlier entry, Aug 31, isn't on any invoice\.$/,
     );
     await settled(page);
-    const before = due(page).getByText(/^\d+ entries$/).textContent;
+    const before = due(page).getByText(/^\d+ entries/).textContent;
     await userEvent.click(
       page.getByRole('button', { name: 'Start from Aug 31' }),
     );
@@ -597,7 +597,7 @@ export const StartFromEarlierWork: Story = {
     await userEvent.keyboard('{Escape}');
     await settled(page);
     await waitFor(() =>
-      expect(due(page).getByText(/^\d+ entries$/).textContent).not.toBe(before),
+      expect(due(page).getByText(/^\d+ entries/).textContent).not.toBe(before),
     );
   },
 };
@@ -1048,6 +1048,8 @@ export const OnlyExpenses: Story = {
       card(page).getByRole('button', { name: /^Edit Figma license, annual/ }),
     ).toBeVisible();
     await expect(card(page).queryByText('Services')).toBeNull();
+    // The figure is expenses alone, and the count says so.
+    await expect(due(page).getByText(/^\d+ expenses?$/)).toBeVisible();
   },
 };
 
@@ -1138,6 +1140,30 @@ export const NothingYet: Story = {
     await expect(
       card(page).queryByText('Nothing to bill in this period.'),
     ).toBeNull();
+  },
+};
+
+/** No time, no expense and no charge: the page says so, and Generate
+    waits, since the draft could never be sent. */
+export const NothingToBill: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      for (const e of db.entries) e.isBillable = false;
+      db.expenses = [];
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    // The answer has landed once the page says so; Generate never enables.
+    await expect(
+      await card(page).findByText('Nothing to bill in this period.'),
+    ).toBeVisible();
+    await expect(await due(page).findByText('0 entries')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Generate invoice' }),
+    ).toBeDisabled();
   },
 };
 
