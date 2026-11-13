@@ -173,7 +173,7 @@ export function InvoicePreviewCard({
       <h2 id="inv-preview" className="sr-only">
         {heading ? 'Preview' : 'Invoice'}
       </h2>
-      {/* New invoice says so beside Generate; an issued invoice here. */}
+      {/* New invoice says so beside Save draft; an issued invoice here. */}
       {edit ? null : (
         <p className="px-1 pb-2.5 text-right type-support text-subtle">
           {updating ? 'Updating…' : null}

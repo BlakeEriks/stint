@@ -300,7 +300,7 @@ into. Absent, the list is simply not offered and the field still works. Do not
 ### Invoices
 
 **Preview and generation must agree.** Any change to what would be billed
-clears the approved preview and hides Generate. Tested, and the test was
+clears the approved preview and hides Save draft. Tested, and the test was
 verified to fail when the invalidation is removed.
 
 **Any entry with an `invoiceId` is locked**: a draft only holds its work

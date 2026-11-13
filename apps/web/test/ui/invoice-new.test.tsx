@@ -270,7 +270,7 @@ const dates = async (user: User) => {
   );
 };
 
-const generate = () => screen.getByRole('button', { name: /Generate/ });
+const generate = () => screen.getByRole('button', { name: /Save draft/ });
 
 /** Chosen and settled: the card shows its answer and nothing is pending. */
 const ready = async (user: User) => {
@@ -291,7 +291,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('NewInvoice', () => {
-  it('says Updating and holds Generate while the server recomputes', async () => {
+  it('says Updating and holds Save draft while the server recomputes', async () => {
     serve();
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
@@ -322,7 +322,7 @@ describe('NewInvoice', () => {
     await waitFor(() => expect(generate()).toBeEnabled());
   });
 
-  it('says why a recompute failed, and holds Generate', async () => {
+  it('says why a recompute failed, and holds Save draft', async () => {
     serve();
     const served = globalThis.fetch;
     let fail = false;

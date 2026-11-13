@@ -65,7 +65,7 @@ test.describe('invoices', () => {
     page,
   }) => {
     await page.goto('/invoices/new');
-    const generate = page.getByRole('button', { name: 'Generate invoice' });
+    const generate = page.getByRole('button', { name: 'Save draft' });
 
     await page.getByRole('button', { name: 'Client', exact: true }).click();
     await page.getByRole('menuitemradio', { name: /Northwind/ }).click();

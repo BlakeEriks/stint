@@ -46,13 +46,11 @@ const chooseNorthwind = async (canvasElement: HTMLElement) => {
   return page;
 };
 
-/** The card has the server's current answer and Generate is live. */
+/** The card has the server's current answer and Save draft is live. */
 const settled = async (page: Page) =>
   waitFor(
     () =>
-      expect(
-        page.getByRole('button', { name: 'Generate invoice' }),
-      ).toBeEnabled(),
+      expect(page.getByRole('button', { name: 'Save draft' })).toBeEnabled(),
     { timeout: 3000 },
   );
 
@@ -104,10 +102,10 @@ const openDates = async (page: Page, shown = 'STINT-0016') => {
   return within(dialog);
 };
 
-/** The count and amount beside Generate. */
+/** The count and amount beside Save draft. */
 const due = (page: Page) =>
   within(
-    page.getByRole('button', { name: 'Generate invoice' })
+    page.getByRole('button', { name: 'Save draft' })
       .parentElement as HTMLElement,
   );
 
@@ -131,7 +129,7 @@ const scheduled = (
 
 /** No client yet: every control is there and Client has focus, since it
     comes first. The page prints what it already knows, Bill to says what
-    is left to choose, and Generate waits. */
+    is left to choose, and Save draft waits. */
 export const Blank: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -148,7 +146,7 @@ export const Blank: Story = {
       page.getByRole('button', { name: 'Choose a client' }),
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Generate invoice' }),
+      page.getByRole('button', { name: 'Save draft' }),
     ).toBeDisabled();
     // No client, no format yet: nothing to fault.
     await expect(
@@ -448,7 +446,7 @@ export const Workspace: Story = {
   },
 };
 
-/** A change the server computes dims the figures and holds Generate until
+/** A change the server computes dims the figures and holds Save draft until
     the answer lands; this one never does (US3 scenario 3). */
 export const Updating: Story = {
   ...desktop,
@@ -470,7 +468,7 @@ export const Updating: Story = {
     await pickGrouping(page, /By project/);
     await expect(await page.findByText('Updating…')).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Generate invoice' }),
+      page.getByRole('button', { name: 'Save draft' }),
     ).toBeDisabled();
   },
 };
@@ -490,7 +488,7 @@ export const Unrated: Story = {
     const page = await chooseNorthwind(canvasElement);
     await expect(await page.findByText(/no rate/i)).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Generate invoice' }),
+      page.getByRole('button', { name: 'Save draft' }),
     ).toBeDisabled();
   },
 };
@@ -731,7 +729,7 @@ const saveNumber = async (
   return form;
 };
 
-/** The number Generate takes prints before it does. Pressing it moves it
+/** The number Save draft takes prints before it does. Pressing it moves it
     in a dialog, so the draft being built stays as it was. */
 export const ChangeNumber: Story = {
   ...desktop,
@@ -853,7 +851,7 @@ export const SummaryTwoRates: Story = {
   },
 };
 
-/** An empty summary line is an error at the field, and Generate waits
+/** An empty summary line is an error at the field, and Save draft waits
     (US1 scenario 3). */
 export const NoSummaryLine: Story = {
   ...desktop,
@@ -867,7 +865,7 @@ export const NoSummaryLine: Story = {
       page.getByLabelText('Summary line'),
     ).toHaveAccessibleDescription('Give the summary line its text.');
     await expect(
-      page.getByRole('button', { name: 'Generate invoice' }),
+      page.getByRole('button', { name: 'Save draft' }),
     ).toBeDisabled();
   },
 };
@@ -986,7 +984,7 @@ export const FormatLoading: Story = {
       page.queryByText('Give the summary line its text.'),
     ).toBeNull();
     await expect(
-      page.getByRole('button', { name: 'Generate invoice' }),
+      page.getByRole('button', { name: 'Save draft' }),
     ).toBeDisabled();
   },
 };
@@ -1327,7 +1325,7 @@ export const Loading: Story = {
     await expect(await region.findByRole('status')).toHaveTextContent(
       'Loading',
     );
-    // Generate is never there to press before Due can be filled.
+    // Save draft is never there to press before Due can be filled.
     await expect(
       region.queryByRole('button', { name: /generate/i }),
     ).toBeNull();
@@ -1339,7 +1337,7 @@ const noSender = account((db: Db) => {
   db.settings.businessEmail = null;
 });
 
-/** No business name or email: the notice says so, Generate waits, and the
+/** No business name or email: the notice says so, Save draft waits, and the
  *  page marks where the sender prints, with a hint under it. */
 export const DetailsMissing: Story = {
   ...desktop,
@@ -1353,14 +1351,14 @@ export const DetailsMissing: Story = {
       card(page).getByRole('button', { name: 'Add your business' }),
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Generate invoice' }),
+      page.getByRole('button', { name: 'Save draft' }),
     ).toBeDisabled();
   },
 };
 
 export const DetailsMissingPhone: Story = { ...DetailsMissing, ...phone };
 
-/** Add details opens the dialog; saving fills the preview and frees Generate. */
+/** Add details opens the dialog; saving fills the preview and frees Save draft. */
 export const AddDetails: Story = {
   ...desktop,
   parameters: noSender,

@@ -334,7 +334,7 @@ function useLivePreview(
   return { preview, current, updating };
 }
 
-/** The number Generate takes, and the due date the client's payment terms,
+/** The number Save draft takes, and the due date the client's payment terms,
  *  else the user's, set from `issued`; both '' until the settings answer. */
 function fromSettings(
   settings: Settings | undefined,
@@ -522,7 +522,7 @@ function Form({
   const due = draft.dueDate ?? terms.termsDue;
   const earlyDue = due !== '' && due < issued;
 
-  const generate = useOptimisticMutation({
+  const save = useOptimisticMutation({
     queryKey: () => keys.invoices(),
     inline: true,
     // The draft holds its entries and expenses, so no other draft or
@@ -566,7 +566,7 @@ function Form({
     );
   const addProfile = (p: PaymentProfile) => {
     /* Into the list at once: until the refetch lands, a pick the list
-       lacks would fall back to another profile, and Generate would
+       lacks would fall back to another profile, and Save draft would
        freeze that one. */
     qc.setQueryData<{ paymentProfiles: PaymentProfile[] }>(
       keys.paymentProfiles(),
@@ -590,7 +590,7 @@ function Form({
     number,
   });
 
-  const { canGenerate, noSummaryText, blocked } = generateState({
+  const { canSave, noSummaryText, blocked } = saveState({
     hasClient: draft.clientId !== '',
     earlyDue,
     preview: current,
@@ -598,7 +598,7 @@ function Form({
     failed: preview.isError,
     hasSettings: settings !== undefined,
     hasSender: !noSender,
-    generating: generate.isPending,
+    generating: save.isPending,
     groupingMode,
     summaryText,
   });
@@ -618,11 +618,11 @@ function Form({
         onStay={guard.stay}
         editing={editing}
         blocked={blocked}
-        canSave={canGenerate}
-        press={generate}
+        canSave={canSave}
+        press={save}
       />
       <div className="@container/new flex flex-col gap-5">
-        {/* Pinned, to keep Generate in reach down a long invoice. On a
+        {/* Pinned, to keep Save draft in reach down a long invoice. On a
             phone the title row gives way (`contents`), and what it held is
             a bar pinned to the bottom, over the timer bar: its 52px and the
             0.75rem it floats by. */}
@@ -635,10 +635,10 @@ function Form({
             <Button
               type="button"
               variant="accent"
-              onClick={() => generate.mutate()}
-              disabled={!canGenerate}
+              onClick={() => save.mutate()}
+              disabled={!canSave}
             >
-              {pressLabel(editing !== undefined, generate.isPending)}
+              {pressLabel(save.isPending)}
             </Button>
           </div>
         </div>
@@ -671,7 +671,7 @@ function Form({
           noSummaryText={noSummaryText && !lastPending && client !== undefined}
           earlyDue={earlyDue}
           preview={current}
-          error={generate.error ?? preview.error}
+          error={save.error ?? preview.error}
         />
 
         {/* The page is there before a client is: what doesn't depend on
@@ -863,7 +863,7 @@ function Notices({
 }) {
   return (
     <div className="flex flex-col gap-2 empty:hidden">
-      {/* First: it is why Generate is disabled. */}
+      {/* First: it is why Save draft is disabled. */}
       <SenderNotice settings={settings} />
       <ScheduleHint client={client} {...period} />
       <EarlierWorkOffer work={earlierWork} onStartFrom={onStartFrom} />
@@ -1002,12 +1002,11 @@ const PHONE_BAR =
     page's empty Bill to returns to. */
 const focusClient = () => document.getElementById('inv-client')?.focus();
 
-const pressLabel = (editing: boolean, pending: boolean) => {
-  if (editing) return pending ? 'Saving…' : 'Save draft';
-  return pending ? 'Generating…' : 'Generate invoice';
-};
+/** One label for a new draft and an edit: both save a draft, which Mark
+    sent issues. */
+const pressLabel = (pending: boolean) => (pending ? 'Saving…' : 'Save draft');
 
-/** What Generate would bill, beside it: the entries and the amount due,
+/** What Save draft would bill, beside it: the entries and the amount due,
     or Updating while the server recomputes them. */
 function Due({
   preview,
@@ -1115,11 +1114,11 @@ function billedCount(preview: InvoicePreview) {
 }
 
 /**
- * Whether Generate can be pressed, and why not when the user can fix it.
+ * Whether Save draft can be pressed, and why not when the user can fix it.
  * Generating freezes what the card shows, so it waits for a current answer
  * from the server.
  */
-function generateState(s: {
+function saveState(s: {
   hasClient: boolean;
   /** Due is before the issue date, which the server refuses. */
   earlyDue: boolean;
@@ -1139,13 +1138,13 @@ function generateState(s: {
   const noSummaryText =
     s.groupingMode === 'summary' && s.summaryText.trim() === '';
   const blocked = blockedBy({ ...s, noSummaryText });
-  const canGenerate =
+  const canSave =
     blocked === null &&
     s.preview !== undefined &&
     s.hasSettings &&
     !s.updating &&
     !s.generating;
-  return { canGenerate, noSummaryText, blocked };
+  return { canSave, noSummaryText, blocked };
 }
 
 /** What the user must fix before the form can be saved, said after "It
