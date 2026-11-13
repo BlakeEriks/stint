@@ -694,17 +694,16 @@ function Lines({
   /* Typed whatever the hours: the server refuses a summary invoice without
      its text. */
   const summaryOnly = edit?.summary !== undefined && services.length === 0;
-  const empty =
-    services.length === 0 && charges.length === 0 && expenses.length === 0;
+  /* On New invoice, once the server has answered with no time, the table
+     keeps its shape and says why its figures are blank. */
+  const noTime =
+    edit !== undefined && preview !== undefined && services.length === 0;
+  const timeRows =
+    summaryOnly || noTime || services.length > 0 || charges.length > 0;
 
   return (
     <>
-      {empty && preview?.lineItems ? (
-        <p className="type-support text-subtle">
-          Nothing to bill in this period.
-        </p>
-      ) : null}
-      {empty && !summaryOnly ? null : (
+      {
         <table className="w-full type-support">
           <thead>
             <tr className="border-b border-edge-default text-left">
@@ -722,34 +721,45 @@ function Lines({
               </th>
             </tr>
           </thead>
-          <tbody>
-            {summaryOnly ? (
-              <ServiceRow
-                currency={cur}
-                dim={dim}
-                summary={edit?.summary}
-                first
-              />
-            ) : null}
-            {services.map((li, i) => (
-              <ServiceRow
-                key={i}
-                line={li}
-                currency={cur}
-                dim={dim}
-                summary={edit?.summary}
-                first={i === 0}
-              />
-            ))}
-            {charges.map((c) => (
-              <ChargeRow
-                key={c.key}
-                charge={c}
-                currency={cur}
-                onOpen={() => edit?.charges.onOpen(c.key)}
-              />
-            ))}
-          </tbody>
+          {/* Never an empty body: one between the header and the expenses
+              stops Chrome painting the rows' collapsed borders, and the
+              header's underline with them. */}
+          {timeRows ? (
+            <tbody>
+              {summaryOnly ? (
+                <ServiceRow
+                  currency={cur}
+                  dim={dim}
+                  summary={edit?.summary}
+                  first
+                />
+              ) : noTime ? (
+                <tr className={ROW}>
+                  <td colSpan={4} className="py-2.5 text-subtle">
+                    No time in this period
+                  </td>
+                </tr>
+              ) : null}
+              {services.map((li, i) => (
+                <ServiceRow
+                  key={i}
+                  line={li}
+                  currency={cur}
+                  dim={dim}
+                  summary={edit?.summary}
+                  first={i === 0}
+                />
+              ))}
+              {charges.map((c) => (
+                <ChargeRow
+                  key={c.key}
+                  charge={c}
+                  currency={cur}
+                  onOpen={() => edit?.charges.onOpen(c.key)}
+                />
+              ))}
+            </tbody>
+          ) : null}
           {expenses.length > 0 ? (
             <tbody>
               <tr className="border-b border-edge-default text-left">
@@ -768,7 +778,7 @@ function Lines({
             </tbody>
           ) : null}
         </table>
-      )}
+      }
 
       {edit ? (
         <div className="flex flex-wrap gap-2">
@@ -777,7 +787,7 @@ function Lines({
         </div>
       ) : null}
 
-      {empty || !preview?.lineItems ? null : (
+      {preview?.lineItems ? (
         <Dims updating={updating}>
           <Totals
             preview={preview}
@@ -786,7 +796,7 @@ function Lines({
             expenses={expenses.some((e) => e.billed)}
           />
         </Dims>
-      )}
+      ) : null}
     </>
   );
 }

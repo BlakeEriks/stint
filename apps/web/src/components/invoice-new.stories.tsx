@@ -1054,6 +1054,8 @@ export const OnlyExpenses: Story = {
       card(page).getByRole('button', { name: /^Edit Figma license, annual/ }),
     ).toBeVisible();
     await expect(card(page).queryByText('Services')).toBeNull();
+    // The table keeps its header, and says why its figures are blank.
+    await expect(card(page).getByText('No time in this period')).toBeVisible();
     // The figure is expenses alone, and the count says so.
     await expect(due(page).getByText(/^\d+ expenses?$/)).toBeVisible();
   },
@@ -1127,8 +1129,8 @@ export const EditsBeforeFigures: Story = {
   },
 };
 
-/** Before the server's first answer an empty page is not yet "nothing to
-    bill": it says nothing until the answer does. */
+/** Before the server's first answer an empty page is not yet "no time":
+    it says nothing until the answer does. */
 export const NothingYet: Story = {
   ...desktop,
   parameters: {
@@ -1143,9 +1145,7 @@ export const NothingYet: Story = {
     await expect(
       await page.findByRole('button', { name: 'Add a charge' }),
     ).toBeVisible();
-    await expect(
-      card(page).queryByText('Nothing to bill in this period.'),
-    ).toBeNull();
+    await expect(card(page).queryByText('No time in this period')).toBeNull();
   },
 };
 
