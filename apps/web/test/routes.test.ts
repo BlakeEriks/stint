@@ -4931,6 +4931,13 @@ async function tool(name: string, args: Record<string, unknown>) {
   };
 }
 
+test('/api/mcp opens no stream on GET', async () => {
+  const { GET } = await import('../src/app/api/mcp/route.ts');
+  const res = await GET();
+  assert.equal(res.status, 405);
+  assert.equal(res.headers.get('allow'), 'POST, DELETE');
+});
+
 test('/api/mcp without a token points the client at its sign-in', async () => {
   const { POST } = await import('../src/app/api/mcp/route.ts');
   const res = await POST(new Request('http://t/api/mcp', { method: 'POST' }));
