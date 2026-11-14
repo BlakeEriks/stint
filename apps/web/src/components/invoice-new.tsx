@@ -27,7 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Check, Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 import {
   addDays,
   BILLING_PERIOD_LABELS,
@@ -640,9 +640,7 @@ function Form({
             >
               {save.isPending ? (
                 <Loader2 aria-hidden className="animate-spin" />
-              ) : (
-                <Check aria-hidden />
-              )}
+              ) : null}
               {pressLabel(save.isPending)}
             </Button>
           </div>

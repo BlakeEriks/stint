@@ -25,8 +25,8 @@ import { Slot } from "radix-ui"
  *   Save `Check` (commits the form it sits in, nothing else), Delete `Trash2`,
  *   Archive `Archive`, Send `Send` (records that it left; the app mails
  *   nothing), Download `Download`, Void `Ban`, Retry `RotateCw`, Working
- *   `Loader2`. A label unique to one screen ("Email me a sign-in link")
- *   and Cancel take none.
+ *   `Loader2`. A label unique to one screen ("Save draft") and Cancel
+ *   take none.
  *
  * `secondary`, `outline`, `link` and `lg` are not variants: a third weight is
  * `ghost`, a link is an `<a>`, and the landing CTA sizes itself.
