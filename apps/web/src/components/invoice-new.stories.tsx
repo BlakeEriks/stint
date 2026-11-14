@@ -1221,7 +1221,7 @@ export const AddDetails: Story = {
       await page.findByRole('button', { name: 'Add details' }),
     );
     const dialog = await page.findByRole('dialog', {
-      name: 'Who is this invoice from?',
+      name: 'Who’s this invoice from?',
     });
     await waitFor(() => expect(dialog).toBeVisible());
     const form = within(dialog);
@@ -1269,7 +1269,7 @@ export const DetailsSaveFails: Story = {
       await page.findByRole('button', { name: 'Add details' }),
     );
     const dialog = await page.findByRole('dialog', {
-      name: 'Who is this invoice from?',
+      name: 'Who’s this invoice from?',
     });
     await waitFor(() => expect(dialog).toBeVisible());
     const form = within(dialog);
@@ -1395,7 +1395,7 @@ export const EditSender: Story = {
     await userEvent.type(page.getByLabelText('Reference'), 'PO-7');
     await userEvent.click(page.getByRole('button', { name: 'Edit business' }));
     const dialog = await page.findByRole('dialog', {
-      name: 'Who is this invoice from?',
+      name: 'Who’s this invoice from?',
     });
     await waitFor(() => expect(dialog).toBeVisible());
     const form = within(dialog);

@@ -191,7 +191,7 @@ export const Failed: Story = {
     // The screen only: the shell's own panels load beside it.
     const main = within(within(canvasElement).getByRole('main'));
     await waitFor(() => {
-      expect(main.getByText(/could not load/i)).toBeVisible();
+      expect(main.getByText(/couldn.t load/i)).toBeVisible();
       expect(main.queryByRole('status')).toBeNull();
     });
   },
@@ -626,9 +626,7 @@ export const DeleteExpense: Story = {
     expect(page.getAllByText('Figma license, annual').length).toBeGreaterThan(
       0,
     );
-    await userEvent.click(
-      page.getByRole('button', { name: 'Delete for good' }),
-    );
+    await userEvent.click(page.getByRole('button', { name: 'Delete expense' }));
     await waitFor(() =>
       expect(page.queryByText('Figma license, annual')).toBeNull(),
     );
@@ -648,13 +646,11 @@ export const DeletingExpense: Story = {
     await userEvent.click(
       await page.findByRole('button', { name: 'Delete expense' }),
     );
-    await userEvent.click(
-      page.getByRole('button', { name: 'Delete for good' }),
-    );
+    await userEvent.click(page.getByRole('button', { name: 'Delete expense' }));
     await expect(
       await page.findByRole('button', { name: 'Deleting…' }),
     ).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Keep' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Keep it' })).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Cancel' })).toBeDisabled();
     await userEvent.keyboard('{Escape}');
     await expect(page.getByRole('dialog')).toHaveAttribute(
@@ -684,9 +680,7 @@ export const DeleteExpenseRefused: Story = {
     await userEvent.click(
       await page.findByRole('button', { name: 'Delete expense' }),
     );
-    await userEvent.click(
-      page.getByRole('button', { name: 'Delete for good' }),
-    );
+    await userEvent.click(page.getByRole('button', { name: 'Delete expense' }));
     await expect(await page.findByRole('alert')).toHaveTextContent(
       'Internal server error',
     );

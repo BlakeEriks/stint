@@ -174,7 +174,7 @@ export function EntryDialog({
           invoicedElsewhere: draft.invoicedElsewhere,
         }),
       }),
-    onError: failWith('Could not save this entry.'),
+    onError: failWith('Couldn’t save this entry.'),
   });
 
   /* A new entry is predicted instead: the form closes on the press and the
@@ -189,7 +189,7 @@ export function EntryDialog({
     mutationKey: keys.createsEntry(),
     /* Drawing it again would be a second entry if the first lands late. */
     timeoutMessage:
-      'The server hasn’t confirmed this entry yet. It will appear if it saved.',
+      'We haven’t heard back about this entry. It appears here if it saved.',
     mutationFn: (entry) => api.createEntry(entry),
     predict: (current, entry, key) =>
       predictCreatedEntry(current, entry, key, tz),
@@ -205,7 +205,7 @@ export function EntryDialog({
   const remove = useOptimisticMutation({
     ...formPress,
     mutationFn: () => api.deleteEntry(existing!.id),
-    onError: failWith('Could not delete this entry.'),
+    onError: failWith('Couldn’t delete this entry.'),
   });
 
   /* An entry on an invoice is billed on an issued one — a draft claims its
@@ -384,8 +384,8 @@ function draftInstants({ date, start, end }: Draft, tz: string) {
 
 function description(locked: boolean, invoiceNumber: string | undefined) {
   if (locked)
-    return `This entry is billed on ${invoiceNumber ?? 'an issued invoice'}, so it can no longer be changed. Void the invoice to release it.`;
-  return 'Times are in your local timezone. An end before the start counts as overnight.';
+    return `This entry is billed on ${invoiceNumber ?? 'an issued invoice'}, so it can’t be changed. Void the invoice to release it.`;
+  return 'Times are in your local time zone. An end before the start counts as overnight.';
 }
 
 /**
@@ -494,7 +494,7 @@ function EntryFooter({
              out before anything is removed. */
           aria-label="Delete entry"
           className="mr-auto"
-          label="Delete for good"
+          label="Delete entry"
           pendingLabel="Deleting…"
           pending={deleting}
           disabled={busy}

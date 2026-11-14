@@ -234,7 +234,7 @@ export function Listing<
       error.status === 404;
     return (
       <Empty tight={tight}>
-        {gone ? missing : 'Could not load this. Try again.'}
+        {gone ? missing : 'Couldn’t load this. Try again.'}
       </Empty>
     );
   }

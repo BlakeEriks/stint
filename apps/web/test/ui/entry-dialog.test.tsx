@@ -256,18 +256,18 @@ describe('EntryDialog', () => {
     open(entry());
 
     await user.click(screen.getByRole('button', { name: 'Delete entry' }));
-    expect(
-      screen.getByRole('button', { name: 'Delete for good' }),
-    ).toHaveFocus();
-    await user.click(screen.getByRole('button', { name: 'Keep' }));
+    expect(screen.getByRole('button', { name: 'Keep it' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Delete entry' })).toHaveFocus();
+    await user.click(screen.getByRole('button', { name: 'Keep it' }));
     expect(screen.getByRole('button', { name: 'Delete entry' })).toHaveFocus();
 
     /* Deleting a logged entry is irreversible and the row is one click away
        from the duration, so the first click must only ask. */
     await user.click(screen.getByRole('button', { name: 'Delete entry' }));
+    expect(screen.getByRole('button', { name: 'Keep it' })).toBeVisible();
     expect(calls.some((c) => c.method === 'DELETE')).toBe(false);
 
-    await user.click(screen.getByRole('button', { name: 'Delete for good' }));
+    await user.click(screen.getByRole('button', { name: 'Delete entry' }));
     await waitFor(() =>
       expect(calls.some((c) => c.method === 'DELETE')).toBe(true),
     );
@@ -293,8 +293,8 @@ describe('EntryDialog', () => {
   });
 
   it.each([
-    ['Save', 'Could not save this entry.'],
-    ['Delete for good', 'Could not delete this entry.'],
+    ['Save', 'Couldn’t save this entry.'],
+    ['Delete entry', 'Couldn’t delete this entry.'],
   ])(
     'falls back to its own words when %s fails offline',
     async (press, text) => {

@@ -37,7 +37,7 @@ Billing stays hidden locally until `BILLING_LIVE=true` and Stripe
 with. The same key is what the server broadcasts timer changes with, so
 without it a web tab sees another client's change only when it polls. With billing live, the invoice gate is on
 too: a free account's invoice PDF answers `402 PAYMENT_REQUIRED`, and the
-invoice screen offers Subscribe in place of Download PDF.
+invoice screen offers *Get the paid plan* in place of *Download PDF*.
 
 **No file on this machine points at production.** There is no `.env.local`;
 `pnpm migrate` and `pnpm verify:schema` reach a database only through `--url`

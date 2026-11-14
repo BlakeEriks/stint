@@ -167,7 +167,7 @@ export function Feedback() {
       {thanked ? (
         <PortalToast>
           <Check aria-hidden className="size-4 text-success" />
-          Thanks. Feedback sent.
+          Feedback sent.
         </PortalToast>
       ) : null}
     </>

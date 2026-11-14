@@ -484,7 +484,7 @@ describe('a drawn entry never leaves the grid', () => {
 
     await vi.advanceTimersByTimeAsync(10_001);
     expect(
-      await screen.findByText(/hasn.t confirmed this entry yet/),
+      await screen.findByText(/haven.t heard back about this entry/),
     ).toBeInTheDocument();
     expect(screen.queryByText(/try again/i)).toBeNull();
   });

@@ -50,6 +50,8 @@ describe('SignInForm', () => {
 
   it('explains an unrecognized reason instead of rendering nothing', async () => {
     render(<SignInForm error="something_new" />);
-    expect(screen.getByRole('alert').textContent).toMatch(/went wrong/i);
+    expect(screen.getByRole('alert').textContent).toMatch(
+      /that link didn.t work/i,
+    );
   });
 });

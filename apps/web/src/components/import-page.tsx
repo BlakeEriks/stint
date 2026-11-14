@@ -312,7 +312,7 @@ function Review({
       {preview.clients.length ? (
         <Section
           title="Clients in this file"
-          description="Already invoiced elsewhere? Enter the last date billed and earlier entries are marked billed. Leave empty if not."
+          description="For a client you’ve already invoiced elsewhere, enter the last date billed: earlier entries are marked billed."
         >
           <div>
             <div className="grid grid-cols-[minmax(0,1fr)_8rem_10rem] gap-4 pb-1">
@@ -597,7 +597,7 @@ function OverlapRow({
         <p
           className={`truncate type-body ${out ? 'text-muted' : 'text-primary'}`}
         >
-          {o.taskName || 'No description'}
+          {o.taskName || 'No task'}
         </p>
         <p className="truncate type-meta text-subtle">
           {day.format(new Date(o.startedAt))} · {status}

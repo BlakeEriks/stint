@@ -97,7 +97,7 @@ export function ExpenseDialog({
     },
     onError: (e) =>
       setError(
-        e instanceof ApiError ? e.message : 'Could not save this expense.',
+        e instanceof ApiError ? e.message : 'Couldn’t save this expense.',
       ),
   });
 
@@ -110,7 +110,7 @@ export function ExpenseDialog({
     onSuccess: () => onOpenChange(false),
     onError: (e) =>
       setError(
-        e instanceof ApiError ? e.message : 'Could not delete this expense.',
+        e instanceof ApiError ? e.message : 'Couldn’t delete this expense.',
       ),
   });
   const busy = save.isPending || remove.isPending;
@@ -144,7 +144,6 @@ export function ExpenseDialog({
           <Field
             label="Description"
             htmlFor="expense-description"
-            hint="Printed on the invoice."
             required
             error={check.error('expense-description')}
           >
@@ -224,7 +223,7 @@ export function ExpenseDialog({
               <ConfirmAction
                 aria-label="Delete expense"
                 className="mr-auto"
-                label="Delete for good"
+                label="Delete expense"
                 pendingLabel="Deleting…"
                 pending={remove.isPending}
                 disabled={save.isPending}

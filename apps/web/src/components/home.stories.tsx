@@ -529,7 +529,7 @@ export const Failed: Story = {
     // The panel's; the dock, which reads the same stats, says so too.
     const panel = within(canvasElement.querySelector('main') as HTMLElement);
     await expect(
-      await panel.findByText('Could not load this. Try again.'),
+      await panel.findByText('Couldn’t load this. Try again.'),
     ).toBeVisible();
   },
 };

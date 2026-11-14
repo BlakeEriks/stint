@@ -137,7 +137,7 @@ export function ProjectDialog({
           <DialogHeader>
             <DialogTitle>New client</DialogTitle>
             <DialogDescription>
-              It will be selected for this project once saved.
+              Saving it selects it for this project.
             </DialogDescription>
           </DialogHeader>
 

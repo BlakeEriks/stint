@@ -202,7 +202,7 @@ function Loaded({
           {isDraft ? (
             <AskFirst
               title="Delete this draft?"
-              description={`The draft (${total}) is deleted and can't be restored. Your ${entries(invoice.entryCount ?? 0)} and any expenses are kept and can go on another invoice.`}
+              description={`Its ${entries(invoice.entryCount ?? 0)} and any expenses go back to unbilled, ready for another invoice. The draft (${total}) is deleted. You can’t undo this.`}
               confirmLabel="Delete draft"
               pendingLabel="Deleting…"
               icon={<Trash2 aria-hidden strokeWidth={1.75} />}
@@ -228,9 +228,9 @@ function Loaded({
 
           {!isVoid && !isDraft ? (
             <AskFirst
-              title="Void this invoice?"
-              description={`${invoice.invoiceNumber} (${total}) is no longer owed and can't be restored; it stays in your records, marked void. Your entries and expenses on it are kept and can go on another invoice.`}
-              confirmLabel="Void"
+              title={`Void ${invoice.invoiceNumber}?`}
+              description={`${invoice.invoiceNumber} (${total}) is no longer owed. Its entries and any expenses go back to unbilled, ready for a new invoice. It stays in your records, marked void, and its number isn’t reused. You can’t undo this.`}
+              confirmLabel="Void invoice"
               pendingLabel="Voiding…"
               icon={<Ban aria-hidden strokeWidth={1.75} />}
               tone="danger"
@@ -289,7 +289,7 @@ function Loaded({
             <Button asChild>
               <Link href="/settings#plan">
                 <Lock aria-hidden strokeWidth={1.75} />
-                Subscribe to download
+                Get the paid plan
               </Link>
             </Button>
           ) : null}
@@ -333,7 +333,7 @@ function Loaded({
 
 function statusHint(status: InvoiceStatus): string | null {
   if (status === 'draft')
-    return 'It holds the work it shows. Download it, send it from your own address, then mark it sent.';
+    return 'Download it, send it from your own address, then mark it sent.';
   if (status === 'void') return 'Voided. Its entries can be billed again.';
   return null;
 }

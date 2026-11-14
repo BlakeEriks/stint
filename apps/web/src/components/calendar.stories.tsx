@@ -310,7 +310,7 @@ export const Failed: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await expect(
-      await page.findByText('Could not load this. Try again.'),
+      await page.findByText('Couldn’t load this. Try again.'),
     ).toBeVisible();
     await expect(page.queryByText(/Nothing logged/)).toBeNull();
   },
