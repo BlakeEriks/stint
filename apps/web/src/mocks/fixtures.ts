@@ -625,6 +625,7 @@ function expensesFor(invoices: StoredInvoice[]) {
     invoiceId: null,
     invoiceNumber: null,
     invoiceStatus: null,
+    draftId: null,
     ...over,
   });
 

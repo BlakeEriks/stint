@@ -9,6 +9,7 @@ import {
 import { resolveRate, resolveRateSource } from '../src/rates.ts';
 import { uuidv7 } from '../src/uuid.ts';
 import {
+  currencySymbol,
   formatCurrency,
   formatHours,
   formatLocalTime,
@@ -107,6 +108,12 @@ test('formatCurrency renders a narrow symbol, defaulting to USD', () => {
   assert.equal(formatCurrency(null), '$0.00');
   // An empty currency falls back rather than throwing on an invalid code.
   assert.equal(formatCurrency(5, ''), '$5.00');
+});
+
+test('currencySymbol is the symbol formatCurrency prints', () => {
+  assert.equal(currencySymbol('USD'), '$');
+  assert.equal(currencySymbol('EUR'), '€');
+  assert.equal(currencySymbol(''), '$');
 });
 
 test('formatCurrency rounds to whole units when asked for whole', () => {

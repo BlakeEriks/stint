@@ -520,6 +520,7 @@ export function expenseView(db: Db, e: Expense): Expense {
     ...e,
     invoiceNumber: invoice?.invoiceNumber ?? null,
     invoiceStatus: invoice?.status ?? null,
+    draftId: holder(db, e),
   };
 }
 

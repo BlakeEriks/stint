@@ -20,7 +20,9 @@ import { useMissing, type Missing } from '@/lib/client/use-missing';
  * A few Settings fields asked where they are needed, so the user never
  * leaves the screen for them. What is saved is Settings, for every screen
  * after. `children` gets whether the save is pending, to hold its fields,
- * and the error for a field id, from `missing`.
+ * and the error for a field id, from `missing`. A `patch` of `null` saves
+ * nothing to Settings, and `onSaved` takes what the dialog keeps for its
+ * screen alone.
  */
 export function SettingsDialog({
   onOpenChange,
@@ -28,6 +30,7 @@ export function SettingsDialog({
   description,
   missing,
   patch,
+  onSaved,
   className,
   children,
 }: {
@@ -35,7 +38,8 @@ export function SettingsDialog({
   title: string;
   description: ReactNode;
   missing: Missing;
-  patch: () => SettingsInput;
+  patch: () => SettingsInput | null;
+  onSaved?: () => void;
   className?: string;
   children: (
     pending: boolean,
@@ -50,11 +54,12 @@ export function SettingsDialog({
   const save = useOptimisticMutation({
     queryKey: () => keys.settings(),
     inline: true,
-    mutationFn: () => api.updateSettings(patch()),
+    mutationFn: (input: SettingsInput) => api.updateSettings(input),
     /* The answer is the saved settings, so the screen takes it as the
        dialog closes rather than a refetch later. */
     onSuccess: (saved) => {
       queryClient.setQueryData(keys.settings(), saved);
+      onSaved?.();
       onOpenChange(false);
     },
   });
@@ -71,7 +76,11 @@ export function SettingsDialog({
           className="flex flex-col gap-4"
           onSubmit={(e) => {
             e.preventDefault();
-            if (check.passes()) save.mutate();
+            if (!check.passes()) return;
+            const input = patch();
+            if (input) return save.mutate(input);
+            onSaved?.();
+            onOpenChange(false);
           }}
         >
           <DialogHeader>
