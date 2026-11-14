@@ -184,14 +184,14 @@ export const SheetAligned: Story = {
     const reference = box(page.getByRole('textbox', { name: 'Reference' }));
     const near = (a: number, b: number) =>
       expect(Math.abs(a - b)).toBeLessThanOrEqual(1);
-    // The left half: a highlight and a dashed box share both edges.
+    // The left edge: a highlight and a dashed box start on the sheet's
+    // margin.
     near(business.left, client.left);
-    near(business.right, client.right);
-    // The right half: the two rows start on one line, and a highlight and
-    // a typed field end on one.
-    near(dates.left, period.left);
+    // The right edge: the number, a highlight and a typed field all end on
+    // the sheet's margin, and the business stops short of the number.
+    near(dates.right, period.right);
     near(dates.right, reference.right);
-    near(period.right, reference.right);
+    expect(business.right).toBeLessThanOrEqual(dates.left);
     // Stacked boxes never overlap.
     expect(period.bottom).toBeLessThanOrEqual(reference.top);
   },

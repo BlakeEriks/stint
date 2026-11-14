@@ -339,9 +339,10 @@ function AddButton({
   );
 }
 
-/** The business and the number and dates, then Bill to and the engagement:
-    four plain cells on one grid, so the gutter is one line down the sheet
-    and every box inside a cell bleeds alike. */
+/** The business and the number and dates, then Bill to and the engagement.
+    The top row gives the business the room and the number only what it
+    needs, where an invoice keeps it; the second divides in halves. Every
+    cell is plain, and the box inside it bleeds alike. */
 function Header({
   business,
   noSender,
@@ -365,70 +366,77 @@ function Header({
 }) {
   const period = edit?.period ?? preview;
   return (
-    <div className="grid gap-x-8 gap-y-5 @min-[480px]/card:grid-cols-2">
-      <div className="min-w-0">
-        <Sender
-          business={business}
-          noSender={noSender}
-          onPress={edit?.onBusiness}
-        />
-      </div>
-      <div className="min-w-0">
-        <Block onPress={edit?.onDates}>
-          {/* Packed to the right, where an invoice keeps its number. */}
-          <dl className="grid grid-cols-[auto_auto] justify-end gap-x-3 gap-y-1 type-support">
-            <Figure label="No." value={number} mono />
-            <Figure label="Issued" value={shortDate(issued)} />
-            <Figure label="Due" value={shortDate(due)} />
-          </dl>
-        </Block>
-      </div>
-      <div className="min-w-0">
-        {client ? (
-          <Block onPress={edit?.onClient}>
-            <span className={`${LABEL} mb-2`}>Bill to</span>
-            <Party name={client.name} lines={[client.address, client.email]} />
-          </Block>
-        ) : (
-          <>
-            {/* Where the client prints, marked as the first thing to choose. */}
-            <span className={`${LABEL} mb-2`}>Bill to</span>
-            <AddButton
-              label="Choose a client"
-              onClick={edit?.onClient}
-              className="min-h-14"
-            />
-          </>
-        )}
-      </div>
-      <div className="min-w-0">
-        <span className={`${LABEL} mb-2`}>Engagement</span>
-        <div className={STACK}>
-          {/* The period prints here once, never under a line. */}
-          <Block onPress={edit?.onPeriod}>
-            <dl className="type-support">
-              <Meta
-                label="Service period"
-                value={
-                  period?.periodStart && period.periodEnd
-                    ? `${shortDate(period.periodStart)} – ${shortDate(period.periodEnd)}`
-                    : '—'
-                }
-              />
+    <>
+      <div className="flex flex-wrap justify-between gap-x-8 gap-y-5">
+        <div className="min-w-0 flex-[1_1_200px]">
+          <Sender
+            business={business}
+            noSender={noSender}
+            onPress={edit?.onBusiness}
+          />
+        </div>
+        <div className="flex-none">
+          <Block onPress={edit?.onDates}>
+            {/* Packed to the right, where an invoice keeps its number. */}
+            <dl className="grid grid-cols-[auto_auto] justify-end gap-x-3 gap-y-1 type-support">
+              <Figure label="No." value={number} mono />
+              <Figure label="Issued" value={shortDate(issued)} />
+              <Figure label="Due" value={shortDate(due)} />
             </dl>
           </Block>
-          {edit ? (
-            <dl className="type-support">
-              <TypedReference reference={edit.reference} />
-            </dl>
-          ) : reference ? (
-            <dl className="type-support">
-              <Meta label="Reference" value={reference} />
-            </dl>
-          ) : null}
         </div>
       </div>
-    </div>
+      <div className="grid gap-x-8 gap-y-5 @min-[480px]/card:grid-cols-2">
+        <div className="min-w-0">
+          {client ? (
+            <Block onPress={edit?.onClient}>
+              <span className={`${LABEL} mb-2`}>Bill to</span>
+              <Party
+                name={client.name}
+                lines={[client.address, client.email]}
+              />
+            </Block>
+          ) : (
+            <>
+              {/* Where the client prints, marked as the first thing to choose. */}
+              <span className={`${LABEL} mb-2`}>Bill to</span>
+              <AddButton
+                label="Choose a client"
+                onClick={edit?.onClient}
+                className="min-h-14"
+              />
+            </>
+          )}
+        </div>
+        <div className="min-w-0">
+          <span className={`${LABEL} mb-2`}>Engagement</span>
+          <div className={STACK}>
+            {/* The period prints here once, never under a line. */}
+            <Block onPress={edit?.onPeriod}>
+              <dl className="type-support">
+                <Meta
+                  label="Service period"
+                  value={
+                    period?.periodStart && period.periodEnd
+                      ? `${shortDate(period.periodStart)} – ${shortDate(period.periodEnd)}`
+                      : '—'
+                  }
+                />
+              </dl>
+            </Block>
+            {edit ? (
+              <dl className="type-support">
+                <TypedReference reference={edit.reference} />
+              </dl>
+            ) : reference ? (
+              <dl className="type-support">
+                <Meta label="Reference" value={reference} />
+              </dl>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 
