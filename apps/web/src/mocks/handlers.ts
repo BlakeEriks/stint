@@ -895,6 +895,7 @@ export const handlers = {
       invoiceId: null,
       invoiceNumber: null,
       invoiceStatus: null,
+      draftId: null,
     };
     db.expenses.push(expense);
     return ok(schema.Expense, expenseView(db, expense), 201);

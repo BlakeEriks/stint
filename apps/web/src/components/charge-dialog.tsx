@@ -12,7 +12,9 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { currencySymbol } from '@stint/core';
 import { Field } from './field';
+import { UnitInput } from './rate-input';
 import { useMissing } from '@/lib/client/use-missing';
 
 /** A flat amount on one invoice: a fee, a deposit, a retainer. */
@@ -33,6 +35,7 @@ export function ChargeDialog({
   charge,
   onSave,
   onRemove,
+  currency,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -40,6 +43,7 @@ export function ChargeDialog({
   charge?: Charge;
   onSave: (charge: Charge) => void;
   onRemove?: () => void;
+  currency?: string;
 }) {
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
@@ -106,13 +110,14 @@ export function ChargeDialog({
             required
             error={check.error('charge-amount')}
           >
-            <Input
+            <UnitInput
               id="charge-amount"
+              prefix={currencySymbol(currency)}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0.00"
               inputMode="decimal"
-              className="type-duration text-right"
+              alignRight
               required
             />
           </Field>

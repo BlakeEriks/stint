@@ -75,6 +75,9 @@ export function Page({
   );
 }
 
+/** A column between `fills` and the region that scrolls, passing the height down. */
+export const FILL = 'xl:flex xl:min-h-0 xl:flex-1 xl:flex-col';
+
 /**
  * A detail screen: a back link, then the content. `back` is where this record
  * sits, and where the link goes when the reader came from there or from
@@ -84,23 +87,27 @@ export function DetailPage({
   back,
   label,
   workspace = false,
+  letter = false,
   fills = false,
   children,
 }: {
   back: string;
   label: string;
   workspace?: boolean;
-  /** `Page`'s: the content below the back link takes the rest of the panel. */
+  /** `Page`'s, carried through the column so a child can own the scroll. */
   fills?: boolean;
+  /** One centered column a Letter page wide (816px), the back link in it,
+   *  for a screen whose subject is the page itself. */
+  letter?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <Page workspace={workspace} fills={fills}>
-      <BackLink up={back} label={label} />
       <div
-        className={`mt-4${fills ? ' xl:flex xl:min-h-0 xl:flex-1 xl:flex-col' : ''}`}
+        className={`${letter ? 'mx-auto w-full max-w-[816px]' : ''}${fills ? ` ${FILL}` : ''}`}
       >
-        {children}
+        <BackLink up={back} label={label} />
+        <div className={`mt-4${fills ? ` ${FILL}` : ''}`}>{children}</div>
       </div>
     </Page>
   );

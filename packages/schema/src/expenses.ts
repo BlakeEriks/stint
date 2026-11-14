@@ -21,6 +21,8 @@ export const Expense = z.object({
    *  expense went and whether it can still change. Null while unbilled. */
   invoiceNumber: z.string().nullable(),
   invoiceStatus: InvoiceStatus.nullable(),
+  /** The draft holding a one-off, which no other draft bills. */
+  draftId: uuid.nullable(),
 });
 
 const expenseAmount = money.refine((n) => n > 0, {

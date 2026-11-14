@@ -9,10 +9,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { inputClass } from './field';
+import { TriggerChevron, triggerClass } from './field';
 import { Swatch } from './swatch';
 import type { Client } from '@/lib/client/api';
-import { Check, ChevronDown, Plus } from 'lucide-react';
+import { Check, Plus } from 'lucide-react';
 
 /** "No client" is a real choice, not an absent one, so it needs a value. */
 const NONE = '__none__';
@@ -48,6 +48,7 @@ export function ClientPicker({
   placeholder = 'No client — internal work',
   id,
   disabled,
+  autoFocus,
 }: {
   clients: Client[];
   value: string | null;
@@ -58,6 +59,8 @@ export function ClientPicker({
   placeholder?: string;
   id?: string;
   disabled?: boolean;
+  /** Focused on mount: the first thing a screen needs chosen. */
+  autoFocus?: boolean;
 }) {
   const selected = value ? clients.find((c) => c.id === value) : undefined;
 
@@ -66,24 +69,15 @@ export function ClientPicker({
       <DropdownMenuTrigger
         id={id}
         disabled={disabled}
-        /* `focus:` as well as `focus-visible:`. A control focused
-           PROGRAMMATICALLY is never `:focus-visible`, which the browser
-           reserves for keyboard-driven focus, so without the pair the cursor
-           is really there with nothing on screen saying so. */
-        className={`${inputClass} flex items-center justify-between gap-2 text-left
-                    disabled:opacity-60
-                    focus:border-edge-focus focus:ring-[3px] focus:ring-edge-focus`}
+        autoFocus={autoFocus}
+        className={triggerClass}
       >
         {selected ? (
           <Row client={selected} />
         ) : (
           <span className="truncate text-subtle">{placeholder}</span>
         )}
-        <ChevronDown
-          aria-hidden
-          className="size-4 flex-none text-muted opacity-60"
-          strokeWidth={2}
-        />
+        <TriggerChevron />
       </DropdownMenuTrigger>
 
       {/* The menu is the field's own width: it drops out of a full-width

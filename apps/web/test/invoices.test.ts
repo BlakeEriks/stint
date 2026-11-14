@@ -2768,6 +2768,20 @@ test('the open list keeps a billed expense until its invoice is paid', async () 
   assert.equal(paid.body.expenses.length, 0, 'paid, it leaves the card');
 });
 
+// New invoice shows only what its draft would bill, so it needs the holder.
+test('the unbilled list says which draft holds each expense', async () => {
+  const { GET: list } = await import('../src/app/api/v1/expenses/route.ts');
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedExpense({ id: X(1) });
+  const free = await json(await list(req('/expenses?status=unbilled')));
+  assert.equal(free.body.expenses[0].draftId, null);
+  const inv = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  const held = await json(await list(req('/expenses?status=unbilled')));
+  assert.equal(held.body.expenses[0].draftId, inv.body.id);
+});
+
 // ── recurring expenses ─────────────────────────────────────────────
 const expenseLines = (body: {
   lineItems: { unit: string; spentOn?: string; amount: number }[];

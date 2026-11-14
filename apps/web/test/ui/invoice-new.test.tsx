@@ -111,6 +111,7 @@ const EXPENSES = [
     invoiceId: null,
     invoiceNumber: null,
     invoiceStatus: null,
+    draftId: null,
   },
   {
     id: 'x2',
@@ -122,6 +123,7 @@ const EXPENSES = [
     invoiceId: null,
     invoiceNumber: null,
     invoiceStatus: null,
+    draftId: null,
   },
 ];
 
@@ -257,7 +259,15 @@ const pickGrouping = async (user: User, name: RegExp) => {
 };
 
 const card = () => screen.getByRole('region', { name: 'Preview' });
-const generate = () => screen.getByRole('button', { name: /Generate/ });
+/** Opens the page's No., Issued and Due. */
+const dates = async (user: User) => {
+  await user.click(within(card()).getByRole('button', { name: /^Edit No\./ }));
+  return within(
+    await screen.findByRole('dialog', { name: 'Number and dates' }),
+  );
+};
+
+const generate = () => screen.getByRole('button', { name: /Save draft/ });
 
 /** Chosen and settled: the card shows its answer and nothing is pending. */
 const ready = async (user: User) => {
@@ -278,7 +288,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('NewInvoice', () => {
-  it('says Updating and holds Generate while the server recomputes', async () => {
+  it('says Updating and holds Save draft while the server recomputes', async () => {
     serve();
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
@@ -300,17 +310,16 @@ describe('NewInvoice', () => {
     expect(previews().at(-1)?.body.groupingMode).toBe('task');
   });
 
-  it('generates a draft when the period holds nothing billable', async () => {
+  it('saves a draft when the period holds nothing billable', async () => {
     serve({ ...PREVIEW, lineItems: [], subtotal: 0, total: 0, entryCount: 0 });
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
     await chooseClient(user);
 
-    expect(await screen.findByText(/^Nothing to bill/)).toBeInTheDocument();
     await waitFor(() => expect(generate()).toBeEnabled());
   });
 
-  it('says why a recompute failed, and holds Generate', async () => {
+  it('says why a recompute failed, and holds Save draft', async () => {
     serve();
     const served = globalThis.fetch;
     let fail = false;
@@ -342,9 +351,12 @@ describe('NewInvoice', () => {
     render(<NewInvoice />, { wrapper });
     await ready(user);
     const typed = addDays(localDateKey(new Date(), tz), 90);
-    fireEvent.change(screen.getByLabelText('Due'), {
+    const dialog = await dates(user);
+    fireEvent.change(dialog.getByLabelText('Due'), {
       target: { value: typed },
     });
+    await user.click(dialog.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
     await user.click(generate());
 
@@ -361,7 +373,7 @@ describe('NewInvoice', () => {
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
     await ready(user);
-    expect(screen.getByLabelText('Due')).toHaveValue(
+    expect((await dates(user)).getByLabelText('Due')).toHaveValue(
       addDays(localDateKey(new Date(), 'Pacific/Kiritimati'), 30),
     );
   });
@@ -425,7 +437,7 @@ describe('NewInvoice — one summary line', () => {
 
     await ready(user);
     await pickGrouping(user, /One summary line/);
-    const field = screen.getByLabelText(/Summary line/);
+    const field = screen.getByLabelText('Summary line');
     await user.clear(field);
     await user.type(field, '   ');
 
@@ -445,9 +457,9 @@ describe('NewInvoice — one summary line', () => {
 
     await chooseClient(user);
     await pickGrouping(user, /One summary line/);
-    await user.clear(screen.getByLabelText(/Summary line/));
+    await user.clear(await screen.findByLabelText('Summary line'));
     await user.type(
-      screen.getByLabelText(/Summary line/),
+      screen.getByLabelText('Summary line'),
       'Software consulting services',
     );
     await waitFor(() => expect(generate()).toBeEnabled());
@@ -484,7 +496,7 @@ describe('NewInvoice — from the client’s last invoice', () => {
     render(<NewInvoice />, { wrapper });
 
     await chooseClient(user);
-    const field = await screen.findByLabelText(/Summary line/);
+    const field = await screen.findByLabelText('Summary line');
     expect(field).toHaveValue('Consulting');
     expect(
       screen.getByRole('button', { name: 'Show time as' }),
@@ -564,7 +576,7 @@ describe('NewInvoice — supporting detail', () => {
 
     await chooseClient(user);
     await pickGrouping(user, /One summary line/);
-    await user.type(screen.getByLabelText(/Summary line/), 'Services');
+    await user.type(await screen.findByLabelText('Summary line'), 'Services');
     await waitFor(() => expect(generate()).toBeEnabled());
     const asked = previews().length;
     await user.click(
@@ -586,19 +598,14 @@ describe('NewInvoice — supporting detail', () => {
 });
 
 describe('NewInvoice — reference', () => {
-  it('shows the reference in the card at once, and sends it', async () => {
+  it('asks no preview for a reference, and sends it', async () => {
     serve();
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
     await ready(user);
     const sent = previews().length;
 
-    const field = screen.getByLabelText('Reference');
-    expect(field).toHaveAttribute('placeholder', 'PO number, contract or SOW');
-    expect(within(card()).queryByText('Reference')).toBeNull();
-    await user.type(field, 'PO 4471');
-
-    expect(within(card()).getByText('PO 4471')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Reference'), 'PO 4471');
     expect(previews()).toHaveLength(sent);
 
     await user.click(generate());
@@ -610,7 +617,7 @@ describe('NewInvoice — reference', () => {
 });
 
 describe('NewInvoice — notes', () => {
-  it('shows a note in the card at once, and sends it', async () => {
+  it('asks no preview for a note, and sends it', async () => {
     serve();
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
@@ -621,10 +628,6 @@ describe('NewInvoice — notes', () => {
       screen.getByLabelText('Notes'),
       '  Thanks for a great month.  ',
     );
-
-    expect(
-      within(card()).getByText('Thanks for a great month.'),
-    ).toBeInTheDocument();
     expect(previews()).toHaveLength(sent);
 
     await user.click(generate());
@@ -728,7 +731,7 @@ describe('NewInvoice — expenses, charges and payment details', () => {
     serve();
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
-    await screen.findByText('New invoice');
+    await ready(user);
 
     await user.click(screen.getByRole('button', { name: 'Add a charge' }));
     const dialog = await screen.findByRole('dialog', { name: 'New charge' });
@@ -746,8 +749,8 @@ describe('NewInvoice — expenses, charges and payment details', () => {
     await ready(user);
 
     expect(
-      screen.getByRole('button', { name: 'Payment details' }),
-    ).toHaveTextContent('Business checking');
+      screen.getByRole('button', { name: /^Edit Payment/ }),
+    ).toHaveTextContent('First Federal');
     await user.click(generate());
     await waitFor(() => expect(push).toHaveBeenCalled());
     expect(
@@ -761,7 +764,7 @@ describe('NewInvoice — expenses, charges and payment details', () => {
     render(<NewInvoice />, { wrapper });
     await ready(user);
 
-    await user.click(screen.getByRole('button', { name: 'Payment details' }));
+    await user.click(screen.getByRole('button', { name: /^Edit Payment/ }));
     await user.click(
       await screen.findByRole('menuitem', { name: /New payment details/ }),
     );
@@ -769,14 +772,15 @@ describe('NewInvoice — expenses, charges and payment details', () => {
       name: 'Payment details',
     });
     await user.type(within(dialog).getByLabelText(/Label/), 'Wire');
+    await user.type(within(dialog).getByLabelText(/Bank name/), 'Wire Bank');
     // The list's refetch after the save never lands.
     holdProfiles = new Promise(() => {});
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
 
     await waitFor(() =>
       expect(
-        screen.getByRole('button', { name: 'Payment details' }),
-      ).toHaveTextContent('Wire'),
+        screen.getByRole('button', { name: /^Edit Payment/ }),
+      ).toHaveTextContent('Wire Bank'),
     );
     await user.click(generate());
     await waitFor(() => expect(push).toHaveBeenCalled());

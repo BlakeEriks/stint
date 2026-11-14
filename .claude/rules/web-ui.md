@@ -131,6 +131,8 @@ invoice, the calendar): it drops the measure and takes the column's width.
 **No screen folds the dock.** At `xl` the user folds it to a 44px strip
 (`DockStrip`) and unfolds it, and the choice holds on every screen
 (`setDockFolded`). Below `xl` the dock is a band under the content and stays.
+`DetailPage`'s `letter` is for a screen whose content is a printed page
+(New invoice): one centered column, 816px at most, a US letter's width.
 The card keeps its size, so the frame never jolts between screens. The page
 title is `type-title`, once.
 
@@ -138,7 +140,7 @@ title is `type-title`, once.
 region is space and a rule (`border-edge-subtle`, stopping at the inset), and
 a record is a plain row. The one exception is the invoice as printed: the
 sheet of paper in `InvoicePreviewCard`, on New invoice and an invoice's page,
-and each template's first printed page, small, in `TemplatePicker`.
+and the chosen template's first printed page, large, in `TemplateChooser`.
 
 **A region that scrolls itself takes focus, only where it scrolls:** its
 `tabIndex` is `useScrollerFocus()` (`apps/web/src/lib/client/use-scroller-focus.ts`).
@@ -212,6 +214,12 @@ anticipation of one.
   press does: a rounded, padded highlight that bleeds past the column so the
   text stays in line with the rest of it (`rowButton` and `rowBleed` in
   `components/row-button.ts`).
+- **On the invoice sheet every box bleeds alike**: a highlight, a dashed box
+  or a typed field reaches 8px past its text sideways and 6px above and
+  below, inside a plain cell the grid places (`bleed()` and `dashedBleed()`
+  in `invoice-preview-card.tsx`). The box is never the grid's item, so the
+  columns divide alike on every row; a column of boxes keeps `STACK`'s gap
+  and a row of them `ADD_ROW`'s. The `SheetAligned` story measures it.
 - **A failure renders beside the thing that failed**, and a failed load is
   neutral, never red — it is a condition, and the answer is to try again.
 - **Home's empty Today grid has no empty-state line** once the account
@@ -298,7 +306,7 @@ into. Absent, the list is simply not offered and the field still works. Do not
 ### Invoices
 
 **Preview and generation must agree.** Any change to what would be billed
-clears the approved preview and hides Generate. Tested, and the test was
+clears the approved preview and disables Save draft. Tested, and the test was
 verified to fail when the invalidation is removed.
 
 **Any entry with an `invoiceId` is locked**: a draft only holds its work
