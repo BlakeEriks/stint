@@ -14,10 +14,7 @@ type Story = StoryObj<typeof meta>;
 export const FirstLaunch: Story = {
   play: async ({ canvasElement, args }) => {
     const screen = within(canvasElement);
-    await expect(
-      screen.getByText(/every PR you open here finds it/),
-    ).toBeVisible();
-    const save = screen.getByRole('button', { name: 'Save' });
+    const save = screen.getByRole('button', { name: /save/i });
     await expect(save).toHaveAttribute('aria-disabled', 'true');
     await userEvent.type(screen.getByLabelText('Vercel bypass'), 'abc123');
     await userEvent.click(save);

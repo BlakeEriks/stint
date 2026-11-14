@@ -159,8 +159,8 @@ export function createSurfaces({
         color: null,
         next: { taskName: '', projectId: null },
         why,
-        tile: 'Start: a timer',
-        shortcut: 'Start: a timer',
+        tile: 'Start a timer',
+        shortcut: 'Start a timer',
       };
     }
     const title = recent.taskName || 'Untitled';
