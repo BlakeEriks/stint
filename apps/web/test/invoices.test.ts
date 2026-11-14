@@ -2237,7 +2237,7 @@ test('recording an expense is idempotent on its id', async () => {
   assert.equal(rows[0].n, 1, 'the cost is recorded once');
 });
 
-test('an expense under a client that is not the caller’s is “No such client”', async () => {
+test('an expense under a client that is not the caller’s is refused as no such client', async () => {
   const { POST: create } = await import('../src/app/api/v1/expenses/route.ts');
   const res = await json(
     await create(

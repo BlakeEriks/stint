@@ -82,7 +82,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   if (!data)
     throw new ApiError(
       'INVOICE_STATUS_CHANGED',
-      'The invoice changed status since it was read',
+      'This invoice changed since you opened it. Nothing was saved.',
       { from: current.status },
     );
 

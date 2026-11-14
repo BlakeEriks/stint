@@ -38,7 +38,7 @@ const after = (a: string, b: string) => new Date(a) > new Date(b);
 /** An entry edited to end at or before it starts. */
 export function entryOrderRefusal(startedAt: string, endedAt: string | null) {
   return endedAt != null && !after(endedAt, startedAt)
-    ? refusal('VALIDATION_FAILED', 'endedAt must be after startedAt', {
+    ? refusal('VALIDATION_FAILED', 'Set an end time after the start time.', {
         startedAt,
         endedAt,
       })
@@ -49,7 +49,7 @@ export function entryOrderRefusal(startedAt: string, endedAt: string | null) {
 export function stopOrderRefusal(startedAt: string, endedAt: string) {
   return after(endedAt, startedAt)
     ? null
-    : refusal('VALIDATION_FAILED', 'endedAt must be after the entry started', {
+    : refusal('VALIDATION_FAILED', 'Set a stop time after the timer started.', {
         startedAt,
         endedAt,
       });
@@ -63,13 +63,17 @@ export function paidAtRefusal(
   now: Date,
 ) {
   if (new Date(paidAt) > now)
-    return refusal('VALIDATION_FAILED', 'paidAt cannot be in the future', {
-      paidAt,
-    });
+    return refusal(
+      'VALIDATION_FAILED',
+      'The paid date can’t be in the future.',
+      {
+        paidAt,
+      },
+    );
   if (sentAt && after(sentAt, paidAt))
     return refusal(
       'VALIDATION_FAILED',
-      'paidAt cannot be earlier than the invoice was sent',
+      'The paid date can’t be before the invoice was sent.',
       { paidAt, sentAt },
     );
   return null;
@@ -82,16 +86,13 @@ export function invoiceRequestRefusal(
   today: string,
 ) {
   if (r.periodEnd < r.periodStart)
-    return refusal(
-      'INVALID_PERIOD',
-      '`periodEnd` must not precede `periodStart`',
-    );
+    return refusal('INVALID_PERIOD', 'The period can’t end before it starts.');
   /* The issue date is the send date, so a typed due date is held to today:
      it can only move further behind. */
   if (r.dueDate && r.dueDate < today)
     return refusal(
       'VALIDATION_FAILED',
-      "The due date can't be before the issue date.",
+      'The due date can’t be before the issue date.',
       { field: 'dueDate' },
     );
   return null;
@@ -109,7 +110,7 @@ export function pricedInvoiceRefusal(totals: { unratedEntryIds: string[] }) {
 export function unratedRefusal(ids: string[]) {
   return refusal(
     'NO_RATE_CONFIGURED',
-    `${ids.length} billable entr${ids.length === 1 ? 'y has' : 'ies have'} no rate. Set a rate on the entry, project, client, or in settings.`,
+    `${ids.length} billable entr${ids.length === 1 ? 'y has' : 'ies have'} no rate. Set one on the entry, its project or client, or set a default rate in Settings.`,
     { unratedEntryIds: ids },
   );
 }
@@ -117,7 +118,7 @@ export function unratedRefusal(ids: string[]) {
 /** A draft sent with no lines. */
 export const nothingToSend = refusal(
   'VALIDATION_FAILED',
-  'Nothing to send: no unbilled, billable time in this period, no unbilled expenses, and no charges added',
+  'Nothing to send: this period has no unbilled billable time, no unbilled expenses, and no charges.',
 );
 
 /** A `nextInvoiceNumber` above `max`, or at or below the highest number
@@ -134,7 +135,7 @@ export function nextNumberRefusal(
       field: 'nextInvoiceNumber',
       current,
     });
-  if (next > max) return refused(`The next number can't go above ${max}.`);
+  if (next > max) return refused(`The next number can’t go above ${max}.`);
   if (highest && next <= highest.sequenceNo)
     return refused(
       `Must be higher than ${highest.invoiceNumber}, your latest invoice.`,
@@ -147,20 +148,19 @@ export function nextNumberRefusal(
 export const refusals = {
   /** `guard_issued_invoice`'s. */
   transition: (from: InvoiceStatus, to: InvoiceStatus) =>
-    refusal(
-      'VALIDATION_FAILED',
-      `An invoice cannot move from ${from} to ${to}`,
-      { from, to },
-    ),
+    refusal('VALIDATION_FAILED', `A ${from} invoice can’t be marked ${to}.`, {
+      from,
+      to,
+    }),
   entryLocked: (verb: 'modified' | 'deleted') =>
     refusal(
       'ENTRY_LOCKED',
-      `This entry is billed on an issued invoice and cannot be ${verb}`,
+      `This entry is on a sent invoice, so it can’t be ${verb === 'modified' ? 'edited' : verb}. Void the invoice to change it.`,
     ),
   expenseLocked: (verb: 'modified' | 'deleted') =>
     refusal(
       'EXPENSE_LOCKED',
-      `This expense is billed on an issued invoice and cannot be ${verb}`,
+      `This expense is on a sent invoice, so it can’t be ${verb === 'modified' ? 'edited' : verb}. Void the invoice to change it.`,
     ),
   timerRunning: (running: unknown) =>
     refusal(
@@ -168,26 +168,26 @@ export const refusals = {
       'A timer is already running. Stop it before starting another.',
       { running },
     ),
-  noTimer: refusal('NO_TIMER_RUNNING', 'No timer is running'),
+  noTimer: refusal('NO_TIMER_RUNNING', 'No timer is running.'),
   markInvoiced: refusal(
     'ENTRY_ALREADY_INVOICED',
-    'This entry is on an invoice, so it can’t be marked billed elsewhere',
+    'This entry is on an invoice, so it can’t be marked billed elsewhere.',
   ),
   markRunning: refusal(
     'TIMER_ALREADY_RUNNING',
-    'Stop this timer before marking it billed elsewhere',
+    'Stop this timer before marking it billed elsewhere.',
   ),
-  noSuchClient: refusal('VALIDATION_FAILED', 'No such client'),
+  noSuchClient: refusal('VALIDATION_FAILED', 'That client doesn’t exist.'),
   undatedOneOff: refusal(
     'VALIDATION_FAILED',
-    'A one-off expense needs the date it was paid',
+    'A one-off expense needs the date it was paid.',
   ),
   billedRecurring: refusal(
     'VALIDATION_FAILED',
-    'An expense on an invoice cannot become recurring',
+    'An expense on an invoice can’t become recurring.',
   ),
   issuedDelete: refusal(
     'VALIDATION_FAILED',
-    'An issued invoice cannot be deleted — void it instead, so the number stays on record',
+    'A sent invoice can’t be deleted. Void it instead, so its number stays on record.',
   ),
 };

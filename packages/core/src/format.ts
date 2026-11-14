@@ -71,3 +71,13 @@ export function formatLocalTime(at: Date | string, tz: string): string {
   }
   return fmt.format(typeof at === 'string' ? new Date(at) : at);
 }
+
+/** `Nov 1, 2026` — a calendar date, `YYYY-MM-DD`, read as written. */
+export function formatDate(iso: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+}

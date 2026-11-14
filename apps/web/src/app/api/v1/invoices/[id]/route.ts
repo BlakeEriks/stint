@@ -150,7 +150,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
 });
 
 const statusChanged = (from: string) =>
-  new ApiError('INVOICE_STATUS_CHANGED', 'Only a draft can be edited', {
+  new ApiError('INVOICE_STATUS_CHANGED', 'Only a draft can be edited.', {
     from,
   });
 

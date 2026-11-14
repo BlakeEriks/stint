@@ -23,7 +23,10 @@ export function billingConfig(): BillingConfig | null {
 export function requireBillingConfig(): BillingConfig {
   const config = billingConfig();
   if (!config)
-    throw new ApiError('BILLING_UNAVAILABLE', 'Billing is not set up yet');
+    throw new ApiError(
+      'BILLING_UNAVAILABLE',
+      'Billing isn’t set up on this server.',
+    );
   return config;
 }
 
@@ -34,7 +37,10 @@ export function billingLive(): boolean {
 export function requireBillingLive(): BillingConfig {
   const config = requireBillingConfig();
   if (process.env.BILLING_LIVE !== 'true')
-    throw new ApiError('BILLING_UNAVAILABLE', 'Billing is not live yet');
+    throw new ApiError(
+      'BILLING_UNAVAILABLE',
+      'Invoicing is free during beta, so there’s no paid plan yet.',
+    );
   return config;
 }
 

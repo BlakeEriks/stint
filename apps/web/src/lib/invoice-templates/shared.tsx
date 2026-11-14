@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { type StyleSheet, Text, View } from '@react-pdf/renderer';
 import {
   formatCurrency,
+  formatDate,
   formatHours,
   SCHEDULE_KINDS,
   SCHEDULE_TITLES,
@@ -116,15 +117,7 @@ const DAY = new Intl.DateTimeFormat('en-US', {
   timeZone: 'UTC',
 });
 
-export const date = (iso: string | null) =>
-  iso
-    ? new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        timeZone: 'UTC',
-      })
-    : '—';
+export const date = (iso: string | null) => (iso ? formatDate(iso) : '—');
 
 export const period = (data: Data) =>
   data.periodStart && data.periodEnd

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { handle, ApiError, dbCode, refused } from '@/lib/errors';
+import { handle, dbCode, refused } from '@/lib/errors';
 import { refusals } from '@stint/core';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
@@ -51,10 +51,7 @@ export const PATCH = handle(async (req: Request) => {
 
   if (error) {
     if (dbCode(error) === 'ENTRY_LOCKED') {
-      throw new ApiError(
-        'ENTRY_LOCKED',
-        'This entry is billed and cannot be modified',
-      );
+      throw refused(refusals.entryLocked('modified'));
     }
     throw error;
   }

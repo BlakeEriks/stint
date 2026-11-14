@@ -17,7 +17,7 @@ export async function parseBody<T extends z.ZodType>(
   if (!result.success) {
     throw new ApiError(
       'VALIDATION_FAILED',
-      'Request body failed validation',
+      'A field isn’t valid, so nothing was saved.',
       z.treeifyError(result.error),
     );
   }

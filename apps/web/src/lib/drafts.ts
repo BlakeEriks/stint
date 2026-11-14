@@ -27,6 +27,7 @@ import {
   pickSchedules,
   resolvePaymentProfile,
   draftDates,
+  formatDate,
   nothingToSend,
   unratedRefusal,
 } from '@stint/core';
@@ -291,7 +292,7 @@ export function draftRefusals(d: {
 export function dueBeforeIssueError(issueDate: string, dueDate: string) {
   return new ApiError(
     'VALIDATION_FAILED',
-    `The due date typed for this draft, ${dueDate}, is before its issue date, ${issueDate}. Edit the draft to give it a later one.`,
+    `The due date, ${formatDate(dueDate)}, is before the issue date, ${formatDate(issueDate)}. Edit the draft and set a later due date.`,
     { field: 'dueDate' },
   );
 }
@@ -541,7 +542,7 @@ export async function holdNewWork(db: SupabaseClient, draft: Derived) {
   if (dbCode(error) === 'INVOICE_STATUS_CHANGED')
     throw new ApiError(
       'INVOICE_STATUS_CHANGED',
-      'The invoice changed status since it was read',
+      'This invoice changed since you opened it. Nothing was saved.',
       { from: 'draft' },
     );
   if (error) throw error;
@@ -630,7 +631,7 @@ export async function sendDraft(
   if (code === 'INVOICE_STATUS_CHANGED' || error.code === PG.NO_DATA_FOUND)
     throw new ApiError(
       'INVOICE_STATUS_CHANGED',
-      'The invoice changed status since it was read',
+      'This invoice changed since you opened it. Nothing was saved.',
       { from: row.status },
     );
   if (code === 'EXPENSE_ALREADY_INVOICED' || code === 'ENTRY_ALREADY_INVOICED')
