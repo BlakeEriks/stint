@@ -242,7 +242,7 @@ actor API {
             if let err = try? JSONDecoder().decode(ErrorBody.self, from: data) {
                 throw APIError(status: status, code: err.code, message: err.message)
             }
-            throw APIError(status: status, code: "UNKNOWN", message: "The server returned \(status).")
+            throw APIError(status: status, code: "UNKNOWN", message: "Request failed (HTTP \(status)). Tracked time is unaffected.")
         }
         return try Self.decoder.decode(T.self, from: data)
     }
