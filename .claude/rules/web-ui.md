@@ -140,7 +140,7 @@ title is `type-title`, once.
 region is space and a rule (`border-edge-subtle`, stopping at the inset), and
 a record is a plain row. The one exception is the invoice as printed: the
 sheet of paper in `InvoicePreviewCard`, on New invoice and an invoice's page,
-and each template's first printed page, small, in `TemplatePicker`.
+and the chosen template's first printed page, large, in `TemplateChooser`.
 
 **A region that scrolls itself takes focus, only where it scrolls:** its
 `tabIndex` is `useScrollerFocus()` (`apps/web/src/lib/client/use-scroller-focus.ts`).
