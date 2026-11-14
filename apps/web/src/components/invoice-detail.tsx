@@ -306,7 +306,6 @@ function Loaded({
         heading={false}
         preview={{
           ...invoice,
-          entryCount: undefined,
           schedules: invoice.supportingDetail,
         }}
         client={invoice.billTo}

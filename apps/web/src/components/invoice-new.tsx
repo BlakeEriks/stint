@@ -52,6 +52,7 @@ import {
   type Client,
   type Expense,
   type GroupingMode,
+  type Invoice,
   type InvoicePreview,
   type PaymentProfile,
   type Settings,
@@ -67,11 +68,11 @@ import {
 } from './business-dialog';
 import { InvoiceDatesDialog } from './invoice-dates-dialog';
 import { PeriodPicker } from './invoice-period';
-import { carriedFrom, lastInvoiceQuery } from './invoice-bits';
 import { summarize } from './payment-profiles';
 import {
   businessOf,
   type CardEdits,
+  DIM,
   InvoicePreviewCard,
   SUMMARY_ERROR,
 } from './invoice-preview-card';
@@ -261,10 +262,26 @@ const putCharge = (
     ? [...charges, { ...charge, key: crypto.randomUUID() }]
     : charges.map((c) => (c.key === key ? { ...charge, key: c.key } : c));
 
+/** What a client's last invoice carries into the next, so a monthly invoice
+ *  isn't retyped. A first invoice is one summary line: itemizing is the
+ *  exception. Its text starts shown in the field, so it is the user's to
+ *  change, never filled in at save. */
+const carriedFrom = (last: Invoice | undefined) => ({
+  groupingMode: last?.groupingMode ?? 'summary',
+  summaryText: last?.summaryText ?? 'Contracting services',
+  schedules: attachedSchedules(last?.supportingDetail ?? null),
+  reference: last?.reference ?? '',
+});
+
 /** What the draft takes from the client's last invoice until the user sets
  *  its own, and whether that invoice has answered yet. */
 function useCarried(draft: Draft) {
-  const lastInvoice = useQuery(lastInvoiceQuery(draft.clientId));
+  const lastInvoice = useQuery({
+    queryKey: [...keys.invoices(), { clientId: draft.clientId }],
+    queryFn: () => api.invoices({ clientId: draft.clientId }),
+    enabled: draft.clientId !== '',
+    select: (r) => r.invoices.find((i) => i.status !== 'void'),
+  });
   const carried = carriedFrom(lastInvoice.data);
   const groupingMode = draft.groupingMode ?? carried.groupingMode;
   return {
@@ -367,10 +384,10 @@ function useSettled<T>(value: T, ms: number): T {
 }
 
 /**
- * The form, and the invoice it makes beside it.
+ * The invoice, edited where it prints.
  *
  * The card answers every change: what the form knows at once, what the
- * server computes (the lines) once typing settles. Generating allocates a
+ * server computes (the lines) once typing settles. Saving allocates a
  * gapless number and creates the draft, so it waits until the card is the
  * server's current answer.
  */
@@ -598,7 +615,7 @@ function Form({
     failed: preview.isError,
     hasSettings: settings !== undefined,
     hasSender: !noSender,
-    generating: save.isPending,
+    saving: save.isPending,
     groupingMode,
     summaryText,
   });
@@ -607,6 +624,7 @@ function Form({
   // An unchanged Due keeps following the terms.
   const saveDue = (d: string) => d !== due && set('dueDate', d);
 
+  const currency = client?.currency ?? settings?.currency ?? 'USD';
   const guard = useLeaveGuard(
     JSON.stringify(draft) !== JSON.stringify(initial),
   );
@@ -709,7 +727,7 @@ function Form({
             reference,
             waiting,
             period: { periodStart, periodEnd },
-            currency: client?.currency ?? settings?.currency ?? 'USD',
+            currency,
             chargeDialog,
             // An expense is the client's: before one is chosen, Add an
             // expense goes to where one is, as Bill to does.
@@ -756,7 +774,7 @@ function Form({
         charge={draft.charges.find((c) => c.key === chargeDialog.subject)}
         onSave={saveCharge}
         onRemove={chargeDialog.subject !== 'new' ? removeCharge : undefined}
-        currency={current?.currency}
+        currency={currency}
       />
       <PaymentProfileDialog
         open={newProfileOpen}
@@ -950,7 +968,6 @@ function cardEdits({
     },
     expenses: {
       waiting,
-      periodEnd: period.periodEnd,
       excluded: draft.excludedExpenseIds,
       onToggle: toggleExpense,
       onOpen: expenseDialog.show,
@@ -1030,7 +1047,7 @@ function Due({
       </span>
       {preview ? (
         <span
-          className={`type-amount text-strong transition-opacity duration-150 ${updating ? 'opacity-50' : ''}`}
+          className={`type-amount text-strong transition-opacity duration-150 ${updating ? DIM : ''}`}
         >
           {formatCurrency(preview.total, preview.currency)}
         </span>
@@ -1122,7 +1139,7 @@ function billedCount(preview: InvoicePreview) {
 
 /**
  * Whether Save draft can be pressed, and why not when the user can fix it.
- * Generating freezes what the card shows, so it waits for a current answer
+ * Saving freezes what the card shows, so it waits for a current answer
  * from the server.
  */
 function saveState(s: {
@@ -1138,7 +1155,7 @@ function saveState(s: {
   hasSettings: boolean;
   /** The server refuses an invoice with no sender; the notice says why. */
   hasSender: boolean;
-  generating: boolean;
+  saving: boolean;
   groupingMode: GroupingMode;
   summaryText: string;
 }) {
@@ -1150,7 +1167,7 @@ function saveState(s: {
     s.preview !== undefined &&
     s.hasSettings &&
     !s.updating &&
-    !s.generating;
+    !s.saving;
   return { canSave, noSummaryText, blocked };
 }
 
@@ -1229,7 +1246,7 @@ function PreviewNotices({
       {unrated > 0 ? (
         <p role="alert" className="type-support text-warning">
           {unrated} entr{unrated === 1 ? 'y has' : 'ies have'} no rate. Set a
-          rate on the client, the project, or your defaults before generating.
+          rate on the client, the project, or your defaults before saving.
         </p>
       ) : null}
       {/* A warning, not a block: an overlap can be deliberate, and this is

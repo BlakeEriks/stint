@@ -296,7 +296,7 @@ region. A page's title, primary action and tabs are its frame and paint at
 once; a figure in its header waits with the content (`useLoaded`), never a
 0 that changes.
 
-**A shortcut is the exception, deliberately** — `TaskSuggest`'s query renders nothing
+**`TaskSuggest` is the exception, deliberately** — its query renders nothing
 while loading and nothing on failure. A suggestion is an accelerator nobody
 asked for, so a spinner or a failure panel flashing over the timer bar reports
 a problem the user was not waiting on, in front of the field they are typing
@@ -306,7 +306,7 @@ into. Absent, the list is simply not offered and the field still works. Do not
 ### Invoices
 
 **Preview and generation must agree.** Any change to what would be billed
-clears the approved preview and hides Save draft. Tested, and the test was
+clears the approved preview and disables Save draft. Tested, and the test was
 verified to fail when the invalidation is removed.
 
 **Any entry with an `invoiceId` is locked**: a draft only holds its work

@@ -943,7 +943,7 @@ export const NoAttachWithoutSummary: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await page.findByRole('button', { name: 'Show time as' });
-    await expect(page.queryByText('Attach')).toBeNull();
+    await expect(page.queryByRole('group', { name: 'Attach' })).toBeNull();
   },
 };
 
@@ -1369,7 +1369,7 @@ export const Loading: Story = {
     );
     // Save draft is never there to press before Due can be filled.
     await expect(
-      region.queryByRole('button', { name: /generate/i }),
+      region.queryByRole('button', { name: 'Save draft' }),
     ).toBeNull();
   },
 };
@@ -1380,7 +1380,7 @@ const noSender = account((db: Db) => {
 });
 
 /** No business name or email: the notice says so, Save draft waits, and the
- *  page marks where the sender prints, with a hint under it. */
+ *  page marks where the sender prints. */
 export const DetailsMissing: Story = {
   ...desktop,
   parameters: noSender,

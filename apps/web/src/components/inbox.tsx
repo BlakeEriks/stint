@@ -22,6 +22,7 @@ import {
   documentOpens,
   formatCompact,
   formatCurrency,
+  isPeriod,
   parseTermsDays,
 } from '@stint/core';
 import {
@@ -43,7 +44,6 @@ import {
 import { useExit } from '@/lib/client/use-exit';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { EntryDialog } from './entry-dialog';
-import { newInvoiceHref, periodName } from './invoice-bits';
 import { MarkSentDialog } from './mark-sent-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -554,12 +554,33 @@ function invoiceItem(
    creates nothing: the user makes the draft, so it is numbered then. */
 function dueItem(d: Attention['unbilledDue'][number]): ItemProps {
   return {
-    href: newInvoiceHref(d),
+    href: `/invoices/new?${new URLSearchParams({
+      client: d.clientId,
+      from: d.periodStart,
+      to: d.periodEnd,
+    })}`,
     label: d.clientName,
     detail: `${periodName(d.periodStart, d.periodEnd)} is ready to invoice`,
     value: formatCompact(d.seconds),
     tone: 'neutral',
   };
+}
+
+/** A calendar month by its name, any other period by its dates:
+ *  "Oct 1 – 15", "Sep 28 – Oct 4". */
+function periodName(start: string, end: string) {
+  const date = (d: string, parts: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat('en-US', { ...parts, timeZone: 'UTC' }).format(
+      new Date(`${d}T00:00:00Z`),
+    );
+  if (isPeriod({ period: 'monthly' }, start, end))
+    return date(start, { month: 'long' });
+  const short = { month: 'short', day: 'numeric' } as const;
+  const to =
+    start.slice(0, 7) === end.slice(0, 7)
+      ? date(end, { day: 'numeric' })
+      : date(end, short);
+  return `${date(start, short)} – ${to}`;
 }
 
 function entryItem(

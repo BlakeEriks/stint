@@ -20,7 +20,7 @@ import type {
   Settings,
 } from '@/lib/client/api';
 import { shortDate } from './invoice-bits';
-import { rowButton } from './row-button';
+import { rowBleed, rowButton } from './row-button';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 
 type Business = Pick<Invoice['business'], 'name' | 'address' | 'email'>;
@@ -62,7 +62,6 @@ export type CardFigures = Pick<
       'description' | 'unit' | 'quantity' | 'unitPrice' | 'amount' | 'spentOn'
     > & { expenseId?: string }
   >;
-  entryCount?: number;
 };
 
 /** Text the user types where it prints. */
@@ -96,8 +95,6 @@ export type CardEdits = {
   expenses: {
     /** The client's waiting expenses this invoice can bill. */
     waiting: Expense[];
-    /** The day a recurring one prints. */
-    periodEnd: string;
     excluded: string[];
     onToggle: (id: string, bill: boolean) => void;
     onOpen: (expense: Expense) => void;
@@ -230,7 +227,7 @@ export function InvoicePreviewCard({
   );
 }
 
-const DIM = 'opacity-50';
+export const DIM = 'opacity-50';
 
 /** The server's figures, dimmed while it recomputes them; what the user
     types stays as it is. */
@@ -705,7 +702,8 @@ function expenseLines(lines: Line[], edit: CardEdits | undefined) {
     return {
       key: e.id,
       description: e.description,
-      spentOn: line?.spentOn ?? e.spentOn ?? edit.expenses.periodEnd,
+      // A recurring one prints on the period's last day.
+      spentOn: line?.spentOn ?? e.spentOn ?? edit.period.periodEnd,
       amount: line?.amount ?? e.amount,
       expense: e,
       billed: !edit.expenses.excluded.includes(e.id),
@@ -748,82 +746,80 @@ function Lines({
 
   return (
     <>
-      {
-        <table className="w-full type-support">
-          <thead>
-            <tr className="border-b border-edge-default text-left">
-              <th scope="col" className={TH}>
-                Description
-              </th>
-              <th scope="col" className={`${TH} text-right`}>
-                Qty
-              </th>
-              <th scope="col" className={`${TH} text-right ${RATE}`}>
-                Rate
-              </th>
-              <th scope="col" className={`${TH} text-right`}>
-                Amount
-              </th>
-            </tr>
-          </thead>
-          {/* Never an empty body: one between the header and the expenses
+      <table className="w-full type-support">
+        <thead>
+          <tr className="border-b border-edge-default text-left">
+            <th scope="col" className={TH}>
+              Description
+            </th>
+            <th scope="col" className={`${TH} text-right`}>
+              Qty
+            </th>
+            <th scope="col" className={`${TH} text-right ${RATE}`}>
+              Rate
+            </th>
+            <th scope="col" className={`${TH} text-right`}>
+              Amount
+            </th>
+          </tr>
+        </thead>
+        {/* Never an empty body: one between the header and the expenses
               stops Chrome painting the rows' collapsed borders, and the
               header's underline with them. */}
-          {timeRows ? (
-            <tbody>
-              {summaryOnly ? (
-                <ServiceRow
-                  currency={cur}
-                  dim={dim}
-                  summary={edit?.summary}
-                  first
-                />
-              ) : noTime ? (
-                <tr className={ROW}>
-                  <td colSpan={4} className="py-2.5 text-subtle">
-                    No time in this period
-                  </td>
-                </tr>
-              ) : null}
-              {services.map((li, i) => (
-                <ServiceRow
-                  key={i}
-                  line={li}
-                  currency={cur}
-                  dim={dim}
-                  summary={edit?.summary}
-                  first={i === 0}
-                />
-              ))}
-              {charges.map((c) => (
-                <ChargeRow
-                  key={c.key}
-                  charge={c}
-                  currency={cur}
-                  onOpen={() => edit?.charges.onOpen(c.key)}
-                />
-              ))}
-            </tbody>
-          ) : null}
-          {expenses.length > 0 ? (
-            <tbody>
-              <tr className="border-b border-edge-default text-left">
-                <th scope="colgroup" colSpan={4} className={`${TH} pt-6`}>
-                  Expenses
-                </th>
+        {timeRows ? (
+          <tbody>
+            {summaryOnly ? (
+              <ServiceRow
+                currency={cur}
+                dim={dim}
+                summary={edit?.summary}
+                first
+              />
+            ) : noTime ? (
+              <tr className={ROW}>
+                <td colSpan={4} className="py-2.5 text-subtle">
+                  No time in this period
+                </td>
               </tr>
-              {expenses.map((row) => (
-                <ExpenseRowLine
-                  key={row.key}
-                  row={row}
-                  currency={cur}
-                  edit={edit}
-                />
-              ))}
-            </tbody>
-          ) : null}
-        </table>
-      }
+            ) : null}
+            {services.map((li, i) => (
+              <ServiceRow
+                key={i}
+                line={li}
+                currency={cur}
+                dim={dim}
+                summary={edit?.summary}
+                first={i === 0}
+              />
+            ))}
+            {charges.map((c) => (
+              <ChargeRow
+                key={c.key}
+                charge={c}
+                currency={cur}
+                onOpen={() => edit?.charges.onOpen(c.key)}
+              />
+            ))}
+          </tbody>
+        ) : null}
+        {expenses.length > 0 ? (
+          <tbody>
+            <tr className="border-b border-edge-default text-left">
+              <th scope="colgroup" colSpan={4} className={`${TH} pt-6`}>
+                Expenses
+              </th>
+            </tr>
+            {expenses.map((row) => (
+              <ExpenseRowLine
+                key={row.key}
+                row={row}
+                currency={cur}
+                edit={edit}
+              />
+            ))}
+          </tbody>
+        ) : null}
+      </table>
 
       {edit ? (
         <div className={ADD_ROW}>
@@ -850,9 +846,7 @@ function Lines({
   );
 }
 
-/** The Letter page: New invoice shows it before a client is chosen too. */
-export const SHEET =
-  'rounded-lg border border-edge-subtle bg-surface-elevated p-6';
+const SHEET = 'rounded-lg border border-edge-subtle bg-surface-elevated p-6';
 
 /** The id of New invoice's notice that the summary line is empty. */
 export const SUMMARY_ERROR = 'inv-summary-error';
@@ -921,7 +915,7 @@ function ChargeRow({
         <button
           type="button"
           onClick={onOpen}
-          className={`${rowButton} -mx-2 w-[calc(100%+1rem)] py-1.5 pr-7 text-primary`}
+          className={`${rowButton} ${rowBleed} py-1.5 pr-7 text-primary`}
         >
           <span className="sr-only">Edit charge</span> {charge.description}
           <EditMark />
@@ -954,7 +948,7 @@ function ExpenseRowLine({
   return (
     <tr className={ROW}>
       <td className={`py-1 ${faint || 'text-primary'}`}>
-        {edit ? (
+        {edit && expense ? (
           <span className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -965,18 +959,14 @@ function ExpenseRowLine({
               aria-label={`Bill ${row.description}`}
               className="size-4 flex-none accent-[var(--text-muted)]"
             />
-            {expense ? (
-              <button
-                type="button"
-                onClick={() => edit.expenses.onOpen(expense)}
-                className={`${rowButton} -ml-0.5 min-w-0 flex-1 py-1.5 pr-7`}
-              >
-                <span className="sr-only">Edit</span> {row.description}
-                <EditMark />
-              </button>
-            ) : (
-              <span className="py-1.5">{row.description}</span>
-            )}
+            <button
+              type="button"
+              onClick={() => edit.expenses.onOpen(expense)}
+              className={`${rowButton} -ml-0.5 min-w-0 flex-1 py-1.5 pr-7`}
+            >
+              <span className="sr-only">Edit</span> {row.description}
+              <EditMark />
+            </button>
           </span>
         ) : (
           <span className="block py-1.5">{row.description}</span>
