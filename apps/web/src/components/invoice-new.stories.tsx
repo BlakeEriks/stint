@@ -479,9 +479,10 @@ export const Workspace: Story = {
     await expect(
       page.queryByRole('complementary', { name: 'At a glance' }),
     ).toBeNull();
+    // The sheet, not the region: the region scrolls it with a margin.
     const width = page
       .getByRole('region', { name: 'Preview' })
-      .getBoundingClientRect().width;
+      .lastElementChild!.getBoundingClientRect().width;
     await expect(width).toBeGreaterThanOrEqual(700);
     await expect(width).toBeLessThanOrEqual(816);
   },
