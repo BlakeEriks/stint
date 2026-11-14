@@ -439,7 +439,8 @@ holds them; these call its grants API with the caller's token.
 
 ## MCP
 
-`/api/mcp`, outside `/api/v1`, is a stateless Streamable HTTP MCP server.
+`/api/mcp`, outside `/api/v1`, is a stateless Streamable HTTP MCP server. It never pushes, so `GET`
+answers `405` rather than opening a stream.
 Supabase Auth's OAuth 2.1 server signs the client in, and
 `/.well-known/oauth-protected-resource` names it. Connect with
 `claude mcp add --transport http stint https://<domain>/api/mcp`, or add the
