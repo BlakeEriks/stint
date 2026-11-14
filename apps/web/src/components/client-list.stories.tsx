@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
-import { ids } from '@/mocks/fixtures';
+import { id, ids } from '@/mocks/fixtures';
 import {
   desktop,
   expectOpen,
@@ -23,26 +23,77 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Each client a heading, with its rate and summary line, its projects
-    beneath at their resolved rates; "No client" last. */
+/** Each client a heading flat on the panel, with its rate and summary
+    line and its actions, its projects beneath at their resolved rates;
+    "No client" last. Nothing is a card. */
 export const Desktop: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    const card = within(
-      (await page.findByRole('heading', { name: 'Northwind Trading' })).closest(
-        'section',
-      )!,
-    );
-    await expect(card.getByText('$150.00/h · ap@northwind.test')).toBeVisible();
+    const section = (
+      await page.findByRole('heading', { name: 'Northwind Trading' })
+    ).closest('section')!;
+    const group = within(section);
+    await expect(
+      group.getByText('$150.00/h · ap@northwind.test'),
+    ).toBeVisible();
     // This screen manages clients; what is owed belongs to reports.
-    await expect(card.queryByText(/unbilled/)).toBeNull();
-    await expect(card.queryByText(/\d+ projects?/)).toBeNull();
+    await expect(group.queryByText(/unbilled/)).toBeNull();
+    await expect(group.queryByText(/\d+ projects?/)).toBeNull();
+    const add = group.getByRole('button', {
+      name: 'Project for Northwind Trading',
+    });
+    await expect(
+      add.compareDocumentPosition(group.getByText('Warehouse dashboard')),
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    await expect(getComputedStyle(section).backgroundColor).toBe(
+      'rgba(0, 0, 0, 0)',
+    );
   },
 };
-export const Phone: Story = { ...phone };
-export const Light: Story = { ...light };
 
+/** The title bar stays while the list scrolls, and so does the heading of
+    the client whose rows are in view, pinned under it. */
+export const Scrolled: Story = {
+  ...desktop,
+  // Enough rows under Northwind that the panel scrolls at this height.
+  parameters: account((db) => {
+    for (let n = 1; n <= 8; n++)
+      db.projects.push({
+        id: id(300 + n),
+        clientId: ids.northwind,
+        name: `Workstream ${n}`,
+        hourlyRate: null,
+        isBillableDefault: true,
+        archivedAt: null,
+      });
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const northwind = await page.findByRole('heading', {
+      name: 'Northwind Trading',
+    });
+    const panel = canvasElement.querySelector<HTMLElement>(
+      '[data-content-panel]',
+    )!;
+    const top = panel.getBoundingClientRect().top;
+    // Into Northwind's rows, so its heading has something to pin over.
+    panel.scrollTop = northwind.getBoundingClientRect().top - top + 120;
+    await waitFor(() => {
+      expect(panel.scrollTop).toBeGreaterThan(100);
+      const title = page.getByRole('heading', { name: 'Clients', level: 1 });
+      expect(title.getBoundingClientRect().top).toBeGreaterThan(top);
+      expect(title.getBoundingClientRect().top).toBeLessThan(top + 40);
+      // Under the title bar: its 18px inset, 36px button, 12px and rule.
+      expect(northwind.getBoundingClientRect().top - top).toBeCloseTo(
+        67 + 12,
+        -1,
+      );
+    });
+  },
+};
+
+export const Phone: Story = { ...phone };
 /** A client with no projects keeps its heading: this is the only list of
     clients. */
 export const ClientWithoutProjects: Story = {
@@ -137,6 +188,10 @@ export const ArchivedOpen: Story = {
     await expect(
       byrne.getByRole('button', { name: 'Restore Byrne Studio' }),
     ).toBeVisible();
+    // It bills nothing new, so nothing is added to it until restored.
+    await expect(
+      byrne.queryByRole('button', { name: 'Project for Byrne Studio' }),
+    ).toBeNull();
   },
 };
 
