@@ -21,6 +21,7 @@ import type {
 } from '@/lib/client/api';
 import { shortDate } from './invoice-bits';
 import { rowButton } from './row-button';
+import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 
 type Business = Pick<Invoice['business'], 'name' | 'address' | 'email'>;
 
@@ -168,7 +169,12 @@ export function InvoicePreviewCard({
     <section
       aria-labelledby="inv-preview"
       aria-busy={updating}
-      className="flex flex-col"
+      tabIndex={useScrollerFocus()}
+      // The one scroll on an invoice screen, from `xl` where the panel is
+      // bounded: what is above stays, and the sheet moves as a page does,
+      // edge and all. It takes the column's margin, so the sheet is cut at
+      // the panel's foot and not short of it.
+      className="flex flex-col xl:-mx-[18px] xl:-mb-[18px] xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:px-[18px] xl:pb-[18px]"
     >
       {/* Hidden, not dropped: the schedules' headings sit under it. */}
       <h2 id="inv-preview" className="sr-only">

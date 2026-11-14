@@ -120,7 +120,7 @@ export function InvoiceDetail({ id }: { id: string }) {
   const markPaid = useMarkPaid();
 
   return (
-    <DetailPage back="/invoices" label="Invoices">
+    <DetailPage back="/invoices" label="Invoices" fills>
       <Listing query={query} missing="That invoice no longer exists.">
         {(data) => (
           <Loaded

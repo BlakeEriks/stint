@@ -56,7 +56,7 @@ import {
   type PaymentProfile,
   type Settings,
 } from '@/lib/client/api';
-import { DetailPage, Listing } from './page';
+import { DetailPage, FILL, Listing } from './page';
 import { ExpenseDialog } from './expense-dialog';
 import { type Charge, ChargeDialog } from './charge-dialog';
 import { PaymentProfileDialog } from './payment-profile-dialog';
@@ -394,7 +394,7 @@ export function NewInvoice() {
     queryFn: () => api.paymentProfiles(),
   });
   return (
-    <DetailPage back="/invoices" label="Invoices" workspace letter>
+    <DetailPage back="/invoices" label="Invoices" workspace letter fills>
       <Listing query={[clients, settings, profiles]}>
         {([c]) => (
           <Form
@@ -427,7 +427,7 @@ export function EditInvoice({ id }: { id: string }) {
     queryFn: () => api.paymentProfiles(),
   });
   return (
-    <DetailPage back={`/invoices/${id}`} label="Invoice" workspace letter>
+    <DetailPage back={`/invoices/${id}`} label="Invoice" workspace letter fills>
       <Listing
         query={[invoice, clients, settings, profiles]}
         missing="That invoice no longer exists."
@@ -621,12 +621,11 @@ function Form({
         canSave={canSave}
         press={save}
       />
-      <div className="@container/new flex flex-col gap-5">
-        {/* Pinned, to keep Save draft in reach down a long invoice. On a
-            phone the title row gives way (`contents`), and what it held is
-            a bar pinned to the bottom, over the timer bar: its 52px and the
-            0.75rem it floats by. */}
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-4 bg-surface-primary py-1 @max-[560px]/new:contents">
+      <div className={`@container/new flex flex-col gap-5 ${FILL}`}>
+        {/* On a phone the title row gives way (`contents`), and what it held
+            is a bar pinned to the bottom, over the timer bar: its 52px and
+            the 0.75rem it floats by. */}
+        <div className="flex items-center justify-between gap-4 @max-[560px]/new:contents">
           <h1 className="type-title whitespace-nowrap text-strong">
             {editing ? `Edit ${editing.invoiceNumber}` : 'New invoice'}
           </h1>
