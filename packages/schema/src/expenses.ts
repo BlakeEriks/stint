@@ -63,8 +63,8 @@ export const UpdateExpense = z
 
 export const ListExpensesQuery = z.object({
   clientId: uuid.optional(),
-  /** `open` is what a client card lists: recurring, unbilled, and on an
-   *  invoice not yet paid. `unbilled` is what an invoice can take. */
+  /** `open` is what a client's group on Clients lists: recurring, unbilled,
+   *  and on an invoice not yet paid. `unbilled` is what an invoice can take. */
   status: z.enum(['open', 'unbilled']).default('open'),
 });
 
