@@ -256,7 +256,7 @@ export const Locked: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     const subscribe = await page.findByRole('link', {
-      name: 'Get the paid plan',
+      name: 'Get the paid plan to download',
     });
     await expect(subscribe).toHaveAttribute('href', '/settings#plan');
     await expect(

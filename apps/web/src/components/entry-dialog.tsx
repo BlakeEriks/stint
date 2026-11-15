@@ -189,7 +189,7 @@ export function EntryDialog({
     mutationKey: keys.createsEntry(),
     /* Drawing it again would be a second entry if the first lands late. */
     timeoutMessage:
-      'We haven’t heard back about this entry. It appears here if it saved.',
+      'This entry isn’t confirmed yet. It appears here if it saved.',
     mutationFn: (entry) => api.createEntry(entry),
     predict: (current, entry, key) =>
       predictCreatedEntry(current, entry, key, tz),
@@ -494,7 +494,7 @@ function EntryFooter({
              out before anything is removed. */
           aria-label="Delete entry"
           className="mr-auto"
-          label="Delete entry"
+          label="Delete for good"
           pendingLabel="Deleting…"
           pending={deleting}
           disabled={busy}

@@ -122,8 +122,8 @@ Billing, for Production only (Preview uses Stripe test-mode keys if billing
 is being tried there). Invoicing is free during beta, so nothing asks for
 payment until `BILLING_LIVE` is set. **Setting it ends beta:** a free user's
 invoice PDF then answers `402 PAYMENT_REQUIRED` and the invoice screen
-offers *Get the paid plan* instead. Invoices generated before then aren't
-grandfathered.
+offers *Get the paid plan to download* instead. Invoices generated before
+then aren't grandfathered.
 
 - `STRIPE_SECRET_KEY` (**sensitive**), `STRIPE_PRICE_ID` and
   `STRIPE_WEBHOOK_SECRET` (**sensitive**). Any one unset turns billing off:

@@ -223,7 +223,7 @@ export function ExpenseDialog({
               <ConfirmAction
                 aria-label="Delete expense"
                 className="mr-auto"
-                label="Delete expense"
+                label="Delete for good"
                 pendingLabel="Deleting…"
                 pending={remove.isPending}
                 disabled={save.isPending}

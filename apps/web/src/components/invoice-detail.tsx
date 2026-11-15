@@ -289,7 +289,7 @@ function Loaded({
             <Button asChild>
               <Link href="/settings#plan">
                 <Lock aria-hidden strokeWidth={1.75} />
-                Get the paid plan
+                Get the paid plan to download
               </Link>
             </Button>
           ) : null}

@@ -626,7 +626,9 @@ export const DeleteExpense: Story = {
     expect(page.getAllByText('Figma license, annual').length).toBeGreaterThan(
       0,
     );
-    await userEvent.click(page.getByRole('button', { name: 'Delete expense' }));
+    await userEvent.click(
+      page.getByRole('button', { name: 'Delete for good' }),
+    );
     await waitFor(() =>
       expect(page.queryByText('Figma license, annual')).toBeNull(),
     );
@@ -646,7 +648,9 @@ export const DeletingExpense: Story = {
     await userEvent.click(
       await page.findByRole('button', { name: 'Delete expense' }),
     );
-    await userEvent.click(page.getByRole('button', { name: 'Delete expense' }));
+    await userEvent.click(
+      page.getByRole('button', { name: 'Delete for good' }),
+    );
     await expect(
       await page.findByRole('button', { name: 'Deleting…' }),
     ).toBeDisabled();
@@ -680,7 +684,9 @@ export const DeleteExpenseRefused: Story = {
     await userEvent.click(
       await page.findByRole('button', { name: 'Delete expense' }),
     );
-    await userEvent.click(page.getByRole('button', { name: 'Delete expense' }));
+    await userEvent.click(
+      page.getByRole('button', { name: 'Delete for good' }),
+    );
     await expect(await page.findByRole('alert')).toHaveTextContent(
       'Internal server error',
     );
