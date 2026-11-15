@@ -136,7 +136,9 @@ invoice, the calendar): it drops the measure and takes the column's width.
 The card keeps its size, so the frame never jolts between screens. The page
 title is the frame's: `Page`'s `title` and `actions` draw `TitleBar`, fixed
 above the scroller at `xl`, pinned from `sm`, scrolling with the page on a
-phone, `type-title`, once.
+phone, `type-title`, once. Clients is on it; Invoices, Settings and Import
+still draw their own `type-title` inside the scroller and move onto it
+next.
 
 **Nothing inside the panel is a card.** The panel is the one surface; a
 region is space and a rule (`border-edge-subtle`, stopping at the inset), and
