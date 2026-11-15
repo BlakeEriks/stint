@@ -6,7 +6,10 @@ Closes #207
 
 **Created**: 2026-10-12
 
-**Status**: Draft
+**Status**: Superseded by #702 (2026-11-09). The dock folds by the user's
+choice on every screen, never by route; the strip holds one button that
+unfolds it, and nothing opens over the panel. FR-001 to FR-004 and FR-006 no
+longer hold.
 
 **Input**: Issue #207, "Dock folds to a strip of icons on full-window
 screens": New invoice and Calendar are workspaces with no dock, so the Inbox

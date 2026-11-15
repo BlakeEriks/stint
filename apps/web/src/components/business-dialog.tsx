@@ -101,7 +101,7 @@ export function BusinessDialog({
 }
 
 /**
- * Why Generate is disabled, and the way to fix it without leaving the
+ * Why Save draft is disabled, and the way to fix it without leaving the
  * invoice. The edge is the warning hue the Inbox ranks a fault with.
  */
 export function SenderNotice({ settings }: { settings: Settings | undefined }) {

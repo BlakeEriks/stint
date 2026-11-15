@@ -21,26 +21,8 @@ vi.mock('@/lib/client/supabase', () => ({
   browserClient: () => ({ auth: { signOut, signInWithOtp } }),
 }));
 
-/* Cloudflare's widget, as a button that hands out a token. Each mount's
-   token is new, as a remounted widget's is. */
-let mounts = 0;
-vi.mock('@/components/turnstile', async () => {
-  const { useState } = await import('react');
-  return {
-    Turnstile: ({ onToken }: { onToken: (t: string) => void }) => {
-      const [n] = useState(() => ++mounts);
-      return (
-        <button type="button" onClick={() => onToken(`token-${n}`)}>
-          I am human
-        </button>
-      );
-    },
-  };
-});
-
 afterEach(() => {
   calls.length = 0;
-  mounts = 0;
   vi.clearAllMocks();
 });
 
@@ -69,31 +51,5 @@ describe('SignInForm', () => {
   it('explains an unrecognized reason instead of rendering nothing', async () => {
     render(<SignInForm error="something_new" />);
     expect(screen.getByRole('alert').textContent).toMatch(/went wrong/i);
-  });
-
-  it('sends the CAPTCHA’s token, and a fresh one after a refusal', async () => {
-    const user = userEvent.setup();
-    signInWithOtp.mockResolvedValueOnce({
-      error: { code: 'captcha_failed', message: 'captcha protection' },
-    });
-    render(<SignInForm captchaSiteKey="site-key" />);
-    await user.type(screen.getByLabelText('Email'), 'new@example.com');
-    const send = screen.getByRole('button', { name: /Email me/ });
-
-    await user.click(screen.getByRole('button', { name: 'I am human' }));
-    await user.click(send);
-    await waitFor(() =>
-      expect(signInWithOtp.mock.calls[0]?.[0]).toMatchObject({
-        options: { captchaToken: 'token-1' },
-      }),
-    );
-    // The spent token is gone with the widget that drew it.
-    await user.click(screen.getByRole('button', { name: 'I am human' }));
-    await user.click(send);
-    await waitFor(() =>
-      expect(signInWithOtp.mock.calls[1]?.[0]).toMatchObject({
-        options: { captchaToken: 'token-2' },
-      }),
-    );
   });
 });

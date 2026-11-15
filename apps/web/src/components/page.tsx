@@ -59,16 +59,13 @@ export function Page({
   fills?: boolean;
   /**
    * For a screen that is a tool rather than a page to read: it takes the
-   * dock's room too. `AppShell` sees `data-workspace` and folds the dock to a
-   * strip at `xl`, so a screen opts in here and the frame never checks a
-   * route.
+   * column's whole width, with no measure.
    */
   workspace?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <main
-      data-workspace={workspace || undefined}
       className={`mx-auto ${flush ? '' : `${INSET} py-[18px] `}${
         workspace ? 'max-w-none' : wide ? 'max-w-6xl' : 'max-w-3xl'
       }${fills ? ' xl:flex xl:h-full xl:min-h-0 xl:flex-col' : ''}`}
@@ -77,6 +74,9 @@ export function Page({
     </main>
   );
 }
+
+/** A column between `fills` and the region that scrolls, passing the height down. */
+export const FILL = 'xl:flex xl:min-h-0 xl:flex-1 xl:flex-col';
 
 /**
  * A detail screen: a back link, then the content. `back` is where this record
@@ -87,23 +87,27 @@ export function DetailPage({
   back,
   label,
   workspace = false,
+  letter = false,
   fills = false,
   children,
 }: {
   back: string;
   label: string;
   workspace?: boolean;
-  /** `Page`'s: the content below the back link takes the rest of the panel. */
+  /** `Page`'s, carried through the column so a child can own the scroll. */
   fills?: boolean;
+  /** One centered column a Letter page wide (816px), the back link in it,
+   *  for a screen whose subject is the page itself. */
+  letter?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <Page workspace={workspace} fills={fills}>
-      <BackLink up={back} label={label} />
       <div
-        className={`mt-4${fills ? ' xl:flex xl:min-h-0 xl:flex-1 xl:flex-col' : ''}`}
+        className={`${letter ? 'mx-auto w-full max-w-[816px]' : ''}${fills ? ` ${FILL}` : ''}`}
       >
-        {children}
+        <BackLink up={back} label={label} />
+        <div className={`mt-4${fills ? ` ${FILL}` : ''}`}>{children}</div>
       </div>
     </Page>
   );

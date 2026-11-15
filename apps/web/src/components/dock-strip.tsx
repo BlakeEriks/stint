@@ -1,136 +1,123 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarDays, Inbox as InboxIcon } from 'lucide-react';
-import { Popover } from 'radix-ui';
+import { PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { api } from '@/lib/client/api';
 import { keys } from '@stint/client';
-import { useDockFold, type FoldRegion } from '@/lib/client/use-dock-fold';
+import { setDockFolded } from '@/lib/client/dock-fold';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { Button } from '@/components/ui/button';
-import { DockToday } from './dock';
-import { Inbox, inboxCount } from './inbox';
-import { Listing } from './page';
+import { inboxCount } from './inbox';
 
 /**
- * The dock, folded: on a workspace screen at `xl`, a 44px strip where the
- * dock's column was, so the screen keeps the room and the Inbox stays one
- * press away with its count in view.
+ * The dock, folded by the user at `xl`: a 44px strip where the dock's column
+ * was, with the Inbox's count in view and the button that unfolds it.
  *
- * Each icon opens its region over the panel as a non-modal popover: Escape,
- * a press outside, focus leaving or a navigation closes it, and focus returns
- * to the icon.
+ * It shows only while `<html>` carries `data-dock-folded`, read by CSS, as the
+ * dock and the frame's column width are. It shares the dock's cell and
+ * cross-fades with it while the column slides; the visibility delays are
+ * the dock's, mirrored. Below `xl` the dock is a band under
+ * the content and the choice does not apply.
  *
- * Icon-only by design, the third exception in `.claude/rules/web-ui.md`:
- * each carries its name, and the Inbox its count, in `aria-label`.
+ * Icon-only by design, an exception in `.claude/rules/web-ui.md`: the button
+ * carries its name, and the Inbox's count, in `aria-label`.
  */
 export function DockStrip() {
-  const { open, setOpen } = useDockFold();
   const stats = useQuery({
     queryKey: keys.stats(tz),
     queryFn: () => api.stats(tz),
   });
   const count = stats.data ? inboxCount(stats.data.attention) : 0;
 
-  const fold = (region: FoldRegion) => ({
-    open: open === region,
-    onOpenChange: (next: boolean) => setOpen(next ? region : null),
-  });
-
   return (
     <aside
       aria-label="Inbox and Today"
-      className="hidden flex-col items-center gap-1.5 pt-2 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:group-has-[[data-workspace]]/app:flex"
+      className="hidden flex-col items-center [transition:opacity_200ms,visibility_0s_200ms] motion-reduce:[transition:none] xl:invisible xl:flex xl:opacity-0 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:[[data-dock-folded]_&]:visible xl:[[data-dock-folded]_&]:opacity-100 xl:[[data-dock-folded]_&]:[transition:opacity_200ms,visibility_0s]"
     >
-      <Popover.Root {...fold('inbox')}>
-        <Icon
-          label={
-            count
-              ? `Inbox, ${count} ${count === 1 ? 'item' : 'items'}`
-              : 'Inbox'
-          }
-          title="Inbox"
-        >
-          <InboxIcon aria-hidden strokeWidth={1.75} />
-          {/* The dock's own count pill, on the icon's corner; none at zero,
-              where the open Inbox says "Nothing needs you." */}
-          {count ? (
-            <span
-              aria-hidden
-              className="absolute top-0.5 right-0.5 inline-flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-surface-active px-1 type-meta text-strong"
-            >
-              {count}
-            </span>
-          ) : null}
-        </Icon>
-        <Fold label="Inbox">
-          <Listing query={stats}>{(data) => <Inbox stats={data} />}</Listing>
-        </Fold>
-      </Popover.Root>
-
-      <Popover.Root {...fold('today')}>
-        <Icon label="Today" title="Today">
-          <CalendarDays aria-hidden strokeWidth={1.75} />
-        </Icon>
-        <Fold label="Today">
-          <DockToday flush />
-        </Fold>
-      </Popover.Root>
+      <Button
+        type="button"
+        variant="ghost"
+        size="xs"
+        aria-label={
+          count
+            ? `Show Inbox and Today, ${count} ${count === 1 ? 'item' : 'items'}`
+            : 'Show Inbox and Today'
+        }
+        title="Show Inbox and Today"
+        id={UNFOLD}
+        onClick={() => toggle(false, FOLD)}
+        className={`relative ${FOLD_BUTTON}`}
+      >
+        <PanelRightOpen aria-hidden strokeWidth={1.75} />
+        {/* The dock's own count pill, on the icon's corner; none at zero. */}
+        {count ? (
+          <span
+            aria-hidden
+            className="absolute -top-1 -right-1 inline-flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-surface-active px-1 type-meta text-strong"
+          >
+            {count}
+          </span>
+        ) : null}
+      </Button>
     </aside>
   );
 }
 
-function Icon({
-  label,
-  title,
-  children,
-}: {
-  label: string;
-  title: string;
-  children: React.ReactNode;
-}) {
+/**
+ * The open dock's button that folds it, at the end of the Inbox's header,
+ * where the strip's button that unfolds it sits once folded. In the header
+ * rather than a row of its own: a row holding one icon is empty ground that
+ * pushes the Inbox below the top of the content beside it.
+ */
+export function FoldButton() {
+  useEffect(() => claim(FOLD), []);
   return (
-    <Popover.Trigger asChild>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        aria-label={label}
-        title={title}
-        className="relative text-muted data-[state=open]:bg-surface-active data-[state=open]:text-strong [&_svg:not([class*='size-'])]:size-[18px]"
-      >
-        {children}
-      </Button>
-    </Popover.Trigger>
+    <Button
+      type="button"
+      variant="ghost"
+      size="xs"
+      aria-label="Hide Inbox and Today"
+      title="Hide Inbox and Today"
+      id={FOLD}
+      onClick={() => toggle(true, UNFOLD)}
+      className={`hidden xl:inline-flex ${FOLD_BUTTON}`}
+    >
+      <PanelRightClose aria-hidden strokeWidth={1.75} />
+    </Button>
   );
 }
 
-/**
- * The open region, over the panel to the strip's left and the dock's width.
- *
- * On the ground the dock is painted on, not a raised surface: the Inbox's
- * rows carry the elevated fill, and on an elevated popover they would vanish
- * into it. The border and the float shadow are what lift it off the panel.
- */
-function Fold({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Popover.Portal>
-      <Popover.Content
-        side="left"
-        align="start"
-        sideOffset={8}
-        collisionPadding={12}
-        aria-label={label}
-        className="z-40 flex max-h-(--radix-popover-content-available-height) w-[286px] flex-col overflow-y-auto rounded-xl border border-edge-subtle bg-surface-base p-3 shadow-float"
-      >
-        {children}
-      </Popover.Content>
-    </Popover.Portal>
-  );
+/* 24px square, the Inbox header's height with its count pill in it, so the
+   button adds no height to the row; `xs` for the dock's density, with the
+   icon at the header's own 16px.
+
+   `transition-colors`, not the Button's `transition-all`: `all` would ease
+   the `visibility` it inherits from its fading aside, and a button still
+   easing in from hidden refuses the focus `claim` hands it on the press. */
+const FOLD_BUTTON =
+  "size-6 p-0 text-muted transition-colors has-[>svg]:px-0 [&_svg:not([class*='size-'])]:size-4";
+
+const FOLD = 'dock-fold';
+const UNFOLD = 'dock-unfold';
+
+/* Each button hides itself, so focus moves to the one that takes it back
+   rather than falling to the page. The fold button mounts with the Inbox,
+   after its data, so an unfold pressed before then is kept until it does. */
+let wanted: string | null = null;
+
+function toggle(folded: boolean, next: string) {
+  setDockFolded(folded);
+  wanted = next;
+  claim(next);
+}
+
+function claim(id: string) {
+  const button = document.getElementById(id);
+  if (!button || wanted !== id) return;
+  wanted = null;
+  /* Never scroll to it: unfolding, the dock is 286px in a track still 44px
+     wide, and scrolling that overflow into view throws the whole frame
+     sideways for the length of the slide. */
+  button.focus({ preventScroll: true });
 }

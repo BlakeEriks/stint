@@ -34,8 +34,7 @@ if (!API_URL || !PUBLISHABLE_KEY || !SECRET_KEY) {
 
 const { status: code } = spawnSync(
   'pnpm',
-  // `test:auth` or `test:auth:captcha`, whichever ran this.
-  ['--filter', '@stint/web', process.env.npm_lifecycle_event],
+  ['--filter', '@stint/web', 'test:auth'],
   {
     stdio: 'inherit',
     env: {

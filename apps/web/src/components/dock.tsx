@@ -19,6 +19,7 @@ import {
   useClientsQuery,
 } from '@/lib/client/use-project-colors';
 import { Inbox } from './inbox';
+import { FoldButton } from './dock-strip';
 import { keys } from '@stint/client';
 
 /**
@@ -32,8 +33,8 @@ import { keys } from '@stint/client';
  */
 export function Dock() {
   /* The inbox draws stats; Today's data is waited on too, so the two arrive
-     together, and `DockToday` then finds it cached. Today keeps its own gate
-     because the folded strip opens it alone. */
+     together, and `DockToday` then finds it cached. Today keeps its own gate,
+     so a failure there shows in Today alone. */
   const [stats, ...today] = useDockTodayQueries();
 
   /* The split is only a thing at `xl`, where the dock is a fixed-height
@@ -65,10 +66,16 @@ export function Dock() {
          Where it divides is the user's, dragged on the handle between them
          and kept per device.
 
-         At `xl` a workspace screen folds it to `DockStrip`: that screen is a
-         tool and takes the room (`Page`'s `workspace`). Below `xl` it is a
-         band under the content, which costs no width, so it stays. */
-      className="flex min-h-0 flex-none flex-col xl:group-has-[[data-workspace]]/app:hidden xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:w-[286px]"
+         At `xl` the user can fold it to `DockStrip`, on every screen alike.
+         Below `xl` it is a band under the content, which costs no width, so
+         it stays.
+
+         Folded, it fades rather than unmounts, so the strip can take its
+         place while the column slides. `invisible` keeps it out of the
+         accessibility tree and off the tab order, delayed until the fade
+         ends; unfolding, it is visible at once, so its button can take focus
+         on the press. */
+      className="flex min-h-0 flex-none flex-col [transition:opacity_200ms,visibility_0s] motion-reduce:[transition:none] xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:w-[286px] xl:[[data-dock-folded]_&]:invisible xl:[[data-dock-folded]_&]:opacity-0 xl:[[data-dock-folded]_&]:[transition:opacity_200ms,visibility_0s_200ms]"
     >
       {/* The inbox takes its share and scrolls within it. `min-h-0` is what
           lets it shrink below its content so the scroller engages rather than
@@ -84,7 +91,7 @@ export function Dock() {
               className="xl:min-h-0 xl:shrink xl:overflow-y-auto"
               style={wide ? { flexBasis: `${split * 100}%` } : undefined}
             >
-              <Inbox stats={data} />
+              <Inbox stats={data} controls={<FoldButton />} />
             </div>
 
             {wide ? (
@@ -105,15 +112,8 @@ export function Dock() {
   );
 }
 
-/** The dock's Today, in its column or opened from the folded strip. */
-export function DockToday({
-  flush,
-  fills = false,
-}: {
-  flush: boolean;
-  /** Only in the dock's column: the strip's popover sizes to its content. */
-  fills?: boolean;
-}) {
+/** The dock's Today. */
+function DockToday({ flush, fills }: { flush: boolean; fills: boolean }) {
   const timer = useTimer();
   return (
     <Listing query={useDockTodayQueries()}>

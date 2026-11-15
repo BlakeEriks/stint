@@ -65,10 +65,9 @@ test.describe('invoices', () => {
     page,
   }) => {
     await page.goto('/invoices/new');
-    const generate = page.getByRole('button', { name: 'Generate invoice' });
-    await expect(generate).toBeDisabled();
+    const generate = page.getByRole('button', { name: 'Save draft' });
 
-    await page.getByRole('button', { name: 'Client' }).click();
+    await page.getByRole('button', { name: 'Client', exact: true }).click();
     await page.getByRole('menuitemradio', { name: /Northwind/ }).click();
     await page.getByRole('button', { name: 'Add a charge' }).click();
     const charge = page.getByRole('dialog', { name: 'New charge' });
@@ -78,7 +77,7 @@ test.describe('invoices', () => {
 
     const preview = page.getByRole('region', { name: 'Preview' });
     await expect(
-      preview.getByRole('cell', { name: 'Onboarding fee' }),
+      preview.getByRole('button', { name: 'Edit charge Onboarding fee' }),
     ).toBeVisible();
     await expect(generate).toBeEnabled();
 

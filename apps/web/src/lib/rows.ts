@@ -426,10 +426,11 @@ export interface ExpenseRow {
   description: string;
   amount: Numeric;
   invoice_id: string | null;
+  draft_id: string | null;
 }
 
 export const EXPENSE_COLUMNS = columns<ExpenseRow>()(
-  'id, client_id, recurring, spent_on, description, amount, invoice_id',
+  'id, client_id, recurring, spent_on, description, amount, invoice_id, draft_id',
 );
 
 /** `invoice` is the billing invoice when there is one, looked up separately. */
@@ -447,6 +448,7 @@ export function toExpense(
     invoiceId: r.invoice_id,
     invoiceNumber: invoice?.invoice_number ?? null,
     invoiceStatus: invoice?.status ?? null,
+    draftId: r.draft_id,
   };
 }
 

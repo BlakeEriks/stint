@@ -3,7 +3,7 @@
  * then applies these; the fake API (`apps/web/src/mocks/derive.ts`) applies
  * them to its arrays, so a rule changed here changes both.
  */
-import { addDays, startOfLocalDate } from './calendar.ts';
+import { addDays, localDateKey, startOfLocalDate } from './calendar.ts';
 import type { ExpenseInput } from './invoice.ts';
 
 /**
@@ -56,6 +56,40 @@ export function isBillableEntry(
     started >= window.start.getTime() &&
     started < window.end.getTime()
   );
+}
+
+/**
+ * The first day New invoice looks for unbilled work before `periodStart`:
+ * the day after the end of the client's latest invoice starting before it.
+ * Null with no such invoice, since a first invoice has no gap to catch, and
+ * null when that invoice reaches the period, since what it left out is its
+ * own business, and a second invoice over it is worse. `invoices` are the
+ * client's non-void ones.
+ */
+export function earlierWorkFrom(
+  periodStart: string,
+  invoices: { periodStart: string; periodEnd: string }[],
+) {
+  const last = invoices
+    .filter((i) => i.periodStart < periodStart)
+    .map((i) => i.periodEnd)
+    .sort()
+    .at(-1);
+  if (!last) return null;
+  return last < addDays(periodStart, -1) ? addDays(last, 1) : null;
+}
+
+/**
+ * What New invoice offers of the billable entries no draft holds, dated
+ * from `earlierWorkFrom()` to the period: the count and dates, each entry
+ * dated by its day in `tz`. Null when there are none.
+ */
+export function earlierWork(entries: { startedAt: string }[], tz: string) {
+  if (entries.length === 0) return null;
+  const days = entries
+    .map((e) => localDateKey(new Date(e.startedAt), tz))
+    .sort();
+  return { entryCount: days.length, from: days[0]!, to: days.at(-1)! };
 }
 
 export interface ExpenseRow {

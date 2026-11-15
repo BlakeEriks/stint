@@ -3,11 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client/api';
 import { addDays } from '@stint/core';
 import { keys } from '@stint/client';
-import { delay, http } from 'msw';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import { type Db, id } from '@/mocks/fixtures';
-import { handlers } from '@/mocks/handlers';
 import {
   desktop,
   failing,
@@ -15,6 +13,7 @@ import {
   screen,
   skipping,
   stalled,
+  stalledWhen,
 } from '@/mocks/screen';
 import { InvoiceDetail } from './invoice-detail';
 
@@ -460,21 +459,8 @@ export const AsPrinted: Story = {
 /* Only the invoice the page opens never answers. The dock prefetches the
    overdue and stale ones too, and `stalled('invoice')` would hold those
    open as well: the story would pass or time out by which came first. */
-const stalledInvoice = (opened: string) => ({
-  stalls: 1,
-  msw: {
-    handlers: {
-      invoice: http.get(handlers.invoice.info.path, async (info) => {
-        if (info.params.id === opened) await delay('infinite');
-        // `resolver` is protected in msw's types, and public at runtime.
-        const real = handlers.invoice as unknown as {
-          resolver: (i: typeof info) => Promise<Response>;
-        };
-        return real.resolver(info);
-      }),
-    },
-  },
-});
+const stalledInvoice = (opened: string) =>
+  stalledWhen('invoice', (info) => info.params.id === opened);
 
 /* Mounts the page only once the lists it was opened from are cached, as
    they are after a click in Invoices. */

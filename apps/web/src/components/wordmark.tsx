@@ -1,6 +1,8 @@
 /**
  * `|Stint|™` — the wordmark. `Foundations/Mark` draws it; `mark-bound` and
  * `mark-tm` carry the geometry so this and `Mark.swift` draw the same mark.
+ * `mark-outline.js` in the design tokens lays it out a third time, as
+ * outlines; a layout change here is made there too.
  *
  * `className` is a whole utility (`text-muted`), not a shade, and colors the
  * letters; the bounds are always `--mark`.

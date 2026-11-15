@@ -30,25 +30,19 @@ const rowClass = `${rowButton} ${rowBleed} flex items-center gap-3 py-2`;
  * invoice is labeled with the invoice's number and steps down a shade, since
  * it is already asked for; it links to that invoice instead of opening the
  * dialog, because an issued one is locked.
- *
- * `leading` (New invoice's checkbox) sits before the button, and the name
- * takes its meta beneath it, since the form's column is narrow.
  */
 export function ExpenseRow({
   expense,
   currency,
   onOpen,
-  leading,
 }: {
   expense: Expense;
   currency?: string;
   onOpen?: () => void;
-  leading?: React.ReactNode;
 }) {
   const billed = expense.invoiceId !== null;
   const cells = (
     <>
-      {leading}
       {/* On a phone the labels give way to the name, as a project's rate
           source does: Recurring keeps its icon, and a billed row still reads
           as billed by its shade and its arrow. */}
@@ -79,44 +73,6 @@ export function ExpenseRow({
       </span>
     </>
   );
-
-  if (leading) {
-    return (
-      <div className="flex items-center gap-3">
-        {leading}
-        <button
-          type="button"
-          onClick={onOpen}
-          className={`${rowButton} flex min-w-0 flex-1 items-center gap-3 py-2`}
-        >
-          <span className="sr-only">Edit</span>{' '}
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate type-control text-strong">
-              {expense.description}
-            </span>
-            <span className="flex items-center gap-1 type-meta text-subtle">
-              {expense.recurring ? (
-                <>
-                  <Repeat aria-hidden strokeWidth={1.75} className="size-3" />
-                  Recurring
-                </>
-              ) : expense.spentOn ? (
-                monthDay(expense.spentOn)
-              ) : null}
-            </span>
-          </span>
-          <span className="flex-none text-right type-duration text-strong">
-            {formatCurrency(expense.amount, currency)}
-          </span>
-          <Pencil
-            aria-hidden
-            strokeWidth={1.75}
-            className="size-3.5 flex-none text-subtle group-hover:text-strong"
-          />
-        </button>
-      </div>
-    );
-  }
 
   if (billed) {
     return (

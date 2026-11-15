@@ -26,8 +26,9 @@ const saved = async (page: ReturnType<typeof within>) =>
     { timeout: 3000 },
   );
 
-/** New invoice, opened on the draft: every field as the draft left it, and
-    the client locked. Its number stays, so none is offered. */
+/** New invoice, opened on the draft: everything as the draft left it, the
+    client locked and the business plain. Its number stays, so none is
+    offered. */
 export const Filled: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -36,15 +37,22 @@ export const Filled: Story = {
       await page.findByRole('heading', { name: 'Edit STINT-0015' }),
     ).toBeVisible();
     await expect(page.getByRole('button', { name: 'Client' })).toBeDisabled();
-    await expect(page.getByLabelText('From')).toHaveValue('2026-08-01');
-    await expect(page.getByLabelText('To')).toHaveValue('2026-08-31');
-    await expect(page.queryByText(/^Numbered/)).toBeNull();
-    await expect(page.getByText('Saving keeps its number.')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Period' }),
+    ).toHaveTextContent('Aug 1 – Aug 31, 2026');
     await saved(page);
     // Its sender was frozen when it was made, so Settings can't reach it.
     await expect(
-      page.queryByRole('button', { name: 'Edit business' }),
+      page.queryByRole('button', { name: /^Edit Sam Rivera/ }),
     ).toBeNull();
+    // Its dates open with the number shown, not offered.
+    await userEvent.click(page.getByRole('button', { name: /^Edit No\./ }));
+    const dialog = within(
+      await page.findByRole('dialog', { name: 'Number and dates' }),
+    );
+    await expect(dialog.getByText('STINT-0015')).toBeVisible();
+    await expect(dialog.queryByLabelText('Next number')).toBeNull();
+    await userEvent.keyboard('{Escape}');
   },
 };
 
@@ -53,9 +61,11 @@ export const SavesDates: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(await page.findByRole('button', { name: 'Period' }));
     const to = await page.findByLabelText('To');
     await userEvent.clear(to);
     await userEvent.type(to, '2026-09-15');
+    await userEvent.keyboard('{Escape}');
     await userEvent.type(page.getByLabelText('Reference'), 'PO-88');
     await saved(page);
     await userEvent.click(page.getByRole('button', { name: 'Save draft' }));

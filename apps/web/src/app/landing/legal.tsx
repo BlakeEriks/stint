@@ -47,6 +47,6 @@ export function Clause({
 }
 
 export const legalMetadata = (title: string): Metadata => ({
-  title: `${title} · Stint`,
+  title,
   robots: { index: true, follow: true },
 });

@@ -1,1 +1,5 @@
 google-services.json
+# Prebuild's output. Ignored, the fingerprint leaves them out, so a Stint
+# Preview built on a Mac has the runtime CI publishes updates for.
+/ios
+/android

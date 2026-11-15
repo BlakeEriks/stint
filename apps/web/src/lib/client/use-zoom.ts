@@ -107,9 +107,7 @@ export function useZoom(hours: number, { fill }: { fill: boolean }) {
 
     /* Asked on each resize, since a breakpoint can make the parent scroll or
        stop scrolling. */
-    const resized = new ResizeObserver(() =>
-      setAreaPx(heightOf(scrollArea(el))),
-    );
+    const resized = new ResizeObserver(() => setAreaPx(roomFor(el)));
     if (el.parentElement) resized.observe(el.parentElement);
     return () => {
       el.removeEventListener('wheel', onWheel);
@@ -120,7 +118,7 @@ export function useZoom(hours: number, { fill }: { fill: boolean }) {
   /* And after every render: the observer reports only resizes, and the area
      can settle without one, as when what is above it loads. */
   useLayoutEffect(() => {
-    const h = heightOf(scrollArea(grid.current));
+    const h = roomFor(grid.current);
     if (h !== areaPx) setAreaPx(h);
   });
 
@@ -150,12 +148,19 @@ function scrollArea(el: HTMLElement | null): HTMLElement | null {
 }
 
 /**
- * The area's height in whole pixels, rounded down. `clientHeight` rounds to
- * the nearest, and an area 778.75px tall reads as 779: a day drawn to fill
- * that is a quarter pixel taller than the room, and scrolls by it.
+ * The scroll area's height below anything above the grid in it, such as the
+ * calendar's pinned day headings, in whole pixels, rounded down.
+ * `clientHeight` rounds to the nearest, and an area 778.75px tall reads as
+ * 779: a day drawn to fill that is a quarter pixel taller than the room, and
+ * scrolls by it.
  */
-const heightOf = (area: HTMLElement | null) =>
-  area ? Math.floor(area.getBoundingClientRect().height) : 0;
+function roomFor(el: HTMLElement | null) {
+  const area = scrollArea(el);
+  if (!el || !area) return 0;
+  const box = area.getBoundingClientRect();
+  const above = el.getBoundingClientRect().top - box.top + area.scrollTop;
+  return Math.floor(box.height - above);
+}
 
 /** The nearest ancestor that scrolls, or the page. */
 function scrollerOf(el: HTMLElement): Element {

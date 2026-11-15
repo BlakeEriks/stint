@@ -271,12 +271,9 @@ export function buildLineItems(
 
   /* Expenses go after every service line, oldest first, in a section of
      their own: a reimbursement is a pass-through, not work, so it is
-     subtotalled apart and tax never reaches it. The id breaks a tie so two
-     expenses on one day always print in the same order. */
+     subtotalled apart and tax never reaches it. */
   const expenseLines: LineItem[] = [...(opts.expenses ?? [])]
-    .sort(
-      (a, b) => a.spentOn.localeCompare(b.spentOn) || a.id.localeCompare(b.id),
-    )
+    .sort(expensePrintOrder)
     .map((e) => ({
       description: e.description,
       unit: 'expense' as const,
@@ -378,3 +375,10 @@ export function linesByUnit<
     })
     .filter((k) => k.items.length > 0);
 }
+
+/** The order expenses print in: oldest first, the id breaking a tie so two
+ *  on one day always print in the same order. */
+export const expensePrintOrder = (
+  a: { spentOn: string; id: string },
+  b: { spentOn: string; id: string },
+) => a.spentOn.localeCompare(b.spentOn) || a.id.localeCompare(b.id);

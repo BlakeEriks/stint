@@ -163,6 +163,16 @@ export const InvoicePreview = z.object({
   /** Entries to bill that share a minute or more with each other or with
    *  billed time. A warning, not a block: the user decides. */
   overlappingEntryIds: z.array(uuid),
+  /** The client's unbilled work no draft holds, dated after its last
+   *  invoice and before the period (`earlierWork()`), which New invoice
+   *  offers to include. Null when there is none. */
+  earlierWork: z
+    .object({
+      entryCount: z.number().int().positive(),
+      from: z.iso.date(),
+      to: z.iso.date(),
+    })
+    .nullable(),
   /** With `summary`, every table the invoice could attach; otherwise null. */
   schedules: Schedules.nullable(),
 });

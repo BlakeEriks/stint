@@ -86,6 +86,10 @@ export function proxy(request: NextRequest) {
 export const config = {
   /* Everything except API routes, Next's own assets and static files. Without
      a matcher the proxy runs on every request including `_next/static`, which
-     would put a hostname branch in front of every CSS and JS file. */
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)'],
+     would put a hostname branch in front of every CSS and JS file.
+     `opengraph-image` has no extension, and a link crawler on the apex
+     should get the image, not a redirect to the subdomain. */
+  matcher: [
+    '/((?!api|_next/static|_next/image|favicon.ico|.*opengraph-image|.*\\..*).*)',
+  ],
 };
