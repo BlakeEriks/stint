@@ -3,7 +3,7 @@ import {
   getRouter,
   useSearchParams,
 } from '@storybook/nextjs-vite/navigation.mock';
-import { delay, http } from 'msw';
+import { http } from 'msw';
 import { useEffect, useReducer } from 'react';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account, getDb } from '@/mocks/db';
@@ -18,6 +18,7 @@ import {
   screen,
   skipping,
   stalled,
+  stalledWhen,
   tablet,
   wide,
   foldDock,
@@ -45,13 +46,11 @@ const chooseNorthwind = async (canvasElement: HTMLElement) => {
   return page;
 };
 
-/** The card has the server's current answer and Generate is live. */
+/** The card has the server's current answer and Save draft is live. */
 const settled = async (page: Page) =>
   waitFor(
     () =>
-      expect(
-        page.getByRole('button', { name: 'Generate invoice' }),
-      ).toBeEnabled(),
+      expect(page.getByRole('button', { name: 'Save draft' })).toBeEnabled(),
     { timeout: 3000 },
   );
 
@@ -103,10 +102,10 @@ const openDates = async (page: Page, shown = 'STINT-0016') => {
   return within(dialog);
 };
 
-/** The count and amount beside Generate. */
+/** The count and amount beside Save draft. */
 const due = (page: Page) =>
   within(
-    page.getByRole('button', { name: 'Generate invoice' })
+    page.getByRole('button', { name: 'Save draft' })
       .parentElement as HTMLElement,
   );
 
@@ -128,36 +127,75 @@ const scheduled = (
 
 // ── states ─────────────────────────────────────────────────────────
 
-/** No client yet: Generate waits, and in place of a page each client
-    ready to invoice is a row that opens with its client and period. */
+/** No client yet: every control is there and Client has focus, since it
+    comes first. The page prints what it already knows, Bill to says what
+    is left to choose, and Save draft waits. */
 export const Blank: Story = {
   ...desktop,
-  parameters: scheduled(ids.northwind, { period: 'semimonthly' }),
   play: async ({ canvasElement }) => {
-    const ready = within(
-      await within(canvasElement).findByRole('region', {
-        name: 'Ready to invoice',
-      }),
-    );
+    const page = within(canvasElement);
     await expect(
-      ready.getByRole('link', { name: /^Northwind Trading/ }),
-    ).toHaveAttribute(
-      'href',
-      `/invoices/new?client=${ids.northwind}&from=2026-09-01&to=2026-09-15`,
-    );
+      await page.findByRole('button', { name: 'Client' }),
+    ).toHaveFocus();
+    for (const name of ['Period', 'Show time as', 'Template'])
+      await expect(page.getByRole('button', { name })).toBeVisible();
     await expect(
-      within(canvasElement).queryByRole('region', { name: 'Preview' }),
-    ).toBeNull();
+      page.getByRole('button', { name: /^Edit Sam Rivera/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Choose a client' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Save draft' }),
+    ).toBeDisabled();
+    // An expense is the client's: the press goes to where one is chosen.
+    await userEvent.click(page.getByRole('button', { name: 'Add an expense' }));
+    await expect(page.getByRole('button', { name: 'Client' })).toHaveFocus();
+    // The period is set above the page: Service period goes there.
+    await userEvent.click(
+      page.getByRole('button', { name: /^Edit Service period/ }),
+    );
+    await expect(page.getByRole('button', { name: 'Period' })).toHaveFocus();
     // No client, no format yet: nothing to fault.
     await expect(
-      within(canvasElement).queryByText('Give the summary line its text.'),
+      page.queryByText('Give the summary line its text.'),
     ).toBeNull();
-    await expect(
-      within(canvasElement).getByRole('button', { name: 'Generate invoice' }),
-    ).toBeDisabled();
   },
 };
-export const Phone: Story = { ...phone };
+export const Phone: Story = { ...Blank, ...phone };
+
+/** One box model on the sheet: every box, highlight, dashed or typed,
+    reaches the same 8px past its column, so edges line up down each half
+    and the gutter is one line. Measured, since a drift of a few pixels
+    passes every other check. */
+export const SheetAligned: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const box = (el: HTMLElement) => el.getBoundingClientRect();
+    const business = box(
+      await page.findByRole('button', { name: /^Edit Sam Rivera/ }),
+    );
+    const client = box(page.getByRole('button', { name: 'Choose a client' }));
+    const dates = box(page.getByRole('button', { name: /^Edit No\./ }));
+    const period = box(
+      page.getByRole('button', { name: /^Edit Service period/ }),
+    );
+    const reference = box(page.getByRole('textbox', { name: 'Reference' }));
+    const near = (a: number, b: number) =>
+      expect(Math.abs(a - b)).toBeLessThanOrEqual(1);
+    // The left edge: a highlight and a dashed box start on the sheet's
+    // margin.
+    near(business.left, client.left);
+    // The right edge: the number, a highlight and a typed field all end on
+    // the sheet's margin, and the business stops short of the number.
+    near(dates.right, period.right);
+    near(dates.right, reference.right);
+    expect(business.right).toBeLessThanOrEqual(dates.left);
+    // Stacked boxes never overlap.
+    expect(period.bottom).toBeLessThanOrEqual(reference.top);
+  },
+};
 
 /** On September 17 the period is September, the month ending nearest, and
     due follows the settings' Net 30 terms. The card follows both. */
@@ -416,8 +454,7 @@ export const NoScheduleNoHint: Story = {
 };
 
 /** A client chosen: the card is the invoice as the PDF prints it, and
-    follows the form without a Preview button (US3 scenario 1). What
-    generating does reads under the card, not on it. */
+    follows the form without a Preview button (US3 scenario 1). */
 export const ClientChosen: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -425,16 +462,13 @@ export const ClientChosen: Story = {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
     await expect(card(page).getByText('Service period')).toBeVisible();
-    const footnote = card(page).getByText(/^Generating assigns a number/);
-    await expect(footnote).toBeVisible();
-    await expect(sheet(page).contains(footnote)).toBe(false);
     await expect(page.queryByRole('button', { name: 'Preview' })).toBeNull();
   },
 };
 export const ClientChosenPhone: Story = { ...ClientChosen, ...phone };
 
-/** With the dock folded, At a glance is gone; the page is a US letter's
-    width, 816px at most. */
+/** With the dock folded, the page is a US letter's width, 816px at
+    most. */
 export const Workspace: Story = {
   ...ClientChosen,
   ...wide,
@@ -445,15 +479,16 @@ export const Workspace: Story = {
     await expect(
       page.queryByRole('complementary', { name: 'At a glance' }),
     ).toBeNull();
+    // The sheet, not the region: the region scrolls it with a margin.
     const width = page
       .getByRole('region', { name: 'Preview' })
-      .getBoundingClientRect().width;
+      .lastElementChild!.getBoundingClientRect().width;
     await expect(width).toBeGreaterThanOrEqual(700);
     await expect(width).toBeLessThanOrEqual(816);
   },
 };
 
-/** A change the server computes dims the figures and holds Generate until
+/** A change the server computes dims the figures and holds Save draft until
     the answer lands; this one never does (US3 scenario 3). */
 export const Updating: Story = {
   ...desktop,
@@ -461,26 +496,13 @@ export const Updating: Story = {
     /* The dimmed figures are the ones the next answer replaces, held back on
        purpose; axe reads their half opacity as low contrast. */
     a11y: skipping('aria-hidden-focus', 'color-contrast'),
-    stalls: 1,
-    msw: {
-      handlers: {
-        // The play's By project never answers; every other preview does.
-        previewInvoice: http.post(
-          handlers.previewInvoice.info.path,
-          async (info) => {
-            const body = (await info.request.clone().json()) as {
-              groupingMode?: string;
-            };
-            if (body.groupingMode === 'project') await delay('infinite');
-            // `resolver` is protected in msw's types, and public at runtime.
-            const real = handlers.previewInvoice as unknown as {
-              resolver: (i: typeof info) => Promise<Response>;
-            };
-            return real.resolver(info);
-          },
-        ),
-      },
-    },
+    // The play's By project never answers; every other preview does.
+    ...stalledWhen('previewInvoice', async (info) => {
+      const body = (await info.request.clone().json()) as {
+        groupingMode?: string;
+      };
+      return body.groupingMode === 'project';
+    }),
   },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
@@ -488,7 +510,7 @@ export const Updating: Story = {
     await pickGrouping(page, /By project/);
     await expect(await page.findByText('Updating…')).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Generate invoice' }),
+      page.getByRole('button', { name: 'Save draft' }),
     ).toBeDisabled();
   },
 };
@@ -508,7 +530,7 @@ export const Unrated: Story = {
     const page = await chooseNorthwind(canvasElement);
     await expect(await page.findByText(/no rate/i)).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Generate invoice' }),
+      page.getByRole('button', { name: 'Save draft' }),
     ).toBeDisabled();
   },
 };
@@ -566,7 +588,7 @@ export const EarlierWork: Story = {
       ),
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Include them' }),
+      page.getByRole('button', { name: /^Start from Aug \d+$/ }),
     ).toBeVisible();
   },
 };
@@ -587,9 +609,9 @@ const strays = (db: Db) => {
   );
 };
 
-/** One entry stranded: Include it moves From back to its day, the offer
+/** One entry stranded: Start from moves From back to its day, the offer
     goes, and the card bills it. */
-export const IncludeEarlierWork: Story = {
+export const StartFromEarlierWork: Story = {
   ...desktop,
   parameters: {
     ...menuOpen,
@@ -605,15 +627,17 @@ export const IncludeEarlierWork: Story = {
       /^1 earlier entry, Aug 31, isn't on any invoice\.$/,
     );
     await settled(page);
-    const before = due(page).getByText(/^\d+ entries$/).textContent;
-    await userEvent.click(page.getByRole('button', { name: 'Include it' }));
+    const before = due(page).getByText(/^\d+ entries/).textContent;
+    await userEvent.click(
+      page.getByRole('button', { name: 'Start from Aug 31' }),
+    );
     await expect(offer).not.toBeInTheDocument();
     await period(page);
     await expect(page.getByLabelText('From')).toHaveValue('2026-08-31');
     await userEvent.keyboard('{Escape}');
     await settled(page);
     await waitFor(() =>
-      expect(due(page).getByText(/^\d+ entries$/).textContent).not.toBe(before),
+      expect(due(page).getByText(/^\d+ entries/).textContent).not.toBe(before),
     );
   },
 };
@@ -624,76 +648,24 @@ export const EarlierWorkLeavesWithClient: Story = {
   ...desktop,
   parameters: {
     a11y: skipping('aria-hidden-focus', 'color-contrast'),
-    stalls: 1,
-    msw: {
-      handlers: {
-        previewInvoice: http.post(
-          handlers.previewInvoice.info.path,
-          async (info) => {
-            const body = (await info.request.clone().json()) as {
-              clientId: string;
-            };
-            if (body.clientId === ids.meridian) await delay('infinite');
-            // `resolver` is protected in msw's types, and public at runtime.
-            const real = handlers.previewInvoice as unknown as {
-              resolver: (i: typeof info) => Promise<Response>;
-            };
-            return real.resolver(info);
-          },
-        ),
-      },
-    },
+    ...stalledWhen('previewInvoice', async (info) => {
+      const body = (await info.request.clone().json()) as {
+        clientId: string;
+      };
+      return body.clientId === ids.meridian;
+    }),
   },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
-    await page.findByRole('button', { name: 'Include them' });
+    await page.findByRole('button', { name: /^Start from/ });
     const range = page.getByRole('button', { name: 'Period' }).textContent;
     await chooseMeridian(canvasElement);
     await expect(
       page.getByRole('button', { name: 'Period' }),
     ).toHaveTextContent(range as string);
-    await expect(page.queryByRole('button', { name: /^Include/ })).toBeNull();
-  },
-};
-
-/** The stranded work is on another draft already: no Include, and the line
-    links to the draft that bills it. */
-export const EarlierWorkOnDraft: Story = {
-  ...desktop,
-  parameters: {
-    ...menuOpen,
-    msw: {
-      handlers: {
-        // A draft holds the look-back's work once a held entry is re-dated
-        // past its period, which the fake API's period-bound drafts never do.
-        previewInvoice: http.post(
-          handlers.previewInvoice.info.path,
-          async (info) => {
-            // `resolver` is protected in msw's types, and public at runtime.
-            const real = handlers.previewInvoice as unknown as {
-              resolver: (i: typeof info) => Promise<Response>;
-            };
-            const answer = await (await real.resolver(info)).json();
-            if (answer.earlierWork)
-              answer.earlierWork.draft = {
-                id: 'ff000000-0000-4000-8000-0000000000e1',
-                invoiceNumber: 'STINT-0042',
-              };
-            return Response.json(answer);
-          },
-        ),
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const page = await chooseNorthwind(canvasElement);
     await expect(
-      await page.findByText(/earlier entries, Aug \d+ – Aug 31, are on draft/),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('link', { name: 'STINT-0042' }),
-    ).toHaveAttribute('href', '/invoices/ff000000-0000-4000-8000-0000000000e1');
-    await expect(page.queryByRole('button', { name: /^Include/ })).toBeNull();
+      page.queryByRole('button', { name: /^Start from/ }),
+    ).toBeNull();
   },
 };
 
@@ -799,7 +771,7 @@ const saveNumber = async (
   return form;
 };
 
-/** The number Generate takes prints before it does. Pressing it moves it
+/** The number Save draft takes prints before it does. Pressing it moves it
     in a dialog, so the draft being built stays as it was. */
 export const ChangeNumber: Story = {
   ...desktop,
@@ -847,8 +819,10 @@ export const ChangeNumberRefused: Story = {
   },
 };
 
-/** Under the page the template shows by name; Change picks another in a
-    dialog, saved to Settings, and the draft being built stays as it was. */
+/** Template shows the account's by name and opens a dialog to pick
+    another: choosing swaps the large sample in place, with no dialog over
+    it, and Save keeps it in Settings. The draft being built stays as it
+    was. */
 export const ChangeTemplate: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -856,22 +830,29 @@ export const ChangeTemplate: Story = {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
     await userEvent.type(page.getByLabelText('Reference'), 'PO-7');
-    await expect(page.getByText(/^Standard template/)).toBeVisible();
-    await userEvent.click(
-      page.getByRole('button', { name: 'Change template' }),
-    );
+    const template = page.getByRole('button', { name: 'Template' });
+    await expect(template).toHaveTextContent('Standard');
+    await userEvent.click(template);
     const dialog = await page.findByRole('dialog', {
       name: 'Invoice template',
     });
     await waitFor(() => expect(dialog).toBeVisible());
     const form = within(dialog);
+    await expect(
+      form.getByRole('img', { name: 'A sample invoice in Standard' }),
+    ).toBeVisible();
+    await expect(form.queryByRole('button', { name: /^Preview/ })).toBeNull();
     await userEvent.click(form.getByRole('radio', { name: 'Classic' }));
+    await expect(
+      form.getByRole('img', { name: 'A sample invoice in Classic' }),
+    ).toBeVisible();
     await userEvent.click(form.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
-    await expect(page.getByText(/^Classic template/)).toBeVisible();
+    await expect(template).toHaveTextContent('Classic');
     await expect(page.getByLabelText('Reference')).toHaveValue('PO-7');
   },
 };
+export const ChangeTemplatePhone: Story = { ...ChangeTemplate, ...phone };
 
 // ── one summary line ───────────────────────────────────────────────
 
@@ -897,7 +878,7 @@ export const OneSummaryLine: Story = {
 };
 
 /** Two rates are two lines of the same text until the second is typed
-    itself; emptied, it is an error at that line, and Generate waits. */
+    itself; emptied, it is an error at that line, and Save draft waits. */
 export const SummaryTwoRates: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -916,7 +897,7 @@ export const SummaryTwoRates: Story = {
       await page.findByText('Give the summary line its text.'),
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Generate invoice' }),
+      page.getByRole('button', { name: 'Save draft' }),
     ).toBeDisabled();
     await userEvent.type(second, 'Peak season fixes');
     await settled(page);
@@ -929,7 +910,7 @@ export const SummaryTwoRates: Story = {
   },
 };
 
-/** An empty summary line is an error at the field, and Generate waits
+/** An empty summary line is an error at the field, and Save draft waits
     (US1 scenario 3). */
 export const NoSummaryLine: Story = {
   ...desktop,
@@ -943,7 +924,7 @@ export const NoSummaryLine: Story = {
       page.getByLabelText('Summary line'),
     ).toHaveAccessibleDescription('Give the summary line its text.');
     await expect(
-      page.getByRole('button', { name: 'Generate invoice' }),
+      page.getByRole('button', { name: 'Save draft' }),
     ).toBeDisabled();
   },
 };
@@ -979,7 +960,7 @@ export const NoAttachWithoutSummary: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await page.findByRole('button', { name: 'Show time as' });
-    await expect(page.queryByText('Attach')).toBeNull();
+    await expect(page.queryByRole('group', { name: 'Attach' })).toBeNull();
   },
 };
 
@@ -1062,7 +1043,7 @@ export const FormatLoading: Story = {
       page.queryByText('Give the summary line its text.'),
     ).toBeNull();
     await expect(
-      page.getByRole('button', { name: 'Generate invoice' }),
+      page.getByRole('button', { name: 'Save draft' }),
     ).toBeDisabled();
   },
 };
@@ -1124,11 +1105,15 @@ export const OnlyExpenses: Story = {
       card(page).getByRole('button', { name: /^Edit Figma license, annual/ }),
     ).toBeVisible();
     await expect(card(page).queryByText('Services')).toBeNull();
+    // The table keeps its header, and says why its figures are blank.
+    await expect(card(page).getByText('No time in this period')).toBeVisible();
+    // The figure is expenses alone, and the count says so.
+    await expect(due(page).getByText(/^\d+ expenses?$/)).toBeVisible();
   },
 };
 
 /** Unticking one asks the server again and leaves it off the bill, faint
-    on the page so it can be ticked again. */
+    on the page, in its place, so it can be ticked again. */
 export const UntickExpense: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -1139,12 +1124,112 @@ export const UntickExpense: Story = {
     const tick = page.getByRole('checkbox', {
       name: 'Bill Figma license, annual',
     });
+    const order = () =>
+      card(page)
+        .getAllByRole('checkbox')
+        .map((c) => c.getAttribute('aria-label'));
+    const before = order();
     await userEvent.click(tick);
     await settled(page);
     await expect(tick).not.toBeChecked();
     await expect(due(page).getByText(/^\$[\d,]+\.\d\d$/).textContent).not.toBe(
       total,
     );
+    // It stays where it was, not at the bottom once the answer lands.
+    await expect(order()).toEqual(before);
+  },
+};
+
+/** A one-off another draft holds is that draft's: Byrne's August draft
+    holds its stock photography, so a new invoice doesn't offer it. */
+export const HeldByAnotherDraft: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(await page.findByRole('button', { name: 'Client' }));
+    await userEvent.click(
+      await page.findByRole('menuitemradio', { name: /Byrne/ }),
+    );
+    await waitFor(() => expect(page.queryByRole('menu')).toBeNull());
+    await settled(page);
+    await expect(
+      card(page).queryByRole('checkbox', { name: 'Bill Stock photography' }),
+    ).toBeNull();
+  },
+};
+
+/** Before the server's first answer, everything the user edits on the page
+    is there: the summary line, the expense ticks and both Add buttons. */
+export const EditsBeforeFigures: Story = {
+  ...desktop,
+  parameters: { ...menuOpen, ...stalled('previewInvoice') },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await pickGrouping(page, /One summary line/);
+    await expect(await page.findByLabelText('Summary line')).toBeVisible();
+    await expect(
+      page.getByRole('checkbox', { name: 'Bill Figma license, annual' }),
+    ).toBeChecked();
+    await expect(
+      page.getByRole('button', { name: 'Add a charge' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Add an expense' }),
+    ).toBeVisible();
+  },
+};
+
+/** Before the server's first answer an empty page is not yet "no time":
+    it says nothing until the answer does. */
+export const NothingYet: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...stalled('previewInvoice'),
+    ...account((db) => {
+      db.expenses = [];
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(
+      await page.findByRole('button', { name: 'Add a charge' }),
+    ).toBeVisible();
+    await expect(card(page).queryByText('No time in this period')).toBeNull();
+  },
+};
+
+/** One summary line with no hours to bill still has its field: the server
+    refuses a summary invoice without its text. */
+export const SummaryWithoutHours: Story = {
+  ...OnlyExpenses,
+  play: async ({ canvasElement }) => {
+    const page = await summaryFor(canvasElement, 'Retainer');
+    await settled(page);
+    await expect(page.getByLabelText('Summary line')).toHaveValue('Retainer');
+  },
+};
+
+/** Switching clients, the last client's lines leave with it: none of its
+    figures sits under the new Bill to while that client loads. */
+export const SwitchingClients: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    // Meridian's last invoice never answers; every other does.
+    ...stalledWhen(
+      'invoices',
+      (info) =>
+        new URL(info.request.url).searchParams.get('clientId') === ids.meridian,
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    await chooseMeridian(canvasElement);
+    await card(page).findByRole('button', { name: /^Edit Bill to Meridian/ });
+    await expect(card(page).queryByText('Subtotal')).toBeNull();
   },
 };
 
@@ -1241,8 +1326,9 @@ export const EditClientHere: Story = {
   },
 };
 
-/** "+ Add a charge" asks for a description and an amount; Save with
-    neither marks both and moves to the first (US5 scenario 3). */
+/** "+ Add a charge" asks for a description and an amount, which shows the
+    invoice's currency; Save with neither marks both and moves to the first
+    (US5 scenario 3). */
 export const NewCharge: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -1254,6 +1340,7 @@ export const NewCharge: Story = {
     const dialog = within(
       await page.findByRole('dialog', { name: 'New charge' }),
     );
+    await expect(dialog.getByText('$')).toBeVisible();
     await userEvent.click(dialog.getByRole('button', { name: 'Save' }));
     const description = dialog.getByRole('textbox', { name: /Description/ });
     await expect(description).toHaveFocus();
@@ -1297,9 +1384,9 @@ export const Loading: Story = {
     await expect(await region.findByRole('status')).toHaveTextContent(
       'Loading',
     );
-    // Generate is never there to press before Due can be filled.
+    // Save draft is never there to press before Due can be filled.
     await expect(
-      region.queryByRole('button', { name: /generate/i }),
+      region.queryByRole('button', { name: 'Save draft' }),
     ).toBeNull();
   },
 };
@@ -1309,8 +1396,8 @@ const noSender = account((db: Db) => {
   db.settings.businessEmail = null;
 });
 
-/** No business name or email: the notice says so, Generate waits, and the
- *  page marks where the sender prints, with a hint under it. */
+/** No business name or email: the notice says so, Save draft waits, and the
+ *  page marks where the sender prints. */
 export const DetailsMissing: Story = {
   ...desktop,
   parameters: noSender,
@@ -1322,17 +1409,15 @@ export const DetailsMissing: Story = {
     await expect(
       card(page).getByRole('button', { name: 'Add your business' }),
     ).toBeVisible();
-    const hint = page.getByText(/^Dashed is yours to fill/);
-    await expect(sheet(page).contains(hint)).toBe(false);
     await expect(
-      page.getByRole('button', { name: 'Generate invoice' }),
+      page.getByRole('button', { name: 'Save draft' }),
     ).toBeDisabled();
   },
 };
 
 export const DetailsMissingPhone: Story = { ...DetailsMissing, ...phone };
 
-/** Add details opens the dialog; saving fills the preview and frees Generate. */
+/** Add details opens the dialog; saving fills the preview and frees Save draft. */
 export const AddDetails: Story = {
   ...desktop,
   parameters: noSender,

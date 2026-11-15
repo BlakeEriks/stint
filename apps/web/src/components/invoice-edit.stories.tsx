@@ -40,7 +40,6 @@ export const Filled: Story = {
     await expect(
       page.getByRole('button', { name: 'Period' }),
     ).toHaveTextContent('Aug 1 – Aug 31, 2026');
-    await expect(page.getByText('Saving keeps its number.')).toBeVisible();
     await saved(page);
     // Its sender was frozen when it was made, so Settings can't reach it.
     await expect(

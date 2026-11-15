@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useLeaveGuard } from '@/lib/client/use-leave-guard';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   keepPreviousData,
@@ -16,7 +15,7 @@ import {
   invalidateEntryData,
 } from '@stint/client';
 import { Button } from '@/components/ui/button';
-import { Field, inputClass } from './field';
+import { Field, TriggerChevron, triggerClass } from './field';
 import { ClientDialog } from './client-dialog';
 import { ClientPicker } from './client-picker';
 import {
@@ -28,7 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ChevronDown, Plus } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 import {
   addDays,
   BILLING_PERIOD_LABELS,
@@ -41,6 +40,8 @@ import {
   isPeriod,
   localDateKey,
   resolvePaymentProfile,
+  billableExpenses,
+  expensePrintOrder,
   type Period,
   type ScheduleKind,
   type SummaryText,
@@ -57,7 +58,7 @@ import {
   type PaymentProfile,
   type Settings,
 } from '@/lib/client/api';
-import { DetailPage, Listing } from './page';
+import { DetailPage, FILL, Listing } from './page';
 import { ExpenseDialog } from './expense-dialog';
 import { type Charge, ChargeDialog } from './charge-dialog';
 import { PaymentProfileDialog } from './payment-profile-dialog';
@@ -68,16 +69,15 @@ import {
 } from './business-dialog';
 import { InvoiceDatesDialog } from './invoice-dates-dialog';
 import { PeriodPicker } from './invoice-period';
-import { ReadyToInvoice } from './invoice-ready';
 import { summarize } from './payment-profiles';
 import {
   businessOf,
   type CardEdits,
+  DIM,
   InvoicePreviewCard,
   SUMMARY_ERROR,
 } from './invoice-preview-card';
-import { TemplateDialog } from './template-dialog';
-import { templateName } from './template-picker';
+import { TemplateControl } from './template-dialog';
 import { ConfirmDialog } from './confirm-dialog';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
@@ -257,6 +257,16 @@ function ScheduleHint({
   );
 }
 
+/** `key` `'new'` adds the charge; any other replaces the charge it names. */
+const putCharge = (
+  charges: DraftCharge[],
+  key: string | undefined,
+  charge: Charge,
+): DraftCharge[] =>
+  key === 'new'
+    ? [...charges, { ...charge, key: crypto.randomUUID() }]
+    : charges.map((c) => (c.key === key ? { ...charge, key: c.key } : c));
+
 /** What a client's last invoice carries into the next, so a monthly invoice
  *  isn't retyped. A first invoice is one summary line: itemizing is the
  *  exception. Its text starts shown in the field, so it is the user's to
@@ -269,20 +279,9 @@ const carriedFrom = (last: Invoice | undefined) => ({
   reference: last?.reference ?? '',
 });
 
-/** `key` `'new'` adds the charge; any other replaces the charge it names. */
-const putCharge = (
-  charges: DraftCharge[],
-  key: string | undefined,
-  charge: Charge,
-): DraftCharge[] =>
-  key === 'new'
-    ? [...charges, { ...charge, key: crypto.randomUUID() }]
-    : charges.map((c) => (c.key === key ? { ...charge, key: c.key } : c));
-
 /** What the draft takes from the client's last invoice until the user sets
  *  its own, and whether that invoice has answered yet. */
 function useCarried(draft: Draft) {
-  /* Newest first. */
   const lastInvoice = useQuery({
     queryKey: [...keys.invoices(), { clientId: draft.clientId }],
     queryFn: () => api.invoices({ clientId: draft.clientId }),
@@ -292,7 +291,7 @@ function useCarried(draft: Draft) {
   const carried = carriedFrom(lastInvoice.data);
   const groupingMode = draft.groupingMode ?? carried.groupingMode;
   return {
-    lastPending: lastInvoice.isPending,
+    lastPending: draft.clientId !== '' && lastInvoice.isPending,
     groupingMode,
     summaryText: draft.summaryText ?? carried.summaryText,
     summaryTexts: draft.summaryTexts ?? carried.summaryTexts,
@@ -302,18 +301,29 @@ function useCarried(draft: Draft) {
   };
 }
 
-/** What this invoice can bill of the client's expenses: every recurring one,
- *  and every one-off paid by the period's end. */
-function useWaitingExpenses(clientId: string, periodEnd: string) {
+/** What this invoice can bill of the client's expenses, ticked or not, in
+ *  the order its lines print: the server's rule, so a one-off another draft
+ *  holds is not offered. */
+function useWaitingExpenses(
+  clientId: string,
+  periodEnd: string,
+  draftId: string | undefined,
+) {
   const { data } = useQuery({
     queryKey: [...keys.expenses(), { clientId, status: 'unbilled' }],
     queryFn: () => api.expenses({ clientId, status: 'unbilled' }),
     enabled: clientId !== '',
     select: (r) => r.expenses,
   });
-  return (data ?? []).filter(
-    (e) => e.recurring || (e.spentOn as string) <= periodEnd,
+  const all = data ?? [];
+  const billable = billableExpenses(
+    all,
+    { id: draftId, periodEnd, excludedExpenseIds: [] },
+    false,
   );
+  return billable
+    .sort(expensePrintOrder)
+    .map((b) => all.find((e) => e.id === b.id) as Expense);
 }
 
 /**
@@ -323,8 +333,9 @@ function useWaitingExpenses(clientId: string, periodEnd: string) {
  */
 function useLivePreview(
   billed: Parameters<typeof api.previewInvoice>[0],
-  chosen: boolean,
+  clientId: string,
 ) {
+  const chosen = clientId !== '';
   const settled = useSettled(billed, SETTLE_MS);
   /* A query rather than a press: it writes nothing, so an answer that no
      longer matches the form is simply dropped, and the last one stays on
@@ -340,10 +351,14 @@ function useLivePreview(
     (JSON.stringify(billed) !== JSON.stringify(settled) ||
       preview.isFetching ||
       preview.isPlaceholderData);
-  return { preview, current: chosen ? preview.data : undefined, updating };
+  /* Another client's answer, held over a switch, is never shown under this
+     one: its expense ticks would exclude that client's ids from this. */
+  const current =
+    preview.data?.clientId === clientId ? preview.data : undefined;
+  return { preview, current, updating };
 }
 
-/** The number Generate takes, and the due date the client's payment terms,
+/** The number Save draft takes, and the due date the client's payment terms,
  *  else the user's, set from `issued`; both '' until the settings answer. */
 function fromSettings(
   settings: Settings | undefined,
@@ -376,10 +391,10 @@ function useSettled<T>(value: T, ms: number): T {
 }
 
 /**
- * The form, and the invoice it makes beside it.
+ * The invoice, edited where it prints.
  *
  * The card answers every change: what the form knows at once, what the
- * server computes (the lines) once typing settles. Generating allocates a
+ * server computes (the lines) once typing settles. Saving allocates a
  * gapless number and creates the draft, so it waits until the card is the
  * server's current answer.
  */
@@ -403,7 +418,7 @@ export function NewInvoice() {
     queryFn: () => api.paymentProfiles(),
   });
   return (
-    <DetailPage back="/invoices" label="Invoices" workspace letter>
+    <DetailPage back="/invoices" label="Invoices" workspace letter fills>
       <Listing query={[clients, settings, profiles]}>
         {([c]) => (
           <Form
@@ -436,7 +451,7 @@ export function EditInvoice({ id }: { id: string }) {
     queryFn: () => api.paymentProfiles(),
   });
   return (
-    <DetailPage back={`/invoices/${id}`} label="Invoice" workspace letter>
+    <DetailPage back={`/invoices/${id}`} label="Invoice" workspace letter fills>
       <Listing
         query={[invoice, clients, settings, profiles]}
         missing="That invoice no longer exists."
@@ -499,7 +514,7 @@ function Form({
     reference,
   } = useCarried(draft);
   const { periodStart, periodEnd } = periodOf(draft, client, issued);
-  const waiting = useWaitingExpenses(draft.clientId, periodEnd);
+  const waiting = useWaitingExpenses(draft.clientId, periodEnd, editing?.id);
   /* `undefined` adds an expense; an expense, edits it. */
   const expenseDialog = useDialog<Expense | undefined>();
   /* `'new'` adds a charge; a key, edits that one. */
@@ -530,7 +545,7 @@ function Form({
   const { preview, current, updating } = useLivePreview(
     // Priced as itself, so it keeps the expenses it shows.
     { ...billed, draftId: editing?.id },
-    draft.clientId !== '',
+    draft.clientId,
   );
 
   const terms = fromSettings(settings, issued, client);
@@ -538,7 +553,7 @@ function Form({
   const due = draft.dueDate ?? terms.termsDue;
   const earlyDue = due !== '' && due < issued;
 
-  const generate = useOptimisticMutation({
+  const save = useOptimisticMutation({
     queryKey: () => keys.invoices(),
     inline: true,
     // The draft holds its entries and expenses, so no other draft or
@@ -584,7 +599,7 @@ function Form({
     );
   const addProfile = (p: PaymentProfile) => {
     /* Into the list at once: until the refetch lands, a pick the list
-       lacks would fall back to another profile, and Generate would
+       lacks would fall back to another profile, and Save draft would
        freeze that one. */
     qc.setQueryData<{ paymentProfiles: PaymentProfile[] }>(
       keys.paymentProfiles(),
@@ -608,7 +623,7 @@ function Form({
     number,
   });
 
-  const { canGenerate, noSummaryText, blocked } = generateState({
+  const { canSave, noSummaryText, blocked } = saveState({
     hasClient: draft.clientId !== '',
     earlyDue,
     preview: current,
@@ -616,7 +631,7 @@ function Form({
     failed: preview.isError,
     hasSettings: settings !== undefined,
     hasSender: !noSender,
-    generating: generate.isPending,
+    saving: save.isPending,
     groupingMode,
     summaryText,
   });
@@ -625,6 +640,7 @@ function Form({
   // An unchanged Due keeps following the terms.
   const saveDue = (d: string) => d !== due && set('dueDate', d);
 
+  const currency = client?.currency ?? settings?.currency ?? 'USD';
   const guard = useLeaveGuard(
     JSON.stringify(draft) !== JSON.stringify(initial),
   );
@@ -636,27 +652,29 @@ function Form({
         onStay={guard.stay}
         editing={editing}
         blocked={blocked}
-        canSave={canGenerate}
-        press={generate}
+        canSave={canSave}
+        press={save}
       />
-      <div className="@container/new flex flex-col gap-5">
-        {/* Pinned, to keep Generate in reach down a long invoice. On a
-            phone the title row gives way (`contents`), and what it held is
-            a bar pinned to the bottom, over the timer bar: its 52px and the
-            0.75rem it floats by. */}
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-4 bg-surface-primary py-1 @max-[560px]/new:contents">
+      <div className={`@container/new flex flex-col gap-5 ${FILL}`}>
+        {/* On a phone the title row gives way (`contents`), and what it held
+            is a bar pinned to the bottom, over the timer bar: its 52px and
+            the 0.75rem it floats by. */}
+        <div className="flex items-center justify-between gap-4 @max-[560px]/new:contents">
           <h1 className="type-title whitespace-nowrap text-strong">
             {editing ? `Edit ${editing.invoiceNumber}` : 'New invoice'}
           </h1>
           <div className={`flex items-center gap-4 ${PHONE_BAR}`}>
-            {client ? <Due preview={current} updating={updating} /> : null}
+            <Due preview={current} updating={updating} />
             <Button
               type="button"
               variant="accent"
-              onClick={() => generate.mutate()}
-              disabled={!canGenerate}
+              onClick={() => save.mutate()}
+              disabled={!canSave}
             >
-              {pressLabel(editing !== undefined, generate.isPending)}
+              {save.isPending ? (
+                <Loader2 aria-hidden className="animate-spin" />
+              ) : null}
+              {pressLabel(save.isPending)}
             </Button>
           </div>
         </div>
@@ -666,81 +684,74 @@ function Form({
           clients={clients}
           draft={draft}
           setDraft={setDraft}
-          shown={client ? { today: issued, lastPending, groupingMode } : null}
+          shown={{ today: issued, lastPending, groupingMode, settings }}
           period={{ periodStart, periodEnd }}
         />
 
-        {client ? (
-          <Notices
-            settings={settings}
-            client={client}
-            period={{ periodStart, periodEnd }}
-            // Gone the moment From or the client changes, not when the next
-            // answer lands.
-            earlierWork={
-              current?.periodStart === periodStart &&
-              current.clientId === draft.clientId
-                ? current.earlierWork
-                : null
-            }
-            onInclude={(from) =>
-              setDraft((d) => ({ ...d, periodStart: from, periodEnd }))
-            }
-            noSummaryText={noSummaryText && !lastPending}
-            earlyDue={earlyDue}
-            preview={current}
-            error={generate.error ?? preview.error}
-          />
-        ) : null}
+        <Notices
+          settings={settings}
+          client={client}
+          period={{ periodStart, periodEnd }}
+          // Gone the moment From or the client changes, not when the next
+          // answer lands.
+          earlierWork={
+            current?.periodStart === periodStart &&
+            current.clientId === draft.clientId
+              ? current.earlierWork
+              : null
+          }
+          onStartFrom={(from) =>
+            setDraft((d) => ({ ...d, periodStart: from, periodEnd }))
+          }
+          // No client, no format yet: nothing to fault.
+          noSummaryText={noSummaryText && !lastPending && client !== undefined}
+          earlyDue={earlyDue}
+          preview={current}
+          error={save.error ?? preview.error}
+        />
 
-        {client ? (
-          <InvoicePreviewCard
-            noSender={noSender}
-            preview={current}
-            client={client}
-            business={businessOf(settings)}
-            number={number}
-            issued={issued}
-            due={due}
-            reference={reference.trim()}
-            notes={draft.notes.trim()}
-            payment={payment}
-            schedules={schedules}
-            updating={updating}
-            footnote={
-              editing
-                ? 'Saving keeps its number.'
-                : 'Generating assigns a number and holds these entries for this draft.'
-            }
-            edit={cardEdits({
-              draft,
-              set,
-              editing: editing !== undefined,
-              open: {
-                sender: () => setEditingSender(true),
-                dates: () => setEditingDates(true),
-                client: () => setEditingClient(true),
-                newProfile: () => setNewProfileOpen(true),
-              },
-              summary: summary
-                ? { value: summaryText, texts: summaryTexts }
-                : undefined,
-              reference,
-              waiting,
-              chargeDialog,
-              expenseDialog,
-              profiles,
-              profile,
-            })}
-          >
-            <p className="type-support text-subtle">
-              Dashed is yours to fill, and prints only once filled.
-            </p>
-            <TemplateLine settings={settings} />
-          </InvoicePreviewCard>
-        ) : (
-          <ReadyToInvoice clients={clients} />
-        )}
+        {/* The page is there before a client is: what doesn't depend on
+            one prints, and Bill to says what is still to choose. */}
+        <InvoicePreviewCard
+          noSender={noSender}
+          preview={current}
+          client={client}
+          // A draft prints the sender frozen on it, as sending keeps it.
+          business={editing?.business ?? businessOf(settings)}
+          number={number}
+          issued={issued}
+          due={due}
+          reference={reference.trim()}
+          notes={draft.notes.trim()}
+          payment={payment}
+          schedules={schedules}
+          updating={updating}
+          edit={cardEdits({
+            draft,
+            set,
+            editing: editing !== undefined,
+            open: {
+              sender: () => setEditingSender(true),
+              dates: () => setEditingDates(true),
+              // Without a client, the press goes to where one is chosen.
+              client: () => (client ? setEditingClient(true) : focusClient()),
+              newProfile: () => setNewProfileOpen(true),
+            },
+            summary: summary
+              ? { value: summaryText, texts: summaryTexts }
+              : undefined,
+            reference,
+            waiting,
+            period: { periodStart, periodEnd },
+            currency,
+            chargeDialog,
+            // An expense is the client's: before one is chosen, Add an
+            // expense goes to where one is, as Bill to does.
+            expenseDialog: client ? expenseDialog : { show: focusClient },
+            profiles,
+            profile,
+          })}
+        />
       </div>
 
       {editingSender && settings ? (
@@ -779,6 +790,7 @@ function Form({
         charge={draft.charges.find((c) => c.key === chargeDialog.subject)}
         onSave={saveCharge}
         onRemove={chargeDialog.subject !== 'new' ? removeCharge : undefined}
+        currency={currency}
       />
       <PaymentProfileDialog
         open={newProfileOpen}
@@ -789,8 +801,8 @@ function Form({
   );
 }
 
-/** What decides the lines, so it leads; the rest is on the page. Period and
-    Show time as wait for a client; `shown` is null until there is one. */
+/** What decides the lines, and how the page looks, so it leads; the rest is
+    on the page. Client comes first, so it has focus on a new invoice. */
 function Controls({
   editing,
   clients,
@@ -807,11 +819,13 @@ function Controls({
     today: string;
     lastPending: boolean;
     groupingMode: GroupingMode;
-  } | null;
+    settings: Settings | undefined;
+  };
   period: Period;
 }) {
   return (
-    <div className="grid gap-4 @min-[560px]/new:grid-cols-3">
+    // Period is widest, so it reads in full: "Oct 1 – Oct 31, 2026".
+    <div className="grid gap-4 @min-[560px]/new:grid-cols-2 @min-[760px]/new:grid-cols-[1fr_1.4fr_1fr_1fr]">
       <Field label="Client" htmlFor="inv-client" required>
         {/* A draft keeps its client: another is a new invoice. */}
         <ClientPicker
@@ -819,6 +833,7 @@ function Controls({
           disabled={editing}
           clients={clients}
           value={draft.clientId || null}
+          autoFocus={!editing && draft.clientId === ''}
           // Another client brings its own payment details.
           onChange={(id) =>
             setDraft((d) => ({
@@ -830,23 +845,29 @@ function Controls({
           placeholder="Choose a client…"
         />
       </Field>
-      {shown ? (
-        <Field label="Period" htmlFor="inv-period">
-          <PeriodPicker
-            id="inv-period"
-            today={shown.today}
-            value={period}
-            onChange={(p) => setDraft((d) => ({ ...d, ...p }))}
-          />
-        </Field>
-      ) : null}
+      <Field label="Period" htmlFor="inv-period">
+        <PeriodPicker
+          id="inv-period"
+          today={shown.today}
+          value={period}
+          onChange={(p) => setDraft((d) => ({ ...d, ...p }))}
+        />
+      </Field>
       {/* Shown once the client's last invoice says its format, so a carried
           grouping never flips in after a default. */}
-      {shown && !shown.lastPending ? (
+      {!shown.lastPending ? (
         <Field label="Show time as" htmlFor="inv-group">
           <GroupingPicker
             value={shown.groupingMode}
             onChange={(mode) => setDraft((d) => ({ ...d, groupingMode: mode }))}
+          />
+        </Field>
+      ) : null}
+      {shown.settings ? (
+        <Field label="Template" htmlFor="inv-template">
+          <TemplateControl
+            id="inv-template"
+            template={shown.settings.invoiceTemplate}
           />
         </Field>
       ) : null}
@@ -861,17 +882,17 @@ function Notices({
   client,
   period,
   earlierWork,
-  onInclude,
+  onStartFrom,
   noSummaryText,
   earlyDue,
   preview,
   error,
 }: {
   settings: Settings | undefined;
-  client: Client;
+  client: Client | undefined;
   period: Period;
   earlierWork: InvoicePreview['earlierWork'];
-  onInclude: (from: string) => void;
+  onStartFrom: (from: string) => void;
   noSummaryText: boolean;
   earlyDue: boolean;
   preview: InvoicePreview | undefined;
@@ -879,10 +900,10 @@ function Notices({
 }) {
   return (
     <div className="flex flex-col gap-2 empty:hidden">
-      {/* First: it is why Generate is disabled. */}
+      {/* First: it is why Save draft is disabled. */}
       <SenderNotice settings={settings} />
       <ScheduleHint client={client} {...period} />
-      <EarlierWorkOffer work={earlierWork} onInclude={onInclude} />
+      <EarlierWorkOffer work={earlierWork} onStartFrom={onStartFrom} />
       {noSummaryText ? (
         <p id={SUMMARY_ERROR} role="alert" className="type-support text-danger">
           Give the summary line its text.
@@ -907,6 +928,8 @@ function cardEdits({
   summary,
   reference,
   waiting,
+  period,
+  currency,
   chargeDialog,
   expenseDialog,
   profiles,
@@ -921,10 +944,12 @@ function cardEdits({
     client: () => void;
     newProfile: () => void;
   };
-  /** With one summary line: its text, and the lines typed themselves. */
+  /** With one summary line: its text, and whether it lacks one. */
   summary: { value: string; texts: SummaryText[] } | undefined;
   reference: string;
   waiting: Expense[];
+  period: { periodStart: string; periodEnd: string };
+  currency: string;
   chargeDialog: { show: (key: string) => void };
   expenseDialog: { show: (expense: Expense | undefined) => void };
   profiles: PaymentProfile[];
@@ -943,6 +968,9 @@ function cardEdits({
     onBusiness: editing ? undefined : open.sender,
     onDates: open.dates,
     onClient: open.client,
+    onPeriod: focusPeriod,
+    period,
+    currency,
     reference: { value: reference, onChange: (v) => set('reference', v) },
     notes: { value: draft.notes, onChange: (v) => set('notes', v) },
     /* The first line is the text every line prints unless typed itself, so
@@ -1023,12 +1051,17 @@ function paymentOf({
 const PHONE_BAR =
   '@max-[560px]/new:sticky @max-[560px]/new:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] @max-[560px]/new:z-10 @max-[560px]/new:order-last @max-[560px]/new:justify-between @max-[560px]/new:rounded-lg @max-[560px]/new:border @max-[560px]/new:border-edge-subtle @max-[560px]/new:bg-surface-primary @max-[560px]/new:px-3 @max-[560px]/new:py-2.5';
 
-const pressLabel = (editing: boolean, pending: boolean) => {
-  if (editing) return pending ? 'Saving…' : 'Save draft';
-  return pending ? 'Generating…' : 'Generate invoice';
-};
+/** A press on the page for something set above it goes to that control:
+    Bill to and Add an expense to Client, Service period to Period. */
+const focusControl = (id: string) => () => document.getElementById(id)?.focus();
+const focusClient = focusControl('inv-client');
+const focusPeriod = focusControl('inv-period');
 
-/** What Generate would bill, beside it: the entries and the amount due,
+/** One label for a new draft and an edit: both save a draft, which Mark
+    sent issues. */
+const pressLabel = (pending: boolean) => (pending ? 'Saving…' : 'Save draft');
+
+/** What Save draft would bill, beside it: the entries and the amount due,
     or Updating while the server recomputes them. */
 function Due({
   preview,
@@ -1038,48 +1071,20 @@ function Due({
   updating: boolean;
 }) {
   if (!preview && !updating) return null;
-  const entries = preview?.entryCount ?? 0;
   return (
-    <span className="flex items-baseline gap-3">
-      <span className="type-support text-subtle">
-        {updating
-          ? 'Updating…'
-          : `${entries} entr${entries === 1 ? 'y' : 'ies'}`}
+    // In the phone bar the count stands under the amount, so neither wraps.
+    <span className="flex items-baseline gap-3 @max-[560px]/new:flex-col @max-[560px]/new:items-start @max-[560px]/new:gap-0">
+      <span className="whitespace-nowrap type-support text-subtle">
+        {updating ? 'Updating…' : preview ? billedCount(preview) : null}
       </span>
       {preview ? (
         <span
-          className={`type-amount text-strong transition-opacity duration-150 ${updating ? 'opacity-50' : ''}`}
+          className={`type-amount text-strong transition-opacity duration-150 ${updating ? DIM : ''}`}
         >
           {formatCurrency(preview.total, preview.currency)}
         </span>
       ) : null}
     </span>
-  );
-}
-
-/** The account's template, changed in a dialog: it is a setting, not a
-    field of this draft. */
-function TemplateLine({ settings }: { settings: Settings | undefined }) {
-  const [changing, setChanging] = useState(false);
-  if (!settings) return null;
-  return (
-    <p className="type-support text-subtle">
-      {templateName(settings.invoiceTemplate)} template ·{' '}
-      <button
-        type="button"
-        className="text-strong underline underline-offset-2"
-        aria-label="Change template"
-        onClick={() => setChanging(true)}
-      >
-        Change
-      </button>
-      {changing ? (
-        <TemplateDialog
-          onOpenChange={setChanging}
-          template={settings.invoiceTemplate}
-        />
-      ) : null}
-    </p>
   );
 }
 
@@ -1151,12 +1156,25 @@ function LeaveDialog({
   );
 }
 
+/** What the figure is made of: its entries, and its expenses when there
+    are any, so a total with no time doesn't read as a mistake. */
+function billedCount(preview: InvoicePreview) {
+  const entries = preview.entryCount;
+  const expenses = preview.lineItems.filter((l) => l.unit === 'expense').length;
+  const parts = [];
+  if (entries > 0 || expenses === 0)
+    parts.push(`${entries} entr${entries === 1 ? 'y' : 'ies'}`);
+  if (expenses > 0)
+    parts.push(`${expenses} expense${expenses === 1 ? '' : 's'}`);
+  return parts.join(' · ');
+}
+
 /**
- * Whether Generate can be pressed, and why not when the user can fix it.
- * Generating freezes what the card shows, so it waits for a current answer
+ * Whether Save draft can be pressed, and why not when the user can fix it.
+ * Saving freezes what the card shows, so it waits for a current answer
  * from the server.
  */
-function generateState(s: {
+function saveState(s: {
   hasClient: boolean;
   /** Due is before the issue date, which the server refuses. */
   earlyDue: boolean;
@@ -1169,7 +1187,7 @@ function generateState(s: {
   hasSettings: boolean;
   /** The server refuses an invoice with no sender; the notice says why. */
   hasSender: boolean;
-  generating: boolean;
+  saving: boolean;
   groupingMode: GroupingMode;
   summaryText: string;
 }) {
@@ -1182,13 +1200,13 @@ function generateState(s: {
         (li) => li.unit === 'hour' && li.description.trim() === '',
       ));
   const blocked = blockedBy({ ...s, noSummaryText });
-  const canGenerate =
+  const canSave =
     blocked === null &&
     s.preview !== undefined &&
     s.hasSettings &&
     !s.updating &&
-    !s.generating;
-  return { canGenerate, noSummaryText, blocked };
+    !s.saving;
+  return { canSave, noSummaryText, blocked };
 }
 
 /** What the user must fix before the form can be saved, said after "It
@@ -1219,15 +1237,16 @@ const shortDate = (d: string) =>
     timeZone: 'UTC',
   }).format(new Date(`${d}T00:00:00Z`));
 
-/** Work dated after the client's last invoice and before this period, which
-    neither would bill. Include moves From back to it, and nothing is
-    included without the press (Constitution I). */
+/** Work no draft holds, dated after the client's last invoice and before
+    this period, which neither would bill. The button names the date From
+    moves back to, since that is all the press does, and nothing moves
+    without it (Constitution I). */
 function EarlierWorkOffer({
   work,
-  onInclude,
+  onStartFrom,
 }: {
   work: InvoicePreview['earlierWork'];
-  onInclude: (from: string) => void;
+  onStartFrom: (from: string) => void;
 }) {
   if (!work) return null;
   const one = work.entryCount === 1;
@@ -1236,19 +1255,6 @@ function EarlierWorkOffer({
       ? shortDate(work.from)
       : `${shortDate(work.from)} – ${shortDate(work.to)}`;
   const what = `${work.entryCount} earlier entr${one ? 'y' : 'ies'}, ${dates},`;
-  if (work.draft)
-    return (
-      <p role="status" className="type-support text-warning">
-        {what} {one ? 'is' : 'are'} on draft{' '}
-        <Link
-          href={`/invoices/${work.draft.id}`}
-          className="text-strong underline underline-offset-2"
-        >
-          {work.draft.invoiceNumber}
-        </Link>
-        . Open that draft to bill {one ? 'it' : 'them'}.
-      </p>
-    );
   return (
     <p
       role="status"
@@ -1257,8 +1263,8 @@ function EarlierWorkOffer({
       <span>
         {what} {one ? "isn't" : "aren't"} on any invoice.
       </span>
-      <Button type="button" size="sm" onClick={() => onInclude(work.from)}>
-        Include {one ? 'it' : 'them'}
+      <Button type="button" size="sm" onClick={() => onStartFrom(work.from)}>
+        Start from {shortDate(work.from)}
       </Button>
     </p>
   );
@@ -1278,7 +1284,7 @@ function PreviewNotices({
       {unrated > 0 ? (
         <p role="alert" className="type-support text-warning">
           {unrated} entr{unrated === 1 ? 'y has' : 'ies have'} no rate. Set a
-          rate on the client, the project, or your defaults before generating.
+          rate on the client, the project, or your defaults before saving.
         </p>
       ) : null}
       {/* A warning, not a block: an overlap can be deliberate, and this is
@@ -1380,17 +1386,9 @@ function GroupingPicker({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        id="inv-group"
-        className={`${inputClass} flex items-center justify-between gap-2 text-left
-                    focus:border-edge-focus focus:ring-[3px] focus:ring-edge-focus`}
-      >
+      <DropdownMenuTrigger id="inv-group" className={triggerClass}>
         <span className="truncate">{selected?.label}</span>
-        <ChevronDown
-          aria-hidden
-          className="size-4 flex-none text-muted opacity-60"
-          strokeWidth={2}
-        />
+        <TriggerChevron />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="start" className="w-72">

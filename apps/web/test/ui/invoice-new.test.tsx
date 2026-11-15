@@ -111,6 +111,7 @@ const EXPENSES = [
     invoiceId: null,
     invoiceNumber: null,
     invoiceStatus: null,
+    draftId: null,
   },
   {
     id: 'x2',
@@ -122,6 +123,7 @@ const EXPENSES = [
     invoiceId: null,
     invoiceNumber: null,
     invoiceStatus: null,
+    draftId: null,
   },
 ];
 
@@ -196,9 +198,6 @@ function serve(preview: unknown = PREVIEW) {
       if (path.endsWith('/invoices')) return ok({ id: 'inv-1' });
       if (path.includes('/expenses')) return ok({ expenses: EXPENSES });
       if (path.includes('/clients')) return ok({ clients: CLIENTS });
-      // Nothing ready to invoice, so the blank form lists no rows.
-      if (path.includes('/stats'))
-        return ok({ attention: { unbilledDue: [] } });
       if (path.includes('/settings')) {
         if (holdSettings) await holdSettings;
         return ok(settings);
@@ -268,7 +267,7 @@ const dates = async (user: User) => {
   );
 };
 
-const generate = () => screen.getByRole('button', { name: /Generate/ });
+const generate = () => screen.getByRole('button', { name: /Save draft/ });
 
 /** Chosen and settled: the card shows its answer and nothing is pending. */
 const ready = async (user: User) => {
@@ -289,7 +288,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('NewInvoice', () => {
-  it('says Updating and holds Generate while the server recomputes', async () => {
+  it('says Updating and holds Save draft while the server recomputes', async () => {
     serve();
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
@@ -311,7 +310,7 @@ describe('NewInvoice', () => {
     expect(previews().at(-1)?.body.groupingMode).toBe('task');
   });
 
-  it('generates a draft when the period holds nothing billable', async () => {
+  it('saves a draft when the period holds nothing billable', async () => {
     serve({ ...PREVIEW, lineItems: [], subtotal: 0, total: 0, entryCount: 0 });
     const user = userEvent.setup();
     render(<NewInvoice />, { wrapper });
@@ -320,7 +319,7 @@ describe('NewInvoice', () => {
     await waitFor(() => expect(generate()).toBeEnabled());
   });
 
-  it('says why a recompute failed, and holds Generate', async () => {
+  it('says why a recompute failed, and holds Save draft', async () => {
     serve();
     const served = globalThis.fetch;
     let fail = false;

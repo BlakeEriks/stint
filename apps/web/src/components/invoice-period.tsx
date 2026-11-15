@@ -1,7 +1,6 @@
 'use client';
 
 import { addDays, type Period } from '@stint/core';
-import { ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -9,7 +8,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Field, inputClass } from './field';
+import { Field, TriggerChevron, triggerClass } from './field';
 import { shortDate } from './invoice-bits';
 
 /** The first and last day of the month `offset` months from `today`'s. */
@@ -73,22 +72,14 @@ export function PeriodPicker({
   const complete = value.periodStart !== '' && value.periodEnd !== '';
   return (
     <Popover>
-      <PopoverTrigger
-        id={id}
-        className={`${inputClass} flex items-center justify-between gap-2 text-left
-                    focus:border-edge-focus focus:ring-[3px] focus:ring-edge-focus`}
-      >
+      <PopoverTrigger id={id} className={triggerClass}>
         <span className="truncate">
           {complete ? rangeText(value) : 'Choose dates'}
           {chosen ? (
             <span className="text-subtle"> · {chosen.name}</span>
           ) : null}
         </span>
-        <ChevronDown
-          aria-hidden
-          className="size-4 flex-none text-muted opacity-60"
-          strokeWidth={2}
-        />
+        <TriggerChevron />
       </PopoverTrigger>
       <PopoverContent
         aria-label="Period"

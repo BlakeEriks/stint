@@ -42,7 +42,8 @@ export function InvoiceDatesDialog({
     <SettingsDialog
       onOpenChange={onOpenChange}
       title="Number and dates"
-      description="Issued is the day the invoice is generated."
+      // A draft is dated as if sent today; sending dates it.
+      description="Issued is the day the invoice is sent."
       missing={{
         'inv-next':
           !settings || (Number.isInteger(nextNumber) && nextNumber > 0)
@@ -84,6 +85,7 @@ export function InvoiceDatesDialog({
                 <Input
                   id="inv-next"
                   type="number"
+                  autoFocus
                   value={next}
                   readOnly={pending}
                   onChange={(e) => setNext(e.target.value)}

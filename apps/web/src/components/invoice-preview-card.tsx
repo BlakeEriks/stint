@@ -21,7 +21,8 @@ import type {
   Settings,
 } from '@/lib/client/api';
 import { shortDate } from './invoice-bits';
-import { rowButton } from './row-button';
+import { rowBleed, rowButton } from './row-button';
+import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 
 type Business = Pick<Invoice['business'], 'name' | 'address' | 'email'>;
 
@@ -62,7 +63,6 @@ export type CardFigures = Pick<
       'description' | 'unit' | 'quantity' | 'unitPrice' | 'amount' | 'spentOn'
     > & { expenseId?: string }
   >;
-  entryCount?: number;
 };
 
 /** Text the user types where it prints. */
@@ -77,6 +77,11 @@ export type CardEdits = {
   onBusiness?: () => void;
   onDates: () => void;
   onClient: () => void;
+  /** The period is set above the page: the press goes to that control. */
+  onPeriod: () => void;
+  /** The period chosen on the form, which prints before the server echoes
+   *  it. */
+  period: { periodStart: string; periodEnd: string };
   reference: Typed;
   notes: Typed;
   /** With one summary line: its text, typed on each rate's line. The first
@@ -84,8 +89,8 @@ export type CardEdits = {
   summary?: {
     value: string;
     texts: SummaryText[];
-    /** The first line, with its rate. */
-    onChange: (value: string, rate: number) => void;
+    /** The first line, with its rate; none before any hours. */
+    onChange: (value: string, rate: number | undefined) => void;
     /** Any other line's own text. */
     onChangeAt: (rate: number, value: string) => void;
   };
@@ -104,6 +109,8 @@ export type CardEdits = {
     onOpen: (expense: Expense) => void;
     onAdd: () => void;
   };
+  /** The invoice's, for the charges before the server's first answer. */
+  currency: string;
   /** Wraps the payment block, or its add button, in the menu it opens. */
   paymentMenu: (trigger: React.ReactElement) => React.ReactNode;
 };
@@ -136,12 +143,11 @@ export function InvoicePreviewCard({
   notes,
   heading = true,
   noSender = false,
-  footnote,
   edit,
-  children,
 }: {
   preview: CardFigures | undefined;
-  client: Pick<Client, 'name' | 'address' | 'email'>;
+  /** Undefined on New invoice before one is chosen. */
+  client: Pick<Client, 'name' | 'address' | 'email'> | undefined;
   /** Undefined while it loads. */
   business: Business | undefined;
   /** A prediction: generation allocates the number. */
@@ -160,11 +166,7 @@ export function InvoicePreviewCard({
   heading?: boolean;
   /** No business name or email yet: a draft marks where they will print. */
   noSender?: boolean;
-  /** Under the card, after `children`. */
-  footnote?: string;
   edit?: CardEdits;
-  /** Under the card: what is said about it but never printed. */
-  children?: React.ReactNode;
 }) {
   const terms =
     paymentTerms === undefined ? termsFrom(issued, due) : paymentTerms;
@@ -173,37 +175,42 @@ export function InvoicePreviewCard({
     <section
       aria-labelledby="inv-preview"
       aria-busy={updating}
-      className="flex flex-col"
+      tabIndex={useScrollerFocus()}
+      // The one scroll on an invoice screen, from `xl` where the panel is
+      // bounded: what is above stays, and the sheet moves as a page does,
+      // edge and all. It takes the column's margin, so the sheet is cut at
+      // the panel's foot and not short of it.
+      className="flex flex-col xl:-mx-[18px] xl:-mb-[18px] xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:px-[18px] xl:pb-[18px]"
     >
       {/* Hidden, not dropped: the schedules' headings sit under it. */}
       <h2 id="inv-preview" className="sr-only">
         {heading ? 'Preview' : 'Invoice'}
       </h2>
-      {/* New invoice says so beside Generate; an issued invoice here. */}
+      {/* New invoice says so beside Save draft; an issued invoice here. */}
       {edit ? null : (
         <p className="px-1 pb-2.5 text-right type-support text-subtle">
           {updating ? 'Updating…' : null}
         </p>
       )}
-      <div className="@container/card flex flex-col gap-5 rounded-lg border border-edge-subtle bg-surface-elevated p-6">
-        <From
+      <div className={`@container/card flex flex-col gap-5 ${SHEET}`}>
+        <Header
           business={business}
           noSender={noSender}
           number={number}
           issued={issued}
           due={due}
-          edit={edit}
-        />
-        <To
           client={client}
           preview={preview}
           reference={reference}
           edit={edit}
         />
 
-        {preview?.lineItems ? (
+        {/* On New invoice what the user edits stands before the server's
+            first answer; only the figures wait for it. */}
+        {edit || preview?.lineItems ? (
           <Lines
-            preview={{ ...preview, lineItems: preview.lineItems }}
+            preview={preview}
+            currency={preview?.currency ?? edit?.currency ?? 'USD'}
             terms={terms}
             updating={updating}
             edit={edit}
@@ -225,13 +232,11 @@ export function InvoicePreviewCard({
           onChange={edit?.schedules?.onChange}
         />
       </div>
-
-      <UnderCard footnote={footnote}>{children}</UnderCard>
     </section>
   );
 }
 
-const DIM = 'opacity-50';
+export const DIM = 'opacity-50';
 
 /** The server's figures, dimmed while it recomputes them; what the user
     types stays as it is. */
@@ -258,26 +263,31 @@ function termsFrom(issued: string, due: string): string | null {
   return due && due >= issued ? paymentTermsText(issued, due) : null;
 }
 
-/** The card reads as the PDF will, so anything that won't print goes here,
-    below it. */
-function UnderCard({
-  footnote,
-  children,
-}: {
-  footnote: string | undefined;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1 px-1 pt-2.5 empty:hidden">
-      {children}
-      {footnote ? <p className="type-support text-subtle">{footnote}</p> : null}
-    </div>
-  );
-}
-
 /** What the user fills in, marked as theirs: it prints only once filled. */
 const DASHED =
   'rounded-md border border-dashed border-edge-control text-muted hover:bg-surface-hover hover:text-strong focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none';
+
+/*
+ * The sheet's box model (`.claude/rules/web-ui.md`): text sits on the text
+ * margin, and a box around it, highlight or dashed, bleeds 8px past it
+ * sideways and 6px above and below. The box is never what the grid places:
+ * a plain cell is, and the box bleeds inside it with its own width, so the
+ * columns divide alike on every row. A dashed box carries its 1px border
+ * inside the same box, so its padding is a pixel less and its text lands
+ * where a highlight's does. `inline` sizes a box to its text, for a row of
+ * them (`ADD_ROW`), whose gap allows for the bleed. `SheetAligned` in the
+ * New invoice stories measures all of this.
+ */
+const bleed = (inline = false) =>
+  `-mx-2 -my-1.5 px-2 py-1.5 ${inline ? '' : 'w-[calc(100%+1rem)]'}`;
+const dashedBleed = (inline = false) =>
+  `-mx-2 -my-1.5 px-[calc(0.5rem-1px)] py-[calc(0.375rem-1px)] ${
+    inline ? '' : 'w-[calc(100%+1rem)]'
+  }`;
+/** Boxes in a row: 24px apart in the grid, 8px apart as seen. */
+const ADD_ROW = 'flex flex-wrap gap-x-6 gap-y-5';
+/** Boxes in a column: 16px apart in the grid, 4px apart as seen. */
+const STACK = 'flex flex-col gap-4';
 
 /**
  * A block that opens its editor is itself the button (`.claude/rules/
@@ -293,12 +303,13 @@ function Block({
   className?: string;
   children: React.ReactNode;
 }) {
-  if (!onPress) return <div className={className}>{children}</div>;
+  if (!onPress)
+    return <div className={`${bleed()} ${className}`}>{children}</div>;
   return (
     <button
       type="button"
       onClick={onPress}
-      className={`${rowButton} -mx-2 -my-1.5 py-1.5 ${className}`}
+      className={`${rowButton} ${bleed()} pr-7 ${className}`}
     >
       <span className="sr-only">Edit</span> {children}
       <EditMark />
@@ -319,17 +330,20 @@ function EditMark() {
 function AddButton({
   label,
   onClick,
+  inline = false,
   className = '',
 }: {
   label: string;
   onClick?: () => void;
+  /** Sized to its text, in an `ADD_ROW`; otherwise it fills its cell. */
+  inline?: boolean;
   className?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`${DASHED} flex items-center gap-1.5 self-start px-2.5 py-1.5 type-support ${className}`}
+      className={`${DASHED} ${dashedBleed(inline)} flex items-center gap-1.5 type-support ${className}`}
     >
       <Plus aria-hidden strokeWidth={2.25} className="size-3.5" />
       {label}
@@ -337,13 +351,19 @@ function AddButton({
   );
 }
 
-/** The business, and the invoice's number and dates. */
-function From({
+/** The business and the number and dates, then Bill to and the engagement.
+    The top row gives the business the room and the number only what it
+    needs, where an invoice keeps it; the second divides in halves. Every
+    cell is plain, and the box inside it bleeds alike. */
+function Header({
   business,
   noSender,
   number,
   issued,
   due,
+  client,
+  preview,
+  reference,
   edit,
 }: {
   business: Business | undefined;
@@ -351,23 +371,84 @@ function From({
   number: string;
   issued: string;
   due: string;
+  client: Pick<Client, 'name' | 'address' | 'email'> | undefined;
+  preview: CardFigures | undefined;
+  reference: string;
   edit: CardEdits | undefined;
 }) {
+  const period = edit?.period ?? preview;
   return (
-    <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
-      <Sender
-        business={business}
-        noSender={noSender}
-        onPress={edit?.onBusiness}
-      />
-      <Block onPress={edit?.onDates} className="self-start pr-7">
-        <dl className="flex flex-col gap-1 type-support">
-          <Meta label="No." value={number} mono right />
-          <Meta label="Issued" value={shortDate(issued)} right />
-          <Meta label="Due" value={shortDate(due)} right />
-        </dl>
-      </Block>
-    </div>
+    <>
+      <div className="flex flex-wrap justify-between gap-x-8 gap-y-5">
+        <div className="min-w-0 flex-[1_1_200px]">
+          <Sender
+            business={business}
+            noSender={noSender}
+            onPress={edit?.onBusiness}
+          />
+        </div>
+        <div className="flex-none">
+          <Block onPress={edit?.onDates}>
+            {/* Packed to the right, where an invoice keeps its number. */}
+            <dl className="grid grid-cols-[auto_auto] justify-end gap-x-3 gap-y-1 type-support">
+              <Figure label="No." value={number} mono />
+              <Figure label="Issued" value={shortDate(issued)} />
+              <Figure label="Due" value={shortDate(due)} />
+            </dl>
+          </Block>
+        </div>
+      </div>
+      <div className="grid gap-x-8 gap-y-5 @min-[480px]/card:grid-cols-2">
+        <div className="min-w-0">
+          {client ? (
+            <Block onPress={edit?.onClient}>
+              <span className={`${LABEL} mb-2`}>Bill to</span>
+              <Party
+                name={client.name}
+                lines={[client.address, client.email]}
+              />
+            </Block>
+          ) : (
+            <>
+              {/* Where the client prints, marked as the first thing to choose. */}
+              <span className={`${LABEL} mb-2`}>Bill to</span>
+              <AddButton
+                label="Choose a client"
+                onClick={edit?.onClient}
+                className="min-h-14"
+              />
+            </>
+          )}
+        </div>
+        <div className="min-w-0">
+          <span className={`${LABEL} mb-2`}>Engagement</span>
+          <div className={STACK}>
+            {/* The period prints here once, never under a line. */}
+            <Block onPress={edit?.onPeriod}>
+              <dl className="type-support">
+                <Meta
+                  label="Service period"
+                  value={
+                    period?.periodStart && period.periodEnd
+                      ? `${shortDate(period.periodStart)} – ${shortDate(period.periodEnd)}`
+                      : '—'
+                  }
+                />
+              </dl>
+            </Block>
+            {edit ? (
+              <dl className="type-support">
+                <TypedReference reference={edit.reference} />
+              </dl>
+            ) : reference ? (
+              <dl className="type-support">
+                <Meta label="Reference" value={reference} />
+              </dl>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -380,13 +461,12 @@ function Sender({
   noSender: boolean;
   onPress: (() => void) | undefined;
 }) {
-  const room = 'min-w-0 flex-[1_1_200px]';
   if (noSender && onPress)
     return (
       <AddButton
         label="Add your business"
         onClick={onPress}
-        className={`${room} min-h-14`}
+        className="min-h-14"
       />
     );
   /* Where the sender prints, marked as missing rather than left blank. */
@@ -394,11 +474,11 @@ function Sender({
     return (
       <div
         aria-hidden
-        className={`${room} min-h-14 self-start rounded-md border border-dashed border-edge-control`}
+        className={`${dashedBleed()} min-h-14 rounded-md border border-dashed border-edge-control`}
       />
     );
   return (
-    <Block onPress={onPress} className={`${room} self-start`}>
+    <Block onPress={onPress}>
       <Party
         name={business ? (business.name ?? 'Invoice') : ''}
         lines={[business?.address, business?.email]}
@@ -407,44 +487,24 @@ function Sender({
   );
 }
 
-/** Who is billed, and for which engagement. */
-function To({
-  client,
-  preview,
-  reference,
-  edit,
+/** One of the number and dates: a label and its value, right-aligned, in
+    the two columns their list lays out. */
+function Figure({
+  label,
+  value,
+  mono,
 }: {
-  client: Pick<Client, 'name' | 'address' | 'email'>;
-  preview: CardFigures | undefined;
-  reference: string;
-  edit: CardEdits | undefined;
+  label: string;
+  value: string;
+  mono?: boolean;
 }) {
   return (
-    <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
-      <Block onPress={edit?.onClient} className="min-w-0 flex-[1_1_200px]">
-        <span className={`${LABEL} mb-2`}>Bill to</span>
-        <Party name={client.name} lines={[client.address, client.email]} />
-      </Block>
-      <div className="min-w-0 flex-[1_1_200px]">
-        <span className={`${LABEL} mb-2`}>Engagement</span>
-        <dl className="flex flex-col gap-1 type-support">
-          {/* The period prints here once, never under a line. */}
-          <Meta
-            label="Service period"
-            value={
-              preview
-                ? `${shortDate(preview.periodStart)} – ${shortDate(preview.periodEnd)}`
-                : '—'
-            }
-          />
-          {edit ? (
-            <TypedReference reference={edit.reference} />
-          ) : reference ? (
-            <Meta label="Reference" value={reference} />
-          ) : null}
-        </dl>
-      </div>
-    </div>
+    <>
+      <dt className="text-subtle">{label}</dt>
+      <dd className={`text-right text-primary ${mono ? 'type-duration' : ''}`}>
+        {value}
+      </dd>
+    </>
   );
 }
 
@@ -452,8 +512,8 @@ function To({
     while empty. */
 const typedClass = (filled: boolean) =>
   filled
-    ? 'w-full min-w-0 border-0 border-b border-dashed border-edge-control bg-transparent text-primary outline-none focus-visible:border-edge-focus'
-    : `${DASHED} w-full min-w-0 bg-transparent px-2.5 py-1.5 placeholder:text-muted outline-none focus-visible:placeholder:text-subtle`;
+    ? `${bleed()} min-w-0 border-0 border-b border-dashed border-edge-control bg-transparent text-primary outline-none focus-visible:border-edge-focus`
+    : `${DASHED} ${dashedBleed()} min-w-0 bg-transparent placeholder:text-muted outline-none focus-visible:placeholder:text-subtle`;
 
 function TypedReference({ reference }: { reference: Typed }) {
   const filled = reference.value.trim() !== '';
@@ -524,25 +584,15 @@ function Meta({
   label,
   value,
   mono,
-  right,
 }: {
   label: string;
   value: string;
   mono?: boolean;
-  right?: boolean;
 }) {
   return (
-    <div className={`flex gap-3 ${right ? 'justify-end' : ''}`}>
-      <dt className={`flex-none text-subtle ${right ? '' : 'w-26'}`}>
-        {label}
-      </dt>
-      <dd
-        className={`text-primary ${right ? 'min-w-24 text-right' : ''} ${
-          mono ? 'type-duration' : ''
-        }`}
-      >
-        {value}
-      </dd>
+    <div className="flex gap-3">
+      <dt className="w-26 flex-none text-subtle">{label}</dt>
+      <dd className={`text-primary ${mono ? 'type-duration' : ''}`}>{value}</dd>
     </div>
   );
 }
@@ -565,16 +615,13 @@ function PaymentBlock({
   if (!payment)
     return (
       <div className="border-t border-edge-subtle pt-4">
-        {edit.paymentMenu(<AddButton label="Add payment details" />)}
+        {edit.paymentMenu(<AddButton label="Add payment details" inline />)}
       </div>
     );
   return (
-    <div className="border-t border-edge-subtle pt-2.5">
+    <div className="border-t border-edge-subtle pt-4">
       {edit.paymentMenu(
-        <button
-          type="button"
-          className={`${rowButton} -mx-2 w-[calc(100%+1rem)] py-1.5`}
-        >
+        <button type="button" className={`${rowButton} ${bleed()} pr-7`}>
           <span className="sr-only">Edit</span>{' '}
           <PaymentFieldsBlock payment={payment} />
           <EditMark />
@@ -610,8 +657,18 @@ function PaymentFieldsBlock({ payment }: { payment: PaymentDetails }) {
 }
 
 function PaymentFields({ fields }: { fields: PaymentDetails['fields'] }) {
+  /* As many columns as spread the fields evenly over the fewest rows of at
+     most four, so six print 3 + 3 and seven 4 + 3, never 5 + 1. Each column
+     still needs 140px, so a narrow card gets fewer. */
+  const cols = Math.ceil(fields.length / Math.ceil(fields.length / 4));
+  const min = `calc((100% - ${cols - 1} * 1rem) / ${cols} - 1px)`;
   return (
-    <dl className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-x-4 gap-y-3">
+    <dl
+      className="grid gap-x-4 gap-y-3"
+      style={{
+        gridTemplateColumns: `repeat(auto-fill, minmax(max(140px, ${min}), 1fr))`,
+      }}
+    >
       {fields.map((f) => (
         <div key={f.label}>
           <dt className="text-subtle">{f.label}</dt>
@@ -636,80 +693,104 @@ type ExpenseLine = {
   billed: boolean;
 };
 
-/** The expense rows: the server's lines, and on New invoice each waiting
-    expense too, unticked ones included so they can be ticked again. */
+/** The expense rows: the server's lines, or on New invoice each expense it
+    can bill, unticked ones included so they can be ticked again, in the
+    order they print. Only their amounts wait for the server. */
 function expenseLines(lines: Line[], edit: CardEdits | undefined) {
   const served = lines.filter((li) => li.unit === 'expense');
-  const rows: ExpenseLine[] = served.map((li, i) => ({
-    key: li.expenseId ?? `line-${i}`,
-    description: li.description,
-    spentOn: li.spentOn,
-    amount: li.amount,
-    expense: edit?.expenses.waiting.find((e) => e.id === li.expenseId),
-    billed: !edit?.expenses.excluded.includes(li.expenseId ?? ''),
-  }));
-  for (const e of edit?.expenses.waiting ?? []) {
-    if (rows.some((r) => r.key === e.id)) continue;
-    rows.push({
+  if (!edit)
+    return served.map((li, i) => ({
+      key: li.expenseId ?? `line-${i}`,
+      description: li.description,
+      spentOn: li.spentOn,
+      amount: li.amount,
+      billed: true,
+    }));
+  return edit.expenses.waiting.map((e): ExpenseLine => {
+    const line = served.find((li) => li.expenseId === e.id);
+    return {
       key: e.id,
       description: e.description,
-      spentOn: e.spentOn,
-      amount: e.amount,
+      // A recurring one prints on the period's last day.
+      spentOn: line?.spentOn ?? e.spentOn ?? edit.period.periodEnd,
+      amount: line?.amount ?? e.amount,
       expense: e,
-      billed: !edit?.expenses.excluded.includes(e.id),
-    });
-  }
-  return rows;
+      billed: !edit.expenses.excluded.includes(e.id),
+    };
+  });
 }
 
 function Lines({
   preview,
+  currency: cur,
   terms,
   updating,
   edit,
 }: {
-  preview: CardFigures & { lineItems: Line[] };
+  /** Undefined on New invoice until the server first answers. */
+  preview: CardFigures | undefined;
+  currency: string;
   terms: string | null | undefined;
   updating: boolean;
   edit: CardEdits | undefined;
 }) {
   const dim = updating ? DIM : '';
-  const cur = preview.currency;
+  const lineItems = preview?.lineItems ?? [];
   /* On New invoice the charges are the user's, listed as they are now;
      the server's copy of them lags a keystroke. */
-  const services = preview.lineItems.filter(
+  const services = lineItems.filter(
     (li) => li.unit !== 'expense' && !(edit && li.unit === 'fixed'),
   );
   const charges = edit?.charges.list ?? [];
-  const expenses = expenseLines(preview.lineItems, edit);
-  const empty =
-    services.length === 0 && charges.length === 0 && expenses.length === 0;
+  const expenses = expenseLines(lineItems, edit);
+  /* Typed whatever the hours: the server refuses a summary invoice without
+     its text. */
+  const summaryOnly = edit?.summary !== undefined && services.length === 0;
+  /* On New invoice, once the server has answered with no time, the table
+     keeps its shape and says why its figures are blank. */
+  const noTime =
+    edit !== undefined && preview !== undefined && services.length === 0;
+  const timeRows =
+    summaryOnly || noTime || services.length > 0 || charges.length > 0;
 
   return (
     <>
-      {empty ? (
-        <p className="type-support text-subtle">
-          Nothing to bill in this period.
-        </p>
-      ) : (
-        <table className="w-full type-support">
-          <thead>
-            <tr className="border-b border-edge-default text-left">
-              <th scope="col" className={TH}>
-                Description
-              </th>
-              <th scope="col" className={`${TH} text-right`}>
-                Qty
-              </th>
-              <th scope="col" className={`${TH} text-right ${RATE}`}>
-                Rate
-              </th>
-              <th scope="col" className={`${TH} text-right`}>
-                Amount
-              </th>
-            </tr>
-          </thead>
+      <table className="w-full type-support">
+        <thead>
+          <tr className="border-b border-edge-default text-left">
+            <th scope="col" className={TH}>
+              Description
+            </th>
+            <th scope="col" className={`${TH} text-right`}>
+              Qty
+            </th>
+            <th scope="col" className={`${TH} text-right ${RATE}`}>
+              Rate
+            </th>
+            <th scope="col" className={`${TH} text-right`}>
+              Amount
+            </th>
+          </tr>
+        </thead>
+        {/* Never an empty body: one between the header and the expenses
+              stops Chrome painting the rows' collapsed borders, and the
+              header's underline with them. */}
+        {timeRows ? (
           <tbody>
+            {summaryOnly ? (
+              <ServiceRow
+                currency={cur}
+                dim={dim}
+                summary={edit?.summary}
+                first
+              />
+            ) : noTime ? (
+              <tr className={ROW}>
+                <td colSpan={4} className="py-2.5 text-subtle">
+                  No time in this period
+                </td>
+              </tr>
+            ) : null}
             {services.map((li, i) => (
               <ServiceRow
                 key={i}
@@ -729,34 +810,38 @@ function Lines({
               />
             ))}
           </tbody>
-          {expenses.length > 0 ? (
-            <tbody>
-              <tr className="border-b border-edge-default text-left">
-                <th scope="colgroup" colSpan={4} className={`${TH} pt-6`}>
-                  Expenses
-                </th>
-              </tr>
-              {expenses.map((row) => (
-                <ExpenseRowLine
-                  key={row.key}
-                  row={row}
-                  currency={cur}
-                  edit={edit}
-                />
-              ))}
-            </tbody>
-          ) : null}
-        </table>
-      )}
+        ) : null}
+        {expenses.length > 0 ? (
+          <tbody>
+            <tr className="border-b border-edge-default text-left">
+              <th scope="colgroup" colSpan={4} className={`${TH} pt-6`}>
+                Expenses
+              </th>
+            </tr>
+            {expenses.map((row) => (
+              <ExpenseRowLine
+                key={row.key}
+                row={row}
+                currency={cur}
+                edit={edit}
+              />
+            ))}
+          </tbody>
+        ) : null}
+      </table>
 
       {edit ? (
-        <div className="flex flex-wrap gap-2">
-          <AddButton label="Add a charge" onClick={edit.charges.onAdd} />
-          <AddButton label="Add an expense" onClick={edit.expenses.onAdd} />
+        <div className={ADD_ROW}>
+          <AddButton label="Add a charge" onClick={edit.charges.onAdd} inline />
+          <AddButton
+            label="Add an expense"
+            onClick={edit.expenses.onAdd}
+            inline
+          />
         </div>
       ) : null}
 
-      {empty ? null : (
+      {preview?.lineItems ? (
         <Dims updating={updating}>
           <Totals
             preview={preview}
@@ -765,10 +850,12 @@ function Lines({
             expenses={expenses.some((e) => e.billed)}
           />
         </Dims>
-      )}
+      ) : null}
     </>
   );
 }
+
+const SHEET = 'rounded-lg border border-edge-subtle bg-surface-elevated p-6';
 
 /** The id of New invoice's notice that the summary line is empty. */
 export const SUMMARY_ERROR = 'inv-summary-error';
@@ -780,7 +867,8 @@ function ServiceRow({
   summary,
   first,
 }: {
-  line: Line;
+  /** Absent for the summary line before any hours: its figures are blank. */
+  line?: Line;
   currency: string;
   /** The server's figures dim while it recomputes; typed text never does. */
   dim: string;
@@ -788,7 +876,8 @@ function ServiceRow({
   /** The first line's text is every line's until one is typed itself. */
   first: boolean;
 }) {
-  const own = summary?.texts.find((t) => t.rate === line.unitPrice);
+  const rate = line?.unitPrice;
+  const own = summary?.texts.find((t) => t.rate === rate);
   const value = own?.text ?? summary?.value ?? '';
   const empty = value.trim() === '';
   return (
@@ -797,34 +886,34 @@ function ServiceRow({
         {summary ? (
           <input
             aria-label={
-              first
+              first || rate === undefined
                 ? 'Summary line'
-                : `Summary line at ${formatCurrency(line.unitPrice, currency)}/h`
+                : `Summary line at ${formatCurrency(rate, currency)}/h`
             }
             aria-invalid={empty || undefined}
             aria-describedby={empty ? SUMMARY_ERROR : undefined}
             value={value}
             onChange={(e) =>
-              first
-                ? summary.onChange(e.target.value, line.unitPrice)
-                : summary.onChangeAt(line.unitPrice, e.target.value)
+              first || rate === undefined
+                ? summary.onChange(e.target.value, rate)
+                : summary.onChangeAt(rate, e.target.value)
             }
             placeholder="Professional services"
             maxLength={200}
             className={`type-support ${typedClass(true)} aria-invalid:border-danger`}
           />
         ) : (
-          line.description
+          line?.description
         )}
       </td>
       <td className={`${TD} text-muted ${dim}`}>
-        {formatQuantity(line.unit, line.quantity)}
+        {line ? formatQuantity(line.unit, line.quantity) : null}
       </td>
       <td className={`${TD} text-muted ${RATE} ${dim}`}>
-        {formatCurrency(line.unitPrice, currency)}
+        {line ? formatCurrency(line.unitPrice, currency) : null}
       </td>
       <td className={`${TD} text-strong ${dim}`}>
-        {formatCurrency(line.amount, currency)}
+        {line ? formatCurrency(line.amount, currency) : null}
       </td>
     </tr>
   );
@@ -845,7 +934,7 @@ function ChargeRow({
         <button
           type="button"
           onClick={onOpen}
-          className={`${rowButton} -mx-2 w-[calc(100%+1rem)] py-1.5 pr-7 text-primary`}
+          className={`${rowButton} ${rowBleed} py-1.5 pr-7 text-primary`}
         >
           <span className="sr-only">Edit charge</span> {charge.description}
           <EditMark />
@@ -878,7 +967,7 @@ function ExpenseRowLine({
   return (
     <tr className={ROW}>
       <td className={`py-1 ${faint || 'text-primary'}`}>
-        {edit ? (
+        {edit && expense ? (
           <span className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -889,18 +978,14 @@ function ExpenseRowLine({
               aria-label={`Bill ${row.description}`}
               className="size-4 flex-none accent-[var(--text-muted)]"
             />
-            {expense ? (
-              <button
-                type="button"
-                onClick={() => edit.expenses.onOpen(expense)}
-                className={`${rowButton} -ml-0.5 min-w-0 flex-1 py-1.5 pr-7`}
-              >
-                <span className="sr-only">Edit</span> {row.description}
-                <EditMark />
-              </button>
-            ) : (
-              <span className="py-1.5">{row.description}</span>
-            )}
+            <button
+              type="button"
+              onClick={() => edit.expenses.onOpen(expense)}
+              className={`${rowButton} -ml-0.5 min-w-0 flex-1 py-1.5 pr-7`}
+            >
+              <span className="sr-only">Edit</span> {row.description}
+              <EditMark />
+            </button>
           </span>
         ) : (
           <span className="block py-1.5">{row.description}</span>

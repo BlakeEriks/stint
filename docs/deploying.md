@@ -110,9 +110,6 @@ Still set in the dashboard:
   - `NEXT_PUBLIC_APP_ORIGIN` — `https://app.runstint.com`. The code
     falls back to `''`, so an unset one costs a redirect hop on the landing
     page's Sign in link rather than failing the build.
-  - `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, for Production only: the sign-in
-    form's CAPTCHA (`docs/setup.md` §7). Unset, the form sends none, which
-    a preview's Auth server doesn't ask for.
   - `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN`, both the same DSN, for
     Production only (§3c): the server reports with the first, the browser
     with the second. Unset, Sentry stays off, so a preview never reports.

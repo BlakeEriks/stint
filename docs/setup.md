@@ -26,8 +26,8 @@ release on the RLS event trigger before it was listed.
 - **Auto-enable RLS on new tables — ON.** This installs an `rls_auto_enable`
   event trigger in `public`, a backstop only: every table still declares its
   own RLS and policy in its migration (`docs/data-model.md`).
-- **Authentication → Sign In / Providers → Allow new users to sign up — ON**,
-  behind a CAPTCHA (section 7).
+- **Authentication → Sign In / Providers → Allow new users to sign up — ON**
+  (section 7).
 
 ## 2. Apply the migrations
 
@@ -137,27 +137,22 @@ and `stint-test`):
 The approval page is at the **Site URL**, so a preview tested against
 `stint-test` needs that Site URL pointed at it.
 
-## 7. Open sign-up behind a CAPTCHA
+## 7. Open sign-up, with no CAPTCHA
 
 Anyone who enters an email on the sign-in form gets an account, so anyone
-could make Stint send mail. Cloudflare Turnstile, which Supabase supports,
-guards GoTrue's `/otp`. The macOS and phone apps can't solve it, so they ask
-`/api/v1/auth/code` for a code instead, which passes it with the secret key,
-mails only an existing account, and allows five codes an hour per client
-address (`docs/api.md`, Sign-in).
+could make Stint send mail. Nothing stands in front of it yet: a CAPTCHA
+locked out people whose network blocks the challenge, and no abuse has
+shown up. The macOS and phone apps ask `/api/v1/auth/code` for a code,
+which mails only an existing account and allows five codes an hour per
+client address (`docs/api.md`, Sign-in).
 
-In this order, so sign-in never breaks partway through:
+1. **Authentication → Sign In / Providers → Allow new users to sign up — ON.**
+2. **Authentication → Attack Protection → CAPTCHA protection — OFF.**
 
-1. **Cloudflare → Turnstile → Add widget**: name `Stint`, hostname
-   `app.runstint.com`, mode **Managed**. Keep the site key and secret key.
-2. **Vercel → Settings → Environment Variables**:
-   `NEXT_PUBLIC_TURNSTILE_SITE_KEY` is the site key, for Production only,
-   then redeploy. The sign-in form now shows the widget and sends its token,
-   which GoTrue ignores until step 3.
-3. **Supabase → Authentication → Attack Protection → Enable CAPTCHA
-   protection**: provider Turnstile, the secret key. The macOS and phone apps
-   in use must already ask `/api/v1/auth/code`; an older build asks GoTrue
-   directly and is refused.
-4. **Authentication → Sign In / Providers → Allow new users to sign up — ON.**
+If abuse starts, Supabase supports Cloudflare Turnstile on GoTrue's `/otp`.
+The web form then has to send the widget's token as `captchaToken`, as it
+did in #725; `/api/v1/auth/code` already asks with the secret key, which
+gets past it. Ship the form first, then turn it on in
+Supabase, or web sign-in breaks.
 
-Local and CI run with sign-up on and no CAPTCHA (`supabase/config.toml`).
+Local and CI run the same way (`supabase/config.toml`).

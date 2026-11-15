@@ -6,6 +6,5 @@ Nothing stored. `earlierWork` is derived per preview, null when there is none:
 | --- | --- | --- |
 | `entryCount` | integer | the client's billable, finished entries on no invoice, not billed elsewhere, dated in the look-back |
 | `from`, `to` | `YYYY-MM-DD` | the first and last of their dates, in the billing zone |
-| `draft` | `{ id, invoiceNumber }` or null | when other drafts hold all of the work, the one holding the earliest, whose entries are counted |
 
-The look-back runs from the day after the latest `periodEnd` of the client's non-void invoices that start before `periodStart`, the edited draft left out, else 30 days before `periodStart`, to the day before `periodStart`. An invoice reaching `periodStart` leaves no look-back.
+The entries counted are held by no draft, or by the one being edited. The look-back runs from the day after the latest `periodEnd` of the client's non-void invoices that start before `periodStart`, the edited draft left out, to the day before `periodStart`. No such invoice, or one reaching `periodStart`, leaves no look-back.

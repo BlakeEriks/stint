@@ -58,16 +58,13 @@ export function isBillableEntry(
   );
 }
 
-/** How far a client's first invoice looks back for earlier work: about a
-    monthly period, so it never offers a client's whole history. */
-const FIRST_LOOKBACK_DAYS = 30;
-
 /**
  * The first day New invoice looks for unbilled work before `periodStart`:
- * the day after the end of the client's latest invoice starting before it,
- * else 30 days back. Null when that invoice reaches the period, since what
- * it left out is its own business, and a second invoice over it is worse.
- * `invoices` are the client's non-void ones.
+ * the day after the end of the client's latest invoice starting before it.
+ * Null with no such invoice, since a first invoice has no gap to catch, and
+ * null when that invoice reaches the period, since what it left out is its
+ * own business, and a second invoice over it is worse. `invoices` are the
+ * client's non-void ones.
  */
 export function earlierWorkFrom(
   periodStart: string,
@@ -78,36 +75,21 @@ export function earlierWorkFrom(
     .map((i) => i.periodEnd)
     .sort()
     .at(-1);
-  if (!last) return addDays(periodStart, -FIRST_LOOKBACK_DAYS);
+  if (!last) return null;
   return last < addDays(periodStart, -1) ? addDays(last, 1) : null;
 }
 
 /**
- * What New invoice offers of the billable entries dated from
- * `earlierWorkFrom()` to the period: those no draft holds, which Include
- * bills, else those held by the draft holding the earliest of them, which
- * it names. The count and dates, each entry dated by its day in `tz`.
+ * What New invoice offers of the billable entries no draft holds, dated
+ * from `earlierWorkFrom()` to the period: the count and dates, each entry
+ * dated by its day in `tz`. Null when there are none.
  */
-export function earlierWork(
-  entries: { startedAt: string; draftId: string | null }[],
-  tz: string,
-) {
-  const sorted = [...entries].sort((a, b) =>
-    a.startedAt.localeCompare(b.startedAt),
-  );
-  const free = sorted.filter((e) => e.draftId === null);
-  const shown =
-    free.length > 0
-      ? free
-      : sorted.filter((e) => e.draftId === sorted[0]?.draftId);
-  if (shown.length === 0) return null;
-  const days = shown.map((e) => localDateKey(new Date(e.startedAt), tz)).sort();
-  return {
-    entryCount: shown.length,
-    from: days[0]!,
-    to: days.at(-1)!,
-    draftId: shown[0]!.draftId,
-  };
+export function earlierWork(entries: { startedAt: string }[], tz: string) {
+  if (entries.length === 0) return null;
+  const days = entries
+    .map((e) => localDateKey(new Date(e.startedAt), tz))
+    .sort();
+  return { entryCount: days.length, from: days[0]!, to: days.at(-1)! };
 }
 
 export interface ExpenseRow {

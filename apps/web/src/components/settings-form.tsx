@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { parseTermsDays } from '@stint/core';
 import { NEXT_INVOICE_NUMBER_MAX } from '@stint/schema';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { type Segment, SegmentedControl } from './segmented-control';
@@ -11,7 +11,7 @@ import { Field, Section, textareaClass } from './field';
 import { parseRate, RateInput, UnitInput } from './rate-input';
 import { SaveIndicator } from './save-indicator';
 import { useAutosave } from '@/lib/client/use-autosave';
-import { TemplatePicker, useTemplateChoice } from './template-picker';
+import { TemplateControl } from './template-dialog';
 import { ZoneSelect } from './zone-select';
 import {
   api,
@@ -285,16 +285,25 @@ function numberRefusal(error: Error | null) {
   return refusedNumber(error) === undefined ? undefined : error?.message;
 }
 
-/** Saves on its own press, apart from the autosaved fields around it: a
- *  choice from four needs no pause to finish typing. */
+/** Saved by its own dialog, apart from the autosaved fields around it. */
 function TemplateSection() {
-  const { template, choose } = useTemplateChoice();
+  const { data: settings } = useQuery({
+    queryKey: keys.settings(),
+    queryFn: api.settings,
+  });
   return (
     <Section
       title="Invoice template"
       description="How your invoices look. Every template prints the same details."
     >
-      <TemplatePicker value={template} onChange={choose} />
+      {settings ? (
+        <Field label="Template" htmlFor="settings-template">
+          <TemplateControl
+            id="settings-template"
+            template={settings.invoiceTemplate}
+          />
+        </Field>
+      ) : null}
       <p className="type-support text-subtle">
         Drafts use it right away. A sent invoice keeps the template it was sent
         with.
