@@ -30,8 +30,7 @@ export const INSET = 'px-[18px]';
  *
  * Its padding is `INSET` on every side, so a region's rule — which spans the
  * column — stops that far short of the panel's edges. A screen with a
- * `title` gets the frame's `TitleBar` above the region that scrolls, and
- * starts its column flush under the bar's rule.
+ * `title` gets the frame's `TitleBar` above the region that scrolls.
  */
 export function Page({
   title,
@@ -45,7 +44,7 @@ export function Page({
   /** The screen's title, in the frame's bar; none for a screen that draws
    *  its own heading or has none. */
   title?: string;
-  /** The one action the screen exists for, at the bar's right. */
+  /** What sits at the bar's right: the screen's action, or its tabs. */
   actions?: React.ReactNode;
   wide?: boolean;
   /**
@@ -76,29 +75,27 @@ export function Page({
 }) {
   const measure = measureOf(workspace, wide);
   return (
-    <>
+    <main className={FILL}>
       {title ? (
         <TitleBar title={title} actions={actions} measure={measure} />
       ) : null}
-      {/* The region that scrolls at `xl`, where the panel is a bounded flex
-          column: the bar above it stays put. Below `xl` the column around
-          the panel scrolls instead, and this is only a wrapper. */}
+      {/* The region that scrolls at `xl`; below it the column around the
+          panel scrolls, and this is only a wrapper. */}
       <div
         tabIndex={useScrollerFocus()}
         data-content-scroller
         className="xl:min-h-0 xl:flex-1 xl:overflow-y-auto"
       >
-        <main
+        <div
           className={`mx-auto ${insetOf(flush, title !== undefined)}${measure}${fills ? ' xl:flex xl:h-full xl:min-h-0 xl:flex-col' : ''}`}
         >
           {children}
-        </main>
+        </div>
       </div>
-    </>
+    </main>
   );
 }
 
-/** The column's measure: a workspace takes the whole width, a grid `wide`. */
 const measureOf = (workspace: boolean, wide: boolean) =>
   workspace ? 'max-w-none' : wide ? 'max-w-6xl' : 'max-w-3xl';
 
@@ -115,12 +112,10 @@ const insetOf = (flush: boolean, titled: boolean) =>
 export const UNDER_TITLE_BAR = 'sm:top-[67px] xl:top-0';
 
 /**
- * A screen's title and its one action, the frame's, so every screen places
- * them alike: at `xl` the panel's scroller runs beneath it and it never
- * moves, bounce or not; from `sm` it pins to the top of the column that
- * scrolls; on a phone the page scrolls under the pinned header and nav, and
- * a third pinned band would leave little to read, so it scrolls too. It
- * takes the page's inset and ends in a rule, like any region.
+ * A screen's title and what sits beside it, placed by the frame so every
+ * screen places them alike (`.claude/rules/web-ui.md`). On a phone it does
+ * not pin: the app header and nav already do, and a third pinned band would
+ * leave little to read.
  */
 function TitleBar({
   title,
@@ -133,16 +128,18 @@ function TitleBar({
   measure: string;
 }) {
   return (
-    /* A `div`, not a `header`: outside `main` that would be a second
-       banner beside the app's. */
-    <div className="z-20 border-b border-edge-subtle bg-surface-primary sm:sticky sm:top-0 xl:static xl:flex-none">
+    <header
+      className={`z-20 border-b border-edge-subtle bg-surface-primary ${INSET} pt-[18px] pb-3 sm:sticky sm:top-0 xl:static xl:flex-none`}
+    >
+      {/* A 36px row whether or not an action fills it, so the bar is one
+          height on every screen. */}
       <div
-        className={`mx-auto flex min-h-9 items-center justify-between gap-3 ${INSET} pt-[18px] pb-3 ${measure}`}
+        className={`mx-auto flex min-h-9 items-center justify-between gap-3 ${measure}`}
       >
         <h1 className="type-title text-strong">{title}</h1>
         {actions}
       </div>
-    </div>
+    </header>
   );
 }
 

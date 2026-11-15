@@ -608,7 +608,8 @@ export const MacBook16: Story = {
   ...macbook16,
   play: async ({ canvasElement }) => {
     const panel = await fitsWhole(canvasElement);
-    const content = panel.querySelector('main') as HTMLElement;
+    // The scroller's one child: Home's column.
+    const content = panel.firstElementChild as HTMLElement;
     await expect(
       panel.clientHeight - content.getBoundingClientRect().height,
     ).toBeLessThan(24);

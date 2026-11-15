@@ -1,10 +1,8 @@
 /**
  * THE PANEL. One surface with a subtle edge and the card's shadow — a step
  * above the rail and dock that flank it, because depth increases toward what
- * is being read. Nothing inside it is a card.
- *
- * At `xl` it is a bounded column: `Page` puts the frame's title bar first
- * and the region that scrolls second, clipped to the panel's corners.
+ * is being read. Nothing inside it is a card. At `xl` it is a bounded column
+ * whose `Page` scrolls inside it, clipped to its corners.
  */
 export function ContentPanel({ children }: { children: React.ReactNode }) {
   return (
