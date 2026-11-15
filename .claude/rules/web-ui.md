@@ -134,7 +134,9 @@ invoice, the calendar): it drops the measure and takes the column's width.
 `DetailPage`'s `letter` is for a screen whose content is a printed page
 (New invoice): one centered column, 816px at most, a US letter's width.
 The card keeps its size, so the frame never jolts between screens. The page
-title is `type-title`, once.
+title is the frame's: `Page`'s `title` and `actions` draw `TitleBar`, fixed
+above the scroller at `xl`, pinned from `sm`, scrolling with the page on a
+phone, `type-title`, once.
 
 **Nothing inside the panel is a card.** The panel is the one surface; a
 region is space and a rule (`border-edge-subtle`, stopping at the inset), and

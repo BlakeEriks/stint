@@ -7,7 +7,7 @@ import { ArchiveRestore, ChevronRight, Pencil, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api, type Client, type Expense, type Project } from '@/lib/client/api';
 import { useAllProjects } from '@/lib/client/use-project-colors';
-import { Listing, Page } from './page';
+import { Listing, Page, UNDER_TITLE_BAR } from './page';
 import { Pip } from './home-shell';
 import { ClientDialog } from './client-dialog';
 import { ProjectDialog } from './project-dialog';
@@ -29,9 +29,9 @@ import { useMediaQuery } from '@/lib/client/use-media-query';
  * It is for editing, not reporting: what is owed and how many hours went in
  * belong to a reports screen. Every action is the Edit on the thing it
  * changes, opening a dialog; a project or an expense is added from the
- * heading of the client it belongs to. The title bar and each client's
- * heading stick as the panel scrolls, so the rows in view always say whose
- * they are. Archived clients wait below the active ones in a collapsed
+ * heading of the client it belongs to. Each client's heading pins under the
+ * frame's title bar as the list scrolls, so the rows in view always say
+ * whose they are. Archived clients wait below the active ones in a collapsed
  * section whose count stays visible, so nothing looks deleted; each archived
  * row restores in one press. `Screens/Clients` shows each state.
  */
@@ -83,19 +83,15 @@ export function ClientList() {
   );
 
   return (
-    <Page>
-      {/* Pinned to the top of whichever scroller holds the panel, with the
-          page's inset pulled under it so no row shows above it. Below `sm`
-          the page scrolls under the pinned header and nav (`AppShell`), and
-          a third pinned band would leave little of a phone to read. */}
-      <header className="flex items-center justify-between gap-3 border-b border-edge-subtle bg-surface-primary pb-3 sm:sticky sm:top-0 sm:z-20 sm:-mx-[18px] sm:-mt-[18px] sm:px-[18px] sm:pt-[18px]">
-        <h1 className="type-title text-strong">Clients</h1>
+    <Page
+      title="Clients"
+      actions={
         <Button onClick={() => setAddingClient(true)}>
           <Plus aria-hidden strokeWidth={2.25} />
           Add client
         </Button>
-      </header>
-
+      }
+    >
       <Listing
         query={{
           data: groups,
@@ -214,18 +210,13 @@ function clientRate(client: Client, defaultRate: number | null) {
   return 'No rate';
 }
 
-/** The title bar's height from `sm`: the page's 18px inset, the 36px
-    button, 12px under it and its rule. Each client's heading pins beneath
-    it. */
-const UNDER_TITLE = 'sm:top-[67px]';
-
 const SM = '(width >= 40rem)';
 
 /**
  * One client and its projects, a region of the panel: a heading, then rows
  * indented to its name, so the belonging is drawn rather than labeled — no
- * "Projects" subheader. The heading pins under the title bar while its rows
- * scroll, and holds the actions on the client: a project or an expense is
+ * "Projects" subheader. The heading pins under the frame's title bar while
+ * its rows scroll, and holds the actions on the client: a project or an expense is
  * added from it, where there is room. On a phone the two adds sit under the
  * rows instead, since the heading there has width only for the name.
  *
@@ -290,7 +281,7 @@ function ClientGroup({
   return (
     <section className="border-t border-edge-subtle first:border-t-0">
       <div
-        className={`flex items-start gap-3 bg-surface-primary pt-3 pb-2 sm:sticky sm:z-10 ${UNDER_TITLE}`}
+        className={`flex items-start gap-3 bg-surface-primary pt-3 pb-2 sm:sticky sm:z-10 ${UNDER_TITLE_BAR}`}
       >
         {/* A flex box, not bare inline: the dot sizes itself only as a flex
             or block item. */}

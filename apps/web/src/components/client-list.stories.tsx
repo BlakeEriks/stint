@@ -52,8 +52,9 @@ export const Desktop: Story = {
   },
 };
 
-/** The title bar stays while the list scrolls, and so does the heading of
-    the client whose rows are in view, pinned under it. */
+/** The frame's title bar stays put while the list scrolls beneath it, and
+    the heading of the client whose rows are in view pins at the top of
+    the scroller. */
 export const Scrolled: Story = {
   ...desktop,
   // Enough rows under Northwind that the panel scrolls at this height.
@@ -73,27 +74,27 @@ export const Scrolled: Story = {
     const northwind = await page.findByRole('heading', {
       name: 'Northwind Trading',
     });
-    const panel = canvasElement.querySelector<HTMLElement>(
-      '[data-content-panel]',
+    const title = page.getByRole('heading', { name: 'Clients', level: 1 });
+    const titleTop = title.getBoundingClientRect().top;
+    const scroller = canvasElement.querySelector<HTMLElement>(
+      '[data-content-scroller]',
     )!;
-    const top = panel.getBoundingClientRect().top;
+    const top = scroller.getBoundingClientRect().top;
+    // The bar ends before the scroller begins.
+    await expect(title.getBoundingClientRect().bottom).toBeLessThan(top);
     // Into Northwind's rows, so its heading has something to pin over.
-    panel.scrollTop = northwind.getBoundingClientRect().top - top + 120;
+    scroller.scrollTop = northwind.getBoundingClientRect().top - top + 120;
     await waitFor(() => {
-      expect(panel.scrollTop).toBeGreaterThan(100);
-      const title = page.getByRole('heading', { name: 'Clients', level: 1 });
-      expect(title.getBoundingClientRect().top).toBeGreaterThan(top);
-      expect(title.getBoundingClientRect().top).toBeLessThan(top + 40);
-      // Under the title bar: its 18px inset, 36px button, 12px and rule.
-      expect(northwind.getBoundingClientRect().top - top).toBeCloseTo(
-        67 + 12,
-        -1,
-      );
+      expect(scroller.scrollTop).toBeGreaterThan(100);
+      expect(title.getBoundingClientRect().top).toBe(titleTop);
+      // At the scroller's top, by the heading's own 12px of padding.
+      expect(northwind.getBoundingClientRect().top - top).toBeCloseTo(12, -1);
     });
   },
 };
 
 export const Phone: Story = { ...phone };
+export const Light: Story = { ...light };
 /** A client with no projects keeps its heading: this is the only list of
     clients. */
 export const ClientWithoutProjects: Story = {
