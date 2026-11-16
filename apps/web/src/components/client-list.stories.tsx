@@ -90,6 +90,15 @@ export const Scrolled: Story = {
       // At the scroller's top, by the heading's own 12px of padding.
       expect(northwind.getBoundingClientRect().top - top).toBeCloseTo(12, -1);
     });
+    // The pinned heading paints over a row's whole highlight, bleed included,
+    // so no corner of a hovered row shows past its edge.
+    const pinned = northwind.closest('section')!.firstElementChild!;
+    const row = page
+      .getByRole('button', { name: /^Edit Workstream 8/ })
+      .getBoundingClientRect();
+    const cover = pinned.getBoundingClientRect();
+    await expect(cover.left).toBeLessThanOrEqual(row.left);
+    await expect(cover.right).toBeGreaterThanOrEqual(row.right);
   },
 };
 

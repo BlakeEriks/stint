@@ -284,8 +284,11 @@ function ClientGroup({
   );
   return (
     <section className="border-t border-edge-subtle first:border-t-0">
+      {/* `-mx-2 px-2`: the heading paints as wide as a row's highlight
+          (`rowBleed`), so a hovered row scrolling under it never shows a
+          corner past its edge. The content keeps the column. */}
       <div
-        className={`flex items-start gap-3 bg-surface-primary pt-3 pb-2 sm:sticky sm:z-10 ${UNDER_TITLE_BAR}`}
+        className={`-mx-2 flex items-start gap-3 bg-surface-primary px-2 pt-3 pb-2 sm:sticky sm:z-10 ${UNDER_TITLE_BAR}`}
       >
         {/* A flex box, not bare inline: the dot sizes itself only as a flex
             or block item. */}
