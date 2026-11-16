@@ -3494,23 +3494,26 @@ test('sending dates the invoice: issued that day where it was sent, due by its t
   assert.equal(sent.body.dueDate, '2026-12-01', 'Net 30 from the send');
 
   await seedEntry({ id: D(2), start: '2026-10-10T09:00:00Z', hours: 1 });
-  const typed = await json(
-    await r.create(
-      req('/invoices', {
-        clientId: CLIENT,
-        periodStart: '2026-10-01',
-        periodEnd: '2026-10-31',
-        tz: 'America/Los_Angeles',
-        dueDate: '2026-11-15',
-      }),
-    ),
-  );
-  const late = await json(
-    await r.setStatus(
-      req('/s', { status: 'sent', sentAt: '2026-11-01T02:00:00Z' }, 'PATCH'),
-      at(typed.body.id),
-    ),
-  );
+  // Pinned to the send, so the typed due date never falls in the past.
+  const late = await on('2026-11-01', async () => {
+    const typed = await json(
+      await r.create(
+        req('/invoices', {
+          clientId: CLIENT,
+          periodStart: '2026-10-01',
+          periodEnd: '2026-10-31',
+          tz: 'America/Los_Angeles',
+          dueDate: '2026-11-15',
+        }),
+      ),
+    );
+    return json(
+      await r.setStatus(
+        req('/s', { status: 'sent', sentAt: '2026-11-01T02:00:00Z' }, 'PATCH'),
+        at(typed.body.id),
+      ),
+    );
+  });
   assert.equal(late.body.issueDate, '2026-10-31', 'the evening before, in LA');
   assert.equal(late.body.dueDate, '2026-11-15', 'the date the user typed');
 });
