@@ -92,8 +92,8 @@ cd ../stint-<branch>/apps/web && PORT=3101 pnpm dev
 ```
 
 A session starts it in the background and leaves it up while the worktree is
-open, so the owner can use it. The app's own preview stops at the end of a
-turn.
+open, so the owner can use it. A server started in Claude's preview pane
+stops at the end of a turn.
 
 A magic link carries the port it was requested from, so sign in from the
 worktree's own URL and its link returns there.

@@ -11,9 +11,10 @@ tested from its preview link. Merging is the deploy, so
 **never merge, and never touch production**.
 
 - `/loop /work-issues` works until nothing is left, and comes back while
-  anything is in flight (step 2).
-- `/work-issues 24 18` works those issues, in that order, then stops. A
-  request in chat to build one runs the same way.
+  anything is in flight (step 2). Run it in one session only: step 0 acts on
+  every open PR, so a second loop would answer the same PR twice.
+- `/work-issues 24 18` works those issues, picked in that order, then stops.
+  A request in chat to build one runs the same way.
 - `--max-prs <n>`, with either, sets the cap on open PRs (step 1), ten by
   default: `/work-issues --max-prs 20`.
 
@@ -51,8 +52,8 @@ comment step 0 reads.
 
 **Labels are the loop's memory**, so nothing is worked out twice:
 
-- `ready-for-qa` (PR): ready to test now. Step 0 alone adds it (0.6) and
-  takes it off.
+- `ready-for-qa` (PR): ready to test now. Step 0.6 says who adds it and
+  when; steps 0.2, 0.3 and 0.5 take it off.
 - `needs-input` (issue or PR): a question only the reviewer can answer, asked in a
   marked comment.
 - `blocked` (issue): waits on another PR; the marked comment names it and why.
@@ -72,9 +73,9 @@ record; the marker keeps step 0 from treating it as new feedback.
 linked session with `mcp__ccd_session__start_session`, titled
 `#<issue> <short title>`. Its brief gives it the builder's isolation
 (`.claude/agents/issue-builder.md`): its own `pnpm worktree`, `PORT` and
-`TT`. Label its issue `building` before it starts, and remove the label
-when its PR opens or the work stops. Follow-ups go to that session, never a
-new one.
+`TT`, and tells it not to run `/work-issues`. Label its issue `building`
+before it starts, and remove the label when its PR opens or the work stops.
+Follow-ups go to that session, never a new one.
 
 **Anything without an issue** gets one first (`docs/sdlc.md`), unless a few
 tool calls settle it here. A problem a builder or reviewer reports outside
@@ -140,8 +141,11 @@ is `reviewed`.
   `PGPASSWORD=postgres psql -h localhost -p 54322 -U postgres -c "drop database if exists tt_<issue> with (force)"`,
   then the same for `tt_<issue>_rls`.
   PRs squash-merge, so `git branch --merged` never lists them.
-- **Each open PR**, Dependabot's aside, in order. A round on a PR a linked
-  session holds goes to that session by SendMessage, not to a builder:
+- **Each open PR**, Dependabot's aside, in order. A round goes to whoever
+  holds the PR: its builder, or the linked session whose title names its
+  issue (`list_sessions` `{"linked": true}`), by SendMessage to that
+  session's `local_…` id. A PR nobody holds gets a fresh builder, unless its
+  worktree has uncommitted changes: that is someone's work, so ask.
   1. **`needs-input`:** if feedback has arrived since the marked question,
      remove the label and treat the reply as feedback. Otherwise skip the PR.
   2. **Feedback** — the repo owner's comment or review, newer than the last push
@@ -203,7 +207,8 @@ is `reviewed`.
 ## 1. Pick
 
 **Stop picking new issues at ten open PRs**, or `--max-prs` if given. Count the
-open PRs not by Dependabot (`gh pr list --json author`); the cap or more →
+open PRs not by Dependabot (`gh pr list --json author`), plus the builders
+at work on new issues; the cap or more →
 step 2, however it was run. Each waits to be tested and merged, so one more
 only lengthens the queue. Each push is also a Vercel preview build, one
 at a time and 100 a day on Hobby (`docs/deploying.md` §2), so a ship pushes
@@ -230,8 +235,8 @@ builder branches off that PR's branch and opens its PR against it, saying
 which merges first.
 
 **Up to three builders work new issues at once**; rounds on open PRs don't
-count. Pick until three issues are `building`, and again each time one
-ships or reports anything but a commit.
+count, and neither does a linked session. Pick until three of your builders
+are at work, and again each time one ships or reports anything but a commit.
 
 Label it `building`, then hand it to a builder for triage and build, as a
 round. Remove the label once the builder ships or reports anything but a
@@ -257,13 +262,14 @@ redraft is republished to the same link, named in the comment.
 
 ## 2. Stop
 
-When the run is done or nothing is left to pick, end with one summary: PRs
-opened or updated, what is `needs-input` and its question, and anything that
-failed.
+When the run is done, the cap is reached or nothing is left to pick, and
+every builder has reported, end with one summary: PRs opened or updated,
+what is `needs-input` and its question, and anything that failed.
 
-Only under `/loop`: wake again in 20 minutes while a builder, a preview or
-an open PR's CI is in flight. Pass the same `/loop` prompt back — never a
-hand-written one, which would skip step 0. The first pass that changes
-nothing, with nothing in flight, ends the loop, the cap's worth of open PRs
+Only under `/loop`: wake again in 20 minutes while a builder, a linked
+session's round, a preview or an open PR's CI is in flight. Pass the same
+`/loop` prompt back — never a hand-written one, which would skip step 0.
+The first pass that starts no round, picks nothing and changes no label,
+with nothing in flight, ends the loop, the cap's worth of open PRs
 included. Without `/loop`, schedule nothing. What needs the reviewer is
 found by label, and the loop starts again after their merges or reply.
