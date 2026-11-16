@@ -44,6 +44,7 @@ import {
   expensePrintOrder,
   type Period,
   type ScheduleKind,
+  type SummaryText,
 } from '@stint/core';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import {
@@ -120,6 +121,8 @@ interface Draft {
   groupingMode: GroupingMode | null;
   /** The one line's text with `summary`. */
   summaryText: string | null;
+  /** With `summary`, the lines typed their own text, by rate. */
+  summaryTexts: SummaryText[] | null;
   /** Supporting detail to attach, with `summary` only. */
   schedules: ScheduleKind[] | null;
   charges: DraftCharge[];
@@ -139,6 +142,7 @@ const EMPTY: Draft = {
   notes: '',
   groupingMode: null,
   summaryText: null,
+  summaryTexts: null,
   schedules: null,
   charges: [],
   excludedExpenseIds: [],
@@ -199,6 +203,7 @@ function draftOf(inv: Edited, profiles: PaymentProfile[]): Draft {
     groupingMode: inv.groupingMode,
     // Left to carry, as on New invoice, should a summary be picked.
     summaryText: summary ? (inv.summaryText ?? '') : null,
+    summaryTexts: summary ? inv.summaryTexts : null,
     schedules: summary ? attachedSchedules(inv.supportingDetail) : null,
     charges: (inv.choices?.manualLines ?? []).map((l) => ({
       ...l,
@@ -269,6 +274,7 @@ const putCharge = (
 const carriedFrom = (last: Invoice | undefined) => ({
   groupingMode: last?.groupingMode ?? 'summary',
   summaryText: last?.summaryText ?? 'Contracting services',
+  summaryTexts: last?.summaryTexts ?? [],
   schedules: attachedSchedules(last?.supportingDetail ?? null),
   reference: last?.reference ?? '',
 });
@@ -288,6 +294,7 @@ function useCarried(draft: Draft) {
     lastPending: draft.clientId !== '' && lastInvoice.isPending,
     groupingMode,
     summaryText: draft.summaryText ?? carried.summaryText,
+    summaryTexts: draft.summaryTexts ?? carried.summaryTexts,
     reference: draft.reference ?? carried.reference,
     schedules:
       groupingMode === 'summary' ? (draft.schedules ?? carried.schedules) : [],
@@ -498,8 +505,14 @@ function Form({
       queryFn: () => api.paymentProfiles(),
     }).data?.paymentProfiles ?? [];
 
-  const { lastPending, groupingMode, summaryText, schedules, reference } =
-    useCarried(draft);
+  const {
+    lastPending,
+    groupingMode,
+    summaryText,
+    summaryTexts,
+    schedules,
+    reference,
+  } = useCarried(draft);
   const { periodStart, periodEnd } = periodOf(draft, client, issued);
   const waiting = useWaitingExpenses(draft.clientId, periodEnd, editing?.id);
   /* `undefined` adds an expense; an expense, edits it. */
@@ -521,6 +534,7 @@ function Form({
     periodEnd,
     groupingMode,
     summaryText,
+    summaryTexts,
     tz,
     manualLines: draft.charges.map(({ description, amount }) => ({
       description,
@@ -555,6 +569,8 @@ function Form({
     mutationFn: (_to?: string) => {
       const choices = {
         ...billed,
+        // A blank is a line cleared for a rate the period no longer bills.
+        summaryTexts: summaryTexts.filter((t) => t.text.trim() !== ''),
         schedules,
         // Only a typed one: otherwise the terms date it from the day it is
         // sent.
@@ -722,7 +738,7 @@ function Form({
               newProfile: () => setNewProfileOpen(true),
             },
             summary: summary
-              ? { value: summaryText, invalid: noSummaryText }
+              ? { value: summaryText, texts: summaryTexts }
               : undefined,
             reference,
             waiting,
@@ -929,7 +945,7 @@ function cardEdits({
     newProfile: () => void;
   };
   /** With one summary line: its text, and whether it lacks one. */
-  summary: { value: string; invalid: boolean } | undefined;
+  summary: { value: string; texts: SummaryText[] } | undefined;
   reference: string;
   waiting: Expense[];
   period: { periodStart: string; periodEnd: string };
@@ -957,7 +973,23 @@ function cardEdits({
     currency,
     reference: { value: reference, onChange: (v) => set('reference', v) },
     notes: { value: draft.notes, onChange: (v) => set('notes', v) },
-    summary: summary && { ...summary, onChange: (v) => set('summaryText', v) },
+    /* The first line is the text every line prints unless typed itself, so
+       typing there also lets its rate follow again. */
+    summary: summary && {
+      ...summary,
+      onChange: (v, rate) => {
+        set('summaryText', v);
+        set(
+          'summaryTexts',
+          summary.texts.filter((t) => t.rate !== rate),
+        );
+      },
+      onChangeAt: (rate, v) =>
+        set('summaryTexts', [
+          ...summary.texts.filter((t) => t.rate !== rate),
+          { rate, text: v },
+        ]),
+    },
     // Only a summary has detail to support: every other grouping already
     // breaks the time down on the invoice.
     schedules: summary && { onChange: (v) => set('schedules', v) },
@@ -1147,7 +1179,7 @@ function saveState(s: {
   /** Due is before the issue date, which the server refuses. */
   earlyDue: boolean;
   /** The server's answer for this client; `undefined` before one. */
-  preview: Pick<InvoicePreview, 'unratedEntryIds'> | undefined;
+  preview: Pick<InvoicePreview, 'unratedEntryIds' | 'lineItems'> | undefined;
   /** The form has changed since the answer, or the server is recomputing. */
   updating: boolean;
   failed: boolean;
@@ -1159,8 +1191,14 @@ function saveState(s: {
   groupingMode: GroupingMode;
   summaryText: string;
 }) {
+  /* A blank line the server printed: a rate's own text cleared. One for a
+     rate the period no longer bills prints nothing, so it blocks nothing. */
   const noSummaryText =
-    s.groupingMode === 'summary' && s.summaryText.trim() === '';
+    s.groupingMode === 'summary' &&
+    (s.summaryText.trim() === '' ||
+      (s.preview?.lineItems ?? []).some(
+        (li) => li.unit === 'hour' && li.description.trim() === '',
+      ));
   const blocked = blockedBy({ ...s, noSummaryText });
   const canSave =
     blocked === null &&

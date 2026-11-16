@@ -145,6 +145,8 @@ async function write(db: Db) {
       payment_terms: i.paymentTerms,
       grouping_mode: i.groupingMode,
       summary_text: i.summaryText,
+      // Stringified: pg writes a bare array as a Postgres array, not JSON.
+      summary_texts: JSON.stringify(i.summaryTexts),
       reference: i.reference,
       business_name: i.business.name,
       business_address: i.business.address,

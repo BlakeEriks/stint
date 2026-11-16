@@ -4,6 +4,7 @@ import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import {
   computeInvoice,
+  summaryColumns,
   deriveDraft,
   loadPaymentProfile,
   requireSender,
@@ -71,6 +72,7 @@ export const POST = handle(async (req: Request) => {
     tz: { device: body.tz },
     groupingMode: body.groupingMode,
     summaryText: body.summaryText,
+    summaryTexts: body.summaryTexts,
     manualLines: body.manualLines,
     excludedExpenseIds: body.excludedExpenseIds,
     schedules: body.schedules,
@@ -111,7 +113,7 @@ export const POST = handle(async (req: Request) => {
         client.payment_terms_days ?? settings.paymentTermsDays,
       ),
       grouping_mode: body.groupingMode,
-      summary_text: body.groupingMode === 'summary' ? body.summaryText : null,
+      ...summaryColumns(body),
       supporting_detail: computed.supportingDetail,
       reference: body.reference ?? null,
       payment_details: paymentDetails,

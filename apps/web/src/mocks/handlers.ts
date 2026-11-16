@@ -142,6 +142,8 @@ function draftChoices(db: Db, input: CreateInvoice, preview: Preview) {
     excludedExpenseIds: input.excludedExpenseIds ?? [],
     groupingMode: preview.groupingMode,
     summaryText: preview.groupingMode === 'summary' ? input.summaryText : null,
+    summaryTexts:
+      preview.groupingMode === 'summary' ? (input.summaryTexts ?? []) : [],
     reference: input.reference ?? null,
     supportingDetail: preview.schedules
       ? pickSchedules(preview.schedules, input.schedules)
@@ -218,6 +220,7 @@ function sendDraft(
       periodEnd: invoice.periodEnd,
       groupingMode: invoice.groupingMode,
       summaryText: invoice.summaryText ?? undefined,
+      summaryTexts: invoice.summaryTexts,
       excludedExpenseIds: invoice.excludedExpenseIds,
       draftId: invoice.id,
     },

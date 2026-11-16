@@ -16,7 +16,8 @@ import {
 
 /**
  * `summary` is one line of the user's own text for all the time, split only
- * by rate, so accounts payable reads a total rather than a breakdown.
+ * by rate, so accounts payable reads a total rather than a breakdown. A rate's
+ * line may carry its own text instead.
  */
 export type GroupingMode = 'summary' | 'entry' | 'task' | 'project' | 'day';
 
@@ -121,15 +122,23 @@ const priced = (quantityHundredths: number, unitPrice: number): number =>
 export const billedAmount = (seconds: number, rate: number): number =>
   priced(hundredths(seconds), rate);
 
+/** A summary line's own text, by the rate it prints. */
+export interface SummaryText {
+  rate: number;
+  text: string;
+}
+
 function describe(
   entry: BillableEntry,
   mode: GroupingMode,
   tz: string,
+  rate: number,
   summaryText: string,
+  summaryTexts: SummaryText[],
 ): string {
   switch (mode) {
     case 'summary':
-      return summaryText;
+      return summaryTexts.find((t) => t.rate === rate)?.text ?? summaryText;
     case 'entry':
     case 'task':
       return entry.taskName || 'Untitled';
@@ -153,9 +162,10 @@ function groupKey(
   rate: number,
   tz: string,
   summaryText: string,
+  summaryTexts: SummaryText[],
 ): string {
   if (mode === 'entry') return entry.id;
-  return `${describe(entry, mode, tz, summaryText)}\0${rate}`;
+  return `${describe(entry, mode, tz, rate, summaryText, summaryTexts)}\0${rate}`;
 }
 
 /**
@@ -171,6 +181,8 @@ export function buildLineItems(
     groupingMode: GroupingMode;
     /** The one line's text in `summary` mode; ignored by the others. */
     summaryText?: string;
+    /** In `summary` mode, the lines typed themselves, by rate. */
+    summaryTexts?: SummaryText[];
     taxRate?: number;
     tz?: string;
     /** Flat charges the user entered: fees, deposits, retainers. */
@@ -183,6 +195,7 @@ export function buildLineItems(
   const tz = opts.tz ?? 'UTC';
   const taxRate = opts.taxRate ?? 0;
   const summaryText = opts.summaryText ?? '';
+  const summaryTexts = opts.summaryTexts ?? [];
 
   const billable = entries.filter((e) => e.isBillable);
   const unratedEntryIds: string[] = [];
@@ -207,7 +220,7 @@ export function buildLineItems(
       continue;
     }
 
-    const key = groupKey(entry, mode, rate, tz, summaryText);
+    const key = groupKey(entry, mode, rate, tz, summaryText, summaryTexts);
     const existing = groups.get(key);
 
     hundredthsByKey.set(
@@ -219,7 +232,7 @@ export function buildLineItems(
       existing.entryIds.push(entry.id);
     } else {
       groups.set(key, {
-        description: describe(entry, mode, tz, summaryText),
+        description: describe(entry, mode, tz, rate, summaryText, summaryTexts),
         unit: 'hour',
         quantity: 0, // computed once the group is complete
         unitPrice: rate,
@@ -246,8 +259,12 @@ export function buildLineItems(
   });
 
   // Deterministic order, so identical inputs always produce an identical
-  // invoice. 'entry' mode keeps the chronological order it was given.
-  if (mode !== 'entry') {
+  // invoice. 'entry' mode keeps the chronological order it was given, and a
+  // summary's lines stay cheapest first however each is worded, so typing
+  // one never moves it.
+  if (mode === 'summary') {
+    timeLines.sort((a, b) => a.unitPrice - b.unitPrice);
+  } else if (mode !== 'entry') {
     timeLines.sort(
       (a, b) =>
         a.description.localeCompare(b.description) || a.unitPrice - b.unitPrice,
