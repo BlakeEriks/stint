@@ -85,8 +85,8 @@ export function chooseNotice(
   if (turnOnNotifications)
     return {
       tone: 'warning',
-      message: 'Notifications are off, so a running timer isn’t pinned.',
-      action: { label: 'Turn on', onPress: turnOnNotifications },
+      message: 'Notifications are off, so a running timer has no notification.',
+      action: { label: 'Turn on notifications', onPress: turnOnNotifications },
     };
   return null;
 }
