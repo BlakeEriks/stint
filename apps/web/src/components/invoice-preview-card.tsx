@@ -1068,9 +1068,11 @@ function ScheduleChips({
   return (
     <fieldset aria-label="Attach" className="flex flex-wrap gap-1.5">
       {SCHEDULE_KINDS.map((kind) => (
+        // `relative` keeps the sr-only (absolute) box inside the invoice's
+        // scroller; placed by the panel, it stretched the panel (#769).
         <label
           key={kind}
-          className={`${DASHED} cursor-pointer px-2.5 py-1 type-support has-checked:border-solid has-checked:border-edge-default has-checked:text-strong has-focus-visible:ring-2 has-focus-visible:ring-edge-focus`}
+          className={`${DASHED} relative cursor-pointer px-2.5 py-1 type-support has-checked:border-solid has-checked:border-edge-default has-checked:text-strong has-focus-visible:ring-2 has-focus-visible:ring-edge-focus`}
         >
           <input
             type="checkbox"
