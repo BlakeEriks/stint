@@ -934,8 +934,8 @@ export const AttachDetail: Story = {
     await expect(
       card(page).getByText('Page 2 · supporting detail'),
     ).toBeVisible();
-    // Only the invoice scrolls: a chip's hidden checkbox once escaped it and
-    // stretched the panel, which scrolled too when one took focus (#769).
+    // Only the invoice scrolls: a chip's hidden checkbox must not stretch
+    // the panel around it.
     const panel = canvasElement.ownerDocument.querySelector(
       '[data-content-panel]',
     ) as HTMLElement;
