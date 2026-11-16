@@ -15,7 +15,8 @@ function Refused() {
       Promise.reject(
         new ApiError(409, {
           code: 'CONFLICT',
-          message: 'This entry is on an issued invoice and can’t change.',
+          message:
+            'This entry is on a sent invoice, so it can’t be edited. Void the invoice to change it.',
         }),
       ),
   });
@@ -37,7 +38,7 @@ type Story = StoryObj<typeof meta>;
 const refuse: Story['play'] = async ({ canvasElement }) => {
   const page = within(canvasElement.ownerDocument.body);
   await userEvent.click(page.getByRole('button', { name: 'Press' }));
-  await expect(await page.findByText(/issued invoice/)).toBeVisible();
+  await expect(await page.findByText(/on a sent invoice/)).toBeVisible();
 };
 
 export const Desktop: Story = { ...desktop, play: refuse };
