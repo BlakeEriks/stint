@@ -238,8 +238,12 @@ describe('ClientList', () => {
       const user = userEvent.setup();
       render(<ClientList />, { wrapper });
 
+      // Archived projects wait folded under the active ones.
       await user.click(
-        await screen.findByRole('button', { name: 'Restore Old site' }),
+        await screen.findByRole('button', { name: 'Archived (1)' }),
+      );
+      await user.click(
+        screen.getByRole('button', { name: 'Restore Old site' }),
       );
 
       await waitFor(() =>

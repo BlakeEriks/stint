@@ -210,9 +210,11 @@ export const NothingArchived: Story = {
   },
 };
 
-/** An archived project under an active client: last in its group, muted,
-    with Restore where its rate was. */
-export const ArchivedProjectLast: Story = {
+/** An archived project under an active client folds under the active ones,
+    the way archived clients fold under the active clients: a count, closed,
+    so a long history never pushes the next client down. Opened, the row is
+    muted with Restore where its rate was. */
+export const ArchivedProjectFolded: Story = {
   ...desktop,
   parameters: account((db) => {
     db.projects.find((p) => p.id === ids.warehouse)!.archivedAt =
@@ -220,17 +222,21 @@ export const ArchivedProjectLast: Story = {
   }),
   play: async ({ canvasElement }) => {
     const northwind = await card(canvasElement, 'Northwind Trading');
-    // The first list is the projects; expenses follow.
-    const rows = within(northwind.getAllByRole('list')[0]!).getAllByRole(
-      'button',
-      { name: /^Edit / },
-    );
-    await expect(rows.at(-1)).toHaveAccessibleName(/^Edit Warehouse dashboard/);
+    const fold = northwind.getByRole('button', { name: 'Archived (1)' });
+    await expect(fold).toHaveAttribute('aria-expanded', 'false');
+    await expect(
+      northwind.queryByRole('button', { name: /^Edit Warehouse dashboard/ }),
+    ).toBeNull();
+    await userEvent.click(fold);
+    const row = northwind.getByRole('button', {
+      name: /^Edit Warehouse dashboard/,
+    });
+    await expect(row).toBeVisible();
     await expect(
       northwind.getByRole('button', { name: 'Restore Warehouse dashboard' }),
     ).toBeVisible();
     // It bills nothing new, so its row shows no rate.
-    await expect(rows.at(-1)).not.toHaveTextContent('/h');
+    await expect(row).not.toHaveTextContent('/h');
   },
 };
 
@@ -539,7 +545,7 @@ export const EditArchivedProject: Story = {
 
 /** Restore on an archived client's card puts it back among the active on
     the press: the badge and the Archived section go, and its project keeps
-    its own archive. */
+    its own archive, now folded under the client. */
 export const RestoreClient: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -549,12 +555,15 @@ export const RestoreClient: Story = {
       page.getByRole('button', { name: 'Restore Old Engagement Co' }),
     );
     await waitFor(() =>
-      expect(page.queryByRole('button', { name: /^Archived/ })).toBeNull(),
+      expect(
+        page.queryByRole('button', { name: 'Restore Old Engagement Co' }),
+      ).toBeNull(),
     );
     const old = await card(canvasElement, 'Old Engagement Co');
-    // One badge left, the project's own.
-    await expect(old.getAllByText('Archived')).toHaveLength(1);
-    await expect(old.getByText('Legacy retainer')).toBeVisible();
+    await expect(old.queryByText('Archived')).toBeNull();
+    await expect(
+      old.getByRole('button', { name: 'Archived (1)' }),
+    ).toBeVisible();
   },
 };
 
@@ -569,18 +578,22 @@ export const RestoreClientFromDialog: Story = {
     );
     await userEvent.click(await page.findByRole('button', { name: 'Restore' }));
     const old = await card(canvasElement, 'Old Engagement Co');
-    // One badge left, the project's own.
-    await waitFor(() => expect(old.getAllByText('Archived')).toHaveLength(1));
-    await expect(old.getByText('Legacy retainer')).toBeVisible();
+    await waitFor(() => expect(old.queryByText('Archived')).toBeNull());
+    await expect(
+      old.getByRole('button', { name: 'Archived (1)' }),
+    ).toBeVisible();
   },
 };
 
 /** The same for a project from its row: its Archived badge goes on the
     press. */
 export const RestoreProject: Story = {
-  ...ArchivedProjectLast,
+  ...ArchivedProjectFolded,
   play: async ({ canvasElement }) => {
     const northwind = await card(canvasElement, 'Northwind Trading');
+    await userEvent.click(
+      northwind.getByRole('button', { name: 'Archived (1)' }),
+    );
     await userEvent.click(
       await northwind.findByRole('button', {
         name: 'Restore Warehouse dashboard',
@@ -600,6 +613,9 @@ export const RestoreProjectFromDialog: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     const northwind = await card(canvasElement, 'Northwind Trading');
+    await userEvent.click(
+      northwind.getByRole('button', { name: 'Archived (1)' }),
+    );
     await expect(await northwind.findByText('Archived')).toBeVisible();
     await userEvent.click(
       page.getByRole('button', { name: /^Edit Warehouse dashboard/ }),

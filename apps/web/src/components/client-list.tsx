@@ -32,7 +32,8 @@ import { useMediaQuery } from '@/lib/client/use-media-query';
  * heading of the client it belongs to. Each client's heading pins under the
  * frame's title bar as the list scrolls, so the rows in view always say
  * whose they are. Archived clients wait below the active ones in a collapsed
- * section whose count stays visible, so nothing looks deleted; each archived
+ * section whose count stays visible, so nothing looks deleted, and a client's
+ * archived projects fold the same way under its active ones; each archived
  * row restores in one press. `Screens/Clients` shows each state.
  */
 export function ClientList() {
@@ -42,7 +43,6 @@ export function ClientList() {
   const editingClient = useDialog<Client>();
   const addingExpense = useDialog<Client>();
   const [addingClient, setAddingClient] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
 
   const clientQuery = useQuery({
     queryKey: keys.clients({ archived: true }),
@@ -102,6 +102,16 @@ export function ClientList() {
         empty="Who's paying you? Add a client and what you charge them."
       >
         {(shown) => {
+          const row = (project: Project, client: Client | null) => (
+            <Row
+              key={project.id}
+              project={project}
+              client={client}
+              defaultRate={defaultRate}
+              onEdit={() => editing.show(project)}
+              onRestore={() => restoreProject.mutate(project)}
+            />
+          );
           const render = (g: Group) => (
             <ClientGroup
               key={g.client?.id ?? '__none__'}
@@ -119,41 +129,31 @@ export function ClientList() {
                   />
                 ) : null
               }
+              folded={
+                // Under an archived client the whole group is already behind
+                // Archived, so its projects stay as they are.
+                g.client?.archivedAt
+                  ? []
+                  : g.projects
+                      .filter((p) => p.archivedAt != null)
+                      .map((p) => row(p, g.client))
+              }
             >
-              {g.projects.map((project) => (
-                <Row
-                  key={project.id}
-                  project={project}
-                  client={g.client}
-                  defaultRate={defaultRate}
-                  onEdit={() => editing.show(project)}
-                  onRestore={() => restoreProject.mutate(project)}
-                />
-              ))}
+              {g.projects
+                .filter((p) => g.client?.archivedAt || p.archivedAt == null)
+                .map((p) => row(p, g.client))}
             </ClientGroup>
           );
           const archived = shown.filter((g) => g.client?.archivedAt);
           return (
             <div>
               {shown.filter((g) => !g.client?.archivedAt).map(render)}
-              {archived.length > 0 ? (
-                <div className="border-t border-edge-subtle pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowArchived((v) => !v)}
-                    aria-expanded={showArchived}
-                    className={`${rowButton} ${rowBleed} flex items-center gap-1.5 py-2 type-label text-muted`}
-                  >
-                    <ChevronRight
-                      aria-hidden
-                      strokeWidth={2}
-                      className={`size-3.5 transition-transform motion-reduce:transition-none ${showArchived ? 'rotate-90' : ''}`}
-                    />
-                    Archived ({archived.length})
-                  </button>
-                  {showArchived ? archived.map(render) : null}
-                </div>
-              ) : null}
+              <ArchivedFold
+                count={archived.length}
+                className="border-t border-edge-subtle pt-2"
+              >
+                {archived.map(render)}
+              </ArchivedFold>
             </div>
           );
         }}
@@ -233,6 +233,7 @@ function ClientGroup({
   onAdd,
   onAddExpense,
   expenses,
+  folded,
   children,
 }: {
   client: Client | null;
@@ -244,6 +245,9 @@ function ClientGroup({
   /** The client's Expenses, below its projects. "No client" has none: an
    *  expense is always some client's to pay back. */
   expenses: React.ReactNode;
+  /** The client's archived projects, folded under its active ones so a long
+   *  history never pushes the next client down. */
+  folded: React.ReactNode[];
   children: React.ReactNode[];
 }) {
   const archived = client?.archivedAt != null;
@@ -336,9 +340,12 @@ function ClientGroup({
       <div className="pb-3 pl-[calc(9px+0.75rem)]">
         {children.length > 0 ? (
           <ul className="divide-y divide-edge-grid">{children}</ul>
-        ) : (
+        ) : folded.length > 0 ? null : (
           <p className="pt-1 pb-1 type-support text-subtle">No projects yet.</p>
         )}
+        <ArchivedFold count={folded.length}>
+          <ul className="divide-y divide-edge-grid">{folded}</ul>
+        </ArchivedFold>
         {expenses}
         {inHeading ? null : (
           <div className="-mx-2 mt-1 flex flex-wrap gap-1">{adds}</div>
@@ -407,6 +414,41 @@ function Row({
         <RestoreButton name={project.name} onRestore={onRestore} />
       ) : null}
     </li>
+  );
+}
+
+/** Archived things wait under a count, closed until asked for, so nothing
+    looks deleted and nothing takes room it hasn't earned. Open state lives
+    here and is not kept: a fold is closed again on the next visit. Always
+    mounted, so a restore the server then refuses finds it still open. */
+function ArchivedFold({
+  count,
+  className,
+  children,
+}: {
+  count: number;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  if (count === 0) return null;
+  return (
+    <div className={className}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className={`${rowButton} ${rowBleed} flex items-center gap-1.5 py-2 type-label text-muted`}
+      >
+        <ChevronRight
+          aria-hidden
+          strokeWidth={2}
+          className={`size-3.5 transition-transform motion-reduce:transition-none ${open ? 'rotate-90' : ''}`}
+        />
+        Archived ({count})
+      </button>
+      {open ? children : null}
+    </div>
   );
 }
 
