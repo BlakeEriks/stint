@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { handle, ApiError, dbCode, refused } from '@/lib/errors';
-import { entryOrderRefusal, refusals } from '@stint/core';
+import { billingWindow, entryOrderRefusal, refusals } from '@stint/core';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import {
@@ -54,6 +54,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   }
 
   await checkOrder(db, id, update);
+  if (await redatedOutOfDraft(db, id, update)) update.draft_id = null;
 
   const marking = patch.invoicedElsewhere === true;
   const q = db.from('time_entries').update(update).eq('id', id);
@@ -109,6 +110,51 @@ async function checkOrder(
       | null,
   );
   if (order) throw refused(order);
+}
+
+/**
+ * A draft's period is local dates in its zone, which a trigger can't read,
+ * so the route lets an entry go when its new start leaves that period.
+ * The edit stands as typed; only the draft's hold on it ends, and the next
+ * invoice offers it as earlier work.
+ */
+async function redatedOutOfDraft(
+  db: SupabaseClient,
+  id: string,
+  update: Record<string, unknown>,
+) {
+  if (!update.started_at) return false;
+  const { data: entry, error } = await db
+    .from('time_entries')
+    .select('draft_id')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!entry?.draft_id) return false;
+  const { data: draft, error: draftError } = await db
+    .from('invoices')
+    .select('period_start, period_end, tz')
+    .eq('id', entry.draft_id)
+    .single();
+  if (draftError) throw draftError;
+  const window = billingWindow(
+    draft.period_start,
+    draft.period_end,
+    // A draft generated before drafts stored a zone reads as `deriveDraft`
+    // reads it.
+    draft.tz ?? (await accountZone(db)) ?? 'UTC',
+  );
+  const t = new Date(update.started_at as string).getTime();
+  return t < window.start.getTime() || t >= window.end.getTime();
+}
+
+async function accountZone(db: SupabaseClient): Promise<string | null> {
+  const { data, error } = await db
+    .from('user_settings')
+    .select('billing_time_zone')
+    .maybeSingle();
+  if (error) throw error;
+  return data?.billing_time_zone ?? null;
 }
 
 export const DELETE = handle(async (req: Request, ctx: Ctx) => {
