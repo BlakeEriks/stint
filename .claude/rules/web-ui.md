@@ -138,7 +138,8 @@ title is the frame's: `Page`'s `title` and `actions` draw `TitleBar`, fixed
 above the scroller at `xl`, pinned from `sm`, scrolling with the page on a
 phone, `type-title`, once. Clients is on it; Invoices, Settings and Import
 still draw their own `type-title` inside the scroller and move onto it
-next.
+next (#744). `DetailPage` (an invoice, New invoice) and the error screen
+keep their own heading.
 
 **Nothing inside the panel is a card.** The panel is the one surface; a
 region is space and a rule (`border-edge-subtle`, stopping at the inset), and
