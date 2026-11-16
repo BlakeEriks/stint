@@ -33,7 +33,7 @@ export function BusinessDialog({
   return (
     <SettingsDialog
       onOpenChange={onOpenChange}
-      title="Who is this invoice from?"
+      title="Who’s this invoice from?"
       description="Your name and email go at the top of every invoice. Saved to Settings, for this invoice and every one after it."
       missing={{
         'biz-dialog-name':
@@ -101,7 +101,7 @@ export function BusinessDialog({
 }
 
 /**
- * Why Generate is disabled, and the way to fix it without leaving the
+ * Why Save draft is disabled, and the way to fix it without leaving the
  * invoice. The edge is the warning hue the Inbox ranks a fault with.
  */
 export function SenderNotice({ settings }: { settings: Settings | undefined }) {

@@ -21,6 +21,8 @@ export const Expense = z.object({
    *  expense went and whether it can still change. Null while unbilled. */
   invoiceNumber: z.string().nullable(),
   invoiceStatus: InvoiceStatus.nullable(),
+  /** The draft holding a one-off, which no other draft bills. */
+  draftId: uuid.nullable(),
 });
 
 const expenseAmount = money.refine((n) => n > 0, {
@@ -61,8 +63,8 @@ export const UpdateExpense = z
 
 export const ListExpensesQuery = z.object({
   clientId: uuid.optional(),
-  /** `open` is what a client card lists: recurring, unbilled, and on an
-   *  invoice not yet paid. `unbilled` is what an invoice can take. */
+  /** `open` is what a client's group on Clients lists: recurring, unbilled,
+   *  and on an invoice not yet paid. `unbilled` is what an invoice can take. */
   status: z.enum(['open', 'unbilled']).default('open'),
 });
 

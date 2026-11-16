@@ -12,14 +12,14 @@ const gotrue = () =>
 
 /**
  * POST /api/v1/auth/code. **No auth**: the macOS and phone apps ask here for
- * a sign-in code. Production's CAPTCHA guards GoTrue's `/otp`, and a native
- * app has no CAPTCHA to solve, so this asks with the secret key, which
- * GoTrue lets past it. `create_user: false` keeps it from making accounts.
+ * a sign-in code. It asks with the secret key, which gets past a CAPTCHA on
+ * GoTrue's `/otp` if one is turned on (`docs/setup.md` §7), and
+ * `create_user: false` keeps it from making accounts.
  *
- * Past the CAPTCHA, two things stand in for it: five codes an hour per
- * client address (`take_sign_in_code_slot`), and one answer for every
- * address, so nobody can learn which have an account, even while the
- * project's email quota is spent.
+ * Two things guard it: five codes an hour per client address
+ * (`take_sign_in_code_slot`), and one answer for every address, so nobody
+ * can learn which have an account, even while the project's email quota is
+ * spent.
  */
 export const POST = handle(async (req: Request) => {
   const { email } = await parseBody(req, RequestCode);

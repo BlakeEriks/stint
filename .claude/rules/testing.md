@@ -15,7 +15,6 @@ paths:
     pnpm db:setup          # before every verify:db
     pnpm verify:db         # route tests, RLS tests, verify:schema
     pnpm test:auth         # the bearer path; needs `pnpm dev:up`
-    pnpm test:auth:captcha # sign-in codes; needs the CAPTCHA on, so CI runs it
 
 They take no arguments; `TT=tt_<n>` set on both picks a private pair.
 `test:auth` is separate from `verify:db` because it

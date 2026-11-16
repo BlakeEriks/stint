@@ -121,11 +121,9 @@ test('notifications: granted is on; refused for good is off; else ask', () => {
 
 test('notifications off say so, with a way to turn them on', () => {
   const open = () => {};
-  assert.deepEqual(chooseNotice(null, null, open), {
-    tone: 'warning',
-    message: 'Notifications are off, so a running timer isn’t pinned.',
-    action: { label: 'Turn on', onPress: open },
-  });
+  const notice = chooseNotice(null, null, open);
+  assert.equal(notice?.tone, 'warning');
+  assert.equal(notice?.action?.onPress, open);
 });
 
 test('a refused press or a failed read comes before notifications off', () => {

@@ -147,9 +147,9 @@ export function WelcomeDialog() {
           }}
         >
           <DialogHeader>
-            <DialogTitle>Who are you working for?</DialogTitle>
+            <DialogTitle>Who’s paying you?</DialogTitle>
             <DialogDescription>
-              Add your first client now, or later from Clients.
+              Add a client and what you charge them.
             </DialogDescription>
           </DialogHeader>
           {/* Wide enough for "1000.00" beside the number spinner, which
@@ -172,7 +172,7 @@ export function WelcomeDialog() {
             <Field
               label="Rate"
               htmlFor="welcome-client-rate"
-              hint="Blank uses your default"
+              hint="Blank uses your default rate."
               error={clientCheck.error('welcome-client-rate')}
             >
               <RateInput

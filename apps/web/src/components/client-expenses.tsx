@@ -6,9 +6,10 @@ import { ExpenseDialog } from './expense-dialog';
 import { ExpenseRow } from './expense-row';
 
 /**
- * A client card's Expenses: recurring ones first, then what waits, then what
- * sits on an unpaid invoice (the route orders them). Nothing at all when the
- * client has none — the card's **+ Expense** is how the first one arrives.
+ * A client's Expenses on Clients: recurring ones first, then what waits, then
+ * what sits on an unpaid invoice (the route orders them). Nothing at all when
+ * the client has none — the client's **+ Expense** is how the first one
+ * arrives.
  */
 export function ClientExpenses({
   client,

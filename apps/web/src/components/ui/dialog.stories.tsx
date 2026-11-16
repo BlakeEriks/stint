@@ -29,7 +29,7 @@ export const MarkPaid: Story = {
         <DialogHeader>
           <DialogTitle>Mark paid</DialogTitle>
           <DialogDescription>
-            When did the payment actually arrive?
+            When did the payment arrive?
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2">

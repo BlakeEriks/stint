@@ -5,7 +5,6 @@ const src = (path: string) => resolve(import.meta.dirname, '../src', path);
 /** Each real module, by the name in its path, and what replaces it. */
 const FAKES = [
   ['supabase', src('lib/client/supabase.ts'), src('mocks/supabase.ts')],
-  ['turnstile', src('components/turnstile.tsx'), src('mocks/turnstile.tsx')],
 ] as const;
 
 const INVITE_FORM_URL = 'https://formspree.io/f/storybook';
@@ -18,8 +17,6 @@ const INVITE_FORM_URL = 'https://formspree.io/f/storybook';
  * - The Supabase browser client becomes `src/mocks/supabase.ts`. Matched on
  *   the resolved path, so `@/lib/client/supabase` and `./supabase` both land
  *   on it and the server-side `src/lib/supabase.ts` never does.
- * - Cloudflare's Turnstile widget becomes `src/mocks/turnstile.tsx`, the
- *   same way, so no story loads Cloudflare's script.
  * - The build label reads "storybook" rather than a commit, which a
  *   story has none of.
  * - The invite form posts to a stand-in Formspree URL that each story

@@ -37,7 +37,7 @@ Billing stays hidden locally until `BILLING_LIVE=true` and Stripe
 with. The same key is what the server broadcasts timer changes with, so
 without it a web tab sees another client's change only when it polls. With billing live, the invoice gate is on
 too: a free account's invoice PDF answers `402 PAYMENT_REQUIRED`, and the
-invoice screen offers Subscribe in place of Download PDF.
+invoice screen offers *Get the paid plan to download* in place of *Download PDF*.
 
 **No file on this machine points at production.** There is no `.env.local`;
 `pnpm migrate` and `pnpm verify:schema` reach a database only through `--url`
@@ -96,7 +96,7 @@ worktree's own URL and its link returns there.
 
 ## Signing in
 
-**Sign-up is on, as in production**, without its CAPTCHA, so any address
+**Sign-up is on, as in production**, so any address
 gets an account: an unknown one starts empty, and `pnpm seed <email>` makes
 one with data, which `--clear` then empties. Enter it on `/signin`, then
 open **Mailpit** and click the link. No mail
@@ -320,10 +320,6 @@ It also connects an app through the OAuth server, as Claude does, and proves
 its token reaches the MCP tools, nothing else, and nothing once revoked. A
 stack started before `config.toml` turned that server on needs one restart. In
 CI it runs in the e2e job, right after `supabase start`.
-
-`pnpm test:auth:captcha` runs `auth-code.test.ts`, which needs the stack's
-CAPTCHA on, as production's is. Locally it is off, so this one runs in CI:
-the e2e job's last step turns it on and restarts the stack.
 
 ## Running the browser tests
 

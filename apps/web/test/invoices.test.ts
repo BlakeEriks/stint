@@ -197,6 +197,70 @@ test('preview names the entries that overlap each other or billed time', async (
   ]);
 });
 
+/* Work stranded between two invoices is billed by neither unless the next
+   says so. */
+test('preview offers the work after the last invoice and before the period, and Include bills it', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const [sent, voided] = [
+    'ff000000-0000-4000-8000-00000000000c',
+    'ff000000-0000-4000-8000-00000000000d',
+  ];
+  await pool.query(
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status,period_start,period_end)
+     values ($1,$3,$4,'INV-0900',900,'sent','2026-09-01','2026-09-29'),
+            ($2,$3,$4,'INV-0901',901,'sent','2026-09-01','2026-09-30')`,
+    [sent, voided, USER, CLIENT],
+  );
+  await pool.query(`update invoices set status='void' where id=$1`, [voided]);
+  await seedEntry({ id: E(1), start: '2026-09-30T15:00:00Z' });
+  await seedEntry({ id: E(2), start: '2026-09-30T17:00:00Z', billable: false });
+  await seedEntry({ id: E(3), start: '2026-10-05T15:00:00Z' });
+  const october = { periodStart: '2026-10-01', periodEnd: '2026-10-31' };
+  const earlier = async (draftId?: string) =>
+    (
+      await json(
+        await preview(
+          req('/invoices/preview', { clientId: CLIENT, ...october, draftId }),
+        ),
+      )
+    ).body.earlierWork;
+
+  assert.deepEqual(await earlier(), {
+    entryCount: 1,
+    from: '2026-09-30',
+    to: '2026-09-30',
+  });
+
+  // Include: the period starts on the earlier work's date.
+  const res = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...october,
+        periodStart: '2026-09-30',
+      }),
+    ),
+  );
+  assert.equal(res.status, 201, JSON.stringify(res.body));
+  // Editing that draft over October: it neither ends the look-back nor hides
+  // the entry it holds, which it would let go of if saved so.
+  assert.equal(await earlier(), null);
+  assert.deepEqual(await earlier(res.body.id), {
+    entryCount: 1,
+    from: '2026-09-30',
+    to: '2026-09-30',
+  });
+  await send(res.body.id);
+  const { rows } = await pool.query(
+    'select invoice_id from time_entries where id=$1',
+    [E(1)],
+  );
+  assert.equal(rows[0].invoice_id, res.body.id);
+});
+
 /* The period is local dates, and the entries are instants. With a UTC window
    these two sit outside a September period for a New York user even though
    both were worked in September on the clock the user read — the late one
@@ -873,6 +937,91 @@ test('a summary invoice stores its text and reads back as issued', async () => {
     read.body.lineItems.map((li: any) => li.description),
     ['Professional services'],
   );
+});
+
+test('each summary line keeps the text typed for its rate', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { GET: detail, PATCH: edit } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  await seedEntry({ id: E(1), hours: 2, rateOverride: 100 });
+  await seedEntry({
+    id: E(2),
+    hours: 1,
+    rateOverride: 150,
+    start: '2026-09-11T09:00:00Z',
+  });
+  const body = {
+    clientId: CLIENT,
+    ...PERIOD,
+    groupingMode: 'summary',
+    summaryText: 'Services',
+    summaryTexts: [{ rate: 150, text: 'Rush work' }],
+  };
+  const lines = (b: any) =>
+    b.lineItems.map((li: any) => [li.description, li.unitPrice]);
+
+  const res = await json(await create(req('/invoices', body)));
+  assert.equal(res.status, 201, JSON.stringify(res.body));
+  assert.deepEqual(res.body.summaryTexts, [{ rate: 150, text: 'Rush work' }]);
+  assert.deepEqual(lines(res.body), [
+    ['Services', 100],
+    ['Rush work', 150],
+  ]);
+
+  // An edit replaces them, and the other rate prints the one text again.
+  const params = { params: Promise.resolve({ id: res.body.id }) };
+  const edited = await json(
+    await edit(
+      req(
+        `/invoices/${res.body.id}`,
+        { ...body, summaryTexts: [{ rate: 100, text: 'Support' }] },
+        'PATCH',
+      ),
+      params,
+    ),
+  );
+  assert.equal(edited.status, 200, JSON.stringify(edited.body));
+  const read = await json(
+    await detail(req(`/invoices/${res.body.id}`), params),
+  );
+  assert.deepEqual(read.body.summaryTexts, [{ rate: 100, text: 'Support' }]);
+  assert.deepEqual(lines(read.body), [
+    ['Support', 100],
+    ['Services', 150],
+  ]);
+});
+
+test('a blank summary line previews blank and is refused at generation', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1), hours: 2, rateOverride: 100 });
+  await seedEntry({
+    id: E(2),
+    hours: 1,
+    rateOverride: 150,
+    start: '2026-09-11T09:00:00Z',
+  });
+  const body = {
+    clientId: CLIENT,
+    ...PERIOD,
+    groupingMode: 'summary',
+    summaryText: 'Services',
+    summaryTexts: [{ rate: 150, text: '' }],
+  };
+  const shown = await json(await preview(req('/invoices/preview', body)));
+  assert.equal(shown.status, 200, JSON.stringify(shown.body));
+  assert.deepEqual(
+    shown.body.lineItems.map((li: any) => [li.description, li.unitPrice]),
+    [
+      ['Services', 100],
+      ['', 150],
+    ],
+  );
+  const res = await json(await create(req('/invoices', body)));
+  assert.equal(res.status, 422);
 });
 
 test('the summary text belongs to a summary invoice only', async () => {
@@ -2704,6 +2853,20 @@ test('the open list keeps a billed expense until its invoice is paid', async () 
   assert.equal(paid.body.expenses.length, 0, 'paid, it leaves the card');
 });
 
+// New invoice shows only what its draft would bill, so it needs the holder.
+test('the unbilled list says which draft holds each expense', async () => {
+  const { GET: list } = await import('../src/app/api/v1/expenses/route.ts');
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedExpense({ id: X(1) });
+  const free = await json(await list(req('/expenses?status=unbilled')));
+  assert.equal(free.body.expenses[0].draftId, null);
+  const inv = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  const held = await json(await list(req('/expenses?status=unbilled')));
+  assert.equal(held.body.expenses[0].draftId, inv.body.id);
+});
+
 // ── recurring expenses ─────────────────────────────────────────────
 const expenseLines = (body: {
   lineItems: { unit: string; spentOn?: string; amount: number }[];
@@ -3416,23 +3579,26 @@ test('sending dates the invoice: issued that day where it was sent, due by its t
   assert.equal(sent.body.dueDate, '2026-12-01', 'Net 30 from the send');
 
   await seedEntry({ id: D(2), start: '2026-10-10T09:00:00Z', hours: 1 });
-  const typed = await json(
-    await r.create(
-      req('/invoices', {
-        clientId: CLIENT,
-        periodStart: '2026-10-01',
-        periodEnd: '2026-10-31',
-        tz: 'America/Los_Angeles',
-        dueDate: '2026-11-15',
-      }),
-    ),
-  );
-  const late = await json(
-    await r.setStatus(
-      req('/s', { status: 'sent', sentAt: '2026-11-01T02:00:00Z' }, 'PATCH'),
-      at(typed.body.id),
-    ),
-  );
+  // Pinned to the send, so the typed due date never falls in the past.
+  const late = await on('2026-11-01', async () => {
+    const typed = await json(
+      await r.create(
+        req('/invoices', {
+          clientId: CLIENT,
+          periodStart: '2026-10-01',
+          periodEnd: '2026-10-31',
+          tz: 'America/Los_Angeles',
+          dueDate: '2026-11-15',
+        }),
+      ),
+    );
+    return json(
+      await r.setStatus(
+        req('/s', { status: 'sent', sentAt: '2026-11-01T02:00:00Z' }, 'PATCH'),
+        at(typed.body.id),
+      ),
+    );
+  });
   assert.equal(late.body.issueDate, '2026-10-31', 'the evening before, in LA');
   assert.equal(late.body.dueDate, '2026-11-15', 'the date the user typed');
 });

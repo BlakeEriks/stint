@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
-import { ids } from '@/mocks/fixtures';
+import { id, ids } from '@/mocks/fixtures';
 import {
   desktop,
   expectOpen,
@@ -23,26 +23,87 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Each client a heading, with its rate and summary line, its projects
-    beneath at their resolved rates; "No client" last. */
+/** Each client a heading flat on the panel, with its rate and summary
+    line and its actions, its projects beneath at their resolved rates;
+    "No client" last. Nothing is a card. */
 export const Desktop: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    const card = within(
-      (await page.findByRole('heading', { name: 'Northwind Trading' })).closest(
-        'section',
-      )!,
-    );
-    await expect(card.getByText('$150.00/h · ap@northwind.test')).toBeVisible();
+    const section = (
+      await page.findByRole('heading', { name: 'Northwind Trading' })
+    ).closest('section')!;
+    const group = within(section);
+    await expect(
+      group.getByText('$150.00/h · ap@northwind.test'),
+    ).toBeVisible();
     // This screen manages clients; what is owed belongs to reports.
-    await expect(card.queryByText(/unbilled/)).toBeNull();
-    await expect(card.queryByText(/\d+ projects?/)).toBeNull();
+    await expect(group.queryByText(/unbilled/)).toBeNull();
+    await expect(group.queryByText(/\d+ projects?/)).toBeNull();
+    const add = group.getByRole('button', {
+      name: 'Project for Northwind Trading',
+    });
+    await expect(
+      add.compareDocumentPosition(group.getByText('Warehouse dashboard')),
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    await expect(getComputedStyle(section).backgroundColor).toBe(
+      'rgba(0, 0, 0, 0)',
+    );
   },
 };
+
+/** The frame's title bar stays put while the list scrolls beneath it, and
+    the heading of the client whose rows are in view pins at the top of
+    the scroller. */
+export const Scrolled: Story = {
+  ...desktop,
+  // Enough rows under Northwind that the panel scrolls at this height.
+  parameters: account((db) => {
+    for (let n = 1; n <= 8; n++)
+      db.projects.push({
+        id: id(300 + n),
+        clientId: ids.northwind,
+        name: `Workstream ${n}`,
+        hourlyRate: null,
+        isBillableDefault: true,
+        archivedAt: null,
+      });
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const northwind = await page.findByRole('heading', {
+      name: 'Northwind Trading',
+    });
+    const title = page.getByRole('heading', { name: 'Clients', level: 1 });
+    const titleTop = title.getBoundingClientRect().top;
+    const scroller = canvasElement.querySelector<HTMLElement>(
+      '[data-content-scroller]',
+    )!;
+    const top = scroller.getBoundingClientRect().top;
+    // The bar ends before the scroller begins.
+    await expect(title.getBoundingClientRect().bottom).toBeLessThan(top);
+    // Into Northwind's rows, so its heading has something to pin over.
+    scroller.scrollTop = northwind.getBoundingClientRect().top - top + 120;
+    await waitFor(() => {
+      expect(scroller.scrollTop).toBeGreaterThan(100);
+      expect(title.getBoundingClientRect().top).toBe(titleTop);
+      // At the scroller's top, by the heading's own 12px of padding.
+      expect(northwind.getBoundingClientRect().top - top).toBeCloseTo(12, -1);
+    });
+    // The pinned heading paints over a row's whole highlight, bleed included,
+    // so no corner of a hovered row shows past its edge.
+    const pinned = northwind.closest('section')!.firstElementChild!;
+    const row = page
+      .getByRole('button', { name: /^Edit Workstream 8/ })
+      .getBoundingClientRect();
+    const cover = pinned.getBoundingClientRect();
+    await expect(cover.left).toBeLessThanOrEqual(row.left);
+    await expect(cover.right).toBeGreaterThanOrEqual(row.right);
+  },
+};
+
 export const Phone: Story = { ...phone };
 export const Light: Story = { ...light };
-
 /** A client with no projects keeps its heading: this is the only list of
     clients. */
 export const ClientWithoutProjects: Story = {
@@ -52,12 +113,12 @@ export const ClientWithoutProjects: Story = {
   }),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    const card = within(
+    const group = within(
       (await page.findByRole('heading', { name: 'Byrne Studio' })).closest(
         'section',
       )!,
     );
-    await expect(card.getByText('No projects yet.')).toBeVisible();
+    await expect(group.getByText('No projects yet.')).toBeVisible();
   },
 };
 
@@ -78,7 +139,7 @@ export const NoRate: Story = {
   }),
 };
 
-const card = async (canvasElement: HTMLElement, name: string) =>
+const group = async (canvasElement: HTMLElement, name: string) =>
   within(
     (await within(canvasElement).findByRole('heading', { name })).closest(
       'section',
@@ -131,12 +192,16 @@ export const ArchivedOpen: Story = {
       'Byrne Studio',
       'Old Engagement Co',
     ]);
-    const byrne = await card(canvasElement, 'Byrne Studio');
+    const byrne = await group(canvasElement, 'Byrne Studio');
     await expect(byrne.getByText('Brand site rebuild')).toBeVisible();
     await expect(byrne.queryByText(/\/h/)).toBeNull();
     await expect(
       byrne.getByRole('button', { name: 'Restore Byrne Studio' }),
     ).toBeVisible();
+    // It bills nothing new, so nothing is added to it until restored.
+    await expect(
+      byrne.queryByRole('button', { name: 'Project for Byrne Studio' }),
+    ).toBeNull();
   },
 };
 
@@ -154,27 +219,33 @@ export const NothingArchived: Story = {
   },
 };
 
-/** An archived project under an active client: last in its group, muted,
-    with Restore where its rate was. */
-export const ArchivedProjectLast: Story = {
+/** An archived project under an active client folds under the active ones,
+    the way archived clients fold under the active clients: a count, closed,
+    so a long history never pushes the next client down. Opened, the row is
+    muted with Restore where its rate was. */
+export const ArchivedProjectFolded: Story = {
   ...desktop,
   parameters: account((db) => {
     db.projects.find((p) => p.id === ids.warehouse)!.archivedAt =
       '2026-06-30T16:00:00.000Z';
   }),
   play: async ({ canvasElement }) => {
-    const northwind = await card(canvasElement, 'Northwind Trading');
-    // The first list is the projects; expenses follow.
-    const rows = within(northwind.getAllByRole('list')[0]!).getAllByRole(
-      'button',
-      { name: /^Edit / },
-    );
-    await expect(rows.at(-1)).toHaveAccessibleName(/^Edit Warehouse dashboard/);
+    const northwind = await group(canvasElement, 'Northwind Trading');
+    const fold = northwind.getByRole('button', { name: 'Archived (1)' });
+    await expect(fold).toHaveAttribute('aria-expanded', 'false');
+    await expect(
+      northwind.queryByRole('button', { name: /^Edit Warehouse dashboard/ }),
+    ).toBeNull();
+    await userEvent.click(fold);
+    const row = northwind.getByRole('button', {
+      name: /^Edit Warehouse dashboard/,
+    });
+    await expect(row).toBeVisible();
     await expect(
       northwind.getByRole('button', { name: 'Restore Warehouse dashboard' }),
     ).toBeVisible();
     // It bills nothing new, so its row shows no rate.
-    await expect(rows.at(-1)).not.toHaveTextContent('/h');
+    await expect(row).not.toHaveTextContent('/h');
   },
 };
 
@@ -191,13 +262,13 @@ export const Failed: Story = {
     // The screen only: the shell's own panels load beside it.
     const main = within(within(canvasElement).getByRole('main'));
     await waitFor(() => {
-      expect(main.getByText(/could not load/i)).toBeVisible();
+      expect(main.getByText(/couldn.t load/i)).toBeVisible();
       expect(main.queryByRole('status')).toBeNull();
     });
   },
 };
 
-/** A project is added from its client's card, with that client chosen. */
+/** A project is added from its client's heading, with that client chosen. */
 export const NewProjectForClient: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -481,9 +552,9 @@ export const EditArchivedProject: Story = {
   },
 };
 
-/** Restore on an archived client's card puts it back among the active on
+/** Restore in an archived client's heading puts it back among the active on
     the press: the badge and the Archived section go, and its project keeps
-    its own archive. */
+    its own archive, now folded under the client. */
 export const RestoreClient: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -493,12 +564,15 @@ export const RestoreClient: Story = {
       page.getByRole('button', { name: 'Restore Old Engagement Co' }),
     );
     await waitFor(() =>
-      expect(page.queryByRole('button', { name: /^Archived/ })).toBeNull(),
+      expect(
+        page.queryByRole('button', { name: 'Restore Old Engagement Co' }),
+      ).toBeNull(),
     );
-    const old = await card(canvasElement, 'Old Engagement Co');
-    // One badge left, the project's own.
-    await expect(old.getAllByText('Archived')).toHaveLength(1);
-    await expect(old.getByText('Legacy retainer')).toBeVisible();
+    const old = await group(canvasElement, 'Old Engagement Co');
+    await expect(old.queryByText('Archived')).toBeNull();
+    await expect(
+      old.getByRole('button', { name: 'Archived (1)' }),
+    ).toBeVisible();
   },
 };
 
@@ -512,19 +586,23 @@ export const RestoreClientFromDialog: Story = {
       await page.findByRole('button', { name: 'Edit Old Engagement Co' }),
     );
     await userEvent.click(await page.findByRole('button', { name: 'Restore' }));
-    const old = await card(canvasElement, 'Old Engagement Co');
-    // One badge left, the project's own.
-    await waitFor(() => expect(old.getAllByText('Archived')).toHaveLength(1));
-    await expect(old.getByText('Legacy retainer')).toBeVisible();
+    const old = await group(canvasElement, 'Old Engagement Co');
+    await waitFor(() => expect(old.queryByText('Archived')).toBeNull());
+    await expect(
+      old.getByRole('button', { name: 'Archived (1)' }),
+    ).toBeVisible();
   },
 };
 
 /** The same for a project from its row: its Archived badge goes on the
     press. */
 export const RestoreProject: Story = {
-  ...ArchivedProjectLast,
+  ...ArchivedProjectFolded,
   play: async ({ canvasElement }) => {
-    const northwind = await card(canvasElement, 'Northwind Trading');
+    const northwind = await group(canvasElement, 'Northwind Trading');
+    await userEvent.click(
+      northwind.getByRole('button', { name: 'Archived (1)' }),
+    );
     await userEvent.click(
       await northwind.findByRole('button', {
         name: 'Restore Warehouse dashboard',
@@ -543,7 +621,10 @@ export const RestoreProjectFromDialog: Story = {
   }),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
-    const northwind = await card(canvasElement, 'Northwind Trading');
+    const northwind = await group(canvasElement, 'Northwind Trading');
+    await userEvent.click(
+      northwind.getByRole('button', { name: 'Archived (1)' }),
+    );
     await expect(await northwind.findByText('Archived')).toBeVisible();
     await userEvent.click(
       page.getByRole('button', { name: /^Edit Warehouse dashboard/ }),
@@ -567,14 +648,14 @@ export const RestoreRefused: Story = {
     await expect(
       await page.findByRole('button', { name: 'Dismiss' }),
     ).toBeVisible();
-    const old = await card(canvasElement, 'Old Engagement Co');
+    const old = await group(canvasElement, 'Old Engagement Co');
     await expect(old.getAllByText('Archived')).toHaveLength(2);
   },
 };
 
 // ── expenses ───────────────────────────────────────────────────────
 
-/** Recorded from the client's card (US2 scenario 1): it waits there. */
+/** Recorded from the client's heading (US2 scenario 1): it waits in its group. */
 export const AddExpense: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -656,7 +737,7 @@ export const DeletingExpense: Story = {
     await expect(
       await page.findByRole('button', { name: 'Deleting…' }),
     ).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Keep' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Keep it' })).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Cancel' })).toBeDisabled();
     await userEvent.keyboard('{Escape}');
     await expect(page.getByRole('dialog')).toHaveAttribute(
@@ -763,7 +844,7 @@ export const BilledExpense: Story = {
   },
 };
 
-/** Once its invoice is paid, a billed expense leaves the card. */
+/** Once its invoice is paid, a billed expense leaves its client's group. */
 export const PaidExpenseGone: Story = {
   ...desktop,
   parameters: billPhotos('paid'),

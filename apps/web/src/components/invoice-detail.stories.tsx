@@ -3,11 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client/api';
 import { addDays } from '@stint/core';
 import { keys } from '@stint/client';
-import { delay, http } from 'msw';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import { type Db, id } from '@/mocks/fixtures';
-import { handlers } from '@/mocks/handlers';
 import {
   desktop,
   failing,
@@ -15,6 +13,7 @@ import {
   screen,
   skipping,
   stalled,
+  stalledWhen,
 } from '@/mocks/screen';
 import { InvoiceDetail } from './invoice-detail';
 
@@ -256,7 +255,7 @@ export const Locked: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     const subscribe = await page.findByRole('link', {
-      name: 'Subscribe to download',
+      name: 'Get the paid plan to download',
     });
     await expect(subscribe).toHaveAttribute('href', '/settings#plan');
     await expect(
@@ -296,10 +295,10 @@ export const ConfirmDelete: Story = {
     const dialog = await ask(canvasElement, 'Delete draft');
     await expect(
       dialog.getByText(
-        "The draft ($2,787.60) is deleted and can't be restored. Your 14 entries and any expenses are kept and can go on another invoice.",
+        'Its 14 entries and any expenses go back to unbilled, ready for another invoice. The draft ($2,787.60) is deleted. You can’t undo this.',
       ),
     ).toBeVisible();
-    await userEvent.click(dialog.getByRole('button', { name: 'Keep' }));
+    await userEvent.click(dialog.getByRole('button', { name: 'Keep it' }));
     await waitFor(() =>
       expect(
         within(canvasElement.ownerDocument.body).queryByRole('dialog'),
@@ -317,7 +316,9 @@ export const Deleting: Story = {
     await expect(
       await dialog.findByRole('button', { name: 'Deleting…' }),
     ).toBeDisabled();
-    await expect(dialog.getByRole('button', { name: 'Keep' })).toBeDisabled();
+    await expect(
+      dialog.getByRole('button', { name: 'Keep it' }),
+    ).toBeDisabled();
   },
 };
 
@@ -325,7 +326,7 @@ export const ConfirmVoid: Story = {
   ...desktop,
   args: { id: invoice(14) },
   play: async ({ canvasElement }) => {
-    const dialog = await ask(canvasElement, 'Void');
+    const dialog = await ask(canvasElement, 'Void invoice');
     await expect(
       dialog.getByText(/STINT-0014 \(\$[\d,.]+\) is no longer owed/),
     ).toBeVisible();
@@ -337,8 +338,8 @@ export const Voiding: Story = {
   args: { id: invoice(14) },
   parameters: stalled('updateInvoiceStatus'),
   play: async ({ canvasElement }) => {
-    const dialog = await ask(canvasElement, 'Void');
-    await userEvent.click(dialog.getByRole('button', { name: 'Void' }));
+    const dialog = await ask(canvasElement, 'Void invoice');
+    await userEvent.click(dialog.getByRole('button', { name: 'Void invoice' }));
     await expect(
       await dialog.findByRole('button', { name: 'Voiding…' }),
     ).toBeDisabled();
@@ -350,10 +351,12 @@ export const VoidRefusedPhone: Story = {
   args: { id: invoice(14) },
   parameters: failing('updateInvoiceStatus'),
   play: async ({ canvasElement }) => {
-    const dialog = await ask(canvasElement, 'Void');
-    await userEvent.click(dialog.getByRole('button', { name: 'Void' }));
+    const dialog = await ask(canvasElement, 'Void invoice');
+    await userEvent.click(dialog.getByRole('button', { name: 'Void invoice' }));
     await expect(await dialog.findByRole('alert')).toBeVisible();
-    await expect(dialog.getByRole('button', { name: 'Void' })).toBeEnabled();
+    await expect(
+      dialog.getByRole('button', { name: 'Void invoice' }),
+    ).toBeEnabled();
   },
 };
 
@@ -460,21 +463,8 @@ export const AsPrinted: Story = {
 /* Only the invoice the page opens never answers. The dock prefetches the
    overdue and stale ones too, and `stalled('invoice')` would hold those
    open as well: the story would pass or time out by which came first. */
-const stalledInvoice = (opened: string) => ({
-  stalls: 1,
-  msw: {
-    handlers: {
-      invoice: http.get(handlers.invoice.info.path, async (info) => {
-        if (info.params.id === opened) await delay('infinite');
-        // `resolver` is protected in msw's types, and public at runtime.
-        const real = handlers.invoice as unknown as {
-          resolver: (i: typeof info) => Promise<Response>;
-        };
-        return real.resolver(info);
-      }),
-    },
-  },
-});
+const stalledInvoice = (opened: string) =>
+  stalledWhen('invoice', (info) => info.params.id === opened);
 
 /* Mounts the page only once the lists it was opened from are cached, as
    they are after a click in Invoices. */
@@ -516,7 +506,9 @@ export const OpenedFromList: Story = {
     /* The lists don't say whether the PDF opens, so neither action shows
        yet rather than one that turns into the other. */
     await expect(page.queryByRole('link', { name: /Download PDF/ })).toBeNull();
-    await expect(page.queryByRole('link', { name: /Subscribe/ })).toBeNull();
+    await expect(
+      page.queryByRole('link', { name: /Get the paid plan/ }),
+    ).toBeNull();
   },
 };
 

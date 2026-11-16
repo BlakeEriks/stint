@@ -156,7 +156,7 @@ stores grouping, summary text, reference, notes, a typed due date,
 payment details, the supporting-detail kinds, its `fixed` lines, `tz` (the
 zone its period's dates are read in) and `excluded_expense_ids` (the expenses
 left off). `payment_terms` keeps its terms (`Net N`, or `Due on receipt`) from
-the client's days, else the user's, as Generate found them. It holds the entries and one-off expenses it was built with
+the client's days, else the user's, as Save draft found them. It holds the entries and one-off expenses it was built with
 (`time_entries.draft_id`, `expenses.draft_id`), and its time and expense
 lines, totals, issue date and, unless typed, due date are priced from them on
 every read and written by nothing. `downloaded_snapshot` is the dates and
@@ -180,7 +180,8 @@ sending freezes them, so a renamed project or a void never changes them. The `bu
 block) and the `client_*` columns (Bill to) are copied from `user_settings`
 and the client by a trigger on insert, so editing either never reprints an
 invoice. `summary_text` is the line text of a `summary`
-invoice and is set exactly then; `reference` is the PO, contract, or SOW the
+invoice and is set exactly then, and `summary_texts` (JSONB, `[{ rate, text
+}]`) the lines typed their own text, by rate; `reference` is the PO, contract, or SOW the
 header prints. `issued_subscription_status` is the user's `subscriptions.status`
 when the invoice was inserted, copied by a trigger whatever the insert says
 and never changed after, so an invoice generated while paying keeps its PDF
@@ -474,7 +475,7 @@ The tests are the record of *whether* they hold; this list is the record of
 - Editing or deleting an expense billed to a **non-draft** invoice is
   rejected, and voiding releases it.
 - A send that loses a race for an expense writes nothing.
-- Two concurrent Generates over one client's dates make one draft.
+- Two drafts saved at once over one client's dates make one draft.
 
 ### Row-level security against live policies
 

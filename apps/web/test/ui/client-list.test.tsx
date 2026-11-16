@@ -135,7 +135,7 @@ describe('ClientList', () => {
     expect(screen.queryByRole('link', { name: 'No client' })).toBeNull();
   });
 
-  describe('the card', () => {
+  describe('the group', () => {
     it('gives the client and each project its resolved rate and where that rate comes from', async () => {
       serve(
         [NORTHWIND, BYRNE],
@@ -215,7 +215,7 @@ describe('ClientList', () => {
       );
     });
 
-    it('restores an archived client from its card, back among the active, on the press', async () => {
+    it('restores an archived client from its heading, back among the active, on the press', async () => {
       serve([NORTHWIND, OLD_CO]);
       const user = userEvent.setup();
       render(<ClientList />, { wrapper });
@@ -238,8 +238,12 @@ describe('ClientList', () => {
       const user = userEvent.setup();
       render(<ClientList />, { wrapper });
 
+      // Archived projects wait folded under the active ones.
       await user.click(
-        await screen.findByRole('button', { name: 'Restore Old site' }),
+        await screen.findByRole('button', { name: 'Archived (1)' }),
+      );
+      await user.click(
+        screen.getByRole('button', { name: 'Restore Old site' }),
       );
 
       await waitFor(() =>

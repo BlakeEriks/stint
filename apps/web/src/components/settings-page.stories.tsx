@@ -46,6 +46,20 @@ export const Desktop: Story = {
     ).toHaveLength(1);
   },
 };
+/** The invoice template shows by name alone, as the control that opens
+    New invoice's Template dialog. */
+export const InvoiceTemplate: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByRole('button', { name: 'Template' }),
+    ).toHaveTextContent('Standard');
+    await expect(
+      page.queryByRole('radiogroup', { name: 'Invoice template' }),
+    ).toBeNull();
+  },
+};
 /** Each billing default carries its unit inside the field, the way the rate
     does, and numbering explains itself under its heading. */
 export const BillingUnits: Story = {
@@ -103,7 +117,7 @@ export const Light: Story = {
   },
 };
 
-/** No payment details: invoices render without a payment block. */
+/** No payment details: invoices print without them. */
 export const NoPaymentProfiles: Story = {
   ...desktop,
   parameters: account((db) => {
@@ -111,9 +125,7 @@ export const NoPaymentProfiles: Story = {
   }),
   play: async ({ canvasElement }) => {
     await expect(
-      await within(canvasElement).findByText(
-        /Invoices will render without a payment block/,
-      ),
+      await within(canvasElement).findByText(/Invoices print without them/),
     ).toBeVisible();
   },
 };

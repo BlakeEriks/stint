@@ -4,6 +4,8 @@ import {
   billableExpenses,
   billingWindow,
   billingZone,
+  earlierWork,
+  earlierWorkFrom,
   isBillableEntry,
 } from '../src/billable.ts';
 
@@ -129,3 +131,60 @@ test('a billed expense, or a one-off after the period, is not billed', () => {
     [],
   );
 });
+
+const inv = (periodStart: string, periodEnd: string) => ({
+  periodStart,
+  periodEnd,
+});
+for (const [invoices, from, why] of [
+  [
+    [inv('2026-08-01', '2026-08-31'), inv('2026-09-01', '2026-09-29')],
+    '2026-09-30',
+    'the day after the last invoice',
+  ],
+  [
+    [inv('2026-08-01', '2026-08-31'), inv('2026-09-01', '2026-10-15')],
+    null,
+    'nowhere: an invoice spanning the start leaves nothing to offer',
+  ],
+  [
+    [inv('2026-08-01', '2026-08-31'), inv('2026-10-01', '2026-10-31')],
+    '2026-09-01',
+    'after the last invoice before it, not one in the period',
+  ],
+  [[], null, 'nowhere: a first invoice has no gap to catch'],
+] as const)
+  test(`the look-back for an Oct 1 period starts ${why}`, () => {
+    assert.equal(earlierWorkFrom('2026-10-01', [...invoices]), from);
+  });
+
+const at = (startedAt: string) => ({ startedAt });
+for (const [entries, tz, expected, why] of [
+  [[], 'UTC', null, 'none'],
+  [
+    [at('2026-09-30T15:00:00Z')],
+    'UTC',
+    { entryCount: 1, from: '2026-09-30', to: '2026-09-30' },
+    'one',
+  ],
+  [
+    [
+      at('2026-09-30T15:00:00Z'),
+      at('2026-09-28T15:00:00Z'),
+      at('2026-09-29T15:00:00Z'),
+    ],
+    'UTC',
+    { entryCount: 3, from: '2026-09-28', to: '2026-09-30' },
+    'several, by their first and last dates',
+  ],
+  [
+    // 23:30 EDT on Oct 31, the night DST ends: Nov 1 in UTC.
+    [at('2026-11-01T03:30:00Z')],
+    'America/New_York',
+    { entryCount: 1, from: '2026-10-31', to: '2026-10-31' },
+    'dated by its day in the zone, across a DST change',
+  ],
+] as const)
+  test(`earlier work: ${why}`, () => {
+    assert.deepEqual(earlierWork([...entries], tz), expected);
+  });

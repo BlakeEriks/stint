@@ -95,7 +95,7 @@ export function PlanSection() {
       <Section
         id="plan"
         title="Plan"
-        description={`Free. Tracking and your records, exporting them included, stay free. Paid adds invoice downloads, for ${PRICE}.`}
+        description={`Free. Tracking and exporting your records stay free. Downloading an invoice requires the paid plan: ${PRICE}.`}
       >
         <div>
           <Button disabled={leaving} onClick={() => subscribe.mutate()}>
@@ -105,7 +105,7 @@ export function PlanSection() {
                 Opening checkout…
               </>
             ) : (
-              'Subscribe'
+              'Get the paid plan'
             )}
           </Button>
         </div>

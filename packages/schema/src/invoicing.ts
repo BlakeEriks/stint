@@ -25,6 +25,12 @@ export const GroupingMode = z.enum([
   'day',
 ]);
 
+/** One summary line's own text, keyed by the rate it prints. A preview
+ *  takes a blank, which prints the line blank; generation refuses it. */
+const summaryTexts = (text: z.ZodString) =>
+  z.array(z.object({ rate: z.number().nonnegative(), text })).max(50);
+export const SummaryTexts = summaryTexts(z.string().trim().max(200));
+
 export const InvoicePreviewRequest = z.object({
   clientId: uuid,
   periodStart: z.iso.date(),
@@ -33,6 +39,9 @@ export const InvoicePreviewRequest = z.object({
   /** The one line's text with `summary`; the other modes ignore it. Empty
    *  previews the line blank, and generation refuses it. */
   summaryText: z.string().trim().max(200).default(''),
+  /** With `summary`: the lines typed themselves, by the rate they print.
+   *  A rate with none prints `summaryText`. */
+  summaryTexts: SummaryTexts.default([]),
   /**
    * The period is local dates, so the window is resolved in this zone — and
    * it decides which entries land on the invoice. Rejected rather than
@@ -163,6 +172,16 @@ export const InvoicePreview = z.object({
   /** Entries to bill that share a minute or more with each other or with
    *  billed time. A warning, not a block: the user decides. */
   overlappingEntryIds: z.array(uuid),
+  /** The client's unbilled work no draft holds, dated after its last
+   *  invoice and before the period (`earlierWork()`), which New invoice
+   *  offers to include. Null when there is none. */
+  earlierWork: z
+    .object({
+      entryCount: z.number().int().positive(),
+      from: z.iso.date(),
+      to: z.iso.date(),
+    })
+    .nullable(),
   /** With `summary`, every table the invoice could attach; otherwise null. */
   schedules: Schedules.nullable(),
 });
@@ -193,6 +212,9 @@ export const CreateInvoice = InvoicePreviewRequest.omit({
   draftId: true,
 })
   .extend({
+    summaryTexts: summaryTexts(
+      z.string().trim().min(1, 'A summary line needs its text').max(200),
+    ).default([]),
     /** Typed by the user. Absent, it follows the terms from the day the draft
      *  is sent, which is also its issue date. */
     dueDate: z.iso.date().optional(),
@@ -262,6 +284,8 @@ export const Invoice = z.object({
   groupingMode: GroupingMode,
   /** The summary line's text; set exactly when `groupingMode` is `summary`. */
   summaryText: z.string().nullable(),
+  /** The summary lines typed themselves, by rate; empty otherwise. */
+  summaryTexts: SummaryTexts,
   /** The PO, contract or SOW, printed under the service period. */
   reference: z.string().nullable(),
   /** Frozen when sent; null while a draft, which follows the setting. */
