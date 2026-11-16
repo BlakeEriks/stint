@@ -127,7 +127,11 @@ export function createAuth({
         await save(null);
         throw signedOut();
       }
-      throw failure(status, body, `Request failed (HTTP ${status}).`);
+      throw failure(
+        status,
+        body,
+        'Request failed. Tracked time is unaffected.',
+      );
     })().finally(() => {
       refreshing = null;
     });
