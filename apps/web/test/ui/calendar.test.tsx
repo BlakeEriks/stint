@@ -16,18 +16,6 @@ const PROJECTS = [
   },
 ];
 
-/* A project with no client: internal work. */
-const INTERNAL_PROJECTS = [
-  {
-    id: 'p-internal',
-    clientId: null,
-    name: 'Internal',
-    hourlyRate: null,
-    isBillableDefault: true,
-    archivedAt: null,
-  },
-];
-
 function entry(over: Partial<TimeEntry>): TimeEntry {
   return {
     id: 'e1',
@@ -200,38 +188,6 @@ describe('Calendar', () => {
 
     await user.click(screen.getByRole('button', { name: 'This week' }));
     expect(await screen.findByText('September 2026')).toBeInTheDocument();
-  });
-});
-
-/**
- * The key to the colors on the grid.
- *
- * A block's left border is its client's color, which only answers "whose work
- * is this?" once you know which hue is whose.
- */
-describe('the calendar legend', () => {
-  it('gives internal work a swatch with no color', async () => {
-    serve(
-      [
-        {
-          date: '2026-09-07',
-          totalSeconds: 3600,
-          entries: [
-            entry({ id: 'a', projectId: 'p-internal', durationSeconds: 3600 }),
-          ],
-        },
-      ],
-      { projects: INTERNAL_PROJECTS },
-    );
-    render(<Calendar />, { wrapper });
-
-    /* Internal work has no client and so no stripe on the grid. Its swatch is
-       an outline, describing the ABSENCE of color — a shared gray would read
-       as a client of its own, which `use-project-colors.ts` refuses for the
-       same reason. */
-    const item = await screen.findByText('No client', { selector: 'span' });
-    const swatch = item.querySelector('span[aria-hidden]') as HTMLElement;
-    expect(swatch.style.backgroundColor).toBe('');
   });
 });
 

@@ -19,20 +19,30 @@ const e = (projectId: string | null, durationSeconds: number | null) => ({
 const cases: Array<{
   name: string;
   entries: ReturnType<typeof e>[];
-  clients: string[];
+  clients: {
+    id: string;
+    name: string;
+    color: string | null;
+    seconds: number;
+  }[];
   noClient: boolean;
 }> = [
   { name: 'nothing logged', entries: [], clients: [], noClient: false },
   {
     name: 'one row per client, not per project',
     entries: [e('p-north-a', 3600), e('p-north-b', 3600)],
-    clients: ['Northwind'],
+    clients: [
+      { id: 'c-north', name: 'Northwind', color: '#6EA1E2', seconds: 7200 },
+    ],
     noClient: false,
   },
   {
     name: 'ranked by tracked time, not arrival order',
     entries: [e('p-byrne', 3600), e('p-north-a', 14400)],
-    clients: ['Northwind', 'Byrne'],
+    clients: [
+      { id: 'c-north', name: 'Northwind', color: '#6EA1E2', seconds: 14400 },
+      { id: 'c-byrne', name: 'Byrne', color: '#42B59A', seconds: 3600 },
+    ],
     noClient: false,
   },
   {
@@ -48,16 +58,15 @@ const cases: Array<{
     noClient: true,
   },
   {
-    // #156: a colorless client was filed under "No client".
     name: 'a client with no color is still named',
     entries: [e('p-plain', 3600)],
-    clients: ['Plain'],
+    clients: [{ id: 'c-plain', name: 'Plain', color: null, seconds: 3600 }],
     noClient: false,
   },
   {
     name: 'a running entry names its client with no time yet',
     entries: [e('p-byrne', null)],
-    clients: ['Byrne'],
+    clients: [{ id: 'c-byrne', name: 'Byrne', color: '#42B59A', seconds: 0 }],
     noClient: false,
   },
   {
@@ -71,21 +80,7 @@ const cases: Array<{
 for (const c of cases) {
   test(`legendClients: ${c.name}`, () => {
     const out = legendClients(c.entries, clientByProject);
-    assert.deepEqual(
-      out.clients.map((x) => x.name),
-      c.clients,
-    );
+    assert.deepEqual(out.clients, c.clients);
     assert.equal(out.noClient, c.noClient);
   });
 }
-
-test('legendClients carries the client color, null included', () => {
-  const out = legendClients(
-    [e('p-north-a', 60), e('p-plain', 30)],
-    clientByProject,
-  );
-  assert.deepEqual(out.clients, [
-    { id: 'c-north', name: 'Northwind', color: '#6EA1E2', seconds: 60 },
-    { id: 'c-plain', name: 'Plain', color: null, seconds: 30 },
-  ]);
-});

@@ -277,6 +277,23 @@ export const Overnight: Story = {
   },
 };
 
+/** Work with no client has no stripe on the grid, so its legend swatch is
+    an outline: a shared gray would read as a client of its own. */
+export const InternalWork: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    for (const e of db.entries)
+      if (e.taskName === 'Pairing on the ingest job') e.projectId = null;
+  }),
+  play: async ({ canvasElement }) => {
+    const page = await calendar(canvasElement);
+    const item = await page.findByText('No client', { selector: 'span' });
+    const swatch = item.querySelector('span[aria-hidden]') as HTMLElement;
+    await expect(swatch.style.backgroundColor).toBe('');
+    await expect(getComputedStyle(swatch).borderTopStyle).toBe('solid');
+  },
+};
+
 /* Held until the play has seen the loader, then answered: the story
    ends only once nothing is in flight. */
 let answer = () => {};

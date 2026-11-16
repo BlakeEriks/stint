@@ -405,8 +405,7 @@ function CalendarStatus({
   return null;
 }
 
-/** Which client each color on the grid belongs to: `legendClients` says
-    which are named, and in what order. */
+/** Which client each color on the grid belongs to. */
 function Legend({
   days,
   clientByProject,
