@@ -104,12 +104,12 @@ export const ClientWithoutProjects: Story = {
   }),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    const card = within(
+    const group = within(
       (await page.findByRole('heading', { name: 'Byrne Studio' })).closest(
         'section',
       )!,
     );
-    await expect(card.getByText('No projects yet.')).toBeVisible();
+    await expect(group.getByText('No projects yet.')).toBeVisible();
   },
 };
 
@@ -130,7 +130,7 @@ export const NoRate: Story = {
   }),
 };
 
-const card = async (canvasElement: HTMLElement, name: string) =>
+const group = async (canvasElement: HTMLElement, name: string) =>
   within(
     (await within(canvasElement).findByRole('heading', { name })).closest(
       'section',
@@ -183,7 +183,7 @@ export const ArchivedOpen: Story = {
       'Byrne Studio',
       'Old Engagement Co',
     ]);
-    const byrne = await card(canvasElement, 'Byrne Studio');
+    const byrne = await group(canvasElement, 'Byrne Studio');
     await expect(byrne.getByText('Brand site rebuild')).toBeVisible();
     await expect(byrne.queryByText(/\/h/)).toBeNull();
     await expect(
@@ -221,7 +221,7 @@ export const ArchivedProjectFolded: Story = {
       '2026-06-30T16:00:00.000Z';
   }),
   play: async ({ canvasElement }) => {
-    const northwind = await card(canvasElement, 'Northwind Trading');
+    const northwind = await group(canvasElement, 'Northwind Trading');
     const fold = northwind.getByRole('button', { name: 'Archived (1)' });
     await expect(fold).toHaveAttribute('aria-expanded', 'false');
     await expect(
@@ -259,7 +259,7 @@ export const Failed: Story = {
   },
 };
 
-/** A project is added from its client's card, with that client chosen. */
+/** A project is added from its client's heading, with that client chosen. */
 export const NewProjectForClient: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -543,7 +543,7 @@ export const EditArchivedProject: Story = {
   },
 };
 
-/** Restore on an archived client's card puts it back among the active on
+/** Restore in an archived client's heading puts it back among the active on
     the press: the badge and the Archived section go, and its project keeps
     its own archive, now folded under the client. */
 export const RestoreClient: Story = {
@@ -559,7 +559,7 @@ export const RestoreClient: Story = {
         page.queryByRole('button', { name: 'Restore Old Engagement Co' }),
       ).toBeNull(),
     );
-    const old = await card(canvasElement, 'Old Engagement Co');
+    const old = await group(canvasElement, 'Old Engagement Co');
     await expect(old.queryByText('Archived')).toBeNull();
     await expect(
       old.getByRole('button', { name: 'Archived (1)' }),
@@ -577,7 +577,7 @@ export const RestoreClientFromDialog: Story = {
       await page.findByRole('button', { name: 'Edit Old Engagement Co' }),
     );
     await userEvent.click(await page.findByRole('button', { name: 'Restore' }));
-    const old = await card(canvasElement, 'Old Engagement Co');
+    const old = await group(canvasElement, 'Old Engagement Co');
     await waitFor(() => expect(old.queryByText('Archived')).toBeNull());
     await expect(
       old.getByRole('button', { name: 'Archived (1)' }),
@@ -590,7 +590,7 @@ export const RestoreClientFromDialog: Story = {
 export const RestoreProject: Story = {
   ...ArchivedProjectFolded,
   play: async ({ canvasElement }) => {
-    const northwind = await card(canvasElement, 'Northwind Trading');
+    const northwind = await group(canvasElement, 'Northwind Trading');
     await userEvent.click(
       northwind.getByRole('button', { name: 'Archived (1)' }),
     );
@@ -612,7 +612,7 @@ export const RestoreProjectFromDialog: Story = {
   }),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
-    const northwind = await card(canvasElement, 'Northwind Trading');
+    const northwind = await group(canvasElement, 'Northwind Trading');
     await userEvent.click(
       northwind.getByRole('button', { name: 'Archived (1)' }),
     );
@@ -637,14 +637,14 @@ export const RestoreRefused: Story = {
     );
     await userEvent.click(await page.findByRole('button', { name: 'Restore' }));
     await expect(await page.findByText(/Internal server error/)).toBeVisible();
-    const old = await card(canvasElement, 'Old Engagement Co');
+    const old = await group(canvasElement, 'Old Engagement Co');
     await expect(old.getAllByText('Archived')).toHaveLength(2);
   },
 };
 
 // ── expenses ───────────────────────────────────────────────────────
 
-/** Recorded from the client's card (US2 scenario 1): it waits there. */
+/** Recorded from the client's heading (US2 scenario 1): it waits in its group. */
 export const AddExpense: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -835,7 +835,7 @@ export const BilledExpense: Story = {
   },
 };
 
-/** Once its invoice is paid, a billed expense leaves the card. */
+/** Once its invoice is paid, a billed expense leaves its client's group. */
 export const PaidExpenseGone: Story = {
   ...desktop,
   parameters: billPhotos('paid'),
