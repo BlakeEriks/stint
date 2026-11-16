@@ -1,6 +1,5 @@
 'use client';
 
-import { useDialog } from '@/lib/client/use-dialog';
 import {
   formatCompact,
   formatCurrency,
@@ -12,9 +11,8 @@ import type { Project } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { useProjectColors } from '@/lib/client/use-project-colors';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
-import { useEntryDrag } from '@/lib/client/use-entry-drag';
 import { useTodayEntries } from '@/lib/client/use-today-entries';
-import { EntryDialog, type Opens } from './entry-dialog';
+import { useEntryEditor } from './entry-editor';
 import { KeyboardAdd } from './keyboard-add';
 import { Listing } from './page';
 import { TodayGrid } from './today-grid';
@@ -63,8 +61,7 @@ export function EntryList({
   const colors = useProjectColors();
 
   /* An entry edits it; otherwise it adds one, at the times drawn if any. */
-  const drag = useEntryDrag();
-  const editing = useDialog<Opens>();
+  const { drag, edit, create, dialog } = useEntryEditor(projects);
 
   return (
     <section
@@ -104,7 +101,7 @@ export function EntryList({
         <KeyboardAdd
           label="Add an entry today"
           className={earnedToday === undefined ? 'ml-auto' : ''}
-          onClick={() => editing.show({ seed: lastHour(appNow()) })}
+          onClick={() => create(...lastHour(appNow()))}
         />
       </header>
 
@@ -119,15 +116,8 @@ export function EntryList({
               colors={colors}
               drag={drag}
               fills={fills}
-              onEdit={(existing) => editing.show({ existing })}
-              onCreate={(startedAt, endedAt) =>
-                editing.show({
-                  seed: {
-                    startedAt: startedAt.toISOString(),
-                    endedAt: endedAt.toISOString(),
-                  },
-                })
-              }
+              onEdit={edit}
+              onCreate={create}
             />
           )}
         </Listing>
@@ -150,17 +140,7 @@ export function EntryList({
         </div>
       ) : null}
 
-      {editing.subject ? (
-        <EntryDialog
-          {...editing.subject}
-          open={editing.open}
-          onOpenChange={(open) => {
-            editing.onOpenChange(open);
-            if (!open) drag.release();
-          }}
-          projects={projects}
-        />
-      ) : null}
+      {dialog}
     </section>
   );
 }
@@ -169,12 +149,9 @@ export function EntryList({
  * The hour up to the last quarter hour: what Add opens on. Work is logged
  * after it is done, and an end in the future would be a guess.
  */
-function lastHour(now: Date) {
+function lastHour(now: Date): [Date, Date] {
   const dayStart = startOfLocalDay(now, tz).getTime();
   const step = SNAP_MINUTES * 60_000;
   const end = dayStart + Math.floor((now.getTime() - dayStart) / step) * step;
-  return {
-    startedAt: new Date(end - 3_600_000).toISOString(),
-    endedAt: new Date(end).toISOString(),
-  };
+  return [new Date(end - 3_600_000), new Date(end)];
 }

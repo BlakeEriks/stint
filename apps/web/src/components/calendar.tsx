@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery } from '@tanstack/react-query';
 import {
   formatCompact,
   formatClock,
+  legendClients,
   localDateKey,
   PX_PER_HOUR,
 } from '@stint/core';
@@ -19,11 +19,10 @@ import {
 } from '@/lib/client/use-project-colors';
 import { useMediaQuery } from '@/lib/client/use-media-query';
 import { useScrollerFocus, XL } from '@/lib/client/use-scroller-focus';
-import { useEntryDrag } from '@/lib/client/use-entry-drag';
 import { useZoom } from '@/lib/client/use-zoom';
-import { api, type TimeEntry } from '@/lib/client/api';
+import { api } from '@/lib/client/api';
 import { Listing, Page, useLoaded } from './page';
-import { EntryDialog, type Opens } from './entry-dialog';
+import { useEntryEditor } from './entry-editor';
 import { KeyboardAdd } from './keyboard-add';
 import {
   DayColumn,
@@ -84,9 +83,9 @@ export function Calendar() {
   const loaded = [week, projects, clients, allProjects] as const;
   const ready = useLoaded(...loaded);
 
-  const editor = useDialog<Opens>();
-
-  const drag = useEntryDrag();
+  const { drag, edit, create, dialog } = useEntryEditor(
+    projects.data?.projects ?? [],
+  );
 
   /* The window every column draws. In week view it is the whole day; in day
      view the hook has cropped it to the worked hours. Columns share one
@@ -122,34 +121,6 @@ export function Calendar() {
   const scroller = useScrollToFirstEntry(period, cal.days, gridHeight, px);
   const minWidth = GUTTER_PX + cal.days.length * MIN_DAY_PX;
 
-  /* The heading names what is on screen, down to the day in day view. */
-  const label = byDay
-    ? new Intl.DateTimeFormat('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        timeZone: tz,
-      }).format(cal.cursor)
-    : new Intl.DateTimeFormat('en-US', {
-        month: 'long',
-        year: 'numeric',
-        timeZone: tz,
-      }).format(cal.weekStart);
-
-  const edit = (entry: TimeEntry) => editor.show({ existing: entry });
-
-  /* Drawing on empty grid opens the editor pre-filled, rather than writing a
-     row. A drag on a grid is a cheap gesture and a time entry is a financial
-     record; pre-filling gets the time right without committing to it. */
-  const create = (startedAt: Date, endedAt: Date) => {
-    editor.show({
-      seed: {
-        startedAt: startedAt.toISOString(),
-        endedAt: endedAt.toISOString(),
-      },
-    });
-  };
-
   return (
     <Page flush fills workspace>
       {/* The screen is a column the height of the panel: the heading takes
@@ -160,53 +131,11 @@ export function Calendar() {
           It binds at `xl` for the same reason `fills` does — below it the
           column above owns the one gesture. */}
       <div className="flex min-h-0 flex-col xl:flex-1">
-        {/* `flush`, so the regions below carry the panel's inset themselves
-            rather than inheriting a second one from `Page`. */}
-        <header className="flex flex-none flex-wrap items-center justify-between gap-3 px-4 pt-4 pb-3 sm:px-6">
-          <div className="flex items-baseline gap-3">
-            {/* `type-heading`, not `type-title`: the mono readout beside it is
-              14px, and 24px over it reads as two unrelated sizes rather than
-              a heading and its total. */}
-            <h1 className="type-heading text-strong">{label}</h1>
-            {/* The total matches the grid: this day on a phone, the week
-              otherwise. */}
-            {/* A figure, so it waits with the grid rather than reading
-              0:00:00 first. */}
-            {ready ? (
-              <span className="type-duration text-muted">
-                {formatClock(cal.visibleSeconds)}
-              </span>
-            ) : null}
-          </div>
-
-          <div className="flex items-center gap-1">
-            {/* The arrows step whatever unit is on screen, so "back" always
-              means "the previous one of these". The labels say which. */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={cal.prev}
-              aria-label={byDay ? 'Previous day' : 'Previous week'}
-            >
-              ←
-            </Button>
-            <Button
-              variant={cal.isCurrent ? 'default' : 'ghost'}
-              size="sm"
-              onClick={cal.today}
-            >
-              {byDay ? 'Today' : 'This week'}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={cal.next}
-              aria-label={byDay ? 'Next day' : 'Next week'}
-            >
-              →
-            </Button>
-          </div>
-        </header>
+        <CalendarHeader
+          byDay={byDay}
+          cal={cal}
+          seconds={ready ? cal.visibleSeconds : undefined}
+        />
 
         {/* The grid IS the panel, not a card on it — nothing inside the panel
           is a card. It is a column that can shrink, so it measures against
@@ -313,18 +242,88 @@ export function Calendar() {
         </Listing>
       </div>
 
-      {editor.subject ? (
-        <EntryDialog
-          {...editor.subject}
-          open={editor.open}
-          onOpenChange={(open) => {
-            editor.onOpenChange(open);
-            if (!open) drag.release();
-          }}
-          projects={projects.data?.projects ?? []}
-        />
-      ) : null}
+      {dialog}
     </Page>
+  );
+}
+
+/**
+ * What is on screen, its total and the arrows that step it. `seconds` is
+ * undefined until the grid is ready: a figure waits with the grid rather than
+ * reading 0:00:00 first.
+ */
+function CalendarHeader({
+  byDay,
+  cal,
+  seconds,
+}: {
+  byDay: boolean;
+  cal: Pick<
+    ReturnType<typeof useCalendar>,
+    'cursor' | 'weekStart' | 'isCurrent' | 'prev' | 'today' | 'next'
+  >;
+  seconds: number | undefined;
+}) {
+  /* The heading names what is on screen, down to the day in day view. */
+  const label = byDay
+    ? new Intl.DateTimeFormat('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        timeZone: tz,
+      }).format(cal.cursor)
+    : new Intl.DateTimeFormat('en-US', {
+        month: 'long',
+        year: 'numeric',
+        timeZone: tz,
+      }).format(cal.weekStart);
+
+  return (
+    /* The page is `flush`, so the regions carry the panel's inset themselves
+       rather than inheriting a second one from `Page`. */
+    <header className="flex flex-none flex-wrap items-center justify-between gap-3 px-4 pt-4 pb-3 sm:px-6">
+      <div className="flex items-baseline gap-3">
+        {/* `type-heading`, not `type-title`: the mono readout beside it is
+            14px, and 24px over it reads as two unrelated sizes rather than a
+            heading and its total. */}
+        <h1 className="type-heading text-strong">{label}</h1>
+        {/* The total matches the grid: this day on a phone, the week
+            otherwise. */}
+        {seconds === undefined ? null : (
+          <span className="type-duration text-muted">
+            {formatClock(seconds)}
+          </span>
+        )}
+      </div>
+
+      <div className="flex items-center gap-1">
+        {/* The arrows step whatever unit is on screen, so "back" always means
+            "the previous one of these". The labels say which. */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={cal.prev}
+          aria-label={byDay ? 'Previous day' : 'Previous week'}
+        >
+          ←
+        </Button>
+        <Button
+          variant={cal.isCurrent ? 'default' : 'ghost'}
+          size="sm"
+          onClick={cal.today}
+        >
+          {byDay ? 'Today' : 'This week'}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={cal.next}
+          aria-label={byDay ? 'Next day' : 'Next week'}
+        >
+          →
+        </Button>
+      </div>
+    </header>
   );
 }
 
@@ -406,16 +405,8 @@ function CalendarStatus({
   return null;
 }
 
-/**
- * Which client each color on the grid belongs to.
- *
- * **Built from the period in view, not from the client list**, so it never
- * names a color that is not on screen, and **ordered by tracked time**, which
- * is how much of the grid each color occupies.
- *
- * Every client with time is named — no long tail to merge — and internal work
- * appears only when present.
- */
+/** Which client each color on the grid belongs to: `legendClients` says
+    which are named, and in what order. */
 function Legend({
   days,
   clientByProject,
@@ -426,51 +417,28 @@ function Legend({
     { id: string; name: string; color: string | null }
   >;
 }) {
-  const seconds = new Map<string, number>();
-  const meta = new Map<string, { name: string; color: string | null }>();
-  let internalSeconds = 0;
-
-  for (const day of days) {
-    for (const { entry } of day.positioned) {
-      /* The entry's own duration, not the positioned block's height: a block
-         is clipped to its day, so a long entry would otherwise be undercounted
-         against the client it belongs to.
-
-         A RUNNING entry has no duration yet (the column is generated from
-         `ended_at`), so it contributes 0 to the ranking while still putting
-         its client in the legend — the block is on the grid, so its color
-         needs explaining regardless of how long it ends up being. */
-      const secs = entry.durationSeconds ?? 0;
-      const client = entry.projectId
-        ? clientByProject.get(entry.projectId)
-        : undefined;
-
-      if (!client) {
-        internalSeconds += secs;
-        continue;
-      }
-      seconds.set(client.id, (seconds.get(client.id) ?? 0) + secs);
-      meta.set(client.id, { name: client.name, color: client.color });
-    }
-  }
-
-  const ranked = [...seconds.entries()].sort((a, b) => b[1] - a[1]);
+  /* Each entry whole, not its positioned block: a block is clipped to its
+     day, so a long entry would be undercounted against its client. */
+  const { clients, noClient } = legendClients(
+    days.flatMap((day) => day.positioned.map((p) => p.entry)),
+    clientByProject,
+  );
   /* With nothing to name, the row holds only the hint, so it shows only
      where the hint does. */
-  const empty = ranked.length === 0 && internalSeconds === 0;
+  const empty = clients.length === 0 && !noClient;
 
   return (
     <div
       className={`${empty ? 'hidden pointer-fine:flex' : 'flex'} flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-edge-subtle px-4 py-2.5`}
     >
-      {ranked.map(([id]) => (
+      {clients.map((client) => (
         <LegendItem
-          key={id}
-          color={meta.get(id)?.color ?? undefined}
-          label={meta.get(id)?.name ?? 'Unknown client'}
+          key={client.id}
+          color={client.color ?? undefined}
+          label={client.name}
         />
       ))}
-      {internalSeconds > 0 ? <LegendItem label="No client" /> : null}
+      {noClient ? <LegendItem label="No client" /> : null}
       {/* Nothing else says the grid zooms. Only where a pointer can scroll:
           a touchscreen pinches, which needs no telling. */}
       <span className="ml-auto hidden items-center gap-1.5 type-support text-muted pointer-fine:flex">
