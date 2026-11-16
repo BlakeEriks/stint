@@ -1262,7 +1262,7 @@ function PreviewNotices({
         <p role="alert" className="type-support text-danger">
           {error instanceof ApiError
             ? error.message
-            : 'Could not build this invoice.'}
+            : 'Couldn’t build this invoice.'}
         </p>
       ) : null}
     </>

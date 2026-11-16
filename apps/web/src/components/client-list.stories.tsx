@@ -191,7 +191,7 @@ export const Failed: Story = {
     // The screen only: the shell's own panels load beside it.
     const main = within(within(canvasElement).getByRole('main'));
     await waitFor(() => {
-      expect(main.getByText(/could not load/i)).toBeVisible();
+      expect(main.getByText(/couldn.t load/i)).toBeVisible();
       expect(main.queryByRole('status')).toBeNull();
     });
   },
@@ -654,7 +654,7 @@ export const DeletingExpense: Story = {
     await expect(
       await page.findByRole('button', { name: 'Deleting…' }),
     ).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Keep' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Keep it' })).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Cancel' })).toBeDisabled();
     await userEvent.keyboard('{Escape}');
     await expect(page.getByRole('dialog')).toHaveAttribute(

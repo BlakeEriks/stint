@@ -115,7 +115,7 @@ export const Deleting: Story = {
     await expect(
       await page.findByRole('button', { name: 'Deleting…' }),
     ).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Keep' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Keep it' })).toBeDisabled();
   },
 };
 

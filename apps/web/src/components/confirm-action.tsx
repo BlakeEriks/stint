@@ -94,7 +94,7 @@ export function ConfirmAction({
         disabled={pending}
         onClick={() => setAsking(false)}
       >
-        Keep
+        Keep it
       </Button>
     </span>
   );

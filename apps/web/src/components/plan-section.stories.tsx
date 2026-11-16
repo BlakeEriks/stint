@@ -42,8 +42,7 @@ const plan = async (canvasElement: HTMLElement) => {
   return within(heading.closest('section') as HTMLElement);
 };
 
-/** Free: the price, what paid adds, that the records and their export stay
-    free, and Subscribe. */
+/** Free: the price, and Get the paid plan. */
 export const Free: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -51,22 +50,23 @@ export const Free: Story = {
     await expect(
       section.getByText(/\$3\.33\/month, billed annually/),
     ).toBeVisible();
-    await expect(section.getByText(/exporting them included/)).toBeVisible();
     await expect(
-      section.getByRole('button', { name: 'Subscribe' }),
+      section.getByRole('button', { name: 'Get the paid plan' }),
     ).toBeEnabled();
   },
 };
 
 export const FreePhone: Story = { ...phone };
 
-/** Subscribe is pending until Stripe's page opens. */
+/** Get the paid plan is pending until Stripe's page opens. */
 export const Subscribing: Story = {
   ...desktop,
   parameters: stalled('checkout'),
   play: async ({ canvasElement }) => {
     const section = await plan(canvasElement);
-    await userEvent.click(section.getByRole('button', { name: 'Subscribe' }));
+    await userEvent.click(
+      section.getByRole('button', { name: 'Get the paid plan' }),
+    );
     await expect(
       await section.findByRole('button', { name: /Opening checkout/ }),
     ).toBeDisabled();
@@ -79,14 +79,16 @@ export const CheckoutFailed: Story = {
   parameters: failing('checkout'),
   play: async ({ canvasElement }) => {
     const section = await plan(canvasElement);
-    await userEvent.click(section.getByRole('button', { name: 'Subscribe' }));
+    await userEvent.click(
+      section.getByRole('button', { name: 'Get the paid plan' }),
+    );
     await expect(
       await within(canvasElement.ownerDocument.body).findByText(
         /Couldn’t open checkout/,
       ),
     ).toBeVisible();
     await expect(
-      section.getByRole('button', { name: 'Subscribe' }),
+      section.getByRole('button', { name: 'Get the paid plan' }),
     ).toBeEnabled();
   },
 };

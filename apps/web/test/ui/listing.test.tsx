@@ -27,7 +27,7 @@ describe('Listing', () => {
       </Listing>,
     );
     expect(loader()).toHaveTextContent('Loading');
-    expect(screen.queryByText(/could not load/i)).toBeNull();
+    expect(screen.queryByText(/couldn.t load/i)).toBeNull();
   });
 
   it('keeps showing data when a refetch fails', () => {
@@ -37,7 +37,7 @@ describe('Listing', () => {
       </Listing>,
     );
     expect(screen.getByText('1 rows')).toBeInTheDocument();
-    expect(screen.queryByText(/could not load/i)).toBeNull();
+    expect(screen.queryByText(/couldn.t load/i)).toBeNull();
   });
 
   it('keeps its error up while a failed query refetches', () => {
@@ -46,7 +46,7 @@ describe('Listing', () => {
     );
     const { rerender } = render(list(query({ error: error(500, 'UNKNOWN') })));
     rerender(list(query({ isLoading: true })));
-    expect(screen.getByText(/could not load/i)).toBeInTheDocument();
+    expect(screen.getByText(/couldn.t load/i)).toBeInTheDocument();
     expect(loader()).toBeNull();
 
     rerender(list(query({ data: ['a'] })));
@@ -58,7 +58,7 @@ describe('Listing', () => {
   it('waits on a query that has neither data nor an error yet', () => {
     render(<Listing query={query({})}>{() => <p>rows</p>}</Listing>);
     expect(loader()).toHaveTextContent('Loading');
-    expect(screen.queryByText(/could not load/i)).toBeNull();
+    expect(screen.queryByText(/couldn.t load/i)).toBeNull();
   });
 
   /* The server has no cache, so it renders the loader; the browser may have
@@ -154,7 +154,7 @@ describe('Listing', () => {
           {() => <p>region</p>}
         </Listing>,
       );
-      expect(screen.getByText(/could not load/i)).toBeInTheDocument();
+      expect(screen.getByText(/couldn.t load/i)).toBeInTheDocument();
       expect(screen.queryByText('region')).toBeNull();
     });
 
@@ -167,7 +167,7 @@ describe('Listing', () => {
       );
       rerender(list([query({ data: ['a'] }), query({ isLoading: true })]));
       expect(loader()).toHaveTextContent('Loading');
-      expect(screen.queryByText(/could not load/i)).toBeNull();
+      expect(screen.queryByText(/couldn.t load/i)).toBeNull();
     });
 
     it('keeps the loader when any query is a 401', () => {

@@ -518,7 +518,7 @@ the fence covers what it guards against.
 | `CHECKOUT_NOT_FOUND` | 404 | No such Checkout session for this user. |
 | `BILLING_UNAVAILABLE` | 503 | Stripe isn't configured on this deploy, or, from `checkout` and `portal`, `BILLING_LIVE` isn't `true`. |
 | `VALIDATION_FAILED` | 422 | Zod parse failure (`details` carries the issues), an illegal state change such as deleting an issued invoice or an invalid status transition, a `PATCH` body that parses but maps to no column, or a reference to a record that is missing or another user's, such as a project's `clientId`. |
-| `PAYMENT_REQUIRED` | 402 | While `BILLING_LIVE` is on (after the beta), the invoice PDF needs the paid plan. Subscribe in Settings. |
+| `PAYMENT_REQUIRED` | 402 | While `BILLING_LIVE` is on (after the beta), the invoice PDF needs the paid plan. Get it in Settings. |
 | `RATE_LIMITED` | 429 | A sixth sign-in code from one address within the hour. |
 | `INTERNAL` | 500 | Unhandled error. Not part of `ErrorCode` in the schema package. |
 

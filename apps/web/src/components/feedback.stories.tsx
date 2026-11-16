@@ -85,7 +85,7 @@ export const Sent: Story = {
   play: async (ctx) => {
     await openForm(ctx);
     const page = await typeAndSend(ctx.canvasElement);
-    await expect(await page.findByText('Thanks. Feedback sent.')).toBeVisible();
+    await expect(await page.findByText('Feedback sent.')).toBeVisible();
   },
 };
 

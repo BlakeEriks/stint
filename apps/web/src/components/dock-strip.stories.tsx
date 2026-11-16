@@ -69,8 +69,12 @@ export const Toggle: Story = {
         page.queryByRole('complementary', { name: 'Inbox and Today' }),
       ).toBeNull(),
     );
-    const hide = page.getByRole('button', { name: 'Hide Inbox and Today' });
-    await expect(hide).toHaveFocus();
+    // The fold button is in the Inbox's header, which mounts once the dock's
+    // data loads, so it is awaited rather than expected at once.
+    const hide = await page.findByRole('button', {
+      name: 'Hide Inbox and Today',
+    });
+    await waitFor(() => expect(hide).toHaveFocus());
 
     await userEvent.click(hide);
     await strip(page);

@@ -38,7 +38,7 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
   if (!canDownload)
     throw new ApiError(
       'PAYMENT_REQUIRED',
-      'Downloading an invoice is on the paid plan. Subscribe in Settings.',
+      'Downloading an invoice requires the paid plan. Get it in Settings.',
     );
   if (draft?.unratedEntries.length)
     throw refused(unratedRefusal(draft.unratedEntries.map((e) => e.id)));
