@@ -103,11 +103,12 @@ async function checkOrder(
   update: Record<string, unknown>,
 ) {
   if (!update.started_at && update.ended_at === undefined) return null;
-  const { data: current } = await db
+  const { data: current, error } = await db
     .from('time_entries')
     .select('started_at, ended_at, draft_id')
     .eq('id', id)
     .maybeSingle();
+  if (error) throw error;
   if (!current) throw new ApiError('ENTRY_NOT_FOUND', 'Entry not found');
 
   const order = entryOrderRefusal(
