@@ -70,8 +70,6 @@ export function NumberFields({
         className="flex-1 basis-40"
         error={nextError}
       >
-        {/* No `max`: past the ceiling, the server's reason says what it is,
-            where a browser's bubble would only refuse (#506). */}
         <Input
           id={`${id}-next`}
           type="number"

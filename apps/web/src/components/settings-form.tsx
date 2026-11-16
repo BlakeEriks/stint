@@ -212,7 +212,7 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
           onChange={(key, text) => {
             setIdentityText((v) => ({ ...v, [key]: text }));
             if (key === 'email' && text !== '' && emailError(text)) return;
-            setIdentity(IDENTITY_KEYS[key], text || null);
+            setIdentity(IDENTITY_KEYS[key], text.trim() || null);
           }}
           error={(key) =>
             key === 'email' && identityText.email !== ''

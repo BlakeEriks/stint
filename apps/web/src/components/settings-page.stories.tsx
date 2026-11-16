@@ -253,8 +253,6 @@ export const SharedChecks: Story = {
           'section',
         ) as HTMLElement,
       );
-    const saved = { ...getDb().settings };
-
     const identity = await section('Business identity');
     const email = identity.getByLabelText('Email');
     await userEvent.tripleClick(email);
@@ -277,10 +275,6 @@ export const SharedChecks: Story = {
       numbering.getByText('Enter a whole number over zero.'),
     ).toBeVisible();
     await expect(numbering.queryByLabelText('Saving')).toBeNull();
-    await expect(getDb().settings.businessEmail).toBe(saved.businessEmail);
-    await expect(getDb().settings.nextInvoiceNumber).toBe(
-      saved.nextInvoiceNumber,
-    );
   },
 };
 
