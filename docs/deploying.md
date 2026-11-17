@@ -328,6 +328,7 @@ a channel that reports routine success teaches you to stop reading it.
 | Event | Message | Source |
 |---|---|---|
 | Release waiting for approval | ⏸ with the run link, where you approve | `release.yml`, `plan` |
+| Release still waiting, daily | ⏸ with how many merges it holds back, and the run link | `release-reminder.yml` |
 | Release failed, or its plan failed | ❌ with the run link | `release.yml`, `report` |
 | Backup failed, or a day passed without one | healthchecks.io's own | healthchecks.io → Discord |
 | App or database down, and its recovery | UptimeRobot's own | UptimeRobot → Discord |
@@ -401,7 +402,8 @@ The phone app reports to a third, `stint-mobile`, set up once:
    ```
 
 The webhook is the `DISCORD_ALERTS_WEBHOOK` repository secret, used by
-`release.yml` and nowhere else: anyone holding it can post to the channel.
+`release.yml` and `release-reminder.yml` and nowhere else: anyone holding it
+can post to the channel.
 
 ## 3d. Previews
 
