@@ -326,6 +326,40 @@ export function formatInvoiceNumber(prefix: string, sequence: number): string {
   return `${prefix}${String(sequence).padStart(4, '0')}`;
 }
 
+/** Drops what a filename or a quoted header value can't hold. */
+const filenamePart = (s: string) =>
+  s
+    .replace(/[\p{Cc}/\\:*?"<>|]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/**
+ * The PDF's `content-disposition`: `INV-0004 Jane Doe.pdf`. The sender is
+ * in the name because the client files invoices from many vendors, and
+ * every one of them has an `INV-0004`. A non-ASCII name rides in
+ * `filename*` (RFC 6266), with a transliterated ASCII `filename`.
+ */
+export function invoicePdfDisposition(
+  invoiceNumber: string,
+  sender: string | null,
+  attachment: boolean,
+): string {
+  const name = `${[invoiceNumber, sender ?? '']
+    .map(filenamePart)
+    .filter(Boolean)
+    .join(' ')}.pdf`;
+  const ascii = filenamePart(
+    name.normalize('NFKD').replace(/[^\x20-\x7e]/g, ''),
+  ).replace(/ \.pdf$/, '.pdf');
+  const header = `${attachment ? 'attachment' : 'inline'}; filename="${ascii}"`;
+  if (ascii === name) return header;
+  const encoded = encodeURIComponent(name).replace(
+    /['()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `${header}; filename*=UTF-8''${encoded}`;
+}
+
 /**
  * The period a new invoice starts with, for `today` (`YYYY-MM-DD`): a
  * scheduled client's last ended period. Without a schedule, the month whose

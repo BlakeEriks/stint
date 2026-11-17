@@ -1536,7 +1536,10 @@ test('the PDF renders from the frozen line items', async () => {
   });
   assert.equal(res.status, 200);
   assert.equal(res.headers.get('content-type'), 'application/pdf');
-  assert.match(res.headers.get('content-disposition') ?? '', /INV-0001\.pdf/);
+  assert.equal(
+    res.headers.get('content-disposition'),
+    'inline; filename="INV-0001 Sam Rivera.pdf"',
+  );
 
   const bytes = new Uint8Array(await res.arrayBuffer());
   assert.ok(

@@ -4,6 +4,7 @@ import {
   buildLineItems,
   defaultInvoicePeriod,
   formatInvoiceNumber,
+  invoicePdfDisposition,
   linesByUnit,
   parseTermsDays,
   paymentTermsText,
@@ -653,4 +654,41 @@ test('lines group by kind in print order, totalled in cents, empty kinds left ou
     linesByUnit([line('fixed', 500)]).map((k) => [k.unit, k.total]),
     [['fixed', 500]],
   );
+});
+
+test('invoicePdfDisposition names the file after the number and the sender', () => {
+  const cases: [string, string | null, boolean, string][] = [
+    ['INV-0004', 'Jane Doe', false, 'inline; filename="INV-0004 Jane Doe.pdf"'],
+    [
+      'INV-0004',
+      'Jane Doe',
+      true,
+      'attachment; filename="INV-0004 Jane Doe.pdf"',
+    ],
+    // An invoice whose snapshot has no sender keeps the number alone.
+    ['INV-0004', null, true, 'attachment; filename="INV-0004.pdf"'],
+    ['INV-0004', '  ', true, 'attachment; filename="INV-0004.pdf"'],
+    // What a filename or the quoted header can't hold is dropped.
+    [
+      'INV/0004',
+      'Doe "Design": A\\B  Co',
+      true,
+      'attachment; filename="INV0004 Doe Design AB Co.pdf"',
+    ],
+    // Non-ASCII goes in filename*, with a transliterated ASCII fallback.
+    [
+      'INV-0004',
+      'José Núñez',
+      true,
+      `attachment; filename="INV-0004 Jose Nunez.pdf"; filename*=UTF-8''INV-0004%20Jos%C3%A9%20N%C3%BA%C3%B1ez.pdf`,
+    ],
+    [
+      'INV-0004',
+      "山田 (O'Neil)",
+      true,
+      `attachment; filename="INV-0004 (O'Neil).pdf"; filename*=UTF-8''INV-0004%20%E5%B1%B1%E7%94%B0%20%28O%27Neil%29.pdf`,
+    ],
+  ];
+  for (const [number, sender, attachment, header] of cases)
+    assert.equal(invoicePdfDisposition(number, sender, attachment), header);
 });
