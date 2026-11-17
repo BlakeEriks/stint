@@ -3,12 +3,14 @@
 -- `supporting_detail`), so the lock protected nothing on the document and
 -- left a task spanning periods under two names. What moves money, rollups
 -- or ownership stays locked. The body is otherwise as last defined.
+--
+-- Invoker again, as before 20261110103554_connected_app_fence: a connected
+-- app may change only task_name (`t_entries_app_changes`, which fires
+-- first), so with task_name free it never reaches the lock; every other
+-- caller can read the invoice its entry is billed on.
 
 create or replace function guard_billed_entry() returns trigger
 language plpgsql
--- Definer, so the billed lock sees the invoice even when the caller's RLS
--- hides it, as it does from a connected app.
-security definer set search_path = public, pg_temp
 as $$
 declare
   inv_status text;

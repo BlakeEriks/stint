@@ -299,7 +299,6 @@ function stopEntry(entry: TimeEntry, endedAt: string): TimeEntry {
   return { ...entry, endedAt, durationSeconds: seconds };
 }
 
-/** As `lib/projects.ts`: unset, an entry takes its project's default. */
 /** What `guard_billed_entry` freezes: the time, money and project. */
 const BILLED_LOCK = [
   'startedAt',
@@ -309,6 +308,7 @@ const BILLED_LOCK = [
   'projectId',
 ] as const satisfies (keyof TimeEntry)[];
 
+/** As `lib/projects.ts`: unset, an entry takes its project's default. */
 const billableDefault = (db: Db, projectId: string | null | undefined) =>
   byId(db.projects, projectId)?.isBillableDefault ?? true;
 
