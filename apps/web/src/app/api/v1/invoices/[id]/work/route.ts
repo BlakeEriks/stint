@@ -33,7 +33,7 @@ export const POST = handle(async (req: Request, ctx: Ctx) => {
   if (!draft)
     throw new ApiError(
       'INVOICE_STATUS_CHANGED',
-      'Only a draft can take new work',
+      'Only a draft can take new work.',
       { from: data.status },
     );
   await holdNewWork(db, draft);

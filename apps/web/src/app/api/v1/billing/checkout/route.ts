@@ -17,7 +17,10 @@ export const POST = handle(async (req: Request) => {
 
   const current = await entitlement(db);
   if (current.plan === 'paid')
-    throw new ApiError('ALREADY_SUBSCRIBED', 'You are already subscribed');
+    throw new ApiError(
+      'ALREADY_SUBSCRIBED',
+      'You’re already on the paid plan.',
+    );
 
   // A returning subscriber keeps their customer, receipts and saved card.
   const { data: row, error } = await db

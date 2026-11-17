@@ -86,7 +86,10 @@ export async function readImport(
   if (files.length !== 1 || !(file instanceof File))
     throw new ApiError('VALIDATION_FAILED', 'Send exactly one file as "file"');
   if (file.size > MAX_BYTES)
-    throw new ApiError('VALIDATION_FAILED', 'The file is larger than 10 MB');
+    throw new ApiError(
+      'VALIDATION_FAILED',
+      'That file is over 10 MB. Export a shorter date range.',
+    );
 
   const timeZone = String(form?.get('timeZone') ?? '');
   if (!isValidTimeZone(timeZone))
