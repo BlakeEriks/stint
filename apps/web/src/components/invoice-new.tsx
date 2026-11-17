@@ -1092,7 +1092,8 @@ function Due({
  * Leaving the form with changes asks first. Nothing is saved unasked:
  * a draft takes a number and holds its period's work, so the user decides
  * whether one exists. Save draft is the form's own press, which opens the
- * draft; Discard goes where the link pointed.
+ * draft; Discard goes where the link pointed. Editing a draft, it reads
+ * Discard changes: the draft stays, and a bare Discard reads as deleting it.
  */
 function LeaveDialog({
   leaving,
@@ -1144,7 +1145,7 @@ function LeaveDialog({
       disabled={!canSave}
       error={press.error}
       secondary={{
-        label: 'Discard',
+        label: editing ? 'Discard changes' : 'Discard',
         onPress: () => {
           if (leaving !== null) router.push(leaving);
         },

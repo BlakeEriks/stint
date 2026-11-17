@@ -205,7 +205,8 @@ anticipation of one.
   is for what takes many records at once and can't come back, and says what
   changes, with the figures: Mark sent locks a draft's entries, Void and
   Delete draft release them, and Delete account. Leaving the invoice form
-  with changes asks in one too, with Discard as its secondary action, since
+  with changes asks in one too, with Discard (Discard changes, editing a
+  draft) as its secondary action, since
   a draft is saved only when asked (Constitution I). A press that can be
   taken back doesn't confirm.
 - **A dialog's or form's actions run secondary, Cancel, Save**: Save
