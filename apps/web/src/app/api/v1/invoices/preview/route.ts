@@ -92,7 +92,7 @@ async function loadHeldWork(
   const entries = rows.map((r) => ({ draftId: r.draft_id as string }));
   const { data: drafts, error } = await db
     .from('invoices')
-    .select('id, invoice_number')
+    .select('id, invoice_number, sequence_no')
     .in('id', [...new Set(entries.map((e) => e.draftId))]);
   if (error) throw error;
   return heldWork(
@@ -100,6 +100,7 @@ async function loadHeldWork(
     (drafts ?? []).map((d) => ({
       id: d.id as string,
       invoiceNumber: d.invoice_number as string,
+      sequenceNo: d.sequence_no as number,
     })),
     opts.draftId,
   );

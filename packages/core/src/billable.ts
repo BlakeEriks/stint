@@ -94,24 +94,25 @@ export function earlierWork(entries: { startedAt: string }[], tz: string) {
 
 /**
  * Of the entries the period would bill, those another draft holds, counted
- * by draft in number order: New invoice says where the period's work went.
+ * by draft in sequence, since a changed prefix leaves the numbers' text out
+ * of order: New invoice says where the period's work went.
  * The edited draft's are its own lines, so it is never one of them. Null
  * when there are none.
  */
 export function heldWork(
   entries: { draftId: string | null }[],
-  drafts: { id: string; invoiceNumber: string }[],
+  drafts: { id: string; invoiceNumber: string; sequenceNo: number }[],
   draftId?: string,
 ) {
   const holders = drafts
     .filter((d) => d.id !== draftId)
+    .sort((a, b) => a.sequenceNo - b.sequenceNo)
     .map(({ id, invoiceNumber }) => ({
       id,
       invoiceNumber,
       entryCount: entries.filter((e) => e.draftId === id).length,
     }))
-    .filter((d) => d.entryCount > 0)
-    .sort((a, b) => a.invoiceNumber.localeCompare(b.invoiceNumber));
+    .filter((d) => d.entryCount > 0);
   if (holders.length === 0) return null;
   return {
     entryCount: holders.reduce((n, d) => n + d.entryCount, 0),

@@ -191,10 +191,13 @@ for (const [entries, tz, expected, why] of [
   });
 
 const [A, B, EDITED] = ['draft-a', 'draft-b', 'draft-edited'];
+const [RENAMED] = ['draft-renamed'];
 const drafts = [
-  { id: B, invoiceNumber: 'INV-0014' },
-  { id: A, invoiceNumber: 'INV-0012' },
-  { id: EDITED, invoiceNumber: 'INV-0015' },
+  { id: B, invoiceNumber: 'INV-0014', sequenceNo: 14 },
+  { id: A, invoiceNumber: 'INV-0012', sequenceNo: 12 },
+  { id: EDITED, invoiceNumber: 'INV-0015', sequenceNo: 15 },
+  // The prefix changed after INV-0014: the number orders, not the text.
+  { id: RENAMED, invoiceNumber: 'ACME-0016', sequenceNo: 16 },
 ];
 const held = (...ids: (string | null)[]) => ids.map((draftId) => ({ draftId }));
 for (const [entries, expected, why] of [
@@ -217,6 +220,17 @@ for (const [entries, expected, why] of [
       ],
     },
     'two drafts, by number',
+  ],
+  [
+    held(RENAMED, B),
+    {
+      entryCount: 2,
+      drafts: [
+        { id: B, invoiceNumber: 'INV-0014', entryCount: 1 },
+        { id: RENAMED, invoiceNumber: 'ACME-0016', entryCount: 1 },
+      ],
+    },
+    'two drafts across a prefix change, by sequence',
   ],
   [
     held(EDITED, A),
