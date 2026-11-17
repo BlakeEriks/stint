@@ -57,9 +57,6 @@ to merge. `hygiene.yml` files issues each Monday from `pnpm hygiene`. Both
 spend Claude tokens from the `CLAUDE_CODE_OAUTH_TOKEN` secret, and only for
 the repository owner.
 
-`ci.yml` carries the reasons for its runner narrowings and caching at the
-lines they govern.
-
 ## 1. Branch protection
 
 Repo → Settings → Branches → Add rule for `main`:
@@ -72,7 +69,7 @@ Repo → Settings → Branches → Add rule for `main`:
   PRs green apart could break together; CI on the push to `main`, Vercel's
   build and the release approval catch that.
 - **Leave "include administrators" off.** Solo, you want the gate to hold by
-  default but to be bypassable at 2am when you are the only person who can
+  default but to be bypassable at 2 AM when you are the only person who can
   fix production.
 
 Then Settings → General → **Allow auto-merge**: `dependabot-merge.yml` uses
@@ -97,9 +94,9 @@ builds nothing, production included, until the next day.
 there, so `prebuild` still reaches `packages/design-tokens` — verified from a
 clean clone rather than assumed.
 
-It deliberately sets **no `outputDirectory`**: Next.js detection finds
-`.next` on its own, and naming it explicitly made the path resolve twice and
-failed a build that had otherwise succeeded.
+It deliberately sets **no `outputDirectory`**, because the Next.js preset
+finds `.next` on its own; naming it makes the path resolve twice and fails
+the build.
 
 Still set in the dashboard:
 - Environment variables, none of them sensitive but the Sentry upload token and
@@ -137,7 +134,8 @@ then aren't grandfathered.
   Stripe webhook has no user session, so it writes `subscriptions` as
   `service_role`. Without it, the webhook and the Checkout return fail with
   `500`, and so does `/api/v1/auth/code`, which the macOS and phone apps
-  sign in through. Never `NEXT_PUBLIC_`.
+  sign in through. Server-only: a `NEXT_PUBLIC_` prefix would ship it to
+  every browser.
 
 Push, for Production and Preview: `FCM_SERVICE_ACCOUNT` (**sensitive**),
 the whole JSON key of a Firebase service account allowed to send messages
@@ -156,7 +154,7 @@ In the Stripe dashboard, once:
   `STRIPE_WEBHOOK_SECRET`.
 - Billing → Customer portal: allow cancel at period end, resume, card
   update and invoice history.
-- Billing → Revenue recovery: Smart Retries, 8 attempts over 2 weeks, then
+- Billing → Revenue recovery: turn on Smart Retries, 8 attempts over 2 weeks, then
   cancel the subscription; emails on failed payment and before renewal.
 - Settings → Public details: the terms URL `https://runstint.com/terms`,
   which Checkout asks the user to accept.
@@ -192,10 +190,6 @@ migration scripts do, and they run in Actions.
   `release.yml` exactly — the action passes it through verbatim, with no
   `Vercel - <project>:` prefix despite what the docs' example looks like.
 
-  It carries the environment on purpose. Vercel warns that a status shared
-  across triggered runs gets overwritten, so a preview dispatch must never be
-  able to clobber the production result.
-
   The "use the `vercel/repository-dispatch/actions/status@v1` action" banner
   in that dialog is generic advice, not a correction — that is already what
   `release.yml` does.
@@ -226,16 +220,6 @@ answers requests, then requests `/api/v1/health` on the new build's own URL
 and fails on anything but 200. `report` writes the outcome as a commit
 status. Success promotes the deployment; failure leaves
 the old one serving, with **Force Promote** as the override.
-
-Two things that fail quietly if they drift, so they are worth re-reading
-before changing that file:
-
-- The condition is `client_payload.environment == 'production'`. Get the
-  field wrong and the job is skipped, no status is ever written, and the
-  deployment simply waits.
-- `report` is the only job that writes the final status, and it runs
-  whatever happened before it. Vercel's own status action cannot be used
-  here: with several jobs, it reports the first job's outcome, not its own.
 
 ## 3a. Deployment protection, and which URL you are testing
 
@@ -335,7 +319,7 @@ a channel that reports routine success teaches you to stop reading it.
 | A new unhandled error in the server or the browser | Sentry's own, with the stack trace | Sentry → Discord |
 | A new crash or error in the macOS or phone app | Sentry's own, with the stack trace | Sentry → Discord |
 
-Never posted: a release going live, a rejection or
+Silent: a release going live, a rejection or
 cancellation (you did it), a backup that worked (healthchecks.io is quiet
 until one does not arrive), and a `ready-for-qa` or `needs-input` label —
 the PR and issue lists are where you look for those.
