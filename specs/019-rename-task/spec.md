@@ -47,9 +47,12 @@ project. API only: no web, macOS or MCP surface yet. Stacks on #758 (PR
 - Q: Does a running entry rename? → A: Yes, as editing a running timer's
   task does, and its other devices hear about it as they do for that edit.
   (decided autonomously)
-- Q: Can a connected app, such as Claude through MCP, call it? → A: No. The
-  connected-app fence refuses its token everywhere but the MCP tools, and
-  the issue adds no tool. (decided autonomously)
+- Q: Can a connected app, such as Claude through MCP, call it? → A: Not
+  the route: `requireSession` refuses its token everywhere but the MCP
+  tools, and the issue adds no tool. The Data API can reach the function,
+  since the fence is by column and lets an app change `task_name`, but that
+  is no new capability: a filtered update on `time_entries` already renames
+  the same entries. (decided autonomously)
 
 ## Design
 

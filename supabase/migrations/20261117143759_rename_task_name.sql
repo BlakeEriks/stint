@@ -1,7 +1,7 @@
 -- #759: one request renames every entry carrying a task name.
 --
--- In SQL because the match, `lower(task_name)`, is one PostgREST filters
--- cannot say, and one statement renames all or none.
+-- In SQL because PostgREST's `ilike` would read `%`, `_` and `\` in the
+-- user's name as wildcards, so renaming `50% review` would rename other tasks.
 
 create or replace function rename_task_name(
   p_user_id     uuid,

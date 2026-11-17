@@ -3,9 +3,8 @@
 ## Where the match runs
 
 - **Decision**: a SQL function, `security invoker`, one `update`.
-- **Rationale**: the match is `lower(task_name) = lower(from)`, which
-  PostgREST filters cannot say; `ilike` would need `%`, `_` and `*`
-  escaped. One statement is also all-or-nothing (FR-006).
+- **Rationale**: PostgREST's `ilike` would read `%`, `_` and `\` in the
+  user's `from` as wildcards, so `50% review` would rename other tasks.
 - **Alternatives**: read the ids, then update by id: two round trips and a
   window between them.
 
