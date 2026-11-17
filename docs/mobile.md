@@ -6,7 +6,7 @@ with Today, Earned, and five recent tasks. Each screen's look is its
 `*.stories.tsx`.
 
 **It calls the web's own timer.** `packages/client` (`@stint/client`) holds
-`useTimer`, `useOptimisticMutation`, the query keys, `useFailedPress` and
+`useTimer`, `useOptimisticMutation`, the query keys, `usePressNotice` and
 the response types; the web and the phone each pass in their own `api`. The
 web's sends its cookie; the phone's (`src/request.ts`) sends a bearer token
 and refreshes the session once on a 401.

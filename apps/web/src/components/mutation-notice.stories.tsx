@@ -26,6 +26,19 @@ function Refused() {
   );
 }
 
+/** A re-dated entry the server took off its draft (`PATCH /entries/:id`). */
+function Released() {
+  const press = useOptimisticMutation({
+    queryKey: () => ['story'],
+    mutationFn: () => Promise.resolve({ releasedFrom: 'INV-0003' }),
+  });
+  return (
+    <button type="button" onClick={() => press.mutate()}>
+      Press
+    </button>
+  );
+}
+
 const meta = {
   title: 'Parts/MutationNotice',
   component: Refused,
@@ -42,3 +55,16 @@ const refuse: Story['play'] = async ({ canvasElement }) => {
 
 export const Desktop: Story = { ...desktop, play: refuse };
 export const Phone: Story = { ...phone, play: refuse };
+
+/** Moving an entry outside its draft's period says which draft it left. */
+export const LeftDraft: Story = {
+  ...desktop,
+  render: () => <Released />,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(page.getByRole('button', { name: 'Press' }));
+    await expect(
+      await page.findByText(/Taken off draft INV-0003/),
+    ).toBeVisible();
+  },
+};

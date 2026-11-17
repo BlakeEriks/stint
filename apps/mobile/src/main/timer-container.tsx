@@ -1,4 +1,4 @@
-import { useFailedPress, useTimer } from '@stint/client';
+import { usePressNotice, useTimer } from '@stint/client';
 import { formatClock, formatCurrency, uuidv7 } from '@stint/core';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -34,7 +34,7 @@ export function TimerContainer({
   const timer = useTimer(api, timeZone);
   const running = timer.running;
   const [settings, setSettings] = useState(false);
-  const failed = useFailedPress();
+  const failed = usePressNotice();
   const notificationsOff = useNotificationsOff(onNotificationsOn);
   const notice = chooseNotice(
     failed,

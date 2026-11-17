@@ -4,5 +4,5 @@ export * from './query-keys.ts';
 export * from './timer-presses.ts';
 export * from './use-timer.ts';
 export * from './use-interval.ts';
-export * from './failed-press.ts';
+export * from './press-notice.ts';
 export * from './app-now.ts';

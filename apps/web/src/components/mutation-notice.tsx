@@ -1,12 +1,12 @@
 'use client';
 
-import { useFailedPress } from '@stint/client';
+import { usePressNotice } from '@stint/client';
 import { X } from 'lucide-react';
 import { Toast, ToastRegion } from './toast';
 
-/** The newest failed press (`useFailedPress`), as a toast with a dismiss. */
+/** The newest press notice (`usePressNotice`), as a toast with a dismiss. */
 export function MutationNotice() {
-  const shown = useFailedPress();
+  const shown = usePressNotice();
 
   return (
     <ToastRegion>
