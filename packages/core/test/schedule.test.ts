@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { buildLineItems, type BillableEntry } from '../src/invoice.ts';
 import {
   buildSchedules,
+  type DetailBlock,
   paginateSchedules,
   pickSchedules,
 } from '../src/schedule.ts';
@@ -176,6 +177,38 @@ test('a heading is never stranded at the foot of a page', () => {
   );
   for (const page of pages)
     for (const block of page) assert.ok(block.rows.length >= 1);
+});
+
+test('pages break where they always have', () => {
+  // A block is its kind's initial, + when continued, its rows, T for a total.
+  const shape = (pages: DetailBlock[][]) =>
+    pages
+      .map((page) =>
+        page
+          .map(
+            (b) =>
+              `${b.kind[0]}${b.continued ? '+' : ''}${b.rows.length}${b.total === null ? '' : 'T'}`,
+          )
+          .join(' '),
+      )
+      .join(' | ');
+  const cases: [number, number, number, number, string][] = [
+    [6, 0, 0, 8, 'p5 | p+1T'],
+    [10, 0, 0, 8, 'p6 | p+4T'],
+    [5, 1, 0, 8, 'p5T | w1T'],
+    [4, 1, 1, 10, 'p4T | w1T d1T'],
+    [3, 4, 2, 9, 'p3T w1 | w+3T d1 | d+1T'],
+    [12, 7, 20, 10, 'p8 | p+4T w1 | w+6T | d8 | d+8 | d+4T'],
+  ];
+  for (const [p, w, d, perPage, expected] of cases) {
+    const schedules = {
+      project: rows(p),
+      week: rows(w) as never,
+      date: rows(d) as never,
+      totalHours: 1,
+    };
+    assert.equal(shape(paginateSchedules(schedules, perPage)), expected);
+  }
 });
 
 test('nothing chosen is no pages', () => {
