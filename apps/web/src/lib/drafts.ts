@@ -12,7 +12,7 @@ import {
   type LineItemRow,
   type PaymentProfileRow,
 } from './rows';
-import { selectAll } from './select-all';
+import { selectAll, type Read } from './select-all';
 import {
   billableExpenses,
   billingWindow,
@@ -59,6 +59,56 @@ async function loadClient(
   return data as ClientRow;
 }
 
+/** The ids of the client's projects, which its entries are read by. */
+export async function clientProjectIds(db: SupabaseClient, clientId: string) {
+  const { data, error } = await db
+    .from('projects')
+    .select('id')
+    .eq('client_id', clientId);
+  if (error) throw error;
+  return (data ?? []).map((p) => p.id as string);
+}
+
+/**
+ * The client's finished entries on no invoice and not billed elsewhere, one
+ * page's read for `selectAll`, oldest first. `drafts` picks whose: `free`, held by no
+ * draft or by `draftId`, the one edited; `held`, by `draftId` alone, at any
+ * date; `others`, by some draft. Every scope but `held` is read in `window`.
+ */
+export function unbilledEntries(
+  db: SupabaseClient,
+  opts: {
+    projectIds: string[];
+    select: string;
+    drafts: 'free' | 'held' | 'others';
+    draftId?: string;
+    window?: { start: Date; end: Date };
+    billableOnly?: boolean;
+  },
+): Read<Record<string, unknown>> {
+  const base = db
+    .from('time_entries')
+    // Typed as `*`: the client has no schema types, so each row is a record
+    // its caller reads by the columns it asked for.
+    .select(opts.select as '*')
+    .in('project_id', opts.projectIds)
+    .is('invoice_id', null)
+    .eq('invoiced_elsewhere', false)
+    .not('ended_at', 'is', null)
+    .order('started_at', { ascending: true });
+  const q = opts.billableOnly ? base.eq('is_billable', true) : base;
+  if (opts.drafts === 'held') return q.eq('draft_id', opts.draftId!);
+  const windowed = q
+    .gte('started_at', opts.window!.start.toISOString())
+    .lt('started_at', opts.window!.end.toISOString());
+  if (opts.drafts === 'others') return windowed.not('draft_id', 'is', null);
+  return windowed.or(
+    opts.draftId
+      ? `draft_id.is.null,draft_id.eq.${opts.draftId}`
+      : 'draft_id.is.null',
+  );
+}
+
 /**
  * The client's entries a draft bills, carrying every rate level so the
  * line-item builder can resolve without further queries. `held`, the ones
@@ -90,26 +140,16 @@ async function loadBillableEntries(
 
   const window = billingWindow(opts.periodStart, opts.periodEnd, opts.tz);
 
-  const rows = await selectAll(() => {
-    const q = db
-      .from('time_entries')
-      .select(
+  const rows = await selectAll(() =>
+    unbilledEntries(db, {
+      projectIds: [...byId.keys()],
+      select:
         'id, task_name, project_id, started_at, ended_at, duration_seconds, is_billable, rate_override, invoice_id, invoiced_elsewhere',
-      )
-      .in('project_id', [...byId.keys()])
-      .is('invoice_id', null)
-      .eq('invoiced_elsewhere', false)
-      .not('ended_at', 'is', null);
-    const scoped = opts.held
-      ? q.eq('draft_id', opts.draftId!)
-      : (opts.draftId
-          ? q.or(`draft_id.is.null,draft_id.eq.${opts.draftId}`)
-          : q.is('draft_id', null)
-        )
-          .gte('started_at', window.start.toISOString())
-          .lt('started_at', window.end.toISOString());
-    return scoped.order('started_at', { ascending: true });
-  });
+      drafts: opts.held ? 'held' : 'free',
+      draftId: opts.draftId,
+      window,
+    }),
+  );
 
   const billed = opts.held
     ? rows
@@ -134,7 +174,7 @@ async function loadBillableEntries(
       startedAt: row.started_at as string,
       durationSeconds: (row.duration_seconds as number) ?? 0,
       isBillable: row.is_billable as boolean,
-      rateOverride: num(row.rate_override),
+      rateOverride: num(row.rate_override as string | null),
       projectRate: num(project?.hourly_rate),
       clientRate: opts.clientRate,
       userDefaultRate: opts.userDefaultRate,
