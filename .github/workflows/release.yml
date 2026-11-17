@@ -227,7 +227,9 @@ jobs:
   # The one place the final status is written. Vercel promotes on success
   # only, so anything short of a migrated, verified database and a build that
   # answers — a rejection, a failed backup, a failed migration, a failed
-  # health check — leaves the previous build serving.
+  # health check — leaves the previous build serving. Vercel's own status
+  # action cannot be used here: with several jobs, it reports the first
+  # job's outcome, not the release's.
   #
   # The context must match the "Check Name" in Vercel -> Settings -> Git ->
   # Deployment Checks, and carries the environment so a preview dispatch
