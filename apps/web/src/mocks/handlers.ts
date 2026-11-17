@@ -300,6 +300,15 @@ function stopEntry(entry: TimeEntry, endedAt: string): TimeEntry {
 }
 
 /** As `lib/projects.ts`: unset, an entry takes its project's default. */
+/** What `guard_billed_entry` freezes: the time, money and project. */
+const BILLED_LOCK = [
+  'startedAt',
+  'endedAt',
+  'isBillable',
+  'rateOverride',
+  'projectId',
+] as const satisfies (keyof TimeEntry)[];
+
 const billableDefault = (db: Db, projectId: string | null | undefined) =>
   byId(db.projects, projectId)?.isBillableDefault ?? true;
 
@@ -532,7 +541,10 @@ export const handlers = {
       return refuse(refusals.markInvoiced);
     if (patch.invoicedElsewhere && !entry.endedAt)
       return refuse(refusals.markRunning);
-    if (byId(db.invoices, entry.invoiceId)?.status.match(/sent|paid|void/))
+    if (
+      byId(db.invoices, entry.invoiceId)?.status.match(/sent|paid|void/) &&
+      BILLED_LOCK.some((k) => k in patch && patch[k] !== entry[k])
+    )
       return refuse(refusals.entryLocked('modified'));
     db.entries[i] = withDuration({ ...entry, ...patch });
     return ok(schema.TimeEntry, db.entries[i]);

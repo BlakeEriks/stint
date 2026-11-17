@@ -101,8 +101,7 @@ function server(token: string): McpServer {
   s.registerTool(
     'rename_entry_task',
     {
-      description:
-        "Rename one entry's task. An entry on an issued invoice can't be changed.",
+      description: "Rename one entry's task.",
       inputSchema: McpTools.rename_entry_task,
     },
     ({ id, taskName }) =>

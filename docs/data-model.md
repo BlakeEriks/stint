@@ -340,10 +340,9 @@ expenses in the voiding update itself (`release_voided_invoice`).
 ### Billed entries are immutable
 A trigger blocks edits and deletes once an entry belongs to a **non-draft**
 invoice. The guarded fields are `started_at`, `ended_at`, `is_billable`,
-`rate_override`, `project_id` **and `task_name`** — the last because the task
-name becomes the invoice line description, so editing it after issue changes
-what the client was told they were billed for, even when the money is
-unchanged.
+`rate_override`, `project_id` and `user_id`. `task_name` renames freely, as a
+project's name does: the invoice froze its line descriptions when sent, so a
+billed entry may show a newer name than its PDF until void and reissue.
 
 Work a draft holds points at it through `draft_id`, which locks nothing;
 only `invoice_id`, set when it is sent, locks work.

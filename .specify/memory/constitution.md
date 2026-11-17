@@ -113,8 +113,8 @@ Facts a design works around:
 - **One running timer per user**, enforced by the index
   `one_running_timer_per_user`. An import or sync never writes a second open
   entry.
-- **An issued invoice and the entries it bills are immutable.** A correction
-  is void and reissue. Money is `numeric(12,2)`.
+- **An issued invoice, and the time and money of the entries it bills, are
+  immutable.** A correction is void and reissue. Money is `numeric(12,2)`.
 - **Record ids are client-generated** (`uuidv7()` in `@stint/core`), so a
   retried insert lands on the same row.
 - **Clients and projects are archived, never deleted**; invoices reference
@@ -140,4 +140,4 @@ change, the plausible design that breaks it, and why no check catches that
 in time. The version follows semver: MAJOR removes or redefines a principle,
 MINOR adds one, PATCH rewords. The reasoning goes in the PR.
 
-**Version**: 8.3.2 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-10-29
+**Version**: 8.3.3 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-11-17

@@ -431,7 +431,7 @@ test('a create replayed with the same id is idempotent', async () => {
   }
 });
 
-test('editing an entry billed on a sent invoice returns 409 ENTRY_LOCKED', async () => {
+test('an entry billed on a sent invoice renames, but its time is 409 ENTRY_LOCKED', async () => {
   const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
   const { PATCH: patch, DELETE: del } = await import(
     '../src/app/api/v1/entries/[id]/route.ts'
@@ -465,9 +465,19 @@ test('editing an entry billed on a sent invoice returns 409 ENTRY_LOCKED', async
     id,
   ]);
 
-  const ctx = { params: Promise.resolve({ id }) };
+  const ctx = () => ({ params: Promise.resolve({ id }) });
+  // The invoice froze its own line descriptions, so the name is free.
+  const renamed = await json(
+    await patch(req(`/entries/${id}`, { taskName: 'Changed' }, 'PATCH'), ctx()),
+  );
+  assert.equal(renamed.status, 200);
+  assert.equal(renamed.body.taskName, 'Changed');
+
   const edit = await json(
-    await patch(req(`/entries/${id}`, { taskName: 'Changed' }, 'PATCH'), ctx),
+    await patch(
+      req(`/entries/${id}`, { endedAt: '2026-09-11T11:00:00Z' }, 'PATCH'),
+      ctx(),
+    ),
   );
   assert.equal(edit.status, 409);
   assert.equal(edit.body.code, 'ENTRY_LOCKED');
@@ -4964,27 +4974,14 @@ test('each MCP tool answers with its route, and a refusal is the tool’s error'
   const { clientId, projectId } = await seedClientAndProject();
   const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
   const open = '018f0000-0000-7000-8000-000000000c01';
-  const billed = '018f0000-0000-7000-8000-000000000c02';
-  for (const id of [open, billed]) {
-    await create(
-      req('/entries', {
-        id,
-        projectId,
-        taskName: 'Old name',
-        startedAt: '2026-09-11T09:00:00Z',
-        endedAt: '2026-09-11T10:00:00Z',
-      }),
-    );
-  }
-  await pool.query(
-    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status)
-     select 'ff000000-0000-4000-8000-0000000000c1',$1,client_id,'INV-0001',1,'sent'
-     from projects where id=$2`,
-    [USER, projectId],
-  );
-  await pool.query(
-    `update time_entries set invoice_id='ff000000-0000-4000-8000-0000000000c1' where id=$1`,
-    [billed],
+  await create(
+    req('/entries', {
+      id: open,
+      projectId,
+      taskName: 'Old name',
+      startedAt: '2026-09-11T09:00:00Z',
+      endedAt: '2026-09-11T10:00:00Z',
+    }),
   );
 
   // Each tool's answer carries the field only its own handler returns.
@@ -5025,10 +5022,10 @@ test('each MCP tool answers with its route, and a refusal is the tool’s error'
     assert.ok(reached(JSON.parse(text)), name);
   }
 
-  const locked = await tool('rename_entry_task', {
-    id: billed,
+  const refused = await tool('rename_entry_task', {
+    id: '018f0000-0000-7000-8000-000000000c02',
     taskName: 'New name',
   });
-  assert.equal(locked.isError, true);
-  assert.match(locked.text, /^ENTRY_LOCKED: /);
+  assert.equal(refused.isError, true);
+  assert.match(refused.text, /^ENTRY_NOT_FOUND: /);
 });

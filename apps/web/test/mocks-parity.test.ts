@@ -455,6 +455,17 @@ const writes: Record<string, [Scenario, (db: Db) => Write]> = {
       method: 'PATCH',
       url: `/api/v1/entries/${billedOn(db, 13)}`,
       params: { id: billedOn(db, 13) },
+      body: { endedAt: '2026-08-06T16:00:00.000Z' },
+    }),
+  ],
+  'rename a billed entry': [
+    'seeded',
+    (db) => ({
+      handler: 'updateEntry',
+      route: 'entries/[id]',
+      method: 'PATCH',
+      url: `/api/v1/entries/${billedOn(db, 13)}`,
+      params: { id: billedOn(db, 13) },
       body: { taskName: 'Renamed' },
     }),
   ],
