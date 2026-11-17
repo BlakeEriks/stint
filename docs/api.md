@@ -1,23 +1,16 @@
-# API Contract — `/api/v1/*`
+# API contract — `/api/v1/*`
 
 Every client (web and the macOS app) uses these endpoints, and an endpoint
 not built yet is marked `(not implemented)`. Auth is a Supabase JWT as
 `Authorization: Bearer <token>`, on every endpoint except `/health`,
 `/auth/code` and the Stripe webhook, which Stripe's signature authenticates
-instead. A connected app's token (one carrying `client_id`, from the OAuth
-server under [MCP](#mcp)) is `401` everywhere here; it reaches only the MCP
+instead. A connected app's token (one carrying `client_id`, see
+[`/api/mcp`](#apimcp)) is `401` everywhere here; it reaches only the MCP
 tools. Request/response shapes are defined in
 `packages/schema/src/`, one file per resource — that is the source of truth, and every
 route parses its request against it; this document is the map.
 
-Handlers are covered by integration tests that run the real route code against
-a real Postgres instance with the real migrations applied
-(`apps/web/test/routes.test.ts`, `apps/web/test/invoices.test.ts`) — so the
-timer index and immutability triggers are genuinely exercised rather than
-mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
-separately**, connecting as a non-superuser role with the policies live.
-
-Every handler is covered — 58 of 58, counting handlers rather than files.
+Every handler has a test against real Postgres (`.claude/rules/testing.md`).
 `/connected-apps` needs a real Auth server, so `apps/web/test/auth.test.ts`
 covers it.
 
@@ -57,7 +50,7 @@ written.
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/entries` | `?from&to&projectId&clientId&limit` (1–500, default 200), newest first. **`projectId=none`** returns entries with no project at all — an absent parameter already means "every entry", so there was otherwise no way to ask for the ones the inbox surfaces. A running entry's `durationSeconds` is its length at the response, not null; `endedAt: null` is what marks it running. |
+| `GET` | `/entries` | `?from&to&projectId&clientId&limit` (1–500, default 200), newest first. **`projectId=none`** returns entries with no project, the ones the inbox surfaces. A running entry's `durationSeconds` is its length at the response, not null; `endedAt: null` is what marks it running. |
 | `GET` | `/entries/:id` | |
 | `POST` | `/entries` | Manual entry. `id` is client-supplied (UUIDv7) so a retry is idempotent. Always complete — `endedAt` required, and `422 VALIDATION_FAILED` if it is at or before `startedAt`. **`isBillable` omitted takes the project's billable default**, and is billable with no project. |
 | `PATCH` | `/entries/:id` | **`409 ENTRY_LOCKED`** if billed on a non-draft invoice, and **`409 ENTRY_ALREADY_INVOICED`** for `invoicedElsewhere: true` on an entry on an invoice (`409 TIMER_ALREADY_RUNNING` on a running one). Returns `409 TIMER_ALREADY_RUNNING` if clearing `endedAt` would reopen this entry while another timer runs, and `422 VALIDATION_FAILED` if the patch would leave `endedAt` at or before `startedAt`. A `startedAt` outside the period of the draft holding the entry lets go of it ([`draft_id`](data-model.md#time_entries)). `?include` returns `{ entry, included }` instead of the entry ([Including what a write changed](#including-what-a-write-changed)). |
@@ -142,7 +135,7 @@ at. `monthlyTarget` is a setting this field does not read.
 
 `month.series` steps on business days **only** and carries one point per
 business day of the month: the cumulative `actual`, **null past today**,
-because a line held level to the 31st reads as a month that stopped working.
+because a line held level to month end reads as a month that stopped working.
 Weekend work is carried onto the next business day's point, so the last
 non-null `actual` always equals `month.earned` — the hero figure is the
 line's own last point, never a separate sum, since the projection
@@ -173,8 +166,8 @@ chain resolves to null, because that time was worked and it sets the bar's
 height; `amount` excludes it and is **null** on a day that resolves no rate,
 so the bar prints no figure rather than `$0`. A rate of exactly `0` is a real
 rate — it counts in `seconds` and contributes `0.00`. The week runs its own
-window over `revenue_by_day`, since a week straddles the 1st and the month's
-rows stop at the boundary.
+window over `revenue_by_day`, since a week can straddle two months and the
+month's rows stop at the boundary.
 
 **`attention` is derived per request** from stored facts, with grace periods:
 an invoice is overdue at `due_date` + 7 days, a draft stale 7 days after
@@ -267,9 +260,9 @@ reaches the database constraint, which is mapped to the same `422`.
 A client carries `paymentProfileId` on `POST` and `PATCH` — every field of
 `Client` is writable except `id` and `archivedAt`.
 
-`billingSchedule` is `null`, `{ period: 'semimonthly' | 'monthly' }` or
-`{ period: 'weekly' | 'biweekly', anchor }`, one value so the period and its
-anchor change together. Omitted on a `PATCH`, it stays; a weekly schedule
+`billingSchedule` is one value, so the period and its anchor change together:
+`null`, `{ period: 'semimonthly' | 'monthly' }`, or
+`{ period: 'weekly' | 'biweekly', anchor }`. Omitted on a `PATCH`, it stays; a weekly schedule
 without an anchor, or an anchor on a calendar period, is `422`.
 
 `paymentTermsDays` is whole days from issue to due, 0 to 365: required in
@@ -282,7 +275,7 @@ zone is `422`.
 
 **Money is cents.** Every rate and amount is validated as a non-negative
 multiple of `0.01`, so `10.005` is a `422` rather than a silently rounded
-rate. `0` is a real rate, distinct from `null`, which means "fall back".
+rate. `0` is a real rate, distinct from `null`, which falls back to the next level.
 
 ## Invoicing
 
@@ -309,8 +302,8 @@ and one-off expenses that no other draft holds, so two drafts never show the
 same work, and work logged later joins only when the owner adds it. Holding
 is not billing: held work still reads as unbilled everywhere else. A draft
 lets go of its work when it is deleted or sent, when an edit's build leaves
-it out, when an entry moves to another client, by its own project or a
-whole project, and when an entry's start moves outside its period
+it out, when an entry moves to another client (it changes project, or its
+project changes client), and when an entry's start moves outside its period
 ([data model](data-model.md#invoices--invoice_line_items)).
 
 **Status transitions are constrained:** draft→sent/void, sent→paid/void,
@@ -354,7 +347,7 @@ by every one when `recurring`. The amount is in the client's currency.
 | Method | Path | Notes |
 |---|---|---|
 | `GET` | `/expenses` | `?clientId&status` — `status` is `open` (default: recurring, unbilled, and on a sent invoice) or `unbilled` (recurring and unbilled). Recurring first, then oldest `spentOn`. Each expense carries `invoiceNumber` and `invoiceStatus` once billed, and `draftId` while a draft holds it. |
-| `POST` | `/expenses` | `{ id, clientId, recurring?, spentOn?, description, amount }`. `spentOn` is required for a one-off and refused with `recurring: true`. `id` is a client-generated UUIDv7, so a retry returns the stored row with `200`. `amount` is above zero. |
+| `POST` | `/expenses` | `{ id, clientId, recurring?, spentOn?, description, amount }`. `spentOn` is required for a one-off and refused with `recurring: true`. `id` is a client-generated UUIDv7, so a retry returns the stored row with `200`. `amount` is greater than zero. |
 | `PATCH` | `/expenses/:id` | Any field from `POST` but `id` and `clientId`. `recurring: true` clears `spentOn`; `false` needs one. **`409 EXPENSE_LOCKED`** once billed on a non-draft invoice; `422` to make a billed one recurring. |
 | `DELETE` | `/expenses/:id` | Same lock. A recurring one can always go; invoices that billed it keep their line. |
 
@@ -439,7 +432,7 @@ holds them; these call its grants API with the caller's token.
 | `GET` | `/connected-apps` | `{ apps: [{ clientId, name, grantedAt }] }` |
 | `DELETE` | `/connected-apps/:clientId` | `204`. The app's tokens are refused from its next request. `404 ENTRY_NOT_FOUND` for an app the user hasn't approved. |
 
-## MCP
+## `/api/mcp`
 
 `/api/mcp`, outside `/api/v1`, is a stateless Streamable HTTP MCP server. It never pushes, so `GET`
 answers `405` rather than opening a stream.
@@ -540,7 +533,7 @@ asking for too many codes; its message says when to ask again.
 ## Timezones
 
 `GET /summary`, `GET /stats` and `GET /calendar` accept a `tz` query
-parameter (IANA, e.g. `America/Sao_Paulo`). "Today" is a local-calendar
+parameter (IANA, for example `America/Sao_Paulo`). "Today" is a local-calendar
 question and the server cannot infer the caller's zone, so the client states
 it; an invalid zone falls back to UTC rather than failing the request, because
 a view that renders in the wrong zone beats a view that does not render.
