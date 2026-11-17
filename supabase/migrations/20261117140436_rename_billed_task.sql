@@ -6,8 +6,9 @@
 --
 -- Invoker again, as before 20261110103554_connected_app_fence: a connected
 -- app may change only task_name (`t_entries_app_changes`, which fires
--- first), so with task_name free it never reaches the lock; every other
--- caller can read the invoice its entry is billed on.
+-- first), so with task_name free it never reaches the lock. An entry pointed
+-- at an invoice its owner can't see locks nothing, since nothing on that
+-- invoice depends on it: its lines froze when it was sent.
 
 create or replace function guard_billed_entry() returns trigger
 language plpgsql
