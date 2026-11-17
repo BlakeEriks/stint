@@ -117,6 +117,6 @@ landing lines show the voice, not final copy.
 | Wrong sign-in code | That code didn't work. Codes work once and expire after 24 hours. [Send a new code] |
 | Void invoice | **Void INV-0042?** Its 38 entries ($4,250.00) go back to unbilled, ready for a new invoice. INV-0042 isn't reused. You can't undo this. [Void invoice] [Keep it] |
 | Server error | Request failed. Tracked time is unaffected. [Retry] |
-| Sign-in email | Subject *Sign in to Stint*. [Sign in] Or enter this code in the Mac app: 482 913. The link and code work once and expire after 24 hours. If you didn't request this, ignore this email. |
+| Sign-in email | Subject *Sign in to Stint*. [Sign in] Or enter this code in the Mac or phone app: 482 913. The link and code work once and expire after 24 hours. If you didn't request this, ignore this email. |
 | Month-end notification | **October is over.** $6,180 of work is unbilled across 3 clients. Create the invoices. |
 | Paid plan | Once beta ends, downloading an invoice requires the paid plan: $3.33/month, billed annually. [Get the paid plan] |
