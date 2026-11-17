@@ -180,19 +180,29 @@ export function InvoicePreviewCard({
       // bounded: what is above stays, and the sheet moves as a page does,
       // edge and all. It takes the column's margin, so the sheet is cut at
       // the panel's foot and not short of it.
-      className="flex flex-col xl:-mx-[18px] xl:-mb-[18px] xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:px-[18px] xl:pb-[18px]"
+      // `pt` leaves room for the Preview label, which straddles the sheet's
+      // top edge and the scroller would otherwise clip.
+      className={`flex flex-col xl:-mx-[18px] xl:-mb-[18px] xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:px-[18px] xl:pb-[18px] ${heading ? 'pt-3' : ''}`}
     >
-      {/* Hidden, not dropped: the schedules' headings sit under it. */}
-      <h2 id="inv-preview" className="sr-only">
-        {heading ? 'Preview' : 'Invoice'}
-      </h2>
       {/* New invoice says so beside Save draft; an issued invoice here. */}
       {edit ? null : (
         <p className="px-1 pb-2.5 text-right type-support text-subtle">
           {updating ? 'Updating…' : null}
         </p>
       )}
-      <div className={`@container/card flex flex-col gap-5 ${SHEET}`}>
+      <div className={`@container/card relative flex flex-col gap-5 ${SHEET}`}>
+        {/* A preview is labeled on its top edge, centered on the border; an
+            issued invoice is the invoice, so its heading is only read. */}
+        <h2
+          id="inv-preview"
+          className={
+            heading
+              ? 'absolute top-0 left-4 -translate-y-1/2 rounded-xs border border-edge-default bg-surface-elevated px-2 py-0.5 type-label text-subtle'
+              : 'sr-only'
+          }
+        >
+          {heading ? 'Preview' : 'Invoice'}
+        </h2>
         <Header
           business={business}
           noSender={noSender}
@@ -863,7 +873,7 @@ function Lines({
   );
 }
 
-const SHEET = 'rounded-xs border border-edge-subtle bg-surface-elevated p-6';
+const SHEET = 'rounded-xs border border-edge-default bg-surface-elevated p-6';
 
 /** The id of New invoice's notice that the summary line is empty. */
 export const SUMMARY_ERROR = 'inv-summary-error';
