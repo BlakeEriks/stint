@@ -2322,7 +2322,7 @@ test('recording an expense is idempotent on its id', async () => {
   assert.equal(rows[0].n, 1, 'the cost is recorded once');
 });
 
-test('an expense under a client that is not the caller’s is “No such client”', async () => {
+test('an expense under a client that is not the caller’s is refused as no such client', async () => {
   const { POST: create } = await import('../src/app/api/v1/expenses/route.ts');
   const res = await json(
     await create(
@@ -3411,6 +3411,37 @@ test('a project moved to another client takes its held entries out of the draft'
     [D(1)],
   );
   assert.equal(rows[0].draft_id, null, 'free for the other client’s drafts');
+});
+
+test("an entry re-dated out of its draft's period leaves it", async () => {
+  const r = await live();
+  const { PATCH: edit } = await import(
+    '../src/app/api/v1/entries/[id]/route.ts'
+  );
+  const october = { periodStart: '2026-10-01', periodEnd: '2026-10-31' };
+  await seedEntry({ id: D(1), start: '2026-10-05T15:00:00Z' });
+  await seedEntry({ id: D(2), start: '2026-10-06T15:00:00Z' });
+  await r.create(req('/invoices', { clientId: CLIENT, ...october }));
+  const redate = async (id: string, startedAt: string) => {
+    const res = await edit(
+      req(
+        '/entries/x',
+        { startedAt, endedAt: startedAt.replace('T15', 'T16') },
+        'PATCH',
+      ),
+      at(id),
+    );
+    assert.equal(res.status, 200, JSON.stringify(await res.json()));
+  };
+  await redate(D(1), '2026-09-28T15:00:00Z');
+  await redate(D(2), '2026-10-31T15:00:00Z');
+
+  const { rows } = await pool.query(
+    'select draft_id from time_entries where id = any($1) order by id',
+    [[D(1), D(2)]],
+  );
+  assert.equal(rows[0].draft_id, null, 'September is outside the draft');
+  assert.notEqual(rows[1].draft_id, null, 'still in October, still held');
 });
 
 test('reading a draft writes nothing', async () => {

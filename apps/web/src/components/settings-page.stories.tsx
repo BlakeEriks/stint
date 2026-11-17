@@ -233,9 +233,48 @@ export const NextNumberCeiling: Story = {
     await userEvent.clear(field);
     await userEvent.type(field, '1000000');
     await expect(
-      await page.findByText(/can't go above 999999/, {}, { timeout: 3000 }),
+      await page.findByText(/go above 999999/, {}, { timeout: 3000 }),
     ).toBeVisible();
     await expect(field).toHaveValue(16);
+  },
+};
+
+/** The checks New invoice's dialogs make hold here too: an email in the
+    wrong shape, or a next number that isn't a whole number over zero, says
+    why at its field and isn't saved. Prefix stops at 20 characters, and
+    Next number has no browser ceiling: past it, the server's reason shows. */
+export const SharedChecks: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const section = async (name: string) =>
+      within(
+        (await page.findByRole('heading', { name })).closest(
+          'section',
+        ) as HTMLElement,
+      );
+    const identity = await section('Business identity');
+    const email = identity.getByLabelText('Email');
+    await userEvent.tripleClick(email);
+    await userEvent.keyboard('sam@');
+    await expect(
+      identity.getByText('Enter an email like you@example.com.'),
+    ).toBeVisible();
+    await expect(identity.queryByLabelText('Saving')).toBeNull();
+
+    const numbering = await section('Invoice numbering');
+    const next = numbering.getByLabelText('Next number');
+    await expect(next).not.toHaveAttribute('max');
+    await expect(numbering.getByLabelText('Prefix')).toHaveAttribute(
+      'maxLength',
+      '20',
+    );
+    await userEvent.tripleClick(next);
+    await userEvent.keyboard('0');
+    await expect(
+      numbering.getByText('Enter a whole number over zero.'),
+    ).toBeVisible();
+    await expect(numbering.queryByLabelText('Saving')).toBeNull();
   },
 };
 

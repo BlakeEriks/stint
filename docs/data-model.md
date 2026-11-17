@@ -226,6 +226,10 @@ billed. It is cleared when:
 - an entry moves to another client: its own project
   (`release_moved_entry`), or the whole project (`release_moved_project`,
   for each of its entries). An expense's client can't be changed.
+- an entry's start moves outside the draft's period, read in the draft's
+  zone: `PATCH /entries/:id` lets go of it, since a trigger can't read a
+  period of local dates. An invoice whose period holds its new date can
+  bill it.
 
 An entry made non-billable or marked billed elsewhere stays held but is
 priced on no draft; `send_draft` then lets go of it. A deleted entry is

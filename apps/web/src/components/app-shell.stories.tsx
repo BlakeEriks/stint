@@ -102,7 +102,7 @@ export const RailAligned: Story = { ...laptop, play: railMeetsPanel };
 
 const workspace = (
   <Page workspace>
-    <h1 className="type-title text-strong">A workspace</h1>
+    <h1 className="type-title text-strong">A wide screen</h1>
   </Page>
 );
 

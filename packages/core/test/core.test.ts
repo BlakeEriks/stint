@@ -12,6 +12,7 @@ import {
   currencySymbol,
   formatCurrency,
   formatHours,
+  formatDate,
   formatLocalTime,
   formatQuantity,
 } from '../src/format.ts';
@@ -132,6 +133,11 @@ test('formatHours keeps the 2dp the amount was computed from', () => {
   assert.equal(formatHours(1.5), '1.50');
   assert.equal(formatHours(0), '0.00');
   assert.equal(formatHours(10), '10.00');
+});
+
+test('formatDate reads a calendar date as written', () => {
+  assert.equal(formatDate('2026-11-01'), 'Nov 1, 2026');
+  assert.equal(formatDate('2026-12-31'), 'Dec 31, 2026');
 });
 
 test('formatLocalTime is 12-hour in the zone it is given', () => {

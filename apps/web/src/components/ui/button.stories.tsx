@@ -26,7 +26,7 @@ export const Destructive: Story = {
 };
 
 export const Disabled: Story = {
-  args: { disabled: true, children: 'Send invoice' },
+  args: { disabled: true, children: 'Mark sent' },
 };
 
 export const Sizes: Story = {

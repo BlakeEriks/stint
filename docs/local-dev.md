@@ -24,18 +24,19 @@ Then write `apps/web/.env.development.local`:
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH
 SUPABASE_DB_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres
+SUPABASE_SECRET_KEY=<Secret from supabase status>
 ```
 
 Those are Supabase's fixed local development credentials — identical on every
 machine, published in Supabase's own docs, stable across resets. Nothing here
-is a secret.
+is a secret, not even the local secret key. Without it, a sign-in code asked
+for by the Mac or phone app fails with a server error, and a web tab sees
+another client's timer change only when it polls.
 
 Billing stays hidden locally until `BILLING_LIVE=true` and Stripe
 **test-mode** keys are added here too: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` and `STRIPE_WEBHOOK_SECRET` (from
-`stripe listen --forward-to localhost:3100/api/v1/billing/webhook`), plus
-`SUPABASE_SECRET_KEY` from `supabase status`, which the webhook writes
-with. The same key is what the server broadcasts timer changes with, so
-without it a web tab sees another client's change only when it polls. With billing live, the invoice gate is on
+`stripe listen --forward-to localhost:3100/api/v1/billing/webhook`). The
+webhook writes with `SUPABASE_SECRET_KEY`. With billing live, the invoice gate is on
 too: a free account's invoice PDF answers `402 PAYMENT_REQUIRED`, and the
 invoice screen offers *Get the paid plan to download* in place of *Download PDF*.
 
@@ -90,6 +91,10 @@ passed at the root has no script to reach:
 ```bash
 cd ../stint-<branch>/apps/web && PORT=3101 pnpm dev
 ```
+
+A session starts it in the background and leaves it up while the worktree is
+open, so the owner can use it. A server started in Claude's preview pane
+stops at the end of a turn.
 
 A magic link carries the port it was requested from, so sign in from the
 worktree's own URL and its link returns there.

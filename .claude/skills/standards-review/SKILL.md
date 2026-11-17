@@ -28,9 +28,9 @@ brief, filling in the range and the checkout:
 > it.
 
 Then check each finding against the code. Fix the findings that hold, in a
-commit of their own, and say which you left and why. If the fix is not small
-(about 20 lines, or any logic in auth, the API or data access), review it
-once more.
+commit of their own, and say which you left and why. A change is small when
+it is under about 20 lines and changes no logic in auth, the API or data
+access. If the fix is not small, review it once more.
 
 Under `/work-issues`, the orchestrator starts the reviewer with this brief
 and sends the findings to the builder instead.

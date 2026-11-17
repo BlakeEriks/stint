@@ -18,3 +18,4 @@ export * from './live-draft.ts';
 export * from './billable.ts';
 export * from './push.ts';
 export * from './refusals.ts';
+export * from './legend.ts';

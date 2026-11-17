@@ -78,8 +78,8 @@ export const SavesDates: Story = {
   },
 };
 
-/** Leaving with changes asks; Save draft saves them, then goes where the
-    link pointed. */
+/** Leaving with changes asks, offering to discard only the changes; Save
+    draft saves them, then goes where the link pointed. */
 export const LeavingSaves: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -95,6 +95,9 @@ export const LeavingSaves: Story = {
     const dialog = within(
       await page.findByRole('dialog', { name: 'Save changes to STINT-0015?' }),
     );
+    await expect(
+      dialog.getByRole('button', { name: 'Discard changes' }),
+    ).toBeVisible();
     await userEvent.click(dialog.getByRole('button', { name: 'Save draft' }));
     await waitFor(() =>
       expect(getRouter().push).toHaveBeenCalledWith('/calendar'),

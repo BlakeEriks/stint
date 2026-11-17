@@ -1,0 +1,40 @@
+name: Release reminder
+
+# release.yml asks for approval on Discord once, and a release left waiting
+# holds every later one behind it. This says so again each day it waits.
+on:
+  schedule:
+    - cron: '0 15 * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # pipefail: a failed `gh run list` must fail the run, not remind nobody.
+    defaults:
+      run: { shell: bash }
+    steps:
+      - name: Remind on Discord
+        env:
+          GH_TOKEN: ${{ github.token }}
+          R: ${{ github.repository }}
+          WEBHOOK: ${{ secrets.DISCORD_ALERTS_WEBHOOK }}
+        run: |
+          # `waiting` is a run paused on an environment's approval; release.yml's
+          # run-name puts the released commit after "production".
+          gh run list -R "$R" --workflow release.yml --status waiting \
+            --json displayTitle,url,createdAt \
+            --jq '.[] | select(.displayTitle | startswith("production ")) | [(.displayTitle | split(" ")[1]), .url, .createdAt[:10]] | @tsv' |
+          while IFS=$'\t' read -r sha url since; do
+            subject=$(gh api "repos/$R/commits/$sha" --jq '.commit.message | split("\n")[0]')
+            held=$(gh api "repos/$R/compare/$sha...main" --jq .ahead_by)
+            text="⏸ Still waiting for your approval since $since: release \`${sha:0:7}\` $subject. $held merges are held behind it. $url"
+            # Empty allowed_mentions: a commit subject can never ping anyone.
+            jq -n --arg c "$text" '{content: $c, allowed_mentions: {parse: []}}' |
+              curl -fsS -m 10 -o /dev/null -H 'Content-Type: application/json' -d @- "$WEBHOOK"
+          done
