@@ -46,6 +46,27 @@ export const Desktop: Story = {
     ).toHaveLength(1);
   },
 };
+/** Scrolled to the end, the title is still at the panel's top. */
+export const Scrolled: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await page.findByRole('button', { name: 'Delete account' });
+    const title = page.getByRole('heading', { name: 'Settings', level: 1 });
+    const scroller = canvasElement.querySelector<HTMLElement>(
+      '[data-content-scroller]',
+    )!;
+    const panel = canvasElement.querySelector('[data-content-panel]')!;
+    scroller.scrollTop = scroller.scrollHeight;
+    await waitFor(() => {
+      expect(scroller.scrollTop).toBeGreaterThan(100);
+      const below =
+        title.getBoundingClientRect().top - panel.getBoundingClientRect().top;
+      expect(below).toBeGreaterThanOrEqual(0);
+      expect(below).toBeLessThan(40);
+    });
+  },
+};
 /** The invoice template shows by name alone, as the control that opens
     New invoice's Template dialog. */
 export const InvoiceTemplate: Story = {

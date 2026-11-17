@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, userEvent, within } from 'storybook/test';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
+import { id } from '@/mocks/fixtures';
 import {
   at,
   desktop,
@@ -37,6 +38,46 @@ export const Desktop: Story = {
   },
 };
 export const Phone: Story = { ...phone };
+
+/** Scrolled to the end, the title, the filters and the outstanding figure
+    are still at the panel's top. */
+export const Scrolled: Story = {
+  ...desktop,
+  // Enough open rows that the panel scrolls at this height.
+  parameters: account((db) => {
+    const sent = db.invoices.filter((i) => i.status === 'sent');
+    for (let n = 0; n < 20; n++) {
+      const copy = sent[n % sent.length]!;
+      db.invoices.push({
+        ...copy,
+        id: id(600 + n),
+        sequenceNo: 900 + n,
+        invoiceNumber: `STINT-0${900 + n}`,
+      });
+    }
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await page.findByText('STINT-0919');
+    const title = page.getByRole('heading', { name: 'Invoices', level: 1 });
+    const scroller = canvasElement.querySelector<HTMLElement>(
+      '[data-content-scroller]',
+    )!;
+    const panel = canvasElement.querySelector('[data-content-panel]')!;
+    scroller.scrollTop = scroller.scrollHeight;
+    await waitFor(() => {
+      expect(scroller.scrollTop).toBeGreaterThan(100);
+      const below =
+        title.getBoundingClientRect().top - panel.getBoundingClientRect().top;
+      expect(below).toBeGreaterThanOrEqual(0);
+      expect(below).toBeLessThan(40);
+    });
+    await expect(
+      page.getByRole('navigation', { name: 'Filter' }),
+    ).toBeVisible();
+    await expect(page.getByText('outstanding')).toBeVisible();
+  },
+};
 export const Light: Story = { ...light };
 
 export const Paid: Story = {

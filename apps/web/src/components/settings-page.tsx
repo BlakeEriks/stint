@@ -38,8 +38,7 @@ export function SettingsPage() {
   });
 
   return (
-    <Page>
-      <h1 className="mb-6 type-title text-strong">Settings</h1>
+    <Page title="Settings">
       <Listing query={[settings, profiles]} also={[billing, apps]}>
         {([loaded]) => <Sections loaded={loaded} />}
       </Listing>

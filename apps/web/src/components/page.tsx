@@ -35,6 +35,7 @@ export const INSET = 'px-[18px]';
 export function Page({
   title,
   actions,
+  under,
   wide = false,
   flush = false,
   fills = false,
@@ -46,6 +47,9 @@ export function Page({
   title?: string;
   /** What sits at the bar's right: the screen's action, or its tabs. */
   actions?: React.ReactNode;
+  /** A row under the title, in the bar: what the list is narrowed by, kept
+   *  in reach mid-list. */
+  under?: React.ReactNode;
   wide?: boolean;
   /**
    * For a screen whose content IS the panel rather than sitting on it.
@@ -77,7 +81,12 @@ export function Page({
   return (
     <main className={FILL}>
       {title ? (
-        <TitleBar title={title} actions={actions} measure={measure} />
+        <TitleBar
+          title={title}
+          actions={actions}
+          under={under}
+          measure={measure}
+        />
       ) : null}
       {/* The region that scrolls at `xl`; below it the column around the
           panel scrolls, and this is only a wrapper. */}
@@ -120,10 +129,12 @@ export const UNDER_TITLE_BAR = 'sm:top-[67px] xl:top-0';
 function TitleBar({
   title,
   actions,
+  under,
   measure,
 }: {
   title: string;
   actions: React.ReactNode;
+  under: React.ReactNode;
   /** The column's measure, so the title lines up with it. */
   measure: string;
 }) {
@@ -139,6 +150,13 @@ function TitleBar({
         <h1 className="type-title text-strong">{title}</h1>
         {actions}
       </div>
+      {under ? (
+        <div
+          className={`mx-auto flex items-baseline justify-between gap-3 pt-3 ${measure}`}
+        >
+          {under}
+        </div>
+      ) : null}
     </header>
   );
 }

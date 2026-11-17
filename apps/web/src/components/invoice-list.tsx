@@ -69,38 +69,39 @@ export function InvoiceList() {
   const markPaid = useMarkPaid();
 
   return (
-    <Page>
-      <header className="flex items-center justify-between gap-3 pb-4">
-        <h1 className="type-title text-strong">Invoices</h1>
+    <Page
+      title="Invoices"
+      actions={
         <Button asChild>
           <Link href="/invoices/new">
             <Plus aria-hidden strokeWidth={2.25} />
             New invoice
           </Link>
         </Button>
-      </header>
+      }
+      under={
+        <>
+          <FilterTabs
+            base="/invoices"
+            active={status}
+            tabs={[
+              { key: null, label: 'Open' },
+              { key: 'paid', label: 'Paid' },
+              { key: 'all', label: 'All' },
+            ]}
+          />
 
-      <div className="flex items-baseline justify-between gap-3 pb-2">
-        <FilterTabs
-          base="/invoices"
-          active={status}
-          tabs={[
-            { key: null, label: 'Open' },
-            { key: 'paid', label: 'Paid' },
-            { key: 'all', label: 'All' },
-          ]}
-        />
-
-        {totalShown && outstanding > 0 ? (
-          <span className="type-support text-subtle">
-            <span className="type-meta text-muted">
-              {formatCurrency(outstanding, all[0]?.currency)}
-            </span>{' '}
-            outstanding
-          </span>
-        ) : null}
-      </div>
-
+          {totalShown && outstanding > 0 ? (
+            <span className="type-support text-subtle">
+              <span className="type-meta text-muted">
+                {formatCurrency(outstanding, all[0]?.currency)}
+              </span>{' '}
+              outstanding
+            </span>
+          ) : null}
+        </>
+      }
+    >
       <Panel>
         {/* The filtered list is what the screen shows, so it decides the
             empty state; `all` only chooses which message. */}
