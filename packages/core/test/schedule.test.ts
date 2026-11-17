@@ -5,6 +5,7 @@ import {
   buildSchedules,
   paginateSchedules,
   pickSchedules,
+  type Schedules,
 } from '../src/schedule.ts';
 
 const entry = (over: Partial<BillableEntry> = {}): BillableEntry => ({
@@ -150,51 +151,51 @@ test('pages keep the order project, week, date, whatever was given', () => {
   );
 });
 
-test('a table that runs over a page continues, with its total at the end', () => {
-  const pages = paginateSchedules({ project: rows(10), totalHours: 10 }, 8);
-  assert.equal(pages.length, 2);
-  const [first, second] = [pages[0]![0]!, pages[1]![0]!];
-  assert.equal(first.continued, false);
-  assert.equal(first.total, null);
-  assert.equal(second.continued, true);
-  assert.equal(second.total, 10);
-  // Header (2) + 6 rows fill the first page.
-  assert.deepEqual([first.rows.length, second.rows.length], [6, 4]);
-});
-
-test('a total never starts a page alone', () => {
-  // Header (2) + 6 rows fill 8 exactly, so the total would be orphaned.
-  const pages = paginateSchedules({ project: rows(6), totalHours: 6 }, 8);
-  assert.deepEqual(
-    pages.map((page) => page.map((b) => [b.rows.length, b.total])),
-    [[[5, null]], [[1, 6]]],
-  );
-});
-
-test('a heading is never stranded at the foot of a page', () => {
-  const pages = paginateSchedules(
-    { project: rows(5), week: rows(3) as never, totalHours: 5 },
-    10,
-  );
-  for (const page of pages)
-    for (const block of page) assert.ok(block.rows.length >= 1);
-});
-
-test("a table's last row waits for a page with room for its total", () => {
-  // The project table leaves 3 rows: the week's headings and row, no total.
-  const pages = paginateSchedules(
-    {
-      project: rows(4),
-      week: rows(1) as never,
-      date: rows(1) as never,
-      totalHours: 4,
-    },
-    10,
-  );
-  assert.deepEqual(
-    pages.map((page) => page.map((b) => b.kind)),
-    [['project'], ['week', 'date']],
-  );
+test('pages break by the rules', () => {
+  const anyRows = (n: number) => rows(n) as never;
+  // Each block is [kind, rows, total, continued]; a page is a list of blocks.
+  const cases: [string, Schedules, number, unknown[][][]][] = [
+    [
+      'a table that runs over fills the page, then continues to its total',
+      { project: rows(10), totalHours: 10 },
+      8,
+      [[['project', 6, null, false]], [['project', 4, 10, true]]],
+    ],
+    [
+      'a total never starts a page alone',
+      { project: rows(6), totalHours: 6 },
+      8,
+      [[['project', 5, null, false]], [['project', 1, 6, true]]],
+    ],
+    [
+      'a heading is never stranded at the foot of a page',
+      { project: rows(5), week: anyRows(3), totalHours: 5 },
+      10,
+      [[['project', 5, 5, false]], [['week', 3, 5, false]]],
+    ],
+    [
+      "a table's last row waits for a page with room for its total",
+      { project: rows(4), week: anyRows(1), date: anyRows(1), totalHours: 4 },
+      10,
+      [
+        [['project', 4, 4, false]],
+        [
+          ['week', 1, 4, false],
+          ['date', 1, 4, false],
+        ],
+      ],
+    ],
+  ];
+  for (const [rule, schedules, perPage, expected] of cases) {
+    const pages = paginateSchedules(schedules, perPage);
+    assert.deepEqual(
+      pages.map((page) =>
+        page.map((b) => [b.kind, b.rows.length, b.total, b.continued]),
+      ),
+      expected,
+      rule,
+    );
+  }
 });
 
 test('nothing chosen is no pages', () => {
