@@ -60,7 +60,7 @@ written.
 | `GET` | `/entries` | `?from&to&projectId&clientId&limit` (1–500, default 200), newest first. **`projectId=none`** returns entries with no project at all — an absent parameter already means "every entry", so there was otherwise no way to ask for the ones the inbox surfaces. A running entry's `durationSeconds` is its length at the response, not null; `endedAt: null` is what marks it running. |
 | `GET` | `/entries/:id` | |
 | `POST` | `/entries` | Manual entry. `id` is client-supplied (UUIDv7) so a retry is idempotent. Always complete — `endedAt` required, and `422 VALIDATION_FAILED` if it is at or before `startedAt`. **`isBillable` omitted takes the project's billable default**, and is billable with no project. |
-| `PATCH` | `/entries/:id` | **`409 ENTRY_LOCKED`** if billed on a non-draft invoice, and **`409 ENTRY_ALREADY_INVOICED`** for `invoicedElsewhere: true` on an entry on an invoice (`409 TIMER_ALREADY_RUNNING` on a running one). Returns `409 TIMER_ALREADY_RUNNING` if clearing `endedAt` would reopen this entry while another timer runs, and `422 VALIDATION_FAILED` if the patch would leave `endedAt` at or before `startedAt`. `?include` returns `{ entry, included }` instead of the entry ([Including what a write changed](#including-what-a-write-changed)). |
+| `PATCH` | `/entries/:id` | **`409 ENTRY_LOCKED`** if billed on a non-draft invoice, and **`409 ENTRY_ALREADY_INVOICED`** for `invoicedElsewhere: true` on an entry on an invoice (`409 TIMER_ALREADY_RUNNING` on a running one). Returns `409 TIMER_ALREADY_RUNNING` if clearing `endedAt` would reopen this entry while another timer runs, and `422 VALIDATION_FAILED` if the patch would leave `endedAt` at or before `startedAt`. A `startedAt` outside the period of the draft holding the entry lets go of it ([`draft_id`](data-model.md#time_entries)). `?include` returns `{ entry, included }` instead of the entry ([Including what a write changed](#including-what-a-write-changed)). |
 | `DELETE` | `/entries/:id` | Same lock applies. |
 
 ## Import
@@ -309,8 +309,9 @@ and one-off expenses that no other draft holds, so two drafts never show the
 same work, and work logged later joins only when the owner adds it. Holding
 is not billing: held work still reads as unbilled everywhere else. A draft
 lets go of its work when it is deleted or sent, when an edit's build leaves
-it out, and when an entry moves to another client, by its own project or a
-whole project ([data model](data-model.md#invoices--invoice_line_items)).
+it out, when an entry moves to another client, by its own project or a
+whole project, and when an entry's start moves outside its period
+([data model](data-model.md#invoices--invoice_line_items)).
 
 **Status transitions are constrained:** draft→sent/void, sent→paid/void,
 paid→void. `void` is terminal, and setting a status to its current value is a

@@ -215,7 +215,9 @@ export async function chosenTemplate(
   return data.invoice_template as InvoiceTemplate;
 }
 
-async function loadSettings(db: SupabaseClient): Promise<InvoiceSettings> {
+export async function loadSettings(
+  db: SupabaseClient,
+): Promise<InvoiceSettings> {
   const { data, error } = await db
     .from('user_settings')
     .select(
