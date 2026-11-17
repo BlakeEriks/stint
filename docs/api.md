@@ -62,6 +62,7 @@ written.
 | `POST` | `/entries` | Manual entry. `id` is client-supplied (UUIDv7) so a retry is idempotent. Always complete — `endedAt` required, and `422 VALIDATION_FAILED` if it is at or before `startedAt`. **`isBillable` omitted takes the project's billable default**, and is billable with no project. |
 | `PATCH` | `/entries/:id` | **`409 ENTRY_LOCKED`** for a change to an entry billed on a non-draft invoice, except its `taskName`, and **`409 ENTRY_ALREADY_INVOICED`** for `invoicedElsewhere: true` on an entry on an invoice (`409 TIMER_ALREADY_RUNNING` on a running one). Returns `409 TIMER_ALREADY_RUNNING` if clearing `endedAt` would reopen this entry while another timer runs, and `422 VALIDATION_FAILED` if the patch would leave `endedAt` at or before `startedAt`. A `startedAt` outside the period of the draft holding the entry lets go of it ([`draft_id`](data-model.md#time_entries)). `?include` returns `{ entry, included }` instead of the entry ([Including what a write changed](#including-what-a-write-changed)). |
 | `DELETE` | `/entries/:id` | Same lock applies. |
+| `POST` | `/entries/task-names/rename` | `{ from, to, projectId? }`. Renames every entry whose `taskName` is `from`, in any case, to `to`, within `projectId` if given; billed entries too, while their invoices keep the names they were sent with. Returns `{ renamed }`, counting only entries whose name changed, so a retry answers `0`. `422 VALIDATION_FAILED` for a blank name. |
 
 ## Import
 
