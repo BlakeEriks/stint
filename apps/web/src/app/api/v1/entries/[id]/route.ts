@@ -60,8 +60,8 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   }
 
   const current = await checkOrder(db, id, update);
-  const releasedFrom = await redatedOutOfDraft(db, current?.draft_id, update);
-  if (releasedFrom) update.draft_id = null;
+  if (await redatedOutOfDraft(db, current?.draft_id, update))
+    update.draft_id = null;
 
   const marking = patch.invoicedElsewhere === true;
   const q = db.from('time_entries').update(update).eq('id', id);
@@ -89,10 +89,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   }
 
   const included = await readIncluded(asked, db, userId);
-  const entry = toEntry(data as EntryRow);
-  return NextResponse.json(
-    entryWith(releasedFrom ? { ...entry, releasedFrom } : entry, included),
-  );
+  return NextResponse.json(entryWith(toEntry(data as EntryRow), included));
 });
 
 /**
@@ -126,18 +123,17 @@ async function checkOrder(
 
 /**
  * A draft's period is local dates in its zone, which a trigger can't read,
- * so the route lets an entry go when its new start leaves that period. The
- * draft's number, else null, so the answer can say which draft it left.
+ * so the route lets an entry go when its new start leaves that period.
  */
 async function redatedOutOfDraft(
   db: SupabaseClient,
   draftId: string | null | undefined,
   update: Record<string, unknown>,
 ) {
-  if (!update.started_at || !draftId) return null;
+  if (!update.started_at || !draftId) return false;
   const { data: draft, error } = await db
     .from('invoices')
-    .select('invoice_number, period_start, period_end, tz')
+    .select('period_start, period_end, tz')
     .eq('id', draftId)
     .single();
   if (error) throw error;
@@ -147,8 +143,7 @@ async function redatedOutOfDraft(
     draft.tz ?? billingZone(await loadSettings(db), 'UTC'),
   );
   const t = new Date(update.started_at as string).getTime();
-  const outside = t < window.start.getTime() || t >= window.end.getTime();
-  return outside ? (draft.invoice_number as string) : null;
+  return t < window.start.getTime() || t >= window.end.getTime();
 }
 
 export const DELETE = handle(async (req: Request, ctx: Ctx) => {

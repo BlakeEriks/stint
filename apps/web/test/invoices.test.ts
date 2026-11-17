@@ -3421,9 +3421,7 @@ test("an entry re-dated out of its draft's period leaves it", async () => {
   const october = { periodStart: '2026-10-01', periodEnd: '2026-10-31' };
   await seedEntry({ id: D(1), start: '2026-10-05T15:00:00Z' });
   await seedEntry({ id: D(2), start: '2026-10-06T15:00:00Z' });
-  const draft = await json(
-    await r.create(req('/invoices', { clientId: CLIENT, ...october })),
-  );
+  await r.create(req('/invoices', { clientId: CLIENT, ...october }));
   const redate = async (id: string, startedAt: string) => {
     const res = await edit(
       req(
@@ -3433,19 +3431,10 @@ test("an entry re-dated out of its draft's period leaves it", async () => {
       ),
       at(id),
     );
-    const body = await res.json();
-    assert.equal(res.status, 200, JSON.stringify(body));
-    return body;
+    assert.equal(res.status, 200, JSON.stringify(await res.json()));
   };
-  assert.equal(
-    (await redate(D(1), '2026-09-28T15:00:00Z')).releasedFrom,
-    draft.body.invoiceNumber,
-    'the answer names the draft it left, for the notice',
-  );
-  assert.equal(
-    (await redate(D(2), '2026-10-31T15:00:00Z')).releasedFrom,
-    undefined,
-  );
+  await redate(D(1), '2026-09-28T15:00:00Z');
+  await redate(D(2), '2026-10-31T15:00:00Z');
 
   const { rows } = await pool.query(
     'select draft_id from time_entries where id = any($1) order by id',
