@@ -1,12 +1,18 @@
 /** Drops what a filename or a quoted header value can't hold, and the
  *  dots and spaces a stem can't end in. */
-const filenamePart = (s: string) =>
-  s
+function filenamePart(s: string): string {
+  const name = s
     .replace(/\s+/g, ' ')
     .replace(/[\p{Cc}/\\:*?"<>|]/gu, '')
     .replace(/ {2,}/g, ' ')
-    .trim()
-    .replace(/[ .]+(\.\w+)$/, '$1');
+    .trim();
+  const dot = name.lastIndexOf('.');
+  if (dot <= 0) return name;
+  // A loop, not a regex: one anchored at the end backtracks on a long run.
+  let end = dot;
+  while (end > 0 && (name[end - 1] === ' ' || name[end - 1] === '.')) end--;
+  return name.slice(0, end) + name.slice(dot);
+}
 
 /**
  * A `content-disposition` value. A non-ASCII name goes in `filename*`
