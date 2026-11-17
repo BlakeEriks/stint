@@ -6,6 +6,7 @@ import {
   billingZone,
   earlierWork,
   earlierWorkFrom,
+  heldWork,
   isBillableEntry,
 } from '../src/billable.ts';
 
@@ -187,4 +188,46 @@ for (const [entries, tz, expected, why] of [
 ] as const)
   test(`earlier work: ${why}`, () => {
     assert.deepEqual(earlierWork([...entries], tz), expected);
+  });
+
+const [A, B, EDITED] = ['draft-a', 'draft-b', 'draft-edited'];
+const drafts = [
+  { id: B, invoiceNumber: 'INV-0014' },
+  { id: A, invoiceNumber: 'INV-0012' },
+  { id: EDITED, invoiceNumber: 'INV-0015' },
+];
+const held = (...ids: (string | null)[]) => ids.map((draftId) => ({ draftId }));
+for (const [entries, expected, why] of [
+  [held(null, null), null, 'none'],
+  [
+    held(A, null, A),
+    {
+      entryCount: 2,
+      drafts: [{ id: A, invoiceNumber: 'INV-0012', entryCount: 2 }],
+    },
+    'one draft',
+  ],
+  [
+    held(B, A, A),
+    {
+      entryCount: 3,
+      drafts: [
+        { id: A, invoiceNumber: 'INV-0012', entryCount: 2 },
+        { id: B, invoiceNumber: 'INV-0014', entryCount: 1 },
+      ],
+    },
+    'two drafts, by number',
+  ],
+  [
+    held(EDITED, A),
+    {
+      entryCount: 1,
+      drafts: [{ id: A, invoiceNumber: 'INV-0012', entryCount: 1 }],
+    },
+    'the edited draft left out',
+  ],
+  [held(EDITED), null, 'only the edited draft'],
+] as const)
+  test(`held work: ${why}`, () => {
+    assert.deepEqual(heldWork([...entries], drafts, EDITED), expected);
   });

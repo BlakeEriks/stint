@@ -596,6 +596,8 @@ export const EarlierWork: Story = {
     await expect(
       page.getByRole('button', { name: /^Start from Aug \d+$/ }),
     ).toBeVisible();
+    // No draft holds September's work, so none is named.
+    await expect(page.queryByText(/in this period\.$/)).toBeNull();
   },
 };
 export const EarlierWorkPhone: Story = { ...EarlierWork, ...phone };
@@ -672,6 +674,39 @@ export const EarlierWorkLeavesWithClient: Story = {
     await expect(
       page.queryByRole('button', { name: /^Start from/ }),
     ).toBeNull();
+  },
+};
+
+/** A forgotten Northwind draft holds September, so the page bills none of
+    its hours. New invoice names the draft, linked, so the empty page isn't
+    read as lost work. */
+export const HeldWork: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      const draft = db.invoices.find((i) => i.status === 'draft')!;
+      db.invoices.push({
+        ...draft,
+        id: '018f0000-0000-7000-8000-0000000003f0',
+        clientId: ids.northwind,
+        invoiceNumber: 'STINT-0016',
+        sequenceNo: 16,
+        periodStart: '2026-09-01',
+        periodEnd: '2026-09-30',
+      });
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    const link = await page.findByRole('link', { name: 'STINT-0016' });
+    await expect(link).toHaveAttribute(
+      'href',
+      '/invoices/018f0000-0000-7000-8000-0000000003f0',
+    );
+    await expect(link.parentElement).toHaveTextContent(
+      /^STINT-0016 holds \d+ entries in this period\.$/,
+    );
   },
 };
 

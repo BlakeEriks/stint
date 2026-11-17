@@ -12,6 +12,7 @@ import {
   buildSchedules,
   earlierWork,
   earlierWorkFrom,
+  heldWork,
 } from '@stint/core';
 import { InvoicePreviewRequest } from '@stint/schema';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -67,6 +68,57 @@ async function loadEarlierWork(
   return earlierWork(
     rows.map((r) => ({ startedAt: r.started_at as string })),
     opts.tz,
+  );
+}
+
+/** The period's billable work other drafts hold (`heldWork()`): what the
+    preview would bill if no draft held it. */
+async function loadHeldWork(
+  db: SupabaseClient,
+  opts: {
+    clientId: string;
+    periodStart: string;
+    periodEnd: string;
+    tz: string;
+    draftId?: string;
+  },
+) {
+  const { data: projects, error } = await db
+    .from('projects')
+    .select('id')
+    .eq('client_id', opts.clientId);
+  if (error) throw error;
+  const window = billingWindow(opts.periodStart, opts.periodEnd, opts.tz);
+  const rows = await selectAll(() =>
+    db
+      .from('time_entries')
+      .select('draft_id')
+      .in(
+        'project_id',
+        (projects ?? []).map((p) => p.id as string),
+      )
+      .is('invoice_id', null)
+      .eq('invoiced_elsewhere', false)
+      .eq('is_billable', true)
+      .not('ended_at', 'is', null)
+      .not('draft_id', 'is', null)
+      .gte('started_at', window.start.toISOString())
+      .lt('started_at', window.end.toISOString()),
+  );
+  if (rows.length === 0) return null;
+  const entries = rows.map((r) => ({ draftId: r.draft_id as string }));
+  const { data: drafts, error: draftError } = await db
+    .from('invoices')
+    .select('id, invoice_number')
+    .in('id', [...new Set(entries.map((e) => e.draftId))]);
+  if (draftError) throw draftError;
+  return heldWork(
+    entries,
+    (drafts ?? []).map((d) => ({
+      id: d.id as string,
+      invoiceNumber: d.invoice_number as string,
+    })),
+    opts.draftId,
   );
 }
 
@@ -139,6 +191,13 @@ export const POST = handle(async (req: Request) => {
     earlierWork: await loadEarlierWork(db, {
       clientId: body.clientId,
       periodStart: body.periodStart,
+      tz,
+      draftId: body.draftId,
+    }),
+    heldWork: await loadHeldWork(db, {
+      clientId: body.clientId,
+      periodStart: body.periodStart,
+      periodEnd: body.periodEnd,
       tz,
       draftId: body.draftId,
     }),
