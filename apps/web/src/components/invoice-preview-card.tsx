@@ -482,6 +482,7 @@ function Sender({
       <Party
         name={business ? (business.name ?? 'Invoice') : ''}
         lines={[business?.address, business?.email]}
+        letterhead
       />
     </Block>
   );
@@ -568,13 +569,20 @@ function TypedNotes({ notes }: { notes: Typed }) {
 function Party({
   name,
   lines,
+  letterhead = false,
 }: {
   name: string;
   lines: Array<string | null | undefined>;
+  /** The sender, set as an invoice's letterhead. */
+  letterhead?: boolean;
 }) {
   return (
     <p className="min-w-0 flex-[1_1_200px] whitespace-pre-line type-support text-muted">
-      <b className="block type-control text-strong">{name}</b>
+      <b
+        className={`block text-strong ${letterhead ? 'mb-1 type-heading' : 'type-control'}`}
+      >
+        {name}
+      </b>
       {lines.filter(Boolean).join('\n')}
     </p>
   );
@@ -855,7 +863,7 @@ function Lines({
   );
 }
 
-const SHEET = 'rounded-lg border border-edge-subtle bg-surface-elevated p-6';
+const SHEET = 'rounded-xs border border-edge-subtle bg-surface-elevated p-6';
 
 /** The id of New invoice's notice that the summary line is empty. */
 export const SUMMARY_ERROR = 'inv-summary-error';
@@ -1069,7 +1077,7 @@ function Total({
       }`}
     >
       <dt>{label}</dt>
-      <dd className={strong ? 'type-amount text-strong' : 'type-duration'}>
+      <dd className={strong ? 'type-amount-hero text-strong' : 'type-duration'}>
         {value}
       </dd>
     </div>
