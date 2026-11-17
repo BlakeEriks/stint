@@ -4,6 +4,7 @@ const filenamePart = (s: string) =>
   s
     .replace(/\s+/g, ' ')
     .replace(/[\p{Cc}/\\:*?"<>|]/gu, '')
+    .replace(/ {2,}/g, ' ')
     .trim()
     .replace(/[ .]+(\.\w+)$/, '$1');
 

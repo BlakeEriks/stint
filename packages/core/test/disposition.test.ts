@@ -39,6 +39,11 @@ test('contentDisposition', () => {
       true,
       'attachment; filename="INV-0004 Jane Doe.pdf"',
     ],
+    [
+      'INV-0004 Smith / Jones.pdf',
+      true,
+      'attachment; filename="INV-0004 Smith Jones.pdf"',
+    ],
   ];
   for (const [filename, attachment, header] of cases)
     assert.equal(contentDisposition(filename, attachment), header);
