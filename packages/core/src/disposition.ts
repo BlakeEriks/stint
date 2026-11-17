@@ -1,9 +1,11 @@
-/** Drops what a filename or a quoted header value can't hold. */
+/** Drops what a filename or a quoted header value can't hold, and the
+ *  dots and spaces a stem can't end in. */
 const filenamePart = (s: string) =>
   s
-    .replace(/[\p{Cc}/\\:*?"<>|]/gu, '')
     .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/[\p{Cc}/\\:*?"<>|]/gu, '')
+    .trim()
+    .replace(/[ .]+(\.\w+)$/, '$1');
 
 /**
  * A `content-disposition` value. A non-ASCII name goes in `filename*`
@@ -16,7 +18,7 @@ export function contentDisposition(
   const name = filenamePart(filename);
   const ascii = filenamePart(
     name.normalize('NFKD').replace(/[^\x20-\x7e]/g, ''),
-  ).replace(/ (\.\w+)$/, '$1');
+  );
   const header = `${attachment ? 'attachment' : 'inline'}; filename="${ascii}"`;
   if (ascii === name) return header;
   const encoded = encodeURIComponent(name).replace(

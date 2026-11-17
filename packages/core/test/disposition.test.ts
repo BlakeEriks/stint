@@ -29,6 +29,16 @@ test('contentDisposition', () => {
       true,
       `attachment; filename="INV-0004 (O'Neil).pdf"; filename*=UTF-8''INV-0004%20%E5%B1%B1%E7%94%B0%20%28O%27Neil%29.pdf`,
     ],
+    [
+      'INV-0004 Acme Inc..pdf',
+      true,
+      'attachment; filename="INV-0004 Acme Inc.pdf"',
+    ],
+    [
+      'INV-0004 Jane\r\nDoe.pdf',
+      true,
+      'attachment; filename="INV-0004 Jane Doe.pdf"',
+    ],
   ];
   for (const [filename, attachment, header] of cases)
     assert.equal(contentDisposition(filename, attachment), header);
