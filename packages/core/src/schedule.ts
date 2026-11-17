@@ -168,21 +168,12 @@ export function paginateSchedules(
     room = rowsPerPage;
   };
 
-  for (const kind of SCHEDULE_KINDS) {
-    const rows: ScheduleRow[] = schedules[kind] ?? [];
+  const placeTable = (kind: ScheduleKind, rows: ScheduleRow[]) => {
     let at = 0;
-
     while (at < rows.length) {
-      if (room < HEAD + 1) turn();
       const left = rows.length - at;
-      const fit = room - HEAD;
-      // Everything and the total; or all but one row, which goes on with the
-      // total; or as many as fit.
-      const take = left < fit ? left : left === fit ? left - 1 : fit;
-      if (take === 0) {
-        turn();
-        continue;
-      }
+      if (!startsIn(room, left)) turn();
+      const take = rowsToTake(left, room - HEAD);
       const last = take === left;
       page.push({
         kind,
@@ -190,13 +181,31 @@ export function paginateSchedules(
         rows: rows.slice(at, at + take),
         total: last ? schedules.totalHours : null,
       });
-      room -= HEAD + take + (last ? 1 : 0);
       at += take;
-      if (!last) turn();
+      if (last) room -= HEAD + take + 1;
+      else turn();
     }
-  }
+  };
+
+  for (const kind of SCHEDULE_KINDS) placeTable(kind, schedules[kind] ?? []);
   if (page.length > 0) pages.push(page);
   return pages;
+}
+
+/** Room for the headings and a row, and the total too when one row is left. */
+function startsIn(room: number, left: number): boolean {
+  return room >= HEAD + 1 + (left === 1 ? 1 : 0);
+}
+
+/**
+ * Rows of the `left` to place where `fit` rows fit: all of them when the
+ * total fits too, all but one when only the total doesn't, so the total
+ * never starts a page alone, otherwise as many as fit.
+ */
+function rowsToTake(left: number, fit: number): number {
+  if (left < fit) return left;
+  if (left === fit) return left - 1;
+  return fit;
 }
 
 function add(map: Map<string, number>, key: string, h: number) {
