@@ -17,7 +17,7 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 58 of 58, counting handlers rather than files.
+Every handler is covered, each HTTP method on its own.
 `/connected-apps` needs a real Auth server, so `apps/web/test/auth.test.ts`
 covers it.
 
