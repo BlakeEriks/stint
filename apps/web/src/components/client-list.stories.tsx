@@ -5,6 +5,7 @@ import { id, ids } from '@/mocks/fixtures';
 import {
   desktop,
   expectOpen,
+  expectTitlePinned,
   failing,
   light,
   menuOpen,
@@ -74,19 +75,14 @@ export const Scrolled: Story = {
     const northwind = await page.findByRole('heading', {
       name: 'Northwind Trading',
     });
-    const title = page.getByRole('heading', { name: 'Clients', level: 1 });
-    const titleTop = title.getBoundingClientRect().top;
-    const scroller = canvasElement.querySelector<HTMLElement>(
-      '[data-content-scroller]',
-    )!;
-    const top = scroller.getBoundingClientRect().top;
-    // The bar ends before the scroller begins.
-    await expect(title.getBoundingClientRect().bottom).toBeLessThan(top);
+    const top = canvasElement
+      .querySelector('[data-content-scroller]')!
+      .getBoundingClientRect().top;
     // Into Northwind's rows, so its heading has something to pin over.
-    scroller.scrollTop = northwind.getBoundingClientRect().top - top + 120;
+    await expectTitlePinned(canvasElement, 'Clients', {
+      scrollTop: northwind.getBoundingClientRect().top - top + 120,
+    });
     await waitFor(() => {
-      expect(scroller.scrollTop).toBeGreaterThan(100);
-      expect(title.getBoundingClientRect().top).toBe(titleTop);
       // At the scroller's top, by the heading's own 12px of padding.
       expect(northwind.getBoundingClientRect().top - top).toBeCloseTo(12, -1);
     });

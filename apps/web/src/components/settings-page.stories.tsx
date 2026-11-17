@@ -9,6 +9,7 @@ import {
   screen,
   stalled,
   expectOpen,
+  expectTitlePinned,
 } from '@/mocks/screen';
 import { localDateKey } from '@stint/core';
 import { timeZone } from '@/lib/client/use-timer';
@@ -50,21 +51,10 @@ export const Desktop: Story = {
 export const Scrolled: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
-    await page.findByRole('button', { name: 'Delete account' });
-    const title = page.getByRole('heading', { name: 'Settings', level: 1 });
-    const scroller = canvasElement.querySelector<HTMLElement>(
-      '[data-content-scroller]',
-    )!;
-    const panel = canvasElement.querySelector('[data-content-panel]')!;
-    scroller.scrollTop = scroller.scrollHeight;
-    await waitFor(() => {
-      expect(scroller.scrollTop).toBeGreaterThan(100);
-      const below =
-        title.getBoundingClientRect().top - panel.getBoundingClientRect().top;
-      expect(below).toBeGreaterThanOrEqual(0);
-      expect(below).toBeLessThan(40);
+    await within(canvasElement).findByRole('button', {
+      name: 'Delete account',
     });
+    await expectTitlePinned(canvasElement, 'Settings');
   },
 };
 /** The invoice template shows by name alone, as the control that opens

@@ -1,11 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, userEvent, waitFor, within } from 'storybook/test';
+import { expect, userEvent, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import { id } from '@/mocks/fixtures';
 import {
   at,
   desktop,
   expectOpen,
+  expectTitlePinned,
   failing,
   light,
   phone,
@@ -59,23 +60,12 @@ export const Scrolled: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     await page.findByText('STINT-0919');
-    const title = page.getByRole('heading', { name: 'Invoices', level: 1 });
-    const scroller = canvasElement.querySelector<HTMLElement>(
-      '[data-content-scroller]',
-    )!;
-    const panel = canvasElement.querySelector('[data-content-panel]')!;
-    scroller.scrollTop = scroller.scrollHeight;
-    await waitFor(() => {
-      expect(scroller.scrollTop).toBeGreaterThan(100);
-      const below =
-        title.getBoundingClientRect().top - panel.getBoundingClientRect().top;
-      expect(below).toBeGreaterThanOrEqual(0);
-      expect(below).toBeLessThan(40);
+    await expectTitlePinned(canvasElement, 'Invoices', {
+      also: [
+        page.getByRole('navigation', { name: 'Filter' }),
+        page.getByText('outstanding'),
+      ],
     });
-    await expect(
-      page.getByRole('navigation', { name: 'Filter' }),
-    ).toBeVisible();
-    await expect(page.getByText('outstanding')).toBeVisible();
   },
 };
 export const Light: Story = { ...light };

@@ -47,8 +47,8 @@ export function Page({
   title?: string;
   /** What sits at the bar's right: the screen's action, or its tabs. */
   actions?: React.ReactNode;
-  /** A row under the title, in the bar: what the list is narrowed by, kept
-   *  in reach mid-list. */
+  /** A second row in the bar. It makes the bar taller than
+   *  `UNDER_TITLE_BAR`, so such a screen pins no heading under it. */
   under?: React.ReactNode;
   wide?: boolean;
   /**
