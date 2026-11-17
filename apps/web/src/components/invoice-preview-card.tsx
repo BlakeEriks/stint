@@ -191,8 +191,8 @@ export function InvoicePreviewCard({
         </p>
       )}
       <div className={`@container/card relative flex flex-col gap-5 ${SHEET}`}>
-        {/* A preview is labeled on its top edge, centered on the border; an
-            issued invoice is the invoice, so its heading is only read. */}
+        {/* Hidden on an issued invoice, not dropped: the schedules' headings
+            sit under it. */}
         <h2
           id="inv-preview"
           className={
