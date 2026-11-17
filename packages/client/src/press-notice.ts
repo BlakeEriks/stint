@@ -14,16 +14,17 @@ import { useState } from 'react';
  * pressed, so it's said even after its screen has unmounted (Constitution
  * I). One at a time: the newest. A later success on the same thing clears a
  * failure. A form that stays open to show its own error marks itself
- * `inline`. Each app's notice renders it.
+ * `inline`, which hides only its failures: it closes on success. Each app's
+ * notice renders it.
  */
 export function usePressNotice(): {
   message: string;
   dismiss: () => void;
 } | null {
   const presses = useMutationState({
-    filters: { predicate: (m) => !m.options.meta?.inline },
     select: (m) => ({
       id: m.mutationId,
+      inline: Boolean(m.options.meta?.inline),
       status: m.state.status,
       // What it pressed on: a later success there makes a failure old news.
       on: hashKey((m.state.context as { key?: QueryKey })?.key ?? []),
@@ -40,7 +41,7 @@ export function usePressNotice(): {
     .filter(
       (p) =>
         p.id > dismissed &&
-        ((p.status === 'error' && !retried(p)) ||
+        ((p.status === 'error' && !p.inline && !retried(p)) ||
           (p.status === 'success' && p.released)),
     )
     .at(-1);

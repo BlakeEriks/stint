@@ -31,6 +31,8 @@ function Released() {
   const press = useOptimisticMutation({
     queryKey: () => ['story'],
     mutationFn: () => Promise.resolve({ releasedFrom: 'INV-0003' }),
+    // As the entry dialog's is: it shows its own refusals, not this.
+    inline: true,
   });
   return (
     <button type="button" onClick={() => press.mutate()}>
