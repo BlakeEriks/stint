@@ -6,18 +6,18 @@ with the command that moves it at each step.
 1. **Capture**, by the rules in the next section. `pnpm hygiene` and
    Dependabot also file work weekly, and each Sentry alert is triaged into a
    `bug` + `urgent` issue for `/work-issues` (`docs/deploying.md` §3c).
-2. **Build.** A feature built by hand: a linked session from `/conduct`, in
-   its own `pnpm worktree`, runs `/speckit-specify` from the issue, then
+2. **Build.** A feature built by hand: a session in its own `pnpm worktree`
+   runs `/speckit-specify` from the issue, then
    `/speckit-clarify` → `/design-review` → `/speckit-plan` →
    `/speckit-tasks` → `/speckit-analyze` → `/speckit-implement`.
    `/design-review` is offered to every feature that adds or changes UI,
    never assumed. The reviewer settles the look from a draft of each screen
    before anything is built, or skips it when the change has no visible UI
    or a trivial one. Planning waits for the spec to record either.
-   `/conduct` makes one session the only one the owner talks to: it runs
-   `/work-issues` and hands out hands-on work to linked sessions, each labeling
-   its issue `building` so no one else picks it.
-   `/work-issues` builds issues in a worktree each, and features too, by
+   `/work-issues` is the one session the owner talks to. It hands work the
+   owner asks to steer to a linked session, labeling its issue `building`
+   so no one else picks it.
+   It builds issues in a worktree each, and features too, by
    running that same chain unattended. Its builder decides each question itself,
    listing the decisions in the PR, and starts a design review only when a
    screen has a real choice of layout: the draft is posted to the issue as
@@ -48,8 +48,12 @@ first), or an improvement to something that exists, labeled `enhancement`.
 Phone work that hits both platforms carries both. Tooling, docs and CI carry
 none. The form asks, and `issue-platforms.yml` applies the answer.
 
-One filed with `gh` answers the form's fields under the same labels. The PR
+One filed with `gh` answers the form's fields under the same labels, and
+attaches a screenshot with `--attach '<path>#<alt text>'`. The PR
 that does it closes it.
+
+A fault or an idea raised in chat is diagnosed and filed. It is built in
+that session only when the owner asks.
 
 **Two milestones, and they are gates:** `Alpha`, a handful of friends using
 it for real, and `Launch`, a stranger paying. An issue in neither is wanted
@@ -61,9 +65,8 @@ Every PR reaches QA the same way, whether `/work-issues` built it or not:
 
 - **`/standards-review` has reviewed its commits** before it opens:
   `/work-issues` runs it each round, and Spec Kit after `/speckit-implement`.
-  Once a PR's rounds have churned enough to leave leftovers,
-  `/work-issues` recommends `/standards-review final <n>`, which reviews the
-  whole branch; the owner decides when it runs.
+  `/standards-review final <n>` reviews a PR's whole branch when the owner
+  asks.
 
 - **The branch name is under 30 characters.** It becomes the preview's URL,
   and Vercel hashes a longer one.
