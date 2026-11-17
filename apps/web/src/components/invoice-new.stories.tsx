@@ -114,7 +114,8 @@ const card = (page: Page) =>
 
 /** The bordered sheet itself, which holds only what prints. */
 const sheet = (page: Page) =>
-  card(page).getByText('Billed to').closest('.rounded-lg') as HTMLElement;
+  card(page).getByRole('heading', { name: 'Preview' })
+    .parentElement as HTMLElement;
 
 const scheduled = (
   id: string,
@@ -190,6 +191,11 @@ export const SheetAligned: Story = {
     expect(business.right).toBeLessThanOrEqual(dates.left);
     // Stacked boxes never overlap.
     expect(period.bottom).toBeLessThanOrEqual(reference.top);
+    // The Preview label straddles the sheet's top edge.
+    const label = box(page.getByRole('heading', { name: 'Preview' }));
+    const paper = box(sheet(page));
+    expect(label.top).toBeLessThan(paper.top);
+    expect(paper.top).toBeLessThan(label.bottom);
   },
 };
 
