@@ -2,14 +2,19 @@
 
 import { useState } from 'react';
 import { parseTermsDays } from '@stint/core';
-import { NEXT_INVOICE_NUMBER_MAX } from '@stint/schema';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Input } from '@/components/ui/input';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { type Segment, SegmentedControl } from './segmented-control';
-import { Field, Section, textareaClass } from './field';
+import { Field, Section } from './field';
 import { parseRate, RateInput, UnitInput } from './rate-input';
 import { SaveIndicator } from './save-indicator';
+import {
+  emailError,
+  type Identity,
+  IdentityFields,
+  NumberFields,
+  nextNumberError,
+} from './settings-fields';
 import { useAutosave } from '@/lib/client/use-autosave';
 import { TemplateControl } from './template-dialog';
 import { ZoneSelect } from './zone-select';
@@ -21,6 +26,12 @@ import {
 } from '@/lib/client/api';
 import { type Theme, useTheme } from '@/lib/client/use-theme';
 import { keys, invalidateEntryData } from '@stint/client';
+
+const IDENTITY_KEYS = {
+  name: 'businessName',
+  email: 'businessEmail',
+  address: 'businessAddress',
+} as const;
 
 const THEMES: Segment<Theme>[] = [
   { value: 'system', label: 'System', icon: Monitor },
@@ -47,6 +58,13 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
   /* Text, not the number: a cleared field is a step in typing a new one,
      not a value to save. */
   const [next, setNext] = useState(String(loaded.nextInvoiceNumber));
+  /* The typed text, so an email that fails its check shows while the last
+     one saved stays. */
+  const [identityText, setIdentityText] = useState<Identity>({
+    name: loaded.businessName ?? '',
+    email: loaded.businessEmail ?? '',
+    address: loaded.businessAddress ?? '',
+  });
   const [terms, setTerms] = useState(String(loaded.paymentTermsDays));
   const termsDays = parseTermsDays(terms);
 
@@ -188,41 +206,20 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
         title="Business identity"
         aside={<SaveIndicator state={identity.state} />}
       >
-        <Field label="Business name" htmlFor="biz-name">
-          <Input
-            id="biz-name"
-            value={form.businessName ?? ''}
-            onChange={(e) =>
-              setIdentity('businessName', e.target.value || null)
-            }
-            placeholder="Your name or LLC"
-          />
-        </Field>
-
-        <Field label="Email" htmlFor="biz-email">
-          <Input
-            id="biz-email"
-            type="email"
-            value={form.businessEmail ?? ''}
-            onChange={(e) =>
-              setIdentity('businessEmail', e.target.value || null)
-            }
-            placeholder="you@example.com"
-          />
-        </Field>
-
-        <Field label="Address" htmlFor="biz-address">
-          <textarea
-            id="biz-address"
-            rows={3}
-            value={form.businessAddress ?? ''}
-            onChange={(e) =>
-              setIdentity('businessAddress', e.target.value || null)
-            }
-            placeholder={'123 Main St\nAustin, TX 78701'}
-            className={textareaClass}
-          />
-        </Field>
+        <IdentityFields
+          id="biz"
+          value={identityText}
+          onChange={(key, text) => {
+            setIdentityText((v) => ({ ...v, [key]: text }));
+            if (key === 'email' && text !== '' && emailError(text)) return;
+            setIdentity(IDENTITY_KEYS[key], text.trim() || null);
+          }}
+          error={(key) =>
+            key === 'email' && identityText.email !== ''
+              ? emailError(identityText.email)
+              : undefined
+          }
+        />
       </Section>
 
       <TemplateSection />
@@ -233,37 +230,21 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
         aside={<SaveIndicator state={numbering.state} />}
       >
         <div className="flex flex-wrap gap-4">
-          <Field label="Prefix" htmlFor="prefix" className="flex-1 basis-40">
-            <Input
-              id="prefix"
-              value={form.invoiceNumberPrefix}
-              onChange={(e) =>
-                setNumbering('invoiceNumberPrefix', e.target.value)
+          <NumberFields
+            id="numbering"
+            prefix={form.invoiceNumberPrefix}
+            next={next}
+            onPrefix={(prefix) => setNumbering('invoiceNumberPrefix', prefix)}
+            onNext={(text) => {
+              setNext(text);
+              if (!nextNumberError(text)) {
+                setNumbering('nextInvoiceNumber', Number(text));
               }
-              placeholder="INV-"
-            />
-          </Field>
-
-          <Field
-            label="Next number"
-            htmlFor="next-number"
-            error={nextError}
-            className="flex-1 basis-40"
-          >
-            <Input
-              id="next-number"
-              type="number"
-              max={NEXT_INVOICE_NUMBER_MAX}
-              step="1"
-              value={next}
-              onChange={(e) => {
-                setNext(e.target.value);
-                if (e.target.value !== '') {
-                  setNumbering('nextInvoiceNumber', Number(e.target.value));
-                }
-              }}
-            />
-          </Field>
+            }}
+            nextError={
+              nextError ?? (next === '' ? undefined : nextNumberError(next))
+            }
+          />
         </div>
       </Section>
     </>

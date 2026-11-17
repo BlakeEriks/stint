@@ -6,6 +6,7 @@ import type { Settings } from '@/lib/client/api';
 import { Field } from './field';
 import { shortDate } from './invoice-bits';
 import { SettingsDialog } from './settings-dialog';
+import { NumberFields, nextNumberError } from './settings-fields';
 
 /**
  * The invoice's No., Issued and Due, opened from where they print. The
@@ -45,10 +46,7 @@ export function InvoiceDatesDialog({
       // A draft is dated as if sent today; sending dates it.
       description="Issued is the day the invoice is sent."
       missing={{
-        'inv-next':
-          !settings || (Number.isInteger(nextNumber) && nextNumber > 0)
-            ? undefined
-            : 'Enter a whole number over zero.',
+        'inv-next': settings ? nextNumberError(next) : undefined,
         'inv-due': dueError(dueDate, issued),
       }}
       patch={() =>
@@ -62,35 +60,16 @@ export function InvoiceDatesDialog({
         <>
           {settings ? (
             <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-              <Field
-                label="Prefix"
-                htmlFor="inv-prefix"
-                className="flex-1 basis-40"
-              >
-                <Input
-                  id="inv-prefix"
-                  placeholder="INV-"
-                  maxLength={20}
-                  value={prefix}
-                  readOnly={pending}
-                  onChange={(e) => setPrefix(e.target.value)}
-                />
-              </Field>
-              <Field
-                label="Next number"
-                htmlFor="inv-next"
-                className="flex-1 basis-40"
-                error={error('inv-next')}
-              >
-                <Input
-                  id="inv-next"
-                  type="number"
-                  autoFocus
-                  value={next}
-                  readOnly={pending}
-                  onChange={(e) => setNext(e.target.value)}
-                />
-              </Field>
+              <NumberFields
+                id="inv"
+                prefix={prefix}
+                next={next}
+                onPrefix={setPrefix}
+                onNext={setNext}
+                nextError={error('inv-next')}
+                readOnly={pending}
+                autoFocus
+              />
               <p className="basis-full type-support text-subtle">
                 Your account's next number, saved to Settings for every invoice
                 after this one.
