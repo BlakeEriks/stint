@@ -19,10 +19,10 @@ export const POST = handle(async (req: Request) => {
   });
   if (error) throw error;
 
-  const [{ renamed, running }] = data as {
-    renamed: number;
-    running: boolean;
-  }[];
+  // An aggregate, so always exactly one row.
+  const [{ renamed, running }] = data as [
+    { renamed: number; running: boolean },
+  ];
   if (running) pushTimerChanged(db, userId);
   return NextResponse.json({ renamed });
 });

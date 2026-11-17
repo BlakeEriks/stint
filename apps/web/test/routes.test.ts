@@ -3208,7 +3208,7 @@ test('a rename reaches every spelling of the caller’s task, billed too, and co
     daysAgo: 1,
     userId: OTHER,
   });
-  // #758: a sent invoice froze its lines, so its entries' names are free.
+  // A sent invoice froze its lines, so its entries' names are free.
   await pool.query(`insert into clients (id,user_id,name) values ($1,$2,'C')`, [
     'cc000000-0000-4000-8000-000000000090',
     USER,
