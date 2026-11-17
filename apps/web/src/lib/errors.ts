@@ -52,14 +52,14 @@ export function handle<T extends unknown[]>(
       if (isCheckViolation(err)) {
         return errorResponse(
           'VALIDATION_FAILED',
-          'The database rejected this change as invalid',
+          'That change isn’t valid, so nothing was saved.',
           { constraint: (err as { message?: string }).message },
         );
       }
       if (dbCode(err as { message?: string }) === 'VALIDATION_FAILED') {
         return errorResponse(
           'VALIDATION_FAILED',
-          'This refers to a record that does not exist',
+          'That change names a record that doesn’t exist, so nothing was saved.',
           { constraint: (err as { message?: string }).message },
         );
       }
@@ -72,7 +72,10 @@ export function handle<T extends unknown[]>(
       console.error('Unhandled API error:', err);
       report(err);
       return NextResponse.json(
-        { code: 'INTERNAL', message: 'Internal server error' },
+        {
+          code: 'INTERNAL',
+          message: 'Request failed. Tracked time is unaffected.',
+        },
         { status: 500 },
       );
     }

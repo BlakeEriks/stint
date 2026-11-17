@@ -117,7 +117,7 @@ export const Light: Story = {
   },
 };
 
-/** No payment details: invoices render without a payment block. */
+/** No payment details: invoices print without them. */
 export const NoPaymentProfiles: Story = {
   ...desktop,
   parameters: account((db) => {
@@ -125,9 +125,7 @@ export const NoPaymentProfiles: Story = {
   }),
   play: async ({ canvasElement }) => {
     await expect(
-      await within(canvasElement).findByText(
-        /Invoices will render without a payment block/,
-      ),
+      await within(canvasElement).findByText(/Invoices print without them/),
     ).toBeVisible();
   },
 };
@@ -235,7 +233,7 @@ export const NextNumberCeiling: Story = {
     await userEvent.clear(field);
     await userEvent.type(field, '1000000');
     await expect(
-      await page.findByText(/can't go above 999999/, {}, { timeout: 3000 }),
+      await page.findByText(/go above 999999/, {}, { timeout: 3000 }),
     ).toBeVisible();
     await expect(field).toHaveValue(16);
   },

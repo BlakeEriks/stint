@@ -293,7 +293,7 @@ function InvoicePreview() {
 
           <div className="mt-6 flex items-start justify-between gap-6">
             <div className="flex flex-col">
-              <span className={label}>BILL TO</span>
+              <span className={label}>BILLED TO</span>
               <span className="type-heading mt-1">Northwind Trading</span>
               <span className={muted}>Portland, OR</span>
               <span className={muted}>ap@northwind.example</span>
@@ -310,7 +310,7 @@ function InvoicePreview() {
                 </div>
               </div>
               <div className="flex flex-col items-end">
-                <span className={label}>SERVICE PERIOD</span>
+                <span className={label}>PERIOD</span>
                 <span className={`${muted} mt-1`}>
                   Oct 1, 2026 &ndash; Oct 31, 2026
                 </span>

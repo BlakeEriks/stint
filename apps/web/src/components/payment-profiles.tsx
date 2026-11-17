@@ -50,13 +50,10 @@ export function PaymentProfiles() {
   });
 
   return (
-    <Section
-      title="Payment details"
-      description="Shown on your invoices so clients know where to pay."
-    >
+    <Section title="Payment details">
       {profiles.length === 0 ? (
         <p className="type-support text-subtle">
-          No payment details yet. Invoices will render without a payment block.
+          No payment details yet. Invoices print without them.
         </p>
       ) : (
         <ul className="divide-y divide-edge-subtle">

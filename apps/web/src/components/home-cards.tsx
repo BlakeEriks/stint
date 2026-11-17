@@ -89,8 +89,7 @@ function Panel({ stats }: { stats: Stats }) {
         >
           <h2 className="type-heading text-strong">Add your first entry</h2>
           <p className="mt-1.5 type-body text-muted">
-            Start a timer or add an entry, and Home fills in as your time
-            entries arrive.
+            Start a timer or add an entry, and Home fills in as you track.
           </p>
         </div>
       </div>

@@ -877,7 +877,8 @@ export const OneSummaryLine: Story = {
   },
 };
 
-/** Two rates are two lines of the same text (US1 scenario 2). */
+/** Two rates are two lines of the same text until the second is typed
+    itself; emptied, it is an error at that line, and Save draft waits. */
 export const SummaryTwoRates: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -890,6 +891,22 @@ export const SummaryTwoRates: Story = {
     await expect(
       card(page).getAllByRole('cell', { name: 'Software consulting services' }),
     ).toHaveLength(2);
+    const second = page.getByLabelText('Summary line at $195.00/h');
+    await userEvent.clear(second);
+    await expect(
+      await page.findByText('Give the summary line its text.'),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Save draft' }),
+    ).toBeDisabled();
+    await userEvent.type(second, 'Peak season fixes');
+    await settled(page);
+    await expect(
+      card(page).getAllByRole('cell', { name: 'Software consulting services' }),
+    ).toHaveLength(1);
+    await expect(
+      card(page).getByRole('cell', { name: 'Peak season fixes' }),
+    ).toBeVisible();
   },
 };
 
@@ -934,6 +951,12 @@ export const AttachDetail: Story = {
     await expect(
       card(page).getByText('Page 2 · supporting detail'),
     ).toBeVisible();
+    // Only the invoice scrolls: a chip's hidden checkbox must not stretch
+    // the panel around it.
+    const panel = canvasElement.ownerDocument.querySelector(
+      '[data-content-panel]',
+    ) as HTMLElement;
+    await expect(panel.scrollHeight).toBe(panel.clientHeight);
   },
 };
 
@@ -1410,7 +1433,7 @@ export const AddDetails: Story = {
       await page.findByRole('button', { name: 'Add details' }),
     );
     const dialog = await page.findByRole('dialog', {
-      name: 'Who is this invoice from?',
+      name: 'Who’s this invoice from?',
     });
     await waitFor(() => expect(dialog).toBeVisible());
     const form = within(dialog);
@@ -1458,7 +1481,7 @@ export const DetailsSaveFails: Story = {
       await page.findByRole('button', { name: 'Add details' }),
     );
     const dialog = await page.findByRole('dialog', {
-      name: 'Who is this invoice from?',
+      name: 'Who’s this invoice from?',
     });
     await waitFor(() => expect(dialog).toBeVisible());
     const form = within(dialog);
@@ -1586,7 +1609,7 @@ export const EditSender: Story = {
       card(page).getByRole('button', { name: /^Edit Sam Rivera/ }),
     );
     const dialog = await page.findByRole('dialog', {
-      name: 'Who is this invoice from?',
+      name: 'Who’s this invoice from?',
     });
     await waitFor(() => expect(dialog).toBeVisible());
     const form = within(dialog);

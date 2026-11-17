@@ -404,7 +404,7 @@ export const RateRejected: Story = {
       '125',
     );
     await userEvent.click(page.getByRole('button', { name: 'Save' }));
-    await expect(await page.findByText('Internal server error')).toBeVisible();
+    await expect(await page.findByRole('alert')).not.toBeEmptyDOMElement();
     await expect(
       page.getByRole('spinbutton', { name: 'Default hourly rate' }),
     ).toHaveValue(125);
@@ -529,7 +529,7 @@ export const Failed: Story = {
     // The panel's; the dock, which reads the same stats, says so too.
     const panel = within(canvasElement.querySelector('main') as HTMLElement);
     await expect(
-      await panel.findByText('Could not load this. Try again.'),
+      await panel.findByText('Couldn’t load this. Try again.'),
     ).toBeVisible();
   },
 };
@@ -608,7 +608,8 @@ export const MacBook16: Story = {
   ...macbook16,
   play: async ({ canvasElement }) => {
     const panel = await fitsWhole(canvasElement);
-    const content = panel.querySelector('main') as HTMLElement;
+    // The scroller's one child: Home's column.
+    const content = panel.firstElementChild as HTMLElement;
     await expect(
       panel.clientHeight - content.getBoundingClientRect().height,
     ).toBeLessThan(24);

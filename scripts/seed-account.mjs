@@ -75,6 +75,96 @@ const SEED_SCENARIOS = {
       await db.query(`delete from ${table} where user_id = $1`, [userId]);
     }
   },
+  /* A dozen more clients with projects, two of them archived: the Clients
+     screen long enough to scroll, so its pinned title bar and headings are
+     seen at work. A rate of null inherits the default; a color of null is
+     the hollow swatch. */
+  'many-clients': async (userId) => {
+    const more = [
+      [
+        'Acme Robotics',
+        140,
+        '#F08A5D',
+        ['Arm controller firmware', 'Safety audit', 'Vision pipeline'],
+      ],
+      ['Blue Harbor Foods', null, '#3FC1C9', ['Ordering portal']],
+      [
+        'Cascade Credit Union',
+        165,
+        null,
+        [
+          'Member app rebuild',
+          'Statement PDFs',
+          'Fraud rules review',
+          'SSO migration',
+        ],
+      ],
+      ['Dune Analytics Co', 150, '#D9C85A', ['Dashboard themes']],
+      [
+        'Evergreen Clinic',
+        null,
+        '#95E1D3',
+        ['Intake forms', 'Scheduling fixes'],
+      ],
+      ['Fulton Street Press', 120, '#AA96DA', []],
+      [
+        'Granite Peak Outfitters',
+        135,
+        '#FCBAD3',
+        ['Checkout redesign', 'Inventory sync'],
+      ],
+      ['Harlow & Finch', 175, null, ['Case management tool']],
+      [
+        'Ironwood Energy',
+        160,
+        '#FF9A3C',
+        ['Metering API', 'Field app', 'Reporting'],
+      ],
+      ['Juniper Design Studio', null, '#9A6FB0', ['Brand site']],
+      ['Kestrel Logistics', 145, '#B83B5E', ['Dispatch board', 'Driver app']],
+      [
+        'Lumen Learning',
+        130,
+        '#08D9D6',
+        ['Course player', 'Quiz engine', 'Admin console'],
+      ],
+      ['Old Harbor Marina', 125, '#5B8E7D', ['Slip booking'], true],
+      ['Pinecrest Realty', null, null, ['Listings site', 'Agent portal'], true],
+    ];
+    for (const [name, rate, color, projects, archived = false] of more) {
+      const {
+        rows: [{ id: clientId }],
+      } = await db.query(
+        `insert into clients
+           (user_id, name, email, hourly_rate, currency, color, archived_at)
+         values ($1, $2, $3, $4, 'USD', $5, $6) returning id`,
+        [
+          userId,
+          name,
+          `ap@${name.toLowerCase().replace(/[^a-z]+/g, '')}.test`,
+          rate,
+          color,
+          archived ? new Date(Date.now() - 90 * 86_400_000) : null,
+        ],
+      );
+      for (const [i, project] of projects.entries()) {
+        // The last of three or more is archived, so a group shows one.
+        const done =
+          archived || (projects.length >= 3 && i === projects.length - 1);
+        await db.query(
+          `insert into projects
+             (user_id, client_id, name, is_billable_default, archived_at)
+           values ($1, $2, $3, true, $4)`,
+          [
+            userId,
+            clientId,
+            project,
+            done ? new Date(Date.now() - 60 * 86_400_000) : null,
+          ],
+        );
+      }
+    }
+  },
 };
 
 if (process.argv[2] === '--scenarios') {

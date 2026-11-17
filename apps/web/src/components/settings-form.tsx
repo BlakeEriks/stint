@@ -186,7 +186,6 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
 
       <Section
         title="Business identity"
-        description="Appears in the invoice header."
         aside={<SaveIndicator state={identity.state} />}
       >
         <Field label="Business name" htmlFor="biz-name">

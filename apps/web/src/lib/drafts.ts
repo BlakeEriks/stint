@@ -27,6 +27,7 @@ import {
   pickSchedules,
   resolvePaymentProfile,
   draftDates,
+  formatDate,
   nothingToSend,
   unratedRefusal,
 } from '@stint/core';
@@ -36,6 +37,7 @@ import type {
   GroupingMode,
   ManualLine,
   ScheduleKind,
+  SummaryText,
 } from '@stint/core';
 
 /** numeric columns arrive from PostgREST as strings. */
@@ -293,10 +295,20 @@ export function draftRefusals(d: {
 export function dueBeforeIssueError(issueDate: string, dueDate: string) {
   return new ApiError(
     'VALIDATION_FAILED',
-    `The due date typed for this draft, ${dueDate}, is before its issue date, ${issueDate}. Edit the draft to give it a later one.`,
+    `The due date, ${formatDate(dueDate)}, is before the issue date, ${formatDate(issueDate)}. Edit the draft and set a later due date.`,
     { field: 'dueDate' },
   );
 }
+
+/** The text a summary keeps, by column; another grouping keeps none. */
+export const summaryColumns = (body: {
+  groupingMode: GroupingMode;
+  summaryText: string;
+  summaryTexts: SummaryText[];
+}) =>
+  body.groupingMode === 'summary'
+    ? { summary_text: body.summaryText, summary_texts: body.summaryTexts }
+    : { summary_text: null, summary_texts: [] };
 
 /**
  * What an invoice for a client and period bills now, priced from
@@ -317,6 +329,7 @@ export async function computeInvoice(
     tz: string | { device: string | undefined };
     groupingMode: GroupingMode;
     summaryText?: string;
+    summaryTexts?: SummaryText[];
     manualLines: ManualLine[];
     excludedExpenseIds: string[];
     schedules: ScheduleKind[];
@@ -365,6 +378,7 @@ export async function computeInvoice(
   const totals = buildLineItems(entries, {
     groupingMode: opts.groupingMode,
     summaryText: opts.summaryText,
+    summaryTexts: opts.summaryTexts,
     taxRate: client.tax_rate == null ? 0 : Number(client.tax_rate),
     tz,
     manualLines: opts.manualLines,
@@ -452,6 +466,7 @@ export async function deriveDraft(
     tz: row.tz ?? { device: send ? requestTz : (requestTz ?? 'UTC') },
     groupingMode: row.grouping_mode,
     summaryText: row.summary_text ?? undefined,
+    summaryTexts: row.summary_texts,
     manualLines,
     excludedExpenseIds: row.excluded_expense_ids,
     schedules: attachedSchedules(row.supporting_detail),
@@ -543,7 +558,7 @@ export async function holdNewWork(db: SupabaseClient, draft: Derived) {
   if (dbCode(error) === 'INVOICE_STATUS_CHANGED')
     throw new ApiError(
       'INVOICE_STATUS_CHANGED',
-      'The invoice changed status since it was read',
+      'This invoice changed since you opened it. Nothing was saved.',
       { from: 'draft' },
     );
   if (error) throw error;
@@ -632,7 +647,7 @@ export async function sendDraft(
   if (code === 'INVOICE_STATUS_CHANGED' || error.code === PG.NO_DATA_FOUND)
     throw new ApiError(
       'INVOICE_STATUS_CHANGED',
-      'The invoice changed status since it was read',
+      'This invoice changed since you opened it. Nothing was saved.',
       { from: row.status },
     );
   if (code === 'EXPENSE_ALREADY_INVOICED' || code === 'ENTRY_ALREADY_INVOICED')

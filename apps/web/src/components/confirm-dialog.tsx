@@ -30,7 +30,7 @@ export function ConfirmDialog({
   confirmLabel,
   pendingLabel,
   icon,
-  keepLabel = 'Keep',
+  keepLabel = 'Keep it',
   tone = 'primary',
   pending,
   disabled = false,

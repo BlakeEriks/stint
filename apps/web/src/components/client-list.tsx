@@ -6,11 +6,8 @@ import { useQuery } from '@tanstack/react-query';
 import { ArchiveRestore, ChevronRight, Pencil, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api, type Client, type Expense, type Project } from '@/lib/client/api';
-import {
-  INTERNAL_SWATCH,
-  useAllProjects,
-} from '@/lib/client/use-project-colors';
-import { Listing, Page } from './page';
+import { useAllProjects } from '@/lib/client/use-project-colors';
+import { Listing, Page, UNDER_TITLE_BAR } from './page';
 import { Pip } from './home-shell';
 import { ClientDialog } from './client-dialog';
 import { ProjectDialog } from './project-dialog';
@@ -22,19 +19,22 @@ import { BILLING_PERIOD_LABELS } from '@stint/core';
 import { ProjectRate, rateLabel } from './project-rate';
 import { useRestoreClient } from '@/lib/client/use-archive-client';
 import { useRestoreProject } from '@/lib/client/use-restore-project';
+import { useMediaQuery } from '@/lib/client/use-media-query';
 
 /**
- * Every client as a card holding its projects and the expenses it owes back
- * — the one place all three are managed, and the only screen that reaches a
- * project with no client.
+ * Every client as a group of its projects and the expenses it owes back,
+ * flat on the panel — the one place all three are managed, and the only
+ * screen that reaches a project with no client.
  *
  * It is for editing, not reporting: what is owed and how many hours went in
  * belong to a reports screen. Every action is the Edit on the thing it
- * changes, opening a dialog; a project or an expense is added from the card
- * it belongs to. Archived clients wait below the active ones in a collapsed
- * section whose count stays visible, so nothing looks deleted; each archived
- * row restores in one press. The designs are `specs/002-clients-nav/design/`
- * and `specs/002-reimbursable-expenses/design/`.
+ * changes, opening a dialog; a project or an expense is added from the
+ * heading of the client it belongs to. Each client's heading pins under the
+ * frame's title bar as the list scrolls, so the rows in view always say
+ * whose they are. Archived clients wait below the active ones in a collapsed
+ * section whose count stays visible, so nothing looks deleted, and a client's
+ * archived projects fold the same way under its active ones; each archived
+ * row restores in one press. `Screens/Clients` shows each state.
  */
 export function ClientList() {
   /* `null` is a new project for no client; a string, for that client. */
@@ -43,7 +43,6 @@ export function ClientList() {
   const editingClient = useDialog<Client>();
   const addingExpense = useDialog<Client>();
   const [addingClient, setAddingClient] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
 
   const clientQuery = useQuery({
     queryKey: keys.clients({ archived: true }),
@@ -57,7 +56,7 @@ export function ClientList() {
     queryFn: () => api.settings(),
   });
   const defaultRate = settings.data?.defaultHourlyRate ?? null;
-  /* One read for every card: recurring, waiting, and on an unpaid invoice. */
+  /* One read for every client: recurring, waiting, and on an unpaid invoice. */
   const expenses = useQuery({
     queryKey: keys.expenses(),
     queryFn: () => api.expenses(),
@@ -84,15 +83,15 @@ export function ClientList() {
   );
 
   return (
-    <Page>
-      <header className="flex items-center justify-between gap-3 pb-4">
-        <h1 className="type-title text-strong">Clients</h1>
+    <Page
+      title="Clients"
+      actions={
         <Button onClick={() => setAddingClient(true)}>
           <Plus aria-hidden strokeWidth={2.25} />
           Add client
         </Button>
-      </header>
-
+      }
+    >
       <Listing
         query={{
           data: groups,
@@ -103,8 +102,18 @@ export function ClientList() {
         empty="Who's paying you? Add a client and what you charge them."
       >
         {(shown) => {
-          const card = (g: Group) => (
-            <Card
+          const row = (project: Project, client: Client | null) => (
+            <Row
+              key={project.id}
+              project={project}
+              client={client}
+              defaultRate={defaultRate}
+              onEdit={() => editing.show(project)}
+              onRestore={() => restoreProject.mutate(project)}
+            />
+          );
+          const render = (g: Group) => (
+            <ClientGroup
               key={g.client?.id ?? '__none__'}
               client={g.client}
               defaultRate={defaultRate}
@@ -120,41 +129,31 @@ export function ClientList() {
                   />
                 ) : null
               }
+              folded={
+                // Under an archived client the whole group is already behind
+                // Archived, so its projects stay as they are.
+                g.client?.archivedAt
+                  ? []
+                  : g.projects
+                      .filter((p) => p.archivedAt != null)
+                      .map((p) => row(p, g.client))
+              }
             >
-              {g.projects.map((project) => (
-                <Row
-                  key={project.id}
-                  project={project}
-                  client={g.client}
-                  defaultRate={defaultRate}
-                  onEdit={() => editing.show(project)}
-                  onRestore={() => restoreProject.mutate(project)}
-                />
-              ))}
-            </Card>
+              {g.projects
+                .filter((p) => g.client?.archivedAt || p.archivedAt == null)
+                .map((p) => row(p, g.client))}
+            </ClientGroup>
           );
           const archived = shown.filter((g) => g.client?.archivedAt);
           return (
-            <div className="flex flex-col gap-3">
-              {shown.filter((g) => !g.client?.archivedAt).map(card)}
-              {archived.length > 0 ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setShowArchived((v) => !v)}
-                    aria-expanded={showArchived}
-                    className={`${rowButton} ${rowBleed} flex items-center gap-1.5 py-2 type-label text-muted`}
-                  >
-                    <ChevronRight
-                      aria-hidden
-                      strokeWidth={2}
-                      className={`size-3.5 transition-transform motion-reduce:transition-none ${showArchived ? 'rotate-90' : ''}`}
-                    />
-                    Archived ({archived.length})
-                  </button>
-                  {showArchived ? archived.map(card) : null}
-                </>
-              ) : null}
+            <div>
+              {shown.filter((g) => !g.client?.archivedAt).map(render)}
+              <ArchivedFold
+                count={archived.length}
+                className="border-t border-edge-subtle pt-2"
+              >
+                {archived.map(render)}
+              </ArchivedFold>
             </div>
           );
         }}
@@ -211,17 +210,22 @@ function clientRate(client: Client, defaultRate: number | null) {
   return 'No rate';
 }
 
+const SM = '(width >= 40rem)';
+
 /**
- * One client and its projects. The spine down the left edge is the client's
- * color, repeated as each row's dot, so the belonging is drawn rather than
- * labeled — no "Projects" subheader.
+ * One client and its projects, a region of the panel: a heading, then rows
+ * indented to its name, so the belonging is drawn rather than labeled — no
+ * "Projects" subheader. The heading pins under the frame's title bar while
+ * its rows scroll, and holds the actions on the client: a project or an expense is
+ * added from it, where there is room. On a phone the two adds sit under the
+ * rows instead, since the heading there has width only for the name.
  *
- * "No client" is a grouping, not a record: dashed, with no rate or Edit.
- * Nor is it "Internal work" — null also covers work not yet assigned
- * to a client and speculative work, and only `isBillableDefault` tells them
- * apart.
+ * "No client" is a grouping, not a record: muted, with no rate, no
+ * expenses and no Edit. Nor is it "Internal work" — null also covers work
+ * not yet assigned to a client and speculative work, and only
+ * `isBillableDefault` tells them apart.
  */
-function Card({
+function ClientGroup({
   client,
   defaultRate,
   onEditClient,
@@ -229,6 +233,7 @@ function Card({
   onAdd,
   onAddExpense,
   expenses,
+  folded,
   children,
 }: {
   client: Client | null;
@@ -237,98 +242,20 @@ function Card({
   onRestoreClient: (client: Client) => void;
   onAdd: () => void;
   onAddExpense: () => void;
-  /** The card's Expenses, below its projects. "No client" has none: an
+  /** The client's Expenses, below its projects. "No client" has none: an
    *  expense is always some client's to pay back. */
   expenses: React.ReactNode;
+  /** The client's archived projects, folded under its active ones so a long
+   *  history never pushes the next client down. */
+  folded: React.ReactNode[];
   children: React.ReactNode[];
 }) {
-  const spine = client?.color ?? INTERNAL_SWATCH;
   const archived = client?.archivedAt != null;
-  return (
-    <section
-      className={`rounded-lg border ${
-        client
-          ? 'border-edge-subtle bg-surface-elevated'
-          : 'border-dashed border-edge-default'
-      }`}
-      style={client ? { boxShadow: `inset 3px 0 0 ${spine}` } : undefined}
-    >
-      <div className="flex items-start gap-3 px-4 py-3.5">
-        {/* A flex box, not bare inline: the dot sizes itself only as a flex
-            or block item. */}
-        <span className="flex pt-[7px]">
-          <Pip color={client?.color} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h2
-              className={`truncate type-heading ${client && !archived ? 'text-strong' : 'text-muted'}`}
-            >
-              {client ? client.name : 'No client'}
-            </h2>
-            {archived ? (
-              <span className="flex-none type-badge text-subtle">Archived</span>
-            ) : null}
-          </div>
-          <p className="truncate type-support text-subtle">
-            {clientSummary(client, defaultRate)}
-          </p>
-        </div>
-        {client && archived ? (
-          <RestoreButton
-            name={client.name}
-            onRestore={() => onRestoreClient(client)}
-          />
-        ) : null}
-        {client ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onEditClient(client)}
-            aria-label={`Edit ${client.name}`}
-            className="flex-none"
-          >
-            <Pencil aria-hidden strokeWidth={1.75} />
-            {/* The pencil alone on a phone, where the name needs the width;
-                the button's aria-label names it either way. */}
-            <span className="max-sm:hidden">Edit</span>
-          </Button>
-        ) : null}
-      </div>
-
-      {/* Rows start where the client's name does — the header's padding,
-          its 9px pip and the gap after it — so they read as the client's,
-          not its siblings. Only the left edge moves; amounts stay right. */}
-      <div className="border-t border-edge-subtle pt-1 pr-4 pb-2 pl-[calc(1rem+9px+0.75rem)]">
-        {children.length > 0 ? (
-          <ul className="divide-y divide-edge-grid">{children}</ul>
-        ) : (
-          <p className="pt-2.5 pb-0.5 type-support text-subtle">
-            No projects yet.
-          </p>
-        )}
-        {expenses}
-        <CardActions
-          client={client}
-          onAdd={onAdd}
-          onAddExpense={onAddExpense}
-        />
-      </div>
-    </section>
-  );
-}
-
-function CardActions({
-  client,
-  onAdd,
-  onAddExpense,
-}: {
-  client: Client | null;
-  onAdd: () => void;
-  onAddExpense: () => void;
-}) {
-  return (
-    <div className="-mx-2 mt-1 flex flex-wrap gap-1">
+  const inHeading = useMediaQuery(SM);
+  /* An archived client bills nothing new, so nothing is added to it until
+     it is restored. */
+  const adds = archived ? null : (
+    <>
       <Button
         variant="ghost"
         size="sm"
@@ -353,7 +280,81 @@ function CardActions({
           Expense
         </Button>
       ) : null}
-    </div>
+    </>
+  );
+  return (
+    <section className="border-t border-edge-subtle first:border-t-0">
+      {/* `-mx-2 px-2`: the heading paints as wide as a row's highlight
+          (`rowBleed`), so a hovered row scrolling under it never shows a
+          corner past its edge. The content keeps the column. */}
+      <div
+        className={`-mx-2 flex items-start gap-3 bg-surface-primary px-2 pt-3 pb-2 sm:sticky sm:z-10 ${UNDER_TITLE_BAR}`}
+      >
+        {/* A flex box, not bare inline: the dot sizes itself only as a flex
+            or block item. */}
+        <span className="flex pt-[7px]">
+          <Pip color={client?.color} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h2
+              className={`truncate type-heading ${client && !archived ? 'text-strong' : 'text-muted'}`}
+            >
+              {client ? client.name : 'No client'}
+            </h2>
+            {archived ? (
+              <span className="flex-none type-badge text-subtle">Archived</span>
+            ) : null}
+          </div>
+          <p className="truncate type-support text-subtle">
+            {clientSummary(client, defaultRate)}
+          </p>
+        </div>
+        {/* `-mr-2`: the last ghost's padding, so its glyph ends where the
+            rows' pencils do. */}
+        <div className="-mr-2 flex flex-none gap-0.5">
+          {inHeading ? adds : null}
+          {client && archived ? (
+            <RestoreButton
+              name={client.name}
+              onRestore={() => onRestoreClient(client)}
+            />
+          ) : null}
+          {client ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onEditClient(client)}
+              aria-label={`Edit ${client.name}`}
+              className="flex-none"
+            >
+              <Pencil aria-hidden strokeWidth={1.75} />
+              {/* The pencil alone on a phone, where the name needs the width;
+                  the button's aria-label names it either way. */}
+              <span className="max-sm:hidden">Edit</span>
+            </Button>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Rows start where the client's name does — the 9px pip and the gap
+          after it — so they read as the client's, not its siblings. Only the
+          left edge moves; amounts stay right. */}
+      <div className="pb-3 pl-[calc(9px+0.75rem)]">
+        {children.length > 0 ? (
+          <ul className="divide-y divide-edge-grid">{children}</ul>
+        ) : folded.length > 0 ? null : (
+          <p className="pt-1 pb-1 type-support text-subtle">No projects yet.</p>
+        )}
+        <ArchivedFold count={folded.length}>
+          <ul className="divide-y divide-edge-grid">{folded}</ul>
+        </ArchivedFold>
+        {expenses}
+        {inHeading ? null : (
+          <div className="-mx-2 mt-1 flex flex-wrap gap-1">{adds}</div>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -373,7 +374,7 @@ function Row({
   const archived = project.archivedAt != null;
   /* Under an archived client a project bills nothing new either. */
   const recedes = archived || client?.archivedAt != null;
-  /* The row is the button, so a card has one Edit (the client's) rather
+  /* The row is the button, so a client has one Edit (its own) rather
      than one per project; the pencil says it opens where there's no hover
      (.claude/rules/web-ui.md). An archived row's Restore sits beside it,
      since a button cannot hold another. */
@@ -416,6 +417,41 @@ function Row({
         <RestoreButton name={project.name} onRestore={onRestore} />
       ) : null}
     </li>
+  );
+}
+
+/** Archived things wait under a count, closed until asked for, so nothing
+    looks deleted and nothing takes room it hasn't earned. Open state lives
+    here and is not kept: a fold is closed again on the next visit. Always
+    mounted, so a restore the server then refuses finds it still open. */
+function ArchivedFold({
+  count,
+  className,
+  children,
+}: {
+  count: number;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  if (count === 0) return null;
+  return (
+    <div className={className}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className={`${rowButton} ${rowBleed} flex items-center gap-1.5 py-2 type-label text-muted`}
+      >
+        <ChevronRight
+          aria-hidden
+          strokeWidth={2}
+          className={`size-3.5 transition-transform motion-reduce:transition-none ${open ? 'rotate-90' : ''}`}
+        />
+        Archived ({count})
+      </button>
+      {open ? children : null}
+    </div>
   );
 }
 

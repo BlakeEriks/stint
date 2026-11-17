@@ -226,7 +226,7 @@ describe('PaymentProfiles', () => {
     ]);
     render(<PaymentProfiles />, { wrapper });
 
-    await screen.findByText(/without a payment block/);
+    await screen.findByText(/Invoices print without them/);
     expect(screen.queryByText('Old bank')).not.toBeInTheDocument();
   });
 });

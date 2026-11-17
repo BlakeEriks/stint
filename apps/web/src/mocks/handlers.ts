@@ -142,6 +142,8 @@ function draftChoices(db: Db, input: CreateInvoice, preview: Preview) {
     excludedExpenseIds: input.excludedExpenseIds ?? [],
     groupingMode: preview.groupingMode,
     summaryText: preview.groupingMode === 'summary' ? input.summaryText : null,
+    summaryTexts:
+      preview.groupingMode === 'summary' ? (input.summaryTexts ?? []) : [],
     reference: input.reference ?? null,
     supportingDetail: preview.schedules
       ? pickSchedules(preview.schedules, input.schedules)
@@ -218,6 +220,7 @@ function sendDraft(
       periodEnd: invoice.periodEnd,
       groupingMode: invoice.groupingMode,
       summaryText: invoice.summaryText ?? undefined,
+      summaryTexts: invoice.summaryTexts,
       excludedExpenseIds: invoice.excludedExpenseIds,
       draftId: invoice.id,
     },
@@ -716,7 +719,7 @@ export const handlers = {
     const invoice = byId(getDb().invoices, params.id);
     if (!invoice) return missing('Invoice');
     if (invoice.status !== 'draft')
-      return fail('INVOICE_STATUS_CHANGED', 'Only a draft can take new work', {
+      return fail('INVOICE_STATUS_CHANGED', 'Only a draft can take new work.', {
         from: invoice.status,
       });
     invoice.newWork = null;
@@ -778,7 +781,7 @@ export const handlers = {
       const input = await parse(request, schema.CreateInvoice);
       if (input instanceof Response) return input;
       if (invoice.status !== 'draft')
-        return fail('INVOICE_STATUS_CHANGED', 'Only a draft can be edited', {
+        return fail('INVOICE_STATUS_CHANGED', 'Only a draft can be edited.', {
           from: invoice.status,
         });
       if (input.clientId !== invoice.clientId)
@@ -969,7 +972,10 @@ export const handlers = {
     const db = getDb();
     const parsed = schema.UpdateSettings.safeParse(await body(request));
     if (!parsed.success)
-      return fail('VALIDATION_FAILED', 'Request body failed validation');
+      return fail(
+        'VALIDATION_FAILED',
+        'A field isn’t valid, so nothing was saved.',
+      );
     const input = parsed.data;
     const refused =
       input.nextInvoiceNumber === undefined

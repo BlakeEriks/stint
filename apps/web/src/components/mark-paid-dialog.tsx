@@ -102,9 +102,7 @@ export function MarkPaidDialog({
         <form onSubmit={submit} noValidate className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>Mark paid</DialogTitle>
-            <DialogDescription>
-              When did the payment actually arrive?
-            </DialogDescription>
+            <DialogDescription>When did the payment arrive?</DialogDescription>
           </DialogHeader>
 
           <Field
