@@ -5,14 +5,13 @@ the four planes, client colors — are in `.claude/rules/web-ui.md`.
 
 Both neutral ramps are **derived, not hand-picked**. Change a parameter in
 `src/derive-neutrals.mjs` (dark) or `src/derive-light.mjs` (light) and paste
-the output. Never eyedrop a gray: `pnpm tokens:validate` re-runs both
-generators and diffs them against `tokens.json`, so a hand-edited hex fails CI
-naming the step. `src/oklch.mjs` holds the OKLCH↔sRGB math with gamut
+the output: `pnpm tokens:validate` re-runs both generators and diffs them
+against `tokens.json`, so a hand-edited hex fails CI naming the step. `src/oklch.mjs` holds the OKLCH↔sRGB math with gamut
 mapping, plus `rgbToOklch` for auditing a hex you did not generate.
 
 That check exists because contrast ratios prove a color is *legible* and only
-this proves it was *derived*. The dark ramp had drifted to 8 of 12 steps
-hand-pinned while passing every contrast assertion.
+this proves it was *derived*: a ramp can pass every contrast assertion with
+most of its steps hand-pinned.
 
 ## Accent — hue 142
 
@@ -24,7 +23,7 @@ extra luminance separation. Chroma is held at **92% of the gamut edge** at
 every step, so 8-bit rounding and display-profile variance never clip. Pushed
 to C=0.30, every step clips.
 
-Below 135 reads yellow-green; above 150 reads spring-green/teal.
+Below 135 reads yellow-green; past 150 reads spring-green/teal.
 
 ## Neutral — hue 264
 
@@ -52,7 +51,7 @@ reads as a considered neutral at L 0.25 reads as a color at L 0.95.
 
 **Hover and active are surfaces, not ink.** They are painted on top of a card,
 so they sit at the card's end of the surface scale; on the ink curve they
-landed *below* the card they were hovering.
+land *below* the card they hover.
 
 ## Two scales, because one curve cannot serve both
 
@@ -66,13 +65,12 @@ The two halves of a neutral ramp want opposite things:
   card, text to every text ground.
 
 So surfaces come off `surfaces()`, a linear ladder, and ink off `inkRamp()`,
-an eased curve: `L(i) = 0.215 + 0.770 · t^1.40`, with steps 600 and 700 lifted
-above the curve to clear their AA ratios. `$meta.neutralCurve` in
+an eased curve: `L(i) = 0.215 + 0.770 · t^1.40`. Steps 600 and 700 are lifted
+off the curve to clear the ratios they owe. `$meta.neutralCurve` in
 `tokens.json` carries the same formula.
 
-Forcing both through one curve is what produced the drift above: every painted
-surface an override, and the curve still governing only 300, 400, 850, and 975
-— none of which are backgrounds.
+Forced through one curve, every painted surface becomes an override, and the
+curve governs only steps no background uses.
 
 **Thresholds, not nudges.** The ink steps that owe a ratio are lifted (dark) or
 dropped (light) by however much it takes to clear it *against whatever surfaces
@@ -84,15 +82,15 @@ constant is what makes "let's try a bigger card step" safe: the ink follows.
 drive it into its neighbor, since both move toward the same worst text ground
 and the one owing less catches up. Anything closer than ΔL 0.035 is pushed the
 rest of the way — a floor, never a ceiling, so a step that earned more
-distance keeps it. Without it, `500` and `600` landed 0.0087 apart: two names
+distance keeps it. Without it, `500` and `600` land 0.0087 apart: two names
 for one gray.
 
 **Lowering `FLOOR` is wrong.** It drags the entire eased curve down, taking the
 text steps with it: muted falls to 4.40 (under AA) and the border to 2.63. Two
 contract assertions broken to solve a problem that lives in the surfaces. Give
 the surfaces their own scale; leave the curve alone. `FLOOR` is 0.215 while the
-darkest painted plane is 0.150 — the surfaces no longer pass through the ink
-curve, which is what lets the floor stay where the contrast math wants it.
+darkest painted plane is 0.150 — the surfaces sit off the ink curve, which is
+what lets the floor stay where the contrast math wants it.
 
 ### What each ink step owes
 
@@ -112,14 +110,14 @@ pointer's press on a block.
 
 `600` owes **5.5**, not 4.5: held to the same ratio as 500 against the same
 grounds, both are pushed to the same place and the curve's own separation is
-lost — they came out ΔL 0.0087 apart, two names for one gray. The hierarchy is
+lost. The hierarchy is
 strong > primary > muted > subtle, so muted owes more than subtle.
 
-`400` exists because one primitive cannot owe two ratios: 500 had been
-carrying `text-subtle`, `border-control` and `timer-idle` at once, which is
-why that step could not be derived for any of them.
+`400` exists because one primitive cannot owe two ratios: a step carrying
+`text-subtle`, `border-control` and `timer-idle` at once cannot be derived for
+any of them.
 
-## Judge adjacent surfaces by ΔL, not WCAG
+## Judge adjacent surfaces by lightness, not WCAG
 
 **WCAG is compressive near black** and reports a near-invisible pair as 1.03:1
 whether it is invisible or not. The four planes are an even ΔL 0.035 apart:
@@ -148,8 +146,8 @@ consequences are baked into the system:
 
 ## The project hues are authored, not derived
 
-The eight are hand-set literals in `tokens.json`, each a hex and a hue angle
-at **L 0.700, C 0.111**, 40° apart. There is no generator for them.
+The eight are hand-set literals in `tokens.json`. Each is a hex and a hue angle
+at **L 0.700, C 0.111**, 40° from its neighbors. There is no generator for them.
 
 ## Warning and danger
 
@@ -200,8 +198,8 @@ dark ink brightens. `L = 0.985 − 0.840 · t^1.55`. `liftFor` and `dropFor` are
 two functions rather than one with a sign flag, for that reason.
 
 **The planes descend from a ceiling.** The card is the anchor in light where
-the bars are the anchor in dark: there is headroom below white and none above
-it. `ceiling` is 0.975, not 1.0 — pure white leaves nothing above the content
+the bars are the anchor in dark: there is headroom below white and none past
+it. `ceiling` is 0.975, not 1.0 — pure white leaves no headroom over the content
 column, and a card any nearer to it reads as a lit screen rather than as
 paper. The light steps are 0.020 where dark's are 0.035, because perceptual
 distance compresses toward white.
@@ -221,7 +219,7 @@ rather than on top of it.
 **White is the only ink that clears AA on it.** Dark puts near-black on its
 accent; across the whole forest/olive range dark ink tops out near 3:1, so
 `accent-default` must stay dark enough to carry white. That caps the ladder —
-an olive lifted much above L 0.5 fails the assertion guarding it.
+an olive lifted much past L 0.5 fails the assertion guarding it.
 
 **The running timer and the button are a rung apart in light.** Dark
 separates them for free: the neon glows on near-black, where a filled button
