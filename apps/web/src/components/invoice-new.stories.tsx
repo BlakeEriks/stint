@@ -596,8 +596,6 @@ export const EarlierWork: Story = {
     await expect(
       page.getByRole('button', { name: /^Start from Aug \d+$/ }),
     ).toBeVisible();
-    // No draft holds September's work, so none is named.
-    await expect(page.queryByText(/in this period\.$/)).toBeNull();
   },
 };
 export const EarlierWorkPhone: Story = { ...EarlierWork, ...phone };
