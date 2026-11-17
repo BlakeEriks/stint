@@ -464,8 +464,7 @@ The tests are the record of *whether* they hold; this list is the record of
   `allocate_invoice_number()` holds a row lock.
 - A duplicate invoice number is rejected.
 - Editing or deleting an entry billed to a **non-draft** invoice is rejected,
-  including its `task_name` — that becomes the invoice line description, so
-  changing it after issue rewrites what the client was told.
+  except renaming its `task_name`.
 - Changing a **non-draft** invoice or its lines is rejected, and its status
   moves only along the transition table, whichever client writes it.
 - Detaching an entry from a voided invoice is allowed — that is the release
