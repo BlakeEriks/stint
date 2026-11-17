@@ -309,8 +309,9 @@ and one-off expenses that no other draft holds, so two drafts never show the
 same work, and work logged later joins only when the owner adds it. Holding
 is not billing: held work still reads as unbilled everywhere else. A draft
 lets go of its work when it is deleted or sent, when an edit's build leaves
-it out, and when an entry moves to another client, by its own project or a
-whole project ([data model](data-model.md#invoices--invoice_line_items)).
+it out, when an entry moves to another client, by its own project or a
+whole project, and when an entry's start moves outside its period
+([data model](data-model.md#invoices--invoice_line_items)).
 
 **Status transitions are constrained:** draft→sent/void, sent→paid/void,
 paid→void. `void` is terminal, and setting a status to its current value is a
