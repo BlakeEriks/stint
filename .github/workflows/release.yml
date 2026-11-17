@@ -17,6 +17,8 @@ name: Release gate
 # the build itself for /api/v1/health. If any step fails or is rejected, the
 # deployment is never aliased and the previous one keeps serving. Vercel's
 # "Force Promote" is the escape hatch.
+# release-reminder.yml reads the released commit from this title.
+run-name: ${{ github.event.client_payload.environment }} ${{ github.event.client_payload.git.sha }}
 on:
   repository_dispatch:
     types: [vercel.deployment.ready]
