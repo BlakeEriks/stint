@@ -114,7 +114,7 @@ const card = (page: Page) =>
 
 /** The bordered sheet itself, which holds only what prints. */
 const sheet = (page: Page) =>
-  card(page).getByText('Bill to').closest('.rounded-lg') as HTMLElement;
+  card(page).getByText('Billed to').closest('.rounded-lg') as HTMLElement;
 
 const scheduled = (
   id: string,
@@ -128,7 +128,7 @@ const scheduled = (
 // ── states ─────────────────────────────────────────────────────────
 
 /** No client yet: every control is there and Client has focus, since it
-    comes first. The page prints what it already knows, Bill to says what
+    comes first. The page prints what it already knows, Billed to says what
     is left to choose, and Save draft waits. */
 export const Blank: Story = {
   ...desktop,
@@ -151,10 +151,8 @@ export const Blank: Story = {
     // An expense is the client's: the press goes to where one is chosen.
     await userEvent.click(page.getByRole('button', { name: 'Add an expense' }));
     await expect(page.getByRole('button', { name: 'Client' })).toHaveFocus();
-    // The period is set above the page: Service period goes there.
-    await userEvent.click(
-      page.getByRole('button', { name: /^Edit Service period/ }),
-    );
+    // The period is set above the page: its Period goes there.
+    await userEvent.click(page.getByRole('button', { name: /^Edit Period/ }));
     await expect(page.getByRole('button', { name: 'Period' })).toHaveFocus();
     // No client, no format yet: nothing to fault.
     await expect(
@@ -178,9 +176,7 @@ export const SheetAligned: Story = {
     );
     const client = box(page.getByRole('button', { name: 'Choose a client' }));
     const dates = box(page.getByRole('button', { name: /^Edit No\./ }));
-    const period = box(
-      page.getByRole('button', { name: /^Edit Service period/ }),
-    );
+    const period = box(page.getByRole('button', { name: /^Edit Period/ }));
     const reference = box(page.getByRole('textbox', { name: 'Reference' }));
     const near = (a: number, b: number) =>
       expect(Math.abs(a - b)).toBeLessThanOrEqual(1);
@@ -461,7 +457,6 @@ export const ClientChosen: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
-    await expect(card(page).getByText('Service period')).toBeVisible();
     await expect(page.queryByRole('button', { name: 'Preview' })).toBeNull();
   },
 };
@@ -703,7 +698,7 @@ export const WithCharge: Story = {
   },
 };
 
-/** A reference is typed where it prints, under the service period, which
+/** A reference is typed where it prints, under the period, which
     labels it once filled (US4 scenario 1). */
 export const WithReference: Story = {
   ...desktop,
@@ -1218,7 +1213,7 @@ export const SummaryWithoutHours: Story = {
 };
 
 /** Switching clients, the last client's lines leave with it: none of its
-    figures sits under the new Bill to while that client loads. */
+    figures sits under the new Billed to while that client loads. */
 export const SwitchingClients: Story = {
   ...desktop,
   parameters: {
@@ -1234,7 +1229,7 @@ export const SwitchingClients: Story = {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
     await chooseMeridian(canvasElement);
-    await card(page).findByRole('button', { name: /^Edit Bill to Meridian/ });
+    await card(page).findByRole('button', { name: /^Edit Billed to Meridian/ });
     await expect(card(page).queryByText('Subtotal')).toBeNull();
   },
 };
@@ -1307,7 +1302,7 @@ export const EditingExpense: Story = {
 };
 export const EditingExpensePhone: Story = { ...EditingExpense, ...phone };
 
-/** Bill to is what the invoice prints for the client, and opens the
+/** Billed to is what the invoice prints for the client, and opens the
     client's own dialog; once it saves, the page shows what the server kept.
     A client with no address or email prints its name alone. */
 export const EditClientHere: Story = {
@@ -1316,9 +1311,9 @@ export const EditClientHere: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseMeridian(canvasElement);
     const billTo = await card(page).findByRole('button', {
-      name: /^Edit Bill to/,
+      name: /^Edit Billed to/,
     });
-    await expect(billTo).toHaveAccessibleName('Edit Bill to Meridian Labs');
+    await expect(billTo).toHaveAccessibleName('Edit Billed to Meridian Labs');
     await userEvent.click(billTo);
     const dialog = within(await page.findByRole('dialog'));
     await userEvent.type(dialog.getByLabelText('Email'), 'ap@meridian.test');
@@ -1326,7 +1321,7 @@ export const EditClientHere: Story = {
     await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
     await waitFor(() =>
       expect(billTo).toHaveAccessibleName(
-        'Edit Bill to Meridian Labs ap@meridian.test',
+        'Edit Billed to Meridian Labs ap@meridian.test',
       ),
     );
   },

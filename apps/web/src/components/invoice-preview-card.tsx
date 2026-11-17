@@ -351,7 +351,7 @@ function AddButton({
   );
 }
 
-/** The business and the number and dates, then Bill to and the engagement.
+/** The business and the number and dates, then Billed to and the engagement.
     The top row gives the business the room and the number only what it
     needs, where an invoice keeps it; the second divides in halves. Every
     cell is plain, and the box inside it bleeds alike. */
@@ -402,7 +402,7 @@ function Header({
         <div className="min-w-0">
           {client ? (
             <Block onPress={edit?.onClient}>
-              <span className={`${LABEL} mb-2`}>Bill to</span>
+              <span className={`${LABEL} mb-2`}>Billed to</span>
               <Party
                 name={client.name}
                 lines={[client.address, client.email]}
@@ -411,7 +411,7 @@ function Header({
           ) : (
             <>
               {/* Where the client prints, marked as the first thing to choose. */}
-              <span className={`${LABEL} mb-2`}>Bill to</span>
+              <span className={`${LABEL} mb-2`}>Billed to</span>
               <AddButton
                 label="Choose a client"
                 onClick={edit?.onClient}
@@ -427,7 +427,7 @@ function Header({
             <Block onPress={edit?.onPeriod}>
               <dl className="type-support">
                 <Meta
-                  label="Service period"
+                  label="Period"
                   value={
                     period?.periodStart && period.periodEnd
                       ? `${shortDate(period.periodStart)} – ${shortDate(period.periodEnd)}`

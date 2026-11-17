@@ -226,7 +226,7 @@ export const Sent: Story = {
   args: { id: invoice(14) },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    await expect(await page.findByText('Bill to')).toBeVisible();
+    await page.findByRole('heading', { name: 'Invoice' });
     await expect(page.queryByText(/^Due \w/)).toBeNull();
     await expect(page.queryByRole('heading', { name: 'Status' })).toBeNull();
     await expect(page.queryByRole('heading', { name: 'Preview' })).toBeNull();
@@ -389,7 +389,7 @@ export const WithExpenses: Story = {
   },
 };
 
-/** The reference it was issued with, under the service period. */
+/** The reference it was issued with, under the period. */
 export const WithReference: Story = {
   ...desktop,
   args: { id: invoice(14) },
