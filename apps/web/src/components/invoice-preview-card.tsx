@@ -180,19 +180,29 @@ export function InvoicePreviewCard({
       // bounded: what is above stays, and the sheet moves as a page does,
       // edge and all. It takes the column's margin, so the sheet is cut at
       // the panel's foot and not short of it.
-      className="flex flex-col xl:-mx-[18px] xl:-mb-[18px] xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:px-[18px] xl:pb-[18px]"
+      // `pt` leaves room for the Preview label, which straddles the sheet's
+      // top edge and the scroller would otherwise clip.
+      className={`flex flex-col xl:-mx-[18px] xl:-mb-[18px] xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:px-[18px] xl:pb-[18px] ${heading ? 'pt-3' : ''}`}
     >
-      {/* Hidden, not dropped: the schedules' headings sit under it. */}
-      <h2 id="inv-preview" className="sr-only">
-        {heading ? 'Preview' : 'Invoice'}
-      </h2>
       {/* New invoice says so beside Save draft; an issued invoice here. */}
       {edit ? null : (
         <p className="px-1 pb-2.5 text-right type-support text-subtle">
           {updating ? 'Updating…' : null}
         </p>
       )}
-      <div className={`@container/card flex flex-col gap-5 ${SHEET}`}>
+      <div className={`@container/card relative flex flex-col gap-5 ${SHEET}`}>
+        {/* Hidden on an issued invoice, not dropped: the schedules' headings
+            sit under it. */}
+        <h2
+          id="inv-preview"
+          className={
+            heading
+              ? 'absolute top-0 left-4 -translate-y-1/2 rounded-xs border border-edge-default bg-surface-elevated px-2 py-0.5 type-label text-subtle'
+              : 'sr-only'
+          }
+        >
+          {heading ? 'Preview' : 'Invoice'}
+        </h2>
         <Header
           business={business}
           noSender={noSender}
@@ -482,6 +492,7 @@ function Sender({
       <Party
         name={business ? (business.name ?? 'Invoice') : ''}
         lines={[business?.address, business?.email]}
+        letterhead
       />
     </Block>
   );
@@ -568,13 +579,20 @@ function TypedNotes({ notes }: { notes: Typed }) {
 function Party({
   name,
   lines,
+  letterhead = false,
 }: {
   name: string;
   lines: Array<string | null | undefined>;
+  /** The sender, set as an invoice's letterhead. */
+  letterhead?: boolean;
 }) {
   return (
     <p className="min-w-0 flex-[1_1_200px] whitespace-pre-line type-support text-muted">
-      <b className="block type-control text-strong">{name}</b>
+      <b
+        className={`block text-strong ${letterhead ? 'mb-1 type-heading' : 'type-control'}`}
+      >
+        {name}
+      </b>
       {lines.filter(Boolean).join('\n')}
     </p>
   );
@@ -855,7 +873,7 @@ function Lines({
   );
 }
 
-const SHEET = 'rounded-lg border border-edge-subtle bg-surface-elevated p-6';
+const SHEET = 'rounded-xs border border-edge-default bg-surface-elevated p-6';
 
 /** The id of New invoice's notice that the summary line is empty. */
 export const SUMMARY_ERROR = 'inv-summary-error';
@@ -1069,7 +1087,7 @@ function Total({
       }`}
     >
       <dt>{label}</dt>
-      <dd className={strong ? 'type-amount text-strong' : 'type-duration'}>
+      <dd className={strong ? 'type-amount-hero text-strong' : 'type-duration'}>
         {value}
       </dd>
     </div>
