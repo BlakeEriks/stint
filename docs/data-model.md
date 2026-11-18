@@ -474,6 +474,8 @@ The tests are the record of *whether* they hold; this list is the record of
   client's rate later leaves an issued invoice at its original total.
 - `send_draft` and `update_draft` run as the caller and refuse anything but
   the caller's own draft.
+- `rename_task_name` runs as the caller and renames only the caller's own
+  entries.
 - Editing or deleting an expense billed to a **non-draft** invoice is
   rejected, and voiding releases it.
 - A send that loses a race for an expense writes nothing.

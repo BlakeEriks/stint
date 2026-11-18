@@ -84,6 +84,21 @@ export const TaskNameSuggestion = z.object({
   lastUsedAt: z.iso.datetime(),
 });
 
+/* Not blank: `''` is every timer started in a hurry, and renaming to nothing
+   erases a name rather than fixing it. */
+const namedTask = z
+  .string()
+  .max(500)
+  .regex(/\S/, 'A task name cannot be blank');
+
+/** Every entry named `from`, in any case, takes `to`; within `projectId` if
+ *  given. */
+export const RenameTaskName = z.object({
+  from: namedTask,
+  to: namedTask,
+  projectId: uuid.optional(),
+});
+
 // ── timer ──────────────────────────────────────────────────────────
 export const StartTimer = z.object({
   id: uuid.optional(),
