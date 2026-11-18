@@ -148,6 +148,63 @@
     }
   }
 
+  /* ── A toast (`Toast`) ──
+     In from below with an overshoot, so a message nobody asked for is seen;
+     out at full speed, so a dismiss feels immediate. A swipe follows the
+     finger, springs back on a cancel and leaves the same way as a close. */
+  .toast[data-state="open"] {
+    animation: toast-in var(--motion-enter) var(--ease-overshoot);
+  }
+  .toast[data-state="closed"] {
+    animation: toast-out var(--motion-quick) var(--ease-standard) forwards;
+  }
+  .toast[data-swipe="move"] {
+    translate: 0 var(--radix-toast-swipe-move-y);
+  }
+  .toast[data-swipe="cancel"] {
+    translate: 0 0;
+    transition: translate var(--motion-quick) var(--ease-standard);
+  }
+  .toast[data-swipe="end"] {
+    animation: toast-swiped var(--motion-quick) var(--ease-standard) forwards;
+  }
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(var(--motion-travel)) scale(0.9);
+    }
+  }
+  @keyframes toast-out {
+    to {
+      opacity: 0;
+      transform: translateY(16px) scale(0.96);
+    }
+  }
+  @keyframes toast-swiped {
+    from {
+      translate: 0 var(--radix-toast-swipe-end-y);
+    }
+    to {
+      opacity: 0;
+      translate: 0 calc(var(--radix-toast-swipe-end-y) + 16px);
+      scale: 0.96;
+    }
+  }
+  /* How long is left, drained on the toast's own duration. Radix's pause,
+     not `:hover`, stops it: Radix pauses on more than a hover. */
+  .toast-left {
+    transform-origin: left;
+    animation: toast-left var(--toast-duration) linear forwards;
+  }
+  .toast[data-paused] .toast-left {
+    animation-play-state: paused;
+  }
+  @keyframes toast-left {
+    to {
+      transform: scaleX(0);
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .loader {
       animation: loader-in var(--motion-count) linear 600ms both;
