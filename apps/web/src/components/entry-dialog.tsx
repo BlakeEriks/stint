@@ -105,6 +105,7 @@ export function EntryDialog({
     opening(existing ? { existing } : { seed }, tz),
   );
   const [error, setError] = useState<string | null>(null);
+  const locked = existing?.invoiceId != null;
 
   // Reset each time it opens, so a canceled edit cannot leak into the next.
   useEffect(() => {
@@ -165,15 +166,23 @@ export function EntryDialog({
     };
   };
 
+  /* A billed entry sends its task alone: the times the form holds are
+     whole minutes, so an entry started at 09:00:37 would come back as a
+     change to a locked field. */
   const save = useOptimisticMutation({
     ...formPress,
     mutationFn: async () =>
-      api.updateEntry(existing!.id, {
-        ...body(),
-        ...(draft.invoicedElsewhere !== existing!.invoicedElsewhere && {
-          invoicedElsewhere: draft.invoicedElsewhere,
-        }),
-      }),
+      api.updateEntry(
+        existing!.id,
+        locked
+          ? { taskName: draft.taskName.trim() }
+          : {
+              ...body(),
+              ...(draft.invoicedElsewhere !== existing!.invoicedElsewhere && {
+                invoicedElsewhere: draft.invoicedElsewhere,
+              }),
+            },
+      ),
     onError: failWith('Couldn’t save this entry.'),
   });
 
@@ -209,8 +218,9 @@ export function EntryDialog({
   });
 
   /* An entry on an invoice is billed on an issued one — a draft claims its
-     work only when sent — and a database trigger freezes it, so showing it
-     read-only is honest and offering an edit that will 409 is not. The
+     work only when sent — and a database trigger freezes all but its task,
+     so showing the rest read-only is honest and offering an edit that will
+     409 is not. The
      invoice's number is not on the entry, so it is fetched for the message,
      only when there is an invoice to name. */
   const billedOn = useQuery({
@@ -218,7 +228,6 @@ export function EntryDialog({
     queryFn: () => api.invoice(existing!.invoiceId!),
     enabled: open && existing?.invoiceId != null,
   });
-  const locked = existing?.invoiceId != null;
   const busy = save.isPending || remove.isPending;
 
   return (
@@ -266,16 +275,14 @@ export function EntryDialog({
               /* Naming work is what suggestions accelerate, and an entry that
                  exists is already named — the overlay would cover the field
                  the moment it takes focus, over a value the user came to
-                 adjust rather than replace. A billed entry is read-only, so
-                 there is nothing to accelerate there either. */
-              disabled={locked || existing !== undefined}
+                 adjust rather than replace. */
+              disabled={existing !== undefined}
             >
               {(suggest) => (
                 <Input
                   id="entry-task"
                   {...suggest}
                   autoFocus={focus === 'task'}
-                  disabled={locked}
                   placeholder="What did you work on?"
                 />
               )}
@@ -384,7 +391,7 @@ function draftInstants({ date, start, end }: Draft, tz: string) {
 
 function description(locked: boolean, invoiceNumber: string | undefined) {
   if (locked)
-    return `This entry is billed on ${invoiceNumber ?? 'an issued invoice'}, so it can’t be changed. Void the invoice to release it.`;
+    return `This entry is billed on ${invoiceNumber ?? 'an issued invoice'}, so only its task can change. Void the invoice to change the rest.`;
   return 'Times are in your local time zone. An end before the start counts as overnight.';
 }
 
@@ -465,16 +472,6 @@ function EntryFooter({
   onClose: () => void;
   onDelete: () => void;
 }) {
-  if (locked) {
-    return (
-      <DialogFooter>
-        <Button type="button" onClick={onClose}>
-          Close
-        </Button>
-      </DialogFooter>
-    );
-  }
-
   const busy = saving || deleting;
   const saveLabel = existing ? 'Save' : 'Add entry';
   // Both actions right-aligned, at the footer's own gap: split to opposite
@@ -487,7 +484,7 @@ function EntryFooter({
           spending it here trains the user past the one that matters. Weight
           tracks frequency — Save is taken on nearly every open of this
           dialog, Delete on almost none. */}
-      {existing ? (
+      {existing && !locked ? (
         <ConfirmAction
           /* No visible label, as a destructive first step may be
              (`.claude/rules/web-ui.md`): the confirm that follows spells it

@@ -180,38 +180,24 @@ describe('EntryDialog', () => {
     expect(hours).toBe(4);
   });
 
-  it('never offers an edit on an entry billed to an issued invoice', async () => {
-    const calls = serve('sent', SUGGESTIONS);
-    open(entry({ invoiceId: 'inv1' }));
+  /* The lock is a database trigger on everything but the task, and the
+     form's times are whole minutes: sent back, an entry started at 09:00:37
+     would 409 as a change to its start. Which fields are disabled is the
+     `Locked` story's. */
+  it('sends only the task for an entry billed to an issued invoice', async () => {
+    const calls = serve('sent');
+    const user = userEvent.setup();
+    open(entry({ invoiceId: 'inv1', startedAt: '2026-09-11T13:00:37.000Z' }));
 
-    /* The lock is a database trigger, so an edit here would 409. Showing the
-       reason is honest; offering a save that cannot succeed is not. */
-    await waitFor(() => expect(screen.getByLabelText('Task')).toBeDisabled());
-    for (const field of ['Project', 'Date', 'Start', 'End']) {
-      expect(screen.getByLabelText(field)).toBeDisabled();
-    }
-    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
-    expect(screen.queryByRole('button', { name: /delete/i })).toBeNull();
-    /* The footer button and the dialog's own X both read "Close". The point
-       is not how many there are — it is that EVERY remaining action is a
-       dismiss, so there is no way to attempt a write.
+    const task = await screen.findByLabelText('Task');
+    await user.clear(task);
+    await user.type(task, 'Rewriting');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
 
-       Disabled buttons are not remaining actions, and the project picker's
-       trigger is one: it is a button rather than a `<select>`, and line 158
-       is what proves it cannot be operated. */
-    const actions = screen
-      .getAllByRole('button')
-      .filter((b) => !(b as HTMLButtonElement).disabled)
-      .map((b) => b.textContent?.trim() || 'Close');
-    expect(actions.length).toBeGreaterThan(0);
-    expect(new Set(actions)).toEqual(new Set(['Close']));
-
-    /* Nor a suggestion list: one over a read-only field offers an edit that
-       409s. Asserted as the REQUEST, not the rendered list — a disabled
-       input cannot be focused, so "no listbox" would hold whether or not the
-       suggestion machinery was suppressed. */
-    expect(calls.some((c) => c.path.startsWith('/entries/task-names'))).toBe(
-      false,
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({
+        taskName: 'Rewriting',
+      }),
     );
   });
 
