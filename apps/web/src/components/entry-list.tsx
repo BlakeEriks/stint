@@ -97,12 +97,10 @@ export function EntryList({
           {earnedToday === undefined
             ? null
             : formatCurrency(earnedToday, currency)}
-          {/* Out of flow, so the hidden "+" doesn't push the figure off the
-              column's right edge. */}
           <KeyboardAdd
             label="Add an entry today"
             onClick={() => create(...lastHour(appNow()))}
-            className="absolute top-1/2 right-full mr-1 -translate-y-1/2"
+            side="left"
           />
         </span>
       </header>

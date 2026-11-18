@@ -7,16 +7,21 @@ import { Plus } from 'lucide-react';
  * clicks a time on the grid instead, so this shows only on keyboard focus,
  * never on hover or touch: a visible add button would compete with the
  * grid that already is one.
+ *
+ * It sits out of flow beside the figure it follows, in a `relative` parent,
+ * so the hidden "+" neither pushes that figure aside nor moves it when it
+ * shows.
  */
 export function KeyboardAdd({
   label,
   onClick,
-  className = '',
+  side,
 }: {
   /** The accessible name, which says where the entry goes. */
   label: string;
   onClick: () => void;
-  className?: string;
+  /** Which side of its parent it sits on. */
+  side: 'left' | 'right';
 }) {
   return (
     <button
@@ -29,7 +34,9 @@ export function KeyboardAdd({
       className={`pointer-events-none rounded-sm px-0.5 text-subtle opacity-0
                   transition-opacity focus-visible:opacity-100
                   focus-visible:ring-2 focus-visible:ring-edge-focus
-                  focus-visible:outline-none ${className}`}
+                  focus-visible:outline-none absolute top-1/2 -translate-y-1/2 ${
+                    side === 'left' ? 'right-full mr-1' : 'left-full ml-1'
+                  }`}
     >
       <Plus aria-hidden className="size-3" strokeWidth={2.5} />
     </button>
