@@ -4,14 +4,12 @@
 -- left a task spanning periods under two names. What moves money, rollups
 -- or ownership stays locked. The body is otherwise as last defined.
 --
--- Invoker again, as before 20261110103554_connected_app_fence: a connected
--- app may change only task_name (`t_entries_app_changes`, which fires
--- first), so with task_name free it never reaches the lock. An entry pointed
--- at an invoice its owner can't see locks nothing, since nothing on that
--- invoice depends on it: its lines froze when it was sent.
+-- Still definer, so the lock sees the invoice even when the caller's RLS
+-- hides it, as for an entry pointed at another user's invoice.
 
 create or replace function guard_billed_entry() returns trigger
 language plpgsql
+security definer set search_path = public, pg_temp
 as $$
 declare
   inv_status text;
