@@ -254,9 +254,10 @@ function threshold(accepts: (n: number) => boolean) {
   };
 }
 
-/** A number typed as text, not `type="number"`, which reports a half-typed
-    "-" as blank, and blank clears. Saved only once `parse` accepts it. A number
-    the server would refuse stays in the field with `error` and is never
+/** Shows the typed text and calls `onChange` only when `parse` returns
+    something other than undefined. Text, not `type="number"`, which reports
+    a half-typed "-" as blank, so `parse` would never see it. A number the
+    server would refuse stays in the field with `error` and is never
     scheduled, or autosave would resend it with every later edit. */
 function ParsedField({
   label,
