@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
 import { Loader } from './loader';
 import { useHydrated } from '@/lib/client/use-hydrated';
@@ -35,7 +34,6 @@ export const INSET = 'px-[18px]';
 export function Page({
   title,
   actions,
-  under,
   wide = false,
   flush = false,
   fills = false,
@@ -47,9 +45,6 @@ export function Page({
   title?: string;
   /** What sits at the bar's right: the screen's action, or its tabs. */
   actions?: React.ReactNode;
-  /** A second row in the bar. It makes the bar taller than
-   *  `UNDER_TITLE_BAR`, so such a screen pins no heading under it. */
-  under?: React.ReactNode;
   wide?: boolean;
   /**
    * For a screen whose content IS the panel rather than sitting on it.
@@ -81,12 +76,7 @@ export function Page({
   return (
     <main className={FILL}>
       {title ? (
-        <TitleBar
-          title={title}
-          actions={actions}
-          under={under}
-          measure={measure}
-        />
+        <TitleBar title={title} actions={actions} measure={measure} />
       ) : null}
       {/* The region that scrolls at `xl`; below it the column around the
           panel scrolls, and this is only a wrapper. */}
@@ -129,12 +119,10 @@ export const UNDER_TITLE_BAR = 'sm:top-[67px] xl:top-0';
 function TitleBar({
   title,
   actions,
-  under,
   measure,
 }: {
   title: string;
   actions: React.ReactNode;
-  under: React.ReactNode;
   /** The column's measure, so the title lines up with it: the inset goes
       inside the measure, as the column's does, or the two part by 18px once
       the window is wider than the measure. */
@@ -152,13 +140,6 @@ function TitleBar({
         <h1 className="type-title text-strong">{title}</h1>
         {actions}
       </div>
-      {under ? (
-        <div
-          className={`mx-auto flex items-baseline justify-between gap-3 pt-3 ${INSET} ${measure}`}
-        >
-          {under}
-        </div>
-      ) : null}
     </header>
   );
 }
@@ -199,18 +180,6 @@ export function DetailPage({
       </div>
     </Page>
   );
-}
-
-/**
- * A region of the panel: rows, or one message where rows would be, under an
- * inset rule.
- *
- * No border, no background, no shadow: the panel around it carries all three,
- * and a second set inside it reads as a card in a card. Its rows are split by
- * rules of their own (`divide-y`), never boxed.
- */
-export function Panel({ children }: { children: React.ReactNode }) {
-  return <div className="border-t border-edge-subtle">{children}</div>;
 }
 
 /**
@@ -357,45 +326,4 @@ export function useLoaded(...queries: Query<unknown>[]) {
 /** An empty array is the only "nothing" a `Listing` decides on its own. */
 function isEmpty(data: unknown) {
   return Array.isArray(data) && data.length === 0;
-}
-
-/**
- * The filter above a list, as links.
- *
- * The filter lives in the URL rather than in local state, so the view is
- * linkable and Back returns to it. `null` is the default view, which carries
- * no query at all.
- */
-export function FilterTabs({
-  base,
-  active,
-  tabs,
-}: {
-  /** The list's own path, e.g. `/clients`. */
-  base: string;
-  /** The current `status` param, or null for the default view. */
-  active: string | null;
-  tabs: { key: string | null; label: string }[];
-}) {
-  return (
-    <nav aria-label="Filter" className="flex gap-1">
-      {tabs.map(({ key, label }) => {
-        const on = key === active;
-        return (
-          <Link
-            key={label}
-            href={key ? `${base}?status=${key}` : base}
-            aria-current={on ? 'page' : undefined}
-            className={`rounded-md px-2 py-1 type-label ${
-              on
-                ? 'bg-surface-elevated text-strong'
-                : 'text-subtle hover:text-muted'
-            }`}
-          >
-            {label}
-          </Link>
-        );
-      })}
-    </nav>
-  );
 }

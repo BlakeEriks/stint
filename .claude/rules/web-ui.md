@@ -136,8 +136,7 @@ invoice, the calendar): it drops the measure and takes the column's width.
 The card keeps its size, so the frame never jolts between screens. The page
 title is the frame's: `Page`'s `title` and `actions` draw `TitleBar`, fixed
 above the scroller at `xl`, pinned from `sm`, scrolling with the page on a
-phone, `type-title`, once. Clients, Invoices and Settings are on it, and
-`under` holds a row the list is narrowed by, as Invoices' filters.
+phone, `type-title`, once. Clients, Invoices and Settings are on it.
 `DetailPage` (an invoice, New invoice, Import) and the error screen keep
 their own heading.
 
@@ -158,7 +157,7 @@ a different order, and the ones that drifted were rebuilt:
 | Need | Use |
 |---|---|
 | The content column | `Page`, `DetailPage` |
-| A list's loading, failure and empty states | `Panel` + `Listing` |
+| A list's loading, failure and empty states | `Listing` |
 | A titled region with its own save state | `Section` + `useAutosave` + `SaveIndicator` |
 | A labeled control | `Field`, `Input`, `inputClass`, `textareaClass`; on a signed-out page, `elevatedInputClass` |
 | What a form still lacks, shown on Save | `useMissing()` (`lib/client/use-missing.ts`) into `Field`'s `error` |
@@ -185,10 +184,8 @@ anticipation of one.
   at its `Field` and focuses the first (`useMissing()`); the form sets
   `noValidate`, since the browser's bubble never reaches a phone. Save is
   disabled only while its save is pending.
-- **A list filter lives in the URL** (`FilterTabs`), so the view is linkable
-  and Back returns to it. A component reading `useSearchParams` needs a
-  `Suspense` boundary in its `page.tsx`, or `next build` fails while
-  `next dev` passes.
+- **A component reading `useSearchParams` needs a `Suspense` boundary** in
+  its `page.tsx`, or `next build` fails while `next dev` passes.
 - **User-visible text follows `docs/voice.md`.**
 - **Every action carries a visible label.** Four exceptions, each with an
   `aria-label`: a destructive first step, a dense repeating row, the dock's

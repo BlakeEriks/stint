@@ -10,9 +10,7 @@ import { localDateKey, localDateTimeToInstant } from '@stint/core';
 
 const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-const search = { value: new URLSearchParams() };
 vi.mock('next/navigation', () => ({
-  useSearchParams: () => search.value,
   usePathname: () => '/invoices',
 }));
 
@@ -108,54 +106,9 @@ function answerWith(
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  search.value = new URLSearchParams();
 });
 
 describe('InvoiceList', () => {
-  it('shows open invoices by default, totals only sent, and offers mark-paid only on sent', async () => {
-    serve([
-      invoice(),
-      invoice({
-        id: 'i2',
-        invoiceNumber: 'STINT-0002',
-        status: 'draft',
-        total: 400,
-      }),
-      invoice({
-        id: 'i3',
-        invoiceNumber: 'STINT-0003',
-        status: 'paid',
-        total: 5000,
-      }),
-    ]);
-    render(<InvoiceList />, { wrapper });
-
-    /* A paid invoice is finished. Leading with history means scrolling past
-       it to reach what still needs doing, and this is the screen you open
-       when money lands. */
-    await waitFor(() =>
-      expect(screen.getByText('STINT-0001')).toBeInTheDocument(),
-    );
-    expect(screen.queryByText('STINT-0003')).toBeNull();
-
-    /* Only `sent` is outstanding: a draft has not been asked for and a paid
-       one has arrived. Totalling every row would contradict the list. */
-    const total = await screen.findByText(/outstanding/);
-    expect(total.textContent).toContain('$900.00');
-    /* The paid 5000 and the draft 400 must not be in it. */
-    expect(total.textContent).not.toContain('5,000');
-    expect(total.textContent).not.toContain('1,300');
-    expect(total.textContent).not.toContain('6,300');
-
-    /* A draft has not been sent, so there is nothing to have been paid. */
-    expect(
-      screen.getByRole('button', { name: 'Mark paid, STINT-0001' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'Mark paid, STINT-0002' }),
-    ).toBeNull();
-  });
-
   /* The unchanged default (today) must not send an explicit `paidAt` — local
      midnight on the day an invoice was also sent can land before `sentAt`,
      which the server rejects, and the original "now" behaviour is what the
@@ -234,6 +187,32 @@ describe('InvoiceList', () => {
     );
     await screen.findByLabelText('Date paid');
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  /* Mark sent locks the draft's entries, so it confirms with their count,
+     read from the draft in full, and holds until that count is known. */
+  it('marks a draft sent once the dialog has its entry count', async () => {
+    const draft = invoice({ status: 'draft', invoiceNumber: 'STINT-0001' });
+    const writes: unknown[] = [];
+    answerWith(
+      [{ ...draft, entryCount: 14 } as Invoice],
+      () => {},
+      () => writes.push('write'),
+    );
+    const calls = vi.mocked(fetch).mock.calls;
+    const user = userEvent.setup();
+    render(<InvoiceList />, { wrapper });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Mark sent, STINT-0001' }),
+    );
+    expect(await screen.findByText(/Its 14 entries/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Mark sent' }));
+
+    await waitFor(() => expect(writes).toHaveLength(1));
+    const [url, init] = calls.find(([, i]) => i?.method === 'PATCH')!;
+    expect(String(url)).toContain('/invoices/i1/status');
+    expect(JSON.parse(String(init!.body))).toEqual({ status: 'sent' });
   });
 
   /* Once the list paints, each draft and open invoice is fetched in full,

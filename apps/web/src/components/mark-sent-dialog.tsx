@@ -32,6 +32,7 @@ export function MarkSentDialog({
   onOpenChange,
   invoice,
   pending,
+  disabled,
   error,
   onConfirm,
 }: {
@@ -39,6 +40,7 @@ export function MarkSentDialog({
   onOpenChange: (open: boolean) => void;
   invoice: Sending;
   pending: boolean;
+  disabled?: boolean;
   error: unknown;
   onConfirm: () => void;
 }) {
@@ -48,6 +50,7 @@ export function MarkSentDialog({
       open={open}
       onOpenChange={onOpenChange}
       pending={pending}
+      disabled={disabled}
       error={error}
       onConfirm={onConfirm}
     />
