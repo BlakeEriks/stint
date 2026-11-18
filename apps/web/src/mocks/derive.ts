@@ -646,14 +646,11 @@ export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
       .map((e) => e.id)
       .filter((id) => overlapping.has(id)),
     earlierWork: previewEarlierWork(db, body, tz),
-    schedules:
-      groupingMode === 'summary'
-        ? buildSchedules(rated, {
-            tz,
-            periodStart: body.periodStart,
-            periodEnd: body.periodEnd,
-          })
-        : null,
+    schedules: buildSchedules(rated, {
+      tz,
+      periodStart: body.periodStart,
+      periodEnd: body.periodEnd,
+    }),
   };
 }
 

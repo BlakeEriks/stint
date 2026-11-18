@@ -142,13 +142,10 @@ export const POST = handle(async (req: Request) => {
       tz,
       draftId: body.draftId,
     }),
-    schedules:
-      body.groupingMode === 'summary'
-        ? buildSchedules(entries, {
-            tz,
-            periodStart: body.periodStart,
-            periodEnd: body.periodEnd,
-          })
-        : null,
+    schedules: buildSchedules(entries, {
+      tz,
+      periodStart: body.periodStart,
+      periodEnd: body.periodEnd,
+    }),
   });
 });
