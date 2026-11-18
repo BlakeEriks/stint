@@ -85,6 +85,23 @@ describe('Today', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['stats'] });
   });
 
+  it('rolls the header over with the rows, not before', async () => {
+    // Saturday 26 Sep, 11:59:30 PM in New York.
+    vi.setSystemTime(new Date('2026-09-27T03:59:30.000Z'));
+    const view = renderToday();
+    await view.findByText(/^Today · Saturday/);
+
+    // Past midnight, before the minute's check has moved the rows.
+    vi.setSystemTime(new Date('2026-09-27T04:00:10.000Z'));
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <Today stats={STATS} />
+      </QueryClientProvider>,
+    );
+
+    expect(view.getByText(/^Today · Saturday/)).toBeTruthy();
+  });
+
   it('leaves stats alone while the day is unchanged', async () => {
     vi.setSystemTime(new Date('2026-09-27T14:00:00.000Z'));
     renderToday();

@@ -1,14 +1,15 @@
 'use client';
 import { formatCompact } from '@stint/core';
 import type { Project, Stats, TimeEntry } from '@/lib/client/api';
-import { appNow } from '@stint/client';
 import {
   useAllProjects,
   useProjectColors,
 } from '@/lib/client/use-project-colors';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import { useTodayEntries } from '@/lib/client/use-today-entries';
+import { timeZone as tz } from '@/lib/client/use-timer';
 import { Money } from './money';
+import { Listing } from './page';
 import { FigGroup, FigLabel, PairLine, RegionHead, Pip } from './home-shell';
 
 /**
@@ -19,100 +20,140 @@ import { FigGroup, FigLabel, PairLine, RegionHead, Pip } from './home-shell';
  */
 export function Today({ stats }: { stats: Stats }) {
   const colors = useProjectColors();
-
-  const { data } = useTodayEntries();
-
-  /* Archived included: a project archived since this morning still named
-     the work done under it. */
-  const { data: projectData } = useAllProjects();
-
-  const entries = data ?? [];
-  const seconds = entries.reduce((sum, e) => sum + secondsOf(e), 0);
-  const tasks = groupByTask(entries, projectData?.projects ?? []);
-
-  /* Three, because it is what the region holds beside the week's chart: the
-     column keeps the height it will have once the day has work in it, so the
-     top row does not change shape at the first entry. */
-  const PLACEHOLDER_ROWS = 3;
+  const entries = useTodayEntries();
 
   return (
     <div className="flex flex-col">
-      <RegionHead>Today · {dayLabel()}</RegionHead>
+      <RegionHead>Today · {dayLabel(entries.day)}</RegionHead>
 
-      <FigGroup tier="major" className="mt-4">
-        <FigLabel>Earned</FigLabel>
-        <PairLine>
-          <Money
-            figure="today-earned"
-            amount={stats.earnedToday}
-            currency={stats.currency}
-            className="type-figure text-strong"
-          />
-          <span className="type-duration text-subtle">
-            {formatCompact(seconds)}
-          </span>
-        </PairLine>
-      </FigGroup>
+      {/* Archived projects included: a project archived since this morning
+          still names the work done under it. */}
+      <Listing query={[entries, useAllProjects()]} tight>
+        {([data, { projects }]) => (
+          <>
+            <FigGroup tier="major" className="mt-4">
+              <FigLabel>Earned</FigLabel>
+              <PairLine>
+                <Money
+                  figure="today-earned"
+                  amount={stats.earnedToday}
+                  currency={stats.currency}
+                  className="type-figure text-strong"
+                />
+                <span className="type-duration text-subtle">
+                  {formatCompact(
+                    data.reduce((sum, e) => sum + secondsOf(e), 0),
+                  )}
+                </span>
+              </PairLine>
+            </FigGroup>
+            <Tasks tasks={groupByTask(data, projects)} colors={colors} />
+          </>
+        )}
+      </Listing>
+    </div>
+  );
+}
 
-      {/* A fixed ceiling rather than the panel's height: the page is a column
-          sized by its content, so there is no bounded height to measure
-          against. Just under four rows, so the cut-off row says it scrolls. */}
-      <section
-        aria-label="Today's tasks"
-        tabIndex={useScrollerFocus('all')}
-        className="mt-4 flex max-h-[calc(160px+var(--grow,0px))] flex-col overflow-y-auto"
-      >
-        {entries.length === 0
-          ? /* An empty day keeps its rows rather than collapsing, the same way
-               an unworked day in the week's chart keeps its caption: the
-               em-dash is what holds the shape. Not a shimmer — nothing is
-               loading by the time this renders, and a pulse would promise
-               rows that are not coming. */
-            Array.from({ length: PLACEHOLDER_ROWS }, (_, i) => (
-              <div
-                key={`empty-${i}`}
-                aria-hidden="true"
-                data-entry-empty=""
-                className="grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-edge-subtle py-2.5 first:border-t-0"
-              >
-                {/* No pip: the hollow ring means internal work, and three of
-                    them would say the day held three untracked entries. An
-                    empty column is what nothing looks like. */}
-                <span />
-                <span className="type-support text-subtle">—</span>
-                <span className="type-duration text-subtle">—</span>
-              </div>
-            ))
-          : tasks.map((t) => (
-              <div
-                key={t.key}
-                data-task={t.key}
-                className="grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-edge-subtle py-2.5 first:border-t-0"
-              >
-                {/* Only clients have a color; internal work takes the hollow
-                    ring, which is what having none looks like on a screen
-                    otherwise keyed by client. */}
+/* Three, because it is what the region holds beside the week's chart: the
+   column keeps the height it will have once the day has work in it, so the
+   top row does not change shape at the first entry. */
+const PLACEHOLDER_ROWS = 3;
+
+function Tasks({
+  tasks,
+  colors,
+}: {
+  tasks: Task[];
+  colors: Map<string, string | null>;
+}) {
+  /* A fixed ceiling rather than the panel's height: the page is a column
+     sized by its content, so there is no bounded height to measure against.
+     Just under four rows, so the cut-off row says it scrolls. */
+  return (
+    <section
+      aria-label="Today's tasks"
+      tabIndex={useScrollerFocus('all')}
+      className="mt-4 flex max-h-[calc(160px+var(--grow,0px))] flex-col overflow-y-auto"
+    >
+      {tasks.length === 0
+        ? /* An empty day keeps its rows rather than collapsing, the same way
+             an unworked day in the week's chart keeps its caption: the
+             em-dash is what holds the shape. Not a shimmer — nothing is
+             loading by the time this renders, and a pulse would promise rows
+             that are not coming. No pip either: the hollow ring means
+             internal work, and three of them would say the day held three
+             untracked entries. */
+          Array.from({ length: PLACEHOLDER_ROWS }, (_, i) => (
+            <TaskRow
+              key={`empty-${i}`}
+              aria-hidden="true"
+              data-entry-empty=""
+              pip={<span />}
+              label={<span className="text-subtle">—</span>}
+              duration="—"
+            />
+          ))
+        : tasks.map((t) => (
+            <TaskRow
+              key={t.key}
+              data-task={t.key}
+              /* Only clients have a color; internal work takes the hollow
+                 ring, which is what having none looks like on a screen
+                 otherwise keyed by client. */
+              pip={
                 <Pip
                   color={t.projectId ? (colors.get(t.projectId) ?? null) : null}
                 />
-                <span
-                  className={`type-support truncate ${
-                    t.live ? 'text-primary' : 'text-muted'
-                  }`}
-                >
+              }
+              label={
+                <span className={t.live ? 'text-primary' : 'text-muted'}>
                   {t.name}
                   {t.projectName ? (
                     <span className="text-subtle"> · {t.projectName}</span>
                   ) : null}
                 </span>
-                <span className="type-duration text-subtle">
-                  {clock(t.seconds)}
-                </span>
-              </div>
-            ))}
-      </section>
+              }
+              duration={clock(t.seconds)}
+            />
+          ))}
+    </section>
+  );
+}
+
+/**
+ * A summary line, placeholder or task. It has no handler and no link, so
+ * pressing one starts nothing.
+ */
+function TaskRow({
+  pip,
+  label,
+  duration,
+  ...attrs
+}: {
+  pip: React.ReactNode;
+  label: React.ReactNode;
+  duration: React.ReactNode;
+} & React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      {...attrs}
+      className="grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-edge-subtle py-2.5 first:border-t-0"
+    >
+      {pip}
+      <span className="type-support truncate">{label}</span>
+      <span className="type-duration text-subtle">{duration}</span>
     </div>
   );
+}
+
+interface Task {
+  key: string;
+  name: string;
+  projectId: string | null;
+  projectName: string | null;
+  seconds: number;
+  live: boolean;
 }
 
 /**
@@ -121,17 +162,7 @@ export function Today({ stats }: { stats: Stats }) {
  */
 function groupByTask(entries: TimeEntry[], projects: Project[]) {
   const names = new Map(projects.map((p) => [p.id, p.name]));
-  const tasks = new Map<
-    string,
-    {
-      key: string;
-      name: string;
-      projectId: string | null;
-      projectName: string | null;
-      seconds: number;
-      live: boolean;
-    }
-  >();
+  const tasks = new Map<string, Task>();
   for (const e of entries) {
     const name = e.taskName || 'Untitled';
     const key = taskKey(e.projectId, e.taskName);
@@ -173,10 +204,11 @@ function clock(seconds: number): string {
 /* Browser locale, like every other date on this screen: a header reading
    "Thursday, Sep 17" beside one reading "17 sept." is the app disagreeing
    with itself. */
-function dayLabel(): string {
+function dayLabel(day: Date): string {
   return new Intl.DateTimeFormat(undefined, {
     weekday: 'long',
     month: 'short',
     day: 'numeric',
-  }).format(appNow());
+    timeZone: tz,
+  }).format(day);
 }

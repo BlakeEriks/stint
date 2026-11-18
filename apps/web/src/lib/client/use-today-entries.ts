@@ -21,12 +21,15 @@ export function useTodayEntries() {
   const today = useLocalDay();
   const from = startOfLocalDate(today, tz);
   const to = new Date(startOfLocalDayOffset(from, tz, -1).getTime() - 1);
-  return useQuery({
+  const query = useQuery({
     queryKey: keys.entries({ from: from.toISOString(), to: to.toISOString() }),
     queryFn: () =>
       api.entries({ from: from.toISOString(), to: to.toISOString() }),
     select: (r) => r.entries,
   });
+  /* The day's start beside its rows, so a header naming the day rolls over
+     with them rather than at its own render. */
+  return { ...query, day: from };
 }
 
 /**
