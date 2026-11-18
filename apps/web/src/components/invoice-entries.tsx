@@ -8,11 +8,13 @@ import {
   hundredths,
   localDateKey,
 } from '@stint/core';
+import { Pencil } from 'lucide-react';
 import { api, type InvoiceEntry } from '@/lib/client/api';
 import { useDialog } from '@/lib/client/use-dialog';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { EntryDialog } from './entry-dialog';
 import { shortDate } from './invoice-bits';
+import { rowBleed, rowButton } from './row-button';
 
 /**
  * The entries an invoice holds, under the sheet rather than on it: the PDF
@@ -56,9 +58,15 @@ export function InvoiceEntries({
               <button
                 type="button"
                 onClick={() => editor.show(entry)}
-                className="w-full rounded-sm text-left hover:bg-surface-elevated focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+                className={`${rowButton} ${rowBleed} flex items-center gap-3`}
               >
+                <span className="sr-only">Edit</span>{' '}
                 <Row entry={entry} currency={currency} />
+                <Pencil
+                  aria-hidden
+                  strokeWidth={1.75}
+                  className="size-3.5 flex-none text-subtle group-hover:text-strong"
+                />
               </button>
             ) : (
               <Row entry={entry} />
@@ -90,7 +98,7 @@ export function InvoiceEntries({
     with no amount. */
 function Row({ entry, currency }: { entry: InvoiceEntry; currency?: string }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-0.5 px-1 py-2.5 sm:grid-cols-[6.5rem_minmax(0,1fr)_minmax(0,12rem)_4rem_auto]">
+    <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-0.5 py-2.5 sm:grid-cols-[6.5rem_minmax(0,1fr)_minmax(0,12rem)_4rem_auto]">
       <span className="col-start-1 row-start-1 truncate type-control text-primary sm:col-start-2">
         {entry.taskName || 'Untitled'}
       </span>
