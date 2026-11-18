@@ -1,8 +1,9 @@
 'use client';
 import { formatCompact } from '@stint/core';
-import type { Project, Stats, TimeEntry } from '@/lib/client/api';
+import type { Stats, TimeEntry } from '@/lib/client/api';
 import {
   useAllProjects,
+  useProject,
   useProjectColors,
 } from '@/lib/client/use-project-colors';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
@@ -26,10 +27,12 @@ export function Today({ stats }: { stats: Stats }) {
     <div className="flex flex-col">
       <RegionHead>Today · {dayLabel(entries.day)}</RegionHead>
 
-      {/* Archived projects included: a project archived since this morning
-          still names the work done under it. */}
-      <Listing query={[entries, useAllProjects()]} tight>
-        {([data, { projects }]) => (
+      {/* Projects are `also`: if they fail, the rows paint without project
+          names rather than the region going blank. Archived included, so a
+          project archived since this morning still names the work done under
+          it. */}
+      <Listing query={entries} also={[useAllProjects()]} tight>
+        {(data) => (
           <>
             <FigGroup tier="major" className="mt-4">
               <FigLabel>Earned</FigLabel>
@@ -47,7 +50,7 @@ export function Today({ stats }: { stats: Stats }) {
                 </span>
               </PairLine>
             </FigGroup>
-            <Tasks tasks={groupByTask(data, projects)} colors={colors} />
+            <Tasks tasks={groupByTask(data)} colors={colors} />
           </>
         )}
       </Listing>
@@ -109,9 +112,7 @@ function Tasks({
               label={
                 <span className={t.live ? 'text-primary' : 'text-muted'}>
                   {t.name}
-                  {t.projectName ? (
-                    <span className="text-subtle"> · {t.projectName}</span>
-                  ) : null}
+                  <ProjectName id={t.projectId} />
                 </span>
               }
               duration={clock(t.seconds)}
@@ -121,10 +122,12 @@ function Tasks({
   );
 }
 
-/**
- * A summary line, placeholder or task. It has no handler and no link, so
- * pressing one starts nothing.
- */
+function ProjectName({ id }: { id: string | null }) {
+  const name = useProject(id)?.name;
+  return name ? <span className="text-subtle"> · {name}</span> : null;
+}
+
+/** A summary line, placeholder or task. */
 function TaskRow({
   pip,
   label,
@@ -151,7 +154,6 @@ interface Task {
   key: string;
   name: string;
   projectId: string | null;
-  projectName: string | null;
   seconds: number;
   live: boolean;
 }
@@ -160,8 +162,7 @@ interface Task {
  * One row per task: a name under two projects is two tasks. Entries arrive
  * newest first, so a task sits where its latest entry would.
  */
-function groupByTask(entries: TimeEntry[], projects: Project[]) {
-  const names = new Map(projects.map((p) => [p.id, p.name]));
+function groupByTask(entries: TimeEntry[]) {
   const tasks = new Map<string, Task>();
   for (const e of entries) {
     const name = e.taskName || 'Untitled';
@@ -170,7 +171,6 @@ function groupByTask(entries: TimeEntry[], projects: Project[]) {
       key,
       name,
       projectId: e.projectId,
-      projectName: e.projectId ? (names.get(e.projectId) ?? null) : null,
       seconds: 0,
       live: false,
     };
