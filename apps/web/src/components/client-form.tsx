@@ -29,7 +29,7 @@ import {
 import { DescribedSelectItem } from './described-select-item';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { ColorPicker } from './color-picker';
-import { Field, inputClass } from './field';
+import { Field, inputClass, textareaClass } from './field';
 import { RateInput, isValidRate, missingRate, parseRate } from './rate-input';
 import { EMAIL, useMissing, type Missing } from '@/lib/client/use-missing';
 import { api, ApiError, type Client, type ClientInput } from '@/lib/client/api';
@@ -58,45 +58,22 @@ export function ClientForm({
       Archive. */
   footer?: React.ReactNode;
 }) {
-  const [name, setName] = useState(existing?.name ?? '');
-  const [email, setEmail] = useState(existing?.email ?? '');
-  const [address, setAddress] = useState(existing?.address ?? '');
-  const [hourlyRate, setHourlyRate] = useState(
-    existing?.hourlyRate != null ? String(existing.hourlyRate) : '',
-  );
-  const [taxRate, setTaxRate] = useState(
-    existing?.taxRate != null ? String(existing.taxRate) : '',
-  );
-  const [color, setColor] = useState<string | null>(existing?.color ?? null);
-  const [schedule, setSchedule] = useState<BillingSchedule | null>(
-    existing?.billingSchedule ?? null,
-  );
-  const [terms, setTerms] = useState(
-    existing?.paymentTermsDays != null ? String(existing.paymentTermsDays) : '',
-  );
-  const termsDays = parseTermsDays(terms);
-  const check = useMissing(
-    missingIn({ name, email, hourlyRate, taxRate, schedule, terms }),
-  );
+  const [draft, setDraft] = useState(() => fromClient(existing));
+  const set =
+    <K extends keyof Draft>(key: K) =>
+    (value: Draft[K]) =>
+      setDraft((d) => ({ ...d, [key]: value }));
+  const check = useMissing(missingIn(draft));
 
   const save = useSaveClient(existing, onSaved);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!check.passes()) return;
-    save.mutate({
-      name: name.trim(),
-      // Empty is "unset", not empty string — the column is nullable and the
-      // schema rejects a blank email.
-      email: email.trim() || null,
-      address: address.trim() || null,
-      hourlyRate: parseRate(hourlyRate),
-      taxRate: taxRate.trim() === '' ? null : Number(taxRate),
-      color,
-      billingSchedule: schedule,
-      paymentTermsDays: termsDays,
-    });
+    save.mutate(toInput(draft));
   };
+
+  const saveLabel = existing ? 'Save changes' : 'Add client';
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-5">
@@ -110,8 +87,8 @@ export function ClientForm({
           id="client-name"
           required
           autoFocus
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          value={draft.name}
+          onChange={(e) => set('name')(e.target.value)}
           placeholder="Acme Corp"
         />
       </Field>
@@ -124,8 +101,8 @@ export function ClientForm({
         <Input
           id="client-email"
           type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={draft.email}
+          onChange={(e) => set('email')(e.target.value)}
           placeholder="billing@acme.com"
         />
       </Field>
@@ -134,13 +111,10 @@ export function ClientForm({
         <textarea
           id="client-address"
           rows={3}
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
+          value={draft.address}
+          onChange={(e) => set('address')(e.target.value)}
           placeholder={BILL_TO_PLACEHOLDER}
-          className="w-full rounded-md border border-edge-default bg-transparent px-3 py-2
-                     type-control text-strong placeholder:text-placeholder outline-none
-                     focus-visible:border-edge-focus focus-visible:ring-[3px]
-                     focus-visible:ring-edge-focus"
+          className={textareaClass}
         />
       </Field>
 
@@ -154,8 +128,8 @@ export function ClientForm({
         >
           <RateInput
             id="client-rate"
-            value={hourlyRate}
-            onChange={(e) => setHourlyRate(e.target.value)}
+            value={draft.hourlyRate}
+            onChange={(e) => set('hourlyRate')(e.target.value)}
             placeholder="150.00"
           />
         </Field>
@@ -174,16 +148,16 @@ export function ClientForm({
             max="100"
             step="0.01"
             inputMode="decimal"
-            value={taxRate}
-            onChange={(e) => setTaxRate(e.target.value)}
+            value={draft.taxRate}
+            onChange={(e) => set('taxRate')(e.target.value)}
             placeholder="0"
           />
         </Field>
       </div>
 
       <ScheduleField
-        value={schedule}
-        onChange={setSchedule}
+        value={draft.schedule}
+        onChange={set('schedule')}
         error={check.error('client-anchor')}
       />
 
@@ -196,13 +170,13 @@ export function ClientForm({
         <Input
           id="client-terms"
           inputMode="numeric"
-          value={terms}
-          onChange={(e) => setTerms(e.target.value)}
+          value={draft.terms}
+          onChange={(e) => set('terms')(e.target.value)}
           placeholder="30"
         />
       </Field>
 
-      <ColorPicker value={color} onChange={setColor} />
+      <ColorPicker value={draft.color} onChange={set('color')} />
 
       {save.error ? (
         <p role="alert" className="type-support text-danger">
@@ -229,26 +203,54 @@ export function ClientForm({
           ) : (
             <Check aria-hidden />
           )}
-          {save.isPending
-            ? 'Saving…'
-            : existing
-              ? 'Save changes'
-              : 'Add client'}
+          {save.isPending ? 'Saving…' : saveLabel}
         </Button>
       </div>
     </form>
   );
 }
 
-/* In the order the form shows them, so the first missing takes focus. */
-const missingIn = (f: {
+/** The form's fields as typed: a number is its text, so a half-typed one
+ *  survives a re-render, and blank means unset. */
+type Draft = {
   name: string;
   email: string;
+  address: string;
   hourlyRate: string;
   taxRate: string;
+  color: string | null;
   schedule: BillingSchedule | null;
   terms: string;
-}): Missing => {
+};
+
+const text = (n: number | null | undefined) => (n == null ? '' : String(n));
+
+const fromClient = (c: Client | undefined): Draft => ({
+  name: c?.name ?? '',
+  email: c?.email ?? '',
+  address: c?.address ?? '',
+  hourlyRate: text(c?.hourlyRate),
+  taxRate: text(c?.taxRate),
+  color: c?.color ?? null,
+  schedule: c?.billingSchedule ?? null,
+  terms: text(c?.paymentTermsDays),
+});
+
+/* Blank is "unset", not empty string: the columns are nullable and the
+   schema rejects a blank email. */
+const toInput = (d: Draft): ClientInput => ({
+  name: d.name.trim(),
+  email: d.email.trim() || null,
+  address: d.address.trim() || null,
+  hourlyRate: parseRate(d.hourlyRate),
+  taxRate: d.taxRate.trim() === '' ? null : Number(d.taxRate),
+  color: d.color,
+  billingSchedule: d.schedule,
+  paymentTermsDays: parseTermsDays(d.terms),
+});
+
+/* In the order the form shows them, so the first missing takes focus. */
+const missingIn = (f: Draft): Missing => {
   const tax = parseRate(f.taxRate);
   return {
     'client-name': f.name.trim() === '' ? 'Name the client.' : undefined,
@@ -343,8 +345,7 @@ function ScheduleField({
   );
 }
 
-export const BILL_TO_PLACEHOLDER =
-  'Attn: John Smith\n123 Main St\nAustin, TX 78701';
+const BILL_TO_PLACEHOLDER = 'Attn: John Smith\n123 Main St\nAustin, TX 78701';
 
 /**
  * Pending: the server validates the client, and the form stays to say what
