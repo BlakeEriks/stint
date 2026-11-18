@@ -79,7 +79,8 @@ function wrapper({ children }: { children: ReactNode }) {
     write to `onWrite`. */
 function answerWith(
   list: Invoice[],
-  onDetail: (id: string) => void,
+  /** May hold the read with a promise, or answer it with a Response. */
+  onDetail: (id: string) => unknown,
   onWrite?: () => void,
 ) {
   vi.stubGlobal(
@@ -96,7 +97,8 @@ function answerWith(
         );
       const one = path.match(/^\/invoices\/(i\d)/)?.[1];
       if (one) {
-        onDetail(one);
+        const answer = await onDetail(one);
+        if (answer instanceof Response) return answer;
         return new Response(JSON.stringify(list.find((i) => i.id === one)));
       }
       return new Response(JSON.stringify({ invoices: list }));
@@ -190,30 +192,55 @@ describe('InvoiceList', () => {
   });
 
   /* Mark sent locks the draft's entries, so it confirms with their count,
-     read from the draft in full, and holds until that count is known. */
-  it('marks a draft sent once the dialog has its entry count', async () => {
-    const draft = invoice({ status: 'draft', invoiceNumber: 'STINT-0001' });
-    const writes: unknown[] = [];
-    answerWith(
-      [{ ...draft, entryCount: 14 } as Invoice],
-      () => {},
-      () => writes.push('write'),
-    );
-    const calls = vi.mocked(fetch).mock.calls;
-    const user = userEvent.setup();
-    render(<InvoiceList />, { wrapper });
+     read from the draft in full, and holds until that count is known. A
+     failed read says so, and the confirm stays held. */
+  it.each(['answers', 'fails'] as const)(
+    'holds Mark sent until the draft read %s',
+    async (read) => {
+      const draft = invoice({ status: 'draft', invoiceNumber: 'STINT-0001' });
+      let release!: () => void;
+      const held = new Promise<void>((r) => (release = r));
+      const writes: unknown[] = [];
+      answerWith(
+        [{ ...draft, entryCount: 14 } as Invoice],
+        async () => {
+          await held;
+          if (read === 'fails')
+            return new Response(
+              JSON.stringify({
+                error: { code: 'INTERNAL', message: 'Read failed.' },
+              }),
+              { status: 500 },
+            );
+        },
+        () => writes.push('write'),
+      );
+      const calls = vi.mocked(fetch).mock.calls;
+      const user = userEvent.setup();
+      render(<InvoiceList />, { wrapper });
 
-    await user.click(
-      await screen.findByRole('button', { name: 'Mark sent, STINT-0001' }),
-    );
-    expect(await screen.findByText(/Its 14 entries/)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Mark sent' }));
+      await user.click(
+        await screen.findByRole('button', { name: 'Mark sent, STINT-0001' }),
+      );
+      const confirm = await screen.findByRole('button', { name: 'Mark sent' });
+      expect(confirm).toBeDisabled();
+      expect(screen.queryByText(/Its 0 entries/)).toBeNull();
+      release();
 
-    await waitFor(() => expect(writes).toHaveLength(1));
-    const [url, init] = calls.find(([, i]) => i?.method === 'PATCH')!;
-    expect(String(url)).toContain('/invoices/i1/status');
-    expect(JSON.parse(String(init!.body))).toEqual({ status: 'sent' });
-  });
+      if (read === 'fails') {
+        expect(await screen.findByRole('alert')).toBeInTheDocument();
+        expect(confirm).toBeDisabled();
+        return;
+      }
+      expect(await screen.findByText(/Its 14 entries/)).toBeInTheDocument();
+      await waitFor(() => expect(confirm).toBeEnabled());
+      await user.click(confirm);
+      await waitFor(() => expect(writes).toHaveLength(1));
+      const [url, init] = calls.find(([, i]) => i?.method === 'PATCH')!;
+      expect(String(url)).toContain('/invoices/i1/status');
+      expect(JSON.parse(String(init!.body))).toEqual({ status: 'sent' });
+    },
+  );
 
   /* Once the list paints, each draft and open invoice is fetched in full,
      so opening one shows it with its actions live; a finished one waits. */

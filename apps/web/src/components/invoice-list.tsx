@@ -116,7 +116,6 @@ function Sections({
         <section key={section.key} aria-label={section.name}>
           <SectionHead
             section={section}
-            currency={invoices[0]?.currency}
             ref={register(`head:${section.key}`, { fade: true })}
           />
           <ul className="divide-y divide-edge-subtle">
@@ -173,11 +172,9 @@ function AllClear({
 
 function SectionHead({
   section,
-  currency,
   ref,
 }: {
   section: Section;
-  currency: string | undefined;
   ref: (el: HTMLElement | null) => void;
 }) {
   return (
@@ -191,13 +188,13 @@ function SectionHead({
       ) : null}
       {section.total === null ? null : section.open ? (
         <span className="ml-auto type-amount">
-          {formatCurrency(section.total, currency)}
+          {formatCurrency(section.total, section.currency)}
         </span>
       ) : (
         <YearTotal
           figure={`invoices.${section.key}`}
           total={section.total}
-          currency={currency}
+          currency={section.currency}
         />
       )}
     </h2>
@@ -214,14 +211,20 @@ function YearTotal({
 }: {
   figure: string;
   total: number;
-  currency: string | undefined;
+  currency: string;
 }) {
   const [landed, setLanded] = useState(total);
   useEffect(() => {
     const t = setTimeout(() => setLanded(total), MOVE);
     return () => clearTimeout(t);
   }, [total]);
-  const { value } = useCountUp(figure, landed, { arrive: false });
+  // Reduced motion lands the row at once, so the total comes with it.
+  const reduced =
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const { value } = useCountUp(figure, reduced ? total : landed, {
+    arrive: false,
+  });
   return (
     <span className="ml-auto type-amount">
       {formatCurrency(value, currency)}

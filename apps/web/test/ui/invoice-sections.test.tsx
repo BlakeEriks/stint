@@ -89,6 +89,40 @@ describe('invoiceSections', () => {
     ]);
   });
 
+  /* Dollars and euros don't add: a section that mixes them shows none. */
+  it('totals a section only in the one currency its invoices share', () => {
+    const sections = invoiceSections(
+      [
+        invoice({
+          invoiceNumber: 'E',
+          status: 'sent',
+          currency: 'EUR',
+          sentAt: '2026-09-02T15:00:00Z',
+        }),
+        invoice({
+          invoiceNumber: 'D',
+          status: 'sent',
+          sentAt: '2026-09-01T15:00:00Z',
+        }),
+        invoice({
+          invoiceNumber: 'F',
+          currency: 'EUR',
+          paidAt: '2026-05-01T15:00:00Z',
+        }),
+        invoice({
+          invoiceNumber: 'G',
+          currency: 'EUR',
+          paidAt: '2026-04-01T15:00:00Z',
+        }),
+      ],
+      tz,
+    );
+    expect(sections.map((s) => [s.name, s.total, s.currency])).toEqual([
+      ['Awaiting payment', null, 'EUR'],
+      ['Paid in 2026', 200, 'EUR'],
+    ]);
+  });
+
   it('gives a single open row no total, since it would repeat the row', () => {
     const [drafts] = invoiceSections(
       [invoice({ status: 'draft', total: 400 })],

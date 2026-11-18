@@ -9,7 +9,8 @@ export const entries = (n: number) => `${n} entr${n === 1 ? 'y' : 'ies'}`;
 
 type Sending = {
   invoiceNumber: string;
-  entryCount: number;
+  /** Null until the draft has been read: the count is left unsaid. */
+  entryCount: number | null;
   total: number;
   currency: string;
 };
@@ -20,7 +21,7 @@ type Sending = {
     and for how much, before it does. */
 export const markSentAsk = (invoice: Sending) => ({
   title: `Mark ${invoice.invoiceNumber} sent`,
-  description: `This records that you sent it. Its ${entries(invoice.entryCount)}, any expenses on it and its ${formatCurrency(invoice.total, invoice.currency)} total stop changing. To correct it later, void it and issue a new one.`,
+  description: `This records that you sent it. Its ${invoice.entryCount === null ? 'entries' : entries(invoice.entryCount)}, any expenses on it and its ${formatCurrency(invoice.total, invoice.currency)} total stop changing. To correct it later, void it and issue a new one.`,
   confirmLabel: 'Mark sent',
   pendingLabel: 'Marking sent…',
   icon: <Send aria-hidden strokeWidth={1.75} />,

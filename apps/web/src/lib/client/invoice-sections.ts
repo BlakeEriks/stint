@@ -8,8 +8,11 @@ export interface Section {
   name: string;
   /** "7 paid · 1 void", for a year. */
   note?: string;
-  /** Null where it would repeat the one row's amount. */
+  /** Null where it would repeat the one row's amount, or would add up
+      currencies that don't add. */
   total: number | null;
+  /** The total's currency. */
+  currency: string;
   /** Drafts and awaiting payment: what still needs the user. */
   open: boolean;
   invoices: Invoice[];
@@ -26,7 +29,11 @@ export function sectionDate(invoice: Invoice, tz: string): string {
   return at ? localDateKey(new Date(at), tz) : invoice.issueDate;
 }
 
-const sum = (invoices: Invoice[]) => invoices.reduce((a, i) => a + i.total, 0);
+/** The sum in the one currency the invoices share, or null when they mix. */
+function sum(invoices: Invoice[]): number | null {
+  if (new Set(invoices.map((i) => i.currency)).size > 1) return null;
+  return invoices.reduce((a, i) => a + i.total, 0);
+}
 
 const newestFirst = (tz: string) => (a: Invoice, b: Invoice) =>
   sectionDate(b, tz).localeCompare(sectionDate(a, tz)) ||
@@ -37,6 +44,7 @@ function openSection(key: string, name: string, invoices: Invoice[]): Section {
     key,
     name,
     total: invoices.length > 1 ? sum(invoices) : null,
+    currency: invoices[0]?.currency ?? 'USD',
     open: true,
     invoices,
   };
@@ -51,6 +59,7 @@ function yearSection(year: string, invoices: Invoice[]): Section {
     note: `${paid.length} paid${voids ? ` · ${voids} void` : ''}`,
     // A void was never owed, so it never counts.
     total: sum(paid),
+    currency: (paid[0] ?? invoices[0]!).currency,
     open: false,
     invoices,
   };

@@ -53,7 +53,7 @@ export function useMarkSent() {
     dialog: subject && {
       open: sending.open,
       onOpenChange: sending.onOpenChange,
-      invoice: { ...subject, entryCount: entryCount ?? 0 },
+      invoice: { ...subject, entryCount: entryCount ?? null },
       // Held until the count it states is known.
       disabled: entryCount == null,
       pending: markSent.isPending,
