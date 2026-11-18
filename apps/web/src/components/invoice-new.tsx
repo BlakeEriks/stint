@@ -69,6 +69,7 @@ import {
 } from './business-dialog';
 import { InvoiceDatesDialog } from './invoice-dates-dialog';
 import { PeriodPicker } from './invoice-period';
+import { Notice } from './notice';
 import { summarize } from './payment-profiles';
 import {
   businessOf,
@@ -249,11 +250,9 @@ function ScheduleHint({
   if (!schedule || !periodStart || !periodEnd) return null;
   if (isPeriod(schedule, periodStart, periodEnd)) return null;
   return (
-    <p role="status" className="type-support text-warning">
-      {client.name} is billed{' '}
-      {BILLING_PERIOD_LABELS[schedule.period].toLowerCase()}, and this isn't one
-      of its periods.
-    </p>
+    <Notice
+      title={`${client.name} is billed ${BILLING_PERIOD_LABELS[schedule.period].toLowerCase()}, and this isn't one of its periods.`}
+    />
   );
 }
 
@@ -905,14 +904,19 @@ function Notices({
       <ScheduleHint client={client} {...period} />
       <EarlierWorkOffer work={earlierWork} onStartFrom={onStartFrom} />
       {noSummaryText ? (
-        <p id={SUMMARY_ERROR} role="alert" className="type-support text-danger">
-          Give the summary line its text.
-        </p>
+        <Notice
+          id={SUMMARY_ERROR}
+          role="alert"
+          tone="danger"
+          title="Give the summary line its text."
+        />
       ) : null}
       {earlyDue ? (
-        <p role="alert" className="type-support text-danger">
-          Due can't be before the issue date.
-        </p>
+        <Notice
+          role="alert"
+          tone="danger"
+          title="Due can't be before the issue date."
+        />
       ) : null}
       <PreviewNotices preview={preview} error={error} />
     </div>
@@ -1257,17 +1261,14 @@ function EarlierWorkOffer({
       : `${shortDate(work.from)} – ${shortDate(work.to)}`;
   const what = `${work.entryCount} earlier entr${one ? 'y' : 'ies'}, ${dates},`;
   return (
-    <p
-      role="status"
-      className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 type-support"
-    >
-      <span>
-        {what} {one ? "isn't" : "aren't"} on any invoice.
-      </span>
-      <Button type="button" size="sm" onClick={() => onStartFrom(work.from)}>
-        Start from {shortDate(work.from)}
-      </Button>
-    </p>
+    <Notice
+      title={`${what} ${one ? "isn't" : "aren't"} on any invoice.`}
+      action={
+        <Button type="button" onClick={() => onStartFrom(work.from)}>
+          Start from {shortDate(work.from)}
+        </Button>
+      }
+    />
   );
 }
 
@@ -1283,26 +1284,30 @@ function PreviewNotices({
   return (
     <>
       {unrated > 0 ? (
-        <p role="alert" className="type-support text-warning">
-          {unrated} entr{unrated === 1 ? 'y has' : 'ies have'} no rate. Set a
-          rate on the client, the project, or your defaults before saving.
-        </p>
+        <Notice
+          role="alert"
+          title={`${unrated} entr${unrated === 1 ? 'y has' : 'ies have'} no rate.`}
+          detail="Set a rate on the client, the project, or your defaults before saving."
+        />
       ) : null}
       {/* A warning, not a block: an overlap can be deliberate, and this is
           the last place to see it before it bills. */}
       {overlapping > 0 ? (
-        <p role="alert" className="type-support text-warning">
-          {overlapping} entr
-          {overlapping === 1 ? 'y overlaps' : 'ies overlap'} other time, already
-          billed or on this invoice.
-        </p>
+        <Notice
+          role="alert"
+          title={`${overlapping} entr${overlapping === 1 ? 'y overlaps' : 'ies overlap'} other time, already billed or on this invoice.`}
+        />
       ) : null}
       {error ? (
-        <p role="alert" className="type-support text-danger">
-          {error instanceof ApiError
-            ? error.message
-            : 'Couldn’t build this invoice.'}
-        </p>
+        <Notice
+          role="alert"
+          tone="danger"
+          title={
+            error instanceof ApiError
+              ? error.message
+              : 'Couldn’t build this invoice.'
+          }
+        />
       ) : null}
     </>
   );

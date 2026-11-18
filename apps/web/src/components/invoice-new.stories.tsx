@@ -384,10 +384,12 @@ export const PeriodPreset: Story = {
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const page = await period(await chooseNorthwind(canvasElement));
-    await userEvent.click(page.getByRole('button', { name: 'Last two weeks' }));
-    await expect(
-      page.getByRole('button', { name: 'Last two weeks' }),
-    ).toHaveAttribute('aria-pressed', 'true');
+    // Each preset names the dates it picks.
+    const preset = page.getByRole('button', {
+      name: 'Last two weeks Sep 3 – Sep 16, 2026',
+    });
+    await userEvent.click(preset);
+    await expect(preset).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByLabelText('From')).toHaveValue('2026-09-03');
     await expect(page.getByLabelText('To')).toHaveValue('2026-09-16');
     await userEvent.keyboard('{Escape}');
