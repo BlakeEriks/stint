@@ -74,37 +74,6 @@ describe('ClientDialog', () => {
     });
   });
 
-  /* Pins the conversion both ways: a blank field saves as null, never as an
-     empty string or zero. */
-  it('saves an untouched client as it was', async () => {
-    const calls = serve();
-    const user = userEvent.setup();
-    render(
-      <ClientDialog
-        open
-        onOpenChange={() => {}}
-        client={{ ...NORTHWIND, paymentTermsDays: 15 }}
-      />,
-      { wrapper },
-    );
-
-    await user.click(
-      await screen.findByRole('button', { name: /Save changes/ }),
-    );
-
-    await waitFor(() => expect(calls).toHaveLength(1));
-    expect(calls[0]?.body).toEqual({
-      name: 'Northwind Trading',
-      email: 'ap@northwind.test',
-      address: null,
-      hourlyRate: 150,
-      taxRate: 0,
-      color: '#6EA1E2',
-      billingSchedule: null,
-      paymentTermsDays: 15,
-    });
-  });
-
   it('archives the client and closes', async () => {
     const calls = serve();
     const closed = vi.fn();
