@@ -90,19 +90,21 @@ export function EntryList({
           />
           <h2 className="type-label truncate text-subtle">Today</h2>
         </div>
-        {/* Undefined while stats are still in flight: a `$0.00` that resolves
-            to a real figure a moment later reports a day that earned nothing
-            and then took it back. */}
-        {earnedToday === undefined ? null : (
-          <span className="ml-auto type-duration text-primary">
-            {formatCurrency(earnedToday, currency)}
-          </span>
-        )}
-        <KeyboardAdd
-          label="Add an entry today"
-          className={earnedToday === undefined ? 'ml-auto' : ''}
-          onClick={() => create(...lastHour(appNow()))}
-        />
+        <span className="relative ml-auto type-duration text-primary">
+          {/* Undefined while stats are still in flight: a `$0.00` that
+              resolves to a real figure a moment later reports a day that
+              earned nothing and then took it back. */}
+          {earnedToday === undefined
+            ? null
+            : formatCurrency(earnedToday, currency)}
+          {/* Out of flow, so the hidden "+" doesn't push the figure off the
+              column's right edge. */}
+          <KeyboardAdd
+            label="Add an entry today"
+            onClick={() => create(...lastHour(appNow()))}
+            className="absolute top-1/2 right-full mr-1 -translate-y-1/2"
+          />
+        </span>
       </header>
 
       <div
