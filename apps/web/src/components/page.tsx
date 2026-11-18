@@ -135,24 +135,26 @@ function TitleBar({
   title: string;
   actions: React.ReactNode;
   under: React.ReactNode;
-  /** The column's measure, so the title lines up with it. */
+  /** The column's measure, so the title lines up with it: the inset goes
+      inside the measure, as the column's does, or the two part by 18px once
+      the window is wider than the measure. */
   measure: string;
 }) {
   return (
     <header
-      className={`z-20 border-b border-edge-subtle bg-surface-primary ${INSET} pt-[18px] pb-3 sm:sticky sm:top-0 xl:static xl:flex-none`}
+      className={`z-20 border-b border-edge-subtle bg-surface-primary pt-[18px] pb-3 sm:sticky sm:top-0 xl:static xl:flex-none`}
     >
       {/* A 36px row whether or not an action fills it, so the bar is one
           height on every screen. */}
       <div
-        className={`mx-auto flex min-h-9 items-center justify-between gap-3 ${measure}`}
+        className={`mx-auto flex min-h-9 items-center justify-between gap-3 ${INSET} ${measure}`}
       >
         <h1 className="type-title text-strong">{title}</h1>
         {actions}
       </div>
       {under ? (
         <div
-          className={`mx-auto flex items-baseline justify-between gap-3 pt-3 ${measure}`}
+          className={`mx-auto flex items-baseline justify-between gap-3 pt-3 ${INSET} ${measure}`}
         >
           {under}
         </div>
