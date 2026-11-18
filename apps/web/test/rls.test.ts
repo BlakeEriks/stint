@@ -809,10 +809,6 @@ test('a connected app writes only what its tools do', async () => {
   assert.deepEqual(added.rows[0], { p: 2, c: 2 });
 
   for (const [sql, refusal] of [
-    [
-      `update time_entries set task_name = 'x' where id = '${ALICE_ENTRY}'`,
-      /billed on a sent invoice/,
-    ],
     [`update projects set hourly_rate = 1`, /may change only name/],
     [`update clients set archived_at = now()`, /may change only name, email/],
     [

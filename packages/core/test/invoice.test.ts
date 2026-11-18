@@ -4,6 +4,7 @@ import {
   buildLineItems,
   defaultInvoicePeriod,
   formatInvoiceNumber,
+  invoicePdfFilename,
   linesByUnit,
   parseTermsDays,
   paymentTermsText,
@@ -653,4 +654,13 @@ test('lines group by kind in print order, totalled in cents, empty kinds left ou
     linesByUnit([line('fixed', 500)]).map((k) => [k.unit, k.total]),
     [['fixed', 500]],
   );
+});
+
+test('invoicePdfFilename names the number and the sender', () => {
+  assert.equal(
+    invoicePdfFilename('INV-0004', 'Jane Doe'),
+    'INV-0004 Jane Doe.pdf',
+  );
+  assert.equal(invoicePdfFilename('INV-0004', null), 'INV-0004.pdf');
+  assert.equal(invoicePdfFilename('INV-0004', '  '), 'INV-0004.pdf');
 });

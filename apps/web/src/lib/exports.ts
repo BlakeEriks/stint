@@ -1,4 +1,4 @@
-import { localDateKey } from '@stint/core';
+import { contentDisposition, localDateKey } from '@stint/core';
 
 /**
  * A CSV attachment named for what it holds and the user's today, so a
@@ -13,7 +13,10 @@ export function csvResponse(
   return new Response(body, {
     headers: {
       'content-type': 'text/csv; charset=utf-8',
-      'content-disposition': `attachment; filename="stint-${kind}-${day}.csv"`,
+      'content-disposition': contentDisposition(
+        `stint-${kind}-${day}.csv`,
+        true,
+      ),
       'cache-control': 'private, no-store',
     },
   });

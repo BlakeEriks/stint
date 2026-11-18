@@ -327,6 +327,17 @@ export function formatInvoiceNumber(prefix: string, sequence: number): string {
 }
 
 /**
+ * `INV-0004 Jane Doe.pdf`: the client files invoices from many vendors, and
+ * every one of them has an `INV-0004`.
+ */
+export function invoicePdfFilename(
+  invoiceNumber: string,
+  sender: string | null,
+): string {
+  return `${[invoiceNumber, sender].filter((s) => s?.trim()).join(' ')}.pdf`;
+}
+
+/**
  * The period a new invoice starts with, for `today` (`YYYY-MM-DD`): a
  * scheduled client's last ended period. Without a schedule, the month whose
  * last day is nearest, since a contractor bills a month just as it ends or

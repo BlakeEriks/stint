@@ -39,14 +39,14 @@ table*, *your hours are safe*. Humor is not part of the voice.
 
 ## Who speaks
 
-- **You** is for the reader acting: *Add a client and what you charge them.*
-  A sentence describing the product states the fact instead: *Every hour is
-  priced at its client's rate.*
-- When the product did or did not do something, the subject is **we**:
-  *We left the entry as it was.*
+- **You** is for the reader acting, as in *Add a client and what you charge
+  them.* A sentence describing the product states the fact instead, as in
+  *Every hour is priced at its client's rate.*
+- When the product did or did not do something, the subject is **we**, as
+  in *We left the entry as it was.*
 - **Stint** is a name, as in *Sign in to Stint*. It never knows, decides,
   or does anything.
-- Most text needs no subject at all: *That code didn't work.*
+- Most text needs no subject at all, as in *That code didn't work.*
 
 ## Tone by moment
 
@@ -74,7 +74,7 @@ One name for each thing, on every client.
 | Rate | The hourly charge; the **default rate** applies where a client has none | price, billing rate |
 | Expense | A cost the client reimburses | charge, reimbursement |
 | Invoice | The numbered PDF a client pays | bill |
-| Draft, sent, paid, void | An invoice's states, set by *Mark sent*, *Mark paid*, and *Void* | issued, cancelled |
+| Draft, sent, paid, void | An invoice's states, set by *Mark sent*, *Mark paid*, and *Void* | issued, canceled |
 | Unbilled | Tracked work on no invoice yet | uninvoiced |
 | Awaiting payment | Sent and not yet paid | outstanding, pending |
 | Inbox | Where a record to resolve waits | notifications, alerts |
@@ -91,8 +91,9 @@ The Google developer documentation style guide is the base. Stint adds:
 - **A question asks the reader for something**: a decision (*Void
   INV-0042?*), the first piece of data (*Who's paying you?*), or an FAQ
   entry. A rhetorical question is a statement instead.
-- **A button names its action**, a verb and its object: *Void invoice*, *Send
-  a new code*. The button that backs out names what stays: *Keep it*.
+- **A button names its action** with a verb and its object, as in *Void
+  invoice* and *Send a new code*. The button that backs out names what stays,
+  as in *Keep it*.
 - **A sublabel exists only if it adds something**: it resolves an ambiguous
   name, states a unit or format, or explains a consequence. Otherwise there
   is none.
@@ -100,12 +101,14 @@ The Google developer documentation style guide is the base. Stint adds:
   them: `$4,250.00` for a billed figure and `$6,180` for one read at a
   glance; `6:12 PM`; `14h 32m`.
 - **The price** is the monthly figure from `docs/positioning.md`,
-  $3.33/month, with *billed annually* beside it. Never the yearly total.
+  $3.33/month, with *billed annually* beside it, not the yearly total.
 
 ## Reference lines
 
 Owner-approved text. A new line in the same moment matches these. The
 landing lines show the voice, not final copy.
+
+<!-- vale off -->
 
 | Moment | Text |
 | --- | --- |

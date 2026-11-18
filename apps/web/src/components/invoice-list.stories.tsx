@@ -1,10 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, userEvent, within } from 'storybook/test';
 import { account } from '@/mocks/db';
+import { id } from '@/mocks/fixtures';
 import {
   at,
   desktop,
   expectOpen,
+  expectTitlePinned,
   failing,
   light,
   phone,
@@ -37,6 +39,35 @@ export const Desktop: Story = {
   },
 };
 export const Phone: Story = { ...phone };
+
+/** Scrolled to the end, the title, the filters and the outstanding figure
+    are still at the panel's top. */
+export const Scrolled: Story = {
+  ...desktop,
+  // Enough open rows that the panel scrolls at this height.
+  parameters: account((db) => {
+    const sent = db.invoices.filter((i) => i.status === 'sent');
+    for (let n = 0; n < 20; n++) {
+      const copy = sent[n % sent.length]!;
+      db.invoices.push({
+        ...copy,
+        id: id(600 + n),
+        sequenceNo: 900 + n,
+        invoiceNumber: `STINT-0${900 + n}`,
+      });
+    }
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await page.findByText('STINT-0919');
+    await expectTitlePinned(canvasElement, 'Invoices', {
+      also: [
+        page.getByRole('navigation', { name: 'Filter' }),
+        page.getByText('outstanding'),
+      ],
+    });
+  },
+};
 export const Light: Story = { ...light };
 
 export const Paid: Story = {

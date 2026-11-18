@@ -9,6 +9,7 @@ import {
   screen,
   stalled,
   expectOpen,
+  expectTitlePinned,
 } from '@/mocks/screen';
 import { localDateKey } from '@stint/core';
 import { timeZone } from '@/lib/client/use-timer';
@@ -44,6 +45,16 @@ export const Desktop: Story = {
     await expect(
       payment.getAllByRole('button', { name: 'Make default' }),
     ).toHaveLength(1);
+  },
+};
+/** Scrolled to the end, the title is still at the panel's top. */
+export const Scrolled: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByRole('button', {
+      name: 'Delete account',
+    });
+    await expectTitlePinned(canvasElement, 'Settings');
   },
 };
 /** The invoice template shows by name alone, as the control that opens

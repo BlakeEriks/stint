@@ -35,6 +35,7 @@ export const INSET = 'px-[18px]';
 export function Page({
   title,
   actions,
+  under,
   wide = false,
   flush = false,
   fills = false,
@@ -46,6 +47,9 @@ export function Page({
   title?: string;
   /** What sits at the bar's right: the screen's action, or its tabs. */
   actions?: React.ReactNode;
+  /** A second row in the bar. It makes the bar taller than
+   *  `UNDER_TITLE_BAR`, so such a screen pins no heading under it. */
+  under?: React.ReactNode;
   wide?: boolean;
   /**
    * For a screen whose content IS the panel rather than sitting on it.
@@ -77,7 +81,12 @@ export function Page({
   return (
     <main className={FILL}>
       {title ? (
-        <TitleBar title={title} actions={actions} measure={measure} />
+        <TitleBar
+          title={title}
+          actions={actions}
+          under={under}
+          measure={measure}
+        />
       ) : null}
       {/* The region that scrolls at `xl`; below it the column around the
           panel scrolls, and this is only a wrapper. */}
@@ -120,25 +129,36 @@ export const UNDER_TITLE_BAR = 'sm:top-[67px] xl:top-0';
 function TitleBar({
   title,
   actions,
+  under,
   measure,
 }: {
   title: string;
   actions: React.ReactNode;
-  /** The column's measure, so the title lines up with it. */
+  under: React.ReactNode;
+  /** The column's measure, so the title lines up with it: the inset goes
+      inside the measure, as the column's does, or the two part by 18px once
+      the window is wider than the measure. */
   measure: string;
 }) {
   return (
     <header
-      className={`z-20 border-b border-edge-subtle bg-surface-primary ${INSET} pt-[18px] pb-3 sm:sticky sm:top-0 xl:static xl:flex-none`}
+      className={`z-20 border-b border-edge-subtle bg-surface-primary pt-[18px] pb-3 sm:sticky sm:top-0 xl:static xl:flex-none`}
     >
       {/* A 36px row whether or not an action fills it, so the bar is one
           height on every screen. */}
       <div
-        className={`mx-auto flex min-h-9 items-center justify-between gap-3 ${measure}`}
+        className={`mx-auto flex min-h-9 items-center justify-between gap-3 ${INSET} ${measure}`}
       >
         <h1 className="type-title text-strong">{title}</h1>
         {actions}
       </div>
+      {under ? (
+        <div
+          className={`mx-auto flex items-baseline justify-between gap-3 pt-3 ${INSET} ${measure}`}
+        >
+          {under}
+        </div>
+      ) : null}
     </header>
   );
 }
