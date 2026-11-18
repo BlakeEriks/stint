@@ -1,12 +1,17 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { CACHE_KEY, forgetCache } from '@/lib/client/query-cache';
 import { AccountMenu } from '@/components/account-menu';
 import { SignInForm } from '@/components/signin-form';
 import { ApiError, api } from '@/lib/client/api';
+import { Providers } from '@/components/providers';
 
 /**
  * The last answers are kept in this browser so a reload paints at once
@@ -85,4 +90,43 @@ describe('the kept cache', () => {
     render(<SignInForm />);
     expect(kept()).toBeNull();
   });
+});
+
+/* The cache is written at most once a second, so a reload right after a
+   write can restore the answer from before it, younger than `staleTime`. */
+it('asks the server again for what it restores, however young', async () => {
+  localStorage.setItem(
+    CACHE_KEY,
+    JSON.stringify({
+      buster: process.env.NEXT_PUBLIC_APP_VERSION ?? '',
+      timestamp: Date.now(),
+      clientState: {
+        mutations: [],
+        queries: [
+          {
+            queryKey: ['kept'],
+            queryHash: '["kept"]',
+            state: {
+              data: 'before',
+              dataUpdatedAt: Date.now(),
+              status: 'success',
+            },
+          },
+        ],
+      },
+    }),
+  );
+  function Kept() {
+    const { data } = useQuery({
+      queryKey: ['kept'],
+      queryFn: async () => 'after',
+    });
+    return <p>{data}</p>;
+  }
+  render(
+    <Providers>
+      <Kept />
+    </Providers>,
+  );
+  expect(await screen.findByText('after')).toBeTruthy();
 });

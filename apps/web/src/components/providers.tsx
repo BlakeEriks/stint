@@ -58,9 +58,9 @@ export function Providers({
 
   useEffect(() => followRunningTimer(client), [client]);
 
-  /* The last answers, kept in this browser so a reload paints them at once;
-     each is stale on arrival, so its screen refetches and the server's answer
-     replaces it. Created in the browser only. */
+  /* The last answers, kept in this browser so a reload paints them at once,
+     then refetched so the server's answer replaces them. Created in the
+     browser only. */
   const [persister] = useState(() =>
     persist && typeof window !== 'undefined' ? cachePersister() : undefined,
   );
@@ -76,6 +76,10 @@ export function Providers({
   return (
     <PersistQueryClientProvider
       client={client}
+      /* A restored answer keeps its age, and the cache is written at most
+         once a second: a reload right after a write would otherwise paint
+         the answer from before it, as fresh, for `staleTime`. */
+      onSuccess={() => client.invalidateQueries()}
       persistOptions={{
         persister,
         maxAge: CACHE_MAX_AGE,
