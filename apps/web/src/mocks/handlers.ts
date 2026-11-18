@@ -48,6 +48,7 @@ import {
 import {
   calendar,
   draftEntryCount,
+  invoiceEntries,
   expenseView,
   invoicePreview,
   type PreviewRequest,
@@ -708,6 +709,7 @@ export const handlers = {
       entryCount:
         invoice.status === 'draft' ? draftEntryCount(db, invoice) : null,
       newWork: newWork ?? null,
+      entries: invoiceEntries(db, invoice),
       unratedEntries: unratedEntries ?? [],
       dueBeforeIssue: due ?? dueBeforeIssue(invoice),
       refuses: mockDraftRefusals(invoice),

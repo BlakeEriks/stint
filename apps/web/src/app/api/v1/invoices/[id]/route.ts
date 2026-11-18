@@ -24,6 +24,7 @@ import {
   loadPaymentProfile,
   requireSender,
 } from '@/lib/drafts';
+import { invoiceEntries } from '@/lib/invoice-entries';
 import { loadPdfData } from '@/lib/issued';
 import { parseBody, parseQuery } from '@/lib/validate';
 import { toInvoice, type InvoiceRow } from '@/lib/rows';
@@ -38,6 +39,7 @@ type Ctx = { params: Promise<{ id: string }> };
  * PDF opens for the caller, so the screen knows before a press. A draft is
  * the work it holds now: it names the entries it can't price, how many
  * entries Mark sent locks, and the work in its period it doesn't hold.
+ * Every invoice lists the entries it holds; a draft prices each.
  */
 export const GET = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
@@ -60,6 +62,7 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
     choices: draft?.edit ?? null,
     entryCount: draft?.computed.totals.entryCount ?? null,
     newWork: draft ? await draftNewWork(db, draft) : null,
+    entries: await invoiceEntries(db, id, draft?.computed.entries ?? null),
     lineItems: pdfData.lineItems,
   });
 });

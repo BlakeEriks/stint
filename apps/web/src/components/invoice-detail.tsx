@@ -26,23 +26,19 @@ import {
 import { Button } from '@/components/ui/button';
 import { AskFirst } from './confirm-dialog';
 import { shortDate, StatusBadge } from './invoice-bits';
+import { InvoiceEntries } from './invoice-entries';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
 import { entries, markSentAsk } from './mark-sent-dialog';
 import { PRICE } from './plan-section';
-import {
-  attachedSchedules,
-  formatCurrency,
-  formatHours,
-  localDateKey,
-} from '@stint/core';
-import { timeZone as tz } from '@/lib/client/use-timer';
+import { attachedSchedules, formatCurrency, formatHours } from '@stint/core';
 import {
   api,
   ApiError,
   type NewWork,
   type Invoice,
   type InvoiceStatus,
+  type InvoiceEntry,
   type InvoiceLineItem,
   type UnratedEntry,
 } from '@/lib/client/api';
@@ -52,6 +48,7 @@ import { DetailPage, Listing } from './page';
     load. */
 type Shown = Invoice & {
   lineItems?: InvoiceLineItem[];
+  entries?: InvoiceEntry[];
   canDownload?: boolean;
   entryCount?: number | null;
   newWork?: NewWork | null;
@@ -325,6 +322,13 @@ function Loaded({
         notes={invoice.notes}
       />
 
+      <InvoiceEntries
+        invoiceId={invoice.id}
+        entries={invoice.entries ?? []}
+        currency={invoice.currency}
+        draft={isDraft}
+      />
+
       <MarkPaidDialog {...markPaid.dialog} />
     </>
   );
@@ -430,8 +434,8 @@ function NewWorkNotice({
   );
 }
 
-/** The work this draft leaves out because no rate prices it, by name, so
-    the user can find each one. */
+/** The work this draft leaves out because no rate prices it. Each says No
+    rate in the entries below, which open it. */
 function Unrated({ entries }: { entries: UnratedEntry[] }) {
   return (
     <div role="status" className={NOTICE}>
@@ -444,14 +448,6 @@ function Unrated({ entries }: { entries: UnratedEntry[] }) {
         be downloaded or sent until each has a rate. Set one on the entry,
         project, client, or in settings.
       </p>
-      <ul className="mt-1 type-support text-primary">
-        {entries.map((e) => (
-          <li key={e.id}>
-            {e.taskName || 'Untitled'} ·{' '}
-            {shortDate(localDateKey(new Date(e.startedAt), tz))}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }

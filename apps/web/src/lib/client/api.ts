@@ -115,6 +115,7 @@ export type InvoiceStatus = z.infer<typeof schema.InvoiceStatus>;
 export type ComputedLineItem = Res<schema.ComputedLineItem>;
 export type InvoiceLineItem = Res<schema.InvoiceLineItem>;
 export type UnratedEntry = Res<schema.UnratedEntry>;
+export type InvoiceEntry = Res<schema.InvoiceEntry>;
 export type NewWork = Res<schema.NewWork>;
 export type DraftChoices = Res<schema.DraftChoices>;
 /** What Generate sends, and an edit of a draft sends again. */
@@ -327,6 +328,8 @@ export const api = {
         lineItems: InvoiceLineItem[];
         canDownload: boolean;
         unratedEntries: UnratedEntry[];
+        /** The entries it holds, oldest first; a draft's priced. */
+        entries: InvoiceEntry[];
         dueBeforeIssue: { download: boolean; send: boolean };
         refuses: { download: boolean; send: boolean };
         /** A draft's, for editing it; null once issued. */

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   buildLineItems,
   defaultInvoicePeriod,
+  entryAmount,
   formatInvoiceNumber,
   invoicePdfFilename,
   linesByUnit,
@@ -27,6 +28,18 @@ const entry = (over: Partial<BillableEntry> = {}): BillableEntry => ({
   clientRate: null,
   userDefaultRate: 100,
   ...over,
+});
+
+test('an entry is worth what a line billing it alone charges, or nothing', () => {
+  const alone = (e: BillableEntry) =>
+    buildLineItems([e], { groupingMode: 'entry' }).lineItems[0]?.amount ?? null;
+  for (const e of [
+    entry({ durationSeconds: 1200, rateOverride: 137.5 }),
+    entry({ isBillable: false }),
+    entry({ userDefaultRate: null }),
+  ])
+    assert.equal(entryAmount(e), alone(e));
+  assert.equal(entryAmount(entry({ userDefaultRate: 0 })), 0);
 });
 
 test('one entry, one line, rate from the user default', () => {

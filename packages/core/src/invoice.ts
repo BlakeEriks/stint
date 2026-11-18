@@ -122,6 +122,22 @@ const priced = (quantityHundredths: number, unitPrice: number): number =>
 export const billedAmount = (seconds: number, rate: number): number =>
   priced(hundredths(seconds), rate);
 
+/** The levels an entry's rate resolves through. */
+const rateContext = (entry: BillableEntry) => ({
+  entryRateOverride: entry.rateOverride,
+  projectRate: entry.projectRate,
+  clientRate: entry.clientRate,
+  userDefaultRate: entry.userDefaultRate,
+});
+
+/** What a draft bills for one entry: null when it is non-billable or no rate
+    prices it, which a draft leaves out. */
+export function entryAmount(entry: BillableEntry): number | null {
+  if (!entry.isBillable) return null;
+  const rate = resolveRate(rateContext(entry));
+  return rate == null ? null : billedAmount(entry.durationSeconds, rate);
+}
+
 /** A summary line's own text, by the rate it prints. */
 export interface SummaryText {
   rate: number;
@@ -207,12 +223,7 @@ export function buildLineItems(
   const hundredthsByKey = new Map<string, number>();
 
   for (const entry of billable) {
-    const ctx = {
-      entryRateOverride: entry.rateOverride,
-      projectRate: entry.projectRate,
-      clientRate: entry.clientRate,
-      userDefaultRate: entry.userDefaultRate,
-    };
+    const ctx = rateContext(entry);
     const rate = resolveRate(ctx);
 
     if (rate == null) {

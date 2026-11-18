@@ -7,6 +7,7 @@ import {
   timeZoneStrict,
   uuid,
 } from './primitives.ts';
+import { TimeEntry } from './entries.ts';
 
 /** How an invoice looks; what it says is the same in each. */
 export const InvoiceTemplate = z.enum([
@@ -147,6 +148,14 @@ export const UnratedEntry = z.object({
   id: uuid,
   taskName: z.string(),
   startedAt: iso,
+});
+
+/** An entry an invoice holds, as its page lists it. `amount` is a draft's
+ *  price for it, null when non-billable or unrated; an issued invoice's
+ *  entries carry none, since no entry's billed rate is stored. */
+export const InvoiceEntry = TimeEntry.extend({
+  projectName: z.string().nullable(),
+  amount: money.nullable().optional(),
 });
 
 export const InvoicePreview = z.object({
@@ -338,3 +347,4 @@ export type ComputedLineItem = z.infer<typeof ComputedLineItem>;
 export type NewWork = z.infer<typeof NewWork>;
 export type DraftChoices = z.infer<typeof DraftChoices>;
 export type UnratedEntry = z.infer<typeof UnratedEntry>;
+export type InvoiceEntry = z.infer<typeof InvoiceEntry>;

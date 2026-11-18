@@ -4005,6 +4005,33 @@ test('a draft is stale by its period end, at the total of the work it holds', as
   assert.deepEqual(stale[0].refuses, { download: false, send: false });
 });
 
+test('an invoice lists the entries it holds; only a draft prices them', async () => {
+  const r = await live();
+  await seedEntry({ id: D(2), start: '2026-09-12T09:00:00Z', billable: false });
+  await seedEntry({ id: D(1), hours: 0.5, rateOverride: 137.5 });
+  const inv = await json(
+    await r.create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  const listed = async () =>
+    (await json(await r.detail(req('/invoices/x?tz=UTC'), at(inv.body.id))))
+      .body.entries as Array<Record<string, unknown>>;
+  const draft = await listed();
+  assert.deepEqual(
+    draft.map((e) => [e.id, e.projectName, e.endedAt != null, e.amount]),
+    [
+      [D(1), 'Lifecycle', true, 68.75],
+      [D(2), 'Lifecycle', true, null],
+    ],
+  );
+
+  await send(inv.body.id);
+  const sent = await listed();
+  assert.deepEqual(
+    sent.map((e) => [e.id, e.invoiceId, 'amount' in e]),
+    [[D(1), inv.body.id, false]],
+  );
+});
+
 test('an unrated entry shows on the draft by name; its PDF and Mark sent refuse', async () => {
   const r = await live();
   await seedEntry({ id: D(1), hours: 2 });

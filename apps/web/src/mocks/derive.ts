@@ -18,6 +18,7 @@ import {
   buildUnprojected,
   earlierWork,
   earlierWorkFrom,
+  entryAmount,
   lateEntries,
   unbilledDue,
   buildWeek,
@@ -655,6 +656,31 @@ export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
           })
         : null,
   };
+}
+
+/** The route's `entries`: what a draft holds, priced, or what an issued
+    invoice claimed. */
+export function invoiceEntries(db: Db, invoice: Db['invoices'][number]) {
+  const draft = invoice.status === 'draft';
+  const held = db.entries
+    .filter((e) =>
+      draft
+        ? clientOf(db, e.projectId) === invoice.clientId &&
+          entryHolder(db, e, invoice.clientId, ZONE) === invoice.id
+        : e.invoiceId === invoice.id,
+    )
+    .sort((a, b) => at(a.startedAt) - at(b.startedAt));
+  const priced = billable(
+    held,
+    db.projects,
+    db.clients,
+    db.settings.defaultHourlyRate,
+  );
+  return held.map((e, i) => ({
+    ...e,
+    projectName: priced[i]!.projectName,
+    ...(draft && { amount: entryAmount(priced[i]!) }),
+  }));
 }
 
 /** The entries Mark sent locks: a story sets them, else the period's. */

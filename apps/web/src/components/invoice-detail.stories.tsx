@@ -5,6 +5,7 @@ import { addDays } from '@stint/core';
 import { keys } from '@stint/client';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
+import { invoiceEntries } from '@/mocks/derive';
 import { type Db, id } from '@/mocks/fixtures';
 import {
   desktop,
@@ -47,8 +48,9 @@ export const Draft: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
+    // On the sheet's line, and again in the entries below it.
     await expect(
-      await page.findByText('Type scale for the brand site'),
+      (await page.findAllByText('Type scale for the brand site'))[0],
     ).toBeVisible();
     const title = page
       .getByRole('heading', { level: 1 })
@@ -94,6 +96,39 @@ export const DraftNewWork: Story = {
   },
 };
 export const DraftNewWorkPhone: Story = { ...phone, parameters: newWork };
+
+/* One entry the draft holds is marked non-billable. */
+const oneNotBillable = paying((db) => {
+  const draft = db.invoices.find((i) => i.id === invoice(15));
+  const held = draft ? invoiceEntries(db, draft) : [];
+  const last = db.entries.find((e) => e.id === held.at(-1)?.id);
+  if (last) last.isBillable = false;
+});
+
+/** Below the sheet, the entries the draft holds, each priced or saying why
+    it isn't. A row opens the entry, and a save shows in the draft. */
+export const DraftEntries: Story = {
+  ...desktop,
+  parameters: oneNotBillable,
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    const entries = within(
+      await body.findByRole('region', { name: 'Entries' }),
+    );
+    await expect(entries.getByText('Not billable')).toBeVisible();
+    const rows = entries.getAllByRole('button');
+    await expect(rows[0]).toHaveTextContent(/\$[\d,]+\.\d\d$/);
+
+    await userEvent.click(rows[0]!);
+    const dialog = within(await body.findByRole('dialog'));
+    const task = dialog.getByLabelText('Task');
+    await userEvent.clear(task);
+    await userEvent.type(task, 'Kerning pass');
+    await userEvent.click(dialog.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(body.queryByRole('dialog')).toBeNull());
+    await expect(await entries.findByText('Kerning pass')).toBeVisible();
+  },
+};
 
 const fourteen = paying((db) => {
   const draft = db.invoices.find((i) => i.id === invoice(15));
@@ -147,28 +182,28 @@ export const MarkSentPending: Story = {
   },
 };
 
-/* The draft as the server sends it with work no rate prices. */
+/* The draft as the server sends it once no rate prices its client's work. */
 const unrated = paying((db) => {
   const draft = db.invoices.find((i) => i.id === invoice(15));
   if (!draft) return;
-  draft.unratedEntries = [
-    {
-      id: id(9001),
-      taskName: 'Onboarding call',
-      startedAt: '2026-09-08T15:00:00.000Z',
-    },
-  ];
+  const client = db.clients.find((c) => c.id === draft.clientId);
+  if (client) client.hourlyRate = null;
+  db.settings.defaultHourlyRate = null;
+  draft.unratedEntries = invoiceEntries(db, draft)
+    .filter((e) => e.isBillable)
+    .map(({ id, taskName, startedAt }) => ({ id, taskName, startedAt }));
 });
 
-/** Work with no rate shows on the draft by name, and neither the PDF nor
-    Mark sent is offered until it has one. */
+/** Work with no rate says so in the draft's entries, and neither the PDF
+    nor Mark sent is offered until it has one. */
 export const DraftUnrated: Story = {
   ...desktop,
   parameters: unrated,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    await expect(await page.findByText('1 entry has no rate')).toBeVisible();
-    await expect(page.getByText(/Onboarding call · Sep 8/)).toBeVisible();
+    await expect(await page.findByText(/have no rate$/)).toBeVisible();
+    const entries = page.getByRole('region', { name: 'Entries' });
+    await expect(within(entries).getAllByText('No rate')[0]).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Mark sent' }),
     ).toBeDisabled();
@@ -230,6 +265,11 @@ export const Sent: Story = {
     await expect(page.queryByText(/^Due \w/)).toBeNull();
     await expect(page.queryByRole('heading', { name: 'Status' })).toBeNull();
     await expect(page.queryByRole('heading', { name: 'Preview' })).toBeNull();
+    // What it billed, locked: hours, no amount, nothing to press.
+    const entries = page.getByRole('region', { name: 'Entries' });
+    await expect(within(entries).getAllByText(/^\d+\.\d\dh$/)[0]).toBeVisible();
+    await expect(within(entries).queryByRole('button')).toBeNull();
+    await expect(within(entries).queryByText(/\$/)).toBeNull();
   },
 };
 export const Overdue: Story = { ...desktop, args: { id: invoice(13) } };
@@ -242,6 +282,9 @@ export const Void: Story = {
     await expect(
       await within(canvasElement).findByText(/Its entries can be billed again/),
     ).toBeVisible();
+    await expect(
+      within(canvasElement).queryByRole('region', { name: 'Entries' }),
+    ).toBeNull();
   },
 };
 export const Missing: Story = { ...desktop, args: { id: invoice(99) } };

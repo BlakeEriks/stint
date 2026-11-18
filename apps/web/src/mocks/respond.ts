@@ -95,6 +95,7 @@ export const invoiceDetail = schema.Invoice.extend({
   entryCount: z.number().int().nullable(),
   newWork: schema.NewWork.nullable(),
   unratedEntries: z.array(schema.UnratedEntry),
+  entries: z.array(schema.InvoiceEntry),
   dueBeforeIssue: schema.DraftActions,
   refuses: schema.DraftActions,
   choices: schema.DraftChoices.nullable(),
