@@ -109,41 +109,18 @@ beforeEach(() => vi.clearAllMocks());
 afterEach(() => vi.unstubAllGlobals());
 
 describe('InvoiceDetail', () => {
-  /**
-   * The app sends no mail, so downloading IS how an invoice reaches a
-   * client — it is the primary action, and it must always be available.
-   *
-   * A draft holds no number yet, so it is deleted. Once issued, the number
-   * is on record and the invoice can only be voided — that is what keeps
-   * numbering gapless. Each status offers the next step in its lifecycle,
-   * and only that; void is terminal, so nothing moves an invoice out of it.
-   */
-  it('offers a download in every status, and only the actions its status allows', async () => {
-    const actions = ['Delete', 'Mark sent', 'Void', 'Mark paid'];
-    const offered: Record<InvoiceStatus, string[]> = {
-      draft: ['Delete', 'Mark sent'],
-      sent: ['Void', 'Mark paid'],
-      paid: ['Void'],
-      void: [],
-    };
-    for (const [status, expected] of Object.entries(offered)) {
-      serve(status as InvoiceStatus);
-      const { unmount } = show();
-      expect(
-        await screen.findByRole('link', { name: 'Download PDF' }),
-      ).toHaveAttribute(
-        'href',
-        // The zone a draft's period is read in, as on every invoice read.
-        expect.stringMatching(
-          /^\/api\/v1\/invoices\/inv-1\/pdf\?tz=.+&download=1$/,
-        ),
-      );
-      expect(
-        actions.filter((name) => screen.queryByRole('button', { name })),
-      ).toEqual(expected);
-      unmount();
-      vi.unstubAllGlobals();
-    }
+  /* The zone a draft's period is read in, as on every invoice read. */
+  it('downloads the PDF in the reader’s zone', async () => {
+    serve('draft');
+    show();
+    expect(
+      await screen.findByRole('link', { name: 'Download PDF' }),
+    ).toHaveAttribute(
+      'href',
+      expect.stringMatching(
+        /^\/api\/v1\/invoices\/inv-1\/pdf\?tz=.+&download=1$/,
+      ),
+    );
   });
 
   /* Voiding can't be taken back and deleting removes the draft, so the

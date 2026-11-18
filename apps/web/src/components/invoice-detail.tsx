@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AskFirst } from './confirm-dialog';
-import { monthDay, periodName, shortDate } from './invoice-bits';
+import { daysLate, monthDay, periodName, shortDate } from './invoice-bits';
 import { Pip } from './home-shell';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
@@ -182,7 +182,7 @@ function StatusLine({ invoice }: { invoice: Shown }) {
       ? daysBetweenKeys(due, today)
       : 0;
   const text = late
-    ? `${late} ${late === 1 ? 'day' : 'days'} late · Due ${monthDay(due)}`
+    ? `${daysLate(late)} · Due ${monthDay(due)}`
     : {
         draft: `Created ${day(invoice.createdAt)}`,
         sent: [due ? `Due ${monthDay(due)}` : '', `Sent ${day(invoice.sentAt)}`]
@@ -272,7 +272,6 @@ const ACTIONS: Record<Action, (props: ActionProps) => ReactNode> = {
    row fits on one line; the name stays, read by a screen reader. */
 const ICON_ON_PHONE = 'max-sm:size-9 max-sm:has-[>svg]:px-0';
 
-/** Under the header, after a rule: the status's actions, right-aligned. */
 function InvoiceActions(props: ActionProps) {
   return (
     <div className="mt-4 mb-2 flex flex-wrap items-center justify-end gap-2 border-t border-edge-subtle pt-4">
