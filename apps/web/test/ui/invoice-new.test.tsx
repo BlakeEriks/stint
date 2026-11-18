@@ -338,10 +338,9 @@ describe('NewInvoice', () => {
     fail = true;
     await pickGrouping(user, /By task/);
 
-    expect(await screen.findByText('Period ends first.')).toHaveAttribute(
-      'role',
-      'alert',
-    );
+    expect(
+      (await screen.findByText('Period ends first.')).closest('[role="alert"]'),
+    ).not.toBeNull();
     expect(generate()).toBeDisabled();
   });
 
@@ -442,10 +441,11 @@ describe('NewInvoice — one summary line', () => {
     await user.type(field, '   ');
 
     expect(field).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByText('Give the summary line its text.')).toHaveAttribute(
-      'role',
-      'alert',
-    );
+    expect(
+      screen
+        .getByText('Give the summary line its text.')
+        .closest('[role="alert"]'),
+    ).not.toBeNull();
     await waitFor(() => expect(previews().length).toBeGreaterThan(1));
     expect(generate()).toBeDisabled();
   });

@@ -384,7 +384,6 @@ export const PeriodPreset: Story = {
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const page = await period(await chooseNorthwind(canvasElement));
-    // Each preset names the dates it picks.
     const preset = page.getByRole('button', {
       name: 'Last two weeks Sep 3 – Sep 16, 2026',
     });
@@ -531,7 +530,9 @@ export const Unrated: Story = {
   },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
-    await expect(await page.findByText(/no rate/i)).toBeVisible();
+    await expect(
+      await page.findByText(/^\d+ entries have no rate\.$/),
+    ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Save draft' }),
     ).toBeDisabled();
