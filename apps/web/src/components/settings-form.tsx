@@ -40,8 +40,8 @@ const THEMES: Segment<Theme>[] = [
 ];
 
 /**
- * Settings. No save button: every field here is a default something else
- * falls back to, so nothing needs reviewing before it commits. Edits persist
+ * Settings. No save button: every field here is a preference, so nothing
+ * needs reviewing before it commits. Edits persist
  * on their own after a pause, and each section owns its own autosave so the
  * indicator refers to the fields the user is looking at.
  *
@@ -65,8 +65,6 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
     email: loaded.businessEmail ?? '',
     address: loaded.businessAddress ?? '',
   });
-  const [terms, setTerms] = useState(String(loaded.paymentTermsDays));
-  const termsDays = parseTermsDays(terms);
 
   const persist = async (patch: SettingsInput) => {
     try {
@@ -86,6 +84,7 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
   };
 
   const billing = useAutosave(persist);
+  const inbox = useAutosave(persist);
   const identity = useAutosave(persist);
   const numbering = useAutosave(persist);
 
@@ -98,6 +97,7 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
     };
 
   const setBilling = edit(billing);
+  const setInbox = edit(inbox);
   const setIdentity = edit(identity);
   const setNumbering = edit(numbering);
   const nextError = numberRefusal(numbering.error);
@@ -120,15 +120,12 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
         }
       />
 
-      <Section
-        title="Billing defaults"
-        description="Used when a client or project has none of its own."
-        aside={<SaveIndicator state={billing.state} />}
-      >
+      <Section title="Billing" aside={<SaveIndicator state={billing.state} />}>
         <div className="flex flex-wrap gap-4">
           <Field
             label="Default hourly rate"
             htmlFor="rate"
+            hint="Used when a client or project has none."
             className="flex-1 basis-44"
           >
             <RateInput
@@ -141,51 +138,19 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
             />
           </Field>
 
-          <Field
-            label="Flag entries over"
-            htmlFor="max-hours"
-            className="flex-1 basis-44"
-          >
-            <UnitInput
-              unit="hours"
-              id="max-hours"
-              type="number"
-              min="1"
-              max="24"
-              step="1"
-              value={form.maxEntryHours ?? ''}
-              onChange={(e) =>
-                setBilling(
-                  'maxEntryHours',
-                  e.target.value === '' ? null : Number(e.target.value),
-                )
-              }
-            />
-          </Field>
-
-          <Field
+          <ParsedField
             label="Payment terms"
-            htmlFor="terms"
-            error={
-              terms !== '' && termsDays === null
-                ? 'Whole days, 0 to 365.'
-                : undefined
-            }
-            className="flex-1 basis-44"
-          >
-            <UnitInput
-              unit="days"
-              id="terms"
-              inputMode="numeric"
-              value={terms}
-              onChange={(e) => {
-                setTerms(e.target.value);
-                const days = parseTermsDays(e.target.value);
-                if (days !== null) setBilling('paymentTermsDays', days);
-              }}
-              placeholder="30"
-            />
-          </Field>
+            id="terms"
+            unit="days"
+            hint="Used when a client has none."
+            placeholder="30"
+            parse={(text) => parseTermsDays(text) ?? undefined}
+            error="Whole days, 0 to 365."
+            value={form.paymentTermsDays}
+            onChange={(days) => {
+              if (days !== null) setBilling('paymentTermsDays', days);
+            }}
+          />
         </div>
 
         <Field
@@ -200,6 +165,34 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
             unset="Not set"
           />
         </Field>
+      </Section>
+
+      <Section
+        title="Inbox"
+        description="What gets flagged for you to review."
+        aside={<SaveIndicator state={inbox.state} />}
+      >
+        <div className="flex flex-wrap gap-4">
+          <ParsedField
+            label="Flag entries under"
+            id="min-seconds"
+            unit="seconds"
+            parse={threshold(Number.isInteger)}
+            error="Whole seconds, 1 or more."
+            value={form.minEntrySeconds}
+            onChange={(n) => setInbox('minEntrySeconds', n)}
+          />
+          <ParsedField
+            label="Flag entries over"
+            id="max-hours"
+            unit="hours"
+            inputMode="decimal"
+            parse={threshold((hours) => hours <= 24)}
+            error="More than 0, up to 24."
+            value={form.maxEntryHours}
+            onChange={(n) => setInbox('maxEntryHours', n)}
+          />
+        </div>
       </Section>
 
       <Section
@@ -248,6 +241,72 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
         </div>
       </Section>
     </>
+  );
+}
+
+/** One side of the inbox's length check: blank turns it off, and a number
+    must be over zero and pass `accepts`. */
+function threshold(accepts: (n: number) => boolean) {
+  return (text: string) => {
+    if (text === '') return null;
+    const n = Number(text);
+    return n > 0 && accepts(n) ? n : undefined;
+  };
+}
+
+/** Shows the typed text and calls `onChange` only when `parse` returns
+    something other than undefined. Text, not `type="number"`, which reports
+    a half-typed "-" as blank, so `parse` would never see it. A number the
+    server would refuse stays in the field with `error` and is never
+    scheduled, or autosave would resend it with every later edit. */
+function ParsedField({
+  label,
+  id,
+  unit,
+  hint,
+  placeholder,
+  inputMode = 'numeric',
+  parse,
+  error,
+  value,
+  onChange,
+}: {
+  label: string;
+  id: string;
+  unit: string;
+  hint?: string;
+  placeholder?: string;
+  inputMode?: 'numeric' | 'decimal';
+  /** The value to save; undefined refuses the text. */
+  parse: (text: string) => number | null | undefined;
+  error: string;
+  value: number | null;
+  onChange: (value: number | null) => void;
+}) {
+  const [text, setText] = useState(value === null ? '' : String(value));
+  /* Blank is still being typed, never an error. */
+  const refused = text !== '' && parse(text) === undefined;
+  return (
+    <Field
+      label={label}
+      htmlFor={id}
+      hint={hint}
+      error={refused ? error : undefined}
+      className="flex-1 basis-44"
+    >
+      <UnitInput
+        unit={unit}
+        id={id}
+        inputMode={inputMode}
+        placeholder={placeholder}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          const parsed = parse(e.target.value);
+          if (parsed !== undefined) onChange(parsed);
+        }}
+      />
+    </Field>
   );
 }
 

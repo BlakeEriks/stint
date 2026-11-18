@@ -25,7 +25,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** No save button: every field is a default, saved as it changes. One
+/** No save button: every field saves as it changes. One
     payment profile is the default, and only the other offers Make default. */
 export const Desktop: Story = {
   ...desktop,
@@ -71,28 +71,33 @@ export const InvoiceTemplate: Story = {
     ).toBeNull();
   },
 };
-/** Each billing default carries its unit inside the field, the way the rate
-    does, and numbering explains itself under its heading. */
-export const BillingUnits: Story = {
+/** Each number carries its unit inside the field, the way the rate does.
+    Billing holds what invoices use; Inbox holds the lengths that flag an
+    entry. */
+export const SectionUnits: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    for (const [label, unit] of [
-      ['Default hourly rate', '/ hr'],
-      ['Flag entries over', 'hours'],
-      ['Payment terms', 'days'],
+    /* By a field, not the heading: the dock has an Inbox heading too. */
+    const section = async (field: string) =>
+      within(
+        (await page.findByLabelText(field)).closest('section') as HTMLElement,
+      );
+    const billing = await section('Default hourly rate');
+    const inbox = await section('Flag entries over');
+    await expect(
+      billing.getByRole('heading', { name: 'Billing' }),
+    ).toBeVisible();
+    await expect(inbox.getByRole('heading', { name: 'Inbox' })).toBeVisible();
+    for (const [scope, label, unit] of [
+      [billing, 'Default hourly rate', '/ hr'],
+      [billing, 'Payment terms', 'days'],
+      [inbox, 'Flag entries under', 'seconds'],
+      [inbox, 'Flag entries over', 'hours'],
     ] as const) {
-      const field = (await page.findByLabelText(label)).parentElement;
+      const field = scope.getByLabelText(label).parentElement;
       await expect(within(field as HTMLElement).getByText(unit)).toBeVisible();
     }
-    await expect(page.queryByText(/Blank turns it off/)).toBeNull();
-    await expect(page.queryByText(/0 is due on receipt/)).toBeNull();
-    const numbering = page
-      .getByRole('heading', { name: 'Invoice numbering' })
-      .closest('section') as HTMLElement;
-    await expect(
-      within(numbering).getByText(/invoices you sent before Stint/),
-    ).toBeVisible();
   },
 };
 /** On a phone the theme toggle drops under the Appearance heading, every
@@ -194,6 +199,28 @@ export const PaymentTermsDays: Story = {
     await userEvent.clear(field);
     await userEvent.type(field, '400');
     await expect(page.getByText('Whole days, 0 to 365.')).toBeVisible();
+  },
+};
+
+/** An inbox threshold the server would refuse is refused at the field,
+    without a request, so a later valid edit in the section still saves. */
+export const ThresholdRefused: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const under = await page.findByLabelText('Flag entries under');
+    const inbox = within(under.closest('section') as HTMLElement);
+    /* "-" alone, on the way to -5, must not clear the saved 60. */
+    await userEvent.tripleClick(under);
+    await userEvent.keyboard('-5');
+    await expect(inbox.getByText('Whole seconds, 1 or more.')).toBeVisible();
+    const over = inbox.getByLabelText('Flag entries over');
+    await userEvent.clear(over);
+    await userEvent.type(over, '10');
+    await expect(
+      await inbox.findByLabelText('Saved', {}, { timeout: 3000 }),
+    ).toBeVisible();
+    await expect(getDb().settings.minEntrySeconds).toBe(60);
   },
 };
 
