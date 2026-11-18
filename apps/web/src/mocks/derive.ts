@@ -402,6 +402,9 @@ export function stats(db: Db, tz: string) {
                 durationSeconds: e.durationSeconds ?? 0,
                 isBillable: e.isBillable,
                 clientId: p?.clientId ?? null,
+                projectId: p?.id ?? null,
+                projectName: p?.name ?? null,
+                taskName: e.taskName,
                 rateOverride: e.rateOverride,
                 projectRate: p?.hourlyRate,
               };

@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import type { GroupingMode } from '../src/invoice.ts';
 import {
   draftDates,
   lateEntries,
@@ -206,7 +207,14 @@ const inv = (
   periodEnd: string,
   clientId = 'c1',
   status = 'sent',
-) => ({ clientId, periodStart, periodEnd, status });
+) => ({
+  clientId,
+  periodStart,
+  periodEnd,
+  status,
+  sequenceNo: 0,
+  groupingMode: 'summary' as GroupingMode,
+});
 const draft = (periodStart: string, periodEnd: string) =>
   inv(periodStart, periodEnd, 'c1', 'draft');
 const NW_SEP = 'Northwind 2026-09-01..2026-09-30 100';
@@ -356,7 +364,11 @@ test('ready to invoice: the amount, each entry at the rate that bills it', () =>
     durationSeconds = 3600,
   ) => ({ ...work(IN_SEP), durationSeconds, ...rates });
   const thirds = [1, 2, 3].map((i) => ({ ...rated({}, 1200), id: `e${i}` }));
-  const august = (sequenceNo: number, groupingMode: 'entry' | 'summary') => ({
+  /* Two 20-minute entries apart under `split`: two lines at $99.99 bill
+     $66.00, one bills $65.99. */
+  const pair = (split: Record<string, unknown>[]) =>
+    split.map((over, i) => ({ ...rated({}, 1200), id: `p${i}`, ...over }));
+  const august = (sequenceNo: number, groupingMode: GroupingMode) => ({
     ...inv('2026-08-01', '2026-08-31'),
     sequenceNo,
     groupingMode,
@@ -397,6 +409,33 @@ test('ready to invoice: the amount, each entry at the rate that bills it', () =>
       null,
       98.99,
       [august(2, 'summary'), august(1, 'entry')],
+    ],
+    [
+      'by task, a line per name',
+      pair([{ taskName: 'Audit' }, { taskName: 'Review' }]),
+      99.99,
+      null,
+      66,
+      [august(1, 'task')],
+    ],
+    [
+      'by project, a line per project',
+      pair([
+        { projectId: 'p1', projectName: 'Audit' },
+        { projectId: 'p2', projectName: 'Review' },
+      ]),
+      99.99,
+      null,
+      66,
+      [august(1, 'project')],
+    ],
+    [
+      'by day, in the billing zone: 03:00 UTC Sep 21 is Sep 20',
+      pair([{}, { startedAt: '2026-09-21T03:00:00Z' }]),
+      99.99,
+      null,
+      65.99,
+      [august(1, 'day')],
     ],
   ] as const) {
     const [row] = unbilledDue(

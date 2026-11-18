@@ -126,7 +126,9 @@ interface DueInputs {
     currency: string;
   }[];
   /** Finished entries on no invoice and not billed elsewhere. */
-  entries: (Omit<LateCandidate, 'taskName'> & {
+  entries: (LateCandidate & {
+    projectId?: string | null;
+    projectName?: string | null;
     rateOverride?: number | null;
     projectRate?: number | null;
   })[];
@@ -139,8 +141,8 @@ interface DueInputs {
     periodStart: string;
     periodEnd: string;
     status?: string;
-    sequenceNo?: number;
-    groupingMode?: GroupingMode;
+    sequenceNo: number;
+    groupingMode: GroupingMode;
   }[];
 }
 
@@ -164,11 +166,7 @@ function lastGrouping(
 ): GroupingMode {
   let last: DueInputs['invoices'][number] | undefined;
   for (const i of invoices)
-    if (
-      i.clientId === clientId &&
-      i.sequenceNo != null &&
-      i.sequenceNo > (last?.sequenceNo ?? -1)
-    )
+    if (i.clientId === clientId && i.sequenceNo > (last?.sequenceNo ?? -1))
       last = i;
   return last?.groupingMode ?? 'summary';
 }
@@ -209,15 +207,14 @@ export function unbilledDue(
           amount: buildLineItems(
             work.map((e) => ({
               ...e,
-              taskName: '',
-              projectId: null,
-              projectName: null,
+              projectId: e.projectId ?? null,
+              projectName: e.projectName ?? null,
               rateOverride: e.rateOverride ?? null,
               projectRate: e.projectRate ?? null,
               clientRate: c.rate ?? null,
               userDefaultRate: defaultRate ?? null,
             })),
-            { groupingMode: lastGrouping(invoices, c.id) },
+            { groupingMode: lastGrouping(invoices, c.id), tz },
           ).subtotal,
           currency: c.currency,
           ...period,

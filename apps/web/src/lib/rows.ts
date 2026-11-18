@@ -622,6 +622,8 @@ export function toUninvoicedEntry(
     durationSeconds: r.duration_seconds,
     isBillable: r.is_billable,
     clientId: project?.client_id ?? null,
+    projectId: project?.id ?? null,
+    projectName: project?.name ?? null,
     rateOverride: num(r.rate_override),
     projectRate: num(project?.hourly_rate),
   };
