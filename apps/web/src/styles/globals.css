@@ -190,8 +190,7 @@
       scale: 0.96;
     }
   }
-  /* How long is left, drained on the toast's own duration. Radix's pause,
-     not `:hover`, stops it: Radix pauses on more than a hover. */
+  /* How long is left. Its end closes the toast (`Toast`). */
   .toast-left {
     transform-origin: left;
     animation: toast-left var(--toast-duration) linear forwards;

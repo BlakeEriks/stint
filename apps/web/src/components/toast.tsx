@@ -1,6 +1,12 @@
 'use client';
 
-import { type CSSProperties, type ReactNode, useState } from 'react';
+import {
+  type CSSProperties,
+  type ReactNode,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { Check, X } from 'lucide-react';
 import { Toast as Radix } from 'radix-ui';
 
@@ -36,16 +42,35 @@ export function Toast({
   onOpenChange: (open: boolean) => void;
   children: ReactNode;
 }) {
-  /* Radix also pauses on window blur and a hover over the viewport, so the
+  /* The bar is the only clock: Radix starts no timer for a toast that opens
+     while the viewport is paused, so its own timer would outlast the bar.
+     Radix also pauses on window blur and a hover over the viewport, so the
      bar follows its pause rather than a CSS `:hover` that would drift. */
+  const ref = useRef<HTMLLIElement>(null);
   const [paused, setPaused] = useState(false);
   const refusal = tone === 'refusal';
 
+  /* Each open starts from Radix's pause conditions, which it signals only
+     on a change. A window focus rechecks them: Radix sends no resume for a
+     blur that came before this toast. */
+  useLayoutEffect(() => {
+    if (!open) return;
+    const check = () =>
+      setPaused(
+        !document.hasFocus() ||
+          !!ref.current?.parentElement?.matches(':hover, :focus-within'),
+      );
+    check();
+    window.addEventListener('focus', check);
+    return () => window.removeEventListener('focus', check);
+  }, [open]);
+
   return (
     <Radix.Root
+      ref={ref}
       open={open}
       onOpenChange={onOpenChange}
-      duration={DURATION[tone]}
+      duration={Infinity}
       type={refusal ? 'foreground' : 'background'}
       onPause={() => setPaused(true)}
       onResume={() => setPaused(false)}
@@ -79,6 +104,7 @@ export function Toast({
         className={`toast-left absolute inset-x-0 bottom-0 h-0.5 ${
           refusal ? 'bg-danger' : 'bg-success'
         }`}
+        onAnimationEnd={() => onOpenChange(false)}
       />
     </Radix.Root>
   );

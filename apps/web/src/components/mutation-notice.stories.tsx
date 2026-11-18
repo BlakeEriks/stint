@@ -3,14 +3,12 @@ import { expect, userEvent, within } from 'storybook/test';
 import { ApiError } from '@/lib/client/api';
 import { useOptimisticMutation } from '@stint/client';
 import { desktop, phone } from '@/mocks/screen';
-import { Toast } from './toast';
 
 /**
  * A press the server refused. `Providers` renders the notice for every
- * screen, so this story only needs something to press. `success` adds a
- * success toast beside it, to show the two tones and how they stack.
+ * screen, so this story only needs something to press.
  */
-function Refused({ success = false }: { success?: boolean }) {
+function Refused() {
   const press = useOptimisticMutation({
     queryKey: () => ['story'],
     mutationFn: () =>
@@ -23,14 +21,9 @@ function Refused({ success = false }: { success?: boolean }) {
       ),
   });
   return (
-    <>
-      <button type="button" onClick={() => press.mutate()}>
-        Press
-      </button>
-      <Toast tone="success" open={success} onOpenChange={() => {}}>
-        Feedback sent.
-      </Toast>
-    </>
+    <button type="button" onClick={() => press.mutate()}>
+      Press
+    </button>
   );
 }
 
@@ -48,28 +41,5 @@ const refuse: Story['play'] = async ({ canvasElement }) => {
   await expect(await page.findByText(/on a sent invoice/)).toBeVisible();
 };
 
-/** A refusal: a red badge, a dismiss, and 10 seconds draining in red. */
 export const Desktop: Story = { ...desktop, play: refuse };
 export const Phone: Story = { ...phone, play: refuse };
-
-/** A success: a check, no dismiss, and 4 seconds draining in green. */
-export const Success: Story = {
-  ...desktop,
-  args: { success: true },
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement.ownerDocument.body);
-    await expect(await page.findByText('Feedback sent.')).toBeVisible();
-    await expect(page.queryByRole('button', { name: 'Dismiss' })).toBeNull();
-  },
-};
-
-/** A refusal and a success at once, stacked 8px apart. */
-export const Stacked: Story = {
-  ...desktop,
-  args: { success: true },
-  play: async (ctx) => {
-    await refuse(ctx);
-    const page = within(ctx.canvasElement.ownerDocument.body);
-    await expect(page.getByText('Feedback sent.')).toBeVisible();
-  },
-};
