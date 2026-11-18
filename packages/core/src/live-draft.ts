@@ -11,6 +11,7 @@ import {
   type BillableEntry,
   buildLineItems,
   type ExpenseInput,
+  type GroupingMode,
   hundredths,
   termsDays,
 } from './invoice.ts';
@@ -138,6 +139,8 @@ interface DueInputs {
     periodStart: string;
     periodEnd: string;
     status?: string;
+    sequenceNo?: number;
+    groupingMode?: GroupingMode;
   }[];
 }
 
@@ -153,11 +156,28 @@ function covers(i: DueInputs['invoices'][number], period: Period) {
     : i.periodStart <= period.periodEnd && period.periodStart <= i.periodEnd;
 }
 
+/** The grouping New invoice carries from the client's most recent non-void
+ *  invoice (`carriedFrom` in invoice-new.tsx), summary when it has none. */
+function lastGrouping(
+  invoices: DueInputs['invoices'],
+  clientId: string,
+): GroupingMode {
+  let last: DueInputs['invoices'][number] | undefined;
+  for (const i of invoices)
+    if (
+      i.clientId === clientId &&
+      i.sequenceNo != null &&
+      i.sequenceNo > (last?.sequenceNo ?? -1)
+    )
+      last = i;
+  return last?.groupingMode ?? 'summary';
+}
+
 /**
  * Clients ready to invoice, one row each by name: those with a schedule whose
  * most recent ended period holds billable work and none of `invoices`
- * `covers()`. `amount` is what that work bills on New invoice's first,
- * summary grouping; work with no rate counts as nothing.
+ * `covers()`. `amount` is what that work bills grouped as New invoice opens
+ * it; work with no rate counts as nothing.
  */
 export function unbilledDue(
   { clients, entries, invoices, defaultRate }: DueInputs,
@@ -197,7 +217,7 @@ export function unbilledDue(
               clientRate: c.rate ?? null,
               userDefaultRate: defaultRate ?? null,
             })),
-            { groupingMode: 'summary' },
+            { groupingMode: lastGrouping(invoices, c.id) },
           ).subtotal,
           currency: c.currency,
           ...period,

@@ -653,11 +653,18 @@ export function toWeekEntry(r: WeekEntryRow) {
 /** A sent or paid invoice's period, for work dated inside it. */
 export type IssuedPeriodRow = Pick<
   InvoiceRow,
-  'id' | 'invoice_number' | 'client_id' | 'period_start' | 'period_end' | 'tz'
+  | 'id'
+  | 'invoice_number'
+  | 'client_id'
+  | 'period_start'
+  | 'period_end'
+  | 'tz'
+  | 'sequence_no'
+  | 'grouping_mode'
 >;
 
 export const ISSUED_PERIOD_COLUMNS = columns<IssuedPeriodRow>()(
-  'id, invoice_number, client_id, period_start, period_end, tz',
+  'id, invoice_number, client_id, period_start, period_end, tz, sequence_no, grouping_mode',
 );
 
 export function toIssuedPeriod(r: IssuedPeriodRow) {
@@ -668,18 +675,31 @@ export function toIssuedPeriod(r: IssuedPeriodRow) {
     periodStart: r.period_start,
     periodEnd: r.period_end,
     tz: r.tz,
+    sequenceNo: r.sequence_no,
+    groupingMode: r.grouping_mode,
   };
 }
 
-/** Any invoice's period, for whether it covers a client's due period. */
+/** Any invoice's period, for whether it covers a client's due period, and
+ *  the grouping New invoice carries from it. */
 export function toInvoicePeriod(
-  r: Pick<InvoiceRow, 'status' | 'client_id' | 'period_start' | 'period_end'>,
+  r: Pick<
+    InvoiceRow,
+    | 'status'
+    | 'client_id'
+    | 'period_start'
+    | 'period_end'
+    | 'sequence_no'
+    | 'grouping_mode'
+  >,
 ) {
   return {
     status: r.status,
     clientId: r.client_id,
     periodStart: r.period_start,
     periodEnd: r.period_end,
+    sequenceNo: r.sequence_no,
+    groupingMode: r.grouping_mode,
   };
 }
 

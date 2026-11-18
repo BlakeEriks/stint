@@ -348,13 +348,20 @@ test('ready to invoice: the most recent ended period no invoice covers', () => {
 });
 
 /* Each row: one entry's rates, override to default, and what Northwind's
-   September would bill at $150/h on the client unless the row says. */
+   September would bill at $150/h on the client unless the row says, grouped
+   as its last invoice was (summary with none). */
 test('ready to invoice: the amount, each entry at the rate that bills it', () => {
   const rated = (
     rates: { rateOverride?: number | null; projectRate?: number | null },
     durationSeconds = 3600,
   ) => ({ ...work(IN_SEP), durationSeconds, ...rates });
-  for (const [name, entries, rate, defaultRate, amount] of [
+  const thirds = [1, 2, 3].map((i) => ({ ...rated({}, 1200), id: `e${i}` }));
+  const august = (sequenceNo: number, groupingMode: 'entry' | 'summary') => ({
+    ...inv('2026-08-01', '2026-08-31'),
+    sequenceNo,
+    groupingMode,
+  });
+  for (const [name, entries, rate, defaultRate, amount, invoices = []] of [
     [
       'the override first',
       [rated({ rateOverride: 200, projectRate: 100 })],
@@ -374,12 +381,22 @@ test('ready to invoice: the amount, each entry at the rate that bills it', () =>
       null,
       66,
     ],
+    ['one line per rate, priced once', thirds, 99.99, null, 98.99],
     [
-      'one line per rate, priced once, as the invoice sums it',
-      [1, 2, 3].map((i) => ({ ...rated({}, 1200), id: `e${i}` })),
+      'grouped as the last invoice was',
+      thirds,
+      99.99,
+      null,
+      99,
+      [august(1, 'entry')],
+    ],
+    [
+      'the most recent invoice decides',
+      thirds,
       99.99,
       null,
       98.99,
+      [august(2, 'summary'), august(1, 'entry')],
     ],
   ] as const) {
     const [row] = unbilledDue(
@@ -394,7 +411,7 @@ test('ready to invoice: the amount, each entry at the rate that bills it', () =>
           },
         ],
         entries: [...entries],
-        invoices: [],
+        invoices: [...invoices],
         defaultRate,
       },
       '2026-10-03',
