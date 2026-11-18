@@ -92,6 +92,34 @@ export function earlierWork(entries: { startedAt: string }[], tz: string) {
   return { entryCount: days.length, from: days[0]!, to: days.at(-1)! };
 }
 
+/**
+ * Of the entries the period would bill, those another draft holds, counted
+ * by draft in sequence, since a changed prefix leaves the numbers' text out
+ * of order: New invoice says where the period's work went.
+ * The edited draft's are its own lines, so it is never one of them. Null
+ * when there are none.
+ */
+export function heldWork(
+  entries: { draftId: string | null }[],
+  drafts: { id: string; invoiceNumber: string; sequenceNo: number }[],
+  draftId?: string,
+) {
+  const holders = drafts
+    .filter((d) => d.id !== draftId)
+    .sort((a, b) => a.sequenceNo - b.sequenceNo)
+    .map(({ id, invoiceNumber }) => ({
+      id,
+      invoiceNumber,
+      entryCount: entries.filter((e) => e.draftId === id).length,
+    }))
+    .filter((d) => d.entryCount > 0);
+  if (holders.length === 0) return null;
+  return {
+    entryCount: holders.reduce((n, d) => n + d.entryCount, 0),
+    drafts: holders,
+  };
+}
+
 export interface ExpenseRow {
   id: string;
   recurring: boolean;

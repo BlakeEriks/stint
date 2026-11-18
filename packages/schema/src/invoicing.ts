@@ -191,6 +191,21 @@ export const InvoicePreview = z.object({
       to: z.iso.date(),
     })
     .nullable(),
+  /** The period's billable work other drafts hold (`heldWork()`), which New
+   *  invoice names so an emptied period isn't read as lost work. Null when
+   *  there is none. */
+  heldWork: z
+    .object({
+      entryCount: z.number().int().positive(),
+      drafts: z.array(
+        z.object({
+          id: uuid,
+          invoiceNumber: z.string(),
+          entryCount: z.number().int().positive(),
+        }),
+      ),
+    })
+    .nullable(),
   /** With `summary`, every table the invoice could attach; otherwise null. */
   schedules: Schedules.nullable(),
 });
