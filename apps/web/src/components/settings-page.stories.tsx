@@ -71,27 +71,48 @@ export const InvoiceTemplate: Story = {
     ).toBeNull();
   },
 };
-/** Each billing default carries its unit inside the field, the way the rate
-    does, and numbering explains itself under its heading. */
-export const BillingUnits: Story = {
+/** Each number carries its unit inside the field, the way the rate does.
+    Billing holds what invoices use, and says on the rate and the terms that
+    a client's own wins. Inbox holds the lengths that flag an entry. */
+export const SectionUnits: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    for (const [label, unit] of [
-      ['Default hourly rate', '/ hr'],
-      ['Flag entries over', 'hours'],
-      ['Payment terms', 'days'],
+    /* By a field, not the heading: the dock has an Inbox heading too. */
+    const section = async (field: string) =>
+      within(
+        (await page.findByLabelText(field)).closest('section') as HTMLElement,
+      );
+    const billing = await section('Default hourly rate');
+    const inbox = await section('Flag entries over');
+    await expect(
+      billing.getByRole('heading', { name: 'Billing' }),
+    ).toBeVisible();
+    await expect(inbox.getByRole('heading', { name: 'Inbox' })).toBeVisible();
+    for (const [scope, label, unit] of [
+      [billing, 'Default hourly rate', '/ hr'],
+      [billing, 'Payment terms', 'days'],
+      [inbox, 'Flag entries under', 'seconds'],
+      [inbox, 'Flag entries over', 'hours'],
     ] as const) {
-      const field = (await page.findByLabelText(label)).parentElement;
+      const field = scope.getByLabelText(label).parentElement;
       await expect(within(field as HTMLElement).getByText(unit)).toBeVisible();
     }
-    await expect(page.queryByText(/Blank turns it off/)).toBeNull();
-    await expect(page.queryByText(/0 is due on receipt/)).toBeNull();
-    const numbering = page
-      .getByRole('heading', { name: 'Invoice numbering' })
-      .closest('section') as HTMLElement;
     await expect(
-      within(numbering).getByText(/invoices you sent before Stint/),
+      billing.getByText('Used when a client or project has none.'),
+    ).toBeVisible();
+    await expect(
+      billing.getByText('Used when a client has none.'),
+    ).toBeVisible();
+    await expect(
+      inbox.getByText('What gets flagged for you to review.'),
+    ).toBeVisible();
+    await expect(
+      within(
+        page
+          .getByRole('heading', { name: 'Invoice numbering' })
+          .closest('section') as HTMLElement,
+      ).getByText(/invoices you sent before Stint/),
     ).toBeVisible();
   },
 };

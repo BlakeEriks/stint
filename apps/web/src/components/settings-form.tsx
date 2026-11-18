@@ -40,8 +40,8 @@ const THEMES: Segment<Theme>[] = [
 ];
 
 /**
- * Settings. No save button: every field here is a default something else
- * falls back to, so nothing needs reviewing before it commits. Edits persist
+ * Settings. No save button: every field here is a preference, so nothing
+ * needs reviewing before it commits. Edits persist
  * on their own after a pause, and each section owns its own autosave so the
  * indicator refers to the fields the user is looking at.
  *
@@ -86,6 +86,7 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
   };
 
   const billing = useAutosave(persist);
+  const inbox = useAutosave(persist);
   const identity = useAutosave(persist);
   const numbering = useAutosave(persist);
 
@@ -98,6 +99,7 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
     };
 
   const setBilling = edit(billing);
+  const setInbox = edit(inbox);
   const setIdentity = edit(identity);
   const setNumbering = edit(numbering);
   const nextError = numberRefusal(numbering.error);
@@ -120,15 +122,12 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
         }
       />
 
-      <Section
-        title="Billing defaults"
-        description="Used when a client or project has none of its own."
-        aside={<SaveIndicator state={billing.state} />}
-      >
+      <Section title="Billing" aside={<SaveIndicator state={billing.state} />}>
         <div className="flex flex-wrap gap-4">
           <Field
             label="Default hourly rate"
             htmlFor="rate"
+            hint="Used when a client or project has none."
             className="flex-1 basis-44"
           >
             <RateInput
@@ -142,30 +141,9 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
           </Field>
 
           <Field
-            label="Flag entries over"
-            htmlFor="max-hours"
-            className="flex-1 basis-44"
-          >
-            <UnitInput
-              unit="hours"
-              id="max-hours"
-              type="number"
-              min="1"
-              max="24"
-              step="1"
-              value={form.maxEntryHours ?? ''}
-              onChange={(e) =>
-                setBilling(
-                  'maxEntryHours',
-                  e.target.value === '' ? null : Number(e.target.value),
-                )
-              }
-            />
-          </Field>
-
-          <Field
             label="Payment terms"
             htmlFor="terms"
+            hint="Used when a client has none."
             error={
               terms !== '' && termsDays === null
                 ? 'Whole days, 0 to 365.'
@@ -200,6 +178,57 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
             unset="Not set"
           />
         </Field>
+      </Section>
+
+      <Section
+        title="Inbox"
+        description="What gets flagged for you to review."
+        aside={<SaveIndicator state={inbox.state} />}
+      >
+        <div className="flex flex-wrap gap-4">
+          <Field
+            label="Flag entries under"
+            htmlFor="min-seconds"
+            className="flex-1 basis-44"
+          >
+            <UnitInput
+              unit="seconds"
+              id="min-seconds"
+              type="number"
+              min="1"
+              step="1"
+              value={form.minEntrySeconds ?? ''}
+              onChange={(e) =>
+                setInbox(
+                  'minEntrySeconds',
+                  e.target.value === '' ? null : Number(e.target.value),
+                )
+              }
+            />
+          </Field>
+
+          <Field
+            label="Flag entries over"
+            htmlFor="max-hours"
+            className="flex-1 basis-44"
+          >
+            <UnitInput
+              unit="hours"
+              id="max-hours"
+              type="number"
+              min="1"
+              max="24"
+              step="1"
+              value={form.maxEntryHours ?? ''}
+              onChange={(e) =>
+                setInbox(
+                  'maxEntryHours',
+                  e.target.value === '' ? null : Number(e.target.value),
+                )
+              }
+            />
+          </Field>
+        </div>
       </Section>
 
       <Section
