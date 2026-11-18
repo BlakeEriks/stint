@@ -32,8 +32,9 @@ trusting the device clock.
 Each of these that changes the running timer (a start, a stop, an edit
 mid-run) pushes the user's phones once it has answered ([Push
 devices](#push-devices)), as do `PATCH /entries/:id` when the entry is
-running or the edit sets `endedAt`, and `DELETE /entries/:id` of the
-running entry.
+running or the edit sets `endedAt`, `DELETE /entries/:id` of the running
+entry, and `POST /entries/task-names/rename` when it renames the running
+entry.
 
 ### Including what a write changed
 
