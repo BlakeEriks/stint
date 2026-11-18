@@ -186,48 +186,21 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
         aside={<SaveIndicator state={inbox.state} />}
       >
         <div className="flex flex-wrap gap-4">
-          <Field
+          <ThresholdField
             label="Flag entries under"
-            htmlFor="min-seconds"
-            className="flex-1 basis-44"
-          >
-            <UnitInput
-              unit="seconds"
-              id="min-seconds"
-              type="number"
-              min="1"
-              step="1"
-              value={form.minEntrySeconds ?? ''}
-              onChange={(e) =>
-                setInbox(
-                  'minEntrySeconds',
-                  e.target.value === '' ? null : Number(e.target.value),
-                )
-              }
-            />
-          </Field>
-
-          <Field
+            id="min-seconds"
+            unit="seconds"
+            value={form.minEntrySeconds}
+            onChange={(n) => setInbox('minEntrySeconds', n)}
+          />
+          <ThresholdField
             label="Flag entries over"
-            htmlFor="max-hours"
-            className="flex-1 basis-44"
-          >
-            <UnitInput
-              unit="hours"
-              id="max-hours"
-              type="number"
-              min="1"
-              max="24"
-              step="1"
-              value={form.maxEntryHours ?? ''}
-              onChange={(e) =>
-                setInbox(
-                  'maxEntryHours',
-                  e.target.value === '' ? null : Number(e.target.value),
-                )
-              }
-            />
-          </Field>
+            id="max-hours"
+            unit="hours"
+            max={24}
+            value={form.maxEntryHours}
+            onChange={(n) => setInbox('maxEntryHours', n)}
+          />
         </div>
       </Section>
 
@@ -277,6 +250,40 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
         </div>
       </Section>
     </>
+  );
+}
+
+/** One side of the inbox's length check; cleared turns that side off. */
+function ThresholdField({
+  label,
+  id,
+  unit,
+  max,
+  value,
+  onChange,
+}: {
+  label: string;
+  id: string;
+  unit: string;
+  max?: number;
+  value: number | null;
+  onChange: (value: number | null) => void;
+}) {
+  return (
+    <Field label={label} htmlFor={id} className="flex-1 basis-44">
+      <UnitInput
+        unit={unit}
+        id={id}
+        type="number"
+        min="1"
+        max={max}
+        step="1"
+        value={value ?? ''}
+        onChange={(e) =>
+          onChange(e.target.value === '' ? null : Number(e.target.value))
+        }
+      />
+    </Field>
   );
 }
 
