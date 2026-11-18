@@ -56,14 +56,27 @@ export const Add: Story = {
   },
 };
 
-/** On an issued invoice: read-only, and the invoice to void named. It's on
-    an invoice, so it can't be billed elsewhere too. */
+/** On an issued invoice: only the task renames, and the invoice to void
+    for the rest is named. It's on an invoice, so it can't be billed
+    elsewhere too, nor deleted. */
 export const Locked: Story = {
   ...desktop,
   args: { existing: on(13) },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
-    await expect(await page.findByText(/billed on STINT-0013/)).toBeVisible();
+    await expect(
+      await page.findByText(/billed on STINT-0013, so only its task/),
+    ).toBeVisible();
+    await expect(page.getByRole('combobox', { name: /Task/ })).toBeEnabled();
+    for (const field of ['Date', 'Start', 'End'])
+      await expect(page.getByLabelText(field)).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Project' })).toBeDisabled();
+    await expect(
+      page.getByRole('checkbox', { name: 'Billable' }),
+    ).toBeDisabled();
+    await expect(
+      page.queryByRole('button', { name: 'Delete entry' }),
+    ).toBeNull();
     await expect(
       page.queryByRole('checkbox', { name: 'Billed elsewhere' }),
     ).toBeNull();
