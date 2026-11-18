@@ -51,6 +51,16 @@ export const Column: Story = {
     );
     await expect(overlap.getByText('Client call and follow-ups')).toBeVisible();
     await expect(overlap.getByText('53m')).toBeVisible();
+
+    // Today's figure sits flush right: the hidden "+" takes no space.
+    const head = page
+      .getByRole('region', { name: "Today's entries" })
+      .querySelector('header') as HTMLElement;
+    const figure = await within(head).findByText(/^\$/);
+    const inner =
+      head.getBoundingClientRect().right -
+      Number.parseFloat(getComputedStyle(head).paddingRight);
+    await expect(figure.getBoundingClientRect().right).toBeCloseTo(inner, 0);
   },
 };
 
