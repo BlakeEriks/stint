@@ -10,7 +10,7 @@ import { motion } from '@stint/design-tokens';
 import { usePrefetchInvoices } from '@/lib/client/prefetch-invoices';
 import { useMarkPaid } from '@/lib/client/use-mark-paid';
 import { useMarkSent } from '@/lib/client/use-mark-sent';
-import { useCountUp } from '@/lib/client/use-count-up';
+import { prefersReducedMotion, useCountUp } from '@/lib/client/use-count-up';
 import { useFlip } from '@/lib/client/use-flip';
 import { useClients, useClientsQuery } from '@/lib/client/use-project-colors';
 import { timeZone } from '@/lib/client/use-timer';
@@ -219,12 +219,13 @@ function YearTotal({
     return () => clearTimeout(t);
   }, [total]);
   // Reduced motion lands the row at once, so the total comes with it.
-  const reduced =
-    typeof window !== 'undefined' &&
-    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const { value } = useCountUp(figure, reduced ? total : landed, {
-    arrive: false,
-  });
+  const { value } = useCountUp(
+    figure,
+    prefersReducedMotion() ? total : landed,
+    {
+      arrive: false,
+    },
+  );
   return (
     <span className="ml-auto type-amount">
       {formatCurrency(value, currency)}

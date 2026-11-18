@@ -11,7 +11,7 @@ export interface Section {
   /** Null where it would repeat the one row's amount, or would add up
       currencies that don't add. */
   total: number | null;
-  /** The total's currency. */
+  /** Set even when `total` is null. */
   currency: string;
   /** Drafts and awaiting payment: what still needs the user. */
   open: boolean;
