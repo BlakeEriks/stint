@@ -108,17 +108,19 @@ Resend's free tier (100 a day) as `Stint <signin@runstint.com>`.
 3. **Supabase → Authentication → Emails → SMTP Settings**: host
    `smtp.resend.com`, port `465`, user `resend`, the API key as password,
    sender `signin@runstint.com`, name `Stint`.
-4. **Authentication → Emails → Magic Link**: subject `Sign in to Stint`, body
-   `supabase/templates/magic_link.html`.
+4. **Authentication → Emails → Magic Link** and **Confirm signup**: subject
+   `Sign in to Stint`, body `supabase/templates/magic_link.html`, in both.
+   Confirm email is on, so a first sign-in sends Confirm signup instead of
+   Magic Link.
 5. **Authentication → Sign In / Providers → Email**: **Email OTP Length** `6`.
    A hosted project can default to 8, and the template and the panel show
    and take six digits, so a longer code is truncated and always rejected.
    **Email OTP Expiration** `86400`, because the sign-in errors say codes
    expire after 24 hours.
 
-The dashboard holds its own copy of the template, because `config.toml`
+The dashboard holds its own copies of the template, because `config.toml`
 points GoTrue at a local path a hosted project can't read. An edit to the
-file changes local only, until it's pasted again. Keep
+file changes local only, until it's pasted into both again. Keep
 `{{ .ConfirmationURL }}` and both `{{ slice .Token }}` calls, because GoTrue mints a
 code for every magic link, and those calls show it, so the menu bar app's
 panel has a code to take.
