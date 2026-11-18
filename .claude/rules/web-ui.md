@@ -78,7 +78,9 @@ color fact is text on the accent (`--text-on-accent`, `tokens:validate`).
   head, or a row they can act on.**
 - **Motion reports a change; it never announces one**, except the toast's
   entrance, which a message nobody asked for needs to be seen. Every duration
-  honors `prefers-reduced-motion`.
+  honors `prefers-reduced-motion` except the toast's time-left bar: it is the
+  toast's clock and moves nothing else, and stopping it would leave the toast
+  open forever.
 - **The mark's bounds are always `--mark` green; its letters take one text
   color**: `text-strong` in the app header, `text-muted` where it recedes. The invoice PDF and the macOS status item carry none.
 
