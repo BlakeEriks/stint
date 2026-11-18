@@ -354,21 +354,24 @@ function Notices({
   return (
     <div className="flex flex-col gap-1 pt-1 pb-6">
       {hint ? <p className="type-support text-muted">{hint}</p> : null}
-      {invoice.status === 'draft' && invoice.newWork ? (
-        <NewWorkNotice
-          work={invoice.newWork}
-          currency={invoice.currency}
-          addWork={addWork}
-        />
-      ) : null}
-      {unrated.length > 0 ? <Unrated entries={unrated} /> : null}
-      {invoice.dueBeforeIssue?.download ? (
-        <DueBeforeIssue
-          issued={invoice.issueDate}
-          due={invoice.dueDate!}
-          downloaded={!invoice.dueBeforeIssue.send}
-        />
-      ) : null}
+      <div className="mt-3 flex flex-col gap-4 empty:hidden">
+        {invoice.status === 'draft' && invoice.newWork ? (
+          <NewWorkNotice
+            work={invoice.newWork}
+            currency={invoice.currency}
+            addWork={addWork}
+          />
+        ) : null}
+        {unrated.length > 0 ? <Unrated entries={unrated} /> : null}
+        {invoice.dueBeforeIssue?.download ? (
+          <DueBeforeIssue
+            issued={invoice.issueDate}
+            due={invoice.dueDate!}
+            downloaded={!invoice.dueBeforeIssue.send}
+          />
+        ) : null}
+        <ActionError error={error} />
+      </div>
       {/* The document is the paid tier; the records never are, and saying
           so here keeps the two rules from reading as one. */}
       {invoice.canDownload === false ? (
@@ -377,7 +380,6 @@ function Notices({
           your records, exporting them included, stay free.
         </p>
       ) : null}
-      <ActionError error={error} />
     </div>
   );
 }
@@ -405,7 +407,6 @@ function NewWorkNotice({
     .join(' and ');
   return (
     <Notice
-      className="mt-3"
       title={`${what}, in this period`}
       detail={`Logged since you built it · ${formatCurrency(work.amount, currency)}. They stay off unless you add them.`}
       action={
@@ -427,7 +428,6 @@ function NewWorkNotice({
 function Unrated({ entries }: { entries: UnratedEntry[] }) {
   return (
     <Notice
-      className="mt-3"
       title={`${entries.length} entr${entries.length === 1 ? 'y has' : 'ies have'} no rate`}
       detail={`This draft leaves ${entries.length === 1 ? 'it' : 'them'} out, and can’t be downloaded or sent until each has a rate. Set one on the entry, project, client, or in settings.`}
     >
@@ -457,7 +457,6 @@ function DueBeforeIssue({
 }) {
   return (
     <Notice
-      className="mt-3"
       title="Due before it’s issued"
       detail={
         downloaded
@@ -473,7 +472,6 @@ function ActionError({ error }: { error: unknown }) {
   if (!error) return null;
   return (
     <Notice
-      className="mt-3"
       role="alert"
       tone="danger"
       title={
