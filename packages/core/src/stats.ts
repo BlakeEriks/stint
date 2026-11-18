@@ -449,12 +449,7 @@ export function buildStrangeDurations(
     if (alreadyShown.has(r.id)) continue;
     const s = r.duration_seconds;
     if (s == null) continue;
-    const kind =
-      minSeconds != null && s < minSeconds
-        ? ('short' as const)
-        : maxSeconds != null && s > maxSeconds
-          ? ('long' as const)
-          : null;
+    const kind = durationKind(s, minSeconds, maxSeconds);
     if (!kind) continue;
     const p = r.project_id ? projects.get(r.project_id) : undefined;
     out.push({
@@ -468,6 +463,17 @@ export function buildStrangeDurations(
     });
   }
   return out;
+}
+
+/** Which side of the bounds `seconds` falls on, or null inside them. */
+function durationKind(
+  seconds: number,
+  minSeconds: number | null,
+  maxSeconds: number | null,
+): 'short' | 'long' | null {
+  if (minSeconds != null && seconds < minSeconds) return 'short';
+  if (maxSeconds != null && seconds > maxSeconds) return 'long';
+  return null;
 }
 
 /** Month-to-date seconds, total and billable, for Pace and the ratio. */
@@ -501,14 +507,7 @@ export function buildHoursByDay(
   return out;
 }
 
-/**
- * `revenue_by_day` rows as the map `buildEarnedPace` walks.
- *
- * A `date` column reaches PostgREST as `YYYY-MM-DD` but the `pg` driver the
- * route tests run through parses it into a local `Date`, whose ISO form is the
- * previous day west of Greenwich. Taking the date parts off the local value
- * keeps both paths on the key SQL actually grouped by.
- */
+/** `revenue_by_day` rows as the map `buildEarnedPace` walks. */
 export function revenueByDay(rows: DayRow[]): Map<string, number> {
   // A null amount is a day of purely unrated work: it earned nothing it can
   // name, so it contributes 0 to the money line while keeping its seconds.
