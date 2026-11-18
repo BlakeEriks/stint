@@ -165,8 +165,8 @@ a different order, and the ones that drifted were rebuilt:
 | Any action | `Button`, sized and varied by the tables in `ui/button.tsx` |
 | A destructive action in a dialog's footer | `ConfirmAction` |
 | A press that takes many records at once and can't come back: Mark sent, Void, Delete draft | `AskFirst` (a button and its `ConfirmDialog`); `ConfirmDialog` alone when something else opens it |
-| An invoice's status | `StatusBadge` |
-| Money, dates, durations | `Money`, `formatCurrency`, `shortDate` — never `toLocaleString` at the call site |
+| An invoice's status | `StatusBadge` in a list; on its page, the line under the amount |
+| Money, dates, durations | `Money`, `formatCurrency`, `shortDate`, `monthDay` — never `toLocaleString` at the call site |
 | A client's color | `useProjectColors()`, `Swatch` |
 | A rate, with its source | `ProjectRate` |
 | A key to press | `Kbd` |
@@ -190,14 +190,18 @@ anticipation of one.
   `Suspense` boundary in its `page.tsx`, or `next build` fails while
   `next dev` passes.
 - **User-visible text follows `docs/voice.md`.**
-- **Every action carries a visible label.** Four exceptions, each with an
-  `aria-label`: a destructive first step, a dense repeating row, the dock's
+- **Every action carries a visible label.** Five exceptions, each named for
+  a screen reader: a destructive first step, a dense repeating row, a phone
+  action row whose secondary actions drop to icons (an invoice's Edit and
+  Download PDF), the dock's
   fold and unfold buttons, the strip being 44px by design, and
   `KeyboardAdd`, the "+" that shows only on keyboard focus because a pointer
   draws on the grid. A glyph is always `aria-hidden`. An `aria-label` holds
   the visible text, in order, so saying what is on screen presses it (WCAG 2.5.3): `Mark paid, STINT-0001`.
 - **A destructive action is quiet until it is the confirm**: a ghost in
-  `text-danger`, then `destructive` naming what goes.
+  `text-danger`, then `destructive` naming what goes. On an invoice's page
+  the first step is a `text-muted` ghost with its word (Delete, Void), since
+  an icon alone didn't read as Void.
   Destructive means it removes something saved; dropping a line from a form
   not yet submitted (a charge on a new invoice) acts at once.
   In a dialog footer the first step is a trash icon alone, pushed away with

@@ -9,6 +9,7 @@ import { type Db, id } from '@/mocks/fixtures';
 import {
   desktop,
   failing,
+  light,
   phone,
   screen,
   skipping,
@@ -20,6 +21,18 @@ import { InvoiceDetail } from './invoice-detail';
 /* Each status offers its own actions: a draft is deleted or sent, an issued
    invoice voided, and Download is there in every status. */
 const invoice = (seq: number) => id(300 + seq);
+
+/** The action row, left to right, once the invoice has answered. */
+const row = async (canvasElement: HTMLElement) => {
+  const page = within(canvasElement);
+  const download = await page.findByRole('link', { name: 'Download PDF' });
+  return [...download.parentElement!.children] as HTMLElement[];
+};
+const names = (buttons: HTMLElement[]) => buttons.map((b) => b.textContent);
+
+/** The header's status line, under the amount. */
+const statusLine = (canvasElement: HTMLElement, text: string) =>
+  within(canvasElement).findByText(text, { selector: 'header p' });
 
 /* A paying account, so every story but the locked ones shows the document.
    The seeded account is free with billing live. */
@@ -41,8 +54,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Lines and total; no supporting detail named. The
-    actions share the title's row, whatever the length of the status line. */
+/** Number, client and period; amount and created date; then Delete, Edit,
+    Download PDF and Mark sent, the step a draft waits on, in accent. */
 export const Draft: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -50,13 +63,17 @@ export const Draft: Story = {
     await expect(
       await page.findByText('Type scale for the brand site'),
     ).toBeVisible();
-    const title = page
-      .getByRole('heading', { level: 1 })
-      .getBoundingClientRect();
-    const download = page
-      .getByRole('link', { name: 'Download PDF' })
-      .getBoundingClientRect();
-    await expect(download.top).toBeLessThan(title.bottom);
+    await expect(await statusLine(canvasElement, 'Created Sep 5')).toHaveClass(
+      'text-muted',
+    );
+    const buttons = await row(canvasElement);
+    await expect(names(buttons)).toEqual([
+      'Delete',
+      'Edit',
+      'Download PDF',
+      'Mark sent',
+    ]);
+    await expect(buttons.at(-1)).toHaveAttribute('data-variant', 'accent');
     await expect(
       page.getByText('Amount due').nextElementSibling,
     ).toHaveTextContent('$2,787.60');
@@ -67,8 +84,22 @@ export const Draft: Story = {
     );
   },
 };
-export const DraftPhone: Story = { ...phone };
 
+/** One row on a phone: Edit and Download PDF are their icons, named for a
+    screen reader; Delete and Mark sent keep their words. */
+export const DraftPhone: Story = {
+  ...phone,
+  play: async ({ canvasElement }) => {
+    const buttons = await row(canvasElement);
+    const tops = new Set(buttons.map((b) => b.getBoundingClientRect().top));
+    await expect(tops.size).toBe(1);
+    const page = within(canvasElement);
+    for (const name of ['Edit', 'Download PDF'])
+      await expect(
+        page.getByRole('link', { name }).getBoundingClientRect().width,
+      ).toBe(36);
+  },
+};
 /* The draft as the server sends it once work landed in its period. */
 const newWork = paying((db) => {
   const draft = db.invoices.find((i) => i.id === invoice(15));
@@ -219,29 +250,62 @@ export const DraftDueSinceDownload: Story = {
   },
 };
 
-/** No line under the title: the card already shows the due date. An
-    issued invoice is the invoice, not a preview of it. */
+/** Not yet due: its due and sent dates, then Void, Download PDF and Mark
+    paid. An issued invoice is the invoice, not a preview of it. */
 export const Sent: Story = {
   ...desktop,
   args: { id: invoice(14) },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    await page.findByRole('heading', { name: 'Invoice' });
-    await expect(page.queryByText(/^Due \w/)).toBeNull();
-    await expect(page.queryByRole('heading', { name: 'Status' })).toBeNull();
+    await statusLine(canvasElement, 'Due Oct 12 · Sent Sep 12');
+    await expect(names(await row(canvasElement))).toEqual([
+      'Void',
+      'Download PDF',
+      'Mark paid',
+    ]);
     await expect(page.queryByRole('heading', { name: 'Preview' })).toBeNull();
   },
 };
-export const Overdue: Story = { ...desktop, args: { id: invoice(13) } };
-export const Paid: Story = { ...desktop, args: { id: invoice(12) } };
-/** Voiding keeps the number and releases the entries. */
+
+/** Past due: the status line is the header's one color. */
+export const Overdue: Story = {
+  ...desktop,
+  args: { id: invoice(13) },
+  play: async ({ canvasElement }) => {
+    await expect(
+      await statusLine(canvasElement, '19 days late · Due Aug 29'),
+    ).toHaveClass('text-danger');
+    await expect(names(await row(canvasElement)).at(-1)).toBe('Mark paid');
+  },
+};
+
+/** The state this page is almost always in, all of it neutral. */
+export const Paid: Story = {
+  ...desktop,
+  args: { id: invoice(12) },
+  play: async ({ canvasElement }) => {
+    await expect(
+      await statusLine(canvasElement, 'Paid Sep 5 · Sent Aug 17'),
+    ).toHaveClass('text-muted');
+    await expect(names(await row(canvasElement))).toEqual([
+      'Void',
+      'Download PDF',
+    ]);
+  },
+};
+export const PaidLight: Story = { ...light, args: { id: invoice(12) } };
+
+/** Voiding keeps the number and releases the entries: the amount is struck
+    and only the download is left. */
 export const Void: Story = {
   ...desktop,
   args: { id: invoice(9) },
   play: async ({ canvasElement }) => {
+    await statusLine(canvasElement, 'Void. Its entries can be billed again.');
+    await expect(names(await row(canvasElement))).toEqual(['Download PDF']);
     await expect(
-      await within(canvasElement).findByText(/Its entries can be billed again/),
-    ).toBeVisible();
+      within(canvasElement).getByText(/^\$[\d,.]+$/, { selector: 'header p' }),
+    ).toHaveClass('line-through');
   },
 };
 export const Missing: Story = { ...desktop, args: { id: invoice(99) } };
@@ -281,7 +345,7 @@ export const BillingNotSetUp: Story = {
   },
 };
 
-/** Opens a confirm from the header and returns its dialog. */
+/** Opens a confirm from the action row and returns its dialog. */
 const ask = async (canvasElement: HTMLElement, trigger: string) => {
   const page = within(canvasElement.ownerDocument.body);
   await userEvent.click(await page.findByRole('button', { name: trigger }));
@@ -292,7 +356,7 @@ export const ConfirmDelete: Story = {
   ...desktop,
   parameters: fourteen,
   play: async ({ canvasElement }) => {
-    const dialog = await ask(canvasElement, 'Delete draft');
+    const dialog = await ask(canvasElement, 'Delete');
     await expect(
       dialog.getByText(
         'Its 14 entries and any expenses go back to unbilled, ready for another invoice. The draft ($2,787.60) is deleted. You can’t undo this.',
@@ -311,7 +375,7 @@ export const Deleting: Story = {
   ...desktop,
   parameters: stalled('deleteInvoice'),
   play: async ({ canvasElement }) => {
-    const dialog = await ask(canvasElement, 'Delete draft');
+    const dialog = await ask(canvasElement, 'Delete');
     await userEvent.click(dialog.getByRole('button', { name: 'Delete draft' }));
     await expect(
       await dialog.findByRole('button', { name: 'Deleting…' }),
@@ -326,7 +390,7 @@ export const ConfirmVoid: Story = {
   ...desktop,
   args: { id: invoice(14) },
   play: async ({ canvasElement }) => {
-    const dialog = await ask(canvasElement, 'Void invoice');
+    const dialog = await ask(canvasElement, 'Void');
     await expect(
       dialog.getByText(/STINT-0014 \(\$[\d,.]+\) is no longer owed/),
     ).toBeVisible();
@@ -338,7 +402,7 @@ export const Voiding: Story = {
   args: { id: invoice(14) },
   parameters: stalled('updateInvoiceStatus'),
   play: async ({ canvasElement }) => {
-    const dialog = await ask(canvasElement, 'Void invoice');
+    const dialog = await ask(canvasElement, 'Void');
     await userEvent.click(dialog.getByRole('button', { name: 'Void invoice' }));
     await expect(
       await dialog.findByRole('button', { name: 'Voiding…' }),
@@ -351,7 +415,7 @@ export const VoidRefusedPhone: Story = {
   args: { id: invoice(14) },
   parameters: failing('updateInvoiceStatus'),
   play: async ({ canvasElement }) => {
-    const dialog = await ask(canvasElement, 'Void invoice');
+    const dialog = await ask(canvasElement, 'Void');
     await userEvent.click(dialog.getByRole('button', { name: 'Void invoice' }));
     await expect(await dialog.findByRole('alert')).toBeVisible();
     await expect(

@@ -107,13 +107,17 @@ export function ConfirmDialog({
   );
 }
 
-/** A button that opens its own `ConfirmDialog`. Its label and icon are the
-    confirm's, so both read as one press; `danger` draws it as a quiet red
-    ghost (`.claude/rules/web-ui.md`). */
+/** A button that opens its own `ConfirmDialog`, with the confirm's icon.
+    `label` is the button's word where the confirm's is longer ("Void" for
+    Void invoice). `danger` draws it as a quiet muted ghost, a word beside
+    its icon (`.claude/rules/web-ui.md`); `accent` is for the step the
+    screen waits on. */
 export function AskFirst({
   press,
   disabled,
   onConfirm,
+  label,
+  accent = false,
   ...ask
 }: Omit<
   Parameters<typeof ConfirmDialog>[0],
@@ -121,18 +125,17 @@ export function AskFirst({
 > & {
   press: { isPending: boolean; reset: () => void; error: unknown };
   disabled?: boolean;
+  label?: string;
+  accent?: boolean;
 }) {
   const [asking, setAsking] = useState(false);
+  const danger = ask.tone === 'danger';
   return (
     <>
       <Button
         type="button"
-        variant={ask.tone === 'danger' ? 'ghost' : 'default'}
-        className={
-          ask.tone === 'danger'
-            ? 'text-danger hover:bg-danger-muted hover:text-danger'
-            : undefined
-        }
+        variant={danger ? 'ghost' : accent ? 'accent' : 'default'}
+        className={danger ? 'text-muted' : undefined}
         disabled={disabled || press.isPending}
         onClick={() => {
           // A refusal from an earlier press must not read as this one's.
@@ -141,7 +144,7 @@ export function AskFirst({
         }}
       >
         {ask.icon}
-        {ask.confirmLabel}
+        {label ?? ask.confirmLabel}
       </Button>
       <ConfirmDialog
         {...ask}

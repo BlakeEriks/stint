@@ -93,7 +93,8 @@ The Google developer documentation style guide is the base. Stint adds:
   entry. A rhetorical question is a statement instead.
 - **A button names its action** with a verb and its object, as in *Void
   invoice* and *Send a new code*. The button that backs out names what stays,
-  as in *Keep it*.
+  as in *Keep it*. A first step that opens a confirm may be the verb alone,
+  as an invoice's *Void*, since the confirm names the object.
 - **A sublabel exists only if it adds something**: it resolves an ambiguous
   name, states a unit or format, or explains a consequence. Otherwise there
   is none.

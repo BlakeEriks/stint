@@ -119,11 +119,11 @@ describe('InvoiceDetail', () => {
    * and only that; void is terminal, so nothing moves an invoice out of it.
    */
   it('offers a download in every status, and only the actions its status allows', async () => {
-    const actions = ['Delete draft', 'Mark sent', 'Void invoice', 'Mark paid'];
+    const actions = ['Delete', 'Mark sent', 'Void', 'Mark paid'];
     const offered: Record<InvoiceStatus, string[]> = {
-      draft: ['Delete draft', 'Mark sent'],
-      sent: ['Void invoice', 'Mark paid'],
-      paid: ['Void invoice'],
+      draft: ['Delete', 'Mark sent'],
+      sent: ['Void', 'Mark paid'],
+      paid: ['Void'],
       void: [],
     };
     for (const [status, expected] of Object.entries(offered)) {
@@ -153,9 +153,7 @@ describe('InvoiceDetail', () => {
     const user = userEvent.setup();
     show();
 
-    await user.click(
-      await screen.findByRole('button', { name: 'Void invoice' }),
-    );
+    await user.click(await screen.findByRole('button', { name: 'Void' }));
     expect(calls).toEqual([]);
 
     await user.click(
@@ -176,9 +174,7 @@ describe('InvoiceDetail', () => {
     const user = userEvent.setup();
     show();
 
-    await user.click(
-      await screen.findByRole('button', { name: 'Delete draft' }),
-    );
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
     expect(calls).toEqual([]);
 
     await user.click(
@@ -214,9 +210,7 @@ describe('InvoiceDetail', () => {
     const user = userEvent.setup();
     show();
 
-    await user.click(
-      await screen.findByRole('button', { name: 'Delete draft' }),
-    );
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
     await user.click(
       within(screen.getByRole('dialog')).getByRole('button', {
         name: 'Delete draft',
@@ -244,9 +238,7 @@ describe('InvoiceDetail', () => {
     const user = userEvent.setup();
     show();
 
-    await user.click(
-      await screen.findByRole('button', { name: 'Void invoice' }),
-    );
+    await user.click(await screen.findByRole('button', { name: 'Void' }));
     const dialog = within(screen.getByRole('dialog'));
     await user.click(dialog.getByRole('button', { name: 'Void invoice' }));
     await dialog.findByText('Void refused.');
