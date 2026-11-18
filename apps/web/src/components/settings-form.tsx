@@ -65,8 +65,6 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
     email: loaded.businessEmail ?? '',
     address: loaded.businessAddress ?? '',
   });
-  const [terms, setTerms] = useState(String(loaded.paymentTermsDays));
-  const termsDays = parseTermsDays(terms);
 
   const persist = async (patch: SettingsInput) => {
     try {
@@ -140,30 +138,19 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
             />
           </Field>
 
-          <Field
+          <ParsedField
             label="Payment terms"
-            htmlFor="terms"
+            id="terms"
+            unit="days"
             hint="Used when a client has none."
-            error={
-              terms !== '' && termsDays === null
-                ? 'Whole days, 0 to 365.'
-                : undefined
-            }
-            className="flex-1 basis-44"
-          >
-            <UnitInput
-              unit="days"
-              id="terms"
-              inputMode="numeric"
-              value={terms}
-              onChange={(e) => {
-                setTerms(e.target.value);
-                const days = parseTermsDays(e.target.value);
-                if (days !== null) setBilling('paymentTermsDays', days);
-              }}
-              placeholder="30"
-            />
-          </Field>
+            placeholder="30"
+            parse={(text) => parseTermsDays(text) ?? undefined}
+            error="Whole days, 0 to 365."
+            value={form.paymentTermsDays}
+            onChange={(days) => {
+              if (days !== null) setBilling('paymentTermsDays', days);
+            }}
+          />
         </div>
 
         <Field
@@ -186,21 +173,22 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
         aside={<SaveIndicator state={inbox.state} />}
       >
         <div className="flex flex-wrap gap-4">
-          <ThresholdField
+          <ParsedField
             label="Flag entries under"
             id="min-seconds"
             unit="seconds"
-            accepts={Number.isInteger}
+            type="number"
+            parse={threshold(Number.isInteger)}
             error="Whole seconds, 1 or more."
             value={form.minEntrySeconds}
             onChange={(n) => setInbox('minEntrySeconds', n)}
           />
-          <ThresholdField
+          <ParsedField
             label="Flag entries over"
             id="max-hours"
             unit="hours"
-            max={24}
-            accepts={(hours) => hours <= 24}
+            type="number"
+            parse={threshold((hours) => hours <= 24)}
             error="More than 0, up to 24."
             value={form.maxEntryHours}
             onChange={(n) => setInbox('maxEntryHours', n)}
@@ -257,15 +245,27 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
   );
 }
 
-/** One side of the inbox's length check; cleared turns that side off. A
-    number the server would refuse stays in the field with `error` and is
-    never scheduled, or autosave would resend it with every later edit. */
-function ThresholdField({
+/** One side of the inbox's length check: blank turns it off, and a number
+    must be over zero and pass `accepts`. */
+function threshold(accepts: (n: number) => boolean) {
+  return (text: string) => {
+    if (text === '') return null;
+    const n = Number(text);
+    return n > 0 && accepts(n) ? n : undefined;
+  };
+}
+
+/** A number typed as text and saved only once `parse` accepts it. A number
+    the server would refuse stays in the field with `error` and is never
+    scheduled, or autosave would resend it with every later edit. */
+function ParsedField({
   label,
   id,
   unit,
-  max,
-  accepts,
+  hint,
+  placeholder,
+  type,
+  parse,
   error,
   value,
   onChange,
@@ -273,35 +273,32 @@ function ThresholdField({
   label: string;
   id: string;
   unit: string;
-  max?: number;
-  /** Beyond being over zero, which every threshold must be. */
-  accepts: (n: number) => boolean;
+  hint?: string;
+  placeholder?: string;
+  type?: 'number';
+  /** The value to save; undefined refuses the text. */
+  parse: (text: string) => number | null | undefined;
   error: string;
   value: number | null;
   onChange: (value: number | null) => void;
 }) {
   const [text, setText] = useState(value === null ? '' : String(value));
-  /* Null clears; undefined is refused. */
-  const parse = (t: string) => {
-    if (t === '') return null;
-    const n = Number(t);
-    return n > 0 && accepts(n) ? n : undefined;
-  };
-  const valid = parse(text) !== undefined;
+  /* Blank is still being typed, never an error. */
+  const refused = text !== '' && parse(text) === undefined;
   return (
     <Field
       label={label}
       htmlFor={id}
-      error={valid ? undefined : error}
+      hint={hint}
+      error={refused ? error : undefined}
       className="flex-1 basis-44"
     >
       <UnitInput
         unit={unit}
         id={id}
-        type="number"
-        min="1"
-        max={max}
-        step="1"
+        type={type}
+        inputMode={type ? undefined : 'numeric'}
+        placeholder={placeholder}
         value={text}
         onChange={(e) => {
           setText(e.target.value);
