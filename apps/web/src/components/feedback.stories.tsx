@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, userEvent, within } from 'storybook/test';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import { expectOpen, failing, phone, screen, stalled } from '@/mocks/screen';
 import { AppShell } from './app-shell';
@@ -81,13 +81,17 @@ export const Sending: Story = {
   },
 };
 
-/** Sent: the form closes and a toast thanks them, with nothing to dismiss. */
+/** Sent: the form closes and a toast thanks them, with nothing to dismiss,
+ *  and it closes on its own once its 4s bar has drained. */
 export const Sent: Story = {
   play: async (ctx) => {
     await openForm(ctx);
     const page = await typeAndSend(ctx.canvasElement);
     await expect(await page.findByText('Feedback sent.')).toBeVisible();
     await expect(page.queryByRole('button', { name: 'Dismiss' })).toBeNull();
+    await waitFor(() => expect(page.queryByText('Feedback sent.')).toBeNull(), {
+      timeout: 5000,
+    });
   },
 };
 
