@@ -133,7 +133,11 @@ is `reviewed`.
 
 ## 0. Catch up
 
-- **Merged:** `git fetch --prune`, then for every local branch whose PR has
+- **Main:** `git fetch --prune`, then `git merge --ff-only origin/main` in
+  the main checkout when it is on `main`. This command and the builder are
+  read from that checkout, so a stale one runs old instructions. A
+  fast-forward that fails is reported, never forced.
+- **Merged:** for every local branch whose PR has
   merged (`gh pr list --state merged --head <branch>`):
   `git worktree remove ../stint-<branch>` if it exists (one with
   uncommitted changes is someone's work: ask), `git branch -D <branch>`, and
