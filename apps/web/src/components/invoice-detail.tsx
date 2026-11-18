@@ -2,18 +2,16 @@
 
 import { Fragment, type ReactNode } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   useQuery,
   useQueryClient,
   type QueryClient,
 } from '@tanstack/react-query';
+import { keys } from '@stint/client';
 import {
-  useOptimisticMutation,
-  keys,
-  invalidateEntryData,
-} from '@stint/client';
-import { useMarkPaid } from '@/lib/client/use-mark-paid';
+  useInvoiceActions,
+  type UseInvoiceActions,
+} from '@/lib/client/use-invoice-actions';
 import {
   Ban,
   DollarSign,
@@ -70,80 +68,18 @@ function fromList(qc: QueryClient, id: string): Shown | undefined {
 }
 
 export function InvoiceDetail({ id }: { id: string }) {
-  const router = useRouter();
   const qc = useQueryClient();
-
   const query = useQuery<Shown>({
     queryKey: keys.invoice(id),
     queryFn: () => api.invoice(id),
     placeholderData: () => fromList(qc, id),
   });
-
-  /* Voiding releases the entries and expenses and deleting a draft frees
-     them, so every view of that work moves with the invoice. */
-  const refresh = (qc: QueryClient, deleted?: string) =>
-    Promise.all([
-      /* A deleted draft is not asked for again: it answers 404, "Invoice not
-         found", on a page still waiting on the list. */
-      qc.invalidateQueries({
-        queryKey: keys.invoices(),
-        predicate: (q) => deleted === undefined || q.queryKey[1] !== deleted,
-      }),
-      qc.invalidateQueries({ queryKey: keys.expenses() }),
-      invalidateEntryData(qc),
-    ]);
-  /* Pending, not predicted: issuing assigns the number, and voiding or
-     deleting can't be taken back. The page says what was refused. */
-  const invoicePress = {
-    queryKey: () => keys.invoices(),
-    inline: true,
-    invalidate: (qc: QueryClient) => refresh(qc),
-  };
-
-  const setStatus = useOptimisticMutation({
-    ...invoicePress,
-    mutationFn: (args: { status: InvoiceStatus }) =>
-      api.updateInvoiceStatus(id, args),
-  });
-
-  const addWork = useOptimisticMutation({
-    ...invoicePress,
-    mutationFn: () => api.addDraftWork(id),
-  });
-
-  const remove = useOptimisticMutation({
-    ...invoicePress,
-    invalidate: (qc: QueryClient) => refresh(qc, id),
-    mutationFn: () => api.deleteInvoice(id),
-    onSuccess: () => router.push('/invoices'),
-  });
-
-  const markPaid = useMarkPaid();
+  const actions = useInvoiceActions(id);
 
   return (
     <DetailPage back="/invoices" label="Invoices" fills>
       <Listing query={query} missing="That invoice no longer exists.">
-        {(data) => (
-          <Loaded
-            data={data}
-            onDownload={() =>
-              /* The download is a navigation the page can't await, and it
-                 records the dates the client's copy printed, which Mark sent
-                 keeps; the server's answer arrives once it has rendered. */
-              setTimeout(
-                () => qc.invalidateQueries({ queryKey: keys.invoice(id) }),
-                1500,
-              )
-            }
-            setStatus={setStatus}
-            addWork={addWork}
-            remove={remove}
-            markPaid={markPaid}
-            error={
-              remove.error ?? setStatus.error ?? addWork.error ?? markPaid.error
-            }
-          />
-        )}
+        {(data) => <Loaded data={data} actions={actions} />}
       </Listing>
     </DetailPage>
   );
@@ -152,34 +88,10 @@ export function InvoiceDetail({ id }: { id: string }) {
 /** The invoice itself, as the PDF prints it, with what can be done to it. */
 function Loaded({
   data: invoice,
-  onDownload,
-  setStatus,
-  addWork,
-  remove,
-  markPaid,
-  error,
+  actions,
 }: {
   data: Shown;
-  onDownload: () => void;
-  setStatus: {
-    mutate: (args: { status: InvoiceStatus }) => void;
-    isPending: boolean;
-    reset: () => void;
-    error: unknown;
-  };
-  addWork: { mutate: () => void; isPending: boolean };
-  remove: {
-    mutate: () => void;
-    isPending: boolean;
-    isSuccess: boolean;
-    reset: () => void;
-    error: unknown;
-  };
-  markPaid: ReturnType<typeof useMarkPaid>;
-  /* Picked ONCE by the caller. Re-evaluating `a ?? b` for the check and again
-     for the message could type-check a stale error while printing a different
-     one — React Query holds the last error until the next success. */
-  error: unknown;
+  actions: UseInvoiceActions;
 }) {
   const unrated = invoice.unratedEntries ?? [];
 
@@ -195,19 +107,13 @@ function Loaded({
           <StatusBadge status={invoice.status} />
         </div>
 
-        <InvoiceActions
-          invoice={invoice}
-          onDownload={onDownload}
-          setStatus={setStatus}
-          remove={remove}
-          markPaid={markPaid}
-        />
+        <InvoiceActions invoice={invoice} actions={actions} />
       </header>
       <Notices
         invoice={invoice}
         unrated={unrated}
-        addWork={addWork}
-        error={error}
+        addWork={actions.addWork}
+        error={actions.lastError}
       />
 
       <InvoicePreviewCard
@@ -233,7 +139,7 @@ function Loaded({
         notes={invoice.notes}
       />
 
-      <MarkPaidDialog {...markPaid.dialog} />
+      <MarkPaidDialog {...actions.markPaid.dialog} />
     </>
   );
 }
@@ -255,29 +161,13 @@ const BY_STATUS: Record<
   void: { actions: [], hint: 'Voided. Its entries can be billed again.' },
 };
 
-type ActionProps = {
-  invoice: Shown;
-  setStatus: {
-    mutate: (args: { status: InvoiceStatus }) => void;
-    isPending: boolean;
-    reset: () => void;
-    error: unknown;
-  };
-  remove: {
-    mutate: () => void;
-    isPending: boolean;
-    isSuccess: boolean;
-    reset: () => void;
-    error: unknown;
-  };
-  markPaid: ReturnType<typeof useMarkPaid>;
-};
+type ActionProps = { invoice: Shown; actions: UseInvoiceActions };
 
 const total = (invoice: Shown) =>
   formatCurrency(invoice.total ?? 0, invoice.currency);
 
 const ACTIONS: Record<Action, (props: ActionProps) => ReactNode> = {
-  delete: ({ invoice, remove }) => (
+  delete: ({ invoice, actions: { remove } }) => (
     <AskFirst
       title="Delete this draft?"
       description={`Its ${entries(invoice.entryCount ?? 0)} and any expenses go back to unbilled, ready for another invoice. The draft (${total(invoice)}) is deleted. You can’t undo this.`}
@@ -285,11 +175,7 @@ const ACTIONS: Record<Action, (props: ActionProps) => ReactNode> = {
       pendingLabel="Deleting…"
       icon={<Trash2 aria-hidden strokeWidth={1.75} />}
       tone="danger"
-      // Deleted, it stays pending until the list arrives.
-      press={{
-        ...remove,
-        isPending: remove.isPending || remove.isSuccess,
-      }}
+      press={remove}
       onConfirm={() => remove.mutate()}
     />
   ),
@@ -302,7 +188,7 @@ const ACTIONS: Record<Action, (props: ActionProps) => ReactNode> = {
       </Link>
     </Button>
   ),
-  markSent: ({ invoice, setStatus }) => (
+  markSent: ({ invoice, actions: { setStatus } }) => (
     <AskFirst
       {...markSentAsk({
         invoiceNumber: invoice.invoiceNumber,
@@ -315,7 +201,7 @@ const ACTIONS: Record<Action, (props: ActionProps) => ReactNode> = {
       onConfirm={() => setStatus.mutate({ status: 'sent' })}
     />
   ),
-  void: ({ invoice, setStatus }) => (
+  void: ({ invoice, actions: { setStatus } }) => (
     <AskFirst
       title={`Void ${invoice.invoiceNumber}?`}
       description={`${invoice.invoiceNumber} (${total(invoice)}) is no longer owed. Its entries and any expenses go back to unbilled, ready for a new invoice. It stays in your records, marked void, and its number isn’t reused. You can’t undo this.`}
@@ -327,15 +213,10 @@ const ACTIONS: Record<Action, (props: ActionProps) => ReactNode> = {
       onConfirm={() => setStatus.mutate({ status: 'void' })}
     />
   ),
-  markPaid: ({ invoice, setStatus, markPaid }) => (
+  markPaid: ({ invoice, actions: { setStatus, markPaid } }) => (
     <Button
       variant="accent"
-      onClick={() => {
-        // A void error from earlier on this screen must not read as
-        // a rejection of the payment date about to be entered.
-        setStatus.reset();
-        markPaid.show(invoice);
-      }}
+      onClick={() => markPaid.show(invoice)}
       disabled={setStatus.isPending || markPaid.isPending(invoice.id)}
     >
       {/* A currency glyph, not a check: the check commits a form. */}
@@ -346,16 +227,16 @@ const ACTIONS: Record<Action, (props: ActionProps) => ReactNode> = {
 };
 
 /** The row beside the title: the status's actions, then the download. */
-function InvoiceActions({
-  onDownload,
-  ...props
-}: ActionProps & { onDownload: () => void }) {
+function InvoiceActions(props: ActionProps) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       {BY_STATUS[props.invoice.status].actions.map((action) => (
         <Fragment key={action}>{ACTIONS[action](props)}</Fragment>
       ))}
-      <DownloadAction invoice={props.invoice} onDownload={onDownload} />
+      <DownloadAction
+        invoice={props.invoice}
+        onDownload={props.actions.download}
+      />
     </div>
   );
 }
