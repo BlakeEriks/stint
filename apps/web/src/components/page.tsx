@@ -239,7 +239,12 @@ export function Empty({
 }
 
 /** What `Listing` reads off a query. */
-type Query<T> = { data: T | undefined; error: unknown; isLoading: boolean };
+type Query<T> = {
+  data: T | undefined;
+  error: unknown;
+  isLoading: boolean;
+  errorUpdateCount?: number;
+};
 type DataOf<Q> = Q extends { data: infer D } ? Exclude<D, undefined> : never;
 type Loaded<Q> = Q extends readonly Query<unknown>[]
   ? { -readonly [K in keyof Q]: DataOf<Q[K]> }
@@ -254,9 +259,9 @@ type Loaded<Q> = Q extends readonly Query<unknown>[]
  * data, and its children get them as a tuple: a region paints once, with all
  * of it, never with a `?? []` standing in for a query still on its way.
  *
- * `also` is what the region shows if it answers: waited for, so it paints
- * with the rest, but a failure there leaves the region to render without it
- * rather than blanking it.
+ * `also` is what the region shows if it answers: waited for until it first
+ * fails, so it paints with the rest, but a failure there leaves the region to
+ * render without it rather than blanking it.
  *
  * `empty` is the message for data that arrived and holds nothing — omit it
  * where the record is a single object, which is never empty, only missing.
@@ -296,9 +301,14 @@ export function Listing<
      while the kept cache is restored a query is pending without fetching.
      Until hydration is done the server's loader stands, since the server
      never holds the browser's kept cache. */
-  const waiting = [...queries, ...also].some(
-    (q) => q.isLoading || (q.data === undefined && q.error == null),
-  );
+  const pending = (q: Query<unknown>) =>
+    q.isLoading || (q.data === undefined && q.error == null);
+  /* An `also` query that has failed once is not waited for again: a reader
+     mounting in the region refetches it, putting it back to pending, and
+     the loader in the region's place would remount that reader, forever. */
+  const waiting =
+    queries.some(pending) ||
+    also.some((q) => !q.errorUpdateCount && pending(q));
   /* Data the user can still read beats an error message in its place: a failed
      REFETCH would otherwise replace a form mid-edit and take the unsent text
      with it. */
