@@ -76,8 +76,9 @@ color fact is text on the accent (`--text-on-accent`, `tokens:validate`).
   work gets none.
 - **A home card ships only with a number the user can't work out in their
   head, or a row they can act on.**
-- **Motion reports a change; it never announces one.** Every duration honors
-  `prefers-reduced-motion`.
+- **Motion reports a change; it never announces one**, except the toast's
+  entrance, which a message nobody asked for needs to be seen. Every duration
+  honors `prefers-reduced-motion`.
 - **The mark's bounds are always `--mark` green; its letters take one text
   color**: `text-strong` in the app header, `text-muted` where it recedes. The invoice PDF and the macOS status item carry none.
 
