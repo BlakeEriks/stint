@@ -283,7 +283,8 @@ const carriedFrom = (last: Invoice | undefined) => ({
 });
 
 /** What the draft takes from the client's last invoice until the user sets
- *  its own, and whether that invoice has answered yet. */
+ *  its own, whether that invoice has answered yet, and the summary line the
+ *  page edits once it has. */
 function useCarried(draft: Draft) {
   const lastInvoice = useQuery({
     queryKey: [...keys.invoices(), { clientId: draft.clientId }],
@@ -293,11 +294,18 @@ function useCarried(draft: Draft) {
   });
   const carried = carriedFrom(lastInvoice.data);
   const groupingMode = draft.groupingMode ?? carried.groupingMode;
+  const lastPending = draft.clientId !== '' && lastInvoice.isPending;
+  const summaryText = draft.summaryText ?? carried.summaryText;
+  const summaryTexts = draft.summaryTexts ?? carried.summaryTexts;
   return {
-    lastPending: draft.clientId !== '' && lastInvoice.isPending,
+    lastPending,
     groupingMode,
-    summaryText: draft.summaryText ?? carried.summaryText,
-    summaryTexts: draft.summaryTexts ?? carried.summaryTexts,
+    summaryText,
+    summaryTexts,
+    summary:
+      !lastPending && groupingMode === 'summary'
+        ? { value: summaryText, texts: summaryTexts }
+        : undefined,
     reference: draft.reference ?? carried.reference,
     // A table the grouping already prints is left out, not unticked: it
     // comes back with a grouping that doesn't.
@@ -518,6 +526,7 @@ function Form({
     summaryTexts,
     schedules,
     reference,
+    summary,
   } = useCarried(draft);
   const { periodStart, periodEnd } = periodOf(draft, client, issued);
   const waiting = useWaitingExpenses(draft.clientId, periodEnd, editing?.id);
@@ -596,30 +605,13 @@ function Form({
     },
   });
 
-  const saveCharge = (charge: Charge) =>
-    set('charges', putCharge(draft.charges, chargeDialog.subject, charge));
-  const removeCharge = () =>
-    set(
-      'charges',
-      draft.charges.filter((c) => c.key !== chargeDialog.subject),
-    );
   const addProfile = (p: PaymentProfile) => {
     /* Into the list at once: until the refetch lands, a pick the list
        lacks would fall back to another profile, and Save draft would
        freeze that one. */
-    qc.setQueryData<{ paymentProfiles: PaymentProfile[] }>(
-      keys.paymentProfiles(),
-      (d) =>
-        d && !d.paymentProfiles.some((x) => x.id === p.id)
-          ? { ...d, paymentProfiles: [...d.paymentProfiles, p] }
-          : d,
-    );
+    qc.setQueryData(keys.paymentProfiles(), withProfile(p));
     set('paymentProfileId', p.id);
   };
-  // Its rate prices the lines; a new or changed expense changes what is
-  // billed, and a new one is ticked, since nothing excludes it.
-  const reprice = () =>
-    qc.invalidateQueries({ queryKey: keys.invoicePreview() });
 
   const { profile, payment } = paymentOf({
     editing,
@@ -641,7 +633,6 @@ function Form({
     groupingMode,
     summaryText,
   });
-  const summary = !lastPending && groupingMode === 'summary';
 
   // An unchanged Due keeps following the terms.
   const saveDue = (d: string) => d !== due && set('dueDate', d);
@@ -662,28 +653,13 @@ function Form({
         press={save}
       />
       <div className={`@container/new flex flex-col gap-5 ${FILL}`}>
-        {/* On a phone the title row gives way (`contents`), and what it held
-            is a bar pinned to the bottom, over the timer bar: its 52px and
-            the 0.75rem it floats by. */}
-        <div className="flex items-center justify-between gap-4 @max-[560px]/new:contents">
-          <h1 className="type-title whitespace-nowrap text-strong">
-            {editing ? `Edit ${editing.invoiceNumber}` : 'New invoice'}
-          </h1>
-          <div className={`flex items-center gap-4 ${PHONE_BAR}`}>
-            <Due preview={current} updating={updating} />
-            <Button
-              type="button"
-              variant="accent"
-              onClick={() => save.mutate()}
-              disabled={!canSave}
-            >
-              {save.isPending ? (
-                <Loader2 aria-hidden className="animate-spin" />
-              ) : null}
-              {pressLabel(save.isPending)}
-            </Button>
-          </div>
-        </div>
+        <TitleBar
+          editing={editing}
+          preview={current}
+          updating={updating}
+          canSave={canSave}
+          press={save}
+        />
 
         <Controls
           editing={editing !== undefined}
@@ -697,27 +673,13 @@ function Form({
         <Notices
           settings={settings}
           client={client}
+          clientId={draft.clientId}
           period={{ periodStart, periodEnd }}
-          // Gone the moment From or the client changes, not when the next
-          // answer lands.
-          earlierWork={
-            current?.periodStart === periodStart &&
-            current.clientId === draft.clientId
-              ? current.earlierWork
-              : null
-          }
-          heldWork={
-            current?.clientId === draft.clientId &&
-            current.periodStart === periodStart &&
-            current.periodEnd === periodEnd
-              ? current.heldWork
-              : null
-          }
           onStartFrom={(from) =>
             setDraft((d) => ({ ...d, periodStart: from, periodEnd }))
           }
-          // No client, no format yet: nothing to fault.
-          noSummaryText={noSummaryText && !lastPending && client !== undefined}
+          noSummaryText={noSummaryText}
+          lastPending={lastPending}
           earlyDue={earlyDue}
           preview={current}
           error={save.error ?? preview.error}
@@ -743,25 +705,21 @@ function Form({
             draft,
             set,
             editing: editing !== undefined,
+            hasClient: client !== undefined,
             open: {
               sender: () => setEditingSender(true),
               dates: () => setEditingDates(true),
-              // Without a client, the press goes to where one is chosen.
-              client: () => (client ? setEditingClient(true) : focusClient()),
+              client: () => setEditingClient(true),
               newProfile: () => setNewProfileOpen(true),
             },
-            summary: summary
-              ? { value: summaryText, texts: summaryTexts }
-              : undefined,
+            summary,
             offered: lastPending ? undefined : offeredSchedules(groupingMode),
             reference,
             waiting,
             period: { periodStart, periodEnd },
             currency,
             chargeDialog,
-            // An expense is the client's: before one is chosen, Add an
-            // expense goes to where one is, as Billed to does.
-            expenseDialog: client ? expenseDialog : { show: focusClient },
+            expenseDialog,
             profiles,
             profile,
           })}
@@ -781,29 +739,16 @@ function Form({
           onDue={saveDue}
         />
       ) : null}
-      {client ? (
-        <>
-          <ClientDialog
-            open={editingClient}
-            onOpenChange={setEditingClient}
-            client={client}
-            onSaved={reprice}
-          />
-          <ExpenseDialog
-            open={expenseDialog.open}
-            onOpenChange={expenseDialog.onOpenChange}
-            client={client}
-            expense={expenseDialog.subject}
-            onSaved={reprice}
-          />
-        </>
-      ) : null}
-      <ChargeDialog
-        open={chargeDialog.open}
-        onOpenChange={chargeDialog.onOpenChange}
-        charge={draft.charges.find((c) => c.key === chargeDialog.subject)}
-        onSave={saveCharge}
-        onRemove={chargeDialog.subject !== 'new' ? removeCharge : undefined}
+      <ClientDialogs
+        client={client}
+        editing={editingClient}
+        onEditingChange={setEditingClient}
+        expenseDialog={expenseDialog}
+      />
+      <ChargeEditor
+        dialog={chargeDialog}
+        charges={draft.charges}
+        onChange={(charges) => set('charges', charges)}
         currency={currency}
       />
       <PaymentProfileDialog
@@ -894,26 +839,40 @@ function Controls({
 function Notices({
   settings,
   client,
+  clientId,
   period,
-  earlierWork,
-  heldWork,
   onStartFrom,
   noSummaryText,
+  lastPending,
   earlyDue,
   preview,
   error,
 }: {
   settings: Settings | undefined;
   client: Client | undefined;
+  clientId: string;
   period: Period;
-  earlierWork: InvoicePreview['earlierWork'];
-  heldWork: InvoicePreview['heldWork'];
   onStartFrom: (from: string) => void;
   noSummaryText: boolean;
+  lastPending: boolean;
   earlyDue: boolean;
   preview: InvoicePreview | undefined;
   error: Error | null;
 }) {
+  // Each gone the moment its period or the client changes, not when the
+  // next answer lands.
+  const earlierWork =
+    preview?.periodStart === period.periodStart && preview.clientId === clientId
+      ? preview.earlierWork
+      : null;
+  const heldWork =
+    preview?.clientId === clientId &&
+    preview.periodStart === period.periodStart &&
+    preview.periodEnd === period.periodEnd
+      ? preview.heldWork
+      : null;
+  // No client, no format yet: nothing to fault.
+  const faultSummary = noSummaryText && !lastPending && client !== undefined;
   return (
     <div className="flex flex-col gap-2 empty:hidden">
       {/* First: it is why Save draft is disabled. */}
@@ -921,7 +880,7 @@ function Notices({
       <ScheduleHint client={client} {...period} />
       <EarlierWorkOffer work={earlierWork} onStartFrom={onStartFrom} />
       <HeldWorkNotice work={heldWork} />
-      {noSummaryText ? (
+      {faultSummary ? (
         <p id={SUMMARY_ERROR} role="alert" className="type-support text-danger">
           Give the summary line its text.
         </p>
@@ -941,6 +900,7 @@ function cardEdits({
   draft,
   set,
   editing,
+  hasClient,
   open,
   summary,
   offered,
@@ -956,6 +916,7 @@ function cardEdits({
   draft: Draft;
   set: <K extends keyof Draft>(key: K, value: Draft[K]) => void;
   editing: boolean;
+  hasClient: boolean;
   open: {
     sender: () => void;
     dates: () => void;
@@ -982,12 +943,16 @@ function cardEdits({
         ? draft.excludedExpenseIds.filter((x) => x !== id)
         : [...draft.excludedExpenseIds, id],
     );
+  // An expense is the client's: before one is chosen, Add an expense goes
+  // to where one is, as Billed to does.
+  const addExpense = hasClient ? expenseDialog : { show: focusClient };
   return {
     // A draft froze its sender when it was made, so Settings no longer
     // reaches it.
     onBusiness: editing ? undefined : open.sender,
     onDates: open.dates,
-    onClient: open.client,
+    // Without a client, the press goes to where one is chosen.
+    onClient: hasClient ? open.client : focusClient,
     onPeriod: focusPeriod,
     period,
     currency,
@@ -1020,8 +985,8 @@ function cardEdits({
       waiting,
       excluded: draft.excludedExpenseIds,
       onToggle: toggleExpense,
-      onOpen: expenseDialog.show,
-      onAdd: () => expenseDialog.show(undefined),
+      onOpen: addExpense.show,
+      onAdd: () => addExpense.show(undefined),
     },
     paymentMenu: (trigger) => (
       <PaymentMenu
@@ -1035,6 +1000,80 @@ function cardEdits({
     ),
   };
 }
+
+/** The client's own dialogs: its details, and an expense of its. */
+function ClientDialogs({
+  client,
+  editing,
+  onEditingChange,
+  expenseDialog,
+}: {
+  client: Client | undefined;
+  editing: boolean;
+  onEditingChange: (open: boolean) => void;
+  expenseDialog: ReturnType<typeof useDialog<Expense | undefined>>;
+}) {
+  const qc = useQueryClient();
+  if (!client) return null;
+  // Its rate prices the lines; a new or changed expense changes what is
+  // billed, and a new one is ticked, since nothing excludes it.
+  const reprice = () =>
+    qc.invalidateQueries({ queryKey: keys.invoicePreview() });
+  return (
+    <>
+      <ClientDialog
+        open={editing}
+        onOpenChange={onEditingChange}
+        client={client}
+        onSaved={reprice}
+      />
+      <ExpenseDialog
+        open={expenseDialog.open}
+        onOpenChange={expenseDialog.onOpenChange}
+        client={client}
+        expense={expenseDialog.subject}
+        onSaved={reprice}
+      />
+    </>
+  );
+}
+
+/** The dialog that adds a charge, or edits or removes the one pressed. */
+function ChargeEditor({
+  dialog,
+  charges,
+  onChange,
+  currency,
+}: {
+  dialog: ReturnType<typeof useDialog<string>>;
+  charges: DraftCharge[];
+  onChange: (charges: DraftCharge[]) => void;
+  currency: string;
+}) {
+  const key = dialog.subject;
+  return (
+    <ChargeDialog
+      open={dialog.open}
+      onOpenChange={dialog.onOpenChange}
+      charge={charges.find((c) => c.key === key)}
+      onSave={(charge) => onChange(putCharge(charges, key, charge))}
+      onRemove={
+        key !== 'new'
+          ? () => onChange(charges.filter((c) => c.key !== key))
+          : undefined
+      }
+      currency={currency}
+    />
+  );
+}
+
+/** A profile list with `p` in it, once. */
+const withProfile =
+  (p: PaymentProfile) =>
+  (d: { paymentProfiles: PaymentProfile[] } | undefined) =>
+    d && !d.paymentProfiles.some((x) => x.id === p.id)
+      ? { ...d, paymentProfiles: [...d.paymentProfiles, p] }
+      : d;
 
 /** The payment details the page prints, and the profile they come from. A
     draft whose details no profile renders now keeps them until another is
@@ -1078,6 +1117,46 @@ const focusPeriod = focusControl('inv-period');
 /** One label for a new draft and an edit: both save a draft, which Mark
     sent issues. */
 const pressLabel = (pending: boolean) => (pending ? 'Saving…' : 'Save draft');
+
+/** The heading, and what's due beside Save draft. */
+function TitleBar({
+  editing,
+  preview,
+  updating,
+  canSave,
+  press,
+}: {
+  editing: Edited | undefined;
+  preview: InvoicePreview | undefined;
+  updating: boolean;
+  canSave: boolean;
+  press: { mutate: () => void; isPending: boolean };
+}) {
+  return (
+    /* On a phone the title row gives way (`contents`), and what it held is
+       a bar pinned to the bottom, over the timer bar: its 52px and the
+       0.75rem it floats by. */
+    <div className="flex items-center justify-between gap-4 @max-[560px]/new:contents">
+      <h1 className="type-title whitespace-nowrap text-strong">
+        {editing ? `Edit ${editing.invoiceNumber}` : 'New invoice'}
+      </h1>
+      <div className={`flex items-center gap-4 ${PHONE_BAR}`}>
+        <Due preview={preview} updating={updating} />
+        <Button
+          type="button"
+          variant="accent"
+          onClick={() => press.mutate()}
+          disabled={!canSave}
+        >
+          {press.isPending ? (
+            <Loader2 aria-hidden className="animate-spin" />
+          ) : null}
+          {pressLabel(press.isPending)}
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 /** What Save draft would bill, beside it: the entries and the amount due,
     or Updating while the server recomputes them. */

@@ -761,6 +761,24 @@ test('update_draft reaches only the caller’s own drafts', async () => {
   await assert.rejects(() => asAlice(edit), /is sent and cannot be edited/);
 });
 
+/* `rename_task_name` takes the user as an argument and runs as the caller,
+   so naming someone else reaches nothing of theirs. */
+test('rename_task_name reaches only the caller’s own entries', async () => {
+  await seedBoth();
+  const [{ renamed }] = await asUser(
+    ALICE,
+    `select renamed from rename_task_name($1, 'Bob work', 'Taken')`,
+    [BOB],
+  );
+  assert.equal(renamed, 0);
+  const [bob] = (
+    await admin.query(`select task_name from time_entries where user_id = $1`, [
+      BOB,
+    ])
+  ).rows;
+  assert.equal(bob.task_name, 'Bob work');
+});
+
 /* A connected app's token is the user's own JWT plus `client_id`, so the
    Data API is fenced here, not only in the routes. */
 test('a connected app writes only what its tools do', async () => {
