@@ -30,6 +30,7 @@ import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
 import { entries, markSentAsk } from './mark-sent-dialog';
 import { PRICE } from './plan-section';
+import { Notice } from './notice';
 import {
   attachedSchedules,
   formatCurrency,
@@ -381,10 +382,6 @@ function Notices({
   );
 }
 
-/** A draft's warning, under the hint. */
-const NOTICE =
-  'mt-3 flex flex-col gap-0.5 rounded-md border border-edge-default border-l-[3px] border-l-warning bg-surface-elevated px-3.5 py-3';
-
 /** Work dated in the draft's period that it doesn't hold. It joins only when
     the owner adds it (Constitution I), all of it in one press. */
 function NewWorkNotice({
@@ -407,10 +404,7 @@ function NewWorkNotice({
     .filter(Boolean)
     .join(' and ');
   return (
-    <div
-      role="status"
-      className={`${NOTICE} flex-row flex-wrap items-center justify-between gap-x-4 gap-y-2.5`}
-    >
+    <Notice className="mt-3 flex-row flex-wrap items-center justify-between gap-x-4 gap-y-2.5">
       <div className="flex flex-col gap-0.5">
         <p className="type-body text-strong">{what}, in this period</p>
         <p className="type-support text-muted">
@@ -426,7 +420,7 @@ function NewWorkNotice({
         )}
         {addWork.isPending ? 'Adding…' : 'Add to draft'}
       </Button>
-    </div>
+    </Notice>
   );
 }
 
@@ -434,7 +428,7 @@ function NewWorkNotice({
     the user can find each one. */
 function Unrated({ entries }: { entries: UnratedEntry[] }) {
   return (
-    <div role="status" className={NOTICE}>
+    <Notice className="mt-3">
       <p className="type-body text-strong">
         {entries.length} entr{entries.length === 1 ? 'y has' : 'ies have'} no
         rate
@@ -452,7 +446,7 @@ function Unrated({ entries }: { entries: UnratedEntry[] }) {
           </li>
         ))}
       </ul>
-    </div>
+    </Notice>
   );
 }
 
@@ -469,14 +463,14 @@ function DueBeforeIssue({
   downloaded: boolean;
 }) {
   return (
-    <div role="status" className={NOTICE}>
+    <Notice className="mt-3">
       <p className="type-body text-strong">Due before it’s issued</p>
       <p className="type-support text-muted">
         {downloaded
           ? `The due date you typed, ${shortDate(due)}, is before today, so it can’t be downloaded again. Send the PDF you downloaded, then mark it sent.`
           : `The due date you typed, ${shortDate(due)}, is before today’s issue date, ${shortDate(issued)}, so it can’t be downloaded or sent. Edit this draft to give it a later due date.`}
       </p>
-    </div>
+    </Notice>
   );
 }
 

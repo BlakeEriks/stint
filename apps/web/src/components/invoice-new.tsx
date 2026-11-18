@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useLeaveGuard } from '@/lib/client/use-leave-guard';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -79,6 +80,7 @@ import {
 } from './invoice-preview-card';
 import { TemplateControl } from './template-dialog';
 import { ConfirmDialog } from './confirm-dialog';
+import { Notice } from './notice';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
   {
@@ -700,6 +702,13 @@ function Form({
               ? current.earlierWork
               : null
           }
+          heldWork={
+            current?.clientId === draft.clientId &&
+            current.periodStart === periodStart &&
+            current.periodEnd === periodEnd
+              ? current.heldWork
+              : null
+          }
           onStartFrom={(from) =>
             setDraft((d) => ({ ...d, periodStart: from, periodEnd }))
           }
@@ -882,6 +891,7 @@ function Notices({
   client,
   period,
   earlierWork,
+  heldWork,
   onStartFrom,
   noSummaryText,
   earlyDue,
@@ -892,6 +902,7 @@ function Notices({
   client: Client | undefined;
   period: Period;
   earlierWork: InvoicePreview['earlierWork'];
+  heldWork: InvoicePreview['heldWork'];
   onStartFrom: (from: string) => void;
   noSummaryText: boolean;
   earlyDue: boolean;
@@ -904,6 +915,7 @@ function Notices({
       <SenderNotice settings={settings} />
       <ScheduleHint client={client} {...period} />
       <EarlierWorkOffer work={earlierWork} onStartFrom={onStartFrom} />
+      <HeldWorkNotice work={heldWork} />
       {noSummaryText ? (
         <p id={SUMMARY_ERROR} role="alert" className="type-support text-danger">
           Give the summary line its text.
@@ -1269,6 +1281,26 @@ function EarlierWorkOffer({
       </Button>
     </p>
   );
+}
+
+/** The period's work other drafts hold, which this page doesn't bill. No
+    button: the work is that draft's, and she opens it to add to it or let
+    it go. */
+function HeldWorkNotice({ work }: { work: InvoicePreview['heldWork'] }) {
+  return work?.drafts.map((d) => (
+    <Notice key={d.id}>
+      <p className="type-body text-strong">
+        <Link
+          href={`/invoices/${d.id}`}
+          className="rounded-sm underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+        >
+          {d.invoiceNumber}
+        </Link>{' '}
+        holds {d.entryCount} entr{d.entryCount === 1 ? 'y' : 'ies'} in this
+        period.
+      </p>
+    </Notice>
+  ));
 }
 
 function PreviewNotices({
