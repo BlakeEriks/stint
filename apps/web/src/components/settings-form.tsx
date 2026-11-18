@@ -177,7 +177,6 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
             label="Flag entries under"
             id="min-seconds"
             unit="seconds"
-            type="number"
             parse={threshold(Number.isInteger)}
             error="Whole seconds, 1 or more."
             value={form.minEntrySeconds}
@@ -187,7 +186,7 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
             label="Flag entries over"
             id="max-hours"
             unit="hours"
-            type="number"
+            inputMode="decimal"
             parse={threshold((hours) => hours <= 24)}
             error="More than 0, up to 24."
             value={form.maxEntryHours}
@@ -255,7 +254,8 @@ function threshold(accepts: (n: number) => boolean) {
   };
 }
 
-/** A number typed as text and saved only once `parse` accepts it. A number
+/** A number typed as text, not `type="number"`, which reports a half-typed
+    "-" as blank, and blank clears. Saved only once `parse` accepts it. A number
     the server would refuse stays in the field with `error` and is never
     scheduled, or autosave would resend it with every later edit. */
 function ParsedField({
@@ -264,7 +264,7 @@ function ParsedField({
   unit,
   hint,
   placeholder,
-  type,
+  inputMode = 'numeric',
   parse,
   error,
   value,
@@ -275,7 +275,7 @@ function ParsedField({
   unit: string;
   hint?: string;
   placeholder?: string;
-  type?: 'number';
+  inputMode?: 'numeric' | 'decimal';
   /** The value to save; undefined refuses the text. */
   parse: (text: string) => number | null | undefined;
   error: string;
@@ -296,8 +296,7 @@ function ParsedField({
       <UnitInput
         unit={unit}
         id={id}
-        type={type}
-        inputMode={type ? undefined : 'numeric'}
+        inputMode={inputMode}
         placeholder={placeholder}
         value={text}
         onChange={(e) => {

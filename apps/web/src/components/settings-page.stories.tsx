@@ -210,8 +210,9 @@ export const ThresholdRefused: Story = {
     const page = within(canvasElement);
     const under = await page.findByLabelText('Flag entries under');
     const inbox = within(under.closest('section') as HTMLElement);
-    await userEvent.clear(under);
-    await userEvent.type(under, '0');
+    /* "-" alone, on the way to -5, must not clear the saved 60. */
+    await userEvent.tripleClick(under);
+    await userEvent.keyboard('-5');
     await expect(inbox.getByText('Whole seconds, 1 or more.')).toBeVisible();
     const over = inbox.getByLabelText('Flag entries over');
     await userEvent.clear(over);
@@ -219,6 +220,7 @@ export const ThresholdRefused: Story = {
     await expect(
       await inbox.findByLabelText('Saved', {}, { timeout: 3000 }),
     ).toBeVisible();
+    await expect(getDb().settings.minEntrySeconds).toBe(60);
   },
 };
 
