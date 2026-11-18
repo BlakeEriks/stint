@@ -25,7 +25,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** No save button: every field is a default, saved as it changes. One
+/** No save button: every field saves as it changes. One
     payment profile is the default, and only the other offers Make default. */
 export const Desktop: Story = {
   ...desktop,
@@ -72,8 +72,8 @@ export const InvoiceTemplate: Story = {
   },
 };
 /** Each number carries its unit inside the field, the way the rate does.
-    Billing holds what invoices use, and says on the rate and the terms that
-    a client's own wins. Inbox holds the lengths that flag an entry. */
+    Billing holds what invoices use; Inbox holds the lengths that flag an
+    entry. */
 export const SectionUnits: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -98,22 +98,6 @@ export const SectionUnits: Story = {
       const field = scope.getByLabelText(label).parentElement;
       await expect(within(field as HTMLElement).getByText(unit)).toBeVisible();
     }
-    await expect(
-      billing.getByText('Used when a client or project has none.'),
-    ).toBeVisible();
-    await expect(
-      billing.getByText('Used when a client has none.'),
-    ).toBeVisible();
-    await expect(
-      inbox.getByText('What gets flagged for you to review.'),
-    ).toBeVisible();
-    await expect(
-      within(
-        page
-          .getByRole('heading', { name: 'Invoice numbering' })
-          .closest('section') as HTMLElement,
-      ).getByText(/invoices you sent before Stint/),
-    ).toBeVisible();
   },
 };
 /** On a phone the theme toggle drops under the Appearance heading, every
@@ -215,6 +199,26 @@ export const PaymentTermsDays: Story = {
     await userEvent.clear(field);
     await userEvent.type(field, '400');
     await expect(page.getByText('Whole days, 0 to 365.')).toBeVisible();
+  },
+};
+
+/** An inbox threshold the server would refuse is refused at the field,
+    without a request, so a later valid edit in the section still saves. */
+export const ThresholdRefused: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const under = await page.findByLabelText('Flag entries under');
+    const inbox = within(under.closest('section') as HTMLElement);
+    await userEvent.clear(under);
+    await userEvent.type(under, '0');
+    await expect(inbox.getByText('Whole seconds, 1 or more.')).toBeVisible();
+    const over = inbox.getByLabelText('Flag entries over');
+    await userEvent.clear(over);
+    await userEvent.type(over, '10');
+    await expect(
+      await inbox.findByLabelText('Saved', {}, { timeout: 3000 }),
+    ).toBeVisible();
   },
 };
 

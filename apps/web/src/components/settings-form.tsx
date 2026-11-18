@@ -190,6 +190,8 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
             label="Flag entries under"
             id="min-seconds"
             unit="seconds"
+            accepts={Number.isInteger}
+            error="Whole seconds, 1 or more."
             value={form.minEntrySeconds}
             onChange={(n) => setInbox('minEntrySeconds', n)}
           />
@@ -198,6 +200,8 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
             id="max-hours"
             unit="hours"
             max={24}
+            accepts={(hours) => hours <= 24}
+            error="More than 0, up to 24."
             value={form.maxEntryHours}
             onChange={(n) => setInbox('maxEntryHours', n)}
           />
@@ -253,12 +257,16 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
   );
 }
 
-/** One side of the inbox's length check; cleared turns that side off. */
+/** One side of the inbox's length check; cleared turns that side off. A
+    number the server would refuse stays in the field with `error` and is
+    never scheduled, or autosave would resend it with every later edit. */
 function ThresholdField({
   label,
   id,
   unit,
   max,
+  accepts,
+  error,
   value,
   onChange,
 }: {
@@ -266,11 +274,27 @@ function ThresholdField({
   id: string;
   unit: string;
   max?: number;
+  /** Beyond being over zero, which every threshold must be. */
+  accepts: (n: number) => boolean;
+  error: string;
   value: number | null;
   onChange: (value: number | null) => void;
 }) {
+  const [text, setText] = useState(value === null ? '' : String(value));
+  /* Null clears; undefined is refused. */
+  const parse = (t: string) => {
+    if (t === '') return null;
+    const n = Number(t);
+    return n > 0 && accepts(n) ? n : undefined;
+  };
+  const valid = parse(text) !== undefined;
   return (
-    <Field label={label} htmlFor={id} className="flex-1 basis-44">
+    <Field
+      label={label}
+      htmlFor={id}
+      error={valid ? undefined : error}
+      className="flex-1 basis-44"
+    >
       <UnitInput
         unit={unit}
         id={id}
@@ -278,10 +302,12 @@ function ThresholdField({
         min="1"
         max={max}
         step="1"
-        value={value ?? ''}
-        onChange={(e) =>
-          onChange(e.target.value === '' ? null : Number(e.target.value))
-        }
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          const parsed = parse(e.target.value);
+          if (parsed !== undefined) onChange(parsed);
+        }}
       />
     </Field>
   );
