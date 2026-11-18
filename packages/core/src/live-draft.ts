@@ -9,13 +9,11 @@ import { type BillingSchedule, lastEndedPeriod } from './billing-period.ts';
 import { addDays, localDateKey } from './calendar.ts';
 import {
   type BillableEntry,
-  billedAmount,
   buildLineItems,
   type ExpenseInput,
   hundredths,
   termsDays,
 } from './invoice.ts';
-import { resolveRate } from './rates.ts';
 
 /** What a draft's last PDF printed that sending keeps: its dates, and the
  *  template it was drawn in. */
@@ -158,8 +156,8 @@ function covers(i: DueInputs['invoices'][number], period: Period) {
 /**
  * Clients ready to invoice, one row each by name: those with a schedule whose
  * most recent ended period holds billable work and none of `invoices`
- * `covers()`. `amount` is what that work bills, each entry at its resolved
- * rate; work with no rate counts as nothing.
+ * `covers()`. `amount` is what that work bills on New invoice's first,
+ * summary grouping; work with no rate counts as nothing.
  */
 export function unbilledDue(
   { clients, entries, invoices, defaultRate }: DueInputs,
@@ -188,21 +186,19 @@ export function unbilledDue(
         {
           clientId: c.id,
           clientName: c.name,
-          seconds: work.reduce((t, e) => t + e.durationSeconds, 0),
-          // In cents until the end, as the invoice sums its lines.
-          amount:
-            work.reduce((sum, e) => {
-              const rate = resolveRate({
-                entryRateOverride: e.rateOverride,
-                projectRate: e.projectRate,
-                clientRate: c.rate,
-                userDefaultRate: defaultRate,
-              });
-              return (
-                sum +
-                Math.round(billedAmount(e.durationSeconds, rate ?? 0) * 100)
-              );
-            }, 0) / 100,
+          amount: buildLineItems(
+            work.map((e) => ({
+              ...e,
+              taskName: '',
+              projectId: null,
+              projectName: null,
+              rateOverride: e.rateOverride ?? null,
+              projectRate: e.projectRate ?? null,
+              clientRate: c.rate ?? null,
+              userDefaultRate: defaultRate ?? null,
+            })),
+            { groupingMode: 'summary' },
+          ).subtotal,
           currency: c.currency,
           ...period,
         },

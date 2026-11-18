@@ -197,8 +197,8 @@ test('draftDates: sending keeps the dates its last PDF printed', () => {
 });
 
 /* unbilledDue(): on Oct 3 unless a row says otherwise, Northwind (c1) bills
-   monthly and Acme (c2) has no schedule. Each row reads
-   "client from..to seconds". */
+   monthly at $100/h and Acme (c2) has no schedule. Each row reads
+   "client from..to amount". */
 const work = (startedAt: string, clientId = 'c1', hours = 1) =>
   entry({ startedAt, clientId, durationSeconds: hours * 3600 });
 const inv = (
@@ -209,7 +209,7 @@ const inv = (
 ) => ({ clientId, periodStart, periodEnd, status });
 const draft = (periodStart: string, periodEnd: string) =>
   inv(periodStart, periodEnd, 'c1', 'draft');
-const NW_SEP = 'Northwind 2026-09-01..2026-09-30 3600';
+const NW_SEP = 'Northwind 2026-09-01..2026-09-30 100';
 const IN_SEP = '2026-09-20T15:00:00Z';
 
 const DUE: {
@@ -222,7 +222,7 @@ const DUE: {
   {
     name: 'the most recent ended period, its work added up',
     entries: [work(IN_SEP, 'c1', 2), work('2026-09-21T15:00:00Z')],
-    due: ['Northwind 2026-09-01..2026-09-30 10800'],
+    due: ['Northwind 2026-09-01..2026-09-30 300'],
   },
   {
     name: 'not an earlier period, nor the open one',
@@ -326,6 +326,7 @@ test('ready to invoice: the most recent ended period no invoice covers', () => {
             id: 'c1',
             name: 'Northwind',
             schedule: { period: 'monthly' },
+            rate: 100,
             currency: 'USD',
           },
           { id: 'c2', name: 'Acme', schedule: null, currency: 'USD' },
@@ -338,7 +339,7 @@ test('ready to invoice: the most recent ended period no invoice covers', () => {
     );
     assert.deepEqual(
       rows.map(
-        (r) => `${r.clientName} ${r.periodStart}..${r.periodEnd} ${r.seconds}`,
+        (r) => `${r.clientName} ${r.periodStart}..${r.periodEnd} ${r.amount}`,
       ),
       row.due,
       row.name,
@@ -372,6 +373,13 @@ test('ready to invoice: the amount, each entry at the rate that bills it', () =>
       100,
       null,
       66,
+    ],
+    [
+      'one line per rate, priced once, as the invoice sums it',
+      [1, 2, 3].map((i) => ({ ...rated({}, 1200), id: `e${i}` })),
+      99.99,
+      null,
+      98.99,
     ],
   ] as const) {
     const [row] = unbilledDue(

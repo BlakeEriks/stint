@@ -3959,7 +3959,6 @@ test('/stats lists clients ready to invoice, from the clients, entries and draft
   const row = {
     clientId: CLIENT,
     clientName: 'Northwind',
-    seconds: 7200,
     amount: 300,
     currency: 'USD',
     ...period,
@@ -4030,7 +4029,6 @@ test('/stats reads clients ready to invoice in the billing zone', async () => {
     {
       clientId: CLIENT,
       clientName: 'Northwind',
-      seconds: 3600,
       amount: 150,
       currency: 'USD',
       ...period,
