@@ -25,9 +25,10 @@ read-only.
   its entries together, which a toggle hides one of; and a toggle is a
   state the page doesn't have today (Constitution VII). (decided
   autonomously)
-- Q: How does it lay out on a phone? → A: The same rows, each wrapping to
-  two lines: date and task, then project, hours and amount. No horizontal
-  scroll. (decided autonomously)
+- Q: How does it lay out on a phone? → A: The same rows, each on two
+  lines: task and amount, then date, project and hours. The task takes the
+  width, since it is what a row is read by. No horizontal scroll. (decided
+  autonomously)
 - Q: Does the invoice read already return enough? → A: No. It returns the
   draft's entries with no rate, by name, and nothing about the rest. It adds
   the entries the invoice holds, each with what the list shows. (decided
