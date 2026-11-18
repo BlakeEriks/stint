@@ -180,10 +180,6 @@ describe('EntryDialog', () => {
     expect(hours).toBe(4);
   });
 
-  /* The lock is a database trigger on everything but the task, and the
-     form's times are whole minutes: sent back, an entry started at 09:00:37
-     would 409 as a change to its start. Which fields are disabled is the
-     `Locked` story's. */
   it('sends only the task for an entry billed to an issued invoice', async () => {
     const calls = serve('sent');
     const user = userEvent.setup();

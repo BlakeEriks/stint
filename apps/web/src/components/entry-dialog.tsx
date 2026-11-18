@@ -220,9 +220,8 @@ export function EntryDialog({
   /* An entry on an invoice is billed on an issued one — a draft claims its
      work only when sent — and a database trigger freezes all but its task,
      so showing the rest read-only is honest and offering an edit that will
-     409 is not. The
-     invoice's number is not on the entry, so it is fetched for the message,
-     only when there is an invoice to name. */
+     409 is not. The invoice's number is not on the entry, so it is fetched
+     for the message, only when there is an invoice to name. */
   const billedOn = useQuery({
     queryKey: keys.invoice(existing?.invoiceId),
     queryFn: () => api.invoice(existing!.invoiceId!),
