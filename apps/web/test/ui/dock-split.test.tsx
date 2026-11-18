@@ -19,7 +19,10 @@ import { Dock } from '@/components/dock';
  * the column, and the write landing on release rather than on every move.
  */
 
-vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/',
+  useRouter: () => ({ prefetch: () => {} }),
+}));
 
 const KEY = 'stint.dock.split';
 

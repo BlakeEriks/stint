@@ -48,6 +48,7 @@ import {
   type SummaryText,
 } from '@stint/core';
 import { timeZone as tz } from '@/lib/client/use-timer';
+import { invoiceHref } from '@/lib/client/prefetch-invoices';
 import {
   api,
   ApiError,
@@ -461,7 +462,7 @@ export function EditInvoice({ id }: { id: string }) {
     queryFn: () => api.paymentProfiles(),
   });
   return (
-    <DetailPage back={`/invoices/${id}`} label="Invoice" workspace letter fills>
+    <DetailPage back={invoiceHref(id)} label="Invoice" workspace letter fills>
       <Listing
         query={[invoice, clients, settings, profiles]}
         missing="That invoice no longer exists."
@@ -597,7 +598,7 @@ function Form({
         : api.createInvoice(choices);
     },
     onSuccess: (invoice, to) => {
-      router.push(to ?? `/invoices/${invoice.id}`);
+      router.push(to ?? invoiceHref(invoice.id));
     },
   });
 
@@ -1370,7 +1371,8 @@ function HeldWorkNotice({ work }: { work: InvoicePreview['heldWork'] }) {
     <Notice key={d.id}>
       <p className="type-body text-strong">
         <Link
-          href={`/invoices/${d.id}`}
+          href={invoiceHref(d.id)}
+          prefetch={false}
           className="rounded-sm underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
         >
           {d.invoiceNumber}

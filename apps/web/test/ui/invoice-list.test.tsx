@@ -11,9 +11,11 @@ import { localDateKey, localDateTimeToInstant } from '@stint/core';
 const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 const search = { value: new URLSearchParams() };
+const prefetch = vi.fn();
 vi.mock('next/navigation', () => ({
   useSearchParams: () => search.value,
   usePathname: () => '/invoices',
+  useRouter: () => ({ prefetch }),
 }));
 
 function invoice(over: Partial<Invoice> = {}): Invoice {
@@ -237,8 +239,10 @@ describe('InvoiceList', () => {
   });
 
   /* Once the list paints, each draft and open invoice is fetched in full,
-     so opening one shows it with its actions live; a finished one waits. */
-  it('prefetches drafts and open invoices, never paid ones', async () => {
+     so opening one shows it with its actions live; a finished one waits.
+     Every row opens one static page, prefetched once: a path per invoice
+     is a dynamic route, where a press waits on the server. */
+  it('prefetches drafts and open invoices, never paid ones, and the page they open on', async () => {
     const list = [
       invoice({ id: 'i1', invoiceNumber: 'STINT-0001', status: 'draft' }),
       invoice({ id: 'i2', invoiceNumber: 'STINT-0002', status: 'sent' }),
@@ -248,6 +252,10 @@ describe('InvoiceList', () => {
     answerWith(list, (id) => fetched.push(id));
     render(<InvoiceList />, { wrapper });
     await waitFor(() => expect(fetched.sort()).toEqual(['i1', 'i2']));
+    expect(prefetch).toHaveBeenCalledWith('/invoices/view');
+    expect(
+      screen.getByRole('link', { name: /STINT-0001/ }).getAttribute('href'),
+    ).toBe('/invoices/view?id=i1');
   });
 
   /* Paid from its row, a prefetched invoice opens as the row now says, not

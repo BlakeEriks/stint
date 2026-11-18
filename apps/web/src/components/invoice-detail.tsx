@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { notFound, useRouter, useSearchParams } from 'next/navigation';
 import {
   useQuery,
   useQueryClient,
@@ -67,6 +67,13 @@ function fromList(qc: QueryClient, id: string): Shown | undefined {
   return qc
     .getQueryData<{ invoices: Invoice[] }>(keys.invoices())
     ?.invoices.find((i) => i.id === id);
+}
+
+/** The invoice `invoiceHref` names. */
+export function InvoiceFromQuery() {
+  const id = useSearchParams().get('id');
+  if (!id) notFound();
+  return <InvoiceDetail id={id} />;
 }
 
 export function InvoiceDetail({ id }: { id: string }) {

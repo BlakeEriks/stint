@@ -7,7 +7,10 @@ import { Inbox } from '@/components/inbox';
 import { MutationNotice } from '@/components/mutation-notice';
 import type { Stats } from '@/lib/client/api';
 
-vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/',
+  useRouter: () => ({ prefetch: () => {} }),
+}));
 
 function stats(attention: Partial<Stats['attention']> = {}): Stats {
   return {

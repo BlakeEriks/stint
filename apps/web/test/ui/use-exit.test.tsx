@@ -12,7 +12,10 @@ import { useExit } from '@/lib/client/use-exit';
 import type { Stats } from '@/lib/client/api';
 import { keys } from '@stint/client';
 
-vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/',
+  useRouter: () => ({ prefetch: () => {} }),
+}));
 
 function wrapper({ children }: { children: ReactNode }) {
   const client = new QueryClient({

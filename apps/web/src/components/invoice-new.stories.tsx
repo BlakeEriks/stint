@@ -695,7 +695,7 @@ export const HeldWork: Story = {
     const link = await page.findByRole('link', { name: 'STINT-0016' });
     await expect(link).toHaveAttribute(
       'href',
-      '/invoices/018f0000-0000-7000-8000-0000000003f0',
+      '/invoices/view?id=018f0000-0000-7000-8000-0000000003f0',
     );
     await expect(link.parentElement).toHaveTextContent(
       /^STINT-0016 holds \d+ entries in this period\.$/,

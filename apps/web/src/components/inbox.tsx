@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import {
   forgetInvoice,
+  invoiceHref,
   usePrefetchInvoices,
 } from '@/lib/client/prefetch-invoices';
 import { useId, useRef, useState } from 'react';
@@ -522,7 +523,8 @@ function invoiceItem(
   },
 ): ItemProps {
   return {
-    href: `/invoices/${i.invoiceId}`,
+    href: invoiceHref(i.invoiceId),
+    prefetch: false,
     label: i.clientName ?? i.invoiceNumber,
     detail,
     value: formatCurrency(i.amount, i.currency),
@@ -693,6 +695,7 @@ function dayLabel(iso: string, tz: string) {
  */
 function Item({
   href,
+  prefetch,
   onSelect,
   label,
   detail,
@@ -704,6 +707,8 @@ function Item({
 }: {
   /** A record with a page of its own. Omit it and pass `onSelect` instead. */
   href?: string;
+  /** `false` for an invoice's page (`invoiceHref`). */
+  prefetch?: false;
   /** For a row that acts in place rather than navigating. */
   onSelect?: () => void;
   label: string;
@@ -760,7 +765,7 @@ function Item({
             figure sharing the line takes width from it in proportion to how
             much money the row is about. */}
         {href ? (
-          <Link href={href} prefetch className={titleClass}>
+          <Link href={href} prefetch={prefetch} className={titleClass}>
             {label}
           </Link>
         ) : onSelect ? (

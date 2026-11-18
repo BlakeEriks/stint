@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowRight, Pencil, Repeat } from 'lucide-react';
 import { formatCurrency } from '@stint/core';
 import type { Expense } from '@/lib/client/api';
+import { invoiceHref } from '@/lib/client/prefetch-invoices';
 import { rowBleed, rowButton } from './row-button';
 
 /** "Aug 20": the year is the invoice's business, not the row's. */
@@ -74,11 +75,11 @@ export function ExpenseRow({
     </>
   );
 
-  if (billed) {
+  if (expense.invoiceId !== null) {
     return (
       <Link
-        href={`/invoices/${expense.invoiceId}`}
-        prefetch
+        href={invoiceHref(expense.invoiceId)}
+        prefetch={false}
         className={rowClass}
       >
         {cells}

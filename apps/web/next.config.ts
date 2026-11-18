@@ -39,7 +39,16 @@ const config: NextConfig = {
 
   // Projects moved under Clients; old bookmarks land there, query and all.
   async redirects() {
-    return [{ source: '/projects', destination: '/clients', permanent: true }];
+    return [
+      { source: '/projects', destination: '/clients', permanent: true },
+      /* An invoice's page moved to a static route (`invoiceHref`); a link
+         saved before keeps working. */
+      {
+        source: '/invoices/:id([0-9a-f-]{36})',
+        destination: '/invoices/view?id=:id',
+        permanent: true,
+      },
+    ];
   },
 };
 

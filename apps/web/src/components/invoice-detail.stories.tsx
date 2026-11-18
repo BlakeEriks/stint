@@ -29,7 +29,7 @@ const paying = (edit: (db: Db) => void = () => {}) =>
     edit(db);
   });
 
-const route = screen(`/invoices/${invoice(15)}`);
+const route = screen('/invoices/view', { id: invoice(15) });
 const meta = {
   title: 'Screens/Invoices/Detail',
   component: InvoiceDetail,

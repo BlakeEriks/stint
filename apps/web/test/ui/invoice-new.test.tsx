@@ -387,7 +387,9 @@ describe('NewInvoice', () => {
 
     await user.click(generate());
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/invoices/inv-1'));
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith('/invoices/view?id=inv-1'),
+    );
     const sent = bodies.find((b) => b.path.endsWith('/invoices'))!.body;
     expect(sent).not.toHaveProperty('issueDate');
     expect(sent).not.toHaveProperty('dueDate');

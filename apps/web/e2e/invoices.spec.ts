@@ -82,7 +82,7 @@ test.describe('invoices', () => {
     await expect(generate).toBeEnabled();
 
     await generate.click();
-    await expect(page).toHaveURL(/\/invoices\/[0-9a-f-]{36}$/);
+    await expect(page).toHaveURL(/\/invoices\/view\?id=[0-9a-f-]{36}$/);
     await expect(list(page).getByText('Onboarding fee')).toBeVisible();
   });
 });
