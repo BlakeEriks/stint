@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { AccountMenu } from '@/components/account-menu';
 import { MutationNotice } from '@/components/mutation-notice';
+import { ToastProvider } from '@/components/toast';
 
 const replace = vi.fn();
 beforeEach(() => {
@@ -25,7 +26,9 @@ function wrapper({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={new QueryClient()}>
       {children}
-      <MutationNotice />
+      <ToastProvider>
+        <MutationNotice />
+      </ToastProvider>
     </QueryClientProvider>
   );
 }

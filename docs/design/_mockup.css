@@ -52,9 +52,12 @@
     --motion-move: 380ms;
     --motion-count: 900ms;
     --motion-rise: 3px;
+    --motion-enter: 360ms;
+    --motion-travel: 48px;
     --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
     --ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
     --ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+    --ease-overshoot: cubic-bezier(0.34, 1.4, 0.64, 1);
 
     --mark-bound-width: 0.09em;
     --mark-bound-height: 1.05em;

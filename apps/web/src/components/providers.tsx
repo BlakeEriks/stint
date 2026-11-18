@@ -12,6 +12,7 @@ import { followRunningTimer, setTodayOffset } from '@stint/client';
 import { chooseToday } from '@/lib/client/today';
 import { timeZone } from '@/lib/client/use-timer';
 import { MutationNotice } from './mutation-notice';
+import { ToastProvider } from './toast';
 
 /* Before any screen asks what day it is. */
 if (typeof window !== 'undefined') {
@@ -68,8 +69,10 @@ export function Providers({
   if (!persister) {
     return (
       <QueryClientProvider client={client}>
-        {children}
-        <MutationNotice />
+        <ToastProvider>
+          {children}
+          <MutationNotice />
+        </ToastProvider>
       </QueryClientProvider>
     );
   }
@@ -95,8 +98,10 @@ export function Providers({
         },
       }}
     >
-      {children}
-      <MutationNotice />
+      <ToastProvider>
+        {children}
+        <MutationNotice />
+      </ToastProvider>
     </PersistQueryClientProvider>
   );
 }

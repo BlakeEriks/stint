@@ -14,6 +14,7 @@ import {
   type OptimisticOptions,
 } from '@stint/client';
 import { MutationNotice } from '@/components/mutation-notice';
+import { ToastProvider } from '@/components/toast';
 import { ApiError } from '@/lib/client/api';
 
 type Vars = { value: string };
@@ -411,7 +412,12 @@ describe('MutationNotice', () => {
   it('explains a rollback after the screen that pressed has gone', async () => {
     const call = deferred<Cache>();
     const { hook, wrapper } = setup({ mutationFn: () => call.promise });
-    render(<MutationNotice />, { wrapper });
+    render(
+      <ToastProvider>
+        <MutationNotice />
+      </ToastProvider>,
+      { wrapper },
+    );
 
     act(() => hook.result.current.mutate({ value: 'predicted' }));
     hook.unmount();
@@ -432,7 +438,12 @@ describe('MutationNotice', () => {
           ? Promise.reject(rejection('The server didn’t answer.'))
           : Promise.resolve({ value: 'ok' }),
     });
-    render(<MutationNotice />, { wrapper });
+    render(
+      <ToastProvider>
+        <MutationNotice />
+      </ToastProvider>,
+      { wrapper },
+    );
 
     act(() => hook.result.current.mutate({ value: 'x' }));
     expect(await screen.findByText('The server didn’t answer.')).toBeTruthy();
