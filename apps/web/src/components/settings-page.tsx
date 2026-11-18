@@ -47,8 +47,10 @@ export function SettingsPage() {
 }
 
 function Sections({ loaded }: { loaded: Settings }) {
+  /* The title bar's own rule sits above the first section, so its border
+     would double it. */
   return (
-    <>
+    <div className="*:first:border-t-0">
       <SettingsForm loaded={loaded} />
       <PaymentProfiles />
       <Section
@@ -65,6 +67,6 @@ function Sections({ loaded }: { loaded: Settings }) {
       <ConnectedApps />
       <PlanSection />
       <AccountSection />
-    </>
+    </div>
   );
 }
