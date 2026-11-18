@@ -1,8 +1,7 @@
 import { Suspense } from 'react';
 import { InvoiceFromQuery } from '@/components/invoice-detail';
 
-/** `InvoiceFromQuery` reads `?id=` with `useSearchParams`, which `next build`
- *  refuses without a Suspense boundary. */
+/** Suspense for the reason `(app)/invoices/page.tsx` gives. */
 export default function Page() {
   return (
     <Suspense>

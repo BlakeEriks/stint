@@ -3,15 +3,20 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { InvoiceDetail } from '@/components/invoice-detail';
+import { InvoiceDetail, InvoiceFromQuery } from '@/components/invoice-detail';
 import type { Invoice, InvoiceStatus } from '@/lib/client/api';
 import { localDateKey } from '@stint/core';
 
 const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+const search = { value: new URLSearchParams() };
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
-  usePathname: () => '/invoices/inv-1',
+  usePathname: () => '/invoices/view',
+  useSearchParams: () => search.value,
+  notFound: () => {
+    throw new Error('NEXT_NOT_FOUND');
+  },
 }));
 
 function invoice(status: InvoiceStatus, sentAt: string | null = null): Invoice {
@@ -267,6 +272,24 @@ describe('InvoiceDetail', () => {
  * which is exactly what a seed script wrote, and the detail page threw
  * `can't access property "split", date is null` on the whole invoice.
  */
+/* The id becomes part of each request's path, so anything but an id would
+   reach another route. */
+describe('InvoiceFromQuery', () => {
+  it.each([[''], ['../clients'], ['inv-1/status']])(
+    'reads %j as not found, asking nothing',
+    (id) => {
+      const fetch = vi.fn();
+      vi.stubGlobal('fetch', fetch);
+      search.value = new URLSearchParams(id ? { id } : {});
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      expect(() => render(<InvoiceFromQuery />, { wrapper })).toThrow(
+        'NEXT_NOT_FOUND',
+      );
+      expect(fetch).not.toHaveBeenCalled();
+    },
+  );
+});
+
 describe('shortDate', () => {
   it('renders a dash for a missing or malformed date, and formats a real one', async () => {
     const { shortDate } = await import('@/components/invoice-bits');

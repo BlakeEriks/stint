@@ -707,7 +707,6 @@ function Item({
 }: {
   /** A record with a page of its own. Omit it and pass `onSelect` instead. */
   href?: string;
-  /** `false` for an invoice's page (`invoiceHref`). */
   prefetch?: false;
   /** For a row that acts in place rather than navigating. */
   onSelect?: () => void;

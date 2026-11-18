@@ -69,10 +69,11 @@ function fromList(qc: QueryClient, id: string): Shown | undefined {
     ?.invoices.find((i) => i.id === id);
 }
 
-/** The invoice `invoiceHref` names. */
+/** The invoice `invoiceHref` names. Only an id: the API's paths are built
+    from it, so `../clients` would read another route. */
 export function InvoiceFromQuery() {
   const id = useSearchParams().get('id');
-  if (!id) notFound();
+  if (!id || !/^[0-9a-f-]{36}$/.test(id)) notFound();
   return <InvoiceDetail id={id} />;
 }
 
