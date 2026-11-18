@@ -680,7 +680,7 @@ function Form({
         />
 
         {/* The page is there before a client is: what doesn't depend on
-            one prints, and Bill to says what is still to choose. */}
+            one prints, and Billed to says what is still to choose. */}
         <InvoicePreviewCard
           noSender={noSender}
           preview={current}
@@ -927,7 +927,7 @@ function cardEdits({
         : [...draft.excludedExpenseIds, id],
     );
   // An expense is the client's: before one is chosen, Add an expense goes
-  // to where one is, as Bill to does.
+  // to where one is, as Billed to does.
   const addExpense = hasClient ? expenseDialog : { show: focusClient };
   return {
     // A draft froze its sender when it was made, so Settings no longer
@@ -1094,7 +1094,7 @@ const PHONE_BAR =
   '@max-[560px]/new:sticky @max-[560px]/new:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] @max-[560px]/new:z-10 @max-[560px]/new:order-last @max-[560px]/new:justify-between @max-[560px]/new:rounded-lg @max-[560px]/new:border @max-[560px]/new:border-edge-subtle @max-[560px]/new:bg-surface-primary @max-[560px]/new:px-3 @max-[560px]/new:py-2.5';
 
 /** A press on the page for something set above it goes to that control:
-    Bill to and Add an expense to Client, Service period to Period. */
+    Billed to and Add an expense to Client, the page's Period to the form's. */
 const focusControl = (id: string) => () => document.getElementById(id)?.focus();
 const focusClient = focusControl('inv-client');
 const focusPeriod = focusControl('inv-period');
