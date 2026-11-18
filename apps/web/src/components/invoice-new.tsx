@@ -80,6 +80,7 @@ import {
 } from './invoice-preview-card';
 import { TemplateControl } from './template-dialog';
 import { ConfirmDialog } from './confirm-dialog';
+import { Notice } from './notice';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
   {
@@ -1287,16 +1288,18 @@ function EarlierWorkOffer({
     it go. */
 function HeldWorkNotice({ work }: { work: InvoicePreview['heldWork'] }) {
   return work?.drafts.map((d) => (
-    <p key={d.id} role="status" className="type-support">
-      <Link
-        href={`/invoices/${d.id}`}
-        className="rounded-sm text-primary underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
-      >
-        {d.invoiceNumber}
-      </Link>{' '}
-      holds {d.entryCount} entr{d.entryCount === 1 ? 'y' : 'ies'} in this
-      period.
-    </p>
+    <Notice key={d.id}>
+      <p className="type-body text-strong">
+        <Link
+          href={`/invoices/${d.id}`}
+          className="rounded-sm underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+        >
+          {d.invoiceNumber}
+        </Link>{' '}
+        holds {d.entryCount} entr{d.entryCount === 1 ? 'y' : 'ies'} in this
+        period.
+      </p>
+    </Notice>
   ));
 }
 
