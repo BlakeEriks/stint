@@ -1,5 +1,9 @@
 import { ApiError, handle, refused } from '@/lib/errors';
-import { unratedRefusal } from '@stint/core';
+import {
+  contentDisposition,
+  invoicePdfFilename,
+  unratedRefusal,
+} from '@stint/core';
 import { requireSession } from '@/lib/auth';
 import { recordDownload, dueBeforeIssueError } from '@/lib/drafts';
 import { loadPdfData } from '@/lib/issued';
@@ -57,7 +61,10 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
   return new Response(bytes as unknown as BodyInit, {
     headers: {
       'content-type': 'application/pdf',
-      'content-disposition': `${download ? 'attachment' : 'inline'}; filename="${invoice.invoiceNumber}.pdf"`,
+      'content-disposition': contentDisposition(
+        invoicePdfFilename(invoice.invoiceNumber, invoice.business.name),
+        download,
+      ),
       'cache-control': 'private, no-store',
     },
   });
