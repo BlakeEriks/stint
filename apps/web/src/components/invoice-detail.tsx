@@ -147,7 +147,7 @@ function Loaded({
 type Action = 'delete' | 'edit' | 'markSent' | 'void' | 'markPaid';
 
 /** What each status offers, in the row's order, and the line under the
-    title. Void is terminal: nothing moves an invoice out of it. */
+    title. */
 const BY_STATUS: Record<
   InvoiceStatus,
   { actions: Action[]; hint: string | null }
