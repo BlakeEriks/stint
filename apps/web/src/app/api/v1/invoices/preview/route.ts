@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server';
 import { handle, ApiError } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
-import { computeInvoice } from '@/lib/drafts';
+import {
+  clientProjectIds,
+  computeInvoice,
+  unbilledEntries,
+} from '@/lib/drafts';
 import { loadBilledSpans } from '@/lib/billed-spans';
 import { selectAll } from '@/lib/select-all';
 import {
@@ -12,6 +16,7 @@ import {
   buildSchedules,
   earlierWork,
   earlierWorkFrom,
+  heldWork,
 } from '@stint/core';
 import { InvoicePreviewRequest } from '@stint/schema';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -23,19 +28,20 @@ export const dynamic = 'force-dynamic';
     it holds counts as free, as the preview's own lines do. */
 async function loadEarlierWork(
   db: SupabaseClient,
-  opts: { clientId: string; periodStart: string; tz: string; draftId?: string },
+  opts: {
+    clientId: string;
+    projectIds: string[];
+    periodStart: string;
+    tz: string;
+    draftId?: string;
+  },
 ) {
-  const [{ data: invoices, error }, { data: projects, error: projectError }] =
-    await Promise.all([
-      db
-        .from('invoices')
-        .select('id, period_start, period_end')
-        .eq('client_id', opts.clientId)
-        .neq('status', 'void'),
-      db.from('projects').select('id').eq('client_id', opts.clientId),
-    ]);
+  const { data: invoices, error } = await db
+    .from('invoices')
+    .select('id, period_start, period_end')
+    .eq('client_id', opts.clientId)
+    .neq('status', 'void');
   if (error) throw error;
-  if (projectError) throw projectError;
   const others = (invoices ?? []).filter((i) => i.id !== opts.draftId);
   const from = earlierWorkFrom(
     opts.periodStart,
@@ -45,28 +51,58 @@ async function loadEarlierWork(
     })),
   );
   if (!from) return null;
-  const window = billingWindow(from, addDays(opts.periodStart, -1), opts.tz);
-  const rows = await selectAll(() => {
-    const q = db
-      .from('time_entries')
-      .select('started_at')
-      .in(
-        'project_id',
-        (projects ?? []).map((p) => p.id as string),
-      )
-      .is('invoice_id', null)
-      .eq('invoiced_elsewhere', false)
-      .eq('is_billable', true)
-      .not('ended_at', 'is', null)
-      .gte('started_at', window.start.toISOString())
-      .lt('started_at', window.end.toISOString());
-    return opts.draftId
-      ? q.or(`draft_id.is.null,draft_id.eq.${opts.draftId}`)
-      : q.is('draft_id', null);
-  });
+  const rows = await selectAll(() =>
+    unbilledEntries(db, {
+      projectIds: opts.projectIds,
+      select: 'started_at',
+      drafts: 'free',
+      draftId: opts.draftId,
+      window: billingWindow(from, addDays(opts.periodStart, -1), opts.tz),
+      billableOnly: true,
+    }),
+  );
   return earlierWork(
     rows.map((r) => ({ startedAt: r.started_at as string })),
     opts.tz,
+  );
+}
+
+/** The period's billable work other drafts hold (`heldWork()`): what the
+    preview would bill if no draft held it. */
+async function loadHeldWork(
+  db: SupabaseClient,
+  opts: {
+    projectIds: string[];
+    periodStart: string;
+    periodEnd: string;
+    tz: string;
+    draftId?: string;
+  },
+) {
+  const rows = await selectAll(() =>
+    unbilledEntries(db, {
+      projectIds: opts.projectIds,
+      select: 'draft_id',
+      drafts: 'others',
+      window: billingWindow(opts.periodStart, opts.periodEnd, opts.tz),
+      billableOnly: true,
+    }),
+  );
+  if (rows.length === 0) return null;
+  const entries = rows.map((r) => ({ draftId: r.draft_id as string }));
+  const { data: drafts, error } = await db
+    .from('invoices')
+    .select('id, invoice_number, sequence_no')
+    .in('id', [...new Set(entries.map((e) => e.draftId))]);
+  if (error) throw error;
+  return heldWork(
+    entries,
+    (drafts ?? []).map((d) => ({
+      id: d.id as string,
+      invoiceNumber: d.invoice_number as string,
+      sequenceNo: d.sequence_no as number,
+    })),
+    opts.draftId,
   );
 }
 
@@ -125,6 +161,24 @@ export const POST = handle(async (req: Request) => {
     ),
   );
 
+  const projectIds = await clientProjectIds(db, body.clientId);
+  const [earlier, held] = await Promise.all([
+    loadEarlierWork(db, {
+      clientId: body.clientId,
+      projectIds,
+      periodStart: body.periodStart,
+      tz,
+      draftId: body.draftId,
+    }),
+    loadHeldWork(db, {
+      projectIds,
+      periodStart: body.periodStart,
+      periodEnd: body.periodEnd,
+      tz,
+      draftId: body.draftId,
+    }),
+  ]);
+
   return NextResponse.json({
     clientId: body.clientId,
     clientName: client.name,
@@ -136,12 +190,8 @@ export const POST = handle(async (req: Request) => {
     overlappingEntryIds: toBill
       .map((e) => e.id)
       .filter((id) => overlapping.has(id)),
-    earlierWork: await loadEarlierWork(db, {
-      clientId: body.clientId,
-      periodStart: body.periodStart,
-      tz,
-      draftId: body.draftId,
-    }),
+    earlierWork: earlier,
+    heldWork: held,
     schedules: buildSchedules(entries, {
       tz,
       periodStart: body.periodStart,

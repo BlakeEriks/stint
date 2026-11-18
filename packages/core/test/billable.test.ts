@@ -6,6 +6,7 @@ import {
   billingZone,
   earlierWork,
   earlierWorkFrom,
+  heldWork,
   isBillableEntry,
 } from '../src/billable.ts';
 
@@ -187,4 +188,60 @@ for (const [entries, tz, expected, why] of [
 ] as const)
   test(`earlier work: ${why}`, () => {
     assert.deepEqual(earlierWork([...entries], tz), expected);
+  });
+
+const [A, B, EDITED] = ['draft-a', 'draft-b', 'draft-edited'];
+const [RENAMED] = ['draft-renamed'];
+const drafts = [
+  { id: B, invoiceNumber: 'INV-0014', sequenceNo: 14 },
+  { id: A, invoiceNumber: 'INV-0012', sequenceNo: 12 },
+  { id: EDITED, invoiceNumber: 'INV-0015', sequenceNo: 15 },
+  // The prefix changed after INV-0014: the number orders, not the text.
+  { id: RENAMED, invoiceNumber: 'ACME-0016', sequenceNo: 16 },
+];
+const held = (...ids: (string | null)[]) => ids.map((draftId) => ({ draftId }));
+for (const [entries, expected, why] of [
+  [held(null, null), null, 'none'],
+  [
+    held(A, null, A),
+    {
+      entryCount: 2,
+      drafts: [{ id: A, invoiceNumber: 'INV-0012', entryCount: 2 }],
+    },
+    'one draft',
+  ],
+  [
+    held(B, A, A),
+    {
+      entryCount: 3,
+      drafts: [
+        { id: A, invoiceNumber: 'INV-0012', entryCount: 2 },
+        { id: B, invoiceNumber: 'INV-0014', entryCount: 1 },
+      ],
+    },
+    'two drafts, by number',
+  ],
+  [
+    held(RENAMED, B),
+    {
+      entryCount: 2,
+      drafts: [
+        { id: B, invoiceNumber: 'INV-0014', entryCount: 1 },
+        { id: RENAMED, invoiceNumber: 'ACME-0016', entryCount: 1 },
+      ],
+    },
+    'two drafts across a prefix change, by sequence',
+  ],
+  [
+    held(EDITED, A),
+    {
+      entryCount: 1,
+      drafts: [{ id: A, invoiceNumber: 'INV-0012', entryCount: 1 }],
+    },
+    'the edited draft left out',
+  ],
+  [held(EDITED), null, 'only the edited draft'],
+] as const)
+  test(`held work: ${why}`, () => {
+    assert.deepEqual(heldWork([...entries], drafts, EDITED), expected);
   });

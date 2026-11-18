@@ -261,6 +261,43 @@ test('preview offers the work after the last invoice and before the period, and 
   assert.equal(rows[0].invoice_id, res.body.id);
 });
 
+/* A period another draft holds prints no hours; the preview says which
+   draft has them, so the empty page isn't read as lost work. */
+test('preview names the draft holding the period’s work, but not the draft edited', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1), start: '2026-09-10T09:00:00Z' });
+  await seedEntry({ id: E(2), start: '2026-09-11T09:00:00Z' });
+  // Held too, but it would bill nothing here.
+  await seedEntry({ id: E(3), start: '2026-09-12T09:00:00Z', billable: false });
+  const draft = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(draft.status, 201, JSON.stringify(draft.body));
+  const held = async (draftId?: string) =>
+    (
+      await json(
+        await preview(
+          req('/invoices/preview', { clientId: CLIENT, ...PERIOD, draftId }),
+        ),
+      )
+    ).body.heldWork;
+
+  assert.deepEqual(await held(), {
+    entryCount: 2,
+    drafts: [
+      {
+        id: draft.body.id,
+        invoiceNumber: draft.body.invoiceNumber,
+        entryCount: 2,
+      },
+    ],
+  });
+  assert.equal(await held(draft.body.id), null);
+});
+
 /* The period is local dates, and the entries are instants. With a UTC window
    these two sit outside a September period for a New York user even though
    both were worked in September on the clock the user read — the late one
