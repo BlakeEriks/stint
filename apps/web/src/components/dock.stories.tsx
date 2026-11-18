@@ -3,7 +3,7 @@ import { localDateKey } from '@stint/core';
 import { account } from '@/mocks/db';
 import { entry, ids, type Db } from '@/mocks/fixtures';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
-import { desktop, expectOpen, stalled, tablet } from '@/mocks/screen';
+import { desktop, expectOpen, light, stalled, tablet } from '@/mocks/screen';
 import { ZOOM_KEY } from '@/lib/client/use-zoom';
 import { ZONE } from '@/mocks/time.mts';
 import { Dock } from './dock';
@@ -162,28 +162,62 @@ const northwindOn = (schedule: Db['clients'][number]['billingSchedule']) =>
       if (c.id === ids.northwind) c.billingSchedule = schedule;
   });
 
+/** The ready-to-invoice card: the accent edge and clause, what the period
+    bills, and Create invoice, both links opening New invoice for it. */
+async function expectDue(page: ReturnType<typeof within>, period: string) {
+  const card = (await page.findByText(`${period} is ready to invoice`)).closest(
+    '[data-tone]',
+  ) as HTMLElement;
+  await expect(card).toHaveAttribute('data-tone', 'accent');
+  await expect(within(card).getByText(/^\$[\d,]+\.\d\d$/)).toBeVisible();
+  return within(card);
+}
+
 /** Northwind bills twice a month, and on September 17 its first half has
-    ended with work in it and no invoice. The row opens New invoice for it. */
+    ended with work in it and no invoice. Among the overdue, stale and
+    unassigned cards, its card prompts in the accent. */
 export const PeriodDue: Story = {
   ...desktop,
   parameters: northwindOn({ period: 'semimonthly' }),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
-    const row = within(
-      (await page.findByText('Sep 1 – 15 is ready to invoice')).closest(
-        '[data-tone]',
-      ) as HTMLElement,
-    );
+    for (const other of [/days late/, /Draft, \d+d old/, /No project/])
+      await expect((await page.findAllByText(other))[0]).toBeVisible();
+    const row = await expectDue(page, 'Sep 1 – 15');
+    const href = `/invoices/new?client=${ids.northwind}&from=2026-09-01&to=2026-09-15`;
     await expect(
       row.getByRole('link', { name: 'Northwind Trading' }),
-    ).toHaveAttribute(
-      'href',
-      `/invoices/new?client=${ids.northwind}&from=2026-09-01&to=2026-09-15`,
-    );
+    ).toHaveAttribute('href', href);
+    await expect(
+      row.getByRole('link', { name: 'Create invoice, Northwind Trading' }),
+    ).toHaveAttribute('href', href);
     const inbox = page.getByRole('region', { name: 'Inbox' });
     await expect(inbox.querySelector('header')).toHaveTextContent(
       String(within(inbox).getAllByRole('listitem').length),
     );
+  },
+};
+
+/** The same card in the light theme's accent. */
+export const PeriodDueLight: Story = { ...PeriodDue, ...light };
+
+/** Two clients ready at once are two cards. */
+export const PeriodDueTwo: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    for (const c of db.clients)
+      if (c.id === ids.northwind || c.id === ids.meridian)
+        c.billingSchedule = { period: 'semimonthly' };
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      await page.findAllByText('Sep 1 – 15 is ready to invoice'),
+    ).toHaveLength(2);
+    for (const name of ['Northwind Trading', 'Meridian Labs'])
+      await expect(
+        page.getByRole('link', { name: `Create invoice, ${name}` }),
+      ).toBeVisible();
   },
 };
 

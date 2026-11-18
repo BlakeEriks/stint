@@ -9,11 +9,13 @@ import { type BillingSchedule, lastEndedPeriod } from './billing-period.ts';
 import { addDays, localDateKey } from './calendar.ts';
 import {
   type BillableEntry,
+  billedAmount,
   buildLineItems,
   type ExpenseInput,
   hundredths,
   termsDays,
 } from './invoice.ts';
+import { resolveRate } from './rates.ts';
 
 /** What a draft's last PDF printed that sending keeps: its dates, and the
  *  template it was drawn in. */
@@ -115,10 +117,22 @@ export function lateEntries(
 }
 
 interface DueInputs {
-  /** The user's active clients; `schedule` null when none is set. */
-  clients: { id: string; name: string; schedule: BillingSchedule | null }[];
+  /** The user's active clients; `schedule` null when none is set, `currency`
+   *  the one its invoices bill in. */
+  clients: {
+    id: string;
+    name: string;
+    schedule: BillingSchedule | null;
+    rate?: number | null;
+    currency: string;
+  }[];
   /** Finished entries on no invoice and not billed elsewhere. */
-  entries: Omit<LateCandidate, 'taskName'>[];
+  entries: (Omit<LateCandidate, 'taskName'> & {
+    rateOverride?: number | null;
+    projectRate?: number | null;
+  })[];
+  /** The user's default hourly rate. */
+  defaultRate?: number | null;
   /** The user's non-void invoices: callers leave the void ones out. A
    *  draft says so in `status`; without one, an invoice is issued. */
   invoices: {
@@ -144,10 +158,11 @@ function covers(i: DueInputs['invoices'][number], period: Period) {
 /**
  * Clients ready to invoice, one row each by name: those with a schedule whose
  * most recent ended period holds billable work and none of `invoices`
- * `covers()`.
+ * `covers()`. `amount` is what that work bills, each entry at its resolved
+ * rate; work with no rate counts as nothing.
  */
 export function unbilledDue(
-  { clients, entries, invoices }: DueInputs,
+  { clients, entries, invoices, defaultRate }: DueInputs,
   today: string,
   tz: string,
 ) {
@@ -174,6 +189,21 @@ export function unbilledDue(
           clientId: c.id,
           clientName: c.name,
           seconds: work.reduce((t, e) => t + e.durationSeconds, 0),
+          // In cents until the end, as the invoice sums its lines.
+          amount:
+            work.reduce((sum, e) => {
+              const rate = resolveRate({
+                entryRateOverride: e.rateOverride,
+                projectRate: e.projectRate,
+                clientRate: c.rate,
+                userDefaultRate: defaultRate,
+              });
+              return (
+                sum +
+                Math.round(billedAmount(e.durationSeconds, rate ?? 0) * 100)
+              );
+            }, 0) / 100,
+          currency: c.currency,
           ...period,
         },
       ];

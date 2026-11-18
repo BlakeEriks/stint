@@ -184,7 +184,8 @@ that invoice;
 `unbilledDue` one per active client with a billing schedule whose most
 recent ended period holds billable work, overlaps no sent or paid invoice,
 and lies inside no draft's period (a draft offers only its own period's work),
-with that work's `seconds`, dated in the account's `billingTimeZone`
+with that work's `seconds` and the `amount` it bills in the client's
+`currency` (work with no rate counts as nothing), dated in the account's `billingTimeZone`
 (else `tz`) as its invoice would be, and the period as
 `periodStart`..`periodEnd`. No entry is in both it and `lateEntries`.
 The long threshold defaults to 12 hours, which is how a timer left running

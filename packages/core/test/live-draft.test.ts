@@ -322,8 +322,13 @@ test('ready to invoice: the most recent ended period no invoice covers', () => {
     const rows = unbilledDue(
       {
         clients: [
-          { id: 'c1', name: 'Northwind', schedule: { period: 'monthly' } },
-          { id: 'c2', name: 'Acme', schedule: null },
+          {
+            id: 'c1',
+            name: 'Northwind',
+            schedule: { period: 'monthly' },
+            currency: 'USD',
+          },
+          { id: 'c2', name: 'Acme', schedule: null, currency: 'USD' },
         ],
         entries: row.entries,
         invoices: row.invoices ?? [],
@@ -338,5 +343,55 @@ test('ready to invoice: the most recent ended period no invoice covers', () => {
       row.due,
       row.name,
     );
+  }
+});
+
+/* Each row: one entry's rates, override to default, and what Northwind's
+   September would bill at $150/h on the client unless the row says. */
+test('ready to invoice: the amount, each entry at the rate that bills it', () => {
+  const rated = (
+    rates: { rateOverride?: number | null; projectRate?: number | null },
+    durationSeconds = 3600,
+  ) => ({ ...work(IN_SEP), durationSeconds, ...rates });
+  for (const [name, entries, rate, defaultRate, amount] of [
+    [
+      'the override first',
+      [rated({ rateOverride: 200, projectRate: 100 })],
+      150,
+      50,
+      200,
+    ],
+    ['then the project', [rated({ projectRate: 100 })], 150, 50, 100],
+    ['then the client', [rated({})], 150, 50, 150],
+    ['then the default', [rated({})], null, 50, 50],
+    ['a zero rate bills nothing', [rated({ rateOverride: 0 })], 150, 50, 0],
+    ['no rate anywhere bills nothing', [rated({})], null, null, 0],
+    [
+      'hours rounded per entry, as printed',
+      [rated({}, 1200), { ...rated({}, 1200), id: 'e2' }],
+      100,
+      null,
+      66,
+    ],
+  ] as const) {
+    const [row] = unbilledDue(
+      {
+        clients: [
+          {
+            id: 'c1',
+            name: 'Northwind',
+            schedule: { period: 'monthly' },
+            rate,
+            currency: 'EUR',
+          },
+        ],
+        entries: [...entries],
+        invoices: [],
+        defaultRate,
+      },
+      '2026-10-03',
+      'America/Chicago',
+    );
+    assert.deepEqual([row?.amount, row?.currency], [amount, 'EUR'], name);
   }
 });
