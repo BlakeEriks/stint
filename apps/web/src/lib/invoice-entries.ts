@@ -3,12 +3,8 @@ import { entryAmount, type BillableEntry } from '@stint/core';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from './rows';
 import { selectAll } from './select-all';
 
-/**
- * The entries an invoice holds, oldest first, as its page lists them. A
- * draft's are the ones it prices (`computeInvoice`'s `entries`), each with
- * its amount; an issued invoice's are the ones it claimed, with none, since
- * the rate each was billed at isn't stored.
- */
+/** The invoice's `InvoiceEntry` list, oldest first: a draft's are the ones
+    it prices (`computeInvoice`'s `entries`). */
 export async function invoiceEntries(
   db: SupabaseClient,
   invoiceId: string,
@@ -23,11 +19,19 @@ export async function invoiceEntries(
   );
   const byId = new Map(priced?.map((e) => [e.id, e]));
   const held = rows.filter((r) => !priced || byId.has(r.id));
+  if (priced)
+    return held.map((r) => {
+      const entry = byId.get(r.id)!;
+      return {
+        ...toEntry(r),
+        projectName: entry.projectName,
+        amount: entryAmount(entry),
+      };
+    });
   const names = await projectNames(db, held);
   return held.map((r) => ({
     ...toEntry(r),
     projectName: names.get(r.project_id ?? '') ?? null,
-    ...(priced && { amount: entryAmount(byId.get(r.id)!) }),
   }));
 }
 

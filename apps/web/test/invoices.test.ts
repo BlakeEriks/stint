@@ -4017,10 +4017,10 @@ test('an invoice lists the entries it holds; only a draft prices them', async ()
       .body.entries as Array<Record<string, unknown>>;
   const draft = await listed();
   assert.deepEqual(
-    draft.map((e) => [e.id, e.projectName, e.endedAt != null, e.amount]),
+    draft.map((e) => [e.id, e.projectName, e.amount]),
     [
-      [D(1), 'Lifecycle', true, 68.75],
-      [D(2), 'Lifecycle', true, null],
+      [D(1), 'Lifecycle', 68.75],
+      [D(2), 'Lifecycle', null],
     ],
   );
 

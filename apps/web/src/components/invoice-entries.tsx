@@ -18,8 +18,7 @@ import { shortDate } from './invoice-bits';
  * The entries an invoice holds, under the sheet rather than on it: the PDF
  * is what the client reads, this is the owner's check of it. A draft's rows
  * open the entry to fix it, and the save refetches the draft. An issued
- * invoice's are locked, so its rows are text, and carry hours only: no
- * entry's billed rate is stored, and today's could differ.
+ * invoice's are locked, so its rows are text.
  */
 export function InvoiceEntries({
   invoiceId,

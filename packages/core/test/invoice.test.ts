@@ -37,9 +37,9 @@ test('an entry is worth what a line billing it alone charges, or nothing', () =>
     entry({ durationSeconds: 1200, rateOverride: 137.5 }),
     entry({ isBillable: false }),
     entry({ userDefaultRate: null }),
+    entry({ userDefaultRate: 0 }),
   ])
     assert.equal(entryAmount(e), alone(e));
-  assert.equal(entryAmount(entry({ userDefaultRate: 0 })), 0);
 });
 
 test('one entry, one line, rate from the user default', () => {

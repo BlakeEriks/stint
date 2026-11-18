@@ -39,7 +39,6 @@ type Ctx = { params: Promise<{ id: string }> };
  * PDF opens for the caller, so the screen knows before a press. A draft is
  * the work it holds now: it names the entries it can't price, how many
  * entries Mark sent locks, and the work in its period it doesn't hold.
- * Every invoice lists the entries it holds; a draft prices each.
  */
 export const GET = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
