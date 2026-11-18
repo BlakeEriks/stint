@@ -4027,8 +4027,8 @@ test('an invoice lists the entries it holds; only a draft prices them', async ()
   await send(inv.body.id);
   const sent = await listed();
   assert.deepEqual(
-    sent.map((e) => [e.id, e.invoiceId, 'amount' in e]),
-    [[D(1), inv.body.id, false]],
+    sent.map((e) => [e.id, e.invoiceId, e.projectName, 'amount' in e]),
+    [[D(1), inv.body.id, 'Lifecycle', false]],
   );
 });
 
