@@ -136,3 +136,32 @@ export async function expectOpen(
     expect(await page.findByRole(role, name ? { name } : {})).toBeVisible(),
   );
 }
+
+/**
+ * At `xl`, scrolls the panel (to `scrollTop`, or its end) and asserts the
+ * frame's bar held: the title within 40px of the panel's top, and it and
+ * each of `also` above the scroller.
+ */
+export async function expectTitlePinned(
+  canvasElement: HTMLElement,
+  name: string,
+  { scrollTop, also = [] }: { scrollTop?: number; also?: HTMLElement[] } = {},
+) {
+  const title = within(canvasElement).getByRole('heading', { name, level: 1 });
+  const scroller = canvasElement.querySelector<HTMLElement>(
+    '[data-content-scroller]',
+  )!;
+  const panel = canvasElement.querySelector('[data-content-panel]')!;
+  scroller.scrollTop = scrollTop ?? scroller.scrollHeight;
+  await waitFor(() => {
+    expect(scroller.scrollTop).toBeGreaterThan(100);
+    const top = panel.getBoundingClientRect().top;
+    const bottom = scroller.getBoundingClientRect().top;
+    expect(title.getBoundingClientRect().top - top).toBeLessThan(40);
+    for (const el of [title, ...also]) {
+      const box = el.getBoundingClientRect();
+      expect(box.top).toBeGreaterThanOrEqual(top);
+      expect(box.bottom).toBeLessThanOrEqual(bottom);
+    }
+  });
+}

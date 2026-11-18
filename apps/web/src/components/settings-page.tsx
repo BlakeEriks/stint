@@ -38,8 +38,7 @@ export function SettingsPage() {
   });
 
   return (
-    <Page>
-      <h1 className="mb-6 type-title text-strong">Settings</h1>
+    <Page title="Settings">
       <Listing query={[settings, profiles]} also={[billing, apps]}>
         {([loaded]) => <Sections loaded={loaded} />}
       </Listing>
@@ -48,8 +47,10 @@ export function SettingsPage() {
 }
 
 function Sections({ loaded }: { loaded: Settings }) {
+  /* The title bar's own rule sits above the first section, so its border
+     would double it. */
   return (
-    <>
+    <div className="*:first:border-t-0">
       <SettingsForm loaded={loaded} />
       <PaymentProfiles />
       <Section
@@ -66,6 +67,6 @@ function Sections({ loaded }: { loaded: Settings }) {
       <ConnectedApps />
       <PlanSection />
       <AccountSection />
-    </>
+    </div>
   );
 }
