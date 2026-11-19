@@ -36,8 +36,8 @@ function dayRange(day: string | null) {
 }
 
 /**
- * Today's local date key, null until hydrated, rechecked once a minute so a tab left open past
- * midnight moves to the new day. Held in state rather than read in render:
+ * Today's local date key, null until hydrated, rechecked once a minute so a
+ * tab left open past midnight moves to the new day. Held in state rather than read in render:
  * the key changes only when the day does, not on every beat and refetch.
  *
  * The new day refetches `/stats` too: Earned comes from there, and without
@@ -46,14 +46,15 @@ function dayRange(day: string | null) {
 function useLocalDay(): string | null {
   const queryClient = useQueryClient();
   const now = useNow();
-  const [moved, setMoved] = useState<string | null>(null);
-  const day = moved ?? (now && localDateKey(now, tz));
+  const [day, setDay] = useState<string | null>(null);
+  // Seeded once, when hydration gives the clock; the minute's check moves it.
+  if (day === null && now) setDay(localDateKey(now, tz));
   useEffect(() => {
     if (day === null) return;
     const id = setInterval(() => {
       const next = localDateKey(appNow(), tz);
       if (next === day) return;
-      setMoved(next);
+      setDay(next);
       void queryClient.invalidateQueries({ queryKey: keys.stats() });
     }, 60_000);
     return () => clearInterval(id);

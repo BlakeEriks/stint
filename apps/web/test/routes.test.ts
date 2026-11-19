@@ -3692,8 +3692,6 @@ test('health answers 200 while Postgres answers, even refusing, and 503 when it 
   }
 });
 
-/* With Cache Components, the build stops a handler at its first read of the
-   request by throwing; a route that caught it answered the build a 500. */
 test("Next's own signals pass through a route rather than becoming its 500", async () => {
   const { notFound } = await import('next/navigation');
   const { GET } = await import('../src/app/api/v1/clients/route.ts');
