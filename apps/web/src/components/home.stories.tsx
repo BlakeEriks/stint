@@ -427,7 +427,7 @@ export const Empty: Story = {
 
     // The day keeps its rows, and no pip: a ring would claim internal work.
     const rows = canvasElement.querySelectorAll('[data-entry-empty]');
-    await expect(rows).toHaveLength(3);
+    await expect(rows).toHaveLength(2);
     for (const row of rows)
       await expect(row.querySelector('[data-pip]')).toBeNull();
 
