@@ -39,8 +39,7 @@ test('a failed screen keeps the frame and the timer, and Go home leaves it', asy
      failed is a trap. */
   await page.getByRole('link', { name: /go home/i }).click();
   await page.waitForURL('**/');
-  /* The heading, not the text: the router keeps the failed page mounted but
-     hidden for Back, and Next's route announcer can repeat its heading. */
+  // The router keeps the failed page mounted but hidden, for Back.
   await expect(page.getByRole('heading', { name: /didn't load/i })).toHaveCount(
     0,
   );
