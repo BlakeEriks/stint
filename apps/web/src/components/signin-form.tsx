@@ -77,7 +77,7 @@ export function SignInForm({
         <Wordmark />
       </h1>
       <p className="mt-1.5 type-control text-muted">
-        Time tracking for solo contractors.
+        Time tracking and invoicing for solo contractors.
       </p>
 
       {deleted && state === 'idle' ? (

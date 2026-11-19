@@ -36,6 +36,7 @@ import {
   billingZone,
   defaultInvoicePeriod,
   attachedSchedules,
+  offeredSchedules,
   formatCurrency,
   formatInvoiceNumber,
   isPeriod,
@@ -126,7 +127,7 @@ interface Draft {
   summaryText: string | null;
   /** With `summary`, the lines typed their own text, by rate. */
   summaryTexts: SummaryText[] | null;
-  /** Supporting detail to attach, with `summary` only. */
+  /** Supporting detail to attach, which the grouping may not offer. */
   schedules: ScheduleKind[] | null;
   charges: DraftCharge[];
   /** Waiting expenses left off this invoice. They keep waiting. */
@@ -207,7 +208,7 @@ function draftOf(inv: Edited, profiles: PaymentProfile[]): Draft {
     // Left to carry, as on New invoice, should a summary be picked.
     summaryText: summary ? (inv.summaryText ?? '') : null,
     summaryTexts: summary ? inv.summaryTexts : null,
-    schedules: summary ? attachedSchedules(inv.supportingDetail) : null,
+    schedules: attachedSchedules(inv.supportingDetail),
     charges: (inv.choices?.manualLines ?? []).map((l) => ({
       ...l,
       key: crypto.randomUUID(),
@@ -307,8 +308,11 @@ function useCarried(draft: Draft) {
         ? { value: summaryText, texts: summaryTexts }
         : undefined,
     reference: draft.reference ?? carried.reference,
-    schedules:
-      groupingMode === 'summary' ? (draft.schedules ?? carried.schedules) : [],
+    // A table the grouping already prints is left out, not unticked: it
+    // comes back with a grouping that doesn't.
+    schedules: (draft.schedules ?? carried.schedules).filter((k) =>
+      offeredSchedules(groupingMode).includes(k),
+    ),
   };
 }
 
@@ -710,6 +714,7 @@ function Form({
               newProfile: () => setNewProfileOpen(true),
             },
             summary,
+            offered: lastPending ? undefined : offeredSchedules(groupingMode),
             reference,
             waiting,
             period: { periodStart, periodEnd },
@@ -899,6 +904,7 @@ function cardEdits({
   hasClient,
   open,
   summary,
+  offered,
   reference,
   waiting,
   period,
@@ -920,6 +926,8 @@ function cardEdits({
   };
   /** With one summary line: its text, and whether it lacks one. */
   summary: { value: string; texts: SummaryText[] } | undefined;
+  /** The tables page 2 offers, once the grouping is known. */
+  offered: ScheduleKind[] | undefined;
   reference: string;
   waiting: Expense[];
   period: { periodStart: string; periodEnd: string };
@@ -968,9 +976,7 @@ function cardEdits({
           { rate, text: v },
         ]),
     },
-    // Only a summary has detail to support: every other grouping already
-    // breaks the time down on the invoice.
-    schedules: summary && { onChange: (v) => set('schedules', v) },
+    schedules: offered && { offered, onChange: (v) => set('schedules', v) },
     charges: {
       list: draft.charges,
       onOpen: chargeDialog.show,

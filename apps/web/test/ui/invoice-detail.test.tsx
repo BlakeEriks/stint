@@ -233,6 +233,36 @@ describe('InvoiceDetail', () => {
     expect(askedAfter).toEqual([]);
   });
 
+  /* The page shows only the latest press's refusal: a void refused earlier
+     must not read as a refusal of the payment about to be entered. */
+  it('drops an earlier refusal once another action is pressed', async () => {
+    serve('sent');
+    const answer = vi.mocked(fetch).getMockImplementation()!;
+    vi.mocked(fetch).mockImplementation(async (url, init) =>
+      init?.method === 'PATCH'
+        ? new Response(
+            JSON.stringify({ code: 'CONFLICT', message: 'Void refused.' }),
+            { status: 409 },
+          )
+        : answer(url, init),
+    );
+    const user = userEvent.setup();
+    show();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Void invoice' }),
+    );
+    const dialog = within(screen.getByRole('dialog'));
+    await user.click(dialog.getByRole('button', { name: 'Void invoice' }));
+    await dialog.findByText('Void refused.');
+    await user.click(dialog.getByRole('button', { name: 'Keep it' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByText('Void refused.')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Mark paid' }));
+    expect(screen.queryByText('Void refused.')).toBeNull();
+  });
+
   /* Sent Monday 3pm, marked paid on that same Monday from a session running
      Wednesday: local midnight of the picked day is Monday 00:00, which is
      before Monday 3pm and would underflow `sentAt`. The picked date is the

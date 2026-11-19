@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Inbox } from '@/components/inbox';
 import { MutationNotice } from '@/components/mutation-notice';
+import { ToastProvider } from '@/components/toast';
 import type { Stats } from '@/lib/client/api';
 
 vi.mock('next/navigation', () => ({
@@ -270,7 +271,9 @@ describe('entries with no project', () => {
     render(
       <>
         <Inbox stats={withRow()} />
-        <MutationNotice />
+        <ToastProvider>
+          <MutationNotice />
+        </ToastProvider>
       </>,
       { wrapper },
     );
@@ -428,7 +431,9 @@ describe('entries of unusual length', () => {
     render(
       <>
         <Inbox stats={stats({ strangeDurations: [longEntry] })} />
-        <MutationNotice />
+        <ToastProvider>
+          <MutationNotice />
+        </ToastProvider>
       </>,
       { wrapper },
     );

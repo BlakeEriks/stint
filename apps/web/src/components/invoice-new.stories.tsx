@@ -994,13 +994,20 @@ export const AttachDetail: Story = {
   },
 };
 
-/** Any other grouping has no Attach (US2 scenario 6). */
-export const NoAttachWithoutSummary: Story = {
+/** By project offers every table but Hours by project, which its lines
+    already print. */
+export const AttachByProject: Story = {
   ...desktop,
+  parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
-    await page.findByRole('button', { name: 'Show time as' });
-    await expect(page.queryByRole('group', { name: 'Attach' })).toBeNull();
+    await pickGrouping(page, /By project/);
+    await settled(page);
+    for (const name of ['Hours by week', 'Hours by date'])
+      await expect(page.getByRole('checkbox', { name })).not.toBeChecked();
+    await expect(
+      page.queryByRole('checkbox', { name: 'Hours by project' }),
+    ).toBeNull();
   },
 };
 
