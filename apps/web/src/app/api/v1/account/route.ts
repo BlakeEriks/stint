@@ -5,8 +5,6 @@ import { stripe } from '@/lib/stripe';
 import { hasEnded } from '@stint/core';
 import type { Account } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 const TABLES = {
   entries: 'time_entries',
   clients: 'clients',

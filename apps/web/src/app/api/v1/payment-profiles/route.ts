@@ -13,8 +13,6 @@ import {
 import { uuidv7 } from '@stint/core';
 import { CreatePaymentProfile, ListPaymentProfilesQuery } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 export const GET = handle(async (req: Request) => {
   const { db } = await requireSession(req);
   const q = parseQuery(req, ListPaymentProfilesQuery);

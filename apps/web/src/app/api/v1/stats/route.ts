@@ -6,8 +6,6 @@ import { readStats } from '@/lib/stats';
 import { readsAt } from '@/lib/reads-at';
 import { StatsQuery } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 /** GET /api/v1/stats — `readStats` says what it holds. */
 export const GET = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);

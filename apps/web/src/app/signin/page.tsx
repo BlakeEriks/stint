@@ -1,8 +1,21 @@
+import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { cookieClient } from '@/lib/supabase';
 import { SignInForm } from '@/components/signin-form';
 
-export const dynamic = 'force-dynamic';
+type Props = {
+  searchParams: Promise<{ error?: string; deleted?: string; next?: string }>;
+};
+
+/* Reached by a full load, never a prefetched link, so the form streams in
+   the same response and there is nothing to show before it. */
+export default function Page({ searchParams }: Props) {
+  return (
+    <Suspense>
+      <SignIn searchParams={searchParams} />
+    </Suspense>
+  );
+}
 
 /**
  * Signing in is for people who are not signed in.
@@ -11,11 +24,7 @@ export const dynamic = 'force-dynamic';
  * PKCE verifier, which makes valid magic links fail. It also makes the local
  * `signOut` in the form safe: it can only run with no session to lose.
  */
-export default async function Page({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string; deleted?: string; next?: string }>;
-}) {
+async function SignIn({ searchParams }: Props) {
   const { error, deleted, next } = await searchParams;
 
   const db = await cookieClient();

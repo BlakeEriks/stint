@@ -21,8 +21,6 @@ import {
 import { InvoicePreviewRequest } from '@stint/schema';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export const dynamic = 'force-dynamic';
-
 /** The client's billable work New invoice offers to include
     (`earlierWork()`). The edited draft doesn't end the look-back, and what
     it holds counts as free, as the preview's own lines do. */

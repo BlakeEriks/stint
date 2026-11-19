@@ -6,8 +6,6 @@ import { deriveDraft, holdNewWork } from '@/lib/drafts';
 import { INVOICE_COLUMNS, type InvoiceRow } from '@/lib/rows';
 import { InvoiceReadQuery } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 type Ctx = { params: Promise<{ id: string }> };
 
 /**

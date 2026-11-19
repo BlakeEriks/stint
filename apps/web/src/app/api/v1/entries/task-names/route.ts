@@ -5,8 +5,6 @@ import { parseQuery } from '@/lib/validate';
 import { type TaskNameRow, toTaskNameSuggestion } from '@/lib/rows';
 import { TaskNamesQuery } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 export const GET = handle(async (req: Request) => {
   const { db, userId } = await requireSession(req);
   const q = parseQuery(req, TaskNamesQuery);

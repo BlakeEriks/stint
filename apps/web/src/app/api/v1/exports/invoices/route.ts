@@ -8,8 +8,6 @@ import { INVOICE_COLUMNS, toInvoice, type InvoiceRow } from '@/lib/rows';
 import { invoicesCsv } from '@stint/core';
 import { ExportQuery } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 /** GET /api/v1/exports/invoices — every invoice, any status, as CSV; a
  *  draft as the work it holds stands now. */
 export const GET = handle(async (req: Request) => {

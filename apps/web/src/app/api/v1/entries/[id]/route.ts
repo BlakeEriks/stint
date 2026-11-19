@@ -22,8 +22,6 @@ import { UpdateTimeEntry } from '@stint/schema';
 import { markable, refuseUnmarkable } from '@/lib/invoiced-elsewhere';
 import { loadSettings } from '@/lib/drafts';
 
-export const dynamic = 'force-dynamic';
-
 type Ctx = { params: Promise<{ id: string }> };
 
 export const GET = handle(async (req: Request, ctx: Ctx) => {

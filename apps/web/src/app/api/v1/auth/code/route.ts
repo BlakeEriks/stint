@@ -4,8 +4,6 @@ import { ApiError, handle, report } from '@/lib/errors';
 import { serviceClient } from '@/lib/supabase';
 import { parseBody } from '@/lib/validate';
 
-export const dynamic = 'force-dynamic';
-
 /** The route tests answer GoTrue in memory. */
 const gotrue = () =>
   (globalThis as { __TEST_GOTRUE__?: typeof fetch }).__TEST_GOTRUE__ ?? fetch;

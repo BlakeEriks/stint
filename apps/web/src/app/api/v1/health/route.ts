@@ -1,8 +1,6 @@
-import { NextResponse } from 'next/server';
+import { connection, NextResponse } from 'next/server';
 import { handle } from '@/lib/errors';
 import { anonClient, testDb } from '@/lib/supabase';
-
-export const dynamic = 'force-dynamic';
 
 /** Postgres refused the query, which it can only do while it is up. */
 const PERMISSION_DENIED = '42501';
@@ -17,6 +15,8 @@ const PERMISSION_DENIED = '42501';
  * or gateway error instead.
  */
 export const GET = handle(async () => {
+  // It reads no request, so without this the build would answer it once.
+  await connection();
   const db = testDb() ?? anonClient();
   const { error } = await db.from('clients').select('id').limit(1);
   const up = !error || error.code === PERMISSION_DENIED;

@@ -14,8 +14,6 @@ import {
 } from '@stint/core';
 import { StopTimer } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 /**
  * POST /api/v1/timer/stop
  *

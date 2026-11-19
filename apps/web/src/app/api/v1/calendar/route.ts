@@ -7,8 +7,6 @@ import { selectAll } from '@/lib/select-all';
 import { splitByLocalDay } from '@stint/core';
 import { CalendarQuery } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 /**
  * GET /api/v1/calendar
  *
