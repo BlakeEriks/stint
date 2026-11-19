@@ -376,7 +376,7 @@ function NewWorkNotice({
     .filter(Boolean)
     .join(' and ');
   return (
-    <Notice className="mt-3 flex-row flex-wrap items-center justify-between gap-x-4 gap-y-2.5">
+    <Notice className="mt-3 first:mt-0 flex-row flex-wrap items-center justify-between gap-x-4 gap-y-2.5">
       <div className="flex flex-col gap-0.5">
         <p className="type-body text-strong">{what}, in this period</p>
         <p className="type-support text-muted">
@@ -400,7 +400,7 @@ function NewWorkNotice({
     the user can find each one. */
 function Unrated({ entries }: { entries: UnratedEntry[] }) {
   return (
-    <Notice className="mt-3">
+    <Notice className="mt-3 first:mt-0">
       <p className="type-body text-strong">
         {entries.length} entr{entries.length === 1 ? 'y has' : 'ies have'} no
         rate
@@ -435,7 +435,7 @@ function DueBeforeIssue({
   downloaded: boolean;
 }) {
   return (
-    <Notice className="mt-3">
+    <Notice className="mt-3 first:mt-0">
       <p className="type-body text-strong">Due before it’s issued</p>
       <p className="type-support text-muted">
         {downloaded
