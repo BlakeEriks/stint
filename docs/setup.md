@@ -91,9 +91,11 @@ bundle, and RLS protects the data. A **secret** key (`sb_secret_…`) bypasses
 RLS, so it lives only in the sensitive Vercel variable `SUPABASE_SECRET_KEY`
 (`docs/deploying.md` §2).
 
-`signin-form.tsx` sends each magic link back to the origin it was requested
-from, so that origin must be on the project's allowlist, or the link is
-rejected on return without saying why. `docs/deploying.md` §4 sets it.
+Each sign-in email's link returns to the origin that asked for it
+(`signInLanding()` in `apps/web/src/lib/sign-in-link.ts`), so that origin
+must be on the project's allowlist. Supabase swaps a refused one for the Site
+URL, which has no query for the email to add the token to, so the link
+arrives malformed. `docs/deploying.md` §4 sets the allowlist.
 
 ## 5. Sign-in email
 
