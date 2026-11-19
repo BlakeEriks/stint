@@ -21,7 +21,9 @@ test('a failed screen keeps the frame and the timer, and Go home leaves it', asy
   await page.goto('/throw');
 
   // The boundary rendered.
-  await expect(page.getByText(/didn't load/i)).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: /didn't load/i }),
+  ).toBeVisible();
 
   /* And the frame did NOT go with it. The rail is the cheapest proof that
      the layout is still mounted, and the stop button proves the timer
@@ -37,10 +39,11 @@ test('a failed screen keeps the frame and the timer, and Go home leaves it', asy
      failed is a trap. */
   await page.getByRole('link', { name: /go home/i }).click();
   await page.waitForURL('**/');
-  // The router keeps the failed page mounted but hidden, for Back.
-  await expect(
-    page.getByText(/didn't load/i).filter({ visible: true }),
-  ).toHaveCount(0);
+  /* The heading, not the text: the router keeps the failed page mounted but
+     hidden for Back, and Next's route announcer can repeat its heading. */
+  await expect(page.getByRole('heading', { name: /didn't load/i })).toHaveCount(
+    0,
+  );
 
   // Clean up: the timer must not outlive the test.
   await page.getByRole('button', { name: 'Stop timer' }).click();
