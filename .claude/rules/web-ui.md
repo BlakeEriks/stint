@@ -193,8 +193,9 @@ anticipation of one.
 - **A render that reads the request or the clock sits behind `Suspense`**,
   or `next build` fails while `next dev` passes: Cache Components
   (`next.config.ts`) prerenders every page. That is awaiting `params` or
-  `searchParams`, `useSearchParams`, and `usePathname`. The clock goes
-  through `useNow()`, never `new Date()` or `appNow()` during render.
+  `searchParams`, `useSearchParams`, and `usePathname`. A render the
+  prerender reaches, before any query answers, reads the clock through
+  `useNow()`; one behind a query gate may call `appNow()`.
 - **User-visible text follows `docs/voice.md`.**
 - **Every action carries a visible label.** Four exceptions, each with an
   `aria-label`: a destructive first step, a dense repeating row, the dock's
