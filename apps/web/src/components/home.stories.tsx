@@ -493,6 +493,20 @@ export const InternalToday: Story = {
   },
 };
 
+/** Projects fail: Today's rows still paint, without their project names. */
+export const TodayProjectsFailed: Story = {
+  ...desktop,
+  parameters: failing('projects'),
+  play: async ({ canvasElement }) => {
+    const row = () =>
+      [...canvasElement.querySelectorAll('[data-task]')].find((r) =>
+        r.textContent?.startsWith('Filter panel and saved views'),
+      );
+    await waitFor(() => expect(row()).toBeTruthy());
+    await expect(row()?.textContent).not.toContain('Warehouse dashboard');
+  },
+};
+
 /** Six tasks today: the list scrolls, and the keyboard can reach it. */
 export const TodayScrolls: Story = {
   ...desktop,

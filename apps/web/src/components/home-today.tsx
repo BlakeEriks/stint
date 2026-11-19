@@ -85,7 +85,7 @@ function Tasks({
              em-dash is what holds the shape. Not a shimmer — nothing is
              loading by the time this renders, and a pulse would promise rows
              that are not coming. No pip either: the hollow ring means
-             internal work, and three of them would say the day held three
+             internal work, and two of them would say the day held two
              untracked entries. */
           Array.from({ length: PLACEHOLDER_ROWS }, (_, i) => (
             <TaskRow
