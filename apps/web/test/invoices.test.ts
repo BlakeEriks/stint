@@ -1090,7 +1090,7 @@ const SUMMARY = {
   summaryText: 'Software consulting services',
 };
 
-test('a summary preview carries every schedule; other groupings none', async () => {
+test('a preview carries every schedule, whatever the grouping', async () => {
   const { POST: preview } = await import(
     '../src/app/api/v1/invoices/preview/route.ts'
   );
@@ -1112,24 +1112,33 @@ test('a summary preview carries every schedule; other groupings none', async () 
   const task = await json(
     await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
   );
-  assert.equal(task.body.schedules, null);
+  assert.equal(task.body.schedules.totalHours, 3);
 });
 
-test('schedules are refused on any grouping but a summary', async () => {
+test('a schedule the grouping already prints is refused; another is kept', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   await seedEntry({ id: E(1) });
-  const res = await json(
-    await create(
-      req('/invoices', {
-        clientId: CLIENT,
-        ...PERIOD,
-        groupingMode: 'project',
-        schedules: ['project'],
-      }),
-    ),
-  );
-  assert.equal(res.status, 422);
-  assert.equal(res.body.code, 'VALIDATION_FAILED');
+  const make = async (schedules: string[]) =>
+    json(
+      await create(
+        req('/invoices', {
+          clientId: CLIENT,
+          ...PERIOD,
+          groupingMode: 'project',
+          schedules,
+        }),
+      ),
+    );
+  const refused = await make(['project']);
+  assert.equal(refused.status, 422);
+  assert.equal(refused.body.code, 'VALIDATION_FAILED');
+
+  const kept = await make(['week']);
+  assert.equal(kept.status, 201);
+  assert.deepEqual(Object.keys(kept.body.supportingDetail).sort(), [
+    'totalHours',
+    'week',
+  ]);
 });
 
 test('a summary of charges alone attaches no detail, even ticked', async () => {

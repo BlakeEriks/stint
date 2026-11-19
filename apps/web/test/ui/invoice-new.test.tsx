@@ -595,6 +595,27 @@ describe('NewInvoice — supporting detail', () => {
     const sent = bodies.find((b) => b.path.endsWith('/invoices'))!.body;
     expect(sent.schedules).toEqual(['project', 'date']);
   });
+
+  it('drops a ticked table the new grouping already prints', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+
+    await chooseClient(user);
+    await pickGrouping(user, /One summary line/);
+    await user.type(await screen.findByLabelText('Summary line'), 'Services');
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Hours by project' }),
+    );
+    await user.click(screen.getByRole('checkbox', { name: 'Hours by week' }));
+    await pickGrouping(user, /By project/);
+    await waitFor(() => expect(generate()).toBeEnabled());
+    await user.click(generate());
+    await waitFor(() => expect(push).toHaveBeenCalled());
+
+    const sent = bodies.find((b) => b.path.endsWith('/invoices'))!.body;
+    expect(sent.schedules).toEqual(['week']);
+  });
 });
 
 describe('NewInvoice — reference', () => {

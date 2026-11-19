@@ -10,7 +10,11 @@
 
 import { resolveRate } from './rates.ts';
 import { addDays, localDateKey } from './calendar.ts';
-import { hundredths, type BillableEntry } from './invoice.ts';
+import {
+  hundredths,
+  type BillableEntry,
+  type GroupingMode,
+} from './invoice.ts';
 
 export type ScheduleKind = 'project' | 'week' | 'date';
 
@@ -23,6 +27,17 @@ export const SCHEDULE_TITLES: Record<ScheduleKind, string> = {
   week: 'Hours by week',
   date: 'Hours by date',
 };
+
+/** The table a grouping's own lines already print, which page 2 never
+ *  repeats. */
+const PRINTED: Partial<Record<GroupingMode, ScheduleKind>> = {
+  project: 'project',
+  day: 'date',
+};
+
+/** The tables page 2 offers with a grouping, in print order. */
+export const offeredSchedules = (mode: GroupingMode): ScheduleKind[] =>
+  SCHEDULE_KINDS.filter((k) => k !== PRINTED[mode]);
 
 /** The tables an invoice carries, in print order. */
 export const attachedSchedules = (detail: Schedules | null): ScheduleKind[] =>

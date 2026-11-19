@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { buildLineItems, type BillableEntry } from '../src/invoice.ts';
 import {
   buildSchedules,
+  offeredSchedules,
   paginateSchedules,
   pickSchedules,
   type Schedules,
@@ -213,4 +214,16 @@ test('no billed time is no detail, ticked or not', () => {
   // The PDF prints no page for an empty table, so storing one would promise
   // a page 2 that never comes.
   assert.equal(pickSchedules(buildSchedules([], SEPT), ['project']), null);
+});
+
+test('page 2 offers each table the grouping does not already print', () => {
+  const offered = {
+    summary: ['project', 'week', 'date'],
+    project: ['week', 'date'],
+    day: ['project', 'week'],
+    task: ['project', 'week', 'date'],
+    entry: ['project', 'week', 'date'],
+  } as const;
+  for (const [mode, kinds] of Object.entries(offered))
+    assert.deepEqual(offeredSchedules(mode as keyof typeof offered), kinds);
 });

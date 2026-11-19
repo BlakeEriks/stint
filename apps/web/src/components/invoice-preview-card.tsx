@@ -55,8 +55,9 @@ export type CardFigures = Pick<
   | 'expensesSubtotal'
   | 'total'
   | 'currency'
-  | 'schedules'
 > & {
+  /** An issued invoice's are null when it attached none. */
+  schedules: Schedules | null;
   lineItems?: Array<
     Pick<
       InvoicePreview['lineItems'][number],
@@ -94,8 +95,11 @@ export type CardEdits = {
     /** Any other line's own text. */
     onChangeAt: (rate: number, value: string) => void;
   };
-  /** With one summary line: the supporting detail it attaches. */
-  schedules?: { onChange: (value: ScheduleKind[]) => void };
+  /** The supporting detail it attaches, from the tables `offered`. */
+  schedules?: {
+    offered: ScheduleKind[];
+    onChange: (value: ScheduleKind[]) => void;
+  };
   charges: {
     list: { key: string; description: string; amount: number }[];
     onOpen: (key: string) => void;
@@ -239,7 +243,7 @@ export function InvoicePreviewCard({
           detail={preview?.schedules ?? null}
           chosen={schedules}
           updating={updating}
-          onChange={edit?.schedules?.onChange}
+          edit={edit?.schedules}
         />
       </div>
     </section>
@@ -1097,14 +1101,16 @@ function Total({
 /** A schedule as a chip: pressed on, it is attached. */
 function ScheduleChips({
   chosen,
+  offered,
   onChange,
 }: {
   chosen: ScheduleKind[];
+  offered: ScheduleKind[];
   onChange: (value: ScheduleKind[]) => void;
 }) {
   return (
     <fieldset aria-label="Attach" className="flex flex-wrap gap-1.5">
-      {SCHEDULE_KINDS.map((kind) => (
+      {offered.map((kind) => (
         // `relative` keeps the sr-only (absolute) checkbox inside the
         // invoice's scroller, or it stretches the panel and scrolls it.
         <label
@@ -1131,25 +1137,25 @@ function ScheduleChips({
 }
 
 /** What page 2 onward will hold: hours only, never money. On New invoice,
-    with one summary line, its chips choose the tables. */
+    its chips choose the tables. */
 function Detail({
   detail,
   chosen,
   updating,
-  onChange,
+  edit,
 }: {
   detail: Schedules | null;
   chosen: ScheduleKind[];
   updating: boolean;
-  onChange?: (value: ScheduleKind[]) => void;
+  edit?: CardEdits['schedules'];
 }) {
   const shown = detail?.totalHours ? chosen : [];
-  if (!onChange && shown.length === 0) return null;
+  if (!edit && shown.length === 0) return null;
   const kinds = SCHEDULE_KINDS.filter((k) => shown.includes(k));
   return (
     <div className="flex flex-col gap-5 border-t border-dashed border-edge-default pt-4">
       <span className="type-label text-subtle">Page 2 · supporting detail</span>
-      {onChange ? <ScheduleChips chosen={chosen} onChange={onChange} /> : null}
+      {edit ? <ScheduleChips chosen={chosen} {...edit} /> : null}
       {detail
         ? kinds.map((kind) => (
             <Dims key={kind} updating={updating}>
