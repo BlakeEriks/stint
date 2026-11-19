@@ -1,9 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { signIn } from './mailpit';
 
-/* The router keeps a section it leaves mounted but hidden, and Next's route
-   announcer reads the page's first h1 whenever the title is empty. Every
-   section shares one title, so a switch announces nothing. */
 test('a section switch never announces the section left behind', async ({
   page,
 }) => {
