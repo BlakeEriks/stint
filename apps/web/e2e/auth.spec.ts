@@ -29,13 +29,37 @@ test.describe('authentication', () => {
     // user rather than merely a session.
     await expect(page.getByText(SEED_EMAIL)).toBeVisible();
 
-    /* Rendering the form to a signed-in user lets two sign-ins compete for one
-       PKCE verifier, which makes valid magic links read as invalid. */
     await page.goto('/signin');
     await page.waitForURL('**/');
     await expect(
       page.getByRole('navigation', { name: 'Sections' }),
     ).toBeVisible();
+  });
+
+  /* Mail apps open links in whichever browser is the default, and a browser
+     can lose what it stored between asking and clicking. */
+  test('the link signs in a browser that never asked for it', async ({
+    page,
+    browser,
+  }) => {
+    await clearInbox();
+    const requestedAt = Date.now();
+    await page.goto('/signin');
+    await page.getByLabel('Email').fill(SEED_EMAIL);
+    await requestLink(page);
+    const link = await magicLink(requestedAt);
+
+    const elsewhere = await browser.newContext();
+    try {
+      const fresh = await elsewhere.newPage();
+      await fresh.goto(link);
+      await fresh.waitForURL('**/');
+      await expect(
+        fresh.getByRole('navigation', { name: 'Sections' }),
+      ).toBeVisible();
+    } finally {
+      await elsewhere.close();
+    }
   });
 
   test('a new address signs up through the same form', async ({ page }) => {

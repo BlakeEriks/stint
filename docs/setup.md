@@ -118,10 +118,12 @@ Resend's free tier (100 a day) as `Stint <signin@runstint.com>`.
 
 The dashboard holds its own copy of the template, because `config.toml`
 points GoTrue at a local path a hosted project can't read. An edit to the
-file changes local only, until it's pasted again. Keep
-`{{ .ConfirmationURL }}` and both `{{ slice .Token }}` calls, because GoTrue mints a
-code for every magic link, and those calls show it, so the menu bar app's
-panel has a code to take.
+file changes local only, until it's pasted again. Keep the link's
+`{{ .RedirectTo }}&token_hash={{ .TokenHash }}`: the app verifies the token
+hash itself, where `{{ .ConfirmationURL }}` signs in only the browser that
+asked for the link. Keep both `{{ slice .Token }}` calls too, because GoTrue
+mints a code for every magic link, and those calls show it, so the menu bar
+app's panel has a code to take.
 
 ## 6. Connected apps
 

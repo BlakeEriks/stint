@@ -4455,13 +4455,15 @@ async function askCode(
   status = 200,
   body: object = {},
   asked: unknown[] = [],
+  urls: string[] = [],
 ) {
   const { POST } = await import('../src/app/api/v1/auth/code/route.ts');
   configureBroadcast();
   (globalThis as any).__TEST_GOTRUE__ = async (
-    _: string,
+    url: string,
     init: RequestInit,
   ) => {
+    urls.push(url);
     asked.push(JSON.parse(String(init.body)));
     return Response.json(body, { status });
   };
@@ -4477,7 +4479,8 @@ async function askCode(
 test('a sign-in code answers the same whether or not the address has an account', async () => {
   await pool.query('delete from private.sign_in_code_requests');
   const asked: unknown[] = [];
-  const known = await askCode('192.0.2.1', 200, {}, asked);
+  const urls: string[] = [];
+  const known = await askCode('192.0.2.1', 200, {}, asked, urls);
   const unknown = await askCode('192.0.2.1', 422, {
     error_code: 'otp_disabled',
     msg: 'Signups not allowed for otp',
@@ -4492,6 +4495,11 @@ test('a sign-in code answers the same whether or not the address has an account'
     [200, 200, 200],
   );
   assert.deepEqual(asked, [{ email: 'who@example.com', create_user: false }]);
+  assert.equal(
+    new URL(urls[0]!).searchParams.get('redirect_to'),
+    'http://t/auth/callback?next=%2F',
+    'the email builds its button on a landing that already has a query',
+  );
 
   // The project's email quota answers the same too, and reaches Sentry.
   const Sentry = await import('@sentry/nextjs');
