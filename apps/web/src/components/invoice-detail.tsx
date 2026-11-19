@@ -324,24 +324,33 @@ function Notices({
   addWork: { mutate: () => void; isPending: boolean };
   error: unknown;
 }) {
+  const newWork = invoice.status === 'draft' ? invoice.newWork : null;
+  const dueBeforeIssue = invoice.dueBeforeIssue?.download;
+  /* Rendered only when it holds one, so a clean invoice leaves the column
+     empty and hidden, with no gap under the actions. */
+  const holdsOne = newWork || unrated.length > 0 || dueBeforeIssue || error;
   return (
-    <div className="flex flex-col gap-4 pb-4 empty:hidden">
-      {invoice.status === 'draft' && invoice.newWork ? (
-        <NewWorkNotice
-          work={invoice.newWork}
-          currency={invoice.currency}
-          addWork={addWork}
-        />
+    <div className="flex flex-col gap-1 pb-4 empty:hidden">
+      {holdsOne ? (
+        <div className="flex flex-col gap-4">
+          {newWork ? (
+            <NewWorkNotice
+              work={newWork}
+              currency={invoice.currency}
+              addWork={addWork}
+            />
+          ) : null}
+          {unrated.length > 0 ? <Unrated entries={unrated} /> : null}
+          {dueBeforeIssue ? (
+            <DueBeforeIssue
+              issued={invoice.issueDate}
+              due={invoice.dueDate!}
+              downloaded={!invoice.dueBeforeIssue!.send}
+            />
+          ) : null}
+          <ActionError error={error} />
+        </div>
       ) : null}
-      {unrated.length > 0 ? <Unrated entries={unrated} /> : null}
-      {invoice.dueBeforeIssue?.download ? (
-        <DueBeforeIssue
-          issued={invoice.issueDate}
-          due={invoice.dueDate!}
-          downloaded={!invoice.dueBeforeIssue.send}
-        />
-      ) : null}
-      <ActionError error={error} />
       {/* The document is the paid tier; the records never are, and saying
           so here keeps the two rules from reading as one. */}
       {invoice.canDownload === false ? (
