@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MutationNotice } from '@/components/mutation-notice';
+import { ToastProvider } from '@/components/toast';
 import type { ReactNode } from 'react';
 import { Calendar } from '@/components/calendar';
 import type { CalendarDay, TimeEntry } from '@/lib/client/api';
@@ -365,7 +366,9 @@ describe('adjusting an entry by dragging', () => {
     render(
       <>
         <Calendar />
-        <MutationNotice />
+        <ToastProvider>
+          <MutationNotice />
+        </ToastProvider>
       </>,
       { wrapper },
     );
@@ -434,7 +437,9 @@ describe('a drawn entry never leaves the grid', () => {
     render(
       <>
         <Calendar />
-        <MutationNotice />
+        <ToastProvider>
+          <MutationNotice />
+        </ToastProvider>
       </>,
       { wrapper },
     );

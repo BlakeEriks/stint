@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Feedback } from '@/components/feedback';
 import { MutationNotice } from '@/components/mutation-notice';
+import { ToastProvider } from '@/components/toast';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -37,10 +38,10 @@ const created = () =>
 async function open() {
   const user = userEvent.setup();
   render(
-    <>
+    <ToastProvider>
       <Feedback />
       <MutationNotice />
-    </>,
+    </ToastProvider>,
     { wrapper },
   );
   await user.click(screen.getByRole('button', { name: 'Feedback' }));

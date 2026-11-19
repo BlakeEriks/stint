@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Check, Loader2, MessageSquare } from 'lucide-react';
+import { Loader2, MessageSquare } from 'lucide-react';
 import { FEEDBACK_MAX } from '@stint/schema';
 import { uuidv7 } from '@stint/core';
 import {
@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { textareaClass } from './field';
-import { PortalToast } from './toast';
+import { Toast } from './toast';
 import { useOptimisticMutation } from '@stint/client';
 import { api, ApiError } from '@/lib/client/api';
 
@@ -39,12 +39,6 @@ export function Feedback() {
   const [id, setId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [thanked, setThanked] = useState(false);
-
-  useEffect(() => {
-    if (!thanked) return;
-    const t = setTimeout(() => setThanked(false), 4000);
-    return () => clearTimeout(t);
-  }, [thanked]);
 
   const send = useOptimisticMutation({
     queryKey: () => ['feedback'],
@@ -164,12 +158,9 @@ export function Feedback() {
         </DialogContent>
       </Dialog>
 
-      {thanked ? (
-        <PortalToast>
-          <Check aria-hidden className="size-4 text-success" />
-          Feedback sent.
-        </PortalToast>
-      ) : null}
+      <Toast tone="success" open={thanked} onOpenChange={setThanked}>
+        Feedback sent.
+      </Toast>
     </>
   );
 }

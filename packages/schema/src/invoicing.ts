@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { offeredSchedules } from '@stint/core';
 import {
   currency,
   ianaZone,
@@ -182,8 +183,23 @@ export const InvoicePreview = z.object({
       to: z.iso.date(),
     })
     .nullable(),
-  /** With `summary`, every table the invoice could attach; otherwise null. */
-  schedules: Schedules.nullable(),
+  /** The period's billable work other drafts hold (`heldWork()`), which New
+   *  invoice names so an emptied period isn't read as lost work. Null when
+   *  there is none. */
+  heldWork: z
+    .object({
+      entryCount: z.number().int().positive(),
+      drafts: z.array(
+        z.object({
+          id: uuid,
+          invoiceNumber: z.string(),
+          entryCount: z.number().int().positive(),
+        }),
+      ),
+    })
+    .nullable(),
+  /** Every table the invoice could attach. */
+  schedules: Schedules,
 });
 
 /** One charge on a request: what `manualLines` carries. */
@@ -229,7 +245,8 @@ export const CreateInvoice = InvoicePreviewRequest.omit({
     /** The payment details to freeze; absent is the client's, else the
      *  default. */
     paymentProfileId: uuid.optional(),
-    /** The supporting detail to attach, with `summary` only. */
+    /** The supporting detail to attach: any table the grouping's lines
+     *  don't already print. */
     schedules: z
       .array(ScheduleKind)
       .refine((k) => new Set(k).size === k.length, 'Each schedule once')
@@ -239,10 +256,14 @@ export const CreateInvoice = InvoicePreviewRequest.omit({
     message: 'A summary line needs its text',
     path: ['summaryText'],
   })
-  .refine((b) => b.groupingMode === 'summary' || b.schedules.length === 0, {
-    message: 'Supporting detail comes with a summary line only',
-    path: ['schedules'],
-  });
+  .refine(
+    (b) =>
+      b.schedules.every((k) => offeredSchedules(b.groupingMode).includes(k)),
+    {
+      message: 'The invoice already prints that table',
+      path: ['schedules'],
+    },
+  );
 
 /** The frozen snapshot stored on an invoice. */
 const PaymentDetailsSnapshot = z.object({

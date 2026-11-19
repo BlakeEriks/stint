@@ -384,10 +384,11 @@ export const PeriodPreset: Story = {
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const page = await period(await chooseNorthwind(canvasElement));
-    await userEvent.click(page.getByRole('button', { name: 'Last two weeks' }));
-    await expect(
-      page.getByRole('button', { name: 'Last two weeks' }),
-    ).toHaveAttribute('aria-pressed', 'true');
+    const preset = page.getByRole('button', {
+      name: 'Last two weeks Sep 3 – Sep 16, 2026',
+    });
+    await userEvent.click(preset);
+    await expect(preset).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByLabelText('From')).toHaveValue('2026-09-03');
     await expect(page.getByLabelText('To')).toHaveValue('2026-09-16');
     await userEvent.keyboard('{Escape}');
@@ -529,7 +530,9 @@ export const Unrated: Story = {
   },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
-    await expect(await page.findByText(/no rate/i)).toBeVisible();
+    await expect(
+      await page.findByText(/^\d+ entries have no rate\.$/),
+    ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Save draft' }),
     ).toBeDisabled();
@@ -667,6 +670,39 @@ export const EarlierWorkLeavesWithClient: Story = {
     await expect(
       page.queryByRole('button', { name: /^Start from/ }),
     ).toBeNull();
+  },
+};
+
+/** A forgotten Northwind draft holds September, so the page bills none of
+    its hours. New invoice names the draft, linked, so the empty page isn't
+    read as lost work. */
+export const HeldWork: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      const draft = db.invoices.find((i) => i.status === 'draft')!;
+      db.invoices.push({
+        ...draft,
+        id: '018f0000-0000-7000-8000-0000000003f0',
+        clientId: ids.northwind,
+        invoiceNumber: 'STINT-0016',
+        sequenceNo: 16,
+        periodStart: '2026-09-01',
+        periodEnd: '2026-09-30',
+      });
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    const link = await page.findByRole('link', { name: 'STINT-0016' });
+    await expect(link).toHaveAttribute(
+      'href',
+      '/invoices/018f0000-0000-7000-8000-0000000003f0',
+    );
+    await expect(link.parentElement).toHaveTextContent(
+      /^STINT-0016 holds \d+ entries in this period\.$/,
+    );
   },
 };
 
@@ -961,13 +997,20 @@ export const AttachDetail: Story = {
   },
 };
 
-/** Any other grouping has no Attach (US2 scenario 6). */
-export const NoAttachWithoutSummary: Story = {
+/** By project offers every table but Hours by project, which its lines
+    already print. */
+export const AttachByProject: Story = {
   ...desktop,
+  parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
-    await page.findByRole('button', { name: 'Show time as' });
-    await expect(page.queryByRole('group', { name: 'Attach' })).toBeNull();
+    await pickGrouping(page, /By project/);
+    await settled(page);
+    for (const name of ['Hours by week', 'Hours by date'])
+      await expect(page.getByRole('checkbox', { name })).not.toBeChecked();
+    await expect(
+      page.queryByRole('checkbox', { name: 'Hours by project' }),
+    ).toBeNull();
   },
 };
 

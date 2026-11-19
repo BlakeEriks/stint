@@ -2,7 +2,7 @@
 const PAGE_SIZE = 1000;
 
 /** A filtered, sorted read, before `selectAll` pages it. */
-type Read<T> = {
+export type Read<T> = {
   order(
     column: 'id',
     options: { ascending: true },
