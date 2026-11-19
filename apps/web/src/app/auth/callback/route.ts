@@ -15,13 +15,25 @@ import { sameOriginURL } from '@/lib/preview';
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const tokenHash = url.searchParams.get('token_hash');
-  /* An email whose link is `{{ .ConfirmationURL }}` goes through GoTrue's
-     `/verify` first and arrives with a PKCE code, or with `error` when the
-     link was spent. A hosted project's templates are pasted by hand
-     (`docs/setup.md` §5), so one can still send that link. */
-  const code = url.searchParams.get('code');
+  if (!tokenHash) return fromVerify(url);
 
-  if (!tokenHash && !code) {
+  const db = await cookieClient();
+  const { error } = await db.auth.verifyOtp({
+    type: 'email',
+    token_hash: tokenHash,
+  });
+  return land(url, !error);
+}
+
+/**
+ * The landing of an email whose link is `{{ .ConfirmationURL }}`: it goes
+ * through GoTrue's `/verify` first and arrives with a PKCE code, or with
+ * `error` when the link was spent. A hosted project's templates are pasted
+ * by hand (`docs/setup.md` §5), so one can still send that link.
+ */
+async function fromVerify(url: URL) {
+  const code = url.searchParams.get('code');
+  if (!code) {
     const reason = url.searchParams.has('error')
       ? 'invalid_link'
       : 'missing_code';
@@ -31,16 +43,14 @@ export async function GET(req: Request) {
   }
 
   const db = await cookieClient();
-  const { error } = tokenHash
-    ? await db.auth.verifyOtp({ type: 'email', token_hash: tokenHash })
-    : await db.auth.exchangeCodeForSession(code ?? '');
+  const { error } = await db.auth.exchangeCodeForSession(code);
+  return land(url, !error);
+}
 
-  if (error) {
-    return NextResponse.redirect(
-      new URL('/signin?error=invalid_link', url.origin),
-    );
-  }
+function land(url: URL, signedIn: boolean) {
   return NextResponse.redirect(
-    sameOriginURL(url.searchParams.get('next'), url.origin),
+    signedIn
+      ? sameOriginURL(url.searchParams.get('next'), url.origin)
+      : new URL('/signin?error=invalid_link', url.origin),
   );
 }
