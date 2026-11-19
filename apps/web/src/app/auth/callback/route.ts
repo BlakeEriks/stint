@@ -15,7 +15,7 @@ import { sameOriginURL } from '@/lib/preview';
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const tokenHash = url.searchParams.get('token_hash');
-  if (!tokenHash) return fromVerify(url);
+  if (tokenHash === null) return fromVerify(url);
 
   const db = await cookieClient();
   const { error } = await db.auth.verifyOtp({
