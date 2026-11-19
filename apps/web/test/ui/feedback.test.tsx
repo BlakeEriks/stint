@@ -9,7 +9,6 @@ import { ToastProvider } from '@/components/toast';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
-  usePathname: () => '/invoices',
 }));
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -66,6 +65,7 @@ describe('Feedback', () => {
   it('sends the message with the screen and version, then says it was sent', async () => {
     vi.stubEnv('NEXT_PUBLIC_APP_VERSION', '0.1.0-alpha.3');
     const sent = serve(created);
+    window.history.replaceState(null, '', '/invoices');
     const { user, box } = await open();
 
     await user.type(box, 'The total looks short.');
