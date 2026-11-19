@@ -126,6 +126,20 @@ export const DraftNewWork: Story = {
 };
 export const DraftNewWorkPhone: Story = { ...phone, parameters: newWork };
 
+/** A refused press says why on the page, and the offer stays. */
+export const AddWorkRefused: Story = {
+  ...desktop,
+  parameters: { ...newWork, ...failing('addDraftWork') },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Add to draft' }),
+    );
+    await expect(await page.findByRole('alert')).toBeVisible();
+    await expect(page.getByText(/in this period$/)).toBeVisible();
+  },
+};
+
 const fourteen = paying((db) => {
   const draft = db.invoices.find((i) => i.id === invoice(15));
   if (draft) draft.entryCount = 14;

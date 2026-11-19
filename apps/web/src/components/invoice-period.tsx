@@ -1,7 +1,7 @@
 'use client';
 
 import { addDays, type Period } from '@stint/core';
-import { Button } from '@/components/ui/button';
+import { Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   Popover,
@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/popover';
 import { Field, TriggerChevron, triggerClass } from './field';
 import { shortDate } from './invoice-bits';
+import { rowBleed, rowButton } from './row-button';
 
 /** The first and last day of the month `offset` months from `today`'s. */
 function month(today: string, offset: number): Period {
@@ -86,21 +87,27 @@ export function PeriodPicker({
         align="start"
         className="flex w-[22rem] max-w-[calc(100vw-2rem)] flex-col gap-4"
       >
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-col">
           {choices.map((p) => (
-            <Button
+            <button
               key={p.name}
               type="button"
-              size="sm"
-              variant={p === chosen ? 'default' : 'ghost'}
               aria-pressed={p === chosen}
               onClick={() => onChange(p.period)}
+              className={`${rowButton} ${rowBleed} flex items-center gap-2 py-1.5 type-control`}
             >
-              {p.name}
-            </Button>
+              <span className="flex-1">{p.name}</span>
+              <span className="text-subtle tabular-nums">
+                {rangeText(p.period)}
+              </span>
+              <Check
+                aria-hidden
+                className={`size-4 shrink-0 text-muted ${p === chosen ? '' : 'invisible'}`}
+              />
+            </button>
           ))}
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 border-t border-edge-subtle pt-4">
           <DateField
             id="inv-from"
             label="From"
