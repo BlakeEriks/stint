@@ -145,9 +145,7 @@ function draftChoices(db: Db, input: CreateInvoice, preview: Preview) {
     summaryTexts:
       preview.groupingMode === 'summary' ? (input.summaryTexts ?? []) : [],
     reference: input.reference ?? null,
-    supportingDetail: preview.schedules
-      ? pickSchedules(preview.schedules, input.schedules)
-      : null,
+    supportingDetail: pickSchedules(preview.schedules, input.schedules),
   };
 }
 

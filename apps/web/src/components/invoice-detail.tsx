@@ -1,18 +1,17 @@
 'use client';
 
+import { Fragment, type ReactNode } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   useQuery,
   useQueryClient,
   type QueryClient,
 } from '@tanstack/react-query';
+import { keys } from '@stint/client';
 import {
-  useOptimisticMutation,
-  keys,
-  invalidateEntryData,
-} from '@stint/client';
-import { useMarkPaid } from '@/lib/client/use-mark-paid';
+  useInvoiceActions,
+  type UseInvoiceActions,
+} from '@/lib/client/use-invoice-actions';
 import {
   Ban,
   DollarSign,
@@ -70,80 +69,18 @@ function fromList(qc: QueryClient, id: string): Shown | undefined {
 }
 
 export function InvoiceDetail({ id }: { id: string }) {
-  const router = useRouter();
   const qc = useQueryClient();
-
   const query = useQuery<Shown>({
     queryKey: keys.invoice(id),
     queryFn: () => api.invoice(id),
     placeholderData: () => fromList(qc, id),
   });
-
-  /* Voiding releases the entries and expenses and deleting a draft frees
-     them, so every view of that work moves with the invoice. */
-  const refresh = (qc: QueryClient, deleted?: string) =>
-    Promise.all([
-      /* A deleted draft is not asked for again: it answers 404, "Invoice not
-         found", on a page still waiting on the list. */
-      qc.invalidateQueries({
-        queryKey: keys.invoices(),
-        predicate: (q) => deleted === undefined || q.queryKey[1] !== deleted,
-      }),
-      qc.invalidateQueries({ queryKey: keys.expenses() }),
-      invalidateEntryData(qc),
-    ]);
-  /* Pending, not predicted: issuing assigns the number, and voiding or
-     deleting can't be taken back. The page says what was refused. */
-  const invoicePress = {
-    queryKey: () => keys.invoices(),
-    inline: true,
-    invalidate: (qc: QueryClient) => refresh(qc),
-  };
-
-  const setStatus = useOptimisticMutation({
-    ...invoicePress,
-    mutationFn: (args: { status: InvoiceStatus }) =>
-      api.updateInvoiceStatus(id, args),
-  });
-
-  const addWork = useOptimisticMutation({
-    ...invoicePress,
-    mutationFn: () => api.addDraftWork(id),
-  });
-
-  const remove = useOptimisticMutation({
-    ...invoicePress,
-    invalidate: (qc: QueryClient) => refresh(qc, id),
-    mutationFn: () => api.deleteInvoice(id),
-    onSuccess: () => router.push('/invoices'),
-  });
-
-  const markPaid = useMarkPaid();
+  const actions = useInvoiceActions(id);
 
   return (
     <DetailPage back="/invoices" label="Invoices" fills>
       <Listing query={query} missing="That invoice no longer exists.">
-        {(data) => (
-          <Loaded
-            data={data}
-            onDownload={() =>
-              /* The download is a navigation the page can't await, and it
-                 records the dates the client's copy printed, which Mark sent
-                 keeps; the server's answer arrives once it has rendered. */
-              setTimeout(
-                () => qc.invalidateQueries({ queryKey: keys.invoice(id) }),
-                1500,
-              )
-            }
-            setStatus={setStatus}
-            addWork={addWork}
-            remove={remove}
-            markPaid={markPaid}
-            error={
-              remove.error ?? setStatus.error ?? addWork.error ?? markPaid.error
-            }
-          />
-        )}
+        {(data) => <Loaded data={data} actions={actions} />}
       </Listing>
     </DetailPage>
   );
@@ -152,40 +89,12 @@ export function InvoiceDetail({ id }: { id: string }) {
 /** The invoice itself, as the PDF prints it, with what can be done to it. */
 function Loaded({
   data: invoice,
-  onDownload,
-  setStatus,
-  addWork,
-  remove,
-  markPaid,
-  error,
+  actions,
 }: {
   data: Shown;
-  onDownload: () => void;
-  setStatus: {
-    mutate: (args: { status: InvoiceStatus }) => void;
-    isPending: boolean;
-    reset: () => void;
-    error: unknown;
-  };
-  addWork: { mutate: () => void; isPending: boolean };
-  remove: {
-    mutate: () => void;
-    isPending: boolean;
-    isSuccess: boolean;
-    reset: () => void;
-    error: unknown;
-  };
-  markPaid: ReturnType<typeof useMarkPaid>;
-  /* Picked ONCE by the caller. Re-evaluating `a ?? b` for the check and again
-     for the message could type-check a stale error while printing a different
-     one — React Query holds the last error until the next success. */
-  error: unknown;
+  actions: UseInvoiceActions;
 }) {
-  const isDraft = invoice.status === 'draft';
-  const isVoid = invoice.status === 'void';
   const unrated = invoice.unratedEntries ?? [];
-  const refuses = invoice.refuses ?? { download: false, send: false };
-  const total = formatCurrency(invoice.total ?? 0, invoice.currency);
 
   return (
     <>
@@ -199,108 +108,13 @@ function Loaded({
           <StatusBadge status={invoice.status} />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {isDraft ? (
-            <AskFirst
-              title="Delete this draft?"
-              description={`Its ${entries(invoice.entryCount ?? 0)} and any expenses go back to unbilled, ready for another invoice. The draft (${total}) is deleted. You can’t undo this.`}
-              confirmLabel="Delete draft"
-              pendingLabel="Deleting…"
-              icon={<Trash2 aria-hidden strokeWidth={1.75} />}
-              tone="danger"
-              // Deleted, it stays pending until the list arrives.
-              press={{
-                ...remove,
-                isPending: remove.isPending || remove.isSuccess,
-              }}
-              onConfirm={() => remove.mutate()}
-            />
-          ) : null}
-
-          {/* "Edit", not "Edit draft": the row stays on the title's line. */}
-          {isDraft ? (
-            <Button asChild>
-              <Link href={`/invoices/${invoice.id}/edit`}>
-                <Pencil aria-hidden strokeWidth={1.75} />
-                Edit
-              </Link>
-            </Button>
-          ) : null}
-
-          {!isVoid && !isDraft ? (
-            <AskFirst
-              title={`Void ${invoice.invoiceNumber}?`}
-              description={`${invoice.invoiceNumber} (${total}) is no longer owed. Its entries and any expenses go back to unbilled, ready for a new invoice. It stays in your records, marked void, and its number isn’t reused. You can’t undo this.`}
-              confirmLabel="Void invoice"
-              pendingLabel="Voiding…"
-              icon={<Ban aria-hidden strokeWidth={1.75} />}
-              tone="danger"
-              press={setStatus}
-              onConfirm={() => setStatus.mutate({ status: 'void' })}
-            />
-          ) : null}
-
-          {isDraft ? (
-            <AskFirst
-              {...markSentAsk({
-                invoiceNumber: invoice.invoiceNumber,
-                entryCount: invoice.entryCount ?? null,
-                total: invoice.total ?? 0,
-                currency: invoice.currency,
-              })}
-              press={setStatus}
-              disabled={refuses.send || invoice.entryCount == null}
-              onConfirm={() => setStatus.mutate({ status: 'sent' })}
-            />
-          ) : null}
-
-          {invoice.status === 'sent' ? (
-            <Button
-              variant="accent"
-              onClick={() => {
-                // A void error from earlier on this screen must not read as
-                // a rejection of the payment date about to be entered.
-                setStatus.reset();
-                markPaid.show(invoice);
-              }}
-              disabled={setStatus.isPending || markPaid.isPending(invoice.id)}
-            >
-              {/* A currency glyph, not a check: the check commits a form. */}
-              <DollarSign aria-hidden strokeWidth={1.75} />
-              Mark paid
-            </Button>
-          ) : null}
-
-          {/* Downloading is how an invoice reaches a client: the app sends no
-              mail, so it is last, as the primary action. Neither shows until
-              the invoice itself answers: the lists it first draws from don't
-              say whether its PDF opens. */}
-          {invoice.canDownload === true && !refuses.download ? (
-            <Button asChild>
-              <a
-                href={api.invoicePdfUrl(invoice.id, true)}
-                onClick={onDownload}
-              >
-                <Download aria-hidden strokeWidth={1.75} />
-                Download PDF
-              </a>
-            </Button>
-          ) : null}
-          {invoice.canDownload === false ? (
-            <Button asChild>
-              <Link href="/settings#plan">
-                <Lock aria-hidden strokeWidth={1.75} />
-                Get the paid plan to download
-              </Link>
-            </Button>
-          ) : null}
-        </div>
+        <InvoiceActions invoice={invoice} actions={actions} />
       </header>
       <Notices
         invoice={invoice}
         unrated={unrated}
-        addWork={addWork}
-        error={error}
+        addWork={actions.addWork}
+        error={actions.lastError}
       />
 
       <InvoicePreviewCard
@@ -326,16 +140,136 @@ function Loaded({
         notes={invoice.notes}
       />
 
-      <MarkPaidDialog {...markPaid.dialog} />
+      <MarkPaidDialog {...actions.markPaid.dialog} />
     </>
   );
 }
 
-function statusHint(status: InvoiceStatus): string | null {
-  if (status === 'draft')
-    return 'Download it, send it from your own address, then mark it sent.';
-  if (status === 'void') return 'Voided. Its entries can be billed again.';
-  return null;
+type Action = 'delete' | 'edit' | 'markSent' | 'void' | 'markPaid';
+
+/** What each status offers, in the row's order, and the line under the
+    title. */
+const BY_STATUS: Record<
+  InvoiceStatus,
+  { actions: Action[]; hint: string | null }
+> = {
+  draft: {
+    actions: ['delete', 'edit', 'markSent'],
+    hint: 'Download it, send it from your own address, then mark it sent.',
+  },
+  sent: { actions: ['void', 'markPaid'], hint: null },
+  paid: { actions: ['void'], hint: null },
+  void: { actions: [], hint: 'Voided. Its entries can be billed again.' },
+};
+
+type ActionProps = { invoice: Shown; actions: UseInvoiceActions };
+
+const total = (invoice: Shown) =>
+  formatCurrency(invoice.total ?? 0, invoice.currency);
+
+const ACTIONS: Record<Action, (props: ActionProps) => ReactNode> = {
+  delete: ({ invoice, actions: { remove } }) => (
+    <AskFirst
+      title="Delete this draft?"
+      description={`Its ${entries(invoice.entryCount ?? 0)} and any expenses go back to unbilled, ready for another invoice. The draft (${total(invoice)}) is deleted. You can’t undo this.`}
+      confirmLabel="Delete draft"
+      pendingLabel="Deleting…"
+      icon={<Trash2 aria-hidden strokeWidth={1.75} />}
+      tone="danger"
+      press={remove}
+      onConfirm={() => remove.mutate()}
+    />
+  ),
+  /* "Edit", not "Edit draft": the row stays on the title's line. */
+  edit: ({ invoice }) => (
+    <Button asChild>
+      <Link href={`/invoices/${invoice.id}/edit`}>
+        <Pencil aria-hidden strokeWidth={1.75} />
+        Edit
+      </Link>
+    </Button>
+  ),
+  markSent: ({ invoice, actions: { setStatus } }) => (
+    <AskFirst
+      {...markSentAsk({
+        invoiceNumber: invoice.invoiceNumber,
+        entryCount: invoice.entryCount ?? null,
+        total: invoice.total ?? 0,
+        currency: invoice.currency,
+      })}
+      press={setStatus}
+      disabled={invoice.refuses?.send || invoice.entryCount == null}
+      onConfirm={() => setStatus.mutate({ status: 'sent' })}
+    />
+  ),
+  void: ({ invoice, actions: { setStatus } }) => (
+    <AskFirst
+      title={`Void ${invoice.invoiceNumber}?`}
+      description={`${invoice.invoiceNumber} (${total(invoice)}) is no longer owed. Its entries and any expenses go back to unbilled, ready for a new invoice. It stays in your records, marked void, and its number isn’t reused. You can’t undo this.`}
+      confirmLabel="Void invoice"
+      pendingLabel="Voiding…"
+      icon={<Ban aria-hidden strokeWidth={1.75} />}
+      tone="danger"
+      press={setStatus}
+      onConfirm={() => setStatus.mutate({ status: 'void' })}
+    />
+  ),
+  markPaid: ({ invoice, actions: { setStatus, markPaid } }) => (
+    <Button
+      variant="accent"
+      onClick={() => markPaid.show(invoice)}
+      disabled={setStatus.isPending || markPaid.isPending(invoice.id)}
+    >
+      {/* A currency glyph, not a check: the check commits a form. */}
+      <DollarSign aria-hidden strokeWidth={1.75} />
+      Mark paid
+    </Button>
+  ),
+};
+
+/** The row beside the title: the status's actions, then the download. */
+function InvoiceActions(props: ActionProps) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {BY_STATUS[props.invoice.status].actions.map((action) => (
+        <Fragment key={action}>{ACTIONS[action](props)}</Fragment>
+      ))}
+      <DownloadAction
+        invoice={props.invoice}
+        onDownload={props.actions.download}
+      />
+    </div>
+  );
+}
+
+/** Downloading is how an invoice reaches a client: the app sends no mail, so
+    it is last, as the primary action. Neither shows until the invoice itself
+    answers: the lists it first draws from don't say whether its PDF opens. */
+function DownloadAction({
+  invoice,
+  onDownload,
+}: {
+  invoice: Shown;
+  onDownload: () => void;
+}) {
+  if (invoice.canDownload === false)
+    return (
+      <Button asChild>
+        <Link href="/settings#plan">
+          <Lock aria-hidden strokeWidth={1.75} />
+          Get the paid plan to download
+        </Link>
+      </Button>
+    );
+  if (invoice.canDownload !== true || invoice.refuses?.download) return null;
+  return (
+    <Button asChild>
+      <a href={api.invoicePdfUrl(invoice.id, true)} onClick={onDownload}>
+        <Download aria-hidden strokeWidth={1.75} />
+        Download PDF
+      </a>
+    </Button>
+  );
 }
 
 /** Where the invoice stands, and what holds it, under the title. */
@@ -350,7 +284,7 @@ function Notices({
   addWork: { mutate: () => void; isPending: boolean };
   error: unknown;
 }) {
-  const hint = statusHint(invoice.status);
+  const { hint } = BY_STATUS[invoice.status];
   return (
     <div className="flex flex-col gap-1 pt-1 pb-6">
       {hint ? <p className="type-support text-muted">{hint}</p> : null}

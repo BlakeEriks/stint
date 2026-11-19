@@ -79,11 +79,14 @@ export function Page({
         <TitleBar title={title} actions={actions} measure={measure} />
       ) : null}
       {/* The region that scrolls at `xl`; below it the column around the
-          panel scrolls, and this is only a wrapper. */}
+          panel scrolls, and this is only a wrapper. Under a title bar its
+          gutter is kept on both edges, so a scrollbar that takes room (macOS
+          set to always show them, Windows) doesn't move the centered column
+          off the title, which sits outside it. */}
       <div
         tabIndex={useScrollerFocus()}
         data-content-scroller
-        className="xl:min-h-0 xl:flex-1 xl:overflow-y-auto"
+        className={`xl:min-h-0 xl:flex-1 xl:overflow-y-auto${title === undefined ? '' : ' xl:[scrollbar-gutter:stable_both-edges]'}`}
       >
         <div
           className={`mx-auto ${insetOf(flush, title !== undefined)}${measure}${fills ? ' xl:flex xl:h-full xl:min-h-0 xl:flex-col' : ''}`}
