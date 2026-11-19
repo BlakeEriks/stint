@@ -1,17 +1,39 @@
-/** A warning about an invoice's work: a bold line, then what it means. */
+import type { ReactNode } from 'react';
+
+/**
+ * A banner saying something about the screen that isn't part of it. The edge
+ * is the hue the Inbox ranks a fault with: `danger` for an error, something
+ * entered wrong or refused by the server, `warning` for a condition to see to.
+ */
 export function Notice({
-  className = '',
+  id,
+  role = 'status',
+  tone = 'warning',
+  title,
+  detail,
+  action,
   children,
 }: {
-  className?: string;
-  children: React.ReactNode;
+  id?: string;
+  role?: 'status' | 'alert';
+  tone?: 'warning' | 'danger';
+  title: ReactNode;
+  detail?: ReactNode;
+  action?: ReactNode;
+  children?: ReactNode;
 }) {
   return (
     <div
-      role="status"
-      className={`flex flex-col gap-0.5 rounded-md border border-edge-default border-l-[3px] border-l-warning bg-surface-elevated px-3.5 py-3 ${className}`}
+      id={id}
+      role={role}
+      className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg border border-l-2 border-edge-default px-3 py-2.5 ${tone === 'danger' ? 'border-l-danger' : 'border-l-warning'}`}
     >
-      {children}
+      <div className="min-w-0">
+        <p className="type-control text-strong">{title}</p>
+        {detail ? <p className="type-support text-muted">{detail}</p> : null}
+        {children}
+      </div>
+      {action}
     </div>
   );
 }

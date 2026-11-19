@@ -168,6 +168,7 @@ a different order, and the ones that drifted were rebuilt:
 | Any action | `Button`, sized and varied by the tables in `ui/button.tsx` |
 | A destructive action in a dialog's footer | `ConfirmAction` |
 | A press that takes many records at once and can't come back: Mark sent, Void, Delete draft | `AskFirst` (a button and its `ConfirmDialog`); `ConfirmDialog` alone when something else opens it |
+| A notice about the screen, above it: a condition to see to, or an error | `Notice` |
 | An invoice's status | `StatusBadge` |
 | Money, dates, durations | `Money`, `formatCurrency`, `shortDate` — never `toLocaleString` at the call site |
 | A client's color | `useProjectColors()`, `Swatch` |
