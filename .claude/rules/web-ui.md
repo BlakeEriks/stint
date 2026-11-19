@@ -189,9 +189,12 @@ anticipation of one.
   `noValidate`, since the browser's bubble never reaches a phone. Save is
   disabled only while its save is pending.
 - **A list filter lives in the URL** (`FilterTabs`), so the view is linkable
-  and Back returns to it. A component reading `useSearchParams` needs a
-  `Suspense` boundary in its `page.tsx`, or `next build` fails while
-  `next dev` passes.
+  and Back returns to it.
+- **A render that reads the request or the clock sits behind `Suspense`**,
+  or `next build` fails while `next dev` passes: Cache Components
+  (`next.config.ts`) prerenders every page. That is awaiting `params` or
+  `searchParams`, `useSearchParams`, and `usePathname`. The clock goes
+  through `useNow()`, never `new Date()` or `appNow()` during render.
 - **User-visible text follows `docs/voice.md`.**
 - **Every action carries a visible label.** Four exceptions, each with an
   `aria-label`: a destructive first step, a dense repeating row, the dock's
