@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { MutationNotice } from '@/components/mutation-notice';
+import { ToastProvider } from '@/components/toast';
 import { PaymentProfiles } from '@/components/payment-profiles';
 import type { PaymentProfile } from '@/lib/client/api';
 
@@ -133,7 +134,9 @@ describe('PaymentProfiles', () => {
     const tree = (settings: boolean) => (
       <QueryClientProvider client={client}>
         {settings ? <PaymentProfiles /> : null}
-        <MutationNotice />
+        <ToastProvider>
+          <MutationNotice />
+        </ToastProvider>
       </QueryClientProvider>
     );
     const { rerender } = render(tree(true));

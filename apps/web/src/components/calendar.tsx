@@ -525,12 +525,10 @@ function DayHeading({
       <div className="flex justify-center">
         <span className="relative type-meta text-subtle">
           {seconds > 0 ? formatCompact(seconds) : '—'}
-          {/* Out of flow, so the hidden "+" doesn't pull the total off
-              center. */}
           <KeyboardAdd
             label={`Add an entry on ${full}`}
             onClick={onAdd}
-            className="absolute top-1/2 left-full ml-1 -translate-y-1/2"
+            side="right"
           />
         </span>
       </div>

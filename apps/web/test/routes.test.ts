@@ -576,6 +576,7 @@ test('a request the route cannot honor is refused with its status and code, and 
   const project = await route('projects/[id]');
   const calendar = await route('calendar');
   const taskNames = await route('entries/task-names');
+  const renameTask = await route('entries/task-names/rename');
   const patchEntry = (id: string, body: unknown) =>
     entry.PATCH(req(`/entries/${id}`, body, 'PATCH'), ctx(id));
   const DONE = '018f0000-0000-7000-8000-000000000004';
@@ -715,6 +716,26 @@ test('a request the route cannot honor is refused with its status and code, and 
          than filters, so "no project" and "no preference" are one request. */
       name: 'a task-name projectId that is not a uuid',
       act: () => taskNames.GET(req('/entries/task-names?projectId=none')),
+      status: 422,
+      code: 'VALIDATION_FAILED',
+    },
+    {
+      /* Every timer started in a hurry is `''`; renaming them all at once,
+         or a name to nothing, is not fixing a name. */
+      name: 'a rename to a blank name',
+      setup: () =>
+        entries.POST(
+          req('/entries', {
+            id: DONE,
+            taskName: 'Kept',
+            startedAt: '2026-09-11T09:00:00Z',
+            endedAt: '2026-09-11T10:00:00Z',
+          }),
+        ),
+      act: () =>
+        renameTask.POST(
+          req('/entries/task-names/rename', { from: 'Kept', to: '  ' }),
+        ),
       status: 422,
       code: 'VALIDATION_FAILED',
     },
@@ -3169,6 +3190,107 @@ test('the project preference ranks its own names first', async () => {
     'Unprojected',
     'Project work',
   ]);
+});
+
+const RENAME = '../src/app/api/v1/entries/task-names/rename/route.ts';
+const taskNameOf = async (id: string) =>
+  (await pool.query('select task_name from time_entries where id=$1', [id]))
+    .rows[0].task_name;
+
+test('a rename reaches every spelling of the caller’s task, billed too, and counts what changed', async () => {
+  const { POST: rename } = await import(RENAME);
+  await namedEntry({ id: S(90), name: 'Desing review', daysAgo: 1 });
+  await namedEntry({ id: S(91), name: 'desing review', daysAgo: 2 });
+  await namedEntry({ id: S(92), name: 'Design review', daysAgo: 3 });
+  await namedEntry({
+    id: S(93),
+    name: 'Desing review',
+    daysAgo: 1,
+    userId: OTHER,
+  });
+  // A sent invoice froze its lines, so its entries' names are free.
+  await pool.query(`insert into clients (id,user_id,name) values ($1,$2,'C')`, [
+    'cc000000-0000-4000-8000-000000000090',
+    USER,
+  ]);
+  await pool.query(
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status)
+     values ($1,$2,$3,'INV-0001',1,'sent')`,
+    [
+      'ff000000-0000-4000-8000-000000000090',
+      USER,
+      'cc000000-0000-4000-8000-000000000090',
+    ],
+  );
+  await pool.query('update time_entries set invoice_id=$1 where id=$2', [
+    'ff000000-0000-4000-8000-000000000090',
+    S(91),
+  ]);
+
+  const body = { from: 'Desing review', to: 'Design review' };
+  const first = await json(
+    await rename(req('/entries/task-names/rename', body)),
+  );
+  assert.deepEqual(first, { status: 200, body: { renamed: 2 } });
+  assert.deepEqual(
+    [await taskNameOf(S(90)), await taskNameOf(S(91)), await taskNameOf(S(93))],
+    ['Design review', 'Design review', 'Desing review'],
+    'both spellings are renamed, and another user’s entry is not',
+  );
+
+  // Already exactly the new name, so a retry writes and counts nothing.
+  const retry = await json(
+    await rename(req('/entries/task-names/rename', body)),
+  );
+  assert.deepEqual(retry.body, { renamed: 0 });
+});
+
+test('a rename within a project leaves the same name elsewhere alone', async () => {
+  const { POST: rename } = await import(RENAME);
+  const [c, a, b] = [
+    '33333333-0000-4000-8000-0000000000e0',
+    '33333333-0000-4000-8000-0000000000ea',
+    '33333333-0000-4000-8000-0000000000eb',
+  ];
+  await pool.query(`insert into clients (id,user_id,name) values ($1,$2,'C')`, [
+    c,
+    USER,
+  ]);
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$3,$4,'A'),($2,$3,$4,'B')`,
+    [a, b, USER, c],
+  );
+  await namedEntry({ id: S(94), name: 'Standup', projectId: a, daysAgo: 1 });
+  await namedEntry({ id: S(95), name: 'Standup', projectId: b, daysAgo: 1 });
+  await namedEntry({ id: S(96), name: 'Standup', daysAgo: 1 });
+
+  const res = await json(
+    await rename(
+      req('/entries/task-names/rename', {
+        from: 'Standup',
+        to: 'Daily sync',
+        projectId: a,
+      }),
+    ),
+  );
+  assert.deepEqual(res.body, { renamed: 1 });
+  assert.deepEqual(
+    [await taskNameOf(S(94)), await taskNameOf(S(95)), await taskNameOf(S(96))],
+    ['Daily sync', 'Standup', 'Standup'],
+  );
+});
+
+test('renaming the running timer’s task tells the user’s browsers', async () => {
+  const { POST: rename } = await import(RENAME);
+  configureBroadcast();
+  await pool.query(
+    `insert into time_entries (id,user_id,task_name,started_at)
+     values ($1,$2,'Call',now() - interval '1 hour')`,
+    [S(97), USER],
+  );
+  await rename(req('/entries/task-names/rename', { from: 'Call', to: 'Sync' }));
+  await settled();
+  assert.equal(broadcasts.length, 1);
 });
 
 // ── import ─────────────────────────────────────────────────────────

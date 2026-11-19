@@ -670,6 +670,39 @@ export const EarlierWorkLeavesWithClient: Story = {
   },
 };
 
+/** A forgotten Northwind draft holds September, so the page bills none of
+    its hours. New invoice names the draft, linked, so the empty page isn't
+    read as lost work. */
+export const HeldWork: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      const draft = db.invoices.find((i) => i.status === 'draft')!;
+      db.invoices.push({
+        ...draft,
+        id: '018f0000-0000-7000-8000-0000000003f0',
+        clientId: ids.northwind,
+        invoiceNumber: 'STINT-0016',
+        sequenceNo: 16,
+        periodStart: '2026-09-01',
+        periodEnd: '2026-09-30',
+      });
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    const link = await page.findByRole('link', { name: 'STINT-0016' });
+    await expect(link).toHaveAttribute(
+      'href',
+      '/invoices/018f0000-0000-7000-8000-0000000003f0',
+    );
+    await expect(link.parentElement).toHaveTextContent(
+      /^STINT-0016 holds \d+ entries in this period\.$/,
+    );
+  },
+};
+
 /** A charge follows the time lines as 1 x its amount, so its row checks
     like every other. */
 export const WithCharge: Story = {
@@ -961,13 +994,20 @@ export const AttachDetail: Story = {
   },
 };
 
-/** Any other grouping has no Attach (US2 scenario 6). */
-export const NoAttachWithoutSummary: Story = {
+/** By project offers every table but Hours by project, which its lines
+    already print. */
+export const AttachByProject: Story = {
   ...desktop,
+  parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
-    await page.findByRole('button', { name: 'Show time as' });
-    await expect(page.queryByRole('group', { name: 'Attach' })).toBeNull();
+    await pickGrouping(page, /By project/);
+    await settled(page);
+    for (const name of ['Hours by week', 'Hours by date'])
+      await expect(page.getByRole('checkbox', { name })).not.toBeChecked();
+    await expect(
+      page.queryByRole('checkbox', { name: 'Hours by project' }),
+    ).toBeNull();
   },
 };
 

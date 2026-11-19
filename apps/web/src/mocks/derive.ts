@@ -18,6 +18,7 @@ import {
   buildUnprojected,
   earlierWork,
   earlierWorkFrom,
+  heldWork,
   lateEntries,
   unbilledDue,
   buildWeek,
@@ -597,6 +598,23 @@ function previewEarlierWork(db: Db, body: PreviewRequest, tz: string) {
   );
 }
 
+/** The preview's `heldWork`, by the route's rule. */
+function previewHeldWork(db: Db, body: PreviewRequest, tz: string) {
+  const window = billingWindow(body.periodStart, body.periodEnd, tz);
+  return heldWork(
+    db.entries
+      .filter(
+        (e) =>
+          clientOf(db, e.projectId) === body.clientId &&
+          e.isBillable &&
+          isBillableEntry(e, window),
+      )
+      .map((e) => ({ draftId: entryHolder(db, e, body.clientId, tz) })),
+    db.invoices.filter((i) => i.status === 'draft'),
+    body.draftId,
+  );
+}
+
 /** `POST /invoices/preview`: the client's work in the period that no other
     draft holds. */
 export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
@@ -646,14 +664,12 @@ export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
       .map((e) => e.id)
       .filter((id) => overlapping.has(id)),
     earlierWork: previewEarlierWork(db, body, tz),
-    schedules:
-      groupingMode === 'summary'
-        ? buildSchedules(rated, {
-            tz,
-            periodStart: body.periodStart,
-            periodEnd: body.periodEnd,
-          })
-        : null,
+    heldWork: previewHeldWork(db, body, tz),
+    schedules: buildSchedules(rated, {
+      tz,
+      periodStart: body.periodStart,
+      periodEnd: body.periodEnd,
+    }),
   };
 }
 
