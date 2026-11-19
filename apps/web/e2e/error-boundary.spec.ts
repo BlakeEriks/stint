@@ -37,7 +37,10 @@ test('a failed screen keeps the frame and the timer, and Go home leaves it', asy
      failed is a trap. */
   await page.getByRole('link', { name: /go home/i }).click();
   await page.waitForURL('**/');
-  await expect(page.getByText(/didn't load/i)).toHaveCount(0);
+  // The router keeps the failed page mounted but hidden, for Back.
+  await expect(
+    page.getByText(/didn't load/i).filter({ visible: true }),
+  ).toHaveCount(0);
 
   // Clean up: the timer must not outlive the test.
   await page.getByRole('button', { name: 'Stop timer' }).click();
