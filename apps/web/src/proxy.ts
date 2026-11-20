@@ -21,6 +21,29 @@ import type { NextRequest } from 'next/server';
 /** Public marketing pages that live on the apex alongside `/`. */
 const MARKETING_PATHS = new Set(['/privacy', '/terms']);
 
+/** App-host pages a signed-out visitor may load. */
+const SIGNED_OUT_PATH = /^\/(signin|privacy|terms)$|^\/(auth|oauth|preview)\//;
+
+/* `@supabase/ssr`'s session cookie, `sb-<ref>-auth-token`, split into `.0`,
+   `.1` when large. Its presence, not its validity: checking the token would
+   cost every page load a round trip, and an expired one still reaches
+   `/signin` through the 401 in `lib/client/api.ts`. The `-code-verifier`
+   cookie a pending sign-in leaves is not a session. */
+const SESSION_COOKIE = /^sb-.+-auth-token(\.\d+)?$/;
+
+/** A signed-out visitor goes to `/signin` before the app frame is sent,
+    coming back to where they were headed. */
+function signInFirst(request: NextRequest): NextResponse | null {
+  const { pathname, search } = request.nextUrl;
+  if (SIGNED_OUT_PATH.test(pathname)) return null;
+  if (request.cookies.getAll().some((c) => SESSION_COOKIE.test(c.name)))
+    return null;
+
+  const target = new URL('/signin', request.url);
+  if (pathname !== '/') target.searchParams.set('next', pathname + search);
+  return NextResponse.redirect(target);
+}
+
 /** Hostnames that serve the product rather than the pitch. */
 function isAppHost(hostname: string): boolean {
   // `app.` wins everywhere, including `app.localhost`.
@@ -59,7 +82,7 @@ export function proxy(request: NextRequest) {
     if (pathname === '/landing') {
       return NextResponse.redirect(new URL('/', request.url));
     }
-    return NextResponse.next();
+    return signInFirst(request) ?? NextResponse.next();
   }
 
   // Apex: `/` is the landing page.

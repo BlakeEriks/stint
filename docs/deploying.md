@@ -242,9 +242,9 @@ That is protection on the *deployment* URL, not a broken app — test a real
 domain instead. The release gate and `pnpm try-mac` get through by sending the
 Protection Bypass for Automation as `x-vercel-protection-bypass`.
 
-The app's own redirect is a different thing: every app page is static and
-returns 200, and a signed-out visitor is sent to `/signin` in the browser
-when the first API call returns 401.
+The app's own redirect is a different thing: `proxy.ts` sends a request
+with no session cookie to `/signin`, and one whose session has expired is
+sent there in the browser when the first API call returns 401.
 
 ## 3b. Backups
 

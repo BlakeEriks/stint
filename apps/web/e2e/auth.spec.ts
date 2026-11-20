@@ -139,9 +139,19 @@ test.describe('authentication', () => {
     ).toBeVisible();
   });
 
+  /* The redirect is the page's own response, so no app frame is ever sent:
+     the 401 from `/api/v1` would come only after the shell had drawn. */
   test('an unauthenticated visitor is sent to sign in', async ({ page }) => {
+    const res = await page.request.get('/clients?status=all', {
+      maxRedirects: 0,
+    });
+    expect(res.status()).toBe(307);
+    expect(res.headers().location).toMatch(
+      /\/signin\?next=%2Fclients%3Fstatus%3Dall$/,
+    );
+
     await page.goto('/clients');
-    await page.waitForURL('**/signin');
+    await page.waitForURL('**/signin?next=%2Fclients');
     await expect(
       page.getByRole('button', { name: /Email me a sign-in link/ }),
     ).toBeVisible();
