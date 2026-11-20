@@ -63,7 +63,8 @@ async function reset() {
   await pool.query('delete from payment_profiles');
   await pool.query(
     `update user_settings set default_hourly_rate=100,
-                    week_starts_on=1, next_invoice_number=1,
+                    week_starts_on=1, projection_days='weekdays',
+                    next_invoice_number=1,
                     payment_terms_days=30, legacy_payment_terms=null,
                     -- Off, so a long fixture elsewhere does not also raise the
                     -- strange-duration row; its own tests set a threshold.
@@ -1309,6 +1310,7 @@ test('every settable field round-trips, and a value it cannot hold is refused an
     ['paymentTermsDays', [45, 0], [-1, 1.5, 366]],
     // An IANA zone, or null.
     ['billingTimeZone', ['America/Chicago', null], ['Central']],
+    ['projectionDays', ['every_day', 'weekdays_except_holidays'], ['weekends']],
   ];
 
   for (const [field, good, bad] of fields) {
@@ -1502,6 +1504,21 @@ test('stats asks about old payment terms until the user saves theirs', async () 
 
   await patch(req('/settings', { paymentTermsDays: 30 }, 'PATCH'));
   assert.equal(await ask(), null);
+});
+
+/* Home's month counts the days the user picked, not always weekdays. */
+test('stats counts the month under the projection days setting', async () => {
+  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const now = new Date();
+  const daysInMonth = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+
+  await patch(req('/settings', { projectionDays: 'every_day' }, 'PATCH'));
+  const { month } = (await json(await stats(req('/stats?tz=UTC')))).body;
+  assert.equal(month.businessDaysTotal, daysInMonth);
+  assert.equal(month.series.length, daysInMonth);
 });
 
 /* The Inbox asks for a default rate while there is none. Zero is a rate,

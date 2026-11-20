@@ -702,3 +702,22 @@ export const MonthLate: Story = {
     await expect(dates.getByText('Sep 30')).not.toBeVisible();
   },
 };
+
+/** Counting every day: the chart steps through the weekend, so September's
+ *  28th is the 28th of 30 days rather than the 20th of 22 weekdays. */
+export const EveryDay: Story = {
+  ...desktop,
+  parameters: {
+    ...account((db) => {
+      db.settings.projectionDays = 'every_day';
+    }),
+    now: '2026-09-28T19:30:00.000Z',
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByRole('img', {
+        name: /over 28 of 30 working days/,
+      }),
+    ).toBeVisible();
+  },
+};

@@ -82,6 +82,11 @@ kept until the user saves their terms so the Inbox can quote it;
 `legacy_payment_terms_days()` is the rule that read the rest, kept for its
 test.
 
+**`projection_days` is which days Home's month projection counts**:
+`every_day`, `weekdays` (the default, the rule every account had before) or
+`weekdays_except_holidays`. The holidays are computed in `packages/core`,
+not stored.
+
 **`welcomed_at` is null until the welcome dialog is finished or skipped**,
 and null is what shows it. The signup trigger leaves it null; every account
 that existed before the dialog was backfilled as welcomed.

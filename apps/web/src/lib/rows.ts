@@ -5,6 +5,7 @@ import {
   type BillingPeriod,
   type BillingSchedule,
   type PrintedDates,
+  type ProjectionDays,
   type SubscriptionStatus,
   type SummaryText,
 } from '@stint/core';
@@ -203,6 +204,7 @@ export interface SettingsRow {
   default_hourly_rate: Numeric;
   currency: string;
   week_starts_on: number;
+  projection_days: ProjectionDays;
   time_format: z.infer<typeof Settings>['timeFormat'];
   min_entry_seconds: number | null;
   max_entry_hours: Numeric;
@@ -219,7 +221,7 @@ export interface SettingsRow {
 }
 
 export const SETTINGS_COLUMNS = columns<SettingsRow>()(
-  'default_hourly_rate, currency, week_starts_on, time_format, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, payment_terms_days, billing_time_zone, invoice_number_prefix, invoice_template, next_invoice_number, welcomed_at',
+  'default_hourly_rate, currency, week_starts_on, projection_days, time_format, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, payment_terms_days, billing_time_zone, invoice_number_prefix, invoice_template, next_invoice_number, welcomed_at',
 );
 
 export function toSettings(r: SettingsRow) {
@@ -227,6 +229,7 @@ export function toSettings(r: SettingsRow) {
     defaultHourlyRate: num(r.default_hourly_rate),
     currency: r.currency,
     weekStartsOn: r.week_starts_on,
+    projectionDays: r.projection_days,
     timeFormat: r.time_format,
     minEntrySeconds: r.min_entry_seconds,
     maxEntryHours: num(r.max_entry_hours),
@@ -512,6 +515,7 @@ export const SETTINGS_FIELDS = {
   defaultHourlyRate: 'default_hourly_rate',
   currency: 'currency',
   weekStartsOn: 'week_starts_on',
+  projectionDays: 'projection_days',
   timeFormat: 'time_format',
   minEntrySeconds: 'min_entry_seconds',
   maxEntryHours: 'max_entry_hours',
@@ -739,12 +743,13 @@ export type HomeSettingsRow = Pick<
   | 'min_entry_seconds'
   | 'max_entry_hours'
   | 'week_starts_on'
+  | 'projection_days'
   | 'default_hourly_rate'
   | 'billing_time_zone'
 > & { legacy_payment_terms: string | null };
 
 export const HOME_SETTINGS_COLUMNS = columns<HomeSettingsRow>()(
-  'currency, min_entry_seconds, max_entry_hours, week_starts_on, default_hourly_rate, legacy_payment_terms, billing_time_zone',
+  'currency, min_entry_seconds, max_entry_hours, week_starts_on, projection_days, default_hourly_rate, legacy_payment_terms, billing_time_zone',
 );
 
 export function toHomeSettings(r: HomeSettingsRow | null) {
@@ -753,6 +758,7 @@ export function toHomeSettings(r: HomeSettingsRow | null) {
     minEntrySeconds: r?.min_entry_seconds ?? null,
     maxEntryHours: num(r?.max_entry_hours),
     weekStartsOn: r?.week_starts_on ?? 1,
+    projectionDays: r?.projection_days ?? 'weekdays',
     defaultHourlyRate: num(r?.default_hourly_rate),
     legacyPaymentTerms: r?.legacy_payment_terms ?? null,
     billingTimeZone: r?.billing_time_zone ?? null,

@@ -1,11 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { parseTermsDays } from '@stint/core';
+import { parseTermsDays, type ProjectionDays } from '@stint/core';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { type Segment, SegmentedControl } from './segmented-control';
-import { Field, Section } from './field';
+import { DescribedSelectItem } from './described-select-item';
+import {
+  Select,
+  SelectContent,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Field, inputClass, Section } from './field';
 import { parseRate, RateInput, UnitInput } from './rate-input';
 import { SaveIndicator } from './save-indicator';
 import {
@@ -37,6 +44,24 @@ const THEMES: Segment<Theme>[] = [
   { value: 'system', label: 'System', icon: Monitor },
   { value: 'light', label: 'Light', icon: Sun },
   { value: 'dark', label: 'Dark', icon: Moon },
+];
+
+const PROJECTION_DAYS: {
+  value: ProjectionDays;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: 'every_day',
+    label: 'Every day',
+    description: 'Weekends count like any other day.',
+  },
+  { value: 'weekdays', label: 'Weekdays', description: 'Monday to Friday.' },
+  {
+    value: 'weekdays_except_holidays',
+    label: 'Weekdays, except holidays',
+    description: 'Skips the 11 US federal holidays.',
+  },
 ];
 
 /**
@@ -85,6 +110,7 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
 
   const billing = useAutosave(persist);
   const inbox = useAutosave(persist);
+  const home = useAutosave(persist);
   const identity = useAutosave(persist);
   const numbering = useAutosave(persist);
 
@@ -98,6 +124,7 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
 
   const setBilling = edit(billing);
   const setInbox = edit(inbox);
+  const setHome = edit(home);
   const setIdentity = edit(identity);
   const setNumbering = edit(numbering);
   const nextError = numberRefusal(numbering.error);
@@ -193,6 +220,30 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
             onChange={(n) => setInbox('maxEntryHours', n)}
           />
         </div>
+      </Section>
+
+      <Section title="Home" aside={<SaveIndicator state={home.state} />}>
+        <Field
+          label="Days that count"
+          htmlFor="projection-days"
+          hint="The month's projection averages what you earn over these."
+        >
+          <Select
+            value={form.projectionDays}
+            onValueChange={(v) =>
+              setHome('projectionDays', v as ProjectionDays)
+            }
+          >
+            <SelectTrigger id="projection-days" className={inputClass}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PROJECTION_DAYS.map((d) => (
+                <DescribedSelectItem key={d.value} {...d} />
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
       </Section>
 
       <Section

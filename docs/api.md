@@ -130,15 +130,18 @@ client in `currency`.
 
 **`month` is the screen's subject and needs no target.** `month.earned` is
 the month so far; `month.projected` carries its trailing rate to the last
-business day, and is **null until three business days have elapsed** —
+counted day, and is **null until three counted days have elapsed** —
 earned-so-far over one elapsed day multiplied by the month is a figure that
 swings by thousands on the second day, so it is withheld rather than guessed
-at. `monthlyTarget` is a setting this field does not read.
+at. `monthlyTarget` is a setting this field does not read. **The days
+counted are the user's `projectionDays`**: every day, weekdays, or weekdays
+less the observed US federal holidays. `businessDaysElapsed` and
+`businessDaysTotal` count them.
 
-`month.series` steps on business days **only** and carries one point per
-business day of the month: the cumulative `actual`, **null past today**,
+`month.series` steps on counted days **only** and carries one point per
+counted day of the month: the cumulative `actual`, **null past today**,
 because a line held level to month end reads as a month that stopped working.
-Weekend work is carried onto the next business day's point, so the last
+Work on a day not counted is carried onto the next counted day's point, so the last
 non-null `actual` always equals `month.earned` — the hero figure is the
 line's own last point, never a separate sum, since the projection
 extrapolates that series. `month.projection` is the dashed leg from today to
@@ -276,6 +279,10 @@ user's. Anything else is `422`.
 `billingTimeZone`, on settings, is the IANA zone invoices read their period,
 issue date and due date in; null uses the device's `tz`. Anything but an IANA
 zone is `422`.
+
+`projectionDays`, on settings, is `every_day`, `weekdays` (the default) or
+`weekdays_except_holidays`: the days `/stats` counts toward the month's
+projection. Anything else is `422`.
 
 **Money is cents.** Every rate and amount is validated as a non-negative
 multiple of `0.01`, so `10.005` is a `422` rather than a silently rounded

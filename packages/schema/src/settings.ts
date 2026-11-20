@@ -1,4 +1,4 @@
-import { SUBSCRIPTION_STATUSES } from '@stint/core';
+import { PROJECTION_DAYS, SUBSCRIPTION_STATUSES } from '@stint/core';
 import { z } from 'zod';
 import { InvoiceTemplate } from './invoicing.ts';
 import {
@@ -19,6 +19,8 @@ export const Settings = z.object({
   defaultHourlyRate: money.nullable(),
   currency,
   weekStartsOn: z.number().int().min(0).max(6),
+  /** Which days Home's month projection counts. */
+  projectionDays: z.enum(PROJECTION_DAYS),
   timeFormat: z.enum(['12h', '24h']),
 
   /**

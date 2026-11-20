@@ -245,6 +245,27 @@ export const BillingZone: Story = {
   },
 };
 
+/** Which days Home's projection counts: Weekdays until picked, and a pick
+    saves on its own. */
+export const ProjectionDays: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const field = await page.findByRole('combobox', {
+      name: /Days that count/,
+    });
+    await expect(field).toHaveTextContent('Weekdays');
+    await userEvent.click(field);
+    await userEvent.click(
+      await page.findByRole('option', { name: /Every day/ }),
+    );
+    await expect(
+      await page.findByLabelText('Saved', {}, { timeout: 3000 }),
+    ).toBeVisible();
+    await expect(getDb().settings.projectionDays).toBe('every_day');
+  },
+};
+
 /** An account from before billing zones, with no invoice to take one
     from: the field says none is set. */
 export const BillingZoneUnset: Story = {

@@ -550,19 +550,51 @@ test('the series steps on business days only, never through the weekend', () => 
   assert.equal(dates.length, 22, 'March 2026 has 22 business days');
 });
 
-test('the series has exactly as many points as the month has business days', () => {
-  // Two loops count the month's business days — this one and
-  // `businessDaysInLocalMonth`. The projection divides one by the other.
-  for (const iso of [
-    '2026-01-15T12:00:00Z', // starts on a Thursday
-    '2026-02-15T12:00:00Z', // 28 days
-    '2026-03-18T12:00:00Z',
-    '2026-08-15T12:00:00Z', // starts on a Saturday
-    '2028-02-15T12:00:00Z', // a leap February
-  ]) {
-    const p = buildEarnedPace({ now: new Date(iso), tz: 'UTC' });
-    assert.equal(p.series.length, p.businessDaysTotal, iso);
-  }
+test('each rule counts its own days, and the projection carries over them', () => {
+  const earnedEachDay = (days: number[]) =>
+    new Map(days.map((d) => [`2026-11-${String(d).padStart(2, '0')}`, 100]));
+
+  // November 2026 has 30 days. Every day, the 10th: 1,000 over 10 days
+  // carries to 3,000, and Saturday the 7th is a point of its own.
+  const every = buildEarnedPace({
+    byDay: earnedEachDay([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+    now: new Date('2026-11-10T12:00:00Z'),
+    tz: 'UTC',
+    days: 'every_day',
+  });
+  assert.equal(every.businessDaysElapsed, 10);
+  assert.equal(every.businessDaysTotal, 30);
+  assert.equal(every.projected, 3000);
+  assert.equal(every.series.find((s) => s.date === '2026-11-07')?.actual, 700);
+
+  // The 2nd is only the second day counted: no rate yet, under any rule.
+  assert.equal(
+    buildEarnedPace({
+      byDay: earnedEachDay([1, 2]),
+      now: new Date('2026-11-02T12:00:00Z'),
+      tz: 'UTC',
+      days: 'every_day',
+    }).projected,
+    null,
+  );
+
+  // Its 21 weekdays less Veterans Day (the 11th) and Thanksgiving (the 26th).
+  // Money on the holiday carries onto the 12th, as a weekend's does.
+  const holidays = buildEarnedPace({
+    byDay: earnedEachDay([2, 3, 4, 5, 6, 9, 10, 11, 12]),
+    now: new Date('2026-11-12T12:00:00Z'),
+    tz: 'UTC',
+    days: 'weekdays_except_holidays',
+  });
+  assert.equal(holidays.businessDaysElapsed, 8);
+  assert.equal(holidays.businessDaysTotal, 19);
+  const dates = holidays.series.map((s) => s.date);
+  assert.ok(!dates.includes('2026-11-11') && !dates.includes('2026-11-26'));
+  assert.equal(
+    holidays.series.find((s) => s.date === '2026-11-12')?.actual,
+    900,
+  );
+  assert.equal(holidays.projected, 2137.5, '900 over 8 days, across 19');
 });
 
 test('weekend work is carried onto the next business day, never lost', () => {

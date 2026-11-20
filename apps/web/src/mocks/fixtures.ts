@@ -129,6 +129,7 @@ export const settings = (): Settings => ({
   defaultHourlyRate: 125,
   currency: 'USD',
   weekStartsOn: 1,
+  projectionDays: 'weekdays',
   timeFormat: '12h',
   minEntrySeconds: 60,
   maxEntryHours: 12,
