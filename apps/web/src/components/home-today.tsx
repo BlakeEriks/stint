@@ -58,10 +58,10 @@ export function Today({ stats }: { stats: Stats }) {
   );
 }
 
-/* Two, because it is what the region holds beside the week's chart: the
+/* Three, because it is what the region holds beside the week's chart: the
    column keeps the height it will have once the day has work in it, so the
    top row does not change shape at the first entry. */
-const PLACEHOLDER_ROWS = 2;
+const PLACEHOLDER_ROWS = 3;
 
 function Tasks({
   tasks,
@@ -72,7 +72,7 @@ function Tasks({
 }) {
   /* A fixed ceiling rather than the panel's height: the page is a column
      sized by its content, so there is no bounded height to measure against.
-     Two and a half rows, so the cut-off row says it scrolls. */
+     Just under four rows, so the cut-off row says it scrolls. */
   return (
     <section
       aria-label="Today's tasks"
@@ -85,15 +85,15 @@ function Tasks({
              em-dash is what holds the shape. Not a shimmer — nothing is
              loading by the time this renders, and a pulse would promise rows
              that are not coming. No pip either: the hollow ring means
-             internal work, and two of them would say the day held two
+             internal work, and three of them would say the day held three
              untracked entries. */
           Array.from({ length: PLACEHOLDER_ROWS }, (_, i) => (
             <TaskRow
               key={`empty-${i}`}
               aria-hidden="true"
               data-entry-empty=""
+              pip={<span />}
               label={<span className="text-subtle">—</span>}
-              project={null}
               duration="—"
             />
           ))
@@ -101,23 +101,19 @@ function Tasks({
             <TaskRow
               key={t.key}
               data-task={t.key}
-              label={
-                <span className={t.live ? 'text-primary' : 'text-muted'}>
-                  {t.name}
-                </span>
-              }
               /* Only clients have a color; internal work takes the hollow
                  ring, which is what having none looks like on a screen
                  otherwise keyed by client. */
-              project={
-                <>
-                  <Pip
-                    color={
-                      t.projectId ? (colors.get(t.projectId) ?? null) : null
-                    }
-                  />
+              pip={
+                <Pip
+                  color={t.projectId ? (colors.get(t.projectId) ?? null) : null}
+                />
+              }
+              label={
+                <span className={t.live ? 'text-primary' : 'text-muted'}>
+                  {t.name}
                   <ProjectName id={t.projectId} />
-                </>
+                </span>
               }
               duration={clock(t.seconds)}
             />
@@ -128,33 +124,27 @@ function Tasks({
 
 function ProjectName({ id }: { id: string | null }) {
   const name = useProject(id)?.name;
-  return name ? <span className="truncate">{name}</span> : null;
+  return name ? <span className="text-subtle"> · {name}</span> : null;
 }
 
-/** A summary line, placeholder or task: the task's name, and its client's
-    pip and project under it, so the name has the row's width. A placeholder's
-    second line is empty but kept, so it holds a task row's height. */
+/** A summary line, placeholder or task. */
 function TaskRow({
+  pip,
   label,
-  project,
   duration,
   ...attrs
 }: {
+  pip: React.ReactNode;
   label: React.ReactNode;
-  project: React.ReactNode;
   duration: React.ReactNode;
 } & React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       {...attrs}
-      className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5 border-t border-edge-subtle py-2.5 first:border-t-0"
+      className="grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-edge-subtle py-2.5 first:border-t-0"
     >
-      <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="type-support truncate">{label}</span>
-        <span className="flex min-h-[1lh] items-center gap-1.5 type-support text-subtle">
-          {project}
-        </span>
-      </span>
+      {pip}
+      <span className="type-support truncate">{label}</span>
       <span className="type-duration text-subtle">{duration}</span>
     </div>
   );
