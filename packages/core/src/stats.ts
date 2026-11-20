@@ -6,11 +6,8 @@
  * and reports hours alone.
  */
 
-import {
-  businessDaysInLocalMonth,
-  daysInMonth,
-  localDateKey,
-} from './calendar.ts';
+import { daysInMonth, localDateKey } from './calendar.ts';
+import { observedFederalHolidays, type ProjectionDays } from './holidays.ts';
 import { findOverlaps } from './overlaps.ts';
 
 /** A draft left this long is usually forgotten, not deliberate. */
@@ -608,32 +605,38 @@ export function buildMonthByClient(rows: ClientRevenueRow[]): MonthClient[] {
 }
 
 /**
- * The local month's business days, in order, as `YYYY-MM-DD` keys.
+ * The local month's counted days, in order, as `YYYY-MM-DD` keys: every day,
+ * weekdays, or weekdays less the observed federal holidays.
  *
- * The ray steps on these and no others. A ray that advanced on calendar days
- * would slope through the weekend, showing the user falling behind every
- * Saturday and recovering every Monday — exactly the noise the business-day
- * rule exists to kill.
+ * Pace is measured against these, not calendar days, for someone who works
+ * weekdays: a ray that advanced on calendar days would slope through the
+ * weekend, showing them falling behind every Saturday and recovering every
+ * Monday.
  *
- * Must select the same days as `businessDaysInLocalMonth`'s `total`, which
- * counts what this lists: the card reads `series.length` against that figure,
- * so the two loops diverging would misreport the month's length.
+ * The one definition of the month's days: the series steps on these, and the
+ * projection's elapsed and total are counted off them.
  */
-export function businessDayKeysInLocalMonth(now: Date, tz: string): string[] {
+export function businessDayKeysInLocalMonth(
+  now: Date,
+  tz: string,
+  days: ProjectionDays = 'weekdays',
+): string[] {
   const [y, m] = localDateKey(now, tz).split('-').map(Number) as [
     number,
     number,
   ];
-  const days = daysInMonth(y, m);
+  const holidays = new Set(
+    days === 'weekdays_except_holidays' ? observedFederalHolidays(y) : [],
+  );
 
   const keys: string[] = [];
-  for (let d = 1; d <= days; d += 1) {
+  for (let d = 1; d <= daysInMonth(y, m); d += 1) {
+    const key = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     // getUTCDay on a UTC-midnight date gives that calendar date's weekday.
     const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
-    if (dow === 0 || dow === 6) continue;
-    keys.push(
-      `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
-    );
+    const weekend = dow === 0 || dow === 6;
+    if (days !== 'every_day' && (weekend || holidays.has(key))) continue;
+    keys.push(key);
   }
   return keys;
 }
@@ -668,19 +671,28 @@ export function buildEarnedPace({
   byDay,
   now,
   tz,
+  days,
 }: {
   byDay?: ReadonlyMap<string, number>;
   now: Date;
   tz: string;
+  /** Which days count; weekdays when not given. */
+  days?: ProjectionDays;
 }) {
-  const { elapsed, total } = businessDaysInLocalMonth(now, tz);
-  const series = buildEarnedSeries({ byDay, now, tz });
+  const keys = businessDayKeysInLocalMonth(now, tz, days);
+  const series = buildEarnedSeries({ byDay, keys, now, tz });
+
+  /* `elapsed` counts today as worked — you are in it — so on the 1st of a
+     month that starts midweek the ratio is 1/n rather than 0/n, which would
+     make any figure look infinitely behind. */
+  const todayKey = localDateKey(now, tz);
+  const total = keys.length;
+  const elapsed = keys.filter((k) => k <= todayKey).length;
 
   // Summed from `byDay` directly rather than read off the series' last
   // non-null point. The series nulls everything past today, so reading the
   // total off it would make `earned` depend on where `now` falls — a month
   // queried after it ended would have no non-null point at all and report 0.
-  const todayKey = localDateKey(now, tz);
   const monthPrefix = `${todayKey.slice(0, 7)}-`;
   let earned = 0;
   for (const [key, amount] of byDay ?? []) {
@@ -724,16 +736,14 @@ export function buildEarnedPace({
 }
 
 /**
- * The month's cumulative earned, one point per business day.
+ * The month's cumulative earned, one point per counted day (`keys`).
  *
  * `actual` stops at today and is null beyond it: a line drawn flat to the 31st
  * would read as a month that stopped working, not a month still in progress.
  *
- * Weekend work is not discarded — it is carried onto the next business day's
- * point, so the cumulative total always equals the month's earned. Stepping on
- * business days is the whole reason this is not a calendar series: a line that
- * advanced through the weekend would sag every Saturday and recover every
- * Monday, which is the noise the business-day rule exists to kill.
+ * Work on a day that isn't counted, a weekend or a holiday, is not discarded:
+ * it is carried onto the next counted day's point, so the cumulative total
+ * always equals the month's earned.
  *
  * A month ending on a Saturday or Sunday has no business day left to carry
  * that weekend onto, so the LAST point absorbs everything still unconsumed.
@@ -742,14 +752,15 @@ export function buildEarnedPace({
  */
 function buildEarnedSeries({
   byDay,
+  keys,
   now,
   tz,
 }: {
   byDay: ReadonlyMap<string, number> | undefined;
+  keys: string[];
   now: Date;
   tz: string;
 }) {
-  const keys = businessDayKeysInLocalMonth(now, tz);
   const todayKey = localDateKey(now, tz);
 
   // Sorted once, then walked in step with the business days, so a weekend's

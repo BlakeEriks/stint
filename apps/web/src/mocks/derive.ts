@@ -322,7 +322,7 @@ export function stats(db: Db, tz: string) {
     earnedToday: byDay.get(todayKey) ?? 0,
     week,
     month: {
-      ...buildEarnedPace({ byDay, now, tz }),
+      ...buildEarnedPace({ byDay, now, tz, days: settings.projectionDays }),
       byClient: buildMonthByClient(clientRows(db, monthStart, monthEnd)),
     },
     awaitingPayment: buildAwaitingPayment(open),

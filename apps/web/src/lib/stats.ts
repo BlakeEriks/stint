@@ -97,7 +97,12 @@ export async function readStats(
      map. `earned` is the series' own last point rather than a separate sum,
      because the projection extrapolates that series and a figure taken from a
      second source would disagree with the line drawn under it. */
-  const month = buildEarnedPace({ byDay, now, tz });
+  const month = buildEarnedPace({
+    byDay,
+    now,
+    tz,
+    days: settings.projectionDays,
+  });
 
   /* The week's seven days, sliced out of the widened window by the user's own
      week start. Seven keys always, so a day with no work is a zero column and
