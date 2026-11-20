@@ -115,8 +115,8 @@ not; `supabase/templates/magic_link.html` puts it in front of the user via
 
 `supabase-swift` is not a dependency; two POSTs do not need an SDK.
 
-The hosted project pastes that template into both Magic Link and Confirm
-signup, which a first sign-in gets, and needs custom SMTP. `docs/setup.md` §5.
+Each release sends that template to production as both Magic Link and
+Confirm signup, which a first sign-in gets. `docs/setup.md` §5.
 
 **The session lives in the Keychain**, not `UserDefaults` — a refresh token is
 a long-lived credential and a plist in the container is readable by anything

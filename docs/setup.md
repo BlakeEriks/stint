@@ -110,19 +110,20 @@ Resend's free tier (100 a day) as `Stint <signin@runstint.com>`.
 3. **Supabase → Authentication → Emails → SMTP Settings**: host
    `smtp.resend.com`, port `465`, user `resend`, the API key as password,
    sender `signin@runstint.com`, name `Stint`.
-4. **Authentication → Emails → Magic Link** and **Confirm signup**: subject
-   `Sign in to Stint`, body `supabase/templates/magic_link.html`, in both.
-   Confirm email is on, so a first sign-in sends Confirm signup instead of
-   Magic Link.
+4. The **Magic Link** and **Confirm signup** templates need no step here:
+   each release sends them from the repo (`release.yml`, `emails`). Confirm
+   email is on, so a first sign-in sends Confirm signup instead of Magic Link.
 5. **Authentication → Sign In / Providers → Email**: **Email OTP Length** `6`.
    A hosted project can default to 8, and the template and the panel show
    and take six digits, so a longer code is truncated and always rejected.
    **Email OTP Expiration** `86400`, because the sign-in errors say codes
    expire after 24 hours.
 
-The dashboard holds its own copies of the template, because `config.toml`
-points GoTrue at a local path a hosted project can't read. An edit to the
-file changes local only, until it's pasted into both again. Keep the link's
+`config.toml` points GoTrue at a local path a hosted project can't read, so
+an edit to the template reaches production with the release that carries it.
+`stint-test` keeps Supabase's stock emails: a free project on the default
+sender can't change its templates, and a preview signs in through
+`/preview/signin`, with no email. Keep the link's
 `{{ .RedirectTo }}&token_hash={{ .TokenHash }}`: the app verifies the token
 hash itself, where `{{ .ConfirmationURL }}` signs in only the browser that
 asked for the link. Keep both `{{ slice .Token }}` calls too, because GoTrue

@@ -271,3 +271,54 @@ jobs:
           # Empty allowed_mentions: a commit subject can never ping anyone.
           jq -n --arg c "$text" '{content: $c, allowed_mentions: {parse: []}}' |
             curl -fsS -m 10 -o /dev/null -H 'Content-Type: application/json' -d @- "$WEBHOOK"
+
+  # Production's sign-in emails, from the templates `supabase/config.toml`
+  # declares: a hosted project cannot read those paths, so its copies come
+  # from here. After `report`, so the new build is promoted before its emails
+  # change, since a template can carry a link only the new code accepts.
+  #
+  # One PATCH of the subjects and bodies and nothing else. Never
+  # `supabase config push`: it sends everything `config.toml` declares, and
+  # that file's Site URL and redirect list are localhost's.
+  emails:
+    needs: [migrate, report]
+    if: ${{ !cancelled() && needs.migrate.result == 'success' }}
+    runs-on: ubuntu-latest
+    # For SUPABASE_ACCESS_TOKEN, which can change any project on the account.
+    environment: Production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { ref: '${{ github.event.client_payload.git.sha }}' }
+      - name: Send the templates to Supabase
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          CONFIG: https://api.supabase.com/v1/projects/zwoceqydagxxmqoaqgbf/config/auth
+        shell: python
+        run: |
+          import json, os, sys, tomllib, urllib.request
+
+          with open('supabase/config.toml', 'rb') as f:
+              templates = tomllib.load(f)['auth']['email']['template']
+          body = {}
+          for name, t in templates.items():
+              body[f'mailer_subjects_{name}'] = t['subject']
+              with open(t['content_path'], encoding='utf-8') as f:
+                  body[f'mailer_templates_{name}_content'] = f.read()
+
+          def call(method, data=None):
+              req = urllib.request.Request(
+                  os.environ['CONFIG'], data=data, method=method,
+                  headers={
+                      'Authorization': f"Bearer {os.environ['SUPABASE_ACCESS_TOKEN']}",
+                      'Content-Type': 'application/json',
+                      'User-Agent': 'stint-release',
+                  })
+              with urllib.request.urlopen(req, timeout=30) as res:
+                  return json.load(res)
+
+          call('PATCH', json.dumps(body).encode())
+          # Read back: a field Supabase does not know is accepted and dropped.
+          now = call('GET')
+          stale = [k for k, v in body.items() if now.get(k) != v]
+          if stale:
+              sys.exit(f"Supabase did not take: {', '.join(stale)}")

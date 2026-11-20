@@ -179,6 +179,11 @@ migration scripts do, and they run in Actions.
   `VERCEL_AUTOMATION_BYPASS_SECRET`, Vercel's Protection Bypass for
   Automation, so the gate can reach the unpromoted build (§3a).
 
+- **GitHub** → Environments → **Production** → add `SUPABASE_ACCESS_TOKEN`,
+  a Supabase personal access token (Account preferences → Access Tokens),
+  so a release can send production its sign-in email templates. It can
+  change any project on the account, so it lives nowhere else.
+
 - **GitHub** → Environments → **Release**: required reviewer (you), `main`
   only, no secrets. It is the pause and nothing else. Production carries no
   reviewer because the nightly backup runs in it unattended.

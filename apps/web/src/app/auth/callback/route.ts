@@ -28,8 +28,8 @@ export async function GET(req: Request) {
 /**
  * The landing of an email whose link is `{{ .ConfirmationURL }}`: it goes
  * through GoTrue's `/verify` first and arrives with a PKCE code, or with
- * `error` when the link was spent. A hosted project's templates are pasted
- * by hand (`docs/setup.md` §5), so one can still send that link.
+ * `error` when the link was spent. `stint-test` cannot change its templates
+ * (`docs/setup.md` §5), so it still sends that link.
  */
 async function fromVerify(url: URL) {
   const code = url.searchParams.get('code');
