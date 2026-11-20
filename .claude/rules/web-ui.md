@@ -76,8 +76,11 @@ color fact is text on the accent (`--text-on-accent`, `tokens:validate`).
   work gets none.
 - **A home card ships only with a number the user can't work out in their
   head, or a row they can act on.**
-- **Motion reports a change; it never announces one.** Every duration honors
-  `prefers-reduced-motion`.
+- **Motion reports a change; it never announces one**, except the toast's
+  entrance, which a message nobody asked for needs to be seen. Every duration
+  honors `prefers-reduced-motion` except the toast's time-left bar: it is the
+  toast's clock and moves nothing else, and stopping it would leave the toast
+  open forever.
 - **The mark's bounds are always `--mark` green; its letters take one text
   color**: `text-strong` in the app header, `text-muted` where it recedes. The invoice PDF and the macOS status item carry none.
 
@@ -165,6 +168,7 @@ a different order, and the ones that drifted were rebuilt:
 | Any action | `Button`, sized and varied by the tables in `ui/button.tsx` |
 | A destructive action in a dialog's footer | `ConfirmAction` |
 | A press that takes many records at once and can't come back: Mark sent, Void, Delete draft | `AskFirst` (a button and its `ConfirmDialog`); `ConfirmDialog` alone when something else opens it |
+| A notice about the screen, above it: a condition to see to, or an error | `Notice` |
 | An invoice's status | `StatusBadge` |
 | Money, dates, durations | `Money`, `formatCurrency`, `shortDate` — never `toLocaleString` at the call site |
 | A client's color | `useProjectColors()`, `Swatch` |

@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     default: 'Stint',
     template: '%s · Stint',
   },
-  description: 'Time tracking for solo contractors.',
+  description: 'Time tracking and invoicing for solo contractors.',
   twitter: { card: 'summary_large_image' },
 };
 

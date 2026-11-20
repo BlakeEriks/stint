@@ -1,28 +1,24 @@
 'use client';
 
 import { useFailedPress } from '@stint/client';
-import { X } from 'lucide-react';
-import { Toast, ToastRegion } from './toast';
+import { useState } from 'react';
+import { Toast } from './toast';
 
-/** The newest failed press (`useFailedPress`), as a toast with a dismiss. */
+/** The newest failed press (`useFailedPress`), as a refusal toast. */
 export function MutationNotice() {
   const shown = useFailedPress();
+  /* Kept past a dismiss, so the toast has its words while it leaves. */
+  const [message, setMessage] = useState('');
+  if (shown && shown.message !== message) setMessage(shown.message);
 
   return (
-    <ToastRegion>
-      {shown && (
-        <Toast>
-          <span>{shown.message}</span>
-          <button
-            type="button"
-            onClick={shown.dismiss}
-            className="text-muted hover:text-primary"
-            aria-label="Dismiss"
-          >
-            <X aria-hidden className="size-4" strokeWidth={1.75} />
-          </button>
-        </Toast>
-      )}
-    </ToastRegion>
+    <Toast
+      key={message}
+      tone="refusal"
+      open={shown !== null}
+      onOpenChange={(open) => open || shown?.dismiss()}
+    >
+      {message}
+    </Toast>
   );
 }

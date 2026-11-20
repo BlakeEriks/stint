@@ -192,13 +192,10 @@ export const POST = handle(async (req: Request) => {
       .filter((id) => overlapping.has(id)),
     earlierWork: earlier,
     heldWork: held,
-    schedules:
-      body.groupingMode === 'summary'
-        ? buildSchedules(entries, {
-            tz,
-            periodStart: body.periodStart,
-            periodEnd: body.periodEnd,
-          })
-        : null,
+    schedules: buildSchedules(entries, {
+      tz,
+      periodStart: body.periodStart,
+      periodEnd: body.periodEnd,
+    }),
   });
 });

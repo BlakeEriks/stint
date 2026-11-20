@@ -108,30 +108,11 @@ open **Mailpit** and click the link. No mail
 leaves the machine, so there is nothing in your actual inbox and nothing to
 rate-limit.
 
-**One sign-in at a time per browser.** Sign-in is PKCE: the form stores a
-code verifier in localStorage under **one key per origin**, so two tabs on
-`localhost:3100` share the slot. Requesting a link while another tab holds a
-session — or a half-finished sign-in — overwrites the verifier, and the code
-exchange at `/auth/callback` then fails against the wrong one.
-
-**The failure looks like a broken link.** `/verify` succeeds and returns its
-`303`; the exchange fails a step later, so the address bar sits on the Auth
-endpoint and re-clicking reports `Bad request` because the first attempt
-already consumed the token. `/signin` redirects home when a session exists,
-and requesting a link clears local auth state first, so this takes a
-deliberate second tab.
-
-Diagnosing a failed click: a `303` from `/verify` means verification itself
-worked, so look for the **`/token` call that should follow it**. Its absence
-is the exchange failing.
-
-```
-docker logs supabase_auth_stint --since 10m \
-  | grep -E '"path":"/(verify|token)"'
-```
-
-A pending token can also be checked directly — empty means there is nothing
-to click and a fresh `/signin` is needed:
+**The link works in any browser.** It lands on `/auth/callback` with a
+token hash, which the server verifies, so nothing the browser that asked
+stored is needed. It works once: a second click reports that the link was
+used. A pending token can be checked directly, and empty means there is
+nothing to click and a fresh `/signin` is needed:
 
 ```sql
 select token_type, created_at from auth.one_time_tokens;
@@ -139,9 +120,9 @@ select token_type, created_at from auth.one_time_tokens;
 
 **Click the anchor in Mailpit, do not copy the URL text.** The `href`
 correctly escapes its separators as `&amp;`, which a browser decodes on
-click; pasted literally, GoTrue reads `amp;type` instead of `type` and
-returns `400 Verify requires a verification type` — the same `Bad request`
-from a different cause. The token survives, so a proper click still works.
+click; pasted literally, the callback reads `amp;token_hash` instead of
+`token_hash` and reports the link as incomplete. The token survives, so a
+proper click still works.
 
 **Open the newest message.** Mailpit keeps every email, and requesting a new
 link invalidates the previous token.

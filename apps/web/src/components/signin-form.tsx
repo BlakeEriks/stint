@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Wordmark } from '@/components/wordmark';
 import { forgetCache } from '@/lib/client/query-cache';
 import { browserClient } from '@/lib/client/supabase';
+import { signInLanding } from '@/lib/sign-in-link';
 
 /**
  * Magic link sign-in.
@@ -39,27 +40,10 @@ export function SignInForm({
     e.preventDefault();
     setState('sending');
 
-    const db = browserClient();
-
-    /* Clear this browser's auth state FIRST.
-       The PKCE code verifier is stored under one key per origin, so a session
-       or a half-finished sign-in left in another tab shares the slot: asking
-       for a second link overwrites the verifier, and the eventual code
-       exchange then fails against the wrong one. `/verify` still succeeds, so
-       the link looks valid and the failure surfaces a step later as a dead
-       link — which cost an hour to diagnose once.
-
-       `scope: 'local'` only: this must not revoke sessions on the user's
-       other devices. Reaching this form already means there is no usable
-       session here — the page redirects home if there is. */
-    await db.auth.signOut({ scope: 'local' });
-
-    const { error } = await db.auth.signInWithOtp({
+    const { error } = await browserClient().auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback${
-          next ? `?next=${encodeURIComponent(next)}` : ''
-        }`,
+        emailRedirectTo: signInLanding(window.location.origin, next),
       },
     });
 
@@ -77,7 +61,7 @@ export function SignInForm({
         <Wordmark />
       </h1>
       <p className="mt-1.5 type-control text-muted">
-        Time tracking for solo contractors.
+        Time tracking and invoicing for solo contractors.
       </p>
 
       {deleted && state === 'idle' ? (
@@ -151,7 +135,7 @@ export function SignInForm({
  */
 const EXPLAIN: Record<string, string> = {
   invalid_link:
-    'That link didn’t work. It may have been opened already, or another tab started a different sign-in. Request a new one below.',
+    'That link didn’t work. It may have been used already or expired. Request a new one below.',
   missing_code: 'That link was incomplete. Request a new one below.',
   default: 'That link didn’t work. Request a new one below.',
 };
