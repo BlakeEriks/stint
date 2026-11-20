@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Month } from '@/components/home-month';
 import { type Hue, Legend } from '@/components/home-shell';
+import { useNow } from '@/lib/client/use-now';
 
 const TZ = 'America/New_York';
 
@@ -29,7 +30,12 @@ const hues = new Map<string, Hue>([
  * real month there is no projection to show.
  */
 export function DemoMonth() {
-  const days = businessDayKeysInLocalMonth(new Date(), TZ);
+  const now = useNow();
+  /* Money's count-up remembers each figure on a query client. */
+  const [client] = useState(() => new QueryClient());
+  // Below the fold, so painting after hydration moves nothing in view.
+  if (!now) return null;
+  const days = businessDayKeysInLocalMonth(now, TZ);
   const today = days[DAILY.length - 1] as string;
   const byDay = new Map(
     days.slice(0, DAILY.length).map((d, i) => [d, DAILY[i] as number]),
@@ -40,8 +46,6 @@ export function DemoMonth() {
     tz: TZ,
   });
   const earned = pace.earned;
-  /* Money's count-up remembers each figure on a query client. */
-  const [client] = useState(() => new QueryClient());
 
   return (
     /* The projection's endpoint pulses, as the hero's running timer does. */

@@ -4,8 +4,6 @@ import { requireSession } from '@/lib/auth';
 import { entitlement } from '@/lib/billing';
 import { requireBillingLive, stripe } from '@/lib/stripe';
 
-export const dynamic = 'force-dynamic';
-
 /**
  * POST /api/v1/billing/checkout — a Stripe Checkout page for the one yearly
  * price (`docs/positioning.md`). The user id rides on the session and the

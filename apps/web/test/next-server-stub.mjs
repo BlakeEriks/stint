@@ -19,3 +19,6 @@ export function after(task) {
   globalThis.__AFTER__ ??= [];
   globalThis.__AFTER__.push(Promise.resolve().then(run));
 }
+
+// `connection()` marks a handler per-request at build; a test is one request.
+export async function connection() {}

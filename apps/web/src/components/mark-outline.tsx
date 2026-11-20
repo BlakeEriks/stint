@@ -2,7 +2,8 @@ import { brand, markOutline } from '@stint/design-tokens';
 
 /**
  * `|Stint|™` as generated outlines, for a render with no webfont or
- * stylesheet: the error page and the link-preview image. `size` is the font
+ * stylesheet: the error page, the link-preview image and the sign-in email's
+ * image. `size` is the font
  * size the mark stands for; the colors are styles, so a `var()` works.
  */
 export function MarkOutline({

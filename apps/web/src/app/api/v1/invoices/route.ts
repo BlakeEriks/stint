@@ -19,8 +19,6 @@ import {
 } from '@stint/core';
 import { CreateInvoice, ListInvoicesQuery } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 export const GET = handle(async (req: Request) => {
   const { db } = await requireSession(req);
   const q = parseQuery(req, ListInvoicesQuery);

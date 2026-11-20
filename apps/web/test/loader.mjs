@@ -1,5 +1,5 @@
 // Resolves and transforms what `node --test` cannot on its own:
-//   - Next's subpath exports, two of them replaced with stubs
+//   - Next's subpath exports, three of them replaced with stubs
 //   - the `@/*` path alias and extensionless relative TS imports
 //   - JSX in .tsx files, via the SWC binary Next already ships
 //
@@ -46,6 +46,7 @@ const withExt = (p) => {
 const STUBS = {
   'next/server': 'next-server-stub.mjs',
   'next/headers': 'next-headers-stub.mjs',
+  'next/navigation': 'next-navigation-stub.mjs',
 };
 
 export async function resolve(specifier, context, next) {

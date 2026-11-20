@@ -3,8 +3,6 @@ import { handle } from '@/lib/errors';
 import { callerToken, requireSession } from '@/lib/auth';
 import { revokeApp } from '@/lib/grants';
 
-export const dynamic = 'force-dynamic';
-
 type Ctx = { params: Promise<{ clientId: string }> };
 
 /** Revokes the app: its tokens stop working at its next request. */

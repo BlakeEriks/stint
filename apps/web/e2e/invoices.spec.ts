@@ -19,8 +19,10 @@ test.beforeEach(async ({ page }) => {
 });
 
 /* The page's own content: the dock's Inbox links invoices by number on
-   every route, so an unscoped query matches twice. */
-const list = (page: import('@playwright/test').Page) => page.locator('main');
+   every route, so an unscoped query matches twice. Visible only: the router
+   keeps the pages just left mounted and hidden, to restore them on Back. */
+const list = (page: import('@playwright/test').Page) =>
+  page.locator('main').filter({ visible: true });
 
 test.describe('invoices', () => {
   test('marking a sent invoice paid sticks across a reload', async ({

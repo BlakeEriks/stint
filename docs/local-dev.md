@@ -315,7 +315,7 @@ dev:up` plus `pnpm dev`; `ci.yml` says how CI starts its stack.
 They sign in for real, through Mailpit. `magicLink()` reads the **text** part
 of the email, because the HTML `href` escapes its separators as `&amp;`.
 
-Three things that bite:
+Four things that bite:
 
 - **`auth.email.max_frequency` is `1s` and is already its minimum**, so two
   sign-ins inside the same second collide with "you can only request this
@@ -325,6 +325,10 @@ Three things that bite:
 - **Next renders an always-present empty `role="alert"`** (the route
   announcer), so an unscoped `getByRole('alert')` is ambiguous. Scope to
   `main` or to the form.
+- **The router keeps the pages just left mounted but hidden**, to restore
+  them on Back (`cacheComponents`), so after a client-side switch `main`
+  and text match more than once. Filter `main` with `{ visible: true }`,
+  or query by role, which skips hidden elements.
 - **A test that writes must restore the seed.** `resetSeed()` runs
   `supabase db reset` in `beforeAll`. Ordering within a file matters: the
   mutating test goes last.

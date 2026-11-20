@@ -7,8 +7,6 @@ import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
 import { CreateTimeEntry, ListEntriesQuery } from '@stint/schema';
 import { measured } from '@stint/core';
 
-export const dynamic = 'force-dynamic';
-
 /** GET /api/v1/entries — newest first. */
 export const GET = handle(async (req: Request) => {
   const { db } = await requireSession(req);

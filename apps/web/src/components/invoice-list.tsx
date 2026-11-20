@@ -167,8 +167,8 @@ function Row({
      invalid HTML and breaks keyboard navigation. */
   return (
     <div className="flex items-center gap-3 py-3">
-      {/* Prefetched in full: the route is dynamic, so the default prefetch
-          stops at `loading.tsx` and the click waits on the server. */}
+      {/* Prefetched in full: the default fetches only the shell every
+          invoice shares, and the page's own part waits on the server. */}
       <Link
         href={`/invoices/${invoice.id}`}
         prefetch

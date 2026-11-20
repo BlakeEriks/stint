@@ -37,6 +37,13 @@ const config: NextConfig = {
     '/api/v1/invoices/[id]/pdf': ['./src/fonts/pdf/**'],
   },
 
+  /* A link prefetches its route's shell once, and every link to that route
+     reuses it, so a press on an invoice whose own prefetch hasn't landed
+     still answers at once (Constitution VI). A page's `params` or
+     `searchParams` read sits behind `<Suspense>`, outside that shell. */
+  cacheComponents: true,
+  partialPrefetching: true,
+
   /* A section switches without a server round trip because its prefetch is
      already in the router cache (Constitution VI). Next drops a prefetch
      after five minutes by default, so a press after that waited on the

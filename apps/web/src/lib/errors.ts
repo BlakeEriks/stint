@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { unstable_rethrow } from 'next/navigation';
 /* `@sentry/core`, not `@sentry/nextjs`: the same function, but Node's ESM
    loader cannot see the named exports `@sentry/nextjs` re-exports from
    CommonJS, so the route tests would import `undefined`. */
@@ -43,6 +44,8 @@ export function handle<T extends unknown[]>(
     try {
       return await fn(...args);
     } catch (err) {
+      // Next's own signals, such as a prerender stopping at the request.
+      unstable_rethrow(err);
       if (err instanceof ApiError) {
         return errorResponse(err.code, err.message, err.details);
       }
