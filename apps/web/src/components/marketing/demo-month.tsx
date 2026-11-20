@@ -1,6 +1,6 @@
 'use client';
 
-import { buildEarnedPace, businessDayKeysInLocalMonth } from '@stint/core';
+import { buildEarnedPace, countedDayKeysInLocalMonth } from '@stint/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Month } from '@/components/home-month';
@@ -35,7 +35,7 @@ export function DemoMonth() {
   const [client] = useState(() => new QueryClient());
   // Below the fold, so painting after hydration moves nothing in view.
   if (!now) return null;
-  const days = businessDayKeysInLocalMonth(now, TZ);
+  const days = countedDayKeysInLocalMonth(now, TZ);
   const today = days[DAILY.length - 1] as string;
   const byDay = new Map(
     days.slice(0, DAILY.length).map((d, i) => [d, DAILY[i] as number]),

@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { observedFederalHolidays } from '../src/holidays.ts';
 
 /* OPM's published calendars. 2026 moves July 4 back to Friday; 2027 moves
-   three fixed dates, one each way, and observes 2028's New Year's on its
-   own December 31. */
+   two fixed dates back (June 19, December 25) and one forward (July 4), and
+   observes 2028's New Year's on its own December 31, so 2028 has none. */
 const OPM: [year: number, dates: string[]][] = [
   [
     2026,
@@ -55,16 +55,26 @@ const OPM: [year: number, dates: string[]][] = [
       '2023-12-25',
     ],
   ],
+  [
+    2028,
+    [
+      // No New Year's: a Saturday, observed on 2027-12-31.
+      '2028-01-17',
+      '2028-02-21',
+      '2028-05-29',
+      '2028-06-19',
+      '2028-07-04',
+      '2028-09-04',
+      '2028-10-09',
+      '2028-11-10', // Veterans Day on a Saturday, observed Friday
+      '2028-11-23',
+      '2028-12-25',
+    ],
+  ],
 ];
 
 test('observed federal holidays match OPM for each year', () => {
   for (const [year, dates] of OPM) {
     assert.deepEqual(observedFederalHolidays(year), dates, String(year));
   }
-});
-
-test('a New Year on a Saturday is not observed in its own year', () => {
-  assert.ok(
-    !observedFederalHolidays(2028).some((d) => d.startsWith('2028-01-0')),
-  );
 });

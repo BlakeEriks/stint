@@ -616,7 +616,7 @@ export function buildMonthByClient(rows: ClientRevenueRow[]): MonthClient[] {
  * The one definition of the month's days: the series steps on these, and the
  * projection's elapsed and total are counted off them.
  */
-export function businessDayKeysInLocalMonth(
+export function countedDayKeysInLocalMonth(
   now: Date,
   tz: string,
   days: ProjectionDays = 'weekdays',
@@ -679,7 +679,7 @@ export function buildEarnedPace({
   /** Which days count; weekdays when not given. */
   days?: ProjectionDays;
 }) {
-  const keys = businessDayKeysInLocalMonth(now, tz, days);
+  const keys = countedDayKeysInLocalMonth(now, tz, days);
   const series = buildEarnedSeries({ byDay, keys, now, tz });
 
   /* `elapsed` counts today as worked — you are in it — so on the 1st of a
@@ -702,8 +702,6 @@ export function buildEarnedPace({
     if (key.startsWith(monthPrefix) && key <= todayKey) earned += amount;
   }
 
-  // `elapsed` counts today, so a month whose 1st is a weekend gives 0 — there
-  // is no rate to carry, whatever has been earned.
   const projected =
     elapsed < MIN_PACE_DAYS || total === 0
       ? null
@@ -745,10 +743,10 @@ export function buildEarnedPace({
  * it is carried onto the next counted day's point, so the cumulative total
  * always equals the month's earned.
  *
- * A month ending on a Saturday or Sunday has no business day left to carry
- * that weekend onto, so the LAST point absorbs everything still unconsumed.
- * Without it, work logged on the 31st of a month ending at the weekend — Jan,
- * May and Aug 2026 all do — would vanish from the line's final point.
+ * A month whose last days aren't counted has no counted day left to carry
+ * them onto, so the LAST point absorbs everything still unconsumed. Without
+ * it, work logged on the 31st of a month ending at the weekend — Jan, May and
+ * Aug 2026 all do — would vanish from the line's final point.
  */
 function buildEarnedSeries({
   byDay,
