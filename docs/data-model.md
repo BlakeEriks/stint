@@ -502,7 +502,7 @@ alone must still contain the query.
 | Check | Result |
 |---|---|
 | An unfiltered `select` returns only the caller's rows | isolated |
-| All ten user-scoped tables isolate | isolated |
+| All eleven user-scoped tables isolate | isolated |
 | A known-good id belonging to another user returns nothing | no leak |
 | Line items inherit isolation through their invoice | isolated |
 | Insert with a forged `user_id` | rejected by `WITH CHECK` |
@@ -515,6 +515,7 @@ alone must still contain the query.
 | Claiming or changing the plan an invoice was generated on | overwritten at insert, refused on update |
 | An expense filed under another user's client | rejected by `expense_client_same_owner` |
 | An invoice billed to another user's client | rejected by `invoice_client_same_owner` |
+| An invoice from another user's business | rejected by `invoice_business_same_owner` |
 | A project under another user's client | rejected by `project_client_same_owner` |
 | An unqualified `delete from time_entries` | removes only the caller's |
 | Two users may each run a timer; neither may run two | per-user, as designed |
