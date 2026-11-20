@@ -118,7 +118,7 @@ function Sections({
             section={section}
             ref={register(`head:${section.key}`, { fade: true })}
           />
-          <ul className="divide-y divide-edge-subtle">
+          <ul className="*:border-t *:border-edge-subtle">
             {section.invoices.map((invoice) => (
               <li
                 key={invoice.id}
@@ -275,7 +275,7 @@ function Row({
       </Link>
 
       {open && onPress ? (
-        <span className="relative col-start-2 row-start-2 mt-2 justify-self-end sm:row-start-1 sm:mt-0 sm:justify-self-center">
+        <span className="relative col-start-2 row-start-2 mt-2 flex justify-self-end sm:row-start-1 sm:mt-0 sm:justify-self-center">
           <RowButton invoice={invoice} onPress={onPress} busy={busy} />
         </span>
       ) : null}
@@ -294,19 +294,18 @@ function Row({
 /** What happened to it, and when: "Created Oct 1". */
 const VERB = { draft: 'Created', sent: 'Sent', paid: 'Paid' } as const;
 
-/** Client, period, and what happened when. On a phone the period starts
-    its own line and drops the dot that would lead it. */
+/** Client, period, and what happened when, on one line that truncates. On
+    a phone the period starts its own line and drops the dot that would
+    lead it. */
 function Meta({ invoice, client }: { invoice: Invoice; client?: Client }) {
   return (
-    <span className="mt-0.5 block type-support text-subtle">
-      <span className="inline-flex max-w-full items-center gap-1.5 align-middle">
-        <Pip color={client?.color} />
-        <span className="truncate text-muted">
-          {client?.name ?? 'Unknown client'}
-        </span>
+    <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 type-support text-subtle sm:flex-nowrap">
+      <Pip color={client?.color} />
+      <span className="truncate text-muted">
+        {client?.name ?? 'Unknown client'}
       </span>
-      <span className="block sm:inline">
-        <span className="hidden sm:inline">{' · '}</span>
+      <span className="basis-full truncate sm:basis-auto">
+        <span className="hidden sm:inline">{'· '}</span>
         {periodName(invoice.periodStart, invoice.periodEnd)}
         {invoice.status === 'void' ? (
           <>
