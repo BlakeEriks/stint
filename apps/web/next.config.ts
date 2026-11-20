@@ -44,6 +44,13 @@ const config: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
 
+  /* A section switches without a server round trip because its prefetch is
+     already in the router cache (Constitution VI). Next drops a prefetch
+     after five minutes by default, so a press after that waited on the
+     server. Every page here is a shell that fetches its data on the client,
+     so its payload changes only with a deploy: keep it for the session. */
+  experimental: { staleTimes: { static: Infinity } },
+
   // Projects moved under Clients; old bookmarks land there, query and all.
   async redirects() {
     return [{ source: '/projects', destination: '/clients', permanent: true }];
