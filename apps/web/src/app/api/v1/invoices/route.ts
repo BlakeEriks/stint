@@ -6,8 +6,8 @@ import {
   computeInvoice,
   summaryColumns,
   deriveDraft,
+  loadBusiness,
   loadPaymentProfile,
-  requireSender,
 } from '@/lib/drafts';
 import { INVOICE_COLUMNS, toInvoice, type InvoiceRow } from '@/lib/rows';
 import {
@@ -80,7 +80,11 @@ export const POST = handle(async (req: Request) => {
   const asked = invoiceRequestRefusal(body, localDateKey(new Date(), tz));
   if (asked) throw refused(asked);
 
-  requireSender(settings);
+  const business = await loadBusiness(
+    db,
+    body.clientId,
+    body.businessProfileId,
+  );
 
   const priced = pricedInvoiceRefusal(totals);
   if (priced) throw refused(priced);
@@ -100,6 +104,7 @@ export const POST = handle(async (req: Request) => {
     p_user_id: userId,
     p_invoice: {
       client_id: body.clientId,
+      business_profile_id: business.id,
       due_date: body.dueDate ?? null,
       period_start: body.periodStart,
       period_end: body.periodEnd,

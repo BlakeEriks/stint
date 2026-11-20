@@ -8,7 +8,7 @@ import { useEffect, useReducer } from 'react';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account, getDb } from '@/mocks/db';
 import type { Db } from '@/mocks/fixtures';
-import { ids } from '@/mocks/fixtures';
+import { id, ids } from '@/mocks/fixtures';
 import { handlers } from '@/mocks/handlers';
 import {
   at,
@@ -1441,12 +1441,13 @@ export const Loading: Story = {
   },
 };
 
+const LLC = id(412);
+
 const noSender = account((db: Db) => {
-  db.settings.businessName = null;
-  db.settings.businessEmail = null;
+  db.businessProfiles = [];
 });
 
-/** No business name or email: the notice says so, Save draft waits, and the
+/** No business yet: the notice says so, Save draft waits, and the
  *  page marks where the sender prints. */
 export const DetailsMissing: Story = {
   ...desktop,
@@ -1477,7 +1478,7 @@ export const AddDetails: Story = {
       await page.findByRole('button', { name: 'Add details' }),
     );
     const dialog = await page.findByRole('dialog', {
-      name: 'Who’s this invoice from?',
+      name: 'New business',
     });
     await waitFor(() => expect(dialog).toBeVisible());
     const form = within(dialog);
@@ -1510,11 +1511,13 @@ export const DetailsSaveFails: Story = {
     ...noSender,
     msw: {
       handlers: {
-        updateSettings: http.patch(handlers.updateSettings.info.path, () =>
-          Response.json(
-            { code: 'VALIDATION_FAILED', message: 'Enter a valid email.' },
-            { status: 422 },
-          ),
+        createBusinessProfile: http.post(
+          handlers.createBusinessProfile.info.path,
+          () =>
+            Response.json(
+              { code: 'VALIDATION_FAILED', message: 'Enter a valid email.' },
+              { status: 422 },
+            ),
         ),
       },
     },
@@ -1525,7 +1528,7 @@ export const DetailsSaveFails: Story = {
       await page.findByRole('button', { name: 'Add details' }),
     );
     const dialog = await page.findByRole('dialog', {
-      name: 'Who’s this invoice from?',
+      name: 'New business',
     });
     await waitFor(() => expect(dialog).toBeVisible());
     const form = within(dialog);
@@ -1639,34 +1642,94 @@ export const LeavingBlocked: Story = {
   },
 };
 
-/** Your business, atop the page, opens the same dialog, filled from
- *  Settings: correcting it reprints the preview and leaves the draft as it
- *  was. */
-export const EditSender: Story = {
+const addLLC = (db: Db) => {
+  db.businessProfiles.push({
+    id: LLC,
+    name: 'Rivera Studio LLC',
+    email: 'billing@riverastudio.test',
+    address: '88 Harbor Ave\nSeattle, WA 98104',
+    logoUrl: null,
+    isDefault: false,
+    archivedAt: null,
+  });
+};
+
+/** Your business, atop the page, opens the menu of businesses: picking
+ *  another reprints the page, and the draft saves from it. */
+export const PickBusiness: Story = {
   ...desktop,
-  parameters: menuOpen,
+  parameters: { ...menuOpen, ...account(addLLC) },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
-    await userEvent.type(page.getByLabelText('Reference'), 'PO-7');
     await userEvent.click(
       card(page).getByRole('button', { name: /^Edit Sam Rivera/ }),
     );
-    const dialog = await page.findByRole('dialog', {
-      name: 'Who’s this invoice from?',
-    });
-    await waitFor(() => expect(dialog).toBeVisible());
-    const form = within(dialog);
-    const email = form.getByRole('textbox', { name: /Email/ });
-    await expect(email).toHaveValue('billing@samrivera.test');
-    await userEvent.clear(email);
-    await userEvent.type(email, 'sam@samrivera.test');
-    await userEvent.click(form.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+    await userEvent.click(
+      await page.findByRole('menuitemradio', { name: /Rivera Studio LLC/ }),
+    );
     await expect(
-      await card(page).findByText(/sam@samrivera\.test/),
+      await card(page).findByText(/billing@riverastudio\.test/),
     ).toBeVisible();
-    await expect(page.getByLabelText('Reference')).toHaveValue('PO-7');
+    const before = getDb().invoices.length;
+    await userEvent.click(page.getByRole('button', { name: 'Save draft' }));
+    await waitFor(() => expect(getDb().invoices.length).toBe(before + 1));
+    await expect(getDb().invoices.at(-1)?.businessProfileId).toBe(LLC);
   },
 };
-export const EditSenderPhone: Story = { ...EditSender, ...phone };
+export const PickBusinessPhone: Story = { ...PickBusiness, ...phone };
+
+/** New business, from the menu, adds one: the business printing is left
+ *  as it is. */
+export const NewBusinessFromMenu: Story = {
+  ...desktop,
+  parameters: { ...menuOpen, ...account(addLLC) },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    await userEvent.click(
+      card(page).getByRole('button', { name: /^Edit Sam Rivera/ }),
+    );
+    await userEvent.click(
+      await page.findByRole('menuitem', { name: 'New business' }),
+    );
+    const dialog = within(
+      await page.findByRole('dialog', { name: 'New business' }),
+    );
+    await expect(
+      dialog.getByRole('textbox', { name: /Business name/ }),
+    ).toHaveValue('');
+    await expect(dialog.queryByRole('button', { name: 'Archive' })).toBeNull();
+  },
+};
+
+/** The business printing has no email, and there is another: Add your
+ *  business offers it. */
+export const PickOverMissingEmail: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      db.businessProfiles = db.businessProfiles.map((b) => ({
+        ...b,
+        email: null,
+      }));
+      addLLC(db);
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await userEvent.click(
+      await card(page).findByRole('button', { name: 'Add your business' }),
+    );
+    await userEvent.click(
+      await page.findByRole('menuitemradio', { name: /Rivera Studio LLC/ }),
+    );
+    await expect(
+      await card(page).findByText(/billing@riverastudio\.test/),
+    ).toBeVisible();
+    await expect(
+      page.queryByText('Your business details are missing'),
+    ).toBeNull();
+  },
+};

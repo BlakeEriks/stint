@@ -245,6 +245,10 @@ export const CreateInvoice = InvoicePreviewRequest.omit({
     /** The payment details to freeze; absent is the client's, else the
      *  default. */
     paymentProfileId: uuid.optional(),
+    /** Who the new draft is from; absent is the business of the client's
+     *  last invoice, else the default. A draft keeps its own, so an edit's
+     *  is ignored. */
+    businessProfileId: uuid.optional(),
     /** The supporting detail to attach: any table the grouping's lines
      *  don't already print. */
     schedules: z
@@ -316,7 +320,11 @@ export const Invoice = z.object({
   /** The payment block as rendered at generation. Editing a profile later
    *  never alters an issued invoice, so this is a snapshot, not a reference. */
   paymentDetails: PaymentDetailsSnapshot.nullable(),
-  /** The From block as generated: editing settings later never reprints it. */
+  /** The business the From block was copied from; null on an invoice made
+   *  before there were several. */
+  businessProfileId: uuid.nullable(),
+  /** The From block as generated: editing the business later never
+   *  reprints it. */
   business: z.object({
     name: z.string().nullable(),
     address: z.string().nullable(),

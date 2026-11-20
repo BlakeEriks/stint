@@ -9,6 +9,7 @@ import {
 } from '@stint/core';
 import type {
   Billing,
+  BusinessProfile,
   Client,
   ConnectedApp,
   Expense,
@@ -85,6 +86,7 @@ export interface Db {
   invoices: StoredInvoice[];
   expenses: Expense[];
   paymentProfiles: PaymentProfile[];
+  businessProfiles: BusinessProfile[];
   connectedApps: ConnectedApp[];
   billing: Billing;
 }
@@ -106,6 +108,7 @@ export const ids = {
   admin: id(206),
   ach: id(401),
   wire: id(402),
+  business: id(411),
   claudeMax: id(601),
   figma: id(613),
   stockPhotos: id(614),
@@ -132,10 +135,6 @@ export const settings = (): Settings => ({
   timeFormat: '12h',
   minEntrySeconds: 60,
   maxEntryHours: 12,
-  businessName: 'Sam Rivera',
-  businessAddress: '1200 Pine St, Suite 4\nSeattle, WA 98101',
-  businessEmail: 'billing@samrivera.test',
-  logoUrl: null,
   paymentTermsDays: 30,
   billingTimeZone: ZONE,
   invoiceNumberPrefix: 'STINT-',
@@ -325,6 +324,7 @@ export function seed(now: Date): Db {
       cancelAtPeriodEnd: false,
       paymentFailed: false,
     },
+    businessProfiles: [business()],
     paymentProfiles: [
       {
         id: ids.ach,
@@ -511,9 +511,21 @@ const INVOICES: InvoiceSpec[] = [
   },
 ];
 
+/** The account's one business, the default. */
+const business = (): BusinessProfile => ({
+  id: ids.business,
+  name: 'Sam Rivera',
+  email: 'billing@samrivera.test',
+  address: '1200 Pine St, Suite 4\nSeattle, WA 98101',
+  logoUrl: null,
+  isDefault: true,
+  archivedAt: null,
+});
+
 /** The From and Bill to blocks an invoice freezes when it is generated. */
-export const parties = (s: Settings, c: Client) => ({
-  business: businessOf(s),
+export const parties = (b: BusinessProfile, c: Client) => ({
+  businessProfileId: b.id,
+  business: businessOf(b) as Invoice['business'],
   billTo: { name: c.name, email: c.email ?? null, address: c.address ?? null },
 });
 
@@ -585,7 +597,7 @@ function invoicesFor(
       template: spec.status === 'draft' ? null : 'standard',
       supportingDetail: null,
       paymentDetails: null,
-      ...parties(settings(), who),
+      ...parties(business(), who),
       sentAt:
         spec.status === 'draft'
           ? null

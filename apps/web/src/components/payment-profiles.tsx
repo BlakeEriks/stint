@@ -51,53 +51,13 @@ export function PaymentProfiles() {
 
   return (
     <Section title="Payment details">
-      {profiles.length === 0 ? (
-        <p className="type-support text-subtle">
-          No payment details yet. Invoices print without them.
-        </p>
-      ) : (
-        <ul className="divide-y divide-edge-subtle">
-          {profiles.map((profile) => (
-            <li key={profile.id} className="py-2.5">
-              <div className="flex items-center gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate type-control text-primary">
-                    {profile.name}
-                    {profile.isDefault ? (
-                      <span className="ml-2 rounded border border-edge-default px-1.5 py-px type-badge text-subtle">
-                        Default
-                      </span>
-                    ) : null}
-                  </p>
-                  <p className="mt-0.5 truncate type-meta text-subtle">
-                    {summarize(profile)}
-                  </p>
-                </div>
-
-                {!profile.isDefault ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => makeDefault.mutate(profile.id)}
-                  >
-                    Make default
-                  </Button>
-                ) : null}
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => dialog.show(profile)}
-                >
-                  Edit
-                </Button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ProfileRows
+        profiles={profiles}
+        detail={summarize}
+        empty="No payment details yet. Invoices print without them."
+        onMakeDefault={makeDefault.mutate}
+        onEdit={dialog.show}
+      />
 
       <div>
         <Button
@@ -115,6 +75,73 @@ export function PaymentProfiles() {
         existing={dialog.subject}
       />
     </Section>
+  );
+}
+
+/**
+ * A list of named profiles, the default badged: payment details, and the
+ * businesses an invoice is from.
+ */
+export function ProfileRows<
+  P extends { id: string; name: string; isDefault: boolean },
+>({
+  profiles,
+  detail,
+  empty,
+  onMakeDefault,
+  onEdit,
+}: {
+  profiles: P[];
+  /** The line under its name that tells two apart. */
+  detail: (p: P) => string;
+  empty: string;
+  onMakeDefault: (id: string) => void;
+  onEdit: (p: P) => void;
+}) {
+  if (profiles.length === 0)
+    return <p className="type-support text-subtle">{empty}</p>;
+  return (
+    <ul className="divide-y divide-edge-subtle">
+      {profiles.map((profile) => (
+        <li key={profile.id} className="py-2.5">
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="truncate type-control text-primary">
+                {profile.name}
+                {profile.isDefault ? (
+                  <span className="ml-2 rounded border border-edge-default px-1.5 py-px type-badge text-subtle">
+                    Default
+                  </span>
+                ) : null}
+              </p>
+              <p className="mt-0.5 truncate type-meta text-subtle">
+                {detail(profile)}
+              </p>
+            </div>
+
+            {!profile.isDefault ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onMakeDefault(profile.id)}
+              >
+                Make default
+              </Button>
+            ) : null}
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => onEdit(profile)}
+            >
+              Edit
+            </Button>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 

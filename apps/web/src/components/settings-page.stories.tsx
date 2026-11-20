@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, spyOn, userEvent, waitFor, within } from 'storybook/test';
 import { account, getDb } from '@/mocks/db';
+import { id } from '@/mocks/fixtures';
 import {
   desktop,
   failing,
@@ -129,6 +130,75 @@ export const Light: Story = {
     await expect(canvasElement.ownerDocument.documentElement).toHaveAttribute(
       'data-theme',
       'light',
+    );
+  },
+};
+
+/** No business: the first one added is the default. */
+export const FirstBusiness: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    db.businessProfiles = [];
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      await page.findByText('No business yet. New invoice asks for one.'),
+    ).toBeVisible();
+    await userEvent.click(page.getByRole('button', { name: 'Add a business' }));
+    const dialog = within(
+      await page.findByRole('dialog', { name: 'New business' }),
+    );
+    await userEvent.type(
+      dialog.getByRole('textbox', { name: /Business name/ }),
+      'Rivera Studio LLC',
+    );
+    await userEvent.type(
+      dialog.getByRole('textbox', { name: /Email/ }),
+      'billing@riverastudio.test',
+    );
+    await userEvent.click(dialog.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+    await expect(await page.findByText('Rivera Studio LLC')).toHaveTextContent(
+      /Default/,
+    );
+  },
+};
+
+/** Archiving the default hands it to the business left. */
+export const ArchiveDefaultBusiness: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    db.businessProfiles.push({
+      id: id(412),
+      name: 'Rivera Studio LLC',
+      email: 'billing@riverastudio.test',
+      address: null,
+      logoUrl: null,
+      isDefault: false,
+      archivedAt: null,
+    });
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const list = within(
+      (await page.findByRole('heading', { name: 'Businesses' })).closest(
+        'section',
+      ) as HTMLElement,
+    );
+    await userEvent.click(
+      within(
+        list.getByText('Sam Rivera').closest('li') as HTMLElement,
+      ).getByRole('button', { name: 'Edit' }),
+    );
+    const dialog = within(
+      await page.findByRole('dialog', { name: 'Edit business' }),
+    );
+    await userEvent.click(dialog.getByRole('button', { name: 'Archive' }));
+    await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(list.queryByText('Sam Rivera')).toBeNull());
+    await expect(list.getByText('Rivera Studio LLC')).toHaveTextContent(
+      /Default/,
     );
   },
 };
@@ -277,9 +347,8 @@ export const NextNumberCeiling: Story = {
   },
 };
 
-/** The checks New invoice's dialogs make hold here too: an email in the
-    wrong shape, or a next number that isn't a whole number over zero, says
-    why at its field and isn't saved. Prefix stops at 20 characters, and
+/** The check New invoice's dialog makes holds here too: a next number that
+    isn't a whole number over zero says why at its field and isn't saved. Prefix stops at 20 characters, and
     Next number has no browser ceiling: past it, the server's reason shows. */
 export const SharedChecks: Story = {
   ...desktop,
@@ -291,15 +360,6 @@ export const SharedChecks: Story = {
           'section',
         ) as HTMLElement,
       );
-    const identity = await section('Business identity');
-    const email = identity.getByLabelText('Email');
-    await userEvent.tripleClick(email);
-    await userEvent.keyboard('sam@');
-    await expect(
-      identity.getByText('Enter an email like you@example.com.'),
-    ).toBeVisible();
-    await expect(identity.queryByLabelText('Saving')).toBeNull();
-
     const numbering = await section('Invoice numbering');
     const next = numbering.getByLabelText('Next number');
     await expect(next).not.toHaveAttribute('max');

@@ -29,6 +29,7 @@ import {
   billingScheduleColumns,
   CLIENT_FIELDS,
   PAYMENT_PROFILE_FIELDS,
+  BUSINESS_PROFILE_FIELDS,
   SETTINGS_FIELDS,
   toColumns,
 } from '../src/lib/rows.ts';
@@ -66,6 +67,7 @@ beforeEach(async () => {
     'delete from projects where user_id = $1',
     'delete from clients where user_id = $1',
     'delete from payment_profiles where user_id = $1',
+    'delete from business_profiles where user_id = $1',
   ])
     await pool.query(sql, [USER]);
   (globalThis as any).__TEST_DB__ = makeDb(pool, USER);
@@ -100,6 +102,12 @@ async function write(db: Db) {
       ...toColumns(p, PAYMENT_PROFILE_FIELDS, { nullMissing: true }),
       id: p.id,
       archived_at: p.archivedAt,
+    });
+  for (const b of db.businessProfiles)
+    await insert('business_profiles', {
+      ...toColumns(b, BUSINESS_PROFILE_FIELDS, { nullMissing: true }),
+      id: b.id,
+      archived_at: b.archivedAt,
     });
   for (const c of db.clients)
     await insert('clients', {
@@ -148,10 +156,8 @@ async function write(db: Db) {
       // Stringified: pg writes a bare array as a Postgres array, not JSON.
       summary_texts: JSON.stringify(i.summaryTexts),
       reference: i.reference,
-      business_name: i.business.name,
-      business_address: i.business.address,
-      business_email: i.business.email,
-      logo_url: i.business.logoUrl,
+      // The From block is stamped from it, as on every insert.
+      business_profile_id: i.businessProfileId,
       client_name: i.billTo.name,
       client_email: i.billTo.email,
       client_address: i.billTo.address,
@@ -918,6 +924,7 @@ async function account(db: Db) {
     ['entries', 'entries', '/api/v1/entries?limit=500'],
     ['expenses', 'expenses', '/api/v1/expenses'],
     ['payment-profiles', 'paymentProfiles', '/api/v1/payment-profiles'],
+    ['business-profiles', 'businessProfiles', '/api/v1/business-profiles'],
     ['clients', 'clients', '/api/v1/clients'],
   ];
   const real: unknown[] = [await get('summary', `/api/v1/summary?tz=${ZONE}`)];

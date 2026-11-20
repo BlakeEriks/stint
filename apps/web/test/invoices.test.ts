@@ -14,6 +14,8 @@ import { fill } from './fill.ts';
 import { pdfText } from './pdf-text.ts';
 
 const USER = '11111111-1111-1111-1111-111111111111';
+/** The account's one business, the default, until a test adds another. */
+const BUSINESS = 'b0000000-0000-4000-8000-000000000001';
 const CLIENT = 'cc000000-0000-4000-8000-000000000001';
 const PROJECT = 'bb000000-0000-4000-8000-000000000001';
 
@@ -46,14 +48,19 @@ beforeEach(async () => {
   await pool.query('update clients set payment_profile_id = null');
   await pool.query('delete from payment_profiles');
   await pool.query('delete from clients');
+  await pool.query('delete from business_profiles');
   await pool.query(
     `update user_settings set default_hourly_rate=100, currency='USD',
      invoice_number_prefix='INV-', next_invoice_number=1,
-     payment_terms_days=30, legacy_payment_terms=null, business_name='Sam Rivera',
-     business_email='sam@test', invoice_template='standard',
-     billing_time_zone=null
+     payment_terms_days=30, legacy_payment_terms=null,
+     invoice_template='standard', billing_time_zone=null
      where user_id=$1`,
     [USER],
+  );
+  await pool.query(
+    `insert into business_profiles (id,user_id,name,email,is_default)
+     values ($1,$2,'Sam Rivera','sam@test',true)`,
+    [BUSINESS, USER],
   );
   await pool.query(
     `insert into clients (id,user_id,name,email,hourly_rate,tax_rate)
@@ -374,26 +381,42 @@ test('generation leaves a running timer unbilled, though Unbilled counts it', as
 });
 
 /* The business name and email head every invoice; one without them is a
-   document with no sender. New invoice disables Generate too, but the
-   server is the rule (Constitution III). */
-test('generation refuses without a business name or email, and writes nothing', async () => {
+   document with no sender, and a business picked on the form is never
+   swapped for another. New invoice disables Save draft too, but the server
+   is the rule (Constitution III). */
+test('a new draft refuses no business, one without an email, or an archived pick, and writes nothing', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   await seedEntry({ id: E(1), hours: 1 });
+  const ARCHIVED = 'b0000000-0000-4000-8000-000000000002';
 
-  for (const [name, email] of [
-    [null, 'sam@test'],
-    ['  ', 'sam@test'],
-    ['Sam Rivera', null],
-  ]) {
+  for (const [label, setup, businessProfileId] of [
+    [
+      'no business',
+      'update business_profiles set archived_at=now(), is_default=false',
+      undefined,
+    ],
+    ['no email', 'update business_profiles set email=null', undefined],
+    [
+      'an archived pick',
+      `insert into business_profiles (id,user_id,name,email,archived_at)
+       values ('${ARCHIVED}','${USER}','Old LLC','old@test',now())`,
+      ARCHIVED,
+    ],
+  ] as const) {
+    await pool.query('delete from business_profiles');
     await pool.query(
-      'update user_settings set business_name=$2, business_email=$3 where user_id=$1',
-      [USER, name, email],
+      `insert into business_profiles (id,user_id,name,email,is_default)
+       values ($1,$2,'Sam Rivera','sam@test',true)`,
+      [BUSINESS, USER],
     );
+    await pool.query(setup);
     const res = await json(
-      await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+      await create(
+        req('/invoices', { clientId: CLIENT, ...PERIOD, businessProfileId }),
+      ),
     );
-    assert.equal(res.status, 422, `${name} / ${email}`);
-    assert.equal(res.body.code, 'VALIDATION_FAILED');
+    assert.equal(res.status, 422, label);
+    assert.equal(res.body.code, 'VALIDATION_FAILED', label);
   }
 
   const { rows } = await pool.query(
@@ -402,6 +425,59 @@ test('generation refuses without a business name or email, and writes nothing', 
   );
   assert.equal(rows[0].n, 0, 'no invoice was created');
   assert.equal(rows[0].next, 1, 'and no number was spent');
+});
+
+/* A client billed through an LLC keeps being billed through it: the From
+   block a draft copies is the business picked, else its last invoice's,
+   else the default. A wrong one prints another entity's name on the
+   invoice, which nothing after would catch. */
+test('a new draft is from the business chosen, else the client’s last, else the default', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { DELETE: remove } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  const LLC = 'b0000000-0000-4000-8000-000000000003';
+  await pool.query(
+    `insert into business_profiles (id,user_id,name,email,address)
+     values ($1,$2,'Rivera LLC','llc@test','1 Dock St')`,
+    [LLC, USER],
+  );
+  await seedEntry({ id: E(1), hours: 1 });
+  const draft = async (businessProfileId?: string) => {
+    const res = await json(
+      await create(
+        req('/invoices', { clientId: CLIENT, ...PERIOD, businessProfileId }),
+      ),
+    );
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    return res.body;
+  };
+
+  const first = await draft();
+  assert.equal(first.businessProfileId, BUSINESS, 'the default, with no last');
+  assert.equal(first.business.name, 'Sam Rivera');
+
+  const chosen = await draft(LLC);
+  assert.equal(chosen.businessProfileId, LLC, 'the one chosen');
+  assert.deepEqual(chosen.business, {
+    name: 'Rivera LLC',
+    address: '1 Dock St',
+    email: 'llc@test',
+    logoUrl: null,
+  });
+
+  const carried = await draft();
+  assert.equal(carried.businessProfileId, LLC, 'the client’s last');
+
+  await pool.query(
+    'update business_profiles set archived_at=now() where id=$1',
+    [LLC],
+  );
+  const fallback = await draft();
+  assert.equal(fallback.businessProfileId, BUSINESS, 'an archived last');
+  await remove(req('/i', undefined, 'DELETE'), {
+    params: Promise.resolve({ id: fallback.id }),
+  });
 });
 
 test('preview rejects an inverted period', async () => {
@@ -1902,9 +1978,9 @@ test('an invoice freezes the business and client details at generation', async (
   );
 
   await pool.query(
-    `update user_settings set business_address='1 Old St', business_email='old@me.test'
-     where user_id=$1`,
-    [USER],
+    `update business_profiles set address='1 Old St', email='old@me.test'
+     where id=$1`,
+    [BUSINESS],
   );
   await pool.query(`update clients set address='9 Bay Rd' where id=$1`, [
     CLIENT,
@@ -1916,10 +1992,10 @@ test('an invoice freezes the business and client details at generation', async (
   assert.equal(inv.status, 201);
 
   await pool.query(
-    `update user_settings set business_name='Renamed LLC', business_address='2 New Ave',
-       business_email='new@me.test'
-     where user_id=$1`,
-    [USER],
+    `update business_profiles set name='Renamed LLC', address='2 New Ave',
+       email='new@me.test'
+     where id=$1`,
+    [BUSINESS],
   );
   await pool.query(
     `update clients set name='Southwind', email='new@southwind.test', address='5 Moved Ln'
@@ -2244,6 +2320,50 @@ test('the default sorts first, then by name', async () => {
   assert.deepEqual(
     res.body.paymentProfiles.map((p: { name: string }) => p.name),
     ['Zelle', 'ACH', 'Mercury'],
+  );
+});
+
+/* Businesses run on the payment profiles' handlers (`lib/profiles.ts`), so
+   the one-default rules above hold for both; this is the business kind's own
+   wiring: its columns, its list key, and the email a From block needs. */
+test('a business round-trips through its routes, and needs an email', async () => {
+  const { POST: create, GET: list } = await import(
+    '../src/app/api/v1/business-profiles/route.ts'
+  );
+  const { GET } = await import(
+    '../src/app/api/v1/business-profiles/[id]/route.ts'
+  );
+
+  const noEmail = await json(await create(req('/bp', { name: 'Rivera LLC' })));
+  assert.equal(noEmail.status, 422);
+
+  const made = await json(
+    await create(
+      req('/bp', {
+        name: 'Rivera LLC',
+        email: 'llc@example.com',
+        address: '1 Dock St',
+      }),
+    ),
+  );
+  assert.equal(made.status, 201);
+  assert.equal(made.body.isDefault, false, 'the existing default stays');
+
+  const got = await json(await GET(req('/bp'), ctx(made.body.id)));
+  assert.deepEqual(got.body, {
+    id: made.body.id,
+    name: 'Rivera LLC',
+    email: 'llc@example.com',
+    address: '1 Dock St',
+    logoUrl: null,
+    isDefault: false,
+    archivedAt: null,
+  });
+
+  const res = await json(await list(req('/business-profiles')));
+  assert.deepEqual(
+    res.body.businessProfiles.map((b: { name: string }) => b.name),
+    ['Sam Rivera', 'Rivera LLC'],
   );
 });
 

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildPaymentDetails,
-  resolvePaymentProfile,
+  resolveProfile,
   validateRoutingNumber,
   type PaymentProfile,
 } from '../src/payment.ts';
@@ -149,26 +149,26 @@ test('a payment link is surfaced separately with a default label', () => {
 const profiles = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
 
 test('a client preference wins over the user default', () => {
-  const r = resolvePaymentProfile(profiles, {
-    clientProfileId: 'b',
-    defaultProfileId: 'a',
+  const r = resolveProfile(profiles, {
+    preferredId: 'b',
+    defaultId: 'a',
   });
   assert.equal(r!.id, 'b');
 });
 
 test('the user default applies when the client has no preference', () => {
-  const r = resolvePaymentProfile(profiles, {
-    clientProfileId: null,
-    defaultProfileId: 'a',
+  const r = resolveProfile(profiles, {
+    preferredId: null,
+    defaultId: 'a',
   });
   assert.equal(r!.id, 'a');
 });
 
 test('a dangling client preference falls back to the default', () => {
   // The client pointed at a profile that has since been archived.
-  const r = resolvePaymentProfile(profiles, {
-    clientProfileId: 'gone',
-    defaultProfileId: 'a',
+  const r = resolveProfile(profiles, {
+    preferredId: 'gone',
+    defaultId: 'a',
   });
   assert.equal(
     r!.id,
@@ -178,8 +178,8 @@ test('a dangling client preference falls back to the default', () => {
 });
 
 test('no profile at all resolves to null', () => {
-  assert.equal(resolvePaymentProfile(profiles, {}), null);
-  assert.equal(resolvePaymentProfile([], { defaultProfileId: 'a' }), null);
+  assert.equal(resolveProfile(profiles, {}), null);
+  assert.equal(resolveProfile([], { defaultId: 'a' }), null);
 });
 
 test('a routing number that passes the ABA checksum is its 9 digits', () => {

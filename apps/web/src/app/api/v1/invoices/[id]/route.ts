@@ -22,7 +22,6 @@ import {
   draftNewWork,
   draftRefusals,
   loadPaymentProfile,
-  requireSender,
 } from '@/lib/drafts';
 import { loadPdfData } from '@/lib/issued';
 import { parseBody, parseQuery } from '@/lib/validate';
@@ -65,7 +64,8 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
 /**
  * PATCH /api/v1/invoices/:id — edits a draft: every choice Generate takes,
  * checked as Generate checks it, but its client, which it keeps. Its number
- * stays. Without `paymentProfileId` it keeps the payment details it has.
+ * stays, and so does its business. Without `paymentProfileId` it keeps the
+ * payment details it has.
  * Saving is a build: the draft holds its period's work that no other draft
  * holds, as the form's preview showed it, and lets go of the rest.
  */
@@ -107,7 +107,6 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   const asked = invoiceRequestRefusal(body, localDateKey(new Date(), tz));
   if (asked) throw refused(asked);
 
-  requireSender(computed.settings);
   const priced = pricedInvoiceRefusal(computed.totals);
   if (priced) throw refused(priced);
 

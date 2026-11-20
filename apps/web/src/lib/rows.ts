@@ -206,10 +206,6 @@ export interface SettingsRow {
   time_format: z.infer<typeof Settings>['timeFormat'];
   min_entry_seconds: number | null;
   max_entry_hours: Numeric;
-  business_name: string | null;
-  business_address: string | null;
-  business_email: string | null;
-  logo_url: string | null;
   payment_terms_days: number;
   billing_time_zone: string | null;
   invoice_number_prefix: string;
@@ -219,7 +215,7 @@ export interface SettingsRow {
 }
 
 export const SETTINGS_COLUMNS = columns<SettingsRow>()(
-  'default_hourly_rate, currency, week_starts_on, time_format, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, payment_terms_days, billing_time_zone, invoice_number_prefix, invoice_template, next_invoice_number, welcomed_at',
+  'default_hourly_rate, currency, week_starts_on, time_format, min_entry_seconds, max_entry_hours, payment_terms_days, billing_time_zone, invoice_number_prefix, invoice_template, next_invoice_number, welcomed_at',
 );
 
 export function toSettings(r: SettingsRow) {
@@ -230,10 +226,6 @@ export function toSettings(r: SettingsRow) {
     timeFormat: r.time_format,
     minEntrySeconds: r.min_entry_seconds,
     maxEntryHours: num(r.max_entry_hours),
-    businessName: r.business_name,
-    businessAddress: r.business_address,
-    businessEmail: r.business_email,
-    logoUrl: r.logo_url,
     paymentTermsDays: r.payment_terms_days,
     billingTimeZone: r.billing_time_zone,
     invoiceNumberPrefix: r.invoice_number_prefix,
@@ -326,6 +318,7 @@ export interface InvoiceRow {
   template: InvoiceTemplate;
   supporting_detail: z.infer<typeof Schedules> | null;
   payment_details: PaymentDetails;
+  business_profile_id: string | null;
   business_name: string | null;
   business_address: string | null;
   business_email: string | null;
@@ -345,7 +338,7 @@ export interface InvoiceRow {
 }
 
 export const INVOICE_COLUMNS = columns<InvoiceRow>()(
-  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency, notes, payment_terms, grouping_mode, summary_text, summary_texts, reference, template, supporting_detail, payment_details, business_name, business_address, business_email, logo_url, client_name, client_email, client_address, sent_at, paid_at, created_at, issued_subscription_status, tz, excluded_expense_ids, downloaded_snapshot',
+  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency, notes, payment_terms, grouping_mode, summary_text, summary_texts, reference, template, supporting_detail, payment_details, business_profile_id, business_name, business_address, business_email, logo_url, client_name, client_email, client_address, sent_at, paid_at, created_at, issued_subscription_status, tz, excluded_expense_ids, downloaded_snapshot',
 );
 
 export function toInvoice(r: InvoiceRow) {
@@ -375,6 +368,7 @@ export function toInvoice(r: InvoiceRow) {
     template: r.status === 'draft' ? null : r.template,
     supportingDetail: r.supporting_detail,
     paymentDetails: r.payment_details ?? null,
+    businessProfileId: r.business_profile_id,
     business: {
       name: r.business_name,
       address: r.business_address,
@@ -515,10 +509,6 @@ export const SETTINGS_FIELDS = {
   timeFormat: 'time_format',
   minEntrySeconds: 'min_entry_seconds',
   maxEntryHours: 'max_entry_hours',
-  businessName: 'business_name',
-  businessAddress: 'business_address',
-  businessEmail: 'business_email',
-  logoUrl: 'logo_url',
   paymentTermsDays: 'payment_terms_days',
   billingTimeZone: 'billing_time_zone',
   invoiceNumberPrefix: 'invoice_number_prefix',
@@ -548,6 +538,41 @@ export const PAYMENT_PROFILE_FIELDS = {
   paymentLinkUrl: 'payment_link_url',
   currency: 'currency',
   feeAllocation: 'fee_allocation',
+} as const;
+
+// ── business profiles ──────────────────────────────────────────────
+export interface BusinessProfileRow {
+  id: string;
+  name: string;
+  email: string | null;
+  address: string | null;
+  logo_url: string | null;
+  is_default: boolean;
+  archived_at: string | null;
+}
+
+export const BUSINESS_PROFILE_COLUMNS = columns<BusinessProfileRow>()(
+  'id, name, email, address, logo_url, is_default, archived_at',
+);
+
+export function toBusinessProfile(r: BusinessProfileRow) {
+  return {
+    id: r.id,
+    name: r.name,
+    email: r.email,
+    address: r.address,
+    logoUrl: r.logo_url,
+    isDefault: r.is_default,
+    archivedAt: r.archived_at,
+  };
+}
+
+export const BUSINESS_PROFILE_FIELDS = {
+  name: 'name',
+  email: 'email',
+  address: 'address',
+  logoUrl: 'logo_url',
+  isDefault: 'is_default',
 } as const;
 
 // ── subscriptions ──────────────────────────────────────────────────

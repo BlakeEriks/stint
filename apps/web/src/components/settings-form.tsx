@@ -8,13 +8,7 @@ import { type Segment, SegmentedControl } from './segmented-control';
 import { Field, Section } from './field';
 import { parseRate, RateInput, UnitInput } from './rate-input';
 import { SaveIndicator } from './save-indicator';
-import {
-  emailError,
-  type Identity,
-  IdentityFields,
-  NumberFields,
-  nextNumberError,
-} from './settings-fields';
+import { NumberFields, nextNumberError } from './settings-fields';
 import { useAutosave } from '@/lib/client/use-autosave';
 import { TemplateControl } from './template-dialog';
 import { ZoneSelect } from './zone-select';
@@ -26,12 +20,6 @@ import {
 } from '@/lib/client/api';
 import { type Theme, useTheme } from '@/lib/client/use-theme';
 import { keys, invalidateEntryData } from '@stint/client';
-
-const IDENTITY_KEYS = {
-  name: 'businessName',
-  email: 'businessEmail',
-  address: 'businessAddress',
-} as const;
 
 const THEMES: Segment<Theme>[] = [
   { value: 'system', label: 'System', icon: Monitor },
@@ -58,13 +46,6 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
   /* Text, not the number: a cleared field is a step in typing a new one,
      not a value to save. */
   const [next, setNext] = useState(String(loaded.nextInvoiceNumber));
-  /* The typed text, so an email that fails its check shows while the last
-     one saved stays. */
-  const [identityText, setIdentityText] = useState<Identity>({
-    name: loaded.businessName ?? '',
-    email: loaded.businessEmail ?? '',
-    address: loaded.businessAddress ?? '',
-  });
 
   const persist = async (patch: SettingsInput) => {
     try {
@@ -85,7 +66,6 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
 
   const billing = useAutosave(persist);
   const inbox = useAutosave(persist);
-  const identity = useAutosave(persist);
   const numbering = useAutosave(persist);
 
   /** Update local state, then schedule that section's save with the new value. */
@@ -98,7 +78,6 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
 
   const setBilling = edit(billing);
   const setInbox = edit(inbox);
-  const setIdentity = edit(identity);
   const setNumbering = edit(numbering);
   const nextError = numberRefusal(numbering.error);
 
@@ -193,26 +172,6 @@ export function SettingsForm({ loaded }: { loaded: Settings }) {
             onChange={(n) => setInbox('maxEntryHours', n)}
           />
         </div>
-      </Section>
-
-      <Section
-        title="Business identity"
-        aside={<SaveIndicator state={identity.state} />}
-      >
-        <IdentityFields
-          id="biz"
-          value={identityText}
-          onChange={(key, text) => {
-            setIdentityText((v) => ({ ...v, [key]: text }));
-            if (key === 'email' && text !== '' && emailError(text)) return;
-            setIdentity(IDENTITY_KEYS[key], text.trim() || null);
-          }}
-          error={(key) =>
-            key === 'email' && identityText.email !== ''
-              ? emailError(identityText.email)
-              : undefined
-          }
-        />
       </Section>
 
       <TemplateSection />

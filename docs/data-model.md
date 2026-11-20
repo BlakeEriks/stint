@@ -70,8 +70,9 @@ money.
 
 ### `user_settings`
 One row per user, auto-created by a trigger on `auth.users` insert. Holds the
-global rate fallback, display preferences, the invoice
-identity block (business name, address, logo), `payment_terms_days`
+global rate fallback, display preferences, the old invoice identity block
+(business name, address, email, logo: unread since `business_profiles`,
+and dropped once that build is live), `payment_terms_days`
 (0–365, default 30), `billing_time_zone`, the invoice number sequence, `invoice_template`
 (`standard`, `modern`, `classic` or `creative`, default `standard`: the one
 drafts render in), and the entry-length thresholds
@@ -146,6 +147,14 @@ gone is refused, never swapped. Without a pick, resolution mirrors rates: the
 client's `payment_profile_id`, else the user's default, and a dangling client
 reference falls back rather than rendering nothing.
 
+### `business_profiles`
+Who an invoice is from: `name`, `email`, `address`, `logo_url`, archived
+rather than deleted, with one live default per user
+(`one_default_business_profile_per_user`, the same invariant as payment
+profiles below). Each account with any of the old Settings fields got one,
+the default, when the fields moved here, named "Your business" if it had no
+name.
+
 ### `invoices` / `invoice_line_items`
 Line items are **denormalized on purpose**. An issued invoice is an immutable
 financial record, not a live view over time entries.
@@ -177,8 +186,8 @@ the same reason rates freeze: editing a profile must never alter an invoice
 already sent. `supporting_detail` (JSONB) holds the hours-by-project, -week
 and -date tables printed from page 2. A draft's are derived with its lines;
 sending freezes them, so a renamed project or a void never changes them. The `business_*` and `logo_url` columns (the From
-block) and the `client_*` columns (Bill to) are copied from `user_settings`
-and the client by a trigger on insert, so editing either never reprints an
+block) and the `client_*` columns (Bill to) are copied from the
+`business_profile_id` business (Settings, for an invoice without one) and the client by a trigger on insert, so editing either never reprints an
 invoice. `summary_text` is the line text of a `summary`
 invoice and is set exactly then, and `summary_texts` (JSONB, `[{ rate, text
 }]`) the lines typed their own text, by rate; `reference` is the PO, contract, or SOW the
@@ -319,7 +328,8 @@ create unique index one_default_payment_profile_per_user
 Structurally the same trick, for the same reason: **one default per user,
 enforced by an index rather than by code that checks first.** A pre-check is a
 race; a partial unique index is not. The first profile a user creates becomes
-the default automatically.
+the default automatically. `one_default_business_profile_per_user` holds
+the same for businesses, and `lib/profiles.ts` runs both kinds' routes.
 
 **The index stops two defaults; it cannot stop zero, and zero is the one that
 costs money.** With no default, `loadPaymentProfile` resolves to null and the
@@ -492,7 +502,7 @@ alone must still contain the query.
 | Check | Result |
 |---|---|
 | An unfiltered `select` returns only the caller's rows | isolated |
-| All ten user-scoped tables isolate | isolated |
+| All eleven user-scoped tables isolate | isolated |
 | A known-good id belonging to another user returns nothing | no leak |
 | Line items inherit isolation through their invoice | isolated |
 | Insert with a forged `user_id` | rejected by `WITH CHECK` |
@@ -505,6 +515,7 @@ alone must still contain the query.
 | Claiming or changing the plan an invoice was generated on | overwritten at insert, refused on update |
 | An expense filed under another user's client | rejected by `expense_client_same_owner` |
 | An invoice billed to another user's client | rejected by `invoice_client_same_owner` |
+| An invoice from another user's business | rejected by `invoice_business_same_owner` |
 | A project under another user's client | rejected by `project_client_same_owner` |
 | An unqualified `delete from time_entries` | removes only the caller's |
 | Two users may each run a timer; neither may run two | per-user, as designed |

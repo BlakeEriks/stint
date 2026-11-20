@@ -61,6 +61,7 @@ async function reset() {
   await pool.query('delete from projects');
   await pool.query('delete from clients');
   await pool.query('delete from payment_profiles');
+  await pool.query('delete from business_profiles');
   await pool.query(
     `update user_settings set default_hourly_rate=100,
                     week_starts_on=1, next_invoice_number=1,
@@ -394,6 +395,9 @@ test("a start or a manual entry without isBillable takes the project's billable 
 test('a create replayed with the same id is idempotent', async () => {
   const entries = await import('../src/app/api/v1/entries/route.ts');
   const profiles = await import('../src/app/api/v1/payment-profiles/route.ts');
+  const businesses = await import(
+    '../src/app/api/v1/business-profiles/route.ts'
+  );
   const feedback = await import('../src/app/api/v1/feedback/route.ts');
 
   for (const [table, post, body] of [
@@ -414,6 +418,15 @@ test('a create replayed with the same id is idempotent', async () => {
         id: '33333333-0000-4000-8000-0000000000a1',
         name: 'Checking',
         bankName: 'First Bank',
+      },
+    ],
+    [
+      'business_profiles',
+      (b: unknown) => businesses.POST(req('/business-profiles', b)),
+      {
+        id: '33333333-0000-4000-8000-0000000000b1',
+        name: 'Rivera LLC',
+        email: 'llc@example.com',
       },
     ],
     ['feedback', (b: unknown) => feedback.POST(req('/feedback', b)), FEEDBACK],
@@ -1302,7 +1315,6 @@ test('every settable field round-trips, and a value it cannot hold is refused an
     ['defaultHourlyRate', [125], []],
     ['maxEntryHours', [10], []],
     ['minEntrySeconds', [60], []],
-    ['businessAddress', ['1 Main St\nAustin, TX 78701'], []],
     ['invoiceNumberPrefix', ['STINT-'], []],
     ['invoiceTemplate', ['classic'], ['compact']],
     // Whole days from 0 to 365.
@@ -2760,6 +2772,66 @@ test('the draft backfill reads a zoneless draft in the billing zone', async () =
     rows.map((r) => r.draft_id),
     [null, draft],
   );
+});
+
+test('the business backfill keeps any Settings field, named when blank, as the default', async () => {
+  const backfill = readFileSync(
+    new URL(
+      '../../../supabase/migrations/20261120115024_backfill_business_profiles.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  const cases: [
+    string,
+    [string | null, string | null, string | null],
+    { name: string; email: string | null; address: string | null } | null,
+  ][] = [
+    [
+      'name and email',
+      ['Sam', 'sam@x.test', null],
+      { name: 'Sam', email: 'sam@x.test', address: null },
+    ],
+    [
+      'name, no email',
+      ['Sam', ' ', null],
+      { name: 'Sam', email: null, address: null },
+    ],
+    [
+      'no name',
+      ['', 'sam@x.test', '1 Main St'],
+      { name: 'Your business', email: 'sam@x.test', address: '1 Main St' },
+    ],
+    ['nothing', [null, null, null], null],
+  ];
+  try {
+    for (const [label, [name, email, address], want] of cases) {
+      await pool.query('delete from business_profiles where user_id=$1', [
+        USER,
+      ]);
+      await pool.query(
+        `update user_settings set business_name=$2, business_email=$3,
+           business_address=$4, logo_url=null where user_id=$1`,
+        [USER, name, email, address],
+      );
+      await pool.query(backfill);
+      const { rows } = await pool.query(
+        'select name, email, address, is_default from business_profiles where user_id=$1',
+        [USER],
+      );
+      assert.deepEqual(
+        rows,
+        want ? [{ ...want, is_default: true }] : [],
+        label,
+      );
+    }
+  } finally {
+    await pool.query(
+      `update user_settings set business_name=null, business_email=null,
+         business_address=null where user_id=$1`,
+      [USER],
+    );
+  }
 });
 
 // ── unprojected work ───────────────────────────────────────────────

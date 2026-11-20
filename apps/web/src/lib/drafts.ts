@@ -2,11 +2,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { InvoiceTemplate } from '@stint/schema';
 import { ApiError, dbCode, PG, refused } from './errors';
 import {
+  BUSINESS_PROFILE_COLUMNS,
   CLIENT_COLUMNS,
   LINE_ITEM_COLUMNS,
   PAYMENT_PROFILE_COLUMNS,
+  toBusinessProfile,
   toLineItem,
   toPaymentProfile,
+  type BusinessProfileRow,
   type ClientRow,
   type InvoiceRow,
   type LineItemRow,
@@ -25,7 +28,7 @@ import {
   newWork,
   paymentTermsText,
   pickSchedules,
-  resolvePaymentProfile,
+  resolveProfile,
   draftDates,
   formatDate,
   nothingToSend,
@@ -223,23 +226,68 @@ export interface InvoiceSettings {
   currency: string;
   paymentTermsDays: number;
   invoiceNumberPrefix: string;
-  businessName: string | null;
-  businessEmail: string | null;
   billingTimeZone: string | null;
 }
 
 /**
- * The invoice's sender is its business name and email. New invoice asks for
- * both before Generate; this is the rule, so no other client can issue an
- * invoice without them.
+ * The business a new draft is from: the one chosen, else the business of the
+ * client's last invoice while it is live, else the default. Its name and
+ * email head the invoice. New invoice asks for both before Save draft; this
+ * is the rule, so no other client can make an invoice without them.
  */
-export function requireSender(s: InvoiceSettings) {
-  if (!s.businessName?.trim() || !s.businessEmail?.trim()) {
+export async function loadBusiness(
+  db: SupabaseClient,
+  clientId: string,
+  /** Picked on the form. It must exist and be live, never quietly swapped
+      for another. */
+  chosenId?: string,
+) {
+  const { data, error } = await db
+    .from('business_profiles')
+    .select(BUSINESS_PROFILE_COLUMNS)
+    .is('archived_at', null);
+  if (error) throw error;
+  const live = (data ?? []).map((r) =>
+    toBusinessProfile(r as BusinessProfileRow),
+  );
+
+  const business = chosenId
+    ? live.find((b) => b.id === chosenId)
+    : resolveProfile(live, {
+        preferredId: await lastBusinessId(db, clientId),
+        defaultId: live.find((b) => b.isDefault)?.id,
+      });
+  if (!business && chosenId)
     throw new ApiError(
       'VALIDATION_FAILED',
-      'Add your business name and email before generating an invoice.',
+      'That business is archived or gone. Choose another.',
     );
-  }
+  if (!business)
+    throw new ApiError(
+      'VALIDATION_FAILED',
+      'Add who this invoice is from: a business name and email.',
+    );
+  if (!business.email)
+    throw new ApiError(
+      'VALIDATION_FAILED',
+      `Add an email to ${business.name}. It goes at the top of the invoice.`,
+    );
+  return business;
+}
+
+/** The business of the client's last invoice that isn't void, as New
+ *  invoice carries the rest of its choices. */
+async function lastBusinessId(db: SupabaseClient, clientId: string) {
+  const { data, error } = await db
+    .from('invoices')
+    .select('business_profile_id')
+    .eq('client_id', clientId)
+    .neq('status', 'void')
+    .order('sequence_no', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return (data?.business_profile_id as string | null) ?? null;
 }
 
 /** The template the user picked in settings, which a draft prints in. */
@@ -261,7 +309,7 @@ export async function loadSettings(
   const { data, error } = await db
     .from('user_settings')
     .select(
-      'default_hourly_rate, currency, payment_terms_days, invoice_number_prefix, business_name, business_email, billing_time_zone',
+      'default_hourly_rate, currency, payment_terms_days, invoice_number_prefix, billing_time_zone',
     )
     .maybeSingle();
 
@@ -273,8 +321,6 @@ export async function loadSettings(
     currency: (data.currency as string) ?? 'USD',
     paymentTermsDays: data.payment_terms_days as number,
     invoiceNumberPrefix: (data.invoice_number_prefix as string) ?? 'INV-',
-    businessName: data.business_name ?? null,
-    businessEmail: data.business_email ?? null,
     billingTimeZone: data.billing_time_zone ?? null,
   };
 }
@@ -312,9 +358,9 @@ export async function loadPaymentProfile(
   if (profiles.length === 0) return null;
 
   const defaultProfile = profiles.find((p) => p.isDefault);
-  return resolvePaymentProfile(profiles, {
-    clientProfileId,
-    defaultProfileId: defaultProfile?.id ?? null,
+  return resolveProfile(profiles, {
+    preferredId: clientProfileId,
+    defaultId: defaultProfile?.id ?? null,
   });
 }
 

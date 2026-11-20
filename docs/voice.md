@@ -79,6 +79,7 @@ One name for each thing, on every client.
 | Awaiting payment | Sent and not yet paid | outstanding, pending |
 | Inbox | Where a record to resolve waits | notifications, alerts |
 | Payment details | The ACH routing and account number an invoice carries | payment profile, bank info |
+| Business | Who an invoice is from: a name, email, and address | business profile, sender, entity |
 | Paid plan | The plan that downloads invoices | Pro, premium, upgrade, subscription |
 
 ## Mechanics
