@@ -26,7 +26,7 @@ function ease(t: number) {
   return 1 - (1 - t) ** 3;
 }
 
-function prefersReducedMotion() {
+export function prefersReducedMotion() {
   if (typeof window === 'undefined') return false;
   return (
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
@@ -78,7 +78,13 @@ type Arrivable = { [ARRIVED]?: Map<string, number> };
  * mid-flight — leaves the answer on screen rather than a number the user does
  * not have.
  */
-export function useCountUp(figure: string, to: number): { value: number } {
+export function useCountUp(
+  figure: string,
+  to: number,
+  /** False for a figure that only moves when its money does: a fresh load
+      shows it at rest, with no roll in. */
+  { arrive = true }: { arrive?: boolean } = {},
+): { value: number } {
   const reduced = prefersReducedMotion();
 
   /* Decided ONCE per mount, in `useState`'s initializer: read in render it
@@ -96,7 +102,7 @@ export function useCountUp(figure: string, to: number): { value: number } {
     /* Unseen: a fresh load, so roll. Seen at this very value: a remount
        holding what the user already read, so rest. Seen at another value:
        money moved, and the effect tweens it from where it sat. */
-    return shownBefore == null;
+    return arrive && shownBefore == null;
   });
 
   const [value, setValue] = useState(to);

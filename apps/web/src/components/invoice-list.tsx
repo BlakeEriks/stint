@@ -1,72 +1,63 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePrefetchInvoices } from '@/lib/client/prefetch-invoices';
-import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { useMarkPaid } from '@/lib/client/use-mark-paid';
-import { Button } from '@/components/ui/button';
-import { formatCurrency } from '@stint/core';
-import { StatusBadge, shortDate } from './invoice-bits';
-import { MarkPaidDialog } from './mark-paid-dialog';
-import { api, type Invoice, type InvoiceStatus } from '@/lib/client/api';
-import { FilterTabs, Listing, Page, Panel, useLoaded } from './page';
-import { DollarSign, Plus } from 'lucide-react';
+import { DollarSign, Plus, Send } from 'lucide-react';
 import { keys } from '@stint/client';
+import { formatCurrency } from '@stint/core';
+import { motion } from '@stint/design-tokens';
+import { usePrefetchInvoices } from '@/lib/client/prefetch-invoices';
+import { useMarkPaid } from '@/lib/client/use-mark-paid';
+import { useMarkSent } from '@/lib/client/use-mark-sent';
+import { prefersReducedMotion, useCountUp } from '@/lib/client/use-count-up';
+import { useFlip } from '@/lib/client/use-flip';
+import { useClients, useClientsQuery } from '@/lib/client/use-project-colors';
+import { timeZone } from '@/lib/client/use-timer';
+import {
+  invoiceSections,
+  lastPaid,
+  sectionDate,
+  type Section,
+} from '@/lib/client/invoice-sections';
+import { api, type Invoice } from '@/lib/client/api';
+import { Button } from '@/components/ui/button';
+import { StatusBadge, periodName } from './invoice-bits';
+import { MarkPaidDialog } from './mark-paid-dialog';
+import { MarkSentDialog } from './mark-sent-dialog';
+import { Pip } from './home-shell';
+import { Listing, Page } from './page';
+
+type Client = { name: string; color: string | null };
+type Clients = Map<string, Client>;
+type RowPress = { onPress?: () => void; busy: boolean };
 
 /**
- * Open means "money still owed": issued and not yet collected. A draft is
- * included because it is work you have decided to bill and not yet sent, so
- * it is still outstanding from your side.
- */
-const OPEN: InvoiceStatus[] = ['draft', 'sent'];
-
-/**
- * This is the screen to open when money lands.
- *
- * Reconciling several payments at once is a batch task — you work down a
- * list — which is why the home screen carries one outstanding number rather
- * than an open-invoices panel.
+ * The month at a glance: what is still open on top, each year's history
+ * below. This is the screen to open when money lands, so marking a row paid
+ * carries it into its year, where the total takes it in.
  */
 export function InvoiceList() {
-  const params = useSearchParams();
-
-  /* Open by default: a paid invoice is finished, and a list that leads with
-     finished work makes you scroll past history to reach what needs doing.
-     `?status=sent` narrows it to what is awaiting payment. */
-  const status = params.get('status');
-  const showAll = status === 'all';
-
   const query = useQuery({
     queryKey: keys.invoices(),
     queryFn: () => api.invoices(),
     select: (r) => r.invoices,
   });
   usePrefetchInvoices(query.data);
-  const clientQuery = useQuery({
-    queryKey: keys.clients({ archived: true }),
-    queryFn: () => api.clients({ includeArchived: true }),
-  });
-  const clientData = clientQuery.data;
-
-  const all = query.data ?? [];
-  const names = new Map((clientData?.clients ?? []).map((c) => [c.id, c.name]));
-
-  const invoices = showAll
-    ? all
-    : all.filter((i) =>
-        status ? i.status === status : OPEN.includes(i.status),
-      );
-
-  // Only what is actually owed — a filtered view that totalled everything
-  // would contradict the rows beneath it.
-  // A header figure: it waits with the list rather than reading 0 first.
-  const totalShown = useLoaded(query, clientQuery);
-  const outstanding = all
-    .filter((i) => i.status === 'sent')
-    .reduce((a, i) => a + i.total, 0);
+  const clientQuery = useClientsQuery();
+  const clients = useClients();
 
   const markPaid = useMarkPaid();
+  const markSent = useMarkSent();
+  const press = (invoice: Invoice): RowPress => ({
+    onPress:
+      invoice.status === 'draft'
+        ? () => markSent.show(invoice)
+        : invoice.status === 'sent'
+          ? () => markPaid.show(invoice)
+          : undefined,
+    busy: markSent.isPending(invoice.id) || markPaid.isPending(invoice.id),
+  });
 
   return (
     <Page
@@ -79,137 +70,281 @@ export function InvoiceList() {
           </Link>
         </Button>
       }
-      under={
-        <>
-          <FilterTabs
-            base="/invoices"
-            active={status}
-            tabs={[
-              { key: null, label: 'Open' },
-              { key: 'paid', label: 'Paid' },
-              { key: 'all', label: 'All' },
-            ]}
-          />
-
-          {totalShown && outstanding > 0 ? (
-            <span className="type-support text-subtle">
-              <span className="type-meta text-muted">
-                {formatCurrency(outstanding, all[0]?.currency)}
-              </span>{' '}
-              outstanding
-            </span>
-          ) : null}
-        </>
-      }
     >
-      <Panel>
-        {/* The filtered list is what the screen shows, so it decides the
-            empty state; `all` only chooses which message. */}
-        <Listing
-          query={{ ...query, data: query.data ? invoices : undefined }}
-          also={[clientQuery]}
-          empty={
-            all.length === 0
-              ? 'No invoices yet. Preview a period to see what it would bill.'
-              : `Nothing ${status ?? 'open'}. ${countByStatus(all)}.`
-          }
-        >
-          {(rows) => (
-            <ul className="divide-y divide-edge-subtle">
-              {rows.map((invoice) => (
-                <li key={invoice.id}>
-                  <Row
-                    invoice={invoice}
-                    clientName={names.get(invoice.clientId)}
-                    onMarkPaid={
-                      invoice.status === 'sent'
-                        ? () => markPaid.show(invoice)
-                        : undefined
-                    }
-                    busy={markPaid.isPending(invoice.id)}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-        </Listing>
-      </Panel>
+      <Listing
+        query={query}
+        also={[clientQuery]}
+        empty="No invoices yet. Preview a period to see what it would bill."
+      >
+        {(invoices) => (
+          <Sections invoices={invoices} clients={clients} press={press} />
+        )}
+      </Listing>
 
       <MarkPaidDialog {...markPaid.dialog} />
+      {markSent.dialog ? <MarkSentDialog {...markSent.dialog} /> : null}
     </Page>
   );
 }
 
-/** "3 paid · 1 void": what the other filters hold, so an empty filter never
-    reads as an empty account. */
-function countByStatus(invoices: Invoice[]) {
-  const order: InvoiceStatus[] = ['draft', 'sent', 'paid', 'void'];
-  return order
-    .map((s) => [invoices.filter((i) => i.status === s).length, s] as const)
-    .filter(([n]) => n > 0)
-    .map(([n, s]) => `${n} ${s}`)
-    .join(' · ');
+function Sections({
+  invoices,
+  clients,
+  press,
+}: {
+  invoices: Invoice[];
+  clients: Clients;
+  press: (invoice: Invoice) => RowPress;
+}) {
+  const sections = invoiceSections(invoices, timeZone);
+  const { container, register } = useFlip(
+    sections
+      .map((s) => `${s.key}:${s.invoices.map((i) => i.id).join(',')}`)
+      .join('|'),
+  );
+
+  return (
+    <div
+      ref={(el) => {
+        container.current = el;
+      }}
+    >
+      {sections.some((s) => s.open) ? null : (
+        <AllClear invoice={lastPaid(invoices)} clients={clients} />
+      )}
+      {sections.map((section) => (
+        <section key={section.key} aria-label={section.name}>
+          <SectionHead
+            section={section}
+            ref={register(`head:${section.key}`, { fade: true })}
+          />
+          <ul className="*:border-t *:border-edge-subtle">
+            {section.invoices.map((invoice) => (
+              <li
+                key={invoice.id}
+                ref={register(invoice.id, { group: section.key })}
+              >
+                <Row
+                  invoice={invoice}
+                  open={section.open}
+                  client={clients.get(invoice.clientId)}
+                  {...press(invoice)}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+/** "Oct 1", from a date key. */
+function monthDay(key: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${key}T00:00:00Z`));
+}
+
+const when = (invoice: Invoice) => monthDay(sectionDate(invoice, timeZone));
+
+/** Nothing open, said quietly: no icon or color for an absence. */
+function AllClear({
+  invoice,
+  clients,
+}: {
+  invoice: Invoice | undefined;
+  clients: Clients;
+}) {
+  return (
+    <p className="mt-[22px] type-support text-muted">
+      Nothing open
+      {invoice ? (
+        <span className="text-subtle">
+          {` · Last paid ${when(invoice)}, ${formatCurrency(invoice.total, invoice.currency)} from ${clients.get(invoice.clientId)?.name ?? 'Unknown client'}`}
+        </span>
+      ) : null}
+    </p>
+  );
+}
+
+function SectionHead({
+  section,
+  ref,
+}: {
+  section: Section;
+  ref: (el: HTMLElement | null) => void;
+}) {
+  return (
+    <h2
+      ref={ref}
+      className="mt-[22px] mb-[6px] flex items-baseline gap-2 text-subtle"
+    >
+      <span className="type-region-head">{section.name}</span>
+      {section.note ? (
+        <span className="type-support">· {section.note}</span>
+      ) : null}
+      {section.total === null ? null : section.open ? (
+        <span className="ml-auto type-amount">
+          {formatCurrency(section.total, section.currency)}
+        </span>
+      ) : (
+        <YearTotal
+          figure={`invoices.${section.key}`}
+          total={section.total}
+          currency={section.currency}
+        />
+      )}
+    </h2>
+  );
+}
+
+const MOVE = Number.parseFloat(motion.move);
+
+/** A year's total takes in a payment once its row has landed there. */
+function YearTotal({
+  figure,
+  total,
+  currency,
+}: {
+  figure: string;
+  total: number;
+  currency: string;
+}) {
+  const [landed, setLanded] = useState(total);
+  useEffect(() => {
+    const t = setTimeout(() => setLanded(total), MOVE);
+    return () => clearTimeout(t);
+  }, [total]);
+  // Reduced motion lands the row at once, so the total comes with it.
+  const { value } = useCountUp(
+    figure,
+    prefersReducedMotion() ? total : landed,
+    {
+      arrive: false,
+    },
+  );
+  return (
+    <span className="ml-auto type-amount">
+      {formatCurrency(value, currency)}
+    </span>
+  );
 }
 
 function Row({
   invoice,
-  clientName,
-  onMarkPaid,
+  open,
+  client,
+  onPress,
   busy,
 }: {
   invoice: Invoice;
-  clientName?: string;
-  /** Only for `sent`: a draft is not owed yet and a paid one is finished. */
-  onMarkPaid?: () => void;
+  /** In Drafts or Awaiting payment, rather than a year. */
+  open: boolean;
+  client?: Client;
+  onPress?: () => void;
   busy: boolean;
 }) {
-  /* A grid, not a link wrapping a button: an <a> containing a <button> is
-     invalid HTML and breaks keyboard navigation. */
+  /* Open, the button sits before the amount on a desktop, so the text has
+     the rest of the row, and under it on a phone. The amount's fixed width
+     lines the buttons up from row to row; a year's row has none, so every
+     amount ends at the same edge. The whole row is the link, so the whole
+     row highlights. */
   return (
-    <div className="flex items-center gap-3 py-3">
-      {/* Prefetched in full: the default fetches only the shell every
-          invoice shares, and the page's own part waits on the server. */}
+    <div
+      className={`relative -mx-2 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 rounded-md px-2 transition-colors hover:bg-surface-hover sm:items-center sm:gap-x-6 ${
+        open ? 'py-[14px] sm:grid-cols-[minmax(0,1fr)_auto_auto]' : 'py-[10px]'
+      }`}
+    >
+      {/* The link stretches over the row and the button sits above it: an
+          <a> holding a <button> is invalid HTML and breaks keyboard
+          navigation. Prefetched in full: the default fetches only the shell
+          every invoice shares, and the page's own part waits on the server. */}
       <Link
         href={`/invoices/${invoice.id}`}
         prefetch
-        className="flex min-w-0 flex-1 items-center gap-3 rounded-sm hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+        className="row-span-2 min-w-0 rounded-sm after:absolute after:inset-0 focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none sm:row-span-1"
       >
-        <span className="w-20 flex-none type-meta text-muted">
+        <span
+          className={`block type-control ${open ? 'text-strong' : 'text-primary'}`}
+        >
           {invoice.invoiceNumber}
         </span>
-        <span className="min-w-0 flex-1 truncate type-control text-primary">
-          {clientName ?? 'Unknown client'}
-        </span>
+        <Meta invoice={invoice} client={client} />
       </Link>
 
-      <StatusBadge status={invoice.status} />
+      {open && onPress ? (
+        <span className="relative col-start-2 row-start-2 mt-2 flex justify-self-end sm:row-start-1 sm:mt-0">
+          <RowButton invoice={invoice} onPress={onPress} busy={busy} />
+        </span>
+      ) : null}
 
-      <span className="hidden w-24 flex-none text-right type-meta text-subtle sm:block">
-        {shortDate(invoice.issueDate)}
-      </span>
-
-      <span className="w-24 flex-none text-right type-duration text-primary">
+      <span
+        className={`col-start-2 row-start-1 text-right type-amount sm:min-w-[12ch] text-primary ${
+          open ? 'sm:col-start-3' : ''
+        } ${invoice.status === 'void' ? 'line-through' : ''}`}
+      >
         {formatCurrency(invoice.total, invoice.currency)}
       </span>
-
-      {/* Nothing destructive here either — voiding stays on the invoice.
-          One width with or without the button, so every row's total lines
-          up. */}
-      <span className="flex w-7 flex-none justify-end sm:w-24">
-        {onMarkPaid ? (
-          <Button
-            type="button"
-            size="xs"
-            aria-label={`Mark paid, ${invoice.invoiceNumber}`}
-            disabled={busy}
-            onClick={onMarkPaid}
-          >
-            {/* A currency glyph, not a check: the check commits a form. */}
-            <DollarSign aria-hidden />
-            <span className="hidden sm:inline">Mark paid</span>
-          </Button>
-        ) : null}
-      </span>
     </div>
+  );
+}
+
+/** What happened to it, and when: "Created Oct 1". */
+const VERB = { draft: 'Created', sent: 'Sent', paid: 'Paid' } as const;
+
+/** Client, period, and what happened when, on one line that truncates. On
+    a phone the period starts its own line and drops the dot that would
+    lead it. */
+function Meta({ invoice, client }: { invoice: Invoice; client?: Client }) {
+  return (
+    <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 type-support text-subtle sm:flex-nowrap">
+      <Pip color={client?.color} />
+      <span className="truncate text-muted">
+        {client?.name ?? 'Unknown client'}
+      </span>
+      <span className="basis-full truncate sm:basis-auto">
+        <span className="hidden sm:inline">{'· '}</span>
+        {periodName(invoice.periodStart, invoice.periodEnd)}
+        {invoice.status === 'void' ? (
+          <>
+            {' '}
+            <StatusBadge status="void" />
+          </>
+        ) : (
+          ` · ${VERB[invoice.status]} ${when(invoice)}`
+        )}
+      </span>
+    </span>
+  );
+}
+
+function RowButton({
+  invoice,
+  onPress,
+  busy,
+}: {
+  invoice: Invoice;
+  onPress: () => void;
+  busy: boolean;
+}) {
+  const [label, Icon] =
+    invoice.status === 'draft'
+      ? (['Mark sent', Send] as const)
+      : (['Mark paid', DollarSign] as const);
+  return (
+    <Button
+      type="button"
+      size="xs"
+      aria-label={`${label}, ${invoice.invoiceNumber}`}
+      disabled={busy}
+      onClick={onPress}
+    >
+      {/* A currency glyph for paid, not a check: the check commits a form. */}
+      <Icon aria-hidden />
+      {label}
+    </Button>
   );
 }

@@ -193,7 +193,7 @@ const ACTIONS: Record<Action, (props: ActionProps) => ReactNode> = {
     <AskFirst
       {...markSentAsk({
         invoiceNumber: invoice.invoiceNumber,
-        entryCount: invoice.entryCount ?? 0,
+        entryCount: invoice.entryCount ?? null,
         total: invoice.total ?? 0,
         currency: invoice.currency,
       })}

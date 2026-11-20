@@ -46,20 +46,21 @@ test.describe('invoices', () => {
     );
     await page.getByRole('button', { name: 'Mark paid', exact: true }).click();
 
-    // The row leaves the open filter because the fact changed, not because
+    // The row moves into its year because the fact changed, not because
     // the UI hid it.
-    await expect(list(page).getByText('STINT-0001')).toBeHidden();
+    const year = list(page)
+      .getByRole('region', { name: /^Paid in / })
+      .first();
+    await expect(year.getByText('STINT-0001')).toBeVisible();
 
-    // The row hides optimistically, so a reload before the write lands
-    // would read the invoice still open.
+    // The row moves on the server's answer, so a reload after the write
+    // must find it paid too.
     expect((await written).ok()).toBe(true);
     await page.reload();
-    await expect(list(page).getByText('STINT-0001')).toBeHidden();
-    await expect(list(page).getByText('$900.00 outstanding')).toBeHidden();
-
-    // And it is genuinely there, under the paid filter rather than gone.
-    await list(page).getByRole('link', { name: 'All' }).click();
-    await expect(list(page).getByText('STINT-0001')).toBeVisible();
+    await expect(year.getByText('STINT-0001')).toBeVisible();
+    await expect(
+      list(page).getByRole('button', { name: 'Mark paid, STINT-0001' }),
+    ).toBeHidden();
   });
 
   // A charge guarantees a line whatever unbilled time the seed has left.

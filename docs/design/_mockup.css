@@ -49,6 +49,7 @@
 
     --motion-instant: 90ms;
     --motion-quick: 160ms;
+    --motion-move: 380ms;
     --motion-count: 900ms;
     --motion-rise: 3px;
     --motion-enter: 360ms;
