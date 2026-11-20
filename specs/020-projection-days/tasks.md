@@ -32,7 +32,7 @@ Every day projects 3,000 over 30 points; Weekdays reads as before.
 
 ## Phase 4: Polish
 
-- [ ] T013 Doc drift against `origin/main`; `pnpm verify:static`; `TT=tt_809 pnpm db:setup && TT=tt_809 pnpm verify:db`; see Settings and Home as `builder@localhost.test`
+- [X] T013 Doc drift against `origin/main`; `pnpm verify:static`; `TT=tt_809 pnpm db:setup && TT=tt_809 pnpm verify:db`; see Settings and Home as `builder@localhost.test`
 
 ## Dependencies
 
