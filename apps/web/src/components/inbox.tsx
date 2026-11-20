@@ -31,6 +31,7 @@ import {
   FolderInput,
   Inbox as InboxIcon,
   Pencil,
+  Plus,
   Send,
 } from 'lucide-react';
 import {
@@ -550,15 +551,25 @@ function invoiceItem(
   };
 }
 
-/* A chore, not money late, so neutral. The link fills in New invoice and
-   creates nothing: the user makes the draft, so it is numbered then. */
+/* Money to ask for, so the accent, and the figure is what it bills. Both
+   links fill in New invoice and create nothing: the user makes the draft, so
+   it is numbered then. */
 function dueItem(d: Attention['unbilledDue'][number]): ItemProps {
+  const href = newInvoiceHref(d);
   return {
-    href: newInvoiceHref(d),
+    href,
     label: d.clientName,
     detail: `${periodName(d.periodStart, d.periodEnd)} is ready to invoice`,
-    value: formatCompact(d.seconds),
-    tone: 'neutral',
+    value: formatCurrency(d.amount, d.currency),
+    tone: 'accent',
+    actions: (
+      <Button asChild variant="accent" size="xs">
+        <Link href={href} aria-label={`Create invoice, ${d.clientName}`}>
+          <Plus aria-hidden />
+          Create invoice
+        </Link>
+      </Button>
+    ),
   };
 }
 
@@ -684,6 +695,19 @@ function dayLabel(iso: string, tz: string) {
   }).format(new Date(iso));
 }
 
+/* Each tone's edge and clause, whole class names so Tailwind finds them. */
+const EDGE = {
+  danger: 'before:bg-danger',
+  warning: 'before:bg-timer-warning',
+  accent: 'before:bg-accent-default',
+};
+const CLAUSE = {
+  danger: 'text-danger',
+  warning: 'text-warning',
+  accent: 'text-accent-default',
+  neutral: 'text-muted',
+};
+
 /**
  * One inbox row: title and figure, the qualifier, then an action slot.
  *
@@ -716,11 +740,12 @@ function Item({
    * names the fault — one value, so the two cannot disagree.
    *
    * `danger` is the overdue invoice, where money is already late. `warning`
-   * is a length that wants a look. `neutral` draws nothing: a stale draft and
-   * an unprojected entry are chores, and five flagged cards are a texture
-   * with nothing to pick out of it.
+   * is a length that wants a look. `accent` is the prompt to bill, the one
+   * tone that is good news. `neutral` draws nothing: a stale draft and an
+   * unprojected entry are chores, and five flagged cards are a texture with
+   * nothing to pick out of it.
    */
-  tone: 'danger' | 'warning' | 'neutral';
+  tone: 'danger' | 'warning' | 'accent' | 'neutral';
   actions?: React.ReactNode;
   /** From `useExit` — the row collapses while its exit plays. */
   exiting?: boolean;
@@ -734,11 +759,9 @@ function Item({
   /* The edge is drawn by a pseudo-element inside the card rather than a
      border, so it ranks the card without insetting its content. */
   const edge =
-    tone === 'danger'
-      ? 'before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-danger'
-      : tone === 'warning'
-        ? 'before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-timer-warning'
-        : '';
+    tone === 'neutral'
+      ? ''
+      : `before:absolute before:inset-y-0 before:left-0 before:w-0.5 ${EDGE[tone]}`;
 
   return (
     /* The collapsing wrapper is the `li` and the padded box is inside it, so
@@ -794,15 +817,7 @@ function Item({
           {/* Wraps rather than truncating: it names which threshold was
               tripped, and an ellipsis eating "over 8h" takes the half of the
               signal that color cannot carry. */}
-          <span
-            className={`min-w-0 type-support ${
-              tone === 'danger'
-                ? 'text-danger'
-                : tone === 'warning'
-                  ? 'text-warning'
-                  : 'text-muted'
-            }`}
-          >
+          <span className={`min-w-0 type-support ${CLAUSE[tone]}`}>
             {detail}
           </span>
         </div>

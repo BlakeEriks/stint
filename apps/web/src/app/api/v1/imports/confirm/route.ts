@@ -3,8 +3,6 @@ import { handle } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { readImport } from '@/lib/import';
 
-export const dynamic = 'force-dynamic';
-
 const CHUNK = 500;
 
 /**

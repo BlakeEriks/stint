@@ -38,12 +38,14 @@ export function readTimer(
 ): TimerReading {
   const running = data?.running ?? null;
   const skewMs = data ? new Date(data.serverTime).getTime() - dataUpdatedAt : 0;
-  const now =
-    !atServerTime || !data
-      ? new Date(Date.now() + skewMs)
-      : new Date(data.serverTime);
+  /* The clock is read only while a timer runs: a prerender has no timer,
+     and Cache Components refuses one that reads the clock. */
+  const now = () =>
+    atServerTime && data
+      ? new Date(data.serverTime)
+      : new Date(Date.now() + skewMs);
   // Totals include the running timer, so both menu-bar-style displays agree.
-  const liveSeconds = running ? elapsedSeconds(running.startedAt, now) : 0;
+  const liveSeconds = running ? elapsedSeconds(running.startedAt, now()) : 0;
   const baseToday = (data?.todaySeconds ?? 0) - (data ? liveAtFetch(data) : 0);
   return {
     running,

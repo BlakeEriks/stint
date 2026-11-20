@@ -10,8 +10,6 @@ import { askedToInclude, entryWith, readIncluded } from '@/lib/include';
 import { refusals, uuidv7 } from '@stint/core';
 import { StartTimer } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 /**
  * POST /api/v1/timer/start
  *

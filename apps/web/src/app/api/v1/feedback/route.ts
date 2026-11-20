@@ -4,8 +4,6 @@ import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import { CreateFeedback } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 /** POST /api/v1/feedback. The sender is the session, never the body. */
 export const POST = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);

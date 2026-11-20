@@ -1,8 +1,6 @@
 import { mcpCaller } from '@/lib/auth';
 import { mcp } from '@/lib/mcp';
 
-export const dynamic = 'force-dynamic';
-
 /** `WWW-Authenticate` points the client at Supabase Auth, to sign in. */
 async function serve(req: Request): Promise<Response> {
   const token = await mcpCaller(req);

@@ -3,8 +3,6 @@ import { ApiError, handle } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { requireBillingLive, stripe } from '@/lib/stripe';
 
-export const dynamic = 'force-dynamic';
-
 /**
  * POST /api/v1/billing/portal — Stripe's Customer Portal, where a subscriber
  * cancels, resumes, updates a card and finds receipts.

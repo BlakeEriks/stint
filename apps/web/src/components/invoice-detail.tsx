@@ -28,8 +28,8 @@ import { shortDate, StatusBadge } from './invoice-bits';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
 import { entries, markSentAsk } from './mark-sent-dialog';
-import { PRICE } from './plan-section';
 import { Notice } from './notice';
+import { PRICE } from './plan-section';
 import {
   attachedSchedules,
   formatCurrency,
@@ -288,21 +288,24 @@ function Notices({
   return (
     <div className="flex flex-col gap-1 pt-1 pb-6">
       {hint ? <p className="type-support text-muted">{hint}</p> : null}
-      {invoice.status === 'draft' && invoice.newWork ? (
-        <NewWorkNotice
-          work={invoice.newWork}
-          currency={invoice.currency}
-          addWork={addWork}
-        />
-      ) : null}
-      {unrated.length > 0 ? <Unrated entries={unrated} /> : null}
-      {invoice.dueBeforeIssue?.download ? (
-        <DueBeforeIssue
-          issued={invoice.issueDate}
-          due={invoice.dueDate!}
-          downloaded={!invoice.dueBeforeIssue.send}
-        />
-      ) : null}
+      <div className="mt-3 flex flex-col gap-4 empty:hidden">
+        {invoice.status === 'draft' && invoice.newWork ? (
+          <NewWorkNotice
+            work={invoice.newWork}
+            currency={invoice.currency}
+            addWork={addWork}
+          />
+        ) : null}
+        {unrated.length > 0 ? <Unrated entries={unrated} /> : null}
+        {invoice.dueBeforeIssue?.download ? (
+          <DueBeforeIssue
+            issued={invoice.issueDate}
+            due={invoice.dueDate!}
+            downloaded={!invoice.dueBeforeIssue.send}
+          />
+        ) : null}
+        <ActionError error={error} />
+      </div>
       {/* The document is the paid tier; the records never are, and saying
           so here keeps the two rules from reading as one. */}
       {invoice.canDownload === false ? (
@@ -311,7 +314,6 @@ function Notices({
           your records, exporting them included, stay free.
         </p>
       ) : null}
-      <ActionError error={error} />
     </div>
   );
 }
@@ -338,23 +340,20 @@ function NewWorkNotice({
     .filter(Boolean)
     .join(' and ');
   return (
-    <Notice className="mt-3 flex-row flex-wrap items-center justify-between gap-x-4 gap-y-2.5">
-      <div className="flex flex-col gap-0.5">
-        <p className="type-body text-strong">{what}, in this period</p>
-        <p className="type-support text-muted">
-          Logged since you built it · {formatCurrency(work.amount, currency)}.
-          They stay off unless you add them.
-        </p>
-      </div>
-      <Button onClick={() => addWork.mutate()} disabled={addWork.isPending}>
-        {addWork.isPending ? (
-          <Loader2 aria-hidden className="animate-spin" />
-        ) : (
-          <Plus aria-hidden strokeWidth={1.75} />
-        )}
-        {addWork.isPending ? 'Adding…' : 'Add to draft'}
-      </Button>
-    </Notice>
+    <Notice
+      title={`${what}, in this period`}
+      detail={`Logged since you built it · ${formatCurrency(work.amount, currency)}. They stay off unless you add them.`}
+      action={
+        <Button onClick={() => addWork.mutate()} disabled={addWork.isPending}>
+          {addWork.isPending ? (
+            <Loader2 aria-hidden className="animate-spin" />
+          ) : (
+            <Plus aria-hidden strokeWidth={1.75} />
+          )}
+          {addWork.isPending ? 'Adding…' : 'Add to draft'}
+        </Button>
+      }
+    />
   );
 }
 
@@ -362,16 +361,10 @@ function NewWorkNotice({
     the user can find each one. */
 function Unrated({ entries }: { entries: UnratedEntry[] }) {
   return (
-    <Notice className="mt-3">
-      <p className="type-body text-strong">
-        {entries.length} entr{entries.length === 1 ? 'y has' : 'ies have'} no
-        rate
-      </p>
-      <p className="type-support text-muted">
-        This draft leaves {entries.length === 1 ? 'it' : 'them'} out, and can’t
-        be downloaded or sent until each has a rate. Set one on the entry,
-        project, client, or in settings.
-      </p>
+    <Notice
+      title={`${entries.length} entr${entries.length === 1 ? 'y has' : 'ies have'} no rate`}
+      detail={`This draft leaves ${entries.length === 1 ? 'it' : 'them'} out, and can’t be downloaded or sent until each has a rate. Set one on the entry, project, client, or in settings.`}
+    >
       <ul className="mt-1 type-support text-primary">
         {entries.map((e) => (
           <li key={e.id}>
@@ -397,14 +390,14 @@ function DueBeforeIssue({
   downloaded: boolean;
 }) {
   return (
-    <Notice className="mt-3">
-      <p className="type-body text-strong">Due before it’s issued</p>
-      <p className="type-support text-muted">
-        {downloaded
+    <Notice
+      title="Due before it’s issued"
+      detail={
+        downloaded
           ? `The due date you typed, ${shortDate(due)}, is before today, so it can’t be downloaded again. Send the PDF you downloaded, then mark it sent.`
-          : `The due date you typed, ${shortDate(due)}, is before today’s issue date, ${shortDate(issued)}, so it can’t be downloaded or sent. Edit this draft to give it a later due date.`}
-      </p>
-    </Notice>
+          : `The due date you typed, ${shortDate(due)}, is before today’s issue date, ${shortDate(issued)}, so it can’t be downloaded or sent. Edit this draft to give it a later due date.`
+      }
+    />
   );
 }
 
@@ -412,8 +405,12 @@ function DueBeforeIssue({
 function ActionError({ error }: { error: unknown }) {
   if (!error) return null;
   return (
-    <p role="alert" className="type-support text-danger">
-      {error instanceof ApiError ? error.message : 'That change was rejected.'}
-    </p>
+    <Notice
+      role="alert"
+      tone="danger"
+      title={
+        error instanceof ApiError ? error.message : 'That change was rejected.'
+      }
+    />
   );
 }

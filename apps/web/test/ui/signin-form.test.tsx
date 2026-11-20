@@ -3,43 +3,28 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SignInForm } from '@/components/signin-form';
 
-const calls: string[] = [];
-const signOut = vi.fn(async () => {
-  calls.push('signOut');
-  return { error: null };
-});
 const signInWithOtp = vi.fn(
   async (
     _: unknown,
-  ): Promise<{ error: { code: string; message: string } | null }> => {
-    calls.push('signInWithOtp');
-    return { error: null };
-  },
+  ): Promise<{ error: { code: string; message: string } | null }> => ({
+    error: null,
+  }),
 );
 
 vi.mock('@/lib/client/supabase', () => ({
-  browserClient: () => ({ auth: { signOut, signInWithOtp } }),
+  browserClient: () => ({ auth: { signInWithOtp } }),
 }));
 
-afterEach(() => {
-  calls.length = 0;
-  vi.clearAllMocks();
-});
+afterEach(() => vi.clearAllMocks());
 
 describe('SignInForm', () => {
-  it('clears this browser’s auth state locally, requests a link, and replaces the error with confirmation', async () => {
+  it('requests a link and replaces the error with confirmation', async () => {
     const user = userEvent.setup();
     render(<SignInForm error="invalid_link" />);
 
     await user.type(screen.getByLabelText('Email'), 'dev@localhost.test');
     await user.click(screen.getByRole('button', { name: /Email me/ }));
 
-    /* The PKCE verifier lives under one key per origin, so requesting a link
-       without clearing first overwrites another tab's verifier. */
-    await waitFor(() => expect(calls).toEqual(['signOut', 'signInWithOtp']));
-    // A global scope would revoke the session on the user's phone because
-    // they asked for a link on their laptop.
-    expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
     // Leaving a stale failure beside "Check your email" would say the new
     // link is broken too.
     await waitFor(() =>

@@ -3968,10 +3968,19 @@ test('/stats lists clients ready to invoice, from the clients, entries and draft
   const row = {
     clientId: CLIENT,
     clientName: 'Northwind',
-    seconds: 7200,
+    amount: 300,
+    currency: 'USD',
     ...period,
   };
   assert.deepEqual(await due(), [row]);
+
+  await pool.query(`update clients set hourly_rate = 0, currency = 'EUR'`);
+  assert.deepEqual(
+    await due(),
+    [{ ...row, amount: 0, currency: 'EUR' }],
+    "a $0 rate counts as $0, in the client's currency",
+  );
+  await pool.query(`update clients set hourly_rate = 150, currency = null`);
 
   await pool.query(`update clients set archived_at = now()`);
   assert.deepEqual(await due(), [], 'an archived client is never due');
@@ -4026,7 +4035,13 @@ test('/stats reads clients ready to invoice in the billing zone', async () => {
 
   const res = await json(await stats(req('/stats?tz=UTC')));
   assert.deepEqual(res.body.attention.unbilledDue, [
-    { clientId: CLIENT, clientName: 'Northwind', seconds: 3600, ...period },
+    {
+      clientId: CLIENT,
+      clientName: 'Northwind',
+      amount: 150,
+      currency: 'USD',
+      ...period,
+    },
   ]);
 });
 

@@ -17,8 +17,6 @@ import {
 import { entriesCsv } from '@stint/core';
 import { ExportQuery } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 /**
  * GET /api/v1/exports/entries — every finished entry, with the rate it
  * resolves to and the invoice that billed it, as CSV.

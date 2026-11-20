@@ -1,20 +1,27 @@
 import { isAuthRetryableFetchError } from '@supabase/supabase-js';
+import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { ConsentForm } from '@/components/consent-form';
 import { Providers } from '@/components/providers';
 import { cookieClient } from '@/lib/supabase';
 
-export const dynamic = 'force-dynamic';
+type Props = { searchParams: Promise<{ authorization_id?: string }> };
+
+/* Reached by a full load from Supabase's redirect, so the form streams in
+   the same response and there is nothing to show before it. */
+export default function Page({ searchParams }: Props) {
+  return (
+    <Suspense>
+      <Consent searchParams={searchParams} />
+    </Suspense>
+  );
+}
 
 /**
  * Where Supabase's OAuth server sends a user to approve an app
  * (`authorization_url_path` in `supabase/config.toml`).
  */
-export default async function Page({
-  searchParams,
-}: {
-  searchParams: Promise<{ authorization_id?: string }>;
-}) {
+async function Consent({ searchParams }: Props) {
   const { authorization_id: id = '' } = await searchParams;
   const db = await cookieClient();
 

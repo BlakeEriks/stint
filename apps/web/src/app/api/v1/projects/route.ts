@@ -6,8 +6,6 @@ import { PROJECT_COLUMNS, toProject } from '@/lib/rows';
 import { uuidv7 } from '@stint/core';
 import { CreateProject, ListProjectsQuery } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 export const GET = handle(async (req: Request) => {
   const { db } = await requireSession(req);
   const q = parseQuery(req, ListProjectsQuery);

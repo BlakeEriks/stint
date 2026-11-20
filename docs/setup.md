@@ -91,9 +91,11 @@ bundle, and RLS protects the data. A **secret** key (`sb_secret_…`) bypasses
 RLS, so it lives only in the sensitive Vercel variable `SUPABASE_SECRET_KEY`
 (`docs/deploying.md` §2).
 
-`signin-form.tsx` sends each magic link back to the origin it was requested
-from, so that origin must be on the project's allowlist, or the link is
-rejected on return without saying why. `docs/deploying.md` §4 sets it.
+Each sign-in email's link returns to the origin that asked for it
+(`signInLanding()` in `apps/web/src/lib/sign-in-link.ts`), so that origin
+must be on the project's allowlist. Supabase swaps a refused one for the Site
+URL, which has no query for the email to add the token to, so the link
+arrives malformed. `docs/deploying.md` §4 sets the allowlist.
 
 ## 5. Sign-in email
 
@@ -108,20 +110,24 @@ Resend's free tier (100 a day) as `Stint <signin@runstint.com>`.
 3. **Supabase → Authentication → Emails → SMTP Settings**: host
    `smtp.resend.com`, port `465`, user `resend`, the API key as password,
    sender `signin@runstint.com`, name `Stint`.
-4. **Authentication → Emails → Magic Link**: subject `Sign in to Stint`, body
-   `supabase/templates/magic_link.html`.
+4. **Authentication → Emails → Magic Link** and **Confirm signup**: subject
+   `Sign in to Stint`, body `supabase/templates/magic_link.html`, in both.
+   Confirm email is on, so a first sign-in sends Confirm signup instead of
+   Magic Link.
 5. **Authentication → Sign In / Providers → Email**: **Email OTP Length** `6`.
    A hosted project can default to 8, and the template and the panel show
    and take six digits, so a longer code is truncated and always rejected.
    **Email OTP Expiration** `86400`, because the sign-in errors say codes
    expire after 24 hours.
 
-The dashboard holds its own copy of the template, because `config.toml`
+The dashboard holds its own copies of the template, because `config.toml`
 points GoTrue at a local path a hosted project can't read. An edit to the
-file changes local only, until it's pasted again. Keep
-`{{ .ConfirmationURL }}` and both `{{ slice .Token }}` calls, because GoTrue mints a
-code for every magic link, and those calls show it, so the menu bar app's
-panel has a code to take.
+file changes local only, until it's pasted into both again. Keep the link's
+`{{ .RedirectTo }}&token_hash={{ .TokenHash }}`: the app verifies the token
+hash itself, where `{{ .ConfirmationURL }}` signs in only the browser that
+asked for the link. Keep both `{{ slice .Token }}` calls too, because GoTrue
+mints a code for every magic link, and those calls show it, so the menu bar
+app's panel has a code to take.
 
 ## 6. Connected apps
 

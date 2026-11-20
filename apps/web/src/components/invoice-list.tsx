@@ -260,8 +260,8 @@ function Row({
     >
       {/* The link stretches over the row and the button sits above it: an
           <a> holding a <button> is invalid HTML and breaks keyboard
-          navigation. Prefetched in full: the route is dynamic, so the
-          default prefetch stops at `loading.tsx`. */}
+          navigation. Prefetched in full: the default fetches only the shell
+          every invoice shares, and the page's own part waits on the server. */}
       <Link
         href={`/invoices/${invoice.id}`}
         prefetch

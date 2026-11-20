@@ -7,11 +7,17 @@ const error = (status: number, code: string) =>
   new ApiError(status, { code, message: 'nope' });
 
 const query = <T,>(
-  over: Partial<{ data: T; error: unknown; isLoading: boolean }>,
+  over: Partial<{
+    data: T;
+    error: unknown;
+    isLoading: boolean;
+    errorUpdateCount: number;
+  }>,
 ) => ({
   data: undefined,
   error: null,
   isLoading: false,
+  errorUpdateCount: 0,
   ...over,
 });
 
@@ -101,6 +107,21 @@ describe('Listing', () => {
         <Listing
           query={query({ data: ['a'] })}
           also={[query({ error: error(500, 'UNKNOWN') })]}
+        >
+          {() => <p>region</p>}
+        </Listing>,
+      );
+      expect(screen.getByText('region')).toBeInTheDocument();
+    });
+
+    /* A reader mounting inside the region refetches the failed query, which
+       goes back to pending: waiting on it again would swap the region for
+       the loader, and the region remounting would refetch it again. */
+    it('does not wait again for one that failed', () => {
+      render(
+        <Listing
+          query={query({ data: ['a'] })}
+          also={[query({ isLoading: true, errorUpdateCount: 1 })]}
         >
           {() => <p>region</p>}
         </Listing>,

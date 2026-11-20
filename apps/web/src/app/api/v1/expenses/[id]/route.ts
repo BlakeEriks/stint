@@ -11,8 +11,6 @@ import {
 import { expenseWriteError, withInvoices } from '@/lib/expenses';
 import { UpdateExpense } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 type Ctx = { params: Promise<{ id: string }> };
 
 /**

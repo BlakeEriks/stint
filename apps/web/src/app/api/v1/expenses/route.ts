@@ -6,8 +6,6 @@ import { EXPENSE_COLUMNS, type ExpenseRow } from '@/lib/rows';
 import { expenseWriteError, withInvoices } from '@/lib/expenses';
 import { CreateExpense, ListExpensesQuery } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 /**
  * GET /api/v1/expenses — recurring first, then oldest first.
  *

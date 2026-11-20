@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import type { GroupingMode } from '../src/invoice.ts';
 import {
   draftDates,
   lateEntries,
@@ -197,8 +198,8 @@ test('draftDates: sending keeps the dates its last PDF printed', () => {
 });
 
 /* unbilledDue(): on Oct 3 unless a row says otherwise, Northwind (c1) bills
-   monthly and Acme (c2) has no schedule. Each row reads
-   "client from..to seconds". */
+   monthly at $100/h and Acme (c2) has no schedule. Each row reads
+   "client from..to amount". */
 const work = (startedAt: string, clientId = 'c1', hours = 1) =>
   entry({ startedAt, clientId, durationSeconds: hours * 3600 });
 const inv = (
@@ -206,10 +207,17 @@ const inv = (
   periodEnd: string,
   clientId = 'c1',
   status = 'sent',
-) => ({ clientId, periodStart, periodEnd, status });
+) => ({
+  clientId,
+  periodStart,
+  periodEnd,
+  status,
+  sequenceNo: 0,
+  groupingMode: 'summary' as GroupingMode,
+});
 const draft = (periodStart: string, periodEnd: string) =>
   inv(periodStart, periodEnd, 'c1', 'draft');
-const NW_SEP = 'Northwind 2026-09-01..2026-09-30 3600';
+const NW_SEP = 'Northwind 2026-09-01..2026-09-30 100';
 const IN_SEP = '2026-09-20T15:00:00Z';
 
 const DUE: {
@@ -222,7 +230,7 @@ const DUE: {
   {
     name: 'the most recent ended period, its work added up',
     entries: [work(IN_SEP, 'c1', 2), work('2026-09-21T15:00:00Z')],
-    due: ['Northwind 2026-09-01..2026-09-30 10800'],
+    due: ['Northwind 2026-09-01..2026-09-30 300'],
   },
   {
     name: 'not an earlier period, nor the open one',
@@ -322,8 +330,14 @@ test('ready to invoice: the most recent ended period no invoice covers', () => {
     const rows = unbilledDue(
       {
         clients: [
-          { id: 'c1', name: 'Northwind', schedule: { period: 'monthly' } },
-          { id: 'c2', name: 'Acme', schedule: null },
+          {
+            id: 'c1',
+            name: 'Northwind',
+            schedule: { period: 'monthly' },
+            rate: 100,
+            currency: 'USD',
+          },
+          { id: 'c2', name: 'Acme', schedule: null, currency: 'USD' },
         ],
         entries: row.entries,
         invoices: row.invoices ?? [],
@@ -333,10 +347,115 @@ test('ready to invoice: the most recent ended period no invoice covers', () => {
     );
     assert.deepEqual(
       rows.map(
-        (r) => `${r.clientName} ${r.periodStart}..${r.periodEnd} ${r.seconds}`,
+        (r) => `${r.clientName} ${r.periodStart}..${r.periodEnd} ${r.amount}`,
       ),
       row.due,
       row.name,
     );
+  }
+});
+
+/* Each row: one entry's rates, override to default, and what Northwind's
+   September would bill at $150/h on the client unless the row says, grouped
+   as its last invoice was (summary with none). */
+test('ready to invoice: the amount, each entry at the rate that bills it', () => {
+  const rated = (
+    rates: { rateOverride?: number | null; projectRate?: number | null },
+    durationSeconds = 3600,
+  ) => ({ ...work(IN_SEP), durationSeconds, ...rates });
+  const thirds = [1, 2, 3].map((i) => ({ ...rated({}, 1200), id: `e${i}` }));
+  /* Two 20-minute entries apart under `split`: two lines at $99.99 bill
+     $66.00, one bills $65.99. */
+  const pair = (split: Record<string, unknown>[]) =>
+    split.map((over, i) => ({ ...rated({}, 1200), id: `p${i}`, ...over }));
+  const august = (sequenceNo: number, groupingMode: GroupingMode) => ({
+    ...inv('2026-08-01', '2026-08-31'),
+    sequenceNo,
+    groupingMode,
+  });
+  for (const [name, entries, rate, defaultRate, amount, invoices = []] of [
+    [
+      'the override first',
+      [rated({ rateOverride: 200, projectRate: 100 })],
+      150,
+      50,
+      200,
+    ],
+    ['then the project', [rated({ projectRate: 100 })], 150, 50, 100],
+    ['then the client', [rated({})], 150, 50, 150],
+    ['then the default', [rated({})], null, 50, 50],
+    ['a zero rate bills nothing', [rated({ rateOverride: 0 })], 150, 50, 0],
+    ['no rate anywhere bills nothing', [rated({})], null, null, 0],
+    [
+      'hours rounded per entry, as printed',
+      [rated({}, 1200), { ...rated({}, 1200), id: 'e2' }],
+      100,
+      null,
+      66,
+    ],
+    ['one line per rate, priced once', thirds, 99.99, null, 98.99],
+    [
+      'grouped as the last invoice was',
+      thirds,
+      99.99,
+      null,
+      99,
+      [august(1, 'entry')],
+    ],
+    [
+      'the most recent invoice decides',
+      thirds,
+      99.99,
+      null,
+      98.99,
+      [august(2, 'summary'), august(1, 'entry')],
+    ],
+    [
+      'by task, a line per name',
+      pair([{ taskName: 'Audit' }, { taskName: 'Review' }]),
+      99.99,
+      null,
+      66,
+      [august(1, 'task')],
+    ],
+    [
+      'by project, a line per project',
+      pair([
+        { projectId: 'p1', projectName: 'Audit' },
+        { projectId: 'p2', projectName: 'Review' },
+      ]),
+      99.99,
+      null,
+      66,
+      [august(1, 'project')],
+    ],
+    [
+      'by day, in the billing zone: 03:00 UTC Sep 21 is Sep 20',
+      pair([{}, { startedAt: '2026-09-21T03:00:00Z' }]),
+      99.99,
+      null,
+      65.99,
+      [august(1, 'day')],
+    ],
+  ] as const) {
+    const [row] = unbilledDue(
+      {
+        clients: [
+          {
+            id: 'c1',
+            name: 'Northwind',
+            schedule: { period: 'monthly' },
+            rate,
+            currency: 'EUR',
+          },
+        ],
+        entries: [...entries],
+        invoices: [...invoices],
+        defaultRate,
+      },
+      '2026-10-03',
+      'America/Chicago',
+    );
+    assert.deepEqual([row?.amount, row?.currency], [amount, 'EUR'], name);
   }
 });
