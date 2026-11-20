@@ -17,6 +17,20 @@ working days, so the projection runs a little high in any month with one.
 A setting picks which days the projection counts: every day, weekdays (the
 current rule, and the default), or weekdays except US federal holidays.
 
+## Clarifications
+
+### Session 2026-11-20
+
+- Q: Does the setting change the week's bars too? → A: No. The week always
+  shows its seven days; only the month's projection and chart count days.
+  (decided autonomously)
+- Q: Does the marketing page's demo month follow a setting? → A: No. It has
+  no user; it keeps Weekdays. (decided autonomously)
+- Q: Where does the control sit, and what does it read? → A: Its own
+  Settings section, "Home", with a three-way choice: "Every day",
+  "Weekdays" and "Weekdays, except holidays", and a hint naming what it
+  changes: the month's projection. (decided autonomously)
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Someone who works any day projects over every day (Priority: P1)
