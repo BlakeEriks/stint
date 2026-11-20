@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Suspense } from 'react';
 import {
   CalendarDays,
   FileText,
@@ -42,11 +43,20 @@ export const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
  * many sections it holds. Each section added is width a phone scrolls for.
  */
 export function Nav() {
-  const pathname = usePathname();
+  /* The path is the URL's, so an invoice's page prerenders the rail with no
+     section marked, and the server fills it in with the same response. */
+  return (
+    <Suspense fallback={<Rail pathname={null} />}>
+      <CurrentRail />
+    </Suspense>
+  );
+}
 
-  // Signed-out screens have nowhere to navigate to.
-  if (pathname === '/signin' || pathname.startsWith('/auth')) return null;
+function CurrentRail() {
+  return <Rail pathname={usePathname()} />;
+}
 
+function Rail({ pathname }: { pathname: string | null }) {
   return (
     <nav
       aria-label="Sections"
@@ -76,7 +86,7 @@ export function Nav() {
       <div className="-my-1 flex gap-1 overflow-x-auto px-1 py-1 lg:min-h-0 lg:flex-col lg:overflow-x-visible lg:overflow-y-auto">
         {LINKS.map(({ href, label, icon: Icon }) => {
           const active =
-            href === '/' ? pathname === '/' : pathname.startsWith(href);
+            href === '/' ? pathname === '/' : !!pathname?.startsWith(href);
           return (
             <Link
               key={href}
@@ -123,9 +133,6 @@ export function Nav() {
  * is a horizontal strip and there is no rail at all.
  */
 export function Version() {
-  const pathname = usePathname();
-  if (pathname === '/signin' || pathname.startsWith('/auth')) return null;
-
   return (
     <span className="hidden items-end px-3 pb-1 type-meta text-subtle lg:col-start-1 lg:row-start-2 lg:flex">
       {process.env.NEXT_PUBLIC_APP_VERSION}

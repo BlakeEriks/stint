@@ -6,8 +6,6 @@ import { entitlement, syncCustomer } from '@/lib/billing';
 import { requireBillingConfig, stripe } from '@/lib/stripe';
 import { BillingSync } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 /**
  * POST /api/v1/billing/sync — back from Checkout, store what Stripe says now
  * rather than wait on the webhook, so Settings shows the paid plan at once.

@@ -263,13 +263,16 @@ export const Stats = z.object({
     ),
     /** Clients ready to invoice (`unbilledDue` in `@stint/core`): the most
      *  recent ended period of the client's schedule holds billable work, overlaps
-     *  no sent or paid invoice, and no draft spans it. `seconds` is that work; New invoice
-     *  opens with the period. */
+     *  no sent or paid invoice, and no draft spans it. New invoice opens
+     *  with the period. `amount` is what that work bills, grouped as the
+     *  client's last invoice was (summary with none), in the client's
+     *  `currency`; work with no rate counts as nothing. */
     unbilledDue: z.array(
       z.object({
         clientId: uuid,
         clientName: z.string(),
-        seconds: z.number().int().nonnegative(),
+        amount: money,
+        currency,
         periodStart: z.iso.date(),
         periodEnd: z.iso.date(),
       }),

@@ -3,8 +3,6 @@ import { handle } from '@/lib/errors';
 import { syncCustomer } from '@/lib/billing';
 import { billingConfig } from '@/lib/stripe';
 
-export const dynamic = 'force-dynamic';
-
 /** Events that can change a subscription. Each is only a cue to re-read. */
 const SYNCED = new Set([
   'checkout.session.completed',

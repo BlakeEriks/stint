@@ -25,7 +25,7 @@ export function Today({ stats }: { stats: Stats }) {
 
   return (
     <div className="flex flex-col">
-      <RegionHead>Today · {dayLabel(entries.day)}</RegionHead>
+      <RegionHead>Today · {entries.day && dayLabel(entries.day)}</RegionHead>
 
       {/* Projects are `also`: if they fail, the rows paint without project
           names rather than the region going blank. Archived included, so a

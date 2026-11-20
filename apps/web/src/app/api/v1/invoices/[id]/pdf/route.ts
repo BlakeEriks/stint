@@ -10,10 +10,6 @@ import { loadPdfData } from '@/lib/issued';
 import { parseQuery } from '@/lib/validate';
 import { InvoiceReadQuery } from '@stint/schema';
 
-// Rendering needs the Node runtime, not edge.
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
-
 type Ctx = { params: Promise<{ id: string }> };
 
 /**

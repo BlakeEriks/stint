@@ -106,8 +106,8 @@ beside the lockup whenever it is not local.
 **An emailed six-digit code, typed into the panel.** The panel asks Stint's
 `/api/v1/auth/code` for it, not GoTrue's `/otp` (`docs/setup.md` §7). It verifies the
 code in-process against GoTrue's `/verify` with `type: "email"` and the
-digits in the `token` field — `"magiclink"` is the type for the hashed token
-in a link and rejects a typed code.
+digits in the `token` field. The link on the web carries a `token_hash`
+instead, which takes no typed code.
 
 GoTrue generates a code for every magic link whether the email shows it or
 not; `supabase/templates/magic_link.html` puts it in front of the user via
@@ -115,8 +115,8 @@ not; `supabase/templates/magic_link.html` puts it in front of the user via
 
 `supabase-swift` is not a dependency; two POSTs do not need an SDK.
 
-The hosted project's copy of that template is pasted into the dashboard,
-which needs custom SMTP. `docs/setup.md` §5.
+The hosted project pastes that template into both Magic Link and Confirm
+signup, which a first sign-in gets, and needs custom SMTP. `docs/setup.md` §5.
 
 **The session lives in the Keychain**, not `UserDefaults` — a refresh token is
 a long-lived credential and a plist in the container is readable by anything

@@ -5,8 +5,6 @@ import { parseBody } from '@/lib/validate';
 import { pushTimerChanged } from '@/lib/push';
 import { RenameTaskName } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 export const POST = handle(async (req: Request) => {
   const { db, userId } = await requireSession(req);
   const body = await parseBody(req, RenameTaskName);

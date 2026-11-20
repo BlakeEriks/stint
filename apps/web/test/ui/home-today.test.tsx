@@ -102,6 +102,25 @@ describe('Today', () => {
     expect(view.getByText(/^Today · Saturday/)).toBeTruthy();
   });
 
+  it('refetches stats for the new day though the screen re-rendered first', async () => {
+    // Saturday 26 Sep, 11:59:30 PM in New York.
+    vi.setSystemTime(new Date('2026-09-27T03:59:30.000Z'));
+    const { rerender } = renderToday();
+    await waitFor(() => expect(entryQueries()).toHaveLength(1));
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+
+    // Past midnight, a timer's beat re-renders before the minute's check.
+    vi.setSystemTime(new Date('2026-09-27T04:00:10.000Z'));
+    rerender(
+      <QueryClientProvider client={client}>
+        <Today stats={STATS} />
+      </QueryClientProvider>,
+    );
+    await act(() => vi.advanceTimersByTimeAsync(60_000));
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['stats'] });
+  });
+
   it('leaves stats alone while the day is unchanged', async () => {
     vi.setSystemTime(new Date('2026-09-27T14:00:00.000Z'));
     renderToday();

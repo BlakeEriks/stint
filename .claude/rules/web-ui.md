@@ -60,7 +60,7 @@ color fact is text on the accent (`--text-on-accent`, `tokens:validate`).
 
 - **Green is the one hue, and the step says the tense.** `timer-running`
   marks what is live, and `accent-default` the action a screen exists to
-  complete — one hex in dark, a rung apart in light, where paper gives the
+  complete, or an inbox card's prompt to bill — one hex in dark, a rung apart in light, where paper gives the
   timer no glow to tell it from the button. `success`, a ramp step off the
   timer, reports what has already happened: paid, saved. Test any green by
   asking whether a user could say in one phrase what it means there.
@@ -190,9 +190,13 @@ anticipation of one.
   `noValidate`, since the browser's bubble never reaches a phone. Save is
   disabled only while its save is pending.
 - **A list filter lives in the URL** (`FilterTabs`), so the view is linkable
-  and Back returns to it. A component reading `useSearchParams` needs a
-  `Suspense` boundary in its `page.tsx`, or `next build` fails while
-  `next dev` passes.
+  and Back returns to it.
+- **A render that reads the request or the clock sits behind `Suspense`**,
+  or `next build` fails while `next dev` passes: Cache Components
+  (`next.config.ts`) prerenders every page. That is awaiting `params` or
+  `searchParams`, `useSearchParams`, and `usePathname`. A render the
+  prerender reaches, before any query answers, reads the clock through
+  `useNow()`; one behind a query gate may call `appNow()`.
 - **User-visible text follows `docs/voice.md`.**
 - **Every action carries a visible label.** Four exceptions, each with an
   `aria-label`: a destructive first step, a dense repeating row, the dock's

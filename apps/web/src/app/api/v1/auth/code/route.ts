@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
 import { RequestCode } from '@stint/schema';
 import { ApiError, handle, report } from '@/lib/errors';
+import { signInLanding } from '@/lib/sign-in-link';
 import { serviceClient } from '@/lib/supabase';
 import { parseBody } from '@/lib/validate';
-
-export const dynamic = 'force-dynamic';
 
 /** The route tests answer GoTrue in memory. */
 const gotrue = () =>
@@ -38,8 +37,10 @@ export const POST = handle(async (req: Request) => {
       'Too many sign-in codes from here. Try again in an hour.',
     );
 
+  // The email's button is built on this address, for whoever opens it on the web.
+  const landing = signInLanding(new URL(req.url).origin);
   const res = await gotrue()(
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/otp`,
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/otp?redirect_to=${encodeURIComponent(landing)}`,
     {
       method: 'POST',
       headers: {

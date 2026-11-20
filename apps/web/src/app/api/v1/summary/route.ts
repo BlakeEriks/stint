@@ -5,8 +5,6 @@ import { parseQuery } from '@/lib/validate';
 import { readSummary } from '@/lib/summary';
 import { SummaryQuery } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 /** GET /api/v1/summary — the macOS menu bar's endpoint; `readSummary` says what it holds. */
 export const GET = handle(async (req: Request) => {
   const { db } = await requireSession(req);

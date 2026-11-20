@@ -138,7 +138,7 @@ export async function readStats(
       rows.lastPaidAt ? daysSincePaid(rows.lastPaidAt, now, tz) : null,
       currency,
     ),
-    attention: buildAttention(rows, invoiceRows, clientOf, tz, now),
+    attention: buildAttention(rows, invoiceRows, tz, now),
   };
 }
 
@@ -409,7 +409,6 @@ function priceInvoices(
 function buildAttention(
   rows: StatsRows,
   invoiceRows: InvoiceRow[],
-  clientOf: Map<string, string | null>,
   tz: string,
   now: Date,
 ) {
@@ -418,7 +417,10 @@ function buildAttention(
   const clientNames = clientNamesFrom(rows.unbilled);
   const todayKey = localDateKey(now, tz);
   const billTz = billingZone(settings, tz);
-  const uninvoiced = rows.uninvoiced.map((r) => toUninvoicedEntry(r, clientOf));
+  const projectOf = new Map(rows.projects.map((p) => [p.id, p]));
+  const uninvoiced = rows.uninvoiced.map((r) =>
+    toUninvoicedEntry(r, projectOf),
+  );
   const issued = rows.issuedPeriods.map(toIssuedPeriod);
 
   return {
@@ -446,9 +448,10 @@ function buildAttention(
     })),
     unbilledDue: unbilledDue(
       {
-        clients: rows.activeClients.map(toScheduledClient),
+        clients: rows.activeClients.map((c) => toScheduledClient(c, currency)),
         entries: uninvoiced,
         invoices: [...rows.invoices.map(toInvoicePeriod), ...issued],
+        defaultRate: settings.defaultHourlyRate,
       },
       // Read as its invoice will be, so no entry is both due and late.
       localDateKey(now, billTz),

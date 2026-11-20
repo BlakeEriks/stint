@@ -29,8 +29,6 @@ import { parseBody, parseQuery } from '@/lib/validate';
 import { toInvoice, type InvoiceRow } from '@/lib/rows';
 import { CreateInvoice, InvoiceReadQuery } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 type Ctx = { params: Promise<{ id: string }> };
 
 /**

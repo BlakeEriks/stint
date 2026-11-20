@@ -11,7 +11,8 @@ import { Slot } from "radix-ui"
  *   dock, a calendar cell) `xs`; icon-only is `icon`, or `icon-sm` in a row.
  *
  *   The role sets the variant: the one action the screen exists to complete
- *   is `accent`, even with the timer in view; anything else that performs
+ *   is `accent`, even with the timer in view, and so is an inbox prompt's
+ *   own action (ready to invoice's Create invoice); anything else that performs
  *   something `default`; beside a confirm, or any row action, `ghost` — but a
  *   row action on a raised card (`bg-surface-elevated`) is `default`, since a
  *   borderless label there has nothing to read as a control against, and

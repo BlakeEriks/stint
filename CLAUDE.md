@@ -63,9 +63,9 @@ squash-merge, so git never sees the branch as merged and `-d` refuses. A
 worktree with uncommitted changes is someone's work; ask before touching it.
 `git worktree list` should show only what is still in flight.
 
-`docs/local-dev.md` has the rest: one sign-in at a time per browser and how a
-failed magic link is diagnosed, why everything speaks `localhost` and never
-`127.0.0.1`, and which services `dev:up` leaves out.
+`docs/local-dev.md` has the rest: how signing in works locally, why
+everything speaks `localhost` and never `127.0.0.1`, and which services
+`dev:up` leaves out.
 
 ## Generated files and a fresh clone
 

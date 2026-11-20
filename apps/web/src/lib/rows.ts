@@ -580,11 +580,14 @@ export function toBilling(
 
 // ── home stats ─────────────────────────────────────────────────────
 /** A project as Home reads it: its name for the inbox, its client for the
- *  week's split. */
-export type ProjectNameRow = Pick<ProjectRow, 'id' | 'name' | 'client_id'>;
+ *  week's split, its rate for what a period ready to invoice bills. */
+export type ProjectNameRow = Pick<
+  ProjectRow,
+  'id' | 'name' | 'client_id' | 'hourly_rate'
+>;
 
 export const PROJECT_NAME_COLUMNS = columns<ProjectNameRow>()(
-  'id, name, client_id',
+  'id, name, client_id, hourly_rate',
 );
 
 /** Project id -> its client. */
@@ -600,23 +603,29 @@ export interface UninvoicedEntryRow {
   duration_seconds: number;
   is_billable: boolean;
   project_id: string | null;
+  rate_override: Numeric;
 }
 
 export const UNINVOICED_ENTRY_COLUMNS = columns<UninvoicedEntryRow>()(
-  'id, task_name, started_at, ended_at, duration_seconds, is_billable, project_id',
+  'id, task_name, started_at, ended_at, duration_seconds, is_billable, project_id, rate_override',
 );
 
 export function toUninvoicedEntry(
   r: UninvoicedEntryRow,
-  clientOf: Map<string, string | null>,
+  projectOf: Map<string, ProjectNameRow>,
 ) {
+  const project = r.project_id ? projectOf.get(r.project_id) : undefined;
   return {
     id: r.id,
     taskName: r.task_name,
     startedAt: new Date(r.started_at).toISOString(),
     durationSeconds: r.duration_seconds,
     isBillable: r.is_billable,
-    clientId: r.project_id ? (clientOf.get(r.project_id) ?? null) : null,
+    clientId: project?.client_id ?? null,
+    projectId: project?.id ?? null,
+    projectName: project?.name ?? null,
+    rateOverride: num(r.rate_override),
+    projectRate: num(project?.hourly_rate),
   };
 }
 
@@ -646,11 +655,18 @@ export function toWeekEntry(r: WeekEntryRow) {
 /** A sent or paid invoice's period, for work dated inside it. */
 export type IssuedPeriodRow = Pick<
   InvoiceRow,
-  'id' | 'invoice_number' | 'client_id' | 'period_start' | 'period_end' | 'tz'
+  | 'id'
+  | 'invoice_number'
+  | 'client_id'
+  | 'period_start'
+  | 'period_end'
+  | 'tz'
+  | 'sequence_no'
+  | 'grouping_mode'
 >;
 
 export const ISSUED_PERIOD_COLUMNS = columns<IssuedPeriodRow>()(
-  'id, invoice_number, client_id, period_start, period_end, tz',
+  'id, invoice_number, client_id, period_start, period_end, tz, sequence_no, grouping_mode',
 );
 
 export function toIssuedPeriod(r: IssuedPeriodRow) {
@@ -661,33 +677,59 @@ export function toIssuedPeriod(r: IssuedPeriodRow) {
     periodStart: r.period_start,
     periodEnd: r.period_end,
     tz: r.tz,
+    sequenceNo: r.sequence_no,
+    groupingMode: r.grouping_mode,
   };
 }
 
-/** Any invoice's period, for whether it covers a client's due period. */
+/** Any invoice's period, for whether it covers a client's due period, and
+ *  the grouping New invoice carries from it. */
 export function toInvoicePeriod(
-  r: Pick<InvoiceRow, 'status' | 'client_id' | 'period_start' | 'period_end'>,
+  r: Pick<
+    InvoiceRow,
+    | 'status'
+    | 'client_id'
+    | 'period_start'
+    | 'period_end'
+    | 'sequence_no'
+    | 'grouping_mode'
+  >,
 ) {
   return {
     status: r.status,
     clientId: r.client_id,
     periodStart: r.period_start,
     periodEnd: r.period_end,
+    sequenceNo: r.sequence_no,
+    groupingMode: r.grouping_mode,
   };
 }
 
-/** An active client's billing schedule. */
+/** An active client's billing schedule, and the rate and currency it
+ *  bills in. */
 export type ScheduledClientRow = Pick<
   ClientRow,
-  'id' | 'name' | 'billing_period' | 'period_anchor'
+  | 'id'
+  | 'name'
+  | 'billing_period'
+  | 'period_anchor'
+  | 'hourly_rate'
+  | 'currency'
 >;
 
 export const SCHEDULED_CLIENT_COLUMNS = columns<ScheduledClientRow>()(
-  'id, name, billing_period, period_anchor',
+  'id, name, billing_period, period_anchor, hourly_rate, currency',
 );
 
-export function toScheduledClient(r: ScheduledClientRow) {
-  return { id: r.id, name: r.name, schedule: toBillingSchedule(r) };
+/** `currency` is the user's, for a client with none of its own. */
+export function toScheduledClient(r: ScheduledClientRow, currency: string) {
+  return {
+    id: r.id,
+    name: r.name,
+    schedule: toBillingSchedule(r),
+    rate: num(r.hourly_rate),
+    currency: r.currency ?? currency,
+  };
 }
 
 /** The settings Home reads; null before the user has saved any. */
