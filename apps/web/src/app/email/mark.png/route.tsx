@@ -8,8 +8,6 @@ import { MarkOutline } from '@/components/mark-outline';
    own. The `.png` keeps it out of the proxy's matcher, so a mail client
    needs no session. */
 
-export const dynamic = 'force-static';
-
 /* The email shows it at a third of this, for a dense screen. */
 const SIZE = 57;
 
