@@ -36,7 +36,7 @@ export const skipping = (...rules: string[]) => ({
    inside a hidden region. */
 export const menuOpen = { a11y: skipping('aria-hidden-focus') };
 
-/** The same route with a query, as a list's filter tabs set it. */
+/** The route arrived at with a query, as a link or a checkout return sends it. */
 export const at = (pathname: string, query: Record<string, string>) => ({
   nextjs: { navigation: { pathname, query } },
 });
