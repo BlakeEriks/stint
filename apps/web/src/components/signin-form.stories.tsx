@@ -31,15 +31,15 @@ export const Light: Story = { ...light };
 /** A link that failed at the callback. */
 export const LinkFailed: Story = { ...desktop, args: { error: 'auth' } };
 
-/** A link another tab's request replaced: it says so, rather than looking
-    like a dead link. */
+/** A link already used, or expired: it says so, rather than looking like a
+    dead link. */
 export const InvalidLink: Story = {
   ...desktop,
   args: { error: 'invalid_link' },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     await expect(await page.findByRole('alert')).toHaveTextContent(
-      /another tab started a different/i,
+      /used already or expired/i,
     );
   },
 };

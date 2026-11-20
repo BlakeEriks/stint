@@ -384,10 +384,11 @@ export const PeriodPreset: Story = {
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const page = await period(await chooseNorthwind(canvasElement));
-    await userEvent.click(page.getByRole('button', { name: 'Last two weeks' }));
-    await expect(
-      page.getByRole('button', { name: 'Last two weeks' }),
-    ).toHaveAttribute('aria-pressed', 'true');
+    const preset = page.getByRole('button', {
+      name: 'Last two weeks Sep 3 – Sep 16, 2026',
+    });
+    await userEvent.click(preset);
+    await expect(preset).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByLabelText('From')).toHaveValue('2026-09-03');
     await expect(page.getByLabelText('To')).toHaveValue('2026-09-16');
     await userEvent.keyboard('{Escape}');
@@ -529,7 +530,9 @@ export const Unrated: Story = {
   },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
-    await expect(await page.findByText(/no rate/i)).toBeVisible();
+    await expect(
+      await page.findByText(/^\d+ entries have no rate\.$/),
+    ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Save draft' }),
     ).toBeDisabled();
@@ -994,13 +997,20 @@ export const AttachDetail: Story = {
   },
 };
 
-/** Any other grouping has no Attach (US2 scenario 6). */
-export const NoAttachWithoutSummary: Story = {
+/** By project offers every table but Hours by project, which its lines
+    already print. */
+export const AttachByProject: Story = {
   ...desktop,
+  parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
-    await page.findByRole('button', { name: 'Show time as' });
-    await expect(page.queryByRole('group', { name: 'Attach' })).toBeNull();
+    await pickGrouping(page, /By project/);
+    await settled(page);
+    for (const name of ['Hours by week', 'Hours by date'])
+      await expect(page.getByRole('checkbox', { name })).not.toBeChecked();
+    await expect(
+      page.queryByRole('checkbox', { name: 'Hours by project' }),
+    ).toBeNull();
   },
 };
 

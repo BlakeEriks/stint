@@ -91,9 +91,11 @@ bundle, and RLS protects the data. A **secret** key (`sb_secret_…`) bypasses
 RLS, so it lives only in the sensitive Vercel variable `SUPABASE_SECRET_KEY`
 (`docs/deploying.md` §2).
 
-`signin-form.tsx` sends each magic link back to the origin it was requested
-from, so that origin must be on the project's allowlist, or the link is
-rejected on return without saying why. `docs/deploying.md` §4 sets it.
+Each sign-in email's link returns to the origin that asked for it
+(`signInLanding()` in `apps/web/src/lib/sign-in-link.ts`), so that origin
+must be on the project's allowlist. Supabase swaps a refused one for the Site
+URL, which has no query for the email to add the token to, so the link
+arrives malformed. `docs/deploying.md` §4 sets the allowlist.
 
 ## 5. Sign-in email
 
@@ -118,10 +120,12 @@ Resend's free tier (100 a day) as `Stint <signin@runstint.com>`.
 
 The dashboard holds its own copy of the template, because `config.toml`
 points GoTrue at a local path a hosted project can't read. An edit to the
-file changes local only, until it's pasted again. Keep
-`{{ .ConfirmationURL }}` and both `{{ slice .Token }}` calls, because GoTrue mints a
-code for every magic link, and those calls show it, so the menu bar app's
-panel has a code to take.
+file changes local only, until it's pasted again. Keep the link's
+`{{ .RedirectTo }}&token_hash={{ .TokenHash }}`: the app verifies the token
+hash itself, where `{{ .ConfirmationURL }}` signs in only the browser that
+asked for the link. Keep both `{{ slice .Token }}` calls too, because GoTrue
+mints a code for every magic link, and those calls show it, so the menu bar
+app's panel has a code to take.
 
 ## 6. Connected apps
 

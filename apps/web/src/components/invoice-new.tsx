@@ -36,6 +36,7 @@ import {
   billingZone,
   defaultInvoicePeriod,
   attachedSchedules,
+  offeredSchedules,
   formatCurrency,
   formatInvoiceNumber,
   isPeriod,
@@ -70,6 +71,7 @@ import {
 } from './business-dialog';
 import { InvoiceDatesDialog } from './invoice-dates-dialog';
 import { PeriodPicker } from './invoice-period';
+import { Notice } from './notice';
 import { summarize } from './payment-profiles';
 import {
   businessOf,
@@ -80,7 +82,6 @@ import {
 } from './invoice-preview-card';
 import { TemplateControl } from './template-dialog';
 import { ConfirmDialog } from './confirm-dialog';
-import { Notice } from './notice';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
   {
@@ -125,7 +126,7 @@ interface Draft {
   summaryText: string | null;
   /** With `summary`, the lines typed their own text, by rate. */
   summaryTexts: SummaryText[] | null;
-  /** Supporting detail to attach, with `summary` only. */
+  /** Supporting detail to attach, which the grouping may not offer. */
   schedules: ScheduleKind[] | null;
   charges: DraftCharge[];
   /** Waiting expenses left off this invoice. They keep waiting. */
@@ -206,7 +207,7 @@ function draftOf(inv: Edited, profiles: PaymentProfile[]): Draft {
     // Left to carry, as on New invoice, should a summary be picked.
     summaryText: summary ? (inv.summaryText ?? '') : null,
     summaryTexts: summary ? inv.summaryTexts : null,
-    schedules: summary ? attachedSchedules(inv.supportingDetail) : null,
+    schedules: attachedSchedules(inv.supportingDetail),
     charges: (inv.choices?.manualLines ?? []).map((l) => ({
       ...l,
       key: crypto.randomUUID(),
@@ -251,11 +252,9 @@ function ScheduleHint({
   if (!schedule || !periodStart || !periodEnd) return null;
   if (isPeriod(schedule, periodStart, periodEnd)) return null;
   return (
-    <p role="status" className="type-support text-warning">
-      {client.name} is billed{' '}
-      {BILLING_PERIOD_LABELS[schedule.period].toLowerCase()}, and this isn't one
-      of its periods.
-    </p>
+    <Notice
+      title={`${client.name} is billed ${BILLING_PERIOD_LABELS[schedule.period].toLowerCase()}, and this isn't one of its periods.`}
+    />
   );
 }
 
@@ -306,8 +305,11 @@ function useCarried(draft: Draft) {
         ? { value: summaryText, texts: summaryTexts }
         : undefined,
     reference: draft.reference ?? carried.reference,
-    schedules:
-      groupingMode === 'summary' ? (draft.schedules ?? carried.schedules) : [],
+    // A table the grouping already prints is left out, not unticked: it
+    // comes back with a grouping that doesn't.
+    schedules: (draft.schedules ?? carried.schedules).filter((k) =>
+      offeredSchedules(groupingMode).includes(k),
+    ),
   };
 }
 
@@ -709,6 +711,7 @@ function Form({
               newProfile: () => setNewProfileOpen(true),
             },
             summary,
+            offered: lastPending ? undefined : offeredSchedules(groupingMode),
             reference,
             waiting,
             period: { periodStart, periodEnd },
@@ -876,14 +879,19 @@ function Notices({
       <EarlierWorkOffer work={earlierWork} onStartFrom={onStartFrom} />
       <HeldWorkNotice work={heldWork} />
       {faultSummary ? (
-        <p id={SUMMARY_ERROR} role="alert" className="type-support text-danger">
-          Give the summary line its text.
-        </p>
+        <Notice
+          id={SUMMARY_ERROR}
+          role="alert"
+          tone="danger"
+          title="Give the summary line its text."
+        />
       ) : null}
       {earlyDue ? (
-        <p role="alert" className="type-support text-danger">
-          Due can't be before the issue date.
-        </p>
+        <Notice
+          role="alert"
+          tone="danger"
+          title="Due can't be before the issue date."
+        />
       ) : null}
       <PreviewNotices preview={preview} error={error} />
     </div>
@@ -898,6 +906,7 @@ function cardEdits({
   hasClient,
   open,
   summary,
+  offered,
   reference,
   waiting,
   period,
@@ -919,6 +928,8 @@ function cardEdits({
   };
   /** With one summary line: its text, and whether it lacks one. */
   summary: { value: string; texts: SummaryText[] } | undefined;
+  /** The tables page 2 offers, once the grouping is known. */
+  offered: ScheduleKind[] | undefined;
   reference: string;
   waiting: Expense[];
   period: { periodStart: string; periodEnd: string };
@@ -967,9 +978,7 @@ function cardEdits({
           { rate, text: v },
         ]),
     },
-    // Only a summary has detail to support: every other grouping already
-    // breaks the time down on the invoice.
-    schedules: summary && { onChange: (v) => set('schedules', v) },
+    schedules: offered && { offered, onChange: (v) => set('schedules', v) },
     charges: {
       list: draft.charges,
       onOpen: chargeDialog.show,
@@ -1348,17 +1357,14 @@ function EarlierWorkOffer({
       : `${shortDate(work.from)} – ${shortDate(work.to)}`;
   const what = `${work.entryCount} earlier entr${one ? 'y' : 'ies'}, ${dates},`;
   return (
-    <p
-      role="status"
-      className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 type-support"
-    >
-      <span>
-        {what} {one ? "isn't" : "aren't"} on any invoice.
-      </span>
-      <Button type="button" size="sm" onClick={() => onStartFrom(work.from)}>
-        Start from {shortDate(work.from)}
-      </Button>
-    </p>
+    <Notice
+      title={`${what} ${one ? "isn't" : "aren't"} on any invoice.`}
+      action={
+        <Button type="button" onClick={() => onStartFrom(work.from)}>
+          Start from {shortDate(work.from)}
+        </Button>
+      }
+    />
   );
 }
 
@@ -1367,18 +1373,21 @@ function EarlierWorkOffer({
     it go. */
 function HeldWorkNotice({ work }: { work: InvoicePreview['heldWork'] }) {
   return work?.drafts.map((d) => (
-    <Notice key={d.id}>
-      <p className="type-body text-strong">
-        <Link
-          href={`/invoices/${d.id}`}
-          className="rounded-sm underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
-        >
-          {d.invoiceNumber}
-        </Link>{' '}
-        holds {d.entryCount} entr{d.entryCount === 1 ? 'y' : 'ies'} in this
-        period.
-      </p>
-    </Notice>
+    <Notice
+      key={d.id}
+      title={
+        <>
+          <Link
+            href={`/invoices/${d.id}`}
+            className="rounded-sm underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+          >
+            {d.invoiceNumber}
+          </Link>{' '}
+          holds {d.entryCount} entr{d.entryCount === 1 ? 'y' : 'ies'} in this
+          period.
+        </>
+      }
+    />
   ));
 }
 
@@ -1394,26 +1403,30 @@ function PreviewNotices({
   return (
     <>
       {unrated > 0 ? (
-        <p role="alert" className="type-support text-warning">
-          {unrated} entr{unrated === 1 ? 'y has' : 'ies have'} no rate. Set a
-          rate on the client, the project, or your defaults before saving.
-        </p>
+        <Notice
+          role="alert"
+          title={`${unrated} entr${unrated === 1 ? 'y has' : 'ies have'} no rate.`}
+          detail="Set a rate on the client, the project, or your defaults before saving."
+        />
       ) : null}
       {/* A warning, not a block: an overlap can be deliberate, and this is
           the last place to see it before it bills. */}
       {overlapping > 0 ? (
-        <p role="alert" className="type-support text-warning">
-          {overlapping} entr
-          {overlapping === 1 ? 'y overlaps' : 'ies overlap'} other time, already
-          billed or on this invoice.
-        </p>
+        <Notice
+          role="alert"
+          title={`${overlapping} entr${overlapping === 1 ? 'y overlaps' : 'ies overlap'} other time, already billed or on this invoice.`}
+        />
       ) : null}
       {error ? (
-        <p role="alert" className="type-support text-danger">
-          {error instanceof ApiError
-            ? error.message
-            : 'Couldn’t build this invoice.'}
-        </p>
+        <Notice
+          role="alert"
+          tone="danger"
+          title={
+            error instanceof ApiError
+              ? error.message
+              : 'Couldn’t build this invoice.'
+          }
+        />
       ) : null}
     </>
   );

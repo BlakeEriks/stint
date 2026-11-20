@@ -17,13 +17,7 @@ export default function Page({ searchParams }: Props) {
   );
 }
 
-/**
- * Signing in is for people who are not signed in.
- *
- * Redirecting a live session away keeps two sign-ins from competing for one
- * PKCE verifier, which makes valid magic links fail. It also makes the local
- * `signOut` in the form safe: it can only run with no session to lose.
- */
+/** Signing in is for people who are not signed in: a live session goes home. */
 async function SignIn({ searchParams }: Props) {
   const { error, deleted, next } = await searchParams;
 
