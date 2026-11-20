@@ -247,14 +247,15 @@ function Row({
   onPress?: () => void;
   busy: boolean;
 }) {
-  /* Open, the button sits centered on a desktop and under the amount on a
-     phone; a year's row has none, so every amount ends at the same edge. */
+  /* Open, the button sits before the amount on a desktop, so the text has
+     the rest of the row, and under it on a phone. The amount's fixed width
+     lines the buttons up from row to row; a year's row has none, so every
+     amount ends at the same edge. The whole row is the link, so the whole
+     row highlights. */
   return (
     <div
-      className={`relative grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 sm:items-center ${
-        open
-          ? 'py-[14px] sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]'
-          : 'py-[10px]'
+      className={`relative -mx-2 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 rounded-md px-2 transition-colors hover:bg-surface-hover sm:items-center sm:gap-x-6 ${
+        open ? 'py-[14px] sm:grid-cols-[minmax(0,1fr)_auto_auto]' : 'py-[10px]'
       }`}
     >
       {/* The link stretches over the row and the button sits above it: an
@@ -264,7 +265,7 @@ function Row({
       <Link
         href={`/invoices/${invoice.id}`}
         prefetch
-        className="row-span-2 min-w-0 rounded-sm after:absolute after:inset-0 hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none sm:row-span-1"
+        className="row-span-2 min-w-0 rounded-sm after:absolute after:inset-0 focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none sm:row-span-1"
       >
         <span
           className={`block type-control ${open ? 'text-strong' : 'text-primary'}`}
@@ -275,13 +276,13 @@ function Row({
       </Link>
 
       {open && onPress ? (
-        <span className="relative col-start-2 row-start-2 mt-2 flex justify-self-end sm:row-start-1 sm:mt-0 sm:justify-self-center">
+        <span className="relative col-start-2 row-start-2 mt-2 flex justify-self-end sm:row-start-1 sm:mt-0">
           <RowButton invoice={invoice} onPress={onPress} busy={busy} />
         </span>
       ) : null}
 
       <span
-        className={`col-start-2 row-start-1 text-right type-amount text-primary ${
+        className={`col-start-2 row-start-1 text-right type-amount sm:min-w-[12ch] text-primary ${
           open ? 'sm:col-start-3' : ''
         } ${invoice.status === 'void' ? 'line-through' : ''}`}
       >
