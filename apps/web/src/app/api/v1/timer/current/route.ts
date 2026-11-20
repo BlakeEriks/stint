@@ -8,8 +8,6 @@ import { pushTimerChanged } from '@/lib/push';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
 import { UpdateRunningTimer } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 /**
  * GET /api/v1/timer/current
  *

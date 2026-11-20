@@ -4,8 +4,6 @@ import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import { RegisterPushDevice, UnregisterPushDevice } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 /** POST /api/v1/push-devices: this phone hears when the timer changes.
  *  Registering a token again changes nothing. */
 export const POST = handle(async (req: Request) => {

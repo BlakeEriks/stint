@@ -4,9 +4,8 @@ import { fontVariables } from './fonts';
 import { DOCK_FOLD_SCRIPT, THEME_SCRIPT } from '@/lib/theme-script';
 import '@/styles/globals.css';
 
-/* The landing page overrides both of these; the app's own screens inherit
-   them. `template` keeps the product name on every in-app tab without each
-   page repeating it. */
+/* The landing page overrides both of these, and `(app)/layout.tsx` sets its
+   own title. `template` keeps the product name on each legal page's tab. */
 export const metadata: Metadata = {
   title: {
     default: 'Stint',

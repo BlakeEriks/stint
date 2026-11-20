@@ -10,8 +10,6 @@ import {
 } from '@/lib/rows';
 import { UpdateProject } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 type Ctx = { params: Promise<{ id: string }> };
 
 export const GET = handle(async (req: Request, ctx: Ctx) => {

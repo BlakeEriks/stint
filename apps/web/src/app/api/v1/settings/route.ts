@@ -11,8 +11,6 @@ import {
 } from '@/lib/rows';
 import { NEXT_INVOICE_NUMBER_MAX, UpdateSettings } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 export const GET = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
 

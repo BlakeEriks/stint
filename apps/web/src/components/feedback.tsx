@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { usePathname } from 'next/navigation';
 import { Loader2, MessageSquare } from 'lucide-react';
 import { FEEDBACK_MAX } from '@stint/schema';
 import { uuidv7 } from '@stint/core';
@@ -32,7 +31,6 @@ const FAILED = 'Couldn’t send. Your message is still here. Try again.';
  * refusal stays in the open form beside the text it would have lost.
  */
 export function Feedback() {
-  const screen = usePathname();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState('');
   /* Made once per message, so a retry after a failure stores it once. */
@@ -47,7 +45,7 @@ export function Feedback() {
       api.sendFeedback({
         id,
         message,
-        screen,
+        screen: window.location.pathname,
         client: 'web',
         appVersion: process.env.NEXT_PUBLIC_APP_VERSION ?? 'unknown',
       }),

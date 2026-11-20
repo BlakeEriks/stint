@@ -3692,6 +3692,19 @@ test('health answers 200 while Postgres answers, even refusing, and 503 when it 
   }
 });
 
+test("Next's own signals pass through a route rather than becoming its 500", async () => {
+  const { notFound } = await import('next/navigation');
+  const { GET } = await import('../src/app/api/v1/clients/route.ts');
+  (globalThis as any).__TEST_DB__ = {
+    from() {
+      notFound();
+    },
+  };
+  await assert.rejects(GET(req('/clients')), (e: { digest?: string }) =>
+    String(e.digest).startsWith('NEXT_HTTP_ERROR_FALLBACK'),
+  );
+});
+
 /** What each event `GET /clients` sends Sentry says it is, against `db`. */
 async function sentryEventsFor(db: unknown) {
   const Sentry = await import('@sentry/nextjs');

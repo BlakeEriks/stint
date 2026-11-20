@@ -6,8 +6,6 @@ import { billingScheduleColumns, CLIENT_COLUMNS, toClient } from '@/lib/rows';
 import { uuidv7 } from '@stint/core';
 import { CreateClient, ListClientsQuery } from '@stint/schema';
 
-export const dynamic = 'force-dynamic';
-
 export const GET = handle(async (req: Request) => {
   const { db, userId } = await requireSession(req);
   const q = parseQuery(req, ListClientsQuery);
