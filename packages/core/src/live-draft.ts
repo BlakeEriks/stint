@@ -11,6 +11,7 @@ import {
   type BillableEntry,
   buildLineItems,
   type ExpenseInput,
+  type GroupingMode,
   hundredths,
   termsDays,
 } from './invoice.ts';
@@ -115,10 +116,24 @@ export function lateEntries(
 }
 
 interface DueInputs {
-  /** The user's active clients; `schedule` null when none is set. */
-  clients: { id: string; name: string; schedule: BillingSchedule | null }[];
+  /** The user's active clients; `schedule` null when none is set, `currency`
+   *  the one its invoices bill in. */
+  clients: {
+    id: string;
+    name: string;
+    schedule: BillingSchedule | null;
+    rate?: number | null;
+    currency: string;
+  }[];
   /** Finished entries on no invoice and not billed elsewhere. */
-  entries: Omit<LateCandidate, 'taskName'>[];
+  entries: (LateCandidate & {
+    projectId?: string | null;
+    projectName?: string | null;
+    rateOverride?: number | null;
+    projectRate?: number | null;
+  })[];
+  /** The user's default hourly rate. */
+  defaultRate?: number | null;
   /** The user's non-void invoices: callers leave the void ones out. A
    *  draft says so in `status`; without one, an invoice is issued. */
   invoices: {
@@ -126,6 +141,8 @@ interface DueInputs {
     periodStart: string;
     periodEnd: string;
     status?: string;
+    sequenceNo: number;
+    groupingMode: GroupingMode;
   }[];
 }
 
@@ -141,13 +158,27 @@ function covers(i: DueInputs['invoices'][number], period: Period) {
     : i.periodStart <= period.periodEnd && period.periodStart <= i.periodEnd;
 }
 
+/** The grouping New invoice carries from the client's most recent non-void
+ *  invoice (`carriedFrom` in invoice-new.tsx), summary when it has none. */
+function lastGrouping(
+  invoices: DueInputs['invoices'],
+  clientId: string,
+): GroupingMode {
+  let last: DueInputs['invoices'][number] | undefined;
+  for (const i of invoices)
+    if (i.clientId === clientId && i.sequenceNo > (last?.sequenceNo ?? -1))
+      last = i;
+  return last?.groupingMode ?? 'summary';
+}
+
 /**
  * Clients ready to invoice, one row each by name: those with a schedule whose
  * most recent ended period holds billable work and none of `invoices`
- * `covers()`.
+ * `covers()`. `amount` is what that work bills grouped as New invoice opens
+ * it; work with no rate counts as nothing.
  */
 export function unbilledDue(
-  { clients, entries, invoices }: DueInputs,
+  { clients, entries, invoices, defaultRate }: DueInputs,
   today: string,
   tz: string,
 ) {
@@ -173,7 +204,19 @@ export function unbilledDue(
         {
           clientId: c.id,
           clientName: c.name,
-          seconds: work.reduce((t, e) => t + e.durationSeconds, 0),
+          amount: buildLineItems(
+            work.map((e) => ({
+              ...e,
+              projectId: e.projectId ?? null,
+              projectName: e.projectName ?? null,
+              rateOverride: e.rateOverride ?? null,
+              projectRate: e.projectRate ?? null,
+              clientRate: c.rate ?? null,
+              userDefaultRate: defaultRate ?? null,
+            })),
+            { groupingMode: lastGrouping(invoices, c.id), tz },
+          ).subtotal,
+          currency: c.currency,
           ...period,
         },
       ];

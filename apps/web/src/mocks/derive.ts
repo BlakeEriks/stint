@@ -389,18 +389,28 @@ export function stats(db: Db, tz: string) {
               id: c.id,
               name: c.name,
               schedule: c.billingSchedule ?? null,
+              rate: c.hourlyRate,
+              currency: c.currency ?? currency,
             })),
           entries: candidates
             .filter((e) => !e.invoicedElsewhere)
-            .map((e) => ({
-              id: e.id,
-              startedAt: e.startedAt,
-              durationSeconds: e.durationSeconds ?? 0,
-              isBillable: e.isBillable,
-              clientId:
-                db.projects.find((p) => p.id === e.projectId)?.clientId ?? null,
-            })),
+            .map((e) => {
+              const p = db.projects.find((x) => x.id === e.projectId);
+              return {
+                id: e.id,
+                startedAt: e.startedAt,
+                durationSeconds: e.durationSeconds ?? 0,
+                isBillable: e.isBillable,
+                clientId: p?.clientId ?? null,
+                projectId: p?.id ?? null,
+                projectName: p?.name ?? null,
+                taskName: e.taskName,
+                rateOverride: e.rateOverride,
+                projectRate: p?.hourlyRate,
+              };
+            }),
           invoices: db.invoices.filter((i) => i.status !== 'void'),
+          defaultRate: settings.defaultHourlyRate,
         },
         localDateKey(now, billingZone(db.settings, tz)),
         billingZone(db.settings, tz),

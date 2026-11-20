@@ -60,7 +60,7 @@ color fact is text on the accent (`--text-on-accent`, `tokens:validate`).
 
 - **Green is the one hue, and the step says the tense.** `timer-running`
   marks what is live, and `accent-default` the action a screen exists to
-  complete — one hex in dark, a rung apart in light, where paper gives the
+  complete, or an inbox card's prompt to bill — one hex in dark, a rung apart in light, where paper gives the
   timer no glow to tell it from the button. `success`, a ramp step off the
   timer, reports what has already happened: paid, saved. Test any green by
   asking whether a user could say in one phrase what it means there.
