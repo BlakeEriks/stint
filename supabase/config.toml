@@ -278,6 +278,13 @@ otp_expiry = 86400
 subject = "Sign in to Stint"
 content_path = "./supabase/templates/magic_link.html"
 
+# A first sign-in, while Confirm email is on, sends this template instead of
+# the magic link one, so it is the same email. Production has Confirm email
+# on; local has it off (`enable_confirmations` above), so local never sends it.
+[auth.email.template.confirmation]
+subject = "Sign in to Stint"
+content_path = "./supabase/templates/magic_link.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true
