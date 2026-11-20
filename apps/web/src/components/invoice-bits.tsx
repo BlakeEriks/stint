@@ -10,16 +10,27 @@ import type { InvoiceStatus } from '@/lib/client/api';
  * date is decoration on a page whose subject is money, and a thrown error
  * would hide the totals, the line items and every action on the document.
  */
-export function shortDate(date: string | null | undefined): string {
+function formatDate(
+  date: string | null | undefined,
+  parts: Intl.DateTimeFormatOptions,
+): string {
   if (!date) return '—';
   const [y, m, d] = date.split('-').map(Number);
   if (!y || !m || !d) return '—';
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(new Date(y, m - 1, d));
+  return new Intl.DateTimeFormat('en-US', parts).format(new Date(y, m - 1, d));
 }
+
+/** "Sep 5, 2026". */
+export const shortDate = (date: string | null | undefined) =>
+  formatDate(date, { month: 'short', day: 'numeric', year: 'numeric' });
+
+/** "Sep 5", where the year is the invoice's business, not the line's. */
+export const monthDay = (date: string | null | undefined) =>
+  formatDate(date, { month: 'short', day: 'numeric' });
+
+/** "19 days late", for an invoice past its due date. */
+export const daysLate = (days: number) =>
+  `${days} ${days === 1 ? 'day' : 'days'} late`;
 
 /**
  * Status is neutral except `void`, which is the only one that means something

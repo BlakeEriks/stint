@@ -43,7 +43,7 @@ import {
 import { useExit } from '@/lib/client/use-exit';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { EntryDialog } from './entry-dialog';
-import { newInvoiceHref, periodName } from './invoice-bits';
+import { daysLate, newInvoiceHref, periodName } from './invoice-bits';
 import { MarkSentDialog } from './mark-sent-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -471,7 +471,7 @@ function itemFor(r: ItemRow, h: Handlers): ItemProps {
   switch (r.kind) {
     case 'overdue':
       return invoiceItem(r.row, h, {
-        detail: `${r.row.daysLate} ${r.row.daysLate === 1 ? 'day' : 'days'} late`,
+        detail: daysLate(r.row.daysLate),
         tone: 'danger',
         status: 'paid',
         onMark: () => h.onStatus({ id: r.row.invoiceId, status: 'paid' }),

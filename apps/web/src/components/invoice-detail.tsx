@@ -24,7 +24,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AskFirst } from './confirm-dialog';
-import { shortDate, StatusBadge } from './invoice-bits';
+import { daysLate, monthDay, periodName, shortDate } from './invoice-bits';
+import { Pip } from './home-shell';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
 import { entries, markSentAsk } from './mark-sent-dialog';
@@ -32,6 +33,7 @@ import { Notice } from './notice';
 import { PRICE } from './plan-section';
 import {
   attachedSchedules,
+  daysBetweenKeys,
   formatCurrency,
   formatHours,
   localDateKey,
@@ -98,18 +100,31 @@ function Loaded({
 
   return (
     <>
-      {/* The hint sits under the row, not in it: a long one would push the
-          actions below the title. */}
-      <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-        <div className="flex min-w-0 items-center gap-2.5">
+      <header className="flex flex-col gap-x-6 gap-y-1 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <h1 className="truncate type-title text-strong">
             {invoice.invoiceNumber}
           </h1>
-          <StatusBadge status={invoice.status} />
+          {/* Neutral, as the whole header is: the ring takes no client
+              color. */}
+          <p className="mt-1 flex min-w-0 items-center gap-1.5 type-support">
+            <Pip />
+            <span className="truncate text-muted">{invoice.billTo.name}</span>
+            <span className="flex-none text-subtle">
+              · {periodName(invoice.periodStart, invoice.periodEnd)}
+            </span>
+          </p>
         </div>
-
-        <InvoiceActions invoice={invoice} actions={actions} />
+        <div className="flex flex-col sm:items-end">
+          <p
+            className={`type-amount-hero text-strong ${invoice.status === 'void' ? 'line-through' : ''}`}
+          >
+            {total(invoice)}
+          </p>
+          <StatusLine invoice={invoice} />
+        </div>
       </header>
+      <InvoiceActions invoice={invoice} actions={actions} />
       <Notices
         invoice={invoice}
         unrated={unrated}
@@ -145,22 +160,44 @@ function Loaded({
   );
 }
 
-type Action = 'delete' | 'edit' | 'markSent' | 'void' | 'markPaid';
+type Action = 'delete' | 'edit' | 'download' | 'markSent' | 'void' | 'markPaid';
 
-/** What each status offers, in the row's order, and the line under the
-    title. */
-const BY_STATUS: Record<
-  InvoiceStatus,
-  { actions: Action[]; hint: string | null }
-> = {
-  draft: {
-    actions: ['delete', 'edit', 'markSent'],
-    hint: 'Download it, send it from your own address, then mark it sent.',
-  },
-  sent: { actions: ['void', 'markPaid'], hint: null },
-  paid: { actions: ['void'], hint: null },
-  void: { actions: [], hint: 'Voided. Its entries can be billed again.' },
+/** What each status offers, from the quietest to the step it waits on, so
+    the primary sits at the right edge, under the amount. */
+const BY_STATUS: Record<InvoiceStatus, Action[]> = {
+  draft: ['delete', 'edit', 'download', 'markSent'],
+  sent: ['void', 'download', 'markPaid'],
+  paid: ['void', 'download'],
+  void: ['download'],
 };
+
+/** Where it stands, by its dates: "Due Oct 12 · Sent Sep 12". Only lateness
+    takes a color. */
+function StatusLine({ invoice }: { invoice: Shown }) {
+  const day = (at: string | null) =>
+    at ? monthDay(localDateKey(new Date(at), tz)) : '—';
+  const today = localDateKey(new Date(), tz);
+  const due = invoice.dueDate;
+  const late =
+    invoice.status === 'sent' && due && due < today
+      ? daysBetweenKeys(due, today)
+      : 0;
+  const text = late
+    ? `${daysLate(late)} · Due ${monthDay(due)}`
+    : {
+        draft: `Created ${day(invoice.createdAt)}`,
+        sent: [due ? `Due ${monthDay(due)}` : '', `Sent ${day(invoice.sentAt)}`]
+          .filter(Boolean)
+          .join(' · '),
+        paid: `Paid ${day(invoice.paidAt)} · Sent ${day(invoice.sentAt)}`,
+        void: 'Void. Its entries can be billed again.',
+      }[invoice.status];
+  return (
+    <p className={`type-support ${late ? 'text-danger' : 'text-muted'}`}>
+      {text}
+    </p>
+  );
+}
 
 type ActionProps = { invoice: Shown; actions: UseInvoiceActions };
 
@@ -173,6 +210,7 @@ const ACTIONS: Record<Action, (props: ActionProps) => ReactNode> = {
       title="Delete this draft?"
       description={`Its ${entries(invoice.entryCount ?? 0)} and any expenses go back to unbilled, ready for another invoice. The draft (${total(invoice)}) is deleted. You can’t undo this.`}
       confirmLabel="Delete draft"
+      label="Delete"
       pendingLabel="Deleting…"
       icon={<Trash2 aria-hidden strokeWidth={1.75} />}
       tone="danger"
@@ -180,14 +218,16 @@ const ACTIONS: Record<Action, (props: ActionProps) => ReactNode> = {
       onConfirm={() => remove.mutate()}
     />
   ),
-  /* "Edit", not "Edit draft": the row stays on the title's line. */
   edit: ({ invoice }) => (
-    <Button asChild>
+    <Button asChild className={ICON_ON_PHONE}>
       <Link href={`/invoices/${invoice.id}/edit`}>
         <Pencil aria-hidden strokeWidth={1.75} />
-        Edit
+        <span className="max-sm:sr-only">Edit</span>
       </Link>
     </Button>
+  ),
+  download: ({ invoice, actions }) => (
+    <DownloadAction invoice={invoice} onDownload={actions.download} />
   ),
   markSent: ({ invoice, actions: { setStatus } }) => (
     <AskFirst
@@ -197,6 +237,7 @@ const ACTIONS: Record<Action, (props: ActionProps) => ReactNode> = {
         total: invoice.total ?? 0,
         currency: invoice.currency,
       })}
+      accent
       press={setStatus}
       disabled={invoice.refuses?.send || invoice.entryCount == null}
       onConfirm={() => setStatus.mutate({ status: 'sent' })}
@@ -207,6 +248,7 @@ const ACTIONS: Record<Action, (props: ActionProps) => ReactNode> = {
       title={`Void ${invoice.invoiceNumber}?`}
       description={`${invoice.invoiceNumber} (${total(invoice)}) is no longer owed. Its entries and any expenses go back to unbilled, ready for a new invoice. It stays in your records, marked void, and its number isn’t reused. You can’t undo this.`}
       confirmLabel="Void invoice"
+      label="Void"
       pendingLabel="Voiding…"
       icon={<Ban aria-hidden strokeWidth={1.75} />}
       tone="danger"
@@ -227,24 +269,22 @@ const ACTIONS: Record<Action, (props: ActionProps) => ReactNode> = {
   ),
 };
 
-/** The row beside the title: the status's actions, then the download. */
+/* On a phone Edit and Download PDF drop to their icons, so every status's
+   row fits on one line; the name stays, read by a screen reader. */
+const ICON_ON_PHONE = 'max-sm:size-9 max-sm:has-[>svg]:px-0';
+
 function InvoiceActions(props: ActionProps) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {BY_STATUS[props.invoice.status].actions.map((action) => (
+    <div className="mt-4 mb-2 flex flex-wrap items-center justify-end gap-2 border-t border-edge-subtle pt-4">
+      {BY_STATUS[props.invoice.status].map((action) => (
         <Fragment key={action}>{ACTIONS[action](props)}</Fragment>
       ))}
-      <DownloadAction
-        invoice={props.invoice}
-        onDownload={props.actions.download}
-      />
     </div>
   );
 }
 
-/** Downloading is how an invoice reaches a client: the app sends no mail, so
-    it is last, as the primary action. Neither shows until the invoice itself
-    answers: the lists it first draws from don't say whether its PDF opens. */
+/** Neither shows until the invoice itself answers: the lists it first draws
+    from don't say whether its PDF opens. */
 function DownloadAction({
   invoice,
   onDownload,
@@ -263,16 +303,16 @@ function DownloadAction({
     );
   if (invoice.canDownload !== true || invoice.refuses?.download) return null;
   return (
-    <Button asChild>
+    <Button asChild className={ICON_ON_PHONE}>
       <a href={api.invoicePdfUrl(invoice.id, true)} onClick={onDownload}>
         <Download aria-hidden strokeWidth={1.75} />
-        Download PDF
+        <span className="max-sm:sr-only">Download PDF</span>
       </a>
     </Button>
   );
 }
 
-/** Where the invoice stands, and what holds it, under the title. */
+/** What holds the invoice, between its actions and the sheet. */
 function Notices({
   invoice,
   unrated,
@@ -284,28 +324,33 @@ function Notices({
   addWork: { mutate: () => void; isPending: boolean };
   error: unknown;
 }) {
-  const { hint } = BY_STATUS[invoice.status];
+  const newWork = invoice.status === 'draft' ? invoice.newWork : null;
+  const dueBeforeIssue = invoice.dueBeforeIssue?.download;
+  /* Rendered only when it holds one, so a clean invoice leaves the column
+     empty and hidden, with no gap under the actions. */
+  const holdsOne = newWork || unrated.length > 0 || dueBeforeIssue || error;
   return (
-    <div className="flex flex-col gap-1 pt-1 pb-6">
-      {hint ? <p className="type-support text-muted">{hint}</p> : null}
-      <div className="mt-3 flex flex-col gap-4 empty:hidden">
-        {invoice.status === 'draft' && invoice.newWork ? (
-          <NewWorkNotice
-            work={invoice.newWork}
-            currency={invoice.currency}
-            addWork={addWork}
-          />
-        ) : null}
-        {unrated.length > 0 ? <Unrated entries={unrated} /> : null}
-        {invoice.dueBeforeIssue?.download ? (
-          <DueBeforeIssue
-            issued={invoice.issueDate}
-            due={invoice.dueDate!}
-            downloaded={!invoice.dueBeforeIssue.send}
-          />
-        ) : null}
-        <ActionError error={error} />
-      </div>
+    <div className="flex flex-col gap-1 pb-4 empty:hidden">
+      {holdsOne ? (
+        <div className="flex flex-col gap-4">
+          {newWork ? (
+            <NewWorkNotice
+              work={newWork}
+              currency={invoice.currency}
+              addWork={addWork}
+            />
+          ) : null}
+          {unrated.length > 0 ? <Unrated entries={unrated} /> : null}
+          {dueBeforeIssue ? (
+            <DueBeforeIssue
+              issued={invoice.issueDate}
+              due={invoice.dueDate!}
+              downloaded={!invoice.dueBeforeIssue!.send}
+            />
+          ) : null}
+          <ActionError error={error} />
+        </div>
+      ) : null}
       {/* The document is the paid tier; the records never are, and saying
           so here keeps the two rules from reading as one. */}
       {invoice.canDownload === false ? (

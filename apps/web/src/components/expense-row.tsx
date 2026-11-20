@@ -4,16 +4,8 @@ import Link from 'next/link';
 import { ArrowRight, Pencil, Repeat } from 'lucide-react';
 import { formatCurrency } from '@stint/core';
 import type { Expense } from '@/lib/client/api';
+import { monthDay } from './invoice-bits';
 import { rowBleed, rowButton } from './row-button';
-
-/** "Aug 20": the year is the invoice's business, not the row's. */
-function monthDay(date: string) {
-  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(y, m - 1, d));
-}
 
 /** Billed and past editing: a draft bills an expense only when sent. */
 export function isLocked(expense: Expense) {
