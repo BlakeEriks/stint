@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Section } from './field';
 import { SettingsForm } from './settings-form';
 import { PaymentProfiles } from './payment-profiles';
+import { BusinessProfiles } from './business-profiles';
 import { AccountSection } from './account-section';
 import { PlanSection } from './plan-section';
 import { ExportSection } from './export-section';
@@ -15,7 +16,7 @@ import { keys } from '@stint/client';
 import { Listing, Page } from './page';
 
 /**
- * Payment profiles sit beside the settings form rather than inside it: they
+ * Businesses and payment profiles sit beside the settings form rather than inside it: they
  * have their own dialogs and their own saves, and a nested <form> is invalid.
  */
 export function SettingsPage() {
@@ -31,6 +32,10 @@ export function SettingsPage() {
     queryKey: keys.paymentProfiles(),
     queryFn: api.paymentProfiles,
   });
+  const businesses = useQuery({
+    queryKey: keys.businessProfiles(),
+    queryFn: api.businessProfiles,
+  });
   const billing = useQuery({ queryKey: keys.billing(), queryFn: api.billing });
   const apps = useQuery({
     queryKey: keys.connectedApps(),
@@ -39,7 +44,7 @@ export function SettingsPage() {
 
   return (
     <Page title="Settings">
-      <Listing query={[settings, profiles]} also={[billing, apps]}>
+      <Listing query={[settings, profiles, businesses]} also={[billing, apps]}>
         {([loaded]) => <Sections loaded={loaded} />}
       </Listing>
     </Page>
@@ -52,6 +57,7 @@ function Sections({ loaded }: { loaded: Settings }) {
   return (
     <div className="*:first:border-t-0">
       <SettingsForm loaded={loaded} />
+      <BusinessProfiles />
       <PaymentProfiles />
       <Section
         title="Import"

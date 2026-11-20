@@ -49,12 +49,16 @@ on conflict (id) do nothing;
 -- US-based: USD, Net 30, no tax line. See the jurisdiction notes in CLAUDE.md.
 update user_settings set
   default_hourly_rate   = 125.00,
-  business_name         = 'Sam Rivera',
-  business_address      = E'1 Market St\nSan Francisco, CA 94105',
-  business_email        = 'dev@localhost.test',
   invoice_number_prefix = 'STINT-',
   welcomed_at           = now()
 where user_id = '00000000-0000-4000-8000-000000000001';
+
+insert into business_profiles (id, user_id, name, email, address, is_default)
+values ('00000000-0000-4000-8000-0000000000b1',
+        '00000000-0000-4000-8000-000000000001',
+        'Sam Rivera', 'dev@localhost.test',
+        E'1 Market St\nSan Francisco, CA 94105', true)
+on conflict (id) do nothing;
 
 -- ── clients ────────────────────────────────────────────────────────
 -- Colors are real palette entries from tokens.json, not eyedropped. Three
@@ -160,7 +164,7 @@ on conflict (id) do nothing;
 -- when it has rows: with an empty database the card is invisible and cannot
 -- be reviewed at all.
 insert into invoices (
-  id, user_id, client_id, invoice_number, sequence_no, status,
+  id, user_id, client_id, business_profile_id, invoice_number, sequence_no, status,
   issue_date, due_date, period_start, period_end,
   subtotal, tax_rate, tax_amount, total, currency, grouping_mode
 )
@@ -169,6 +173,7 @@ values
   ('00000000-0000-4000-8000-0000000000f1',
    '00000000-0000-4000-8000-000000000001',
    '00000000-0000-4000-8000-0000000000c1',
+   '00000000-0000-4000-8000-0000000000b1',
    'STINT-0001', 1, 'sent',
    current_date - 40, current_date - 12, current_date - 60, current_date - 31,
    900, 0, 0, 900, 'USD', 'task'),
@@ -176,6 +181,7 @@ values
   ('00000000-0000-4000-8000-0000000000f2',
    '00000000-0000-4000-8000-000000000001',
    '00000000-0000-4000-8000-0000000000c2',
+   '00000000-0000-4000-8000-0000000000b1',
    'STINT-0002', 2, 'draft',
    current_date - 15, null, current_date - 45, current_date - 16,
    400, 0, 0, 400, 'USD', 'task')
@@ -303,7 +309,7 @@ on conflict (id) do nothing;
 -- Older work is invoiced and the recent quarter is not, which is what a
 -- contractor's ledger actually looks like mid-month.
 insert into invoices (
-  id, user_id, client_id, invoice_number, sequence_no, status,
+  id, user_id, client_id, business_profile_id, invoice_number, sequence_no, status,
   issue_date, due_date, period_start, period_end,
   subtotal, tax_rate, tax_amount, total, currency, grouping_mode,
   sent_at, paid_at
@@ -312,6 +318,7 @@ select
   ('00000000-0000-4000-8000-2' || lpad(n::text, 11, '0'))::uuid,
   '00000000-0000-4000-8000-000000000001',
   '00000000-0000-4000-8000-0000000000c1',
+  '00000000-0000-4000-8000-0000000000b1',
   'STINT-' || lpad((100 + n)::text, 4, '0'), 100 + n,
   -- Issued below, once its lines and totals are written.
   'draft',

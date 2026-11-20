@@ -3,24 +3,30 @@ import { NextResponse } from 'next/server';
 import type { z } from 'zod';
 import { uuidv7 } from '@stint/core';
 import {
+  CreateBusinessProfile,
   CreatePaymentProfile,
-  ListPaymentProfilesQuery,
+  ListProfilesQuery,
+  UpdateBusinessProfile,
   UpdatePaymentProfile,
 } from '@stint/schema';
 import { ApiError, handle } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import {
+  BUSINESS_PROFILE_COLUMNS,
+  BUSINESS_PROFILE_FIELDS,
   PAYMENT_PROFILE_COLUMNS,
   PAYMENT_PROFILE_FIELDS,
   toColumns,
+  toBusinessProfile,
   toPaymentProfile,
+  type BusinessProfileRow,
   type PaymentProfileRow,
 } from '@/lib/rows';
 
 /**
  * A named set of invoice details the user keeps several of, one of them the
- * default: payment details today. Each kind's routes are these handlers
+ * default: payment details, and the businesses an invoice is from. Each kind's routes are these handlers
  * over its own table, so the default rules are one implementation.
  */
 export interface ProfileKind<P> {
@@ -49,13 +55,26 @@ export const PAYMENT_PROFILES: ProfileKind<
   notFound: 'Payment profile not found',
 };
 
+export const BUSINESS_PROFILES: ProfileKind<
+  ReturnType<typeof toBusinessProfile>
+> = {
+  table: 'business_profiles',
+  columns: BUSINESS_PROFILE_COLUMNS,
+  toProfile: (r: BusinessProfileRow) => toBusinessProfile(r),
+  fields: BUSINESS_PROFILE_FIELDS,
+  create: CreateBusinessProfile,
+  update: UpdateBusinessProfile,
+  listKey: 'businessProfiles',
+  notFound: 'Business not found',
+};
+
 type Ctx = { params: Promise<{ id: string }> };
 
 /** `GET` and `POST` on the kind's collection. */
 export function profileCollection<P>(kind: ProfileKind<P>) {
   const GET = handle(async (req: Request) => {
     const { db } = await requireSession(req);
-    const q = parseQuery(req, ListPaymentProfilesQuery);
+    const q = parseQuery(req, ListProfilesQuery);
 
     let query = db
       .from(kind.table)

@@ -6,6 +6,7 @@
  * (`ContractTests.swift`).
  */
 
+export * from './business-profiles.ts';
 export * from './clients.ts';
 export * from './connected-apps.ts';
 export * from './mcp.ts';

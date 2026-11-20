@@ -31,10 +31,6 @@ export const Settings = z.object({
    */
   minEntrySeconds: z.number().int().positive().nullable(),
   maxEntryHours: z.number().positive().max(24).nullable(),
-  businessName: z.string().max(200).nullable(),
-  businessAddress: z.string().max(1000).nullable(),
-  businessEmail: z.email().nullable(),
-  logoUrl: z.url().nullable(),
   paymentTermsDays: termsDays,
   /** The zone invoices read their dates in; null uses the device's. */
   billingTimeZone: ianaZone.nullable(),

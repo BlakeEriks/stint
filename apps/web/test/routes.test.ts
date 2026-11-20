@@ -61,6 +61,7 @@ async function reset() {
   await pool.query('delete from projects');
   await pool.query('delete from clients');
   await pool.query('delete from payment_profiles');
+  await pool.query('delete from business_profiles');
   await pool.query(
     `update user_settings set default_hourly_rate=100,
                     week_starts_on=1, next_invoice_number=1,
@@ -394,6 +395,9 @@ test("a start or a manual entry without isBillable takes the project's billable 
 test('a create replayed with the same id is idempotent', async () => {
   const entries = await import('../src/app/api/v1/entries/route.ts');
   const profiles = await import('../src/app/api/v1/payment-profiles/route.ts');
+  const businesses = await import(
+    '../src/app/api/v1/business-profiles/route.ts'
+  );
   const feedback = await import('../src/app/api/v1/feedback/route.ts');
 
   for (const [table, post, body] of [
@@ -414,6 +418,15 @@ test('a create replayed with the same id is idempotent', async () => {
         id: '33333333-0000-4000-8000-0000000000a1',
         name: 'Checking',
         bankName: 'First Bank',
+      },
+    ],
+    [
+      'business_profiles',
+      (b: unknown) => businesses.POST(req('/business-profiles', b)),
+      {
+        id: '33333333-0000-4000-8000-0000000000b1',
+        name: 'Rivera LLC',
+        email: 'llc@example.com',
       },
     ],
     ['feedback', (b: unknown) => feedback.POST(req('/feedback', b)), FEEDBACK],
@@ -1302,7 +1315,6 @@ test('every settable field round-trips, and a value it cannot hold is refused an
     ['defaultHourlyRate', [125], []],
     ['maxEntryHours', [10], []],
     ['minEntrySeconds', [60], []],
-    ['businessAddress', ['1 Main St\nAustin, TX 78701'], []],
     ['invoiceNumberPrefix', ['STINT-'], []],
     ['invoiceTemplate', ['classic'], ['compact']],
     // Whole days from 0 to 365.

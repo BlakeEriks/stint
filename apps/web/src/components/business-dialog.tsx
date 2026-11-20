@@ -1,74 +1,194 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useOptimisticMutation, keys } from '@stint/client';
+import { Check, Loader2 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import type { Settings } from '@/lib/client/api';
+import {
+  api,
+  ApiError,
+  type BusinessProfile,
+  type BusinessProfileInput,
+} from '@/lib/client/api';
+import { useMissing } from '@/lib/client/use-missing';
 import { Notice } from './notice';
-import { SettingsDialog } from './settings-dialog';
 import { emailError, type Identity, IdentityFields } from './settings-fields';
 
 /**
- * Whether the invoice has no sender yet. The server refuses to generate one
- * without a business name and email; New invoice asks before that.
+ * Whether the invoice has no sender yet: no business, or one without an
+ * email. The server refuses to make a draft without them; New invoice asks
+ * before that. `undefined` is still loading.
  */
-export const missingBusiness = (s: Settings | undefined) =>
-  s !== undefined && (!s.businessName?.trim() || !s.businessEmail?.trim());
+export const missingBusiness = (b: BusinessProfile | null | undefined) =>
+  b === null || (b !== undefined && !b.email?.trim());
+
+/** A list of businesses with `b` in it, once, as saved. */
+export const withBusiness =
+  (b: BusinessProfile) =>
+  (d: { businessProfiles: BusinessProfile[] } | undefined) =>
+    d && {
+      ...d,
+      businessProfiles: [...d.businessProfiles.filter((x) => x.id !== b.id), b],
+    };
 
 /**
- * Who the invoice is from, asked or corrected on New invoice rather than
- * sending the user to Settings.
+ * Who an invoice is from: added or edited in Settings, or from New invoice
+ * without leaving it. `existing` edits that business.
  */
 export function BusinessDialog({
+  open,
   onOpenChange,
-  settings,
+  existing,
+  onSaved,
 }: {
+  open: boolean;
   onOpenChange: (open: boolean) => void;
-  settings: Settings;
+  existing?: BusinessProfile;
+  onSaved?: (business: BusinessProfile) => void;
 }) {
-  const [business, setBusiness] = useState<Identity>({
-    name: settings.businessName ?? '',
-    email: settings.businessEmail ?? '',
-    address: settings.businessAddress ?? '',
+  const [draft, setDraft] = useState<Identity>({
+    name: '',
+    email: '',
+    address: '',
+  });
+  const check = useMissing({
+    'biz-name': draft.name.trim() === '' ? 'Enter a business name.' : undefined,
+    'biz-email': emailError(draft.email),
   });
 
+  useEffect(() => {
+    if (!open) return;
+    setDraft({
+      name: existing?.name ?? '',
+      email: existing?.email ?? '',
+      address: existing?.address ?? '',
+    });
+    check.reset();
+  }, [open, existing, check.reset]);
+
+  /* Pending: the server checks the email, and the dialog stays open to say
+     what it refused. */
+  const save = useOptimisticMutation({
+    queryKey: () => keys.businessProfiles(),
+    inline: true,
+    mutationFn: (body: BusinessProfileInput) =>
+      existing
+        ? api.updateBusinessProfile(existing.id, body)
+        : api.createBusinessProfile(body),
+    onSuccess: (business) => {
+      onSaved?.(business);
+      onOpenChange(false);
+    },
+  });
+
+  /* Archived, not deleted: invoices name the business they were from. The
+     server hands the default on, and the list refetches to show which. */
+  const archive = useOptimisticMutation({
+    queryKey: () => keys.businessProfiles(),
+    inline: true,
+    mutationFn: (id: string) => api.archiveBusinessProfile(id),
+    onSuccess: () => onOpenChange(false),
+  });
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!check.passes()) return;
+    save.mutate({
+      name: draft.name.trim(),
+      email: draft.email.trim(),
+      address: draft.address.trim() || null,
+    });
+  };
+
+  const error = save.error ?? archive.error;
+  const pending = save.isPending || archive.isPending;
+
   return (
-    <SettingsDialog
-      onOpenChange={onOpenChange}
-      title="Who’s this invoice from?"
-      description="Your name and email go at the top of every invoice. Saved to Settings, for this invoice and every one after it."
-      missing={{
-        'biz-dialog-name':
-          business.name.trim() === '' ? 'Enter your business name.' : undefined,
-        'biz-dialog-email': emailError(business.email),
-      }}
-      patch={() => ({
-        businessName: business.name.trim(),
-        businessEmail: business.email.trim(),
-        businessAddress: business.address.trim() || null,
-      })}
-    >
-      {(pending, error) => (
-        <IdentityFields
-          id="biz-dialog"
-          value={business}
-          onChange={(key, text) => setBusiness((b) => ({ ...b, [key]: text }))}
-          error={(key) => error(`biz-dialog-${key}`)}
-          required
-          readOnly={pending}
-          autoFocus
-        />
-      )}
-    </SettingsDialog>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>
+            {existing ? 'Edit business' : 'New business'}
+          </DialogTitle>
+          <DialogDescription>
+            Its name and email go at the top of each invoice from it.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+          <IdentityFields
+            id="biz"
+            value={draft}
+            onChange={(key, text) => setDraft((d) => ({ ...d, [key]: text }))}
+            error={(key) => check.error(`biz-${key}`)}
+            required
+            readOnly={pending}
+            autoFocus
+          />
+
+          {error ? (
+            <p role="alert" className="type-support text-danger">
+              {error instanceof ApiError
+                ? error.message
+                : 'Couldn’t save this business.'}
+            </p>
+          ) : null}
+
+          <DialogFooter>
+            {existing ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="sm:mr-auto"
+                disabled={pending}
+                onClick={() => archive.mutate(existing.id)}
+              >
+                {archive.isPending ? 'Archiving…' : 'Archive'}
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" variant="accent" disabled={pending}>
+              {save.isPending ? (
+                <Loader2 aria-hidden className="animate-spin" />
+              ) : (
+                <Check aria-hidden />
+              )}
+              {save.isPending ? 'Saving…' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 /**
  * Why Save draft is disabled, and the way to fix it without leaving the
- * invoice.
+ * invoice: a first business, or an email for the one it is from.
  */
-export function SenderNotice({ settings }: { settings: Settings | undefined }) {
+export function SenderNotice({
+  business,
+  onSaved,
+}: {
+  business: BusinessProfile | null | undefined;
+  onSaved: (business: BusinessProfile) => void;
+}) {
   const [asking, setAsking] = useState(false);
-  if (!settings || !missingBusiness(settings)) return null;
+  if (!missingBusiness(business)) return null;
   return (
     <div>
       <Notice
@@ -80,9 +200,12 @@ export function SenderNotice({ settings }: { settings: Settings | undefined }) {
           </Button>
         }
       />
-      {asking ? (
-        <BusinessDialog onOpenChange={setAsking} settings={settings} />
-      ) : null}
+      <BusinessDialog
+        open={asking}
+        onOpenChange={setAsking}
+        existing={business ?? undefined}
+        onSaved={onSaved}
+      />
     </div>
   );
 }

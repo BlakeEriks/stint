@@ -41,7 +41,7 @@ import {
   formatInvoiceNumber,
   isPeriod,
   localDateKey,
-  resolvePaymentProfile,
+  resolveProfile,
   billableExpenses,
   expensePrintOrder,
   type Period,
@@ -57,6 +57,7 @@ import {
   type GroupingMode,
   type Invoice,
   type InvoicePreview,
+  type BusinessProfile,
   type PaymentProfile,
   type Settings,
 } from '@/lib/client/api';
@@ -68,6 +69,7 @@ import {
   BusinessDialog,
   missingBusiness,
   SenderNotice,
+  withBusiness,
 } from './business-dialog';
 import { InvoiceDatesDialog } from './invoice-dates-dialog';
 import { PeriodPicker } from './invoice-period';
@@ -134,6 +136,9 @@ interface Draft {
   /** The payment details picked here; '' prints the client's, else the
    *  default. */
   paymentProfileId: string;
+  /** The business picked here; '' is the client's last invoice's, else the
+   *  default. A draft keeps the one it was made from. */
+  businessProfileId: string;
 }
 
 const EMPTY: Draft = {
@@ -150,6 +155,7 @@ const EMPTY: Draft = {
   charges: [],
   excludedExpenseIds: [],
   paymentProfileId: '',
+  businessProfileId: '',
 };
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -220,6 +226,7 @@ function draftOf(inv: Edited, profiles: PaymentProfile[]): Draft {
             buildPaymentDetails(p, { invoiceNumber: inv.invoiceNumber }),
           ) === frozen,
       )?.id ?? '',
+    businessProfileId: '',
   };
 }
 
@@ -297,6 +304,7 @@ function useCarried(draft: Draft) {
   const summaryTexts = draft.summaryTexts ?? carried.summaryTexts;
   return {
     lastPending,
+    lastBusinessId: lastInvoice.data?.businessProfileId ?? null,
     groupingMode,
     summaryText,
     summaryTexts,
@@ -414,8 +422,8 @@ export function NewInvoice() {
   /* Keyed by the link: the Inbox stays reachable here, so a row pressed on
      this page changes the address and must open its own draft. */
   const params = useSearchParams();
-  /* The form paints once, its client list, terms and payment profiles in
-     place; what a chosen client then loads fills in as it is asked for. The
+  /* The form paints once, its client list, terms, businesses and payment
+     profiles in place; what a chosen client then loads fills in as it is asked for. The
      back link is the frame, so it stands while they load. */
   const clients = useQuery({
     queryKey: keys.clients(),
@@ -429,9 +437,13 @@ export function NewInvoice() {
     queryKey: keys.paymentProfiles(),
     queryFn: () => api.paymentProfiles(),
   });
+  const businesses = useQuery({
+    queryKey: keys.businessProfiles(),
+    queryFn: () => api.businessProfiles(),
+  });
   return (
     <DetailPage back="/invoices" label="Invoices" workspace letter fills>
-      <Listing query={[clients, settings, profiles]}>
+      <Listing query={[clients, settings, profiles, businesses]}>
         {([c]) => (
           <Form
             key={params.toString()}
@@ -508,7 +520,6 @@ function Form({
     queryKey: keys.settings(),
     queryFn: () => api.settings(),
   });
-  const noSender = missingBusiness(settings);
   // Today on the account's billing calendar, as the server dates it.
   const issued = localDateKey(opened, billingZone(settings, tz));
   const profiles =
@@ -519,6 +530,7 @@ function Form({
 
   const {
     lastPending,
+    lastBusinessId,
     groupingMode,
     summaryText,
     summaryTexts,
@@ -526,6 +538,18 @@ function Form({
     reference,
     summary,
   } = useCarried(draft);
+  const businesses = useQuery({
+    queryKey: keys.businessProfiles(),
+    queryFn: () => api.businessProfiles(),
+    select: (r) => r.businessProfiles.filter((b) => !b.archivedAt),
+  }).data;
+  const business = businessFrom(
+    businesses,
+    draft.businessProfileId,
+    lastBusinessId,
+  );
+  // A draft froze its sender when it was made.
+  const noSender = !editing && missingBusiness(business);
   const { periodStart, periodEnd } = periodOf(draft, client, issued);
   const waiting = useWaitingExpenses(draft.clientId, periodEnd, editing?.id);
   /* `undefined` adds an expense; an expense, edits it. */
@@ -534,7 +558,7 @@ function Form({
   const chargeDialog = useDialog<string>();
   const [newProfileOpen, setNewProfileOpen] = useState(false);
   const [editingClient, setEditingClient] = useState(false);
-  const [editingSender, setEditingSender] = useState(false);
+  const [newBusinessOpen, setNewBusinessOpen] = useState(false);
   const [editingDates, setEditingDates] = useState(false);
 
   /* Only what decides the lines is sent, so a due date or a tick never asks
@@ -593,6 +617,8 @@ function Form({
         // The profile the card shows, frozen as it is now; none keeps a
         // draft's.
         paymentProfileId: profile?.id,
+        // The business the card prints; a draft keeps its own.
+        businessProfileId: editing ? undefined : business?.id,
       };
       return editing
         ? api.updateDraft(editing.id, choices)
@@ -609,6 +635,12 @@ function Form({
        freeze that one. */
     qc.setQueryData(keys.paymentProfiles(), withProfile(p));
     set('paymentProfileId', p.id);
+  };
+
+  const addBusiness = (b: BusinessProfile) => {
+    // Into the list at once, as a new profile is, so the pick holds.
+    qc.setQueryData(keys.businessProfiles(), withBusiness(b));
+    set('businessProfileId', b.id);
   };
 
   const { profile, payment } = paymentOf({
@@ -669,7 +701,8 @@ function Form({
         />
 
         <Notices
-          settings={settings}
+          business={editing ? undefined : business}
+          onBusinessSaved={addBusiness}
           client={client}
           clientId={draft.clientId}
           period={{ periodStart, periodEnd }}
@@ -690,7 +723,7 @@ function Form({
           preview={current}
           client={client}
           // A draft prints the sender frozen on it, as sending keeps it.
-          business={editing?.business ?? businessOf(settings)}
+          business={editing?.business ?? businessOf(business)}
           number={number}
           issued={issued}
           due={due}
@@ -705,7 +738,7 @@ function Form({
             editing: editing !== undefined,
             hasClient: client !== undefined,
             open: {
-              sender: () => setEditingSender(true),
+              newBusiness: () => setNewBusinessOpen(true),
               dates: () => setEditingDates(true),
               client: () => setEditingClient(true),
               newProfile: () => setNewProfileOpen(true),
@@ -720,13 +753,19 @@ function Form({
             expenseDialog,
             profiles,
             profile,
+            businesses: businesses ?? [],
+            business,
           })}
         />
       </div>
 
-      {editingSender && settings ? (
-        <BusinessDialog onOpenChange={setEditingSender} settings={settings} />
-      ) : null}
+      <BusinessDialog
+        open={newBusinessOpen}
+        onOpenChange={setNewBusinessOpen}
+        // With no email, the press that adds one edits the business.
+        existing={business ?? undefined}
+        onSaved={addBusiness}
+      />
       {editingDates ? (
         <InvoiceDatesDialog
           onOpenChange={setEditingDates}
@@ -791,12 +830,13 @@ function Controls({
           clients={clients}
           value={draft.clientId || null}
           autoFocus={!editing && draft.clientId === ''}
-          // Another client brings its own payment details.
+          // Another client brings its own payment details and business.
           onChange={(id) =>
             setDraft((d) => ({
               ...d,
               clientId: id ?? '',
               paymentProfileId: '',
+              businessProfileId: '',
             }))
           }
           placeholder="Choose a client…"
@@ -835,7 +875,8 @@ function Controls({
 /** What is said about the invoice but never printed, between the controls
     and the page. */
 function Notices({
-  settings,
+  business,
+  onBusinessSaved,
   client,
   clientId,
   period,
@@ -846,7 +887,9 @@ function Notices({
   preview,
   error,
 }: {
-  settings: Settings | undefined;
+  /** Absent on a draft, which keeps its sender. */
+  business: BusinessProfile | null | undefined;
+  onBusinessSaved: (business: BusinessProfile) => void;
   client: Client | undefined;
   clientId: string;
   period: Period;
@@ -874,7 +917,7 @@ function Notices({
   return (
     <div className="flex flex-col gap-2 empty:hidden">
       {/* First: it is why Save draft is disabled. */}
-      <SenderNotice settings={settings} />
+      <SenderNotice business={business} onSaved={onBusinessSaved} />
       <ScheduleHint client={client} {...period} />
       <EarlierWorkOffer work={earlierWork} onStartFrom={onStartFrom} />
       <HeldWorkNotice work={heldWork} />
@@ -915,13 +958,15 @@ function cardEdits({
   expenseDialog,
   profiles,
   profile,
+  businesses,
+  business,
 }: {
   draft: Draft;
   set: <K extends keyof Draft>(key: K, value: Draft[K]) => void;
   editing: boolean;
   hasClient: boolean;
   open: {
-    sender: () => void;
+    newBusiness: () => void;
     dates: () => void;
     client: () => void;
     newProfile: () => void;
@@ -938,6 +983,8 @@ function cardEdits({
   expenseDialog: { show: (expense: Expense | undefined) => void };
   profiles: PaymentProfile[];
   profile: PaymentProfile | null;
+  businesses: BusinessProfile[];
+  business: BusinessProfile | null | undefined;
 }): CardEdits {
   const toggleExpense = (id: string, bill: boolean) =>
     set(
@@ -950,9 +997,22 @@ function cardEdits({
   // to where one is, as Billed to does.
   const addExpense = hasClient ? expenseDialog : { show: focusClient };
   return {
-    // A draft froze its sender when it was made, so Settings no longer
-    // reaches it.
-    onBusiness: editing ? undefined : open.sender,
+    // A draft froze its sender when it was made, so nothing here reaches it.
+    onBusiness: editing ? undefined : open.newBusiness,
+    businessMenu: editing
+      ? undefined
+      : (trigger) => (
+          <ProfileMenu
+            profiles={businesses}
+            value={business ?? null}
+            detail={(b) => b.email ?? 'No email yet'}
+            newLabel="New business"
+            onChange={(id) => set('businessProfileId', id)}
+            onNew={open.newBusiness}
+          >
+            {trigger}
+          </ProfileMenu>
+        ),
     onDates: open.dates,
     // Without a client, the press goes to where one is chosen.
     onClient: hasClient ? open.client : focusClient,
@@ -992,14 +1052,16 @@ function cardEdits({
       onAdd: () => addExpense.show(undefined),
     },
     paymentMenu: (trigger) => (
-      <PaymentMenu
+      <ProfileMenu
         profiles={profiles}
         value={profile}
+        detail={summarize}
+        newLabel="New payment details"
         onChange={(id) => set('paymentProfileId', id)}
         onNew={open.newProfile}
       >
         {trigger}
-      </PaymentMenu>
+      </ProfileMenu>
     ),
   };
 }
@@ -1098,14 +1160,30 @@ function paymentOf({
     return { profile: null, payment: editing.paymentDetails ?? null };
   const profile =
     profiles.find((p) => p.id === picked) ??
-    resolvePaymentProfile(profiles, {
-      clientProfileId: client?.paymentProfileId,
-      defaultProfileId: profiles.find((p) => p.isDefault)?.id,
+    resolveProfile(profiles, {
+      preferredId: client?.paymentProfileId,
+      defaultId: profiles.find((p) => p.isDefault)?.id,
     });
   return {
     profile,
     payment: buildPaymentDetails(profile, { invoiceNumber: number }),
   };
+}
+
+/** The business the page prints: the one picked, else the client's last
+    invoice's while it is live, else the default; null with none to print,
+    undefined until the list answers. The server resolves it the same way
+    (`loadBusiness`). */
+function businessFrom(
+  businesses: BusinessProfile[] | undefined,
+  picked: string,
+  lastId: string | null,
+) {
+  if (!businesses) return undefined;
+  return resolveProfile(businesses, {
+    preferredId: picked || lastId,
+    defaultId: businesses.find((b) => b.isDefault)?.id,
+  });
 }
 
 const PHONE_BAR =
@@ -1433,19 +1511,25 @@ function PreviewNotices({
 }
 
 /**
- * Which payment details the invoice prints, opened from the payment block:
- * each profile by name, with its bank and last four beneath so two at one
- * bank tell apart.
+ * Which of a kind's profiles the invoice prints, opened from its block: the
+ * business, or the payment details. Each by name, with `detail` beneath so
+ * two alike tell apart.
  */
-function PaymentMenu({
+function ProfileMenu<
+  P extends { id: string; name: string; isDefault: boolean },
+>({
   profiles,
   value,
+  detail,
+  newLabel,
   onChange,
   onNew,
   children,
 }: {
-  profiles: PaymentProfile[];
-  value: PaymentProfile | null;
+  profiles: P[];
+  value: P | null;
+  detail: (p: P) => string;
+  newLabel: string;
   onChange: (id: string) => void;
   onNew: () => void;
   /** The block, or its add button, that opens the menu. */
@@ -1475,7 +1559,7 @@ function PaymentMenu({
                       ) : null}
                     </span>
                     <span className="truncate type-support text-subtle">
-                      {summarize(p)}
+                      {detail(p)}
                     </span>
                   </span>
                 </DropdownMenuRadioItem>
@@ -1486,7 +1570,7 @@ function PaymentMenu({
         ) : null}
         <DropdownMenuItem onSelect={onNew}>
           <Plus aria-hidden strokeWidth={2.25} />
-          New payment details
+          {newLabel}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

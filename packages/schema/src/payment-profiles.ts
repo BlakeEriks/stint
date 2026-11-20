@@ -68,7 +68,7 @@ export const UpdatePaymentProfile = CreatePaymentProfile.partial()
     archived: z.boolean().optional(),
   });
 
-export const ListPaymentProfilesQuery = z.object({
+export const ListProfilesQuery = z.object({
   includeArchived: boolParam,
 });
 

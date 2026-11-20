@@ -61,7 +61,8 @@ layout or hierarchy to see first. (decided autonomously)
   business under the list. With none: "No business yet. New invoice asks
   for one."
 - **The dialog**: Name, Email, Address; name and email required. Archive
-  on an existing business, as a payment profile has.
+  on an existing business. (Payment details have no Archive on screen; a
+  business gets one because FR-007 asks for it.) (decided autonomously)
 - **New invoice, From block**: a press opens a menu of the businesses, the
   one printing checked, and New business. With none, the notice above the
   page says so and its button opens the dialog, as today.

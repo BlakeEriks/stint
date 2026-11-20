@@ -41,6 +41,7 @@ const scenarios: Record<
       invoices: [],
       expenses: [],
       paymentProfiles: [],
+      businessProfiles: [],
       connectedApps: [],
     });
   },

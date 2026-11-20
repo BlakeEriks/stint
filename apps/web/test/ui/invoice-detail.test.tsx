@@ -40,6 +40,7 @@ function invoice(status: InvoiceStatus, sentAt: string | null = null): Invoice {
     template: status === 'draft' ? null : 'standard',
     supportingDetail: null,
     paymentDetails: null,
+    businessProfileId: null,
     business: {
       name: 'Sam Rivera',
       address: null,

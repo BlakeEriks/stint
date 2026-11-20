@@ -70,8 +70,7 @@ money.
 
 ### `user_settings`
 One row per user, auto-created by a trigger on `auth.users` insert. Holds the
-global rate fallback, display preferences, the invoice
-identity block (business name, address, logo), `payment_terms_days`
+global rate fallback, display preferences, `payment_terms_days`
 (0–365, default 30), `billing_time_zone`, the invoice number sequence, `invoice_template`
 (`standard`, `modern`, `classic` or `creative`, default `standard`: the one
 drafts render in), and the entry-length thresholds
@@ -146,6 +145,13 @@ gone is refused, never swapped. Without a pick, resolution mirrors rates: the
 client's `payment_profile_id`, else the user's default, and a dangling client
 reference falls back rather than rendering nothing.
 
+### `business_profiles`
+Who an invoice is from: `name`, `email`, `address`, `logo_url`, archived
+rather than deleted, with one live default per user
+(`one_default_business_profile_per_user`, the same invariant as payment
+profiles below). Each account with a business name in old Settings got one,
+the default, when the fields moved here.
+
 ### `invoices` / `invoice_line_items`
 Line items are **denormalized on purpose**. An issued invoice is an immutable
 financial record, not a live view over time entries.
@@ -177,8 +183,8 @@ the same reason rates freeze: editing a profile must never alter an invoice
 already sent. `supporting_detail` (JSONB) holds the hours-by-project, -week
 and -date tables printed from page 2. A draft's are derived with its lines;
 sending freezes them, so a renamed project or a void never changes them. The `business_*` and `logo_url` columns (the From
-block) and the `client_*` columns (Bill to) are copied from `user_settings`
-and the client by a trigger on insert, so editing either never reprints an
+block) and the `client_*` columns (Bill to) are copied from the
+`business_profile_id` business and the client by a trigger on insert, so editing either never reprints an
 invoice. `summary_text` is the line text of a `summary`
 invoice and is set exactly then, and `summary_texts` (JSONB, `[{ rate, text
 }]`) the lines typed their own text, by rate; `reference` is the PO, contract, or SOW the
@@ -319,7 +325,8 @@ create unique index one_default_payment_profile_per_user
 Structurally the same trick, for the same reason: **one default per user,
 enforced by an index rather than by code that checks first.** A pre-check is a
 race; a partial unique index is not. The first profile a user creates becomes
-the default automatically.
+the default automatically. `one_default_business_profile_per_user` holds
+the same for businesses, and `lib/profiles.ts` runs both kinds' routes.
 
 **The index stops two defaults; it cannot stop zero, and zero is the one that
 costs money.** With no default, `loadPaymentProfile` resolves to null and the

@@ -120,6 +120,7 @@ const CONSTRAINT_CODES: Record<string, Code> = {
   entry_project_same_owner: 'VALIDATION_FAILED',
   expense_client_same_owner: 'VALIDATION_FAILED',
   invoice_client_same_owner: 'VALIDATION_FAILED',
+  invoice_business_same_owner: 'VALIDATION_FAILED',
   project_client_same_owner: 'VALIDATION_FAILED',
   time_entries_draft_same_owner: 'VALIDATION_FAILED',
   expenses_draft_same_owner: 'VALIDATION_FAILED',

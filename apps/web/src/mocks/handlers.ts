@@ -9,7 +9,7 @@ import {
   paidAtRefusal,
   pricedInvoiceRefusal,
   refusals,
-  resolvePaymentProfile,
+  resolveProfile,
   stopOrderRefusal,
   unratedRefusal,
   documentOpens,
@@ -29,6 +29,7 @@ import {
 import { http, HttpResponse } from 'msw';
 import type { z } from 'zod';
 import type {
+  BusinessProfile,
   Client,
   Expense,
   Invoice,
@@ -149,7 +150,12 @@ function draftChoices(db: Db, input: CreateInvoice, preview: Preview) {
   };
 }
 
-function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
+function invoiceRow(
+  db: Db,
+  input: CreateInvoice,
+  preview: Preview,
+  business: BusinessProfile,
+) {
   const seq = db.settings.nextInvoiceNumber;
   db.settings.nextInvoiceNumber += 1;
   return {
@@ -162,7 +168,7 @@ function invoiceRow(db: Db, input: CreateInvoice, preview: Preview) {
     template: null,
     paymentDetails: null,
     ...draftChoices(db, input, preview),
-    ...parties(db.settings, byId(db.clients, preview.clientId) as Client),
+    ...parties(business, byId(db.clients, preview.clientId) as Client),
     sentAt: null,
     paidAt: null,
     createdAt: db.now.toISOString(),
@@ -323,10 +329,36 @@ const TRANSITIONS: Record<Invoice['status'], Invoice['status'][]> = {
 function paymentProfile(db: Db, clientId: string, chosenId?: string) {
   const live = db.paymentProfiles.filter((p) => !p.archivedAt);
   if (chosenId) return live.find((p) => p.id === chosenId) ?? null;
-  return resolvePaymentProfile(live, {
-    clientProfileId: byId(db.clients, clientId)?.paymentProfileId,
-    defaultProfileId: live.find((p) => p.isDefault)?.id,
+  return resolveProfile(live, {
+    preferredId: byId(db.clients, clientId)?.paymentProfileId,
+    defaultId: live.find((p) => p.isDefault)?.id,
   });
+}
+
+/** `loadBusiness`'s: the one picked, else the client's last invoice's,
+ *  else the default; a refusal's message when there is none to print. */
+function businessFor(
+  db: Db,
+  clientId: string,
+  chosenId?: string,
+): BusinessProfile | string {
+  const live = db.businessProfiles.filter((b) => !b.archivedAt);
+  const last = db.invoices
+    .filter((i) => i.clientId === clientId && i.status !== 'void')
+    .sort((a, b) => b.sequenceNo - a.sequenceNo)[0];
+  const business = chosenId
+    ? live.find((b) => b.id === chosenId)
+    : resolveProfile(live, {
+        preferredId: last?.businessProfileId,
+        defaultId: live.find((b) => b.isDefault)?.id,
+      });
+  if (!business)
+    return chosenId
+      ? 'That business is archived or gone. Choose another.'
+      : 'Add who this invoice is from: a business name and email.';
+  if (!business.email)
+    return `Add an email to ${business.name}. It goes at the top of the invoice.`;
+  return business;
 }
 
 function withDuration(entry: TimeEntry): TimeEntry {
@@ -386,6 +418,111 @@ async function importPreview(
     })),
   });
 }
+
+type Profile = {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  archivedAt: string | null;
+};
+
+/** `lib/profiles.ts`'s handlers, over one kind's list in the fake account. */
+function profileRoutes<P extends Profile>(kind: {
+  path: string;
+  rows: (db: Db) => P[];
+  row: z.ZodType;
+  envelope: z.ZodType;
+  listKey: string;
+  /** Every field the form may leave out. */
+  empty: Omit<P, 'id' | 'name' | 'isDefault'>;
+  label: string;
+}) {
+  return {
+    list: http.get(`${API}/${kind.path}`, ({ request }) => {
+      const all = query(request).get('includeArchived') === 'true';
+      const rows = kind
+        .rows(getDb())
+        .filter((p) => all || !p.archivedAt)
+        .sort(
+          (a, b) => Number(b.isDefault) - Number(a.isDefault) || byName(a, b),
+        );
+      return ok(kind.envelope, { [kind.listKey]: rows });
+    }),
+
+    /* The first live profile is the default whatever was asked, and one
+       default holds, as the partial unique index enforces. */
+    create: http.post(`${API}/${kind.path}`, async ({ request }) => {
+      const db = getDb();
+      const rows = kind.rows(db);
+      const input = await body<Partial<P> & Pick<P, 'name'>>(request);
+      const isDefault = !!input.isDefault || !rows.some((p) => !p.archivedAt);
+      if (isDefault) for (const p of rows) p.isDefault = false;
+      const profile = {
+        ...kind.empty,
+        ...input,
+        id: input.id ?? uuidv7(db.now.getTime()),
+        isDefault,
+        archivedAt: null,
+      } as P;
+      rows.push(profile);
+      return ok(kind.row, profile, 201);
+    }),
+
+    update: http.patch(
+      `${API}/${kind.path}/:id`,
+      async ({ params, request }) => {
+        const rows = kind.rows(getDb());
+        const i = rows.findIndex((p) => p.id === params.id);
+        const profile = rows[i];
+        if (!profile) return missing(kind.label);
+        const input = await body<Partial<P>>(request);
+        if (input.isDefault) for (const p of rows) p.isDefault = false;
+        // The only live profile stays the default.
+        const others = rows.some((p) => p !== profile && !p.archivedAt);
+        if (input.isDefault === false && !others) delete input.isDefault;
+        rows[i] = { ...profile, ...input };
+        return ok(kind.row, rows[i]);
+      },
+    ),
+
+    /* The default passes to the first live profile by name, so invoices
+       keep resolving to one. */
+    archive: http.delete(`${API}/${kind.path}/:id`, ({ params }) => {
+      const db = getDb();
+      const rows = kind.rows(db);
+      const profile = byId(rows, params.id);
+      if (!profile) return missing(kind.label);
+      const wasDefault = profile.isDefault;
+      Object.assign(profile, {
+        archivedAt: db.now.toISOString(),
+        isDefault: false,
+      });
+      const heir = rows.filter((p) => !p.archivedAt).sort(byName)[0];
+      if (wasDefault && heir) heir.isDefault = true;
+      return noContent();
+    }),
+  };
+}
+
+const payments = profileRoutes<PaymentProfile>({
+  path: 'payment-profiles',
+  rows: (db) => db.paymentProfiles,
+  row: schema.PaymentProfile,
+  envelope: envelopes.paymentProfiles,
+  listKey: 'paymentProfiles',
+  empty: EMPTY_PROFILE,
+  label: 'Payment profile',
+});
+
+const businesses = profileRoutes<BusinessProfile>({
+  path: 'business-profiles',
+  rows: (db) => db.businessProfiles,
+  row: schema.BusinessProfile,
+  envelope: envelopes.businessProfiles,
+  listKey: 'businessProfiles',
+  empty: { email: null, address: null, logoUrl: null, archivedAt: null },
+  label: 'Business',
+});
 
 export const handlers = {
   summary: http.get(`${API}/summary`, ({ request }) =>
@@ -762,7 +899,10 @@ export const handlers = {
         'VALIDATION_FAILED',
         'Those payment details are archived or gone. Choose others.',
       );
-    const row = invoiceRow(db, input, preview);
+    const business = businessFor(db, input.clientId, input.businessProfileId);
+    if (typeof business === 'string')
+      return fail('VALIDATION_FAILED', business);
+    const row = invoiceRow(db, input, preview, business);
     const invoice = {
       ...row,
       paymentDetails: buildPaymentDetails(profile, {
@@ -1002,15 +1142,8 @@ export const handlers = {
     return ok(schema.Settings, db.settings);
   }),
 
-  paymentProfiles: http.get(`${API}/payment-profiles`, ({ request }) => {
-    const all = query(request).get('includeArchived') === 'true';
-    const paymentProfiles = getDb()
-      .paymentProfiles.filter((p) => all || !p.archivedAt)
-      .sort(
-        (a, b) => Number(b.isDefault) - Number(a.isDefault) || byName(a, b),
-      );
-    return ok(envelopes.paymentProfiles, { paymentProfiles });
-  }),
+  paymentProfiles: payments.list,
+  businessProfiles: businesses.list,
 
   connectedApps: http.get(`${API}/connected-apps`, () =>
     ok(envelopes.connectedApps, { apps: getDb().connectedApps }),
@@ -1027,70 +1160,12 @@ export const handlers = {
     },
   ),
 
-  /* The route's: the first live profile is the default whatever was asked,
-     and one default holds, as the partial unique index enforces. */
-  createPaymentProfile: http.post(
-    `${API}/payment-profiles`,
-    async ({ request }) => {
-      const db = getDb();
-      const input = await body<
-        Partial<PaymentProfile> & Pick<PaymentProfile, 'name'>
-      >(request);
-      const isDefault =
-        !!input.isDefault || !db.paymentProfiles.some((p) => !p.archivedAt);
-      if (isDefault) for (const p of db.paymentProfiles) p.isDefault = false;
-      const profile: PaymentProfile = {
-        ...EMPTY_PROFILE,
-        ...input,
-        id: input.id ?? uuidv7(db.now.getTime()),
-        isDefault,
-        archivedAt: null,
-      };
-      db.paymentProfiles.push(profile);
-      return ok(schema.PaymentProfile, profile, 201);
-    },
-  ),
-
-  updatePaymentProfile: http.patch(
-    `${API}/payment-profiles/:id`,
-    async ({ params, request }) => {
-      const db = getDb();
-      const i = db.paymentProfiles.findIndex((p) => p.id === params.id);
-      const profile = db.paymentProfiles[i];
-      if (!profile) return missing('Payment profile');
-      const input = await body<Partial<PaymentProfile>>(request);
-      if (input.isDefault)
-        for (const p of db.paymentProfiles) p.isDefault = false;
-      // The only live profile stays the default.
-      const others = db.paymentProfiles.some(
-        (p) => p !== profile && !p.archivedAt,
-      );
-      if (input.isDefault === false && !others) delete input.isDefault;
-      db.paymentProfiles[i] = { ...profile, ...input };
-      return ok(schema.PaymentProfile, db.paymentProfiles[i]);
-    },
-  ),
-
-  /* The default passes to the first live profile by name, so invoices keep
-     their bank details. */
-  archivePaymentProfile: http.delete(
-    `${API}/payment-profiles/:id`,
-    ({ params }) => {
-      const db = getDb();
-      const profile = byId(db.paymentProfiles, params.id);
-      if (!profile) return missing('Payment profile');
-      const wasDefault = profile.isDefault;
-      Object.assign(profile, {
-        archivedAt: db.now.toISOString(),
-        isDefault: false,
-      });
-      const heir = db.paymentProfiles
-        .filter((p) => !p.archivedAt)
-        .sort(byName)[0];
-      if (wasDefault && heir) heir.isDefault = true;
-      return noContent();
-    },
-  ),
+  createPaymentProfile: payments.create,
+  updatePaymentProfile: payments.update,
+  archivePaymentProfile: payments.archive,
+  createBusinessProfile: businesses.create,
+  updateBusinessProfile: businesses.update,
+  archiveBusinessProfile: businesses.archive,
 
   account: http.get(`${API}/account`, () => {
     const db = getDb();

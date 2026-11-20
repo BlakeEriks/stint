@@ -36,7 +36,7 @@ import pg from 'pg';
 import { isPreviewDb, sslFor } from './db-url.mjs';
 import {
   buildPaymentDetails,
-  resolvePaymentProfile,
+  resolveProfile,
 } from '../packages/core/src/payment.ts';
 
 const DEFAULT_URL = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
@@ -399,6 +399,7 @@ try {
     'projects',
     'clients',
     'payment_profiles',
+    'business_profiles',
     'user_settings',
   ]) {
     await db.query(`delete from ${table} where user_id = $1`, [userId]);
@@ -411,18 +412,24 @@ try {
     process.exit(0);
   }
 
-  /* A default rate, so a client with none has something to inherit, and the
-     business block every invoice prints, so a new one is complete without a
-     visit to Settings. Welcomed, since a seeded account is not a first
-     sign-in. */
+  /* A default rate, so a client with none has something to inherit.
+     Welcomed, since a seeded account is not a first sign-in. */
   await db.query(
-    `update user_settings set
-       default_hourly_rate = 125,
-       business_name = 'Harbor Lane Consulting LLC',
-       business_address = '1200 Market St, Suite 400\nDenver, CO 80202',
-       business_email = 'billing@harborlane.test',
-       welcomed_at = now()
+    `update user_settings set default_hourly_rate = 125, welcomed_at = now()
      where user_id = $1`,
+    [userId],
+  );
+
+  /* The business every invoice prints, so a new one is complete without a
+     visit to Settings. */
+  const {
+    rows: [{ id: businessId }],
+  } = await db.query(
+    `insert into business_profiles (user_id, name, address, email, is_default)
+     values ($1, 'Harbor Lane Consulting LLC',
+             '1200 Market St, Suite 400\nDenver, CO 80202',
+             'billing@harborlane.test', true)
+     returning id`,
     [userId],
   );
 
@@ -758,9 +765,9 @@ try {
       ]),
     );
   const live = profileRows.map(camel);
-  const profile = resolvePaymentProfile(live, {
-    clientProfileId: live[0]?.clientProfileId ?? null,
-    defaultProfileId: live.find((p) => p.isDefault)?.id ?? null,
+  const profile = resolveProfile(live, {
+    preferredId: live[0]?.clientProfileId ?? null,
+    defaultId: live.find((p) => p.isDefault)?.id ?? null,
   });
 
   for (const inv of INVOICES) {
@@ -793,8 +800,9 @@ try {
       `insert into invoices
          (user_id, client_id, invoice_number, sequence_no, status, issue_date,
           due_date, period_start, period_end, subtotal, tax_rate, tax_amount,
-          total, currency, grouping_mode, sent_at, paid_at, payment_details)
-       values ($1,$2,$3,$4,'draft',$5,$6,$7,$8,$9,0,0,$9,'USD','entry',$10,$11,$12)
+          total, currency, grouping_mode, sent_at, paid_at, payment_details,
+          business_profile_id)
+       values ($1,$2,$3,$4,'draft',$5,$6,$7,$8,$9,0,0,$9,'USD','entry',$10,$11,$12,$13)
        returning id`,
       [
         userId,
@@ -810,6 +818,7 @@ try {
         inv.status === 'draft' ? null : issued.toISOString(),
         inv.status === 'paid' ? due.toISOString() : null,
         buildPaymentDetails(profile, { invoiceNumber: number }),
+        businessId,
       ],
     );
     if (inv.status !== 'draft')
@@ -871,9 +880,7 @@ try {
     `  ${CLIENTS.length} clients, ${projectIds.length + 1} projects, ${entries} entries`,
   );
   console.log(`  ${INVOICES.length} invoices (overdue, sent, draft, paid)`);
-  console.log(
-    '  Business identity, 2 payment profiles, 2 expenses for Northwind',
-  );
+  console.log('  A business, 2 payment profiles, 2 expenses for Northwind');
   console.log('\n  Inbox:');
   console.log('    unusual length     yes');
   console.log('    overdue invoice    yes');

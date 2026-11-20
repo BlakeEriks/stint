@@ -18,7 +18,7 @@ import type {
   Expense,
   Invoice,
   InvoicePreview,
-  Settings,
+  BusinessProfile,
 } from '@/lib/client/api';
 import { shortDate } from './invoice-bits';
 import { rowBleed, rowButton } from './row-button';
@@ -26,20 +26,13 @@ import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 
 type Business = Pick<Invoice['business'], 'name' | 'address' | 'email'>;
 
-/** The From block generation will freeze, from settings as they are now. */
-export function businessOf(settings: Settings): Invoice['business'];
-export function businessOf(
-  settings: Settings | undefined,
-): Invoice['business'] | undefined;
-export function businessOf(settings: Settings | undefined) {
-  if (!settings) return undefined;
-  return {
-    name: settings.businessName,
-    address: settings.businessAddress,
-    email: settings.businessEmail,
-    logoUrl: settings.logoUrl,
-  };
-}
+/** The From block generation will freeze, from the business as it is now. */
+export const businessOf = (
+  b: BusinessProfile | null | undefined,
+): Invoice['business'] | undefined =>
+  b
+    ? { name: b.name, address: b.address, email: b.email, logoUrl: b.logoUrl }
+    : undefined;
 
 const LABEL = 'block type-label text-subtle';
 
@@ -74,8 +67,11 @@ type Typed = { value: string; onChange: (value: string) => void };
  * is the invoice as issued, with nothing to press.
  */
 export type CardEdits = {
-  /** Absent on a draft, whose sender was frozen when it was made. */
+  /** Both absent on a draft, whose sender was frozen when it was made. With
+   *  no sender yet, the press that adds one. */
   onBusiness?: () => void;
+  /** Wraps the business block in the menu that picks another. */
+  businessMenu?: (trigger: React.ReactElement) => React.ReactNode;
   onDates: () => void;
   onClient: () => void;
   /** The period is set above the page: the press goes to that control. */
@@ -395,11 +391,7 @@ function Header({
     <>
       <div className="flex flex-wrap justify-between gap-x-8 gap-y-5">
         <div className="min-w-0 flex-[1_1_200px]">
-          <Sender
-            business={business}
-            noSender={noSender}
-            onPress={edit?.onBusiness}
-          />
+          <Sender business={business} noSender={noSender} edit={edit} />
         </div>
         <div className="flex-none">
           <Block onPress={edit?.onDates}>
@@ -469,17 +461,17 @@ function Header({
 function Sender({
   business,
   noSender,
-  onPress,
+  edit,
 }: {
   business: Business | undefined;
   noSender: boolean;
-  onPress: (() => void) | undefined;
+  edit: CardEdits | undefined;
 }) {
-  if (noSender && onPress)
+  if (noSender && edit?.onBusiness)
     return (
       <AddButton
         label="Add your business"
-        onClick={onPress}
+        onClick={edit.onBusiness}
         className="min-h-14"
       />
     );
@@ -491,14 +483,19 @@ function Sender({
         className={`${dashedBleed()} min-h-14 rounded-md border border-dashed border-edge-control`}
       />
     );
-  return (
-    <Block onPress={onPress}>
-      <Party
-        name={business ? (business.name ?? 'Invoice') : ''}
-        lines={[business?.address, business?.email]}
-        letterhead
-      />
-    </Block>
+  const party = (
+    <Party
+      name={business ? (business.name ?? 'Invoice') : ''}
+      lines={[business?.address, business?.email]}
+      letterhead
+    />
+  );
+  if (!edit?.businessMenu) return <Block>{party}</Block>;
+  return edit.businessMenu(
+    <button type="button" className={`${rowButton} ${bleed()} pr-7`}>
+      <span className="sr-only">Edit</span> {party}
+      <EditMark />
+    </button>,
   );
 }
 

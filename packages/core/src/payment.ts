@@ -138,19 +138,20 @@ export function buildPaymentDetails(
 }
 
 /**
- * Which profile applies to an invoice: the client's choice, else the user's
- * default. Mirrors how rates resolve — most specific wins.
+ * Which profile applies to an invoice: the preferred one while it is live
+ * (the client's payment details, the business of its last invoice), else
+ * the user's default. Mirrors how rates resolve — most specific wins.
  */
-export function resolvePaymentProfile<T extends { id?: string }>(
+export function resolveProfile<T extends { id?: string }>(
   profiles: T[],
-  opts: { clientProfileId?: string | null; defaultProfileId?: string | null },
+  opts: { preferredId?: string | null; defaultId?: string | null },
 ): T | null {
-  if (opts.clientProfileId) {
-    const chosen = profiles.find((p) => p.id === opts.clientProfileId);
+  if (opts.preferredId) {
+    const chosen = profiles.find((p) => p.id === opts.preferredId);
     if (chosen) return chosen;
   }
-  if (opts.defaultProfileId) {
-    const fallback = profiles.find((p) => p.id === opts.defaultProfileId);
+  if (opts.defaultId) {
+    const fallback = profiles.find((p) => p.id === opts.defaultId);
     if (fallback) return fallback;
   }
   return null;

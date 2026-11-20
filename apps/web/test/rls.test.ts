@@ -76,6 +76,7 @@ beforeEach(async () => {
   await admin.query('update time_entries set invoice_id = null');
   await admin.query('delete from time_entries');
   await admin.query('delete from invoices');
+  await admin.query('delete from business_profiles');
   await admin.query('delete from projects');
   await admin.query('update clients set payment_profile_id = null');
   await admin.query('delete from payment_profiles');
@@ -188,6 +189,12 @@ test('every user-scoped table shows the caller only their own rows', async () =>
     [ALICE, BOB],
   );
   await admin.query(
+    `insert into business_profiles (id,user_id,name,is_default) values
+       ('be000000-0000-4000-8000-00000000000a',$1,'Alice LLC',true),
+       ('be000000-0000-4000-8000-00000000000b',$2,'Bob LLC',true)`,
+    [ALICE, BOB],
+  );
+  await admin.query(
     `insert into invoices (id,user_id,client_id,invoice_number,sequence_no) values
        ('ff000000-0000-4000-8000-00000000000a',$1,'cc000000-0000-4000-8000-00000000000a','INV-0001',1),
        ('ff000000-0000-4000-8000-00000000000b',$2,'cc000000-0000-4000-8000-00000000000b','INV-0001',1)`,
@@ -211,6 +218,7 @@ test('every user-scoped table shows the caller only their own rows', async () =>
     'time_entries',
     'invoices',
     'payment_profiles',
+    'business_profiles',
     'user_settings',
     'expenses',
     'feedback',
@@ -430,6 +438,11 @@ test('an invoice carries the plan it was generated on, and no user can claim ano
 // the hole they close returned 201 before `entry_project_same_owner`.
 test('a row cannot point at another user’s row', async () => {
   await issueAliceInvoice('draft');
+  await admin.query(
+    `insert into business_profiles (id,user_id,name,is_default)
+     values ('be000000-0000-4000-8000-00000000000b',$1,'Bob LLC',true)`,
+    [BOB],
+  );
 
   for (const { name, as, sql, constraint } of [
     {
@@ -460,6 +473,13 @@ test('a row cannot point at another user’s row', async () => {
       sql: `insert into invoices (user_id,client_id,invoice_number,sequence_no)
             values ('${ALICE}','cc000000-0000-4000-8000-00000000000b','INV-0002',2)`,
       constraint: 'invoice_client_same_owner',
+    },
+    {
+      name: 'an invoice from their business',
+      as: ALICE,
+      sql: `update invoices set business_profile_id = 'be000000-0000-4000-8000-00000000000b'
+            where id = '${ALICE_INVOICE}'`,
+      constraint: 'invoice_business_same_owner',
     },
     {
       name: 'a project under their client',

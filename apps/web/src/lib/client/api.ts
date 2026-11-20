@@ -96,6 +96,7 @@ export type Settings = Res<schema.Settings>;
 export type Account = Res<schema.Account>;
 export type Billing = Res<schema.Billing>;
 export type PaymentProfile = Res<schema.PaymentProfile>;
+export type BusinessProfile = Res<schema.BusinessProfile>;
 export type ConnectedApp = Res<schema.ConnectedApp>;
 export type InvoicePreview = Res<schema.InvoicePreview>;
 export type Invoice = Res<schema.Invoice>;
@@ -130,6 +131,8 @@ export interface InvoiceChoices {
   schedules?: ScheduleKind[];
   reference?: string;
   paymentProfileId?: string;
+  /** Read on create only: a draft keeps the business it was made from. */
+  businessProfileId?: string;
   dueDate?: string;
   notes?: string;
 }
@@ -154,6 +157,11 @@ export type PaymentProfileInput = Partial<
   Omit<PaymentProfile, 'id' | 'archivedAt'>
 > &
   Pick<PaymentProfile, 'name'>;
+
+export type BusinessProfileInput = Partial<
+  Omit<BusinessProfile, 'id' | 'archivedAt'>
+> &
+  Pick<BusinessProfile, 'name' | 'email'> & { id?: string };
 
 export const api = {
   /** A Toggl export, plus the zone its wall-clock times are in. */
@@ -441,6 +449,21 @@ export const api = {
 
   archivePaymentProfile: (id: string) =>
     request<void>('DELETE', `/payment-profiles/${id}`),
+
+  businessProfiles: () =>
+    request<{ businessProfiles: BusinessProfile[] }>(
+      'GET',
+      '/business-profiles',
+    ),
+
+  createBusinessProfile: (body: BusinessProfileInput) =>
+    request<BusinessProfile>('POST', '/business-profiles', body),
+
+  updateBusinessProfile: (id: string, body: Partial<BusinessProfileInput>) =>
+    request<BusinessProfile>('PATCH', `/business-profiles/${id}`, body),
+
+  archiveBusinessProfile: (id: string) =>
+    request<void>('DELETE', `/business-profiles/${id}`),
 
   connectedApps: () =>
     request<{ apps: ConnectedApp[] }>('GET', '/connected-apps'),

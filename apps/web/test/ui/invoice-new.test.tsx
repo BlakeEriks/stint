@@ -37,10 +37,19 @@ const CLIENTS = [
   },
 ];
 
+const BUSINESSES = [
+  {
+    id: 'b1',
+    name: 'Sam Rivera',
+    email: 'sam@example.test',
+    address: '1200 Pine St',
+    logoUrl: null,
+    isDefault: true,
+    archivedAt: null,
+  },
+];
+
 const SETTINGS = {
-  businessName: 'Sam Rivera',
-  businessAddress: '1200 Pine St',
-  businessEmail: 'sam@example.test',
   invoiceNumberPrefix: 'STINT-',
   nextInvoiceNumber: 16,
   paymentTermsDays: 30,
@@ -202,6 +211,8 @@ function serve(preview: unknown = PREVIEW) {
         if (holdSettings) await holdSettings;
         return ok(settings);
       }
+      if (path.includes('/business-profiles'))
+        return ok({ businessProfiles: BUSINESSES });
       if (path.includes('/payment-profiles')) {
         if (init?.method === 'POST') {
           const made = { ...JSON.parse(String(init.body)), id: 'pp2' };

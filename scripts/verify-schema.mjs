@@ -14,6 +14,7 @@ import { connectionString, sslFor } from './db-url.mjs';
 import { moneyColumnProblems } from './money-columns.mjs';
 
 const EXPECTED = [
+  'business_profiles',
   'clients',
   'expenses',
   'feedback',
