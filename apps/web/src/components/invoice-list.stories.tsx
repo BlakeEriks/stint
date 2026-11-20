@@ -50,7 +50,7 @@ export const Desktop: Story = {
     await expect(headings(canvasElement)).toEqual([
       'Drafts',
       expect.stringMatching(/^Awaiting payment\$[\d,.]+$/),
-      expect.stringMatching(/^Paid in 20267 paid · 1 void\$[\d,.]+$/),
+      expect.stringMatching(/^Paid in 2026· 7 paid · 1 void\$[\d,.]+$/),
     ]);
     await expect(page.getByText('void', { exact: true })).toBeVisible();
     await expect(

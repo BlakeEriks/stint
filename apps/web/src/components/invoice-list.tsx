@@ -184,7 +184,7 @@ function SectionHead({
     >
       <span className="type-region-head">{section.name}</span>
       {section.note ? (
-        <span className="type-support">{section.note}</span>
+        <span className="type-support">· {section.note}</span>
       ) : null}
       {section.total === null ? null : section.open ? (
         <span className="ml-auto type-amount">
