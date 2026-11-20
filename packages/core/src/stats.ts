@@ -662,7 +662,7 @@ export const MIN_PACE_DAYS = 3;
  * `byDay` is money per local date. Days absent from it contributed nothing,
  * which is not the same as a gap: the cumulative line holds flat.
  *
- * `projected` is null until the month has `MIN_PACE_DAYS` of business days to
+ * `projected` is null until the month has `MIN_PACE_DAYS` of counted days to
  * average, which is the same instability the goal-derived pace guarded by
  * clamping its divisor — here there is no target to fall back on, so the
  * figure is withheld instead of invented.
@@ -761,8 +761,8 @@ function buildEarnedSeries({
 }) {
   const todayKey = localDateKey(now, tz);
 
-  // Sorted once, then walked in step with the business days, so a weekend's
-  // work lands on the next business day's point rather than vanishing.
+  // Sorted once, then walked in step with the counted days, so an uncounted
+  // day's work lands on the next counted day's point rather than vanishing.
   const days = byDay
     ? [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b))
     : [];
@@ -771,18 +771,18 @@ function buildEarnedSeries({
   let running = 0;
 
   const lastKey = keys.at(-1);
-  /* The last point that will be DRAWN: the final business day on or before
-     today. It absorbs everything worked up to now, so a weekend whose
+  /* The last point that will be DRAWN: the final counted day on or before
+     today. It absorbs everything worked up to now, so an uncounted day whose
      carrier has not arrived yet still reaches the line. */
   const lastVisible = keys.filter((k) => k <= todayKey).at(-1);
 
   return keys.map((key) => {
     /* Two days take a bound wider than themselves, for the same reason: work
-       that has no later business day to land on would otherwise vanish. The
-       final business day absorbs a trailing weekend at the month's end; the
-       last drawn point absorbs up to TODAY, which is a weekend still waiting
-       on Monday — and no further, or a future entry would be drawn as
-       already earned. */
+       that has no later counted day to land on would otherwise vanish. The
+       final counted day absorbs the uncounted days after it at the month's
+       end; the last drawn point absorbs up to TODAY, which may be a weekend
+       still waiting on Monday — and no further, or a future entry would be
+       drawn as already earned. */
     const bound =
       key === lastKey
         ? `${key.slice(0, 7)}-32`
