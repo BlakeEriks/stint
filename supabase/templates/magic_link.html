@@ -70,7 +70,12 @@
             <table cellpadding="0" cellspacing="0" border="0" width="100%">
               <tr>
                 <td align="center" bgcolor="#52FC43" style="border-radius:8px;">
-                  <a href="{{ .ConfirmationURL }}"
+                  <!-- Straight to the app, which verifies the token hash
+                       itself: `{{ .ConfirmationURL }}` would need the code
+                       verifier of the browser that asked. Every request
+                       names its landing with a query already on it
+                       (`apps/web/src/lib/sign-in-link.ts`). -->
+                  <a href="{{ .RedirectTo }}&amp;token_hash={{ .TokenHash }}"
                      style="display:block;padding:14px 24px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:14px;font-weight:600;letter-spacing:0.08em;color:#111316;text-decoration:none;">
                     Sign in
                   </a>

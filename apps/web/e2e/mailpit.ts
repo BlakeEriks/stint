@@ -24,15 +24,15 @@ export async function clearInbox(): Promise<void> {
  * The sign-in link from the newest captured email.
  *
  * Reads the TEXT part deliberately. The HTML `href` escapes its separators as
- * `&amp;`, and following that string literally makes GoTrue read `amp;type`
- * instead of `type` — a `400 Verify requires a verification type` that looks
- * exactly like an expired link. A browser decodes the entity on click; a test
- * driving the URL directly does not.
+ * `&amp;`, and following that string literally makes the callback read
+ * `amp;token_hash` instead of `token_hash`, which looks exactly like an
+ * incomplete link. A browser decodes the entity on click; a test driving the
+ * URL directly does not.
  */
 export function magicLink(after: number): Promise<string> {
   return linkIn(
     after,
-    (m) => (m.Text ?? '').match(/http:\/\/\S*verify\S*/)?.[0],
+    (m) => (m.Text ?? '').match(/http:\/\/\S*token_hash=\S*/)?.[0],
   );
 }
 
@@ -87,9 +87,9 @@ export async function requestLink(page: Page): Promise<void> {
 /**
  * Sign in the way a person does: the form, the inbox, the link.
  *
- * Not a cookie injected into the context: the PKCE exchange between the form
- * and the callback is the thing worth covering, and a test that skips the form
- * skips it.
+ * Not a cookie injected into the context: the form, the email and the
+ * callback agreeing on one link is the thing worth covering, and a test that
+ * skips the form skips it.
  */
 export async function signIn(page: Page, email = SEED_EMAIL): Promise<void> {
   await clearInbox();
