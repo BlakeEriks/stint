@@ -31,6 +31,13 @@ current rule, and the default), or weekdays except US federal holidays.
   "Weekdays" and "Weekdays, except holidays", and a hint naming what it
   changes: the month's projection. (decided autonomously)
 
+## Design
+
+No design review: the only new UI is one three-way choice in a Settings
+section built like the ones around it, with no choice of layout or
+hierarchy to make. Home's card and chart keep their look. (decided
+autonomously)
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Someone who works any day projects over every day (Priority: P1)
