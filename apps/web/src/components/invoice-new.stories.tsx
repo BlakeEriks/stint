@@ -1642,24 +1642,23 @@ export const LeavingBlocked: Story = {
   },
 };
 
+const addLLC = (db: Db) => {
+  db.businessProfiles.push({
+    id: LLC,
+    name: 'Rivera Studio LLC',
+    email: 'billing@riverastudio.test',
+    address: '88 Harbor Ave\nSeattle, WA 98104',
+    logoUrl: null,
+    isDefault: false,
+    archivedAt: null,
+  });
+};
+
 /** Your business, atop the page, opens the menu of businesses: picking
  *  another reprints the page, and the draft saves from it. */
 export const PickBusiness: Story = {
   ...desktop,
-  parameters: {
-    ...menuOpen,
-    ...account((db) => {
-      db.businessProfiles.push({
-        id: LLC,
-        name: 'Rivera Studio LLC',
-        email: 'billing@riverastudio.test',
-        address: '88 Harbor Ave\nSeattle, WA 98104',
-        logoUrl: null,
-        isDefault: false,
-        archivedAt: null,
-      });
-    }),
-  },
+  parameters: { ...menuOpen, ...account(addLLC) },
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await settled(page);
@@ -1679,3 +1678,58 @@ export const PickBusiness: Story = {
   },
 };
 export const PickBusinessPhone: Story = { ...PickBusiness, ...phone };
+
+/** New business, from the menu, adds one: the business printing is left
+ *  as it is. */
+export const NewBusinessFromMenu: Story = {
+  ...desktop,
+  parameters: { ...menuOpen, ...account(addLLC) },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    await userEvent.click(
+      card(page).getByRole('button', { name: /^Edit Sam Rivera/ }),
+    );
+    await userEvent.click(
+      await page.findByRole('menuitem', { name: 'New business' }),
+    );
+    const dialog = within(
+      await page.findByRole('dialog', { name: 'New business' }),
+    );
+    await expect(
+      dialog.getByRole('textbox', { name: /Business name/ }),
+    ).toHaveValue('');
+    await expect(dialog.queryByRole('button', { name: 'Archive' })).toBeNull();
+  },
+};
+
+/** The business printing has no email, and there is another: Add your
+ *  business offers it. */
+export const PickOverMissingEmail: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      db.businessProfiles = db.businessProfiles.map((b) => ({
+        ...b,
+        email: null,
+      }));
+      addLLC(db);
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await userEvent.click(
+      await card(page).findByRole('button', { name: 'Add your business' }),
+    );
+    await userEvent.click(
+      await page.findByRole('menuitemradio', { name: /Rivera Studio LLC/ }),
+    );
+    await expect(
+      await card(page).findByText(/billing@riverastudio\.test/),
+    ).toBeVisible();
+    await expect(
+      page.queryByText('Your business details are missing'),
+    ).toBeNull();
+  },
+};

@@ -70,7 +70,9 @@ money.
 
 ### `user_settings`
 One row per user, auto-created by a trigger on `auth.users` insert. Holds the
-global rate fallback, display preferences, `payment_terms_days`
+global rate fallback, display preferences, the old invoice identity block
+(business name, address, email, logo: unread since `business_profiles`,
+and dropped once that build is live), `payment_terms_days`
 (0–365, default 30), `billing_time_zone`, the invoice number sequence, `invoice_template`
 (`standard`, `modern`, `classic` or `creative`, default `standard`: the one
 drafts render in), and the entry-length thresholds
@@ -149,8 +151,9 @@ reference falls back rather than rendering nothing.
 Who an invoice is from: `name`, `email`, `address`, `logo_url`, archived
 rather than deleted, with one live default per user
 (`one_default_business_profile_per_user`, the same invariant as payment
-profiles below). Each account with a business name in old Settings got one,
-the default, when the fields moved here.
+profiles below). Each account with any of the old Settings fields got one,
+the default, when the fields moved here, named "Your business" if it had no
+name.
 
 ### `invoices` / `invoice_line_items`
 Line items are **denormalized on purpose**. An issued invoice is an immutable
@@ -184,7 +187,7 @@ already sent. `supporting_detail` (JSONB) holds the hours-by-project, -week
 and -date tables printed from page 2. A draft's are derived with its lines;
 sending freezes them, so a renamed project or a void never changes them. The `business_*` and `logo_url` columns (the From
 block) and the `client_*` columns (Bill to) are copied from the
-`business_profile_id` business and the client by a trigger on insert, so editing either never reprints an
+`business_profile_id` business (Settings, for an invoice without one) and the client by a trigger on insert, so editing either never reprints an
 invoice. `summary_text` is the line text of a `summary`
 invoice and is set exactly then, and `summary_texts` (JSONB, `[{ rate, text
 }]`) the lines typed their own text, by rate; `reference` is the PO, contract, or SOW the

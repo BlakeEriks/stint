@@ -2774,6 +2774,66 @@ test('the draft backfill reads a zoneless draft in the billing zone', async () =
   );
 });
 
+test('the business backfill keeps any Settings field, named when blank, as the default', async () => {
+  const backfill = readFileSync(
+    new URL(
+      '../../../supabase/migrations/20261120115024_backfill_business_profiles.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  const cases: [
+    string,
+    [string | null, string | null, string | null],
+    { name: string; email: string | null; address: string | null } | null,
+  ][] = [
+    [
+      'name and email',
+      ['Sam', 'sam@x.test', null],
+      { name: 'Sam', email: 'sam@x.test', address: null },
+    ],
+    [
+      'name, no email',
+      ['Sam', ' ', null],
+      { name: 'Sam', email: null, address: null },
+    ],
+    [
+      'no name',
+      ['', 'sam@x.test', '1 Main St'],
+      { name: 'Your business', email: 'sam@x.test', address: '1 Main St' },
+    ],
+    ['nothing', [null, null, null], null],
+  ];
+  try {
+    for (const [label, [name, email, address], want] of cases) {
+      await pool.query('delete from business_profiles where user_id=$1', [
+        USER,
+      ]);
+      await pool.query(
+        `update user_settings set business_name=$2, business_email=$3,
+           business_address=$4, logo_url=null where user_id=$1`,
+        [USER, name, email, address],
+      );
+      await pool.query(backfill);
+      const { rows } = await pool.query(
+        'select name, email, address, is_default from business_profiles where user_id=$1',
+        [USER],
+      );
+      assert.deepEqual(
+        rows,
+        want ? [{ ...want, is_default: true }] : [],
+        label,
+      );
+    }
+  } finally {
+    await pool.query(
+      `update user_settings set business_name=null, business_email=null,
+         business_address=null where user_id=$1`,
+      [USER],
+    );
+  }
+});
+
 // ── unprojected work ───────────────────────────────────────────────
 // Entries with no project cannot resolve a rate beyond the user default, so
 // they are billable work heading for an invoice that cannot be generated.

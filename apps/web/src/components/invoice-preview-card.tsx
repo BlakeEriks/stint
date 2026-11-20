@@ -72,6 +72,8 @@ export type CardEdits = {
   onBusiness?: () => void;
   /** Wraps the business block in the menu that picks another. */
   businessMenu?: (trigger: React.ReactElement) => React.ReactNode;
+  /** How many businesses the menu offers. */
+  businessCount?: number;
   onDates: () => void;
   onClient: () => void;
   /** The period is set above the page: the press goes to that control. */
@@ -339,20 +341,19 @@ function EditMark() {
 
 function AddButton({
   label,
-  onClick,
   inline = false,
   className = '',
-}: {
+  ...rest
+}: React.ComponentProps<'button'> & {
   label: string;
-  onClick?: () => void;
   /** Sized to its text, in an `ADD_ROW`; otherwise it fills its cell. */
   inline?: boolean;
-  className?: string;
 }) {
+  // `rest` carries a menu trigger's handlers and ref, when one wraps it.
   return (
     <button
       type="button"
-      onClick={onClick}
+      {...rest}
       className={`${DASHED} ${dashedBleed(inline)} flex items-center gap-1.5 type-support ${className}`}
     >
       <Plus aria-hidden strokeWidth={2.25} className="size-3.5" />
@@ -467,14 +468,19 @@ function Sender({
   noSender: boolean;
   edit: CardEdits | undefined;
 }) {
-  if (noSender && edit?.onBusiness)
-    return (
+  if (noSender && edit?.onBusiness) {
+    /* With another to choose, the press offers it; the notice above the
+       page still adds this one's email. */
+    const menu = (edit.businessCount ?? 0) > 1 ? edit.businessMenu : undefined;
+    const add = (
       <AddButton
         label="Add your business"
-        onClick={edit.onBusiness}
+        onClick={menu ? undefined : edit.onBusiness}
         className="min-h-14"
       />
     );
+    return menu ? menu(add) : add;
+  }
   /* Where the sender prints, marked as missing rather than left blank. */
   if (noSender)
     return (

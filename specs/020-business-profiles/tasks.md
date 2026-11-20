@@ -10,7 +10,7 @@
 
 - [x] T002 `resolvePaymentProfile()` renamed `resolveProfile()` in `packages/core/src/payment.ts`, its tests in `payment.test.ts` unchanged
 - [x] T003 (dropped: no second resolver; T002's serves both kinds)
-- [x] T004 Migrations: `business_profiles` with RLS, the connected-app fence and grants; `invoices.business_profile_id`; `stamp_invoice_parties` and `create_invoice`; the backfill; the drop. `scripts/verify-schema.mjs`
+- [x] T004 Migrations: `business_profiles` with RLS, the connected-app fence and grants; `invoices.business_profile_id`; `stamp_invoice_parties` and `create_invoice`; the backfill (the drop waits for a later PR). `scripts/verify-schema.mjs`
 - [x] T005 Schemas in `packages/schema`: `BusinessProfile`, its create and update; `Settings` minus four fields; `CreateInvoice.businessProfileId`, `Invoice.businessProfileId`
 
 ## Phase 3: User Story 2, the list (P1)

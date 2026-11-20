@@ -120,15 +120,8 @@ export function profileCollection<P>(kind: ProfileKind<P>) {
       .select(kind.columns)
       .single();
 
-    if (error) {
-      const found =
-        error.code === '23505' && body.id
-          ? await readProfile(db, kind, body.id)
-          : null;
-      if (found) return NextResponse.json(found);
-      throw error;
-    }
-
+    if (error)
+      return NextResponse.json(await replayed(db, kind, error, body.id));
     return NextResponse.json(kind.toProfile(data as never), { status: 201 });
   });
 
@@ -140,9 +133,7 @@ export function profileItem<P>(kind: ProfileKind<P>) {
   const GET = handle(async (req: Request, ctx: Ctx) => {
     const { db } = await requireSession(req);
     const { id } = await ctx.params;
-    const found = await readProfile(db, kind, id);
-    if (!found) throw new ApiError('ENTRY_NOT_FOUND', kind.notFound);
-    return NextResponse.json(found);
+    return NextResponse.json(await mustRead(db, kind, id));
   });
 
   /* Editing a profile never touches an already-issued invoice: those carry
@@ -152,13 +143,7 @@ export function profileItem<P>(kind: ProfileKind<P>) {
     const { id } = await ctx.params;
     const patch = await parseBody(req, kind.update);
 
-    const update = toColumns(patch, kind.fields);
-    if (patch.archived !== undefined) {
-      update.archived_at = patch.archived ? new Date().toISOString() : null;
-    }
-    if (Object.keys(update).length === 0) {
-      throw new ApiError('VALIDATION_FAILED', 'No fields to update');
-    }
+    const update = patchColumns(patch, kind);
 
     // One default per user is a partial unique index; clear the old one
     // first so the update does not collide with it.
@@ -172,11 +157,8 @@ export function profileItem<P>(kind: ProfileKind<P>) {
       delete update.is_default;
       // `is_default: false` may have been the only field, and an update with
       // no columns is not a request to reject — it is one already satisfied.
-      if (Object.keys(update).length === 0) {
-        const unchanged = await readProfile(db, kind, id);
-        if (!unchanged) throw new ApiError('ENTRY_NOT_FOUND', kind.notFound);
-        return NextResponse.json(unchanged);
-      }
+      if (Object.keys(update).length === 0)
+        return NextResponse.json(await mustRead(db, kind, id));
     }
 
     const { data, error } = await db
@@ -227,6 +209,32 @@ export function profileItem<P>(kind: ProfileKind<P>) {
   return { GET, PATCH, DELETE };
 }
 
+/** The columns a `PATCH` writes; refused when it names none. */
+function patchColumns<P>(patch: { archived?: boolean }, kind: ProfileKind<P>) {
+  const update = toColumns(patch, kind.fields);
+  if (patch.archived !== undefined) {
+    update.archived_at = patch.archived ? new Date().toISOString() : null;
+  }
+  if (Object.keys(update).length === 0) {
+    throw new ApiError('VALIDATION_FAILED', 'No fields to update');
+  }
+  return update;
+}
+
+/** A retried create whose id already landed answers with that row;
+ *  any other insert error is rethrown. */
+async function replayed<P>(
+  db: SupabaseClient,
+  kind: ProfileKind<P>,
+  error: { code?: string },
+  id: string | undefined,
+) {
+  const found =
+    error.code === '23505' && id ? await readProfile(db, kind, id) : null;
+  if (!found) throw error;
+  return found;
+}
+
 async function clearDefault<P>(
   db: SupabaseClient,
   kind: ProfileKind<P>,
@@ -270,6 +278,16 @@ async function promoteHeir<P>(db: SupabaseClient, kind: ProfileKind<P>) {
     .update({ is_default: true })
     .eq('id', heir.id);
   if (promoteError) throw promoteError;
+}
+
+async function mustRead<P>(
+  db: SupabaseClient,
+  kind: ProfileKind<P>,
+  id: string,
+) {
+  const found = await readProfile(db, kind, id);
+  if (!found) throw new ApiError('ENTRY_NOT_FOUND', kind.notFound);
+  return found;
 }
 
 /** The row, or `null` if the id is not the caller's. */

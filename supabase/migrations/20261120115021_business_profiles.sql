@@ -47,16 +47,26 @@ alter table invoices
     references business_profiles (id, user_id);
 
 -- The From block is copied from the invoice's business, as it was from
--- Settings (`20261019090015_invoice_parties.sql`).
+-- Settings (`20261019090015_invoice_parties.sql`). An invoice with no
+-- business is one the previous build made while this migration ran ahead
+-- of it (docs/deploying.md), so it keeps Settings' block; the migration that
+-- drops those columns drops this branch.
 create or replace function stamp_invoice_parties() returns trigger
 language plpgsql
 set search_path = public, pg_temp
 as $$
 begin
-  select b.name, b.address, b.email, b.logo_url
-    into new.business_name, new.business_address, new.business_email, new.logo_url
-    from business_profiles b
-   where b.id = new.business_profile_id;
+  if new.business_profile_id is null then
+    select s.business_name, s.business_address, s.business_email, s.logo_url
+      into new.business_name, new.business_address, new.business_email, new.logo_url
+      from user_settings s
+     where s.user_id = new.user_id;
+  else
+    select b.name, b.address, b.email, b.logo_url
+      into new.business_name, new.business_address, new.business_email, new.logo_url
+      from business_profiles b
+     where b.id = new.business_profile_id;
+  end if;
 
   select c.name, c.email, c.address
     into new.client_name, new.client_email, new.client_address

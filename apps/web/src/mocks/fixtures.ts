@@ -512,7 +512,7 @@ const INVOICES: InvoiceSpec[] = [
 ];
 
 /** The account's one business, the default. */
-export const business = (): BusinessProfile => ({
+const business = (): BusinessProfile => ({
   id: ids.business,
   name: 'Sam Rivera',
   email: 'billing@samrivera.test',

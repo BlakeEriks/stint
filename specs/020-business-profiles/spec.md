@@ -44,9 +44,11 @@ the invoice is from.
   block it was made with, as it does today; another business is a new
   draft. (decided autonomously)
 - Q: What does the migration make? → A: One business, the default, for
-  each account whose Settings has a business name, from those fields. An
-  account with none starts with no business, and New invoice asks for one
-  as it asks for the name today. Then the Settings fields go.
+  each account with any of Settings' business fields set, from those
+  fields, named "Your business" when the name is blank. An account with
+  none starts with no business, and New invoice asks for one as it asks
+  for the name today. The Settings fields go in a later PR, once this
+  build is live.
   (decided autonomously)
 
 ## Design
@@ -144,7 +146,8 @@ it.
 - **FR-007**: Settings MUST list, add, edit, make default and archive
   businesses.
 - **FR-008**: The migration MUST make one default business per account with
-  a business name in Settings, and then drop those fields.
+  any business field set in Settings, and leave those fields for a later
+  migration to drop.
 
 ### Key Entities
 

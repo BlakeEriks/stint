@@ -558,7 +558,8 @@ function Form({
   const chargeDialog = useDialog<string>();
   const [newProfileOpen, setNewProfileOpen] = useState(false);
   const [editingClient, setEditingClient] = useState(false);
-  const [newBusinessOpen, setNewBusinessOpen] = useState(false);
+  /* `undefined` adds a business; a business without an email, edits it. */
+  const businessDialog = useDialog<BusinessProfile | undefined>();
   const [editingDates, setEditingDates] = useState(false);
 
   /* Only what decides the lines is sent, so a due date or a tick never asks
@@ -738,7 +739,8 @@ function Form({
             editing: editing !== undefined,
             hasClient: client !== undefined,
             open: {
-              newBusiness: () => setNewBusinessOpen(true),
+              newBusiness: () => businessDialog.show(undefined),
+              fixBusiness: () => businessDialog.show(business ?? undefined),
               dates: () => setEditingDates(true),
               client: () => setEditingClient(true),
               newProfile: () => setNewProfileOpen(true),
@@ -760,10 +762,9 @@ function Form({
       </div>
 
       <BusinessDialog
-        open={newBusinessOpen}
-        onOpenChange={setNewBusinessOpen}
-        // With no email, the press that adds one edits the business.
-        existing={business ?? undefined}
+        open={businessDialog.open}
+        onOpenChange={businessDialog.onOpenChange}
+        existing={businessDialog.subject}
         onSaved={addBusiness}
       />
       {editingDates ? (
@@ -967,6 +968,8 @@ function cardEdits({
   hasClient: boolean;
   open: {
     newBusiness: () => void;
+    /** No business, or one without an email: add it, or its email. */
+    fixBusiness: () => void;
     dates: () => void;
     client: () => void;
     newProfile: () => void;
@@ -998,7 +1001,7 @@ function cardEdits({
   const addExpense = hasClient ? expenseDialog : { show: focusClient };
   return {
     // A draft froze its sender when it was made, so nothing here reaches it.
-    onBusiness: editing ? undefined : open.newBusiness,
+    onBusiness: editing ? undefined : open.fixBusiness,
     businessMenu: editing
       ? undefined
       : (trigger) => (
@@ -1013,6 +1016,7 @@ function cardEdits({
             {trigger}
           </ProfileMenu>
         ),
+    businessCount: businesses.length,
     onDates: open.dates,
     // Without a client, the press goes to where one is chosen.
     onClient: hasClient ? open.client : focusClient,
