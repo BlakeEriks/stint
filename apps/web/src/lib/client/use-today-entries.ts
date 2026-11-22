@@ -20,12 +20,19 @@ import { timeZone as tz } from './use-timer';
  * day is known, after hydration.
  */
 export function useTodayEntries() {
-  const range = dayRange(useLocalDay());
-  return useQuery({
+  const today = useLocalDay();
+  const range = dayRange(today);
+  const query = useQuery({
     queryKey: keys.entries(range ?? undefined),
     queryFn: range ? () => api.entries(range) : skipToken,
     select: (r) => r.entries,
   });
+  /* The day's start beside its rows, so a header naming the day rolls over
+     with them rather than at its own render. */
+  return {
+    ...query,
+    day: today === null ? null : startOfLocalDate(today, tz),
+  };
 }
 
 function dayRange(day: string | null) {
