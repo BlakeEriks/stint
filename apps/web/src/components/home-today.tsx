@@ -1,11 +1,7 @@
 'use client';
 import { formatCompact } from '@stint/core';
 import type { Stats, TimeEntry } from '@/lib/client/api';
-import {
-  useAllProjects,
-  useProject,
-  useProjectColors,
-} from '@/lib/client/use-project-colors';
+import { useProjectColors } from '@/lib/client/use-project-colors';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import { useTodayEntries } from '@/lib/client/use-today-entries';
 import { timeZone as tz } from '@/lib/client/use-timer';
@@ -27,11 +23,7 @@ export function Today({ stats }: { stats: Stats }) {
     <div className="flex flex-col">
       <RegionHead>Today · {entries.day && dayLabel(entries.day)}</RegionHead>
 
-      {/* Projects are `also`: if they fail, the rows paint without project
-          names rather than the region going blank. Archived included, so a
-          project archived since this morning still names the work done under
-          it. */}
-      <Listing query={entries} also={[useAllProjects()]} tight>
+      <Listing query={entries} tight>
         {(data) => (
           <>
             <FigGroup tier="major" className="mt-4">
@@ -112,7 +104,6 @@ function Tasks({
               label={
                 <span className={t.live ? 'text-primary' : 'text-muted'}>
                   {t.name}
-                  <ProjectName id={t.projectId} />
                 </span>
               }
               duration={clock(t.seconds)}
@@ -120,11 +111,6 @@ function Tasks({
           ))}
     </section>
   );
-}
-
-function ProjectName({ id }: { id: string | null }) {
-  const name = useProject(id)?.name;
-  return name ? <span className="text-subtle"> · {name}</span> : null;
 }
 
 /** A summary line, placeholder or task. */
