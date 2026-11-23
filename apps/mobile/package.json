@@ -22,15 +22,15 @@
     "@expo-google-fonts/ibm-plex-mono": "^0.4.2",
     "@expo-google-fonts/ibm-plex-sans": "^0.4.1",
     "@expo/metro-runtime": "~58.0.17",
-    "@sentry/react-native": "~8.35.0",
+    "@sentry/react-native": "~8.36.0",
     "@stint/client": "workspace:*",
     "@stint/core": "workspace:*",
     "@stint/design-tokens": "workspace:^",
-    "@tanstack/react-query": "^5.107.1",
+    "@tanstack/react-query": "^5.108.2",
     "expo": "~58.0.21",
     "expo-constants": "~58.0.16",
     "expo-crypto": "~58.0.8",
-    "expo-dev-client": "~58.0.20",
+    "expo-dev-client": "~58.0.21",
     "expo-font": "~58.0.12",
     "expo-notifications": "~58.1.9",
     "expo-secure-store": "~58.0.3",
@@ -45,15 +45,15 @@
     "react-native-web": "~0.21.4"
   },
   "devDependencies": {
-    "@storybook/addon-a11y": "10.6.7",
-    "@storybook/react-native-web-vite": "10.6.7",
+    "@storybook/addon-a11y": "10.6.8",
+    "@storybook/react-native-web-vite": "10.6.8",
     "@types/react": "^19.0.2",
-    "@vitest/browser-playwright": "5.1.0",
-    "playwright": "1.65.0",
-    "storybook": "10.6.7",
+    "@vitest/browser-playwright": "5.1.1",
+    "playwright": "1.65.1",
+    "storybook": "10.6.8",
     "typescript": "^6.0.3",
     "vite": "8.3.8",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.1"
   },
   "expo": {
     "install": {
